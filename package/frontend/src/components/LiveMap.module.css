@@ -1,0 +1,42 @@
+.mapWrap {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  height: 220px;
+  position: relative;
+  box-shadow: var(--shadow-sm);
+}
+
+.map {
+  width: 100%;
+  height: 100%;
+  background: var(--surface-raised);
+}
+
+.pickupIcon,
+.driverIcon {
+  background: transparent;
+  border: none;
+}
+
+.pickupDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--pickup);
+  border: 3px solid white;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.25);
+}
+
+.driverPin {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  box-shadow: var(--shadow-md);
+  border: 3px solid white;
+}
