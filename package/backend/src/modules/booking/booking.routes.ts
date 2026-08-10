@@ -4,7 +4,7 @@ import { asyncHandler } from '../../middleware/errorHandler';
 import { validateBody } from '../../middleware/validate';
 import { requireAuth } from '../../middleware/auth';
 import { Errors } from '../../utils/errors';
-import { createBooking, cancelBooking, getBooking, getBookingDriverLocation, listBookings } from './booking.service';
+import { createBooking, cancelBooking, getBooking, getBookingDriverLocation, listBookings, previewCancellation } from './booking.service';
 import { sendTripMessage, getTripMessages } from './chat.service';
 import { submitRating } from './ratings.service';
 
@@ -70,6 +70,30 @@ bookingRouter.get(
 
     const items = await listBookings({ customerId: req.user!.userId, status, page, pageSize });
     res.status(200).json({ items, page });
+  })
+);
+
+bookingRouter.get(
+  '/:id/cancel-preview',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const preview = await previewCancellation(req.params.id as string, req.user!.userId);
+    res.status(200).json(preview);
+  })
+);
+
+bookingRouter.get(
+  '/:id/call-driver',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const booking = await getBooking(req.params.id as string, req.user!.userId);
+    if (!booking.driver?.phone_masked) {
+      throw Errors.validation({ driver: 'No driver assigned to call yet.' });
+    }
+    res.status(200).json({
+      call_uri: `tel:+91000000${String(booking.driver.id).slice(0, 4)}`,
+      display_number: booking.driver.phone_masked,
+    });
   })
 );
 

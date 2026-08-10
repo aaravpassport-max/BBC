@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Geolocation } from '@capacitor/geolocation';
+import { PorterHeader } from '../components/PorterHeader';
 import { notify } from '../lib/notify';
-import { Screen } from '../components/Screen';
-import { Skeleton } from '../components/Skeleton';
 import { Button } from '../components/Button';
+import { Skeleton } from '../components/Skeleton';
 import {
   getKycStatus,
   getTrainingStatus,
@@ -12,28 +12,24 @@ import {
   getPendingOffer,
   getActiveJob,
   updateLocation,
-  ApiError, getErrorMessage,
+  getEarningsHistory,
+  getDriverProfile,
+  ApiError,
+  getErrorMessage,
 } from '../api';
-import { useAuth } from '../context/AuthContext';
+import styles from '../pages/LoginPage.module.css';
 
 const POLL_INTERVAL_MS = 3000;
-
-// Fallback coordinate, the same seeded service-zone point the Customer app
-// uses — kept as a fallback (not removed) because a driver's REAL GPS
-// location will very often fall outside the backend's fixed demo service
-// zone polygon (any real-world testing location isn't Bengaluru), which
-// would silently stop dispatch from ever matching them with zero visible
-// error. Real GPS is attempted first; this is what keeps the app testable
-// end-to-end when it isn't available.
 const FALLBACK_LOCATION = { lat: 12.951, lng: 77.601 };
 
 export function DriverHomePage() {
   const navigate = useNavigate();
-  const auth = useAuth();
   const [online, setOnline] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [error, setError] = useState('');
   const [checkingKyc, setCheckingKyc] = useState(true);
+  const [todayEarnings, setTodayEarnings] = useState(0);
+  const [hasVehicle, setHasVehicle] = useState(true);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const checkKycThenLoad = useCallback(async () => {
@@ -43,13 +39,15 @@ export function DriverHomePage() {
         navigate('/kyc');
         return;
       }
-      // PRD 3.2: training completion is as hard a gate as document KYC — a
-      // driver cannot go online having passed documents but skipped
-      // training, so this check happens right alongside the KYC one, not
-      // as an afterthought.
       const training = await getTrainingStatus();
       if (training.status !== 'passed') {
         navigate('/training');
+        return;
+      }
+      const profile = await getDriverProfile();
+      setHasVehicle(!!profile.vehicle);
+      if (!profile.vehicle) {
+        navigate('/vehicle');
         return;
       }
     } catch {
@@ -62,6 +60,15 @@ export function DriverHomePage() {
 
   useEffect(() => {
     void checkKycThenLoad();
+    getEarningsHistory()
+      .then((txns) => {
+        const today = new Date().toDateString();
+        const sum = txns
+          .filter((t) => t.entry_type === 'credit' && new Date(t.created_at).toDateString() === today)
+          .reduce((s, t) => s + parseFloat(t.amount), 0);
+        setTodayEarnings(sum);
+      })
+      .catch(() => undefined);
   }, [checkKycThenLoad]);
 
   const pollForWork = useCallback(async () => {
@@ -73,20 +80,14 @@ export function DriverHomePage() {
       }
       const offer = await getPendingOffer();
       if (offer) {
-        void notify('New job offer', 'A new delivery job is available — respond quickly, offers expire fast.');
+        void notify('New job offer', 'A new delivery job is available — respond quickly.');
         navigate(`/offer/${offer.offer_id}`, { state: { offer } });
-        return;
       }
     } catch (err) {
       if (err instanceof ApiError) setError(err.message);
     }
   }, [navigate]);
 
-  // Reads the device's real GPS on every poll tick — a driver moving
-  // between polls needs a fresh position each time for dispatch/tracking
-  // to be meaningful, the same way any real ride/delivery app works.
-  // Falls back to the fixed demo coordinate on any failure — permission
-  // denied, GPS unavailable, timeout — so the app stays fully testable.
   const getLocation = useCallback(async (): Promise<{ lat: number; lng: number }> => {
     try {
       const permission = await Geolocation.requestPermissions();
@@ -113,13 +114,9 @@ export function DriverHomePage() {
     };
   }, [online, checkingKyc, pollForWork, getLocation]);
 
-  // On mount, also check once whether there's already an active job even
-  // while offline (e.g. app was closed mid-trip) — a driver should always
-  // resume where they left off.
   useEffect(() => {
     if (!checkingKyc) void pollForWork();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [checkingKyc]);
+  }, [checkingKyc, pollForWork]);
 
   async function handleToggle() {
     setError('');
@@ -137,52 +134,70 @@ export function DriverHomePage() {
 
   if (checkingKyc) {
     return (
-      <Screen eyebrow="Driver" title="Checking your account…">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className={styles.page}>
+        <PorterHeader />
+        <div style={{ padding: 20 }}>
           <Skeleton width="60%" height={14} />
-          <Skeleton width="40%" height={14} />
         </div>
-      </Screen>
+      </div>
     );
   }
 
   return (
-    <Screen eyebrow="Driver" title={online ? "You're online" : "You're offline"}>
-      <div
-        style={{
-          border: '1px solid var(--border)',
-          borderRadius: 16,
-          background: 'var(--surface)',
-          padding: 28,
-          textAlign: 'center',
-        }}
-      >
+    <div className={styles.page}>
+      <PorterHeader />
+      <div style={{ padding: '0 16px 16px' }}>
         <div
           style={{
-            width: 14,
-            height: 14,
-            borderRadius: '50%',
-            margin: '0 auto 14px',
-            background: online ? 'var(--success)' : 'var(--text-muted)',
-            boxShadow: online ? '0 0 16px var(--success)' : 'none',
+            border: '1px solid var(--border)',
+            borderRadius: 16,
+            background: 'var(--surface)',
+            padding: 24,
+            textAlign: 'center',
+            marginBottom: 12,
+            boxShadow: 'var(--shadow-sm)',
           }}
-        />
-        <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 18 }}>
-          {online ? 'Looking for nearby jobs…' : 'Go online to start receiving job offers.'}
-        </p>
-        <Button onClick={handleToggle} loading={toggling} variant={online ? 'danger' : 'primary'}>
-          {online ? 'Go offline' : 'Go online'}
-        </Button>
+        >
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Today&apos;s earnings</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--accent-strong)' }}>₹{todayEarnings.toFixed(0)}</div>
+        </div>
+
+        <div
+          style={{
+            border: '1px solid var(--border)',
+            borderRadius: 16,
+            background: 'var(--surface)',
+            padding: 28,
+            textAlign: 'center',
+            boxShadow: 'var(--shadow-sm)',
+          }}
+        >
+          <div
+            style={{
+              width: 14,
+              height: 14,
+              borderRadius: '50%',
+              margin: '0 auto 14px',
+              background: online ? 'var(--success)' : 'var(--text-muted)',
+              boxShadow: online ? '0 0 16px var(--success)' : 'none',
+            }}
+          />
+          <h2 style={{ fontSize: 20, marginBottom: 8 }}>{online ? "You're online" : "You're offline"}</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 18 }}>
+            {online ? 'Looking for nearby jobs…' : 'Go online to start receiving job offers.'}
+          </p>
+          <Button onClick={handleToggle} loading={toggling} variant={online ? 'danger' : 'primary'}>
+            {online ? 'Go offline' : 'Go online'}
+          </Button>
+        </div>
+
+        {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginTop: 12 }}>{error}</p>}
+        {!hasVehicle && (
+          <Button variant="ghost" onClick={() => navigate('/vehicle')} style={{ marginTop: 12 }}>
+            Register your vehicle
+          </Button>
+        )}
       </div>
-
-      {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
-
-      <Button variant="ghost" onClick={() => navigate('/earnings')}>
-        Earnings & payouts
-      </Button>
-      <Button variant="ghost" onClick={auth.logout}>
-        Sign out
-      </Button>
-    </Screen>
+    </div>
   );
 }

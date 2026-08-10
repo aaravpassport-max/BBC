@@ -11,6 +11,7 @@ export function EarningsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [withdrawMode, setWithdrawMode] = useState<'standard' | 'instant'>('standard');
 
   const refresh = useCallback(async () => {
     try {
@@ -36,7 +37,7 @@ export function EarningsPage() {
     }
     setSubmitting(true);
     try {
-      await requestWithdrawal(value, 'standard');
+      await requestWithdrawal(value, withdrawMode);
       setSuccess(true);
       setAmount('');
       await refresh();
@@ -48,7 +49,7 @@ export function EarningsPage() {
   }
 
   return (
-    <Screen eyebrow="Earnings" title="Your balance">
+    <Screen eyebrow="Earnings" title="Your balance" withNav>
       <div
         style={{
           border: '1px solid var(--border)',
@@ -67,6 +68,39 @@ export function EarningsPage() {
             ₹{balance.held.toFixed(2)} held pending review
           </div>
         )}
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+        <button
+          type="button"
+          onClick={() => setWithdrawMode('standard')}
+          style={{
+            flex: 1,
+            padding: '8px 12px',
+            borderRadius: 10,
+            border: `1px solid ${withdrawMode === 'standard' ? 'var(--accent)' : 'var(--border)'}`,
+            background: withdrawMode === 'standard' ? 'var(--accent-soft)' : 'var(--surface)',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Standard (free)
+        </button>
+        <button
+          type="button"
+          onClick={() => setWithdrawMode('instant')}
+          style={{
+            flex: 1,
+            padding: '8px 12px',
+            borderRadius: 10,
+            border: `1px solid ${withdrawMode === 'instant' ? 'var(--accent)' : 'var(--border)'}`,
+            background: withdrawMode === 'instant' ? 'var(--accent-soft)' : 'var(--surface)',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          Instant (fee)
+        </button>
       </div>
 
       <Input

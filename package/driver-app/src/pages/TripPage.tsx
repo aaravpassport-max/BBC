@@ -5,7 +5,8 @@ import { Button } from '../components/Button';
 import { StatusBadge } from '../components/StatusBadge';
 import { Skeleton } from '../components/Skeleton';
 import { TripChat } from '../components/TripChat';
-import { getActiveJob, verifyPickupOtp, completeStop, getErrorMessage, type ActiveJob } from '../api';
+import { getActiveJob, verifyPickupOtp, completeStop, rateBooking, triggerSos, getErrorMessage, type ActiveJob } from '../api';
+import { Geolocation } from '@capacitor/geolocation';
 
 // Deep-links to the device's own maps app rather than embedding a routing
 // engine or maps SDK in this app — this URL format is Google Maps'
@@ -25,6 +26,9 @@ export function TripPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [sosSent, setSosSent] = useState(false);
+  const [ratingStars, setRatingStars] = useState(0);
+  const [tripDone, setTripDone] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -71,7 +75,7 @@ export function TripPage() {
       const result = await completeStop(bookingId, nextStop.id, otp);
       setOtp('');
       if (result.tripCompleted) {
-        navigate('/home', { replace: true });
+        setTripDone(true);
       } else {
         await refresh();
       }
@@ -188,6 +192,61 @@ export function TripPage() {
       </div>
 
       <TripChat bookingId={job.id} myRole="driver" />
+
+      <Button
+        variant="danger"
+        onClick={() => {
+          if (!bookingId || sosSent) return;
+          void (async () => {
+            try {
+              let lat: number | undefined;
+              let lng: number | undefined;
+              try {
+                const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 5000 });
+                lat = pos.coords.latitude;
+                lng = pos.coords.longitude;
+              } catch {
+                // optional
+              }
+              await triggerSos(bookingId, lat, lng);
+              setSosSent(true);
+            } catch (err) {
+              setError(getErrorMessage(err, 'Could not send SOS.'));
+            }
+          })();
+        }}
+        disabled={sosSent}
+      >
+        {sosSent ? 'SOS sent' : 'SOS — Emergency'}
+      </Button>
+
+      {tripDone && (
+        <div style={{ textAlign: 'center', paddingTop: 8 }}>
+          <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>Rate your customer</p>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', margin: '10px 0' }}>
+            {[1, 2, 3, 4, 5].map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setRatingStars(s)}
+                style={{ background: 'none', border: 'none', fontSize: 28, color: s <= ratingStars ? 'var(--accent)' : 'var(--border)', cursor: 'pointer' }}
+              >
+                ★
+              </button>
+            ))}
+          </div>
+          {ratingStars > 0 && (
+            <Button
+              onClick={() => {
+                if (!bookingId) return;
+                void rateBooking(bookingId, ratingStars, []).then(() => navigate('/home', { replace: true }));
+              }}
+            >
+              Submit & go home
+            </Button>
+          )}
+        </div>
+      )}
 
       {error && <p style={{ color: 'var(--danger)', fontSize: 13, textAlign: 'center' }}>{error}</p>}
     </Screen>

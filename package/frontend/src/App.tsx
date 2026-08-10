@@ -20,6 +20,8 @@ import { NotificationsPage } from './pages/NotificationsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ReferralPage } from './pages/ReferralPage';
 import { SubscriptionPage } from './pages/SubscriptionPage';
+import { CorporatePage } from './pages/CorporatePage';
+import { AddressesPage } from './pages/AddressesPage';
 import { OfflineBanner } from './components/OfflineBanner';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -58,6 +60,8 @@ function AppRoutes() {
       <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
       <Route path="/referral" element={<RequireAuth><ReferralPage /></RequireAuth>} />
       <Route path="/subscription" element={<RequireAuth><SubscriptionPage /></RequireAuth>} />
+      <Route path="/addresses" element={<RequireAuth><AddressesPage /></RequireAuth>} />
+      <Route path="/corporate" element={<RequireAuth><CorporatePage /></RequireAuth>} />
       <Route path="/receipt/:bookingId" element={<RequireAuth><ReceiptPage /></RequireAuth>} />
       <Route path="*" element={<Navigate to={isAuthenticated ? '/home' : '/login'} replace />} />
     </Routes>

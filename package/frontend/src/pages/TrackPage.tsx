@@ -16,6 +16,7 @@ import {
   cancelBooking,
   rateBooking,
   triggerSos,
+  callDriver,
   getErrorMessage,
   type Booking,
   type DriverLocation,
@@ -160,7 +161,63 @@ export function TrackPage() {
         </p>
       )}
 
-      {booking.driver_id && TRACKABLE.has(booking.status) && (
+      {booking.driver && TRACKABLE.has(booking.status) && (
+        <div
+          style={{
+            border: '1px solid var(--border)',
+            borderRadius: 12,
+            background: 'var(--surface)',
+            padding: '14px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: 12,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width: 44,
+                height: 44,
+                borderRadius: '50%',
+                background: 'var(--accent-soft)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 22,
+              }}
+            >
+              🚚
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>{booking.driver.name}</div>
+              {booking.driver.rating != null && (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>★ {booking.driver.rating.toFixed(1)}</div>
+              )}
+              {booking.driver.vehicle && (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  {booking.driver.vehicle.plate} · {booking.driver.vehicle.category.replace(/_/g, ' ')}
+                </div>
+              )}
+            </div>
+          </div>
+          {booking.driver.phone_masked && bookingId && (
+            <Button
+              variant="ghost"
+              style={{ width: 'auto', padding: '8px 14px' }}
+              onClick={() => {
+                void callDriver(bookingId).then((r) => {
+                  window.location.href = r.call_uri;
+                });
+              }}
+            >
+              📞 Call
+            </Button>
+          )}
+        </div>
+      )}
+
+      {booking.driver_id && !booking.driver && TRACKABLE.has(booking.status) && (
         <div
           style={{
             border: '1px solid var(--border)',
@@ -296,6 +353,7 @@ export function TrackPage() {
         onClose={() => setShowCancelModal(false)}
         onConfirm={handleCancelConfirm}
         loading={cancelling}
+        bookingId={bookingId}
       />
     </Screen>
   );

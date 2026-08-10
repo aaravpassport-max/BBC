@@ -213,3 +213,36 @@ export function listPenalties() {
 export function disputePenalty(penaltyId: string, note: string) {
   return api.post<{ disputed: boolean }>(`/v1/driver/penalties/${penaltyId}/dispute`, { note });
 }
+
+export function registerVehicle(category: string, plateNumber: string) {
+  return api.post<{ id: string }>('/v1/driver/vehicles', { category, plate_number: plateNumber });
+}
+
+export function getDriverProfile() {
+  return api.get<{
+    id: string;
+    name: string | null;
+    phone: string;
+    email: string | null;
+    kyc_status: string;
+    training_status: string;
+    rating_avg: number | null;
+    rating_count: number;
+    online_status: boolean;
+    vehicle: { plate: string; category: string; make: string | null; model: string | null } | null;
+  }>('/v1/driver/profile');
+}
+
+export function listJobHistory(page = 1, pageSize = 20) {
+  return api.get<{ items: { id: string; status: string; fare_breakdown: { final_fare: number }; created_at: string }[]; page: number }>(
+    `/v1/driver/jobs/history?page=${page}&page_size=${pageSize}`
+  );
+}
+
+export function rateBooking(bookingId: string, stars: number, tags: string[], comment?: string) {
+  return api.post<{ isLate: boolean; safetyFlagRaised: boolean }>(`/v1/bookings/${bookingId}/rate`, {
+    stars,
+    tags,
+    comment,
+  });
+}

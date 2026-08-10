@@ -23,6 +23,7 @@ import { rbacRouter } from './modules/admin/rbac.routes';
 import { cmsRouter } from './modules/marketing/cms.routes';
 import { opsRouter } from './modules/ops/ops.routes';
 import { trainingRouter } from './modules/driver/training.routes';
+import { userRouter } from './modules/user/user.routes';
 
 dotenv.config();
 
@@ -56,6 +57,7 @@ export function createApp() {
   });
 
   app.use('/v1/auth', authRouter);
+  app.use('/v1', userRouter);
   app.use('/v1/pricing', pricingRouter);
   app.use('/v1/bookings', bookingRouter);
   app.use('/v1/wallet', walletRouter);

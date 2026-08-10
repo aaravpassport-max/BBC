@@ -294,3 +294,48 @@ export async function registerVehicle(params: {
     return { id: vehicleId };
   });
 }
+
+export async function listDriverJobHistory(driverId: string, page = 1, pageSize = 20) {
+  const offset = (page - 1) * pageSize;
+  const result = await pool.query(
+    `SELECT id, status, fare_breakdown, created_at, updated_at
+     FROM bookings
+     WHERE driver_id = $1 AND status IN ('completed', 'cancelled')
+     ORDER BY created_at DESC
+     LIMIT $2 OFFSET $3`,
+    [driverId, pageSize, offset]
+  );
+  return result.rows;
+}
+
+export async function getDriverPartnerProfile(driverId: string) {
+  const result = await pool.query(
+    `SELECT u.id, u.name, u.phone, u.email,
+            dp.kyc_status, dp.training_status, dp.rating_avg, dp.rating_count, dp.online_status,
+            v.plate_number, v.category AS vehicle_category, v.make, v.model
+     FROM users u
+     JOIN driver_profiles dp ON dp.user_id = u.id
+     LEFT JOIN driver_vehicle_assignment dva ON dva.driver_id = u.id AND dva.is_active = true
+     LEFT JOIN vehicles v ON v.id = dva.vehicle_id
+     WHERE u.id = $1`,
+    [driverId]
+  );
+  if (result.rowCount === 0) {
+    throw Errors.notFound('Driver profile');
+  }
+  const row = result.rows[0];
+  return {
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
+    email: row.email,
+    kyc_status: row.kyc_status,
+    training_status: row.training_status,
+    rating_avg: row.rating_avg ? parseFloat(row.rating_avg) : null,
+    rating_count: row.rating_count,
+    online_status: row.online_status,
+    vehicle: row.plate_number
+      ? { plate: row.plate_number, category: row.vehicle_category, make: row.make, model: row.model }
+      : null,
+  };
+}

@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.waybill.driver',
-  appName: 'Waybill Driver',
+  appName: 'Porter Partner',
   webDir: 'dist'
 };
 

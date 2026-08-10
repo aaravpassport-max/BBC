@@ -252,13 +252,7 @@ export async function cancelBooking(params: {
 
     // Fee computation from live trip stage (PRD 2A.1) — simplified tiers for
     // this reference implementation; production would consult a config table.
-    let feeAmount = 0;
-    if (booking.status === 'in_progress') {
-      feeAmount = 50; // e.g. driver already en route / arrived
-    } else if (booking.status === 'driver_assigned') {
-      feeAmount = 20;
-    }
-    // status === 'searching' -> no driver committed yet -> no fee.
+    const feeAmount = computeCancellationFee(booking.status);
 
     await client.query(
       `UPDATE bookings
@@ -310,23 +304,87 @@ export async function cancelBooking(params: {
   });
 }
 
+export function computeCancellationFee(status: string): number {
+  if (status === 'in_progress') return 50;
+  if (status === 'driver_assigned') return 20;
+  return 0;
+}
+
+export async function previewCancellation(bookingId: string, customerId: string) {
+  const result = await pool.query(`SELECT status FROM bookings WHERE id = $1 AND customer_id = $2`, [
+    bookingId,
+    customerId,
+  ]);
+  if (result.rowCount === 0) {
+    throw Errors.notFound('Booking');
+  }
+  const { status } = result.rows[0];
+  if (status === 'cancelled' || status === 'completed') {
+    throw Errors.validation({ booking: 'This trip cannot be cancelled.' });
+  }
+  const feeAmount = computeCancellationFee(status);
+  return { fee_charged: feeAmount > 0, fee_amount: feeAmount, status };
+}
+
 export async function getBooking(bookingId: string, customerId: string) {
   const result = await pool.query(
-    `SELECT id, status, vehicle_category_id, fare_breakdown, driver_id, created_at, pickup_otp,
-            ST_X(pickup_geo::geometry) AS pickup_lng, ST_Y(pickup_geo::geometry) AS pickup_lat
-     FROM bookings WHERE id = $1 AND customer_id = $2`,
+    `SELECT b.id, b.status, b.vehicle_category_id, b.fare_breakdown, b.driver_id, b.created_at, b.pickup_otp,
+            ST_X(b.pickup_geo::geometry) AS pickup_lng, ST_Y(b.pickup_geo::geometry) AS pickup_lat,
+            du.name AS driver_name, du.phone AS driver_phone,
+            dp.rating_avg AS driver_rating,
+            v.plate_number AS vehicle_plate, v.category AS vehicle_category, v.make AS vehicle_make, v.model AS vehicle_model
+     FROM bookings b
+     LEFT JOIN users du ON du.id = b.driver_id
+     LEFT JOIN driver_profiles dp ON dp.user_id = b.driver_id
+     LEFT JOIN driver_vehicle_assignment dva ON dva.driver_id = b.driver_id AND dva.is_active = true
+     LEFT JOIN vehicles v ON v.id = dva.vehicle_id
+     WHERE b.id = $1 AND b.customer_id = $2`,
     [bookingId, customerId]
   );
   if (result.rowCount === 0) {
     throw Errors.notFound('Booking');
   }
 
+  const row = result.rows[0];
   const stopsResult = await pool.query(
-    `SELECT id, sequence, status, otp_code, instructions FROM booking_stops WHERE booking_id = $1 ORDER BY sequence`,
+    `SELECT id, sequence, status, otp_code, instructions,
+            ST_X(drop_geo::geometry) AS drop_lng, ST_Y(drop_geo::geometry) AS drop_lat
+     FROM booking_stops WHERE booking_id = $1 ORDER BY sequence`,
     [bookingId]
   );
 
-  return { ...result.rows[0], stops: stopsResult.rows };
+  const phone = row.driver_phone as string | null;
+  const maskedPhone =
+    phone && phone.length >= 4 ? `+91 ******${phone.slice(-4)}` : null;
+
+  return {
+    id: row.id,
+    status: row.status,
+    vehicle_category_id: row.vehicle_category_id,
+    fare_breakdown: row.fare_breakdown,
+    driver_id: row.driver_id,
+    created_at: row.created_at,
+    pickup_otp: row.pickup_otp,
+    pickup_lat: row.pickup_lat,
+    pickup_lng: row.pickup_lng,
+    driver: row.driver_id
+      ? {
+          id: row.driver_id,
+          name: row.driver_name || 'Porter Partner',
+          phone_masked: maskedPhone,
+          rating: row.driver_rating ? parseFloat(row.driver_rating) : null,
+          vehicle: row.vehicle_plate
+            ? {
+                plate: row.vehicle_plate,
+                category: row.vehicle_category,
+                make: row.vehicle_make,
+                model: row.vehicle_model,
+              }
+            : null,
+        }
+      : null,
+    stops: stopsResult.rows,
+  };
 }
 
 /**

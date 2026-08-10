@@ -31,6 +31,8 @@ import {
   getMyPendingOffer,
   getMyActiveJob,
   registerVehicle,
+  listDriverJobHistory,
+  getDriverPartnerProfile,
 } from './driver.service';
 import { runDispatchCycle } from './dispatch.service';
 import { verifyPickupOtp, completeStop } from './trip.service';
@@ -101,6 +103,25 @@ driverRouter.post(
 // PRD 3.3 — polled by the Driver App since this reference backend has no
 // push/websocket infrastructure. Returns null, not 404, when nothing is
 // pending — an empty result is the normal common-case response.
+driverRouter.get(
+  '/jobs/history',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const page = parseInt((req.query.page as string) || '1', 10);
+    const pageSize = Math.min(parseInt((req.query.page_size as string) || '20', 10), 100);
+    const items = await listDriverJobHistory(req.user!.userId, page, pageSize);
+    res.status(200).json({ items, page });
+  })
+);
+
+driverRouter.get(
+  '/profile',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await getDriverPartnerProfile(req.user!.userId));
+  })
+);
+
 driverRouter.get(
   '/jobs/pending-offer',
   requireAuth,

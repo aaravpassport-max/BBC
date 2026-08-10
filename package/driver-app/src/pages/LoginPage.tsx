@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Screen } from '../components/Screen';
+import { PorterHeader } from '../components/PorterHeader';
 import { Input } from '../components/Input';
 import { Button } from '../components/Button';
-import { requestOtp, getErrorMessage } from '../api';
+import { requestOtp, ApiError } from '../api';
 import { getDeviceId } from '../context/AuthContext';
 import { DemoLoginPanel } from '../components/DemoLoginPanel';
+import styles from './LoginPage.module.css';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -25,35 +26,38 @@ export function LoginPage() {
       const res = await requestOtp(phone, getDeviceId());
       navigate('/verify', { state: { phone, otpId: res.otp_id } });
     } catch (err) {
-      setError(getErrorMessage(err, 'Something went wrong. Please try again.'));
+      if (err instanceof ApiError) setError(err.message);
+      else setError('Something went wrong. Please try again.');
     } finally {
       setLoading(false);
     }
   }
 
   return (
-    <Screen eyebrow="Driver partner" title="Drive with us">
-      <p style={{ color: 'var(--text-muted)', fontSize: 15, lineHeight: 1.6, marginBottom: 8 }}>
-        Enter your mobile number to sign in or start onboarding.
-      </p>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <Input
-          label="Mobile number"
-          type="tel"
-          inputMode="numeric"
-          prefix="+91"
-          placeholder="98765 43210"
-          value={phone}
-          maxLength={10}
-          onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-          error={error}
-          autoFocus
-        />
-        <Button type="submit" loading={loading}>
-          Send code
-        </Button>
-      </form>
-      <DemoLoginPanel />
-    </Screen>
+    <div className={styles.page}>
+      <PorterHeader variant="auth" />
+      <div className={styles.sheet}>
+        <h2 className={styles.title}>Partner login</h2>
+        <p className={styles.subtitle}>Sign in to start earning with Porter Partner</p>
+        <form onSubmit={handleSubmit} className={styles.form}>
+          <Input
+            label="Mobile number"
+            type="tel"
+            inputMode="numeric"
+            prefix="+91"
+            placeholder="98765 43210"
+            value={phone}
+            maxLength={10}
+            onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+            error={error}
+            autoFocus
+          />
+          <Button type="submit" loading={loading}>
+            Continue
+          </Button>
+        </form>
+        <DemoLoginPanel />
+      </div>
+    </div>
   );
 }

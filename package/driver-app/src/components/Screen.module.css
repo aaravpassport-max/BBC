@@ -4,25 +4,42 @@
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  padding: 28px 20px 24px;
+  background: var(--bg);
 }
 
 .main {
   flex: 1;
+  padding: 20px 16px 16px;
+}
+
+.withNav {
+  padding-bottom: calc(var(--nav-height) + 16px);
+}
+
+.back {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0;
+  margin: 0 0 10px;
+  cursor: pointer;
 }
 
 .eyebrow {
-  font-family: var(--font-mono);
   font-size: 12px;
-  letter-spacing: 0.12em;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--accent);
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .title {
-  font-size: 28px;
-  margin-bottom: 22px;
+  font-size: 22px;
+  margin-bottom: 16px;
+  color: var(--text);
 }
 
 .content {
@@ -32,8 +49,8 @@
 }
 
 .footer {
-  padding-top: 20px;
+  padding: 16px;
   position: sticky;
   bottom: 0;
-  background: linear-gradient(to top, var(--bg) 60%, transparent);
+  background: linear-gradient(to top, var(--bg) 70%, transparent);
 }

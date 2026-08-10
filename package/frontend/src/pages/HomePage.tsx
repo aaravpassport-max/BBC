@@ -25,7 +25,7 @@ const CATEGORY_DISPLAY: Record<string, { icon: string; blurb: string }> = {
 export function HomePage() {
   const navigate = useNavigate();
   const [pickupIndex, setPickupIndex] = useState(0);
-  const [dropIndex, setDropIndex] = useState(1);
+  const [dropIndices, setDropIndices] = useState<number[]>([1]);
   const [goodsCategory, setGoodsCategory] = useState('Furniture');
   const [helperNeeded, setHelperNeeded] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -65,8 +65,8 @@ export function HomePage() {
   async function handleGetQuote() {
     setError('');
     const pickup = devicePickup ?? LOCATIONS[pickupIndex];
-    const drop = LOCATIONS[dropIndex];
-    if (!devicePickup && pickupIndex === dropIndex) {
+    const drops = dropIndices.map((i) => LOCATIONS[i]);
+    if (!devicePickup && dropIndices.some((i) => i === pickupIndex)) {
       setError('Pickup and drop cannot be the same.');
       return;
     }
@@ -74,7 +74,7 @@ export function HomePage() {
     try {
       const res = await getQuote({
         pickup: { lat: pickup.lat, lng: pickup.lng },
-        drops: [{ lat: drop.lat, lng: drop.lng }],
+        drops: drops.map((d) => ({ lat: d.lat, lng: d.lng })),
         coupon_code: couponCode.trim() || undefined,
         item_details: {
           goods_category: goodsCategory,
@@ -96,7 +96,7 @@ export function HomePage() {
 
   function handleChooseVehicle(quote: Quote) {
     const pickup = devicePickup ?? LOCATIONS[pickupIndex];
-    const drop = LOCATIONS[dropIndex];
+    const drop = LOCATIONS[dropIndices[0]];
     navigate('/confirm', {
       state: {
         quote,
@@ -153,13 +153,44 @@ export function HomePage() {
               <span className={`${styles.dot} ${styles.dotDrop}`} />
               <div className={styles.fieldBlock}>
                 <div className={styles.fieldLabel}>Drop at</div>
-                <select value={dropIndex} onChange={(e) => setDropIndex(Number(e.target.value))} className={styles.select}>
-                  {LOCATIONS.map((loc, i) => (
-                    <option key={loc.label} value={i}>
-                      {loc.label}
-                    </option>
-                  ))}
-                </select>
+                {dropIndices.map((dropIndex, idx) => (
+                  <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: idx < dropIndices.length - 1 ? 8 : 0 }}>
+                    <select
+                      value={dropIndex}
+                      onChange={(e) => {
+                        const next = [...dropIndices];
+                        next[idx] = Number(e.target.value);
+                        setDropIndices(next);
+                      }}
+                      className={styles.select}
+                      style={{ flex: 1 }}
+                    >
+                      {LOCATIONS.map((loc, i) => (
+                        <option key={loc.label} value={i}>
+                          {loc.label}
+                        </option>
+                      ))}
+                    </select>
+                    {dropIndices.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setDropIndices(dropIndices.filter((_, i) => i !== idx))}
+                        style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                ))}
+                {dropIndices.length < 3 && (
+                  <button
+                    type="button"
+                    className={styles.gpsLink}
+                    onClick={() => setDropIndices([...dropIndices, (dropIndices[dropIndices.length - 1] + 1) % LOCATIONS.length])}
+                  >
+                    + Add another drop
+                  </button>
+                )}
               </div>
             </div>
           </div>

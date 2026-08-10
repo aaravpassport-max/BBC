@@ -38,6 +38,21 @@ export interface Stop {
   status: string;
   otp_code: string;
   instructions: string | null;
+  drop_lat?: number;
+  drop_lng?: number;
+}
+
+export interface DriverInfo {
+  id: string;
+  name: string;
+  phone_masked: string | null;
+  rating: number | null;
+  vehicle: {
+    plate: string;
+    category: string;
+    make: string | null;
+    model: string | null;
+  } | null;
 }
 
 export interface Booking {
@@ -46,6 +61,7 @@ export interface Booking {
   vehicle_category_id: string;
   fare_breakdown: FareBreakdown;
   driver_id: string | null;
+  driver?: DriverInfo | null;
   created_at: string;
   pickup_otp?: string;
   pickup_lat?: number;
@@ -139,8 +155,21 @@ export function getDriverLocation(bookingId: string) {
   return api.get<DriverLocation | null>(`/v1/bookings/${bookingId}/driver-location`);
 }
 
-export function listBookings() {
-  return api.get<{ items: Booking[] }>('/v1/bookings');
+export function listBookings(params?: { status?: string; page?: number; page_size?: number }) {
+  const query = new URLSearchParams();
+  if (params?.status) query.set('status', params.status);
+  if (params?.page) query.set('page', String(params.page));
+  if (params?.page_size) query.set('page_size', String(params.page_size));
+  const qs = query.toString();
+  return api.get<{ items: Booking[]; page: number }>(`/v1/bookings${qs ? `?${qs}` : ''}`);
+}
+
+export function previewCancellation(id: string) {
+  return api.get<{ fee_charged: boolean; fee_amount: number; status: string }>(`/v1/bookings/${id}/cancel-preview`);
+}
+
+export function callDriver(id: string) {
+  return api.get<{ call_uri: string; display_number: string }>(`/v1/bookings/${id}/call-driver`);
 }
 
 export function cancelBooking(id: string, reasonCode: string, note?: string) {
