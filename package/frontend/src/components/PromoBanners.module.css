@@ -1,0 +1,50 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.banner {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: linear-gradient(135deg, #e8f0fe 0%, #f0f7ff 100%);
+  border: 1px solid #c7d9f7;
+  border-radius: 12px;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.image {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.placeholder {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  flex-shrink: 0;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+}
+
+.headline {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.cta {
+  font-size: 12px;
+  color: var(--accent-strong);
+  margin-top: 4px;
+}
