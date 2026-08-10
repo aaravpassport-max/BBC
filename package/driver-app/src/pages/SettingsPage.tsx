@@ -3,11 +3,23 @@ import { useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { getNotificationPreferences, setNotificationPreference, getErrorMessage, type NotificationPreference } from '../api';
 
-const CATEGORY_LABELS: Record<string, string> = {
-  trip_updates: 'Trip updates',
-  promotions: 'Promotions',
-  account_activity: 'Account activity',
-  product_news: 'Product news',
+const CATEGORY_CONFIG: Record<string, { label: string; description: string }> = {
+  trip_updates: {
+    label: 'Trip updates',
+    description: 'Job offers, pickup alerts, and trip status changes.',
+  },
+  promotions: {
+    label: 'Promotions & incentives',
+    description: 'Bonus missions, referral rewards, and partner offers.',
+  },
+  account_activity: {
+    label: 'Account activity',
+    description: 'KYC status, payouts, penalties, and profile changes.',
+  },
+  product_news: {
+    label: 'Product news',
+    description: 'New features, policy updates, and platform announcements.',
+  },
 };
 
 export function SettingsPage() {
@@ -23,9 +35,9 @@ export function SettingsPage() {
   }, []);
 
   const pushPrefs = (prefs || []).filter((p) => p.channel === 'push');
-  const grouped = Object.keys(CATEGORY_LABELS).map((category) => ({
+  const grouped = Object.keys(CATEGORY_CONFIG).map((category) => ({
     category,
-    label: CATEGORY_LABELS[category],
+    ...CATEGORY_CONFIG[category],
     pref: pushPrefs.find((p) => p.category === category),
   }));
 
@@ -47,7 +59,7 @@ export function SettingsPage() {
   return (
     <Screen eyebrow="Settings" title="Notification settings" onBack={() => navigate('/profile')}>
       <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 0 }}>
-        OTP and safety alerts cannot be turned off.
+        Choose which push notifications you receive. OTP and safety alerts cannot be turned off.
       </p>
 
       {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
@@ -60,6 +72,7 @@ export function SettingsPage() {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
+              gap: 12,
               border: '1px solid var(--border)',
               borderRadius: 12,
               background: 'var(--surface)',
@@ -67,7 +80,10 @@ export function SettingsPage() {
               cursor: 'pointer',
             }}
           >
-            <span style={{ fontSize: 14, fontWeight: 600 }}>{g.label}</span>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 600 }}>{g.label}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, lineHeight: 1.4 }}>{g.description}</div>
+            </div>
             <input
               type="checkbox"
               checked={g.pref?.enabled ?? true}

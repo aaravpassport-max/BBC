@@ -77,7 +77,6 @@ function AppRoutes() {
       <Route path="/referral" element={<RequireAuth><ReferralPage /></RequireAuth>} />
       <Route path="/offer/:offerId" element={<RequireAuth><OfferPage /></RequireAuth>} />
       <Route path="/trip/:bookingId" element={<RequireAuth><TripPage /></RequireAuth>} />
-      <Route path="/trip-summary/:bookingId" element={<RequireAuth><TripSummaryPage /></RequireAuth>} />
       <Route path="*" element={<Navigate to={isAuthenticated ? '/home' : '/login'} replace />} />
     </Routes>
   );

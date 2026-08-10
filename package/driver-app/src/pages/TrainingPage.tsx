@@ -93,12 +93,29 @@ export function TrainingPage() {
   }
 
   if (status.status === 'not_started' || status.status === 'in_progress') {
+    const pct = status.video_watched_pct || 0;
     return (
       <Screen eyebrow="Onboarding" title="Platform training">
         <p style={{ color: 'var(--text-muted)', fontSize: 15 }}>
-          Watch the safety and platform-policy video before you can take the quiz. ({status.video_watched_pct}%
-          watched)
+          Watch the safety and platform-policy video before you can take the quiz.
         </p>
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>
+            <span>Video progress</span>
+            <span>{pct}%</span>
+          </div>
+          <div style={{ height: 8, borderRadius: 4, background: 'var(--border)', overflow: 'hidden' }}>
+            <div
+              style={{
+                height: '100%',
+                width: `${pct}%`,
+                background: 'var(--accent)',
+                borderRadius: 4,
+                transition: 'width 0.3s ease',
+              }}
+            />
+          </div>
+        </div>
         <video
           controls
           style={{ width: '100%', borderRadius: 12, background: '#000' }}

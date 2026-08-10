@@ -67,8 +67,20 @@ export function ReferralPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
           <Stat label="Successful referrals" value={String(summary.successful_referrals)} />
           <Stat label="Earned" value={`₹${summary.earned_confirmed}`} />
+          {summary.earned_pending_review > 0 && (
+            <Stat label="Pending review" value={`₹${summary.earned_pending_review}`} />
+          )}
         </div>
       )}
+
+      <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16, background: 'var(--surface)' }}>
+        <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 10 }}>How it works</div>
+        <ol style={{ margin: 0, paddingLeft: 20, fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.6 }}>
+          <li>Share your referral code with friends who want to drive.</li>
+          <li>They sign up and complete KYC, training, and their first trip.</li>
+          <li>You earn a bonus once their trip is verified — credited to your wallet.</li>
+        </ol>
+      </div>
 
       <div>
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Have a friend&apos;s code?</div>
