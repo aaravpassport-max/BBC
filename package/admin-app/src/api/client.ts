@@ -95,7 +95,7 @@ export async function logoutSession(): Promise<void> {
 }
 
 interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   body?: unknown;
   idempotencyKey?: string;
   auth?: boolean;
@@ -152,6 +152,7 @@ export const api = {
   post: <T>(path: string, body?: unknown, idempotencyKey?: string) =>
     request<T>(path, { method: 'POST', body, idempotencyKey }),
   put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body }),
+  patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
   del: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
   public: {
     post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body, auth: false }),

@@ -24,7 +24,8 @@ export async function listRateCards(params: { cityId?: string; vehicleCategoryId
 
   const result = await pool.query(
     `SELECT rc.id, rc.status, rc.version, rc.base_fare, rc.per_km_rate, rc.minimum_fare,
-            rc.platform_fee, rc.effective_from, vc.name AS vehicle_category_name, ci.name AS city_name
+            rc.platform_fee, rc.surge_tiers, rc.surge_cap, rc.effective_from,
+            vc.name AS vehicle_category_name, ci.name AS city_name
      FROM rate_cards rc
      JOIN vehicle_categories vc ON vc.id = rc.vehicle_category_id
      JOIN cities ci ON ci.id = rc.city_id
@@ -121,6 +122,66 @@ export async function publishRateCard(params: {
     );
     return { version: updated.rows[0].version };
   });
+}
+
+export async function updateRateCardSurgeTiers(params: {
+  rateCardId: string;
+  surgeTiers: number[];
+  surgeCap: number;
+}): Promise<void> {
+  const { rateCardId, surgeTiers, surgeCap } = params;
+  if (surgeTiers.length === 0 || surgeTiers.some((t) => t < 1)) {
+    throw Errors.validation({ surge_tiers: 'Surge tiers must be positive multipliers.' });
+  }
+  if (surgeCap < 1) {
+    throw Errors.validation({ surge_cap: 'Surge cap must be at least 1.0.' });
+  }
+
+  const result = await pool.query(
+    `UPDATE rate_cards SET surge_tiers = $1::jsonb, surge_cap = $2
+     WHERE id = $3 AND status IN ('draft', 'published')
+     RETURNING id`,
+    [JSON.stringify(surgeTiers), surgeCap, rateCardId]
+  );
+  if (result.rowCount === 0) {
+    throw Errors.notFound('Rate card');
+  }
+}
+
+export async function listSurgeZones(cityId?: string) {
+  const args: unknown[] = [];
+  let where = `WHERE z.zone_type = 'surge_zone'`;
+  if (cityId) {
+    args.push(cityId);
+    where += ` AND z.city_id = $${args.length}`;
+  }
+
+  const result = await pool.query(
+    `SELECT z.id, z.name, z.city_id, ci.name AS city_name, z.version, z.created_at, z.updated_at
+     FROM zones z
+     JOIN cities ci ON ci.id = z.city_id
+     ${where}
+     ORDER BY ci.name, z.name
+     LIMIT 100`,
+    args
+  );
+  return result.rows;
+}
+
+export async function getOfflineReasonAnalytics(days = 7) {
+  const result = await pool.query(
+    `SELECT reason_code, count(*)::int AS event_count
+     FROM driver_offline_events
+     WHERE created_at > now() - ($1::int || ' days')::interval
+     GROUP BY reason_code
+     ORDER BY event_count DESC`,
+    [days]
+  );
+  return {
+    period_days: days,
+    total_events: result.rows.reduce((sum, r) => sum + (r.event_count as number), 0),
+    by_reason: result.rows,
+  };
 }
 
 // ---------- Driver Suspend/Reinstate (PRD 9A.2) ----------

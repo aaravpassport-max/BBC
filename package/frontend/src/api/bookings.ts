@@ -301,3 +301,33 @@ export function verifyPayment(params: { razorpay_order_id: string; razorpay_paym
 export function devSimulateWebhook(gatewayRef: string) {
   return api.post<{ confirmed: boolean }>('/v1/wallet/dev/simulate-webhook', { gateway_ref: gatewayRef });
 }
+
+export interface SavedPaymentMethod {
+  id: string;
+  provider: string;
+  method_type: 'card' | 'upi';
+  display_label: string;
+  is_default: boolean;
+  created_at: string;
+}
+
+export function getSavedPaymentMethods() {
+  return api.get<SavedPaymentMethod[]>('/v1/wallet/payment-methods');
+}
+
+export function saveSavedPaymentMethod(params: {
+  method_type: 'card' | 'upi';
+  display_label: string;
+  token_ref: string;
+  set_default?: boolean;
+}) {
+  return api.post<{ id: string }>('/v1/wallet/payment-methods', params);
+}
+
+export function deleteSavedPaymentMethod(id: string) {
+  return api.del<{ deleted: boolean }>(`/v1/wallet/payment-methods/${id}`);
+}
+
+export function setDefaultSavedPaymentMethod(id: string) {
+  return api.post<{ updated: boolean }>(`/v1/wallet/payment-methods/${id}/default`);
+}

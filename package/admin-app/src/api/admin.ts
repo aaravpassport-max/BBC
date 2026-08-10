@@ -8,6 +8,8 @@ export interface RateCard {
   per_km_rate: string;
   minimum_fare: string;
   platform_fee: string;
+  surge_tiers?: number[];
+  surge_cap?: string;
 }
 
 export interface FraudFlag {
@@ -63,6 +65,36 @@ export function publishRateCard(id: string, expectedVersion: number) {
   return api.post<{ version: number }>(`/admin/v1/pricing/rate-cards/${id}/publish`, {
     expected_version: expectedVersion,
   });
+}
+
+export function updateRateCardSurge(id: string, surgeTiers: number[], surgeCap: number) {
+  return api.patch<{ updated: boolean }>(`/admin/v1/pricing/rate-cards/${id}/surge`, {
+    surge_tiers: surgeTiers,
+    surge_cap: surgeCap,
+  });
+}
+
+export interface SurgeZone {
+  id: string;
+  name: string;
+  city_id: string;
+  city_name: string;
+  version: number;
+}
+
+export function listSurgeZones(cityId?: string) {
+  const query = cityId ? `?city_id=${cityId}` : '';
+  return api.get<SurgeZone[]>(`/admin/v1/geo/surge-zones${query}`);
+}
+
+export interface OfflineReasonAnalytics {
+  period_days: number;
+  total_events: number;
+  by_reason: { reason_code: string; event_count: number }[];
+}
+
+export function getOfflineReasonAnalytics(days = 7) {
+  return api.get<OfflineReasonAnalytics>(`/admin/v1/drivers/offline-analytics?days=${days}`);
 }
 
 // ---------- Drivers (PRD 9A.2) ----------

@@ -1,5 +1,6 @@
 import { pool, withTransaction } from '../../db/pool';
 import { Errors } from '../../utils/errors';
+import { verifyBankAccount } from './bank-verification.provider';
 
 const KYC_STEPS = [
   'personal_details',
@@ -85,6 +86,27 @@ export async function submitKycStep(params: {
     }
 
     if (docType) {
+      let manualEntry = fields || {};
+      if (step === 'bank_details' && fields) {
+        const bank = fields as { account?: string; ifsc?: string; holder?: string };
+        if (bank.account && bank.ifsc && bank.holder) {
+          const verification = await verifyBankAccount({
+            accountNumber: String(bank.account),
+            ifsc: String(bank.ifsc),
+            holderName: String(bank.holder),
+          });
+          manualEntry = {
+            ...manualEntry,
+            bank_verification: verification,
+          };
+          if (!verification.verified) {
+            throw Errors.validation({
+              bank_details: `Bank verification failed: ${verification.failure_reason || 'unknown'}.`,
+            });
+          }
+        }
+      }
+
       // Versioning: a resubmission supersedes the prior version rather than
       // overwriting it in place (PRD 3.2 edge case — rejection history retained).
       const priorVersion = await client.query(
@@ -99,7 +121,7 @@ export async function submitKycStep(params: {
         `INSERT INTO kyc_documents (subject_type, subject_id, doc_type, status, document_url, manual_entry, expiry_date, version)
          VALUES ('driver', $1, $2, 'pending_review', $3, $4, $5, $6)
          RETURNING id`,
-        [driverId, docType, documentUrl || '', JSON.stringify(fields || {}), expiryDate || null, nextVersion]
+        [driverId, docType, documentUrl || '', JSON.stringify(manualEntry), expiryDate || null, nextVersion]
       );
 
       if (priorVersion.rowCount && priorVersion.rowCount > 0) {

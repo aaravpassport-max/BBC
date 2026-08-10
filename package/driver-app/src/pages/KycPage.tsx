@@ -34,6 +34,20 @@ const STATUS_COPY: Record<string, { label: string; tone: string }> = {
   rejected: { label: 'Rejected', tone: 'var(--danger)' },
 };
 
+const BANK_VERIFY_HINTS = [
+  'Account holder name must match your bank records exactly.',
+  'IFSC must be 11 characters (e.g. HDFC0001234).',
+  'We verify your account with a penny-drop check before submission.',
+];
+
+function formatBankError(message: string): string {
+  if (message.includes('INVALID_IFSC')) return 'Invalid IFSC code — check the 11-character format.';
+  if (message.includes('INVALID_ACCOUNT')) return 'Account number must be 9–18 digits.';
+  if (message.includes('INVALID_HOLDER_NAME')) return 'Enter the account holder name as on your bank passbook.';
+  if (message.includes('NAME_MISMATCH')) return 'Bank name mismatch — ensure the holder name matches bank records.';
+  return message;
+}
+
 export function KycPage() {
   const navigate = useNavigate();
   const [status, setStatus] = useState<KycStatus | null>(null);
@@ -66,7 +80,8 @@ export function KycPage() {
       setStepData((prev) => ({ ...prev, [step]: '' }));
       await refresh();
     } catch (err) {
-      setError(getErrorMessage(err, 'Could not submit this step.'));
+      const raw = getErrorMessage(err, 'Could not submit this step.');
+      setError(step === 'bank_details' ? formatBankError(raw) : raw);
     } finally {
       setSubmittingStep(null);
     }
@@ -138,10 +153,21 @@ export function KycPage() {
 
             {needsAction && s.step === 'bank_details' && (
               <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                  {BANK_VERIFY_HINTS.map((hint) => (
+                    <li key={hint}>{hint}</li>
+                  ))}
+                </ul>
                 <Input placeholder="Account holder name" value={bank.holder} onChange={(e) => setBank({ ...bank, holder: e.target.value })} />
-                <Input placeholder="Account number" value={bank.account} onChange={(e) => setBank({ ...bank, account: e.target.value })} />
+                <Input placeholder="Account number" value={bank.account} onChange={(e) => setBank({ ...bank, account: e.target.value.replace(/\D/g, '') })} />
                 <Input placeholder="IFSC code" value={bank.ifsc} onChange={(e) => setBank({ ...bank, ifsc: e.target.value.toUpperCase() })} />
-                <Button loading={submittingStep === s.step} onClick={() => void submit(s.step, JSON.stringify(bank))}>Save bank details</Button>
+                <Button
+                  loading={submittingStep === s.step}
+                  disabled={!bank.holder.trim() || bank.account.length < 9 || bank.ifsc.length < 11}
+                  onClick={() => void submit(s.step, JSON.stringify(bank))}
+                >
+                  Verify & save bank details
+                </Button>
               </div>
             )}
 

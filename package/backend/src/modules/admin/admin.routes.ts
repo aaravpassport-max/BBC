@@ -12,6 +12,9 @@ import {
   reinstateDriver,
   listFraudQueue,
   resolveFraudFlag,
+  updateRateCardSurgeTiers,
+  listSurgeZones,
+  getOfflineReasonAnalytics,
 } from './admin.service';
 
 const createRateCardSchema = z.object({
@@ -35,6 +38,11 @@ const suspendSchema = z.object({
 const resolveFraudSchema = z.object({
   action: z.enum(['clear', 'escalate', 'hold', 'suspend']),
   note: z.string().min(1),
+});
+
+const surgeTiersSchema = z.object({
+  surge_tiers: z.array(z.number().min(1)).min(1),
+  surge_cap: z.number().min(1),
 });
 
 export const adminRouter = Router();
@@ -80,6 +88,43 @@ adminRouter.post(
       expectedVersion: req.body.expected_version,
     });
     res.status(200).json(result);
+  })
+);
+
+adminRouter.patch(
+  '/pricing/rate-cards/:id/surge',
+  requireAuth,
+  requirePermission('pricing', 'edit'),
+  validateBody(surgeTiersSchema),
+  asyncHandler(async (req, res) => {
+    await updateRateCardSurgeTiers({
+      rateCardId: req.params.id as string,
+      surgeTiers: req.body.surge_tiers,
+      surgeCap: req.body.surge_cap,
+    });
+    res.status(200).json({ updated: true });
+  })
+);
+
+adminRouter.get(
+  '/geo/surge-zones',
+  requireAuth,
+  requirePermission('pricing', 'edit'),
+  asyncHandler(async (req, res) => {
+    const cityId = typeof req.query.city_id === 'string' ? req.query.city_id : undefined;
+    const zones = await listSurgeZones(cityId);
+    res.status(200).json(zones);
+  })
+);
+
+adminRouter.get(
+  '/drivers/offline-analytics',
+  requireAuth,
+  requirePermission('driver', 'suspend'),
+  asyncHandler(async (req, res) => {
+    const days = typeof req.query.days === 'string' ? parseInt(req.query.days, 10) : 7;
+    const analytics = await getOfflineReasonAnalytics(Number.isFinite(days) ? days : 7);
+    res.status(200).json(analytics);
   })
 );
 

@@ -7,11 +7,15 @@ import {
   getBookingFunnel,
   getCancellationBreakdown,
   getDriverUtilization,
+  getOfflineReasonAnalytics,
+  listSurgeZones,
   ApiError, getErrorMessage,
   type RevenueDashboard,
   type BookingFunnel,
   type CancellationBreakdown,
   type DriverUtilizationRow,
+  type OfflineReasonAnalytics,
+  type SurgeZone,
 } from '../api';
 
 function money(n: number): string {
@@ -23,21 +27,27 @@ export function AnalyticsPage() {
   const [funnel, setFunnel] = useState<BookingFunnel | null>(null);
   const [cancellations, setCancellations] = useState<CancellationBreakdown | null>(null);
   const [utilization, setUtilization] = useState<DriverUtilizationRow[] | null>(null);
+  const [offline, setOffline] = useState<OfflineReasonAnalytics | null>(null);
+  const [surgeZones, setSurgeZones] = useState<SurgeZone[] | null>(null);
   const [forbidden, setForbidden] = useState(false);
   const [error, setError] = useState('');
 
   const refresh = useCallback(async () => {
     try {
-      const [r, f, c, u] = await Promise.all([
+      const [r, f, c, u, offlineData, zones] = await Promise.all([
         getRevenueDashboard(),
         getBookingFunnel(),
         getCancellationBreakdown(),
         getDriverUtilization(),
+        getOfflineReasonAnalytics(7).catch(() => null),
+        listSurgeZones().catch(() => []),
       ]);
       setRevenue(r);
       setFunnel(f);
       setCancellations(c);
       setUtilization(u);
+      setOffline(offlineData);
+      setSurgeZones(zones);
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) setForbidden(true);
       else setError(getErrorMessage(err, 'Could not load analytics.'));
@@ -160,6 +170,60 @@ export function AnalyticsPage() {
                         <td style={{ fontFamily: 'var(--font-mono)', fontSize: 12 }}>{u.driver_id.slice(0, 8)}</td>
                         <td style={{ fontFamily: 'var(--font-mono)' }}>{u.completed_trips}</td>
                         <td style={{ fontFamily: 'var(--font-mono)' }}>{u.trip_hours}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 32, marginTop: 32 }}>
+            <div>
+              <h2 style={{ fontSize: 16, marginBottom: 14 }}>
+                Driver offline reasons · last {offline?.period_days ?? 7} days
+              </h2>
+              {!offline || offline.by_reason.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>No offline events recorded in range.</p>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Reason</th>
+                      <th>Events</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {offline.by_reason.map((r) => (
+                      <tr key={r.reason_code}>
+                        <td style={{ fontFamily: 'var(--font-mono)', fontSize: 13 }}>{r.reason_code}</td>
+                        <td style={{ fontFamily: 'var(--font-mono)' }}>{r.event_count}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            <div>
+              <h2 style={{ fontSize: 16, marginBottom: 14 }}>Surge zones</h2>
+              {!surgeZones || surgeZones.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>No surge zones configured.</p>
+              ) : (
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Zone</th>
+                      <th>City</th>
+                      <th>Version</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {surgeZones.map((z) => (
+                      <tr key={z.id}>
+                        <td>{z.name}</td>
+                        <td>{z.city_name}</td>
+                        <td style={{ fontFamily: 'var(--font-mono)' }}>{z.version}</td>
                       </tr>
                     ))}
                   </tbody>

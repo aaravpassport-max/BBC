@@ -600,3 +600,58 @@ export async function getSpendAnalytics(accountId: string, requestingUserId: str
     trip_count: parseInt(r.trip_count, 10),
   }));
 }
+
+/**
+ * Background job: auto-generates invoices for the previous calendar month
+ * for every active corporate account that has completed trips and no
+ * existing invoice for that period.
+ */
+export async function sweepMonthlyCorporateInvoices(): Promise<number> {
+  const now = new Date();
+  const periodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+
+  const accounts = await pool.query(`SELECT id FROM corporate_accounts WHERE status = 'active'`);
+  let generated = 0;
+
+  for (const row of accounts.rows) {
+    const accountId = row.id as string;
+
+    const existing = await pool.query(
+      `SELECT 1 FROM corporate_invoices
+       WHERE corporate_account_id = $1 AND period_start = $2 AND period_end = $3`,
+      [accountId, periodStart.toISOString(), periodEnd.toISOString()]
+    );
+    if (existing.rowCount && existing.rowCount > 0) continue;
+
+    const tripCount = await pool.query(
+      `SELECT count(*) FROM bookings
+       WHERE corporate_account_id = $1 AND status = 'completed'
+         AND created_at >= $2 AND created_at < $3`,
+      [accountId, periodStart.toISOString(), periodEnd.toISOString()]
+    );
+    if (parseInt(tripCount.rows[0].count, 10) === 0) continue;
+
+    const admin = await pool.query(
+      `SELECT user_id FROM corporate_employees
+       WHERE corporate_account_id = $1 AND role = 'admin' AND status = 'active'
+       LIMIT 1`,
+      [accountId]
+    );
+    if (!admin.rowCount || admin.rowCount === 0) continue;
+
+    try {
+      await generateInvoice({
+        accountId,
+        requestingUserId: admin.rows[0].user_id,
+        periodStart: periodStart.toISOString(),
+        periodEnd: periodEnd.toISOString(),
+      });
+      generated++;
+    } catch {
+      // Period race or permission edge — skip and retry next sweep.
+    }
+  }
+
+  return generated;
+}

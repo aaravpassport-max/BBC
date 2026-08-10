@@ -5,6 +5,12 @@ import { validateBody } from '../../middleware/validate';
 import { requireAuth } from '../../middleware/auth';
 import { Errors } from '../../utils/errors';
 import { getWalletBalance, initiateTopUp, getTransactionHistory, confirmTopUp, confirmTopUpAsCustomer } from './wallet.service';
+import {
+  listSavedPaymentMethods,
+  savePaymentMethod,
+  deletePaymentMethod,
+  setDefaultPaymentMethod,
+} from './saved-payment.service';
 import { verifyPaymentSignature, verifyWebhookSignature } from './razorpay.provider';
 import { confirmTripPayment } from '../booking/payment.service';
 import { runDispatchCycle } from '../driver/dispatch.service';
@@ -136,5 +142,56 @@ walletRouter.post(
     const { gateway_ref } = req.body;
     await confirmTopUpAsCustomer(req.user!.userId, gateway_ref);
     res.status(200).json({ confirmed: true });
+  })
+);
+
+const savePaymentMethodSchema = z.object({
+  method_type: z.enum(['card', 'upi']),
+  display_label: z.string().min(1).max(80),
+  token_ref: z.string().min(1).max(200),
+  set_default: z.boolean().optional(),
+});
+
+walletRouter.get(
+  '/payment-methods',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const methods = await listSavedPaymentMethods(req.user!.userId);
+    res.status(200).json(methods);
+  })
+);
+
+walletRouter.post(
+  '/payment-methods',
+  requireAuth,
+  validateBody(savePaymentMethodSchema),
+  asyncHandler(async (req, res) => {
+    const { method_type, display_label, token_ref, set_default } = req.body;
+    const result = await savePaymentMethod({
+      userId: req.user!.userId,
+      methodType: method_type,
+      displayLabel: display_label,
+      tokenRef: token_ref,
+      setDefault: set_default,
+    });
+    res.status(201).json(result);
+  })
+);
+
+walletRouter.delete(
+  '/payment-methods/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await deletePaymentMethod(req.user!.userId, req.params.id as string);
+    res.status(200).json({ deleted: true });
+  })
+);
+
+walletRouter.post(
+  '/payment-methods/:id/default',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await setDefaultPaymentMethod(req.user!.userId, req.params.id as string);
+    res.status(200).json({ updated: true });
   })
 );

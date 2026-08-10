@@ -4,7 +4,7 @@ import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { AccessDenied } from '../components/AccessDenied';
 import { SkeletonTableRows } from '../components/Skeleton';
-import { listRateCards, createRateCard, publishRateCard, ApiError, getErrorMessage, type RateCard } from '../api';
+import { listRateCards, createRateCard, publishRateCard, updateRateCardSurge, ApiError, getErrorMessage, type RateCard } from '../api';
 
 const CITY_ID = 'f7a78914-17a4-4b8f-91c9-79d76c87c9b9';
 const CATEGORY_ID = 'cc0530bc-0866-406f-86cd-2244d997ea9f';
@@ -21,6 +21,9 @@ export function RateCardsPage() {
   const [creating, setCreating] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ base_fare: '', per_km_rate: '', minimum_fare: '', platform_fee: '' });
+  const [editingSurgeId, setEditingSurgeId] = useState<string | null>(null);
+  const [surgeForm, setSurgeForm] = useState({ tiers: '1.0, 1.2, 1.5, 2.0', cap: '3.0' });
+  const [savingSurge, setSavingSurge] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -83,6 +86,32 @@ export function RateCardsPage() {
     }
   }
 
+  function openSurgeEditor(card: RateCardRow) {
+    const tiers = Array.isArray(card.surge_tiers) ? card.surge_tiers.join(', ') : '1.0, 1.2, 1.5, 2.0';
+    setSurgeForm({ tiers, cap: card.surge_cap ?? '3.0' });
+    setEditingSurgeId(card.id);
+  }
+
+  async function handleSaveSurge(id: string) {
+    setError('');
+    const surgeTiers = surgeForm.tiers.split(',').map((t) => parseFloat(t.trim())).filter((n) => !Number.isNaN(n));
+    const surgeCap = parseFloat(surgeForm.cap);
+    if (surgeTiers.length === 0 || !surgeCap) {
+      setError('Enter valid surge tiers (comma-separated) and cap.');
+      return;
+    }
+    setSavingSurge(true);
+    try {
+      await updateRateCardSurge(id, surgeTiers, surgeCap);
+      setEditingSurgeId(null);
+      await refresh();
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not update surge tiers.'));
+    } finally {
+      setSavingSurge(false);
+    }
+  }
+
   if (forbidden) {
     return (
       <Layout title="Rate Cards">
@@ -140,13 +169,14 @@ export function RateCardsPage() {
               <th>Per km</th>
               <th>Minimum</th>
               <th>Platform fee</th>
+              <th>Surge tiers</th>
               <th>Version</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
             {cards === null ? (
-              <SkeletonTableRows columns={8} rows={4} />
+              <SkeletonTableRows columns={9} rows={4} />
             ) : (
               cards.map((c) => (
               <tr key={c.id}>
@@ -173,6 +203,19 @@ export function RateCardsPage() {
                 <td style={{ fontFamily: 'var(--font-mono)' }}>₹{c.per_km_rate}</td>
                 <td style={{ fontFamily: 'var(--font-mono)' }}>₹{c.minimum_fare}</td>
                 <td style={{ fontFamily: 'var(--font-mono)' }}>₹{c.platform_fee}</td>
+                <td style={{ fontSize: 12 }}>
+                  {Array.isArray(c.surge_tiers) ? c.surge_tiers.join(' / ') : '—'}
+                  {c.surge_cap ? ` (cap ${c.surge_cap}×)` : ''}
+                  {c.status !== 'superseded' && (
+                    <button
+                      type="button"
+                      onClick={() => openSurgeEditor(c)}
+                      style={{ marginLeft: 8, border: 'none', background: 'none', color: 'var(--accent-strong)', cursor: 'pointer', fontSize: 12 }}
+                    >
+                      Edit
+                    </button>
+                  )}
+                </td>
                 <td style={{ fontFamily: 'var(--font-mono)' }}>{c.version}</td>
                 <td>
                   {c.status === 'draft' && (
@@ -189,6 +232,39 @@ export function RateCardsPage() {
             )}
           </tbody>
         </table>
+      )}
+
+      {editingSurgeId && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.4)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 50,
+          }}
+          onClick={() => setEditingSurgeId(null)}
+        >
+          <div
+            style={{ background: 'var(--surface)', borderRadius: 12, padding: 24, width: 420, maxWidth: '90vw' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ marginTop: 0 }}>Edit surge tiers</h3>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Discrete multipliers applied based on live demand/supply ratio.</p>
+            <Input label="Tiers (comma-separated)" value={surgeForm.tiers} onChange={(e) => setSurgeForm({ ...surgeForm, tiers: e.target.value })} />
+            <Input label="Surge cap (×)" value={surgeForm.cap} onChange={(e) => setSurgeForm({ ...surgeForm, cap: e.target.value })} />
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <Button loading={savingSurge} onClick={() => void handleSaveSurge(editingSurgeId)} style={{ width: 'auto' }}>
+                Save surge settings
+              </Button>
+              <Button variant="ghost" onClick={() => setEditingSurgeId(null)} style={{ width: 'auto' }}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </Layout>
   );

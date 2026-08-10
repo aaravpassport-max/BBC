@@ -8,9 +8,14 @@ import {
   addMoney,
   verifyPayment,
   devSimulateWebhook,
+  getSavedPaymentMethods,
+  saveSavedPaymentMethod,
+  deleteSavedPaymentMethod,
+  setDefaultSavedPaymentMethod,
   getErrorMessage,
   type WalletBalance,
   type WalletTransaction,
+  type SavedPaymentMethod,
 } from '../api';
 import { BRAND } from '../constants/brand';
 import { Skeleton, SkeletonRowList } from '../components/Skeleton';
@@ -52,12 +57,17 @@ export function WalletPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [txFilter, setTxFilter] = useState<(typeof TX_FILTERS)[number]>('all');
+  const [savedMethods, setSavedMethods] = useState<SavedPaymentMethod[] | null>(null);
+  const [newMethodType, setNewMethodType] = useState<'card' | 'upi'>('upi');
+  const [newMethodLabel, setNewMethodLabel] = useState('');
+  const [savingMethod, setSavingMethod] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
-      const [b, t] = await Promise.all([getWallet(), getWalletTransactions()]);
+      const [b, t, methods] = await Promise.all([getWallet(), getWalletTransactions(), getSavedPaymentMethods()]);
       setBalance(b);
       setTransactions(t);
+      setSavedMethods(methods);
     } catch (err) {
       setError(getErrorMessage(err, 'Could not load your wallet.'));
     }
@@ -113,6 +123,51 @@ export function WalletPage() {
       setError(getErrorMessage(err, 'Could not start the top-up.'));
     } finally {
       setProcessing(false);
+    }
+  }
+
+  async function handleSaveMethod() {
+    const label = newMethodLabel.trim();
+    if (!label) {
+      setError('Enter a label for this payment method (e.g. UPI ID or card ending 4242).');
+      return;
+    }
+    setSavingMethod(true);
+    setError('');
+    try {
+      await saveSavedPaymentMethod({
+        method_type: newMethodType,
+        display_label: label,
+        token_ref: `sim_${Date.now()}`,
+        set_default: (savedMethods?.length ?? 0) === 0,
+      });
+      setNewMethodLabel('');
+      setSuccess('Payment method saved for faster checkout.');
+      await refresh();
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not save this payment method.'));
+    } finally {
+      setSavingMethod(false);
+    }
+  }
+
+  async function handleDeleteMethod(id: string) {
+    setError('');
+    try {
+      await deleteSavedPaymentMethod(id);
+      await refresh();
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not remove this payment method.'));
+    }
+  }
+
+  async function handleSetDefault(id: string) {
+    setError('');
+    try {
+      await setDefaultSavedPaymentMethod(id);
+      await refresh();
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not update default payment method.'));
     }
   }
 
@@ -184,6 +239,65 @@ export function WalletPage() {
 
       {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
       {success && <p style={{ color: 'var(--success)', fontSize: 13 }}>{success}</p>}
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+        <h2 style={{ fontSize: 15, margin: 0 }}>Saved payment methods</h2>
+      </div>
+      {savedMethods === null ? (
+        <SkeletonRowList count={2} />
+      ) : savedMethods.length === 0 ? (
+        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Save a UPI ID or card for faster checkout on your next trip.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {savedMethods.map((m) => (
+            <div
+              key={m.id}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                border: `1px solid ${m.is_default ? 'var(--accent)' : 'var(--border)'}`,
+                borderRadius: 10,
+                padding: '10px 14px',
+                background: m.is_default ? 'var(--accent-soft)' : 'var(--surface)',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{m.display_label}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                  {m.method_type}{m.is_default ? ' · default' : ''}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {!m.is_default && (
+                  <Button variant="ghost" style={{ width: 'auto', padding: '4px 10px', fontSize: 12 }} onClick={() => void handleSetDefault(m.id)}>
+                    Make default
+                  </Button>
+                )}
+                <Button variant="ghost" style={{ width: 'auto', padding: '4px 10px', fontSize: 12 }} onClick={() => void handleDeleteMethod(m.id)}>
+                  Remove
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+        <select
+          value={newMethodType}
+          onChange={(e) => setNewMethodType(e.target.value as 'card' | 'upi')}
+          style={{ padding: 10, borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)' }}
+        >
+          <option value="upi">UPI</option>
+          <option value="card">Card</option>
+        </select>
+        <div style={{ flex: 1, minWidth: 160 }}>
+          <Input placeholder="Label (e.g. name@upi or •••• 4242)" value={newMethodLabel} onChange={(e) => setNewMethodLabel(e.target.value)} />
+        </div>
+        <Button loading={savingMethod} style={{ width: 'auto', padding: '0 16px' }} onClick={() => void handleSaveMethod()}>
+          Save method
+        </Button>
+      </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
         <h2 style={{ fontSize: 15, margin: 0 }}>Transactions</h2>

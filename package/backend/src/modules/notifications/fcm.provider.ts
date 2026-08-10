@@ -74,6 +74,7 @@ const TEMPLATE_COPY: Record<string, { title: string; body: string }> = {
   offer_expired: { title: 'Offer expired', body: 'A trip offer has expired.' },
   chat_message: { title: 'New message', body: 'You have a new chat message.' },
   booking_cancelled: { title: 'Booking cancelled', body: 'Your booking has been cancelled.' },
+  support_escalation: { title: 'Support update', body: 'Your support request needs attention. Open the app to view details.' },
 };
 
 function templateToCopy(templateId: string): { title: string; body: string } {

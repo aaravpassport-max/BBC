@@ -3,6 +3,7 @@ import { sweepExpiredOffers, sweepScheduledBookings } from '../modules/driver/di
 import { sweepUnacknowledgedSos } from '../modules/ops/sos.service';
 import { sweepSubscriptionRenewals } from '../modules/booking/subscription.service';
 import { runLedgerIntegrityCheck } from '../modules/finance/settlement.service';
+import { sweepMonthlyCorporateInvoices } from '../modules/corporate/corporate.service';
 
 /**
  * Wraps a job function with the background_job_runs monitoring table
@@ -39,6 +40,7 @@ let sosSweepIntervalHandle: NodeJS.Timeout | null = null;
 let scheduledBookingSweepIntervalHandle: NodeJS.Timeout | null = null;
 let subscriptionRenewalIntervalHandle: NodeJS.Timeout | null = null;
 let ledgerIntegrityIntervalHandle: NodeJS.Timeout | null = null;
+let corporateInvoiceIntervalHandle: NodeJS.Timeout | null = null;
 
 /**
  * Starts the recurring jobs this reference backend actually needs running:
@@ -101,6 +103,14 @@ export function startBackgroundJobs(): void {
       console.error('Unexpected error in job scheduler:', err);
     });
   }, 86400000);
+
+  // Monthly corporate invoice generation — runs daily; the sweep itself
+  // only creates invoices for the previous calendar month when missing.
+  corporateInvoiceIntervalHandle = setInterval(() => {
+    runMonitoredJob('corporate_monthly_invoice_sweep', sweepMonthlyCorporateInvoices).catch((err) => {
+      console.error('Unexpected error in job scheduler:', err);
+    });
+  }, 86400000);
 }
 
 export function stopBackgroundJobs(): void {
@@ -123,5 +133,9 @@ export function stopBackgroundJobs(): void {
   if (ledgerIntegrityIntervalHandle) {
     clearInterval(ledgerIntegrityIntervalHandle);
     ledgerIntegrityIntervalHandle = null;
+  }
+  if (corporateInvoiceIntervalHandle) {
+    clearInterval(corporateInvoiceIntervalHandle);
+    corporateInvoiceIntervalHandle = null;
   }
 }
