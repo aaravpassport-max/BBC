@@ -22,6 +22,9 @@ RUN npm ci --omit=dev
 COPY --from=build /app/dist ./dist
 COPY migrations ./migrations
 COPY seed ./seed
+COPY docker-entrypoint.sh ./docker-entrypoint.sh
+
+RUN chmod +x docker-entrypoint.sh
 
 # Runs as a real non-root user — the node:20-slim base image already
 # creates one (uid 1000), this just switches to it rather than running as
@@ -36,7 +39,7 @@ EXPOSE 3000
 # hosting platforms (and `docker compose`'s own healthcheck-aware restart
 # logic) can tell a genuinely broken container apart from one still
 # starting up.
-HEALTHCHECK --interval=15s --timeout=5s --start-period=15s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3000/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/health', (r) => { let d=''; r.on('data',c=>d+=c); r.on('end',()=>process.exit(r.statusCode===200&&d.includes('connected')?0:1)); }).on('error', () => process.exit(1))"
 
-CMD ["node", "dist/server.js"]
+CMD ["/bin/sh", "docker-entrypoint.sh"]

@@ -6,6 +6,7 @@ import { requireAuth } from '../../middleware/auth';
 import { Errors } from '../../utils/errors';
 import { verifyPaymentSignature } from '../wallet/razorpay.provider';
 import { PLANS, purchaseSubscription, getMySubscription, cancelSubscription, attemptRenewal, reactivateSubscription, confirmSubscriptionPayment } from './subscription.service';
+import { isDevRoutesEnabled } from '../../config/env';
 
 export function listSubscriptionPlans() {
   return Object.entries(PLANS).map(([id, plan]) => ({
@@ -68,16 +69,18 @@ subscriptionRouter.post(
   })
 );
 
-subscriptionRouter.post(
-  '/dev/confirm-payment',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    const { gateway_ref, plan_id } = req.body as { gateway_ref?: string; plan_id?: string };
-    if (!gateway_ref || !plan_id) throw Errors.validation({ gateway_ref: 'Required.', plan_id: 'Required.' });
-    const result = await confirmSubscriptionPayment(req.user!.userId, gateway_ref, plan_id);
-    res.status(200).json({ confirmed: true, subscription_id: result.id });
-  })
-);
+if (isDevRoutesEnabled()) {
+  subscriptionRouter.post(
+    '/dev/confirm-payment',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const { gateway_ref, plan_id } = req.body as { gateway_ref?: string; plan_id?: string };
+      if (!gateway_ref || !plan_id) throw Errors.validation({ gateway_ref: 'Required.', plan_id: 'Required.' });
+      const result = await confirmSubscriptionPayment(req.user!.userId, gateway_ref, plan_id);
+      res.status(200).json({ confirmed: true, subscription_id: result.id });
+    })
+  );
+}
 
 subscriptionRouter.get(
   '/me',
@@ -106,13 +109,15 @@ subscriptionRouter.post(
   })
 );
 
-// Dev-only manual trigger, standing in for the real scheduled renewal job (PRD 19A.1).
-subscriptionRouter.post(
-  '/dev/attempt-renewal/:id',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    const { simulate_success } = req.body;
-    const result = await attemptRenewal(req.params.id as string, !!simulate_success);
-    res.status(200).json(result);
-  })
-);
+// Dev-only manual trigger — not registered in production.
+if (isDevRoutesEnabled()) {
+  subscriptionRouter.post(
+    '/dev/attempt-renewal/:id',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const { simulate_success } = req.body;
+      const result = await attemptRenewal(req.params.id as string, !!simulate_success);
+      res.status(200).json(result);
+    })
+  );
+}

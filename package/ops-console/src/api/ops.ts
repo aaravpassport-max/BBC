@@ -31,6 +31,9 @@ export interface SosEvent {
   auto_escalated: boolean;
   booking_status: string;
   pickup_address_snapshot: Record<string, unknown>;
+  driver_lat?: number | null;
+  driver_lng?: number | null;
+  driver_last_ping?: string | null;
 }
 
 export function getSosQueue() {

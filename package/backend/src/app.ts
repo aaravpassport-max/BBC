@@ -28,6 +28,7 @@ import { userRouter } from './modules/user/user.routes';
 import { geoRouter } from './modules/geo/geo.routes';
 import { loyaltyRouter } from './modules/loyalty/loyalty.routes';
 import { financeRouter } from './modules/finance/finance.routes';
+import { pool } from './db/pool';
 
 dotenv.config();
 
@@ -36,7 +37,15 @@ export function createApp() {
 
   app.use(helmet());
   const corsOrigins = process.env.CORS_ORIGIN?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
-  app.use(cors(corsOrigins.length > 0 ? { origin: corsOrigins } : undefined));
+  if (process.env.NODE_ENV === 'production') {
+    if (corsOrigins.length === 0) {
+      app.use(cors({ origin: false }));
+    } else {
+      app.use(cors({ origin: corsOrigins }));
+    }
+  } else {
+    app.use(cors(corsOrigins.length > 0 ? { origin: corsOrigins } : undefined));
+  }
 
   // Razorpay webhook HMAC must be computed over the raw request body.
   app.use(
@@ -73,8 +82,13 @@ export function createApp() {
     app.use(generalLimiter);
   }
 
-  app.get('/health', (_req, res) => {
-    res.status(200).json({ status: 'ok' });
+  app.get('/health', async (_req, res) => {
+    try {
+      await pool.query('SELECT 1');
+      res.status(200).json({ status: 'ok', database: 'connected' });
+    } catch {
+      res.status(503).json({ status: 'degraded', database: 'disconnected' });
+    }
   });
 
   const uploadDir = process.env.UPLOAD_DIR || path.join(process.cwd(), 'uploads');

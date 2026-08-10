@@ -14,6 +14,7 @@ import { submitRating } from './ratings.service';
 import { verifyPaymentSignature } from '../wallet/razorpay.provider';
 import * as commsProvider from '../comms/comms.provider';
 import { pool } from '../../db/pool';
+import { isDevRoutesEnabled } from '../../config/env';
 
 const createBookingSchema = z.object({
   quote_id: z.string().uuid(),
@@ -140,16 +141,18 @@ bookingRouter.post(
   })
 );
 
-bookingRouter.post(
-  '/:id/dev/confirm-payment',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    const { gateway_ref } = req.body as { gateway_ref?: string };
-    if (!gateway_ref) throw Errors.validation({ gateway_ref: 'Required.' });
-    const result = await confirmTripPaymentAsCustomer(req.user!.userId, gateway_ref);
-    res.status(200).json({ confirmed: true, booking_id: result.bookingId });
-  })
-);
+if (isDevRoutesEnabled()) {
+  bookingRouter.post(
+    '/:id/dev/confirm-payment',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const { gateway_ref } = req.body as { gateway_ref?: string };
+      if (!gateway_ref) throw Errors.validation({ gateway_ref: 'Required.' });
+      const result = await confirmTripPaymentAsCustomer(req.user!.userId, gateway_ref);
+      res.status(200).json({ confirmed: true, booking_id: result.bookingId });
+    })
+  );
+}
 
 bookingRouter.get(
   '/:id/invoice.pdf',

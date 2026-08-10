@@ -39,6 +39,7 @@ import {
   getEarningsSummary,
 } from './driver.service';
 import { runDispatchCycle } from './dispatch.service';
+import { isDevRoutesEnabled } from '../../config/env';
 import { verifyPickupOtp, completeStop, arriveAtPickup, arriveAtStop, collectTripPayment } from './trip.service';
 import { getActiveDriverIncentives } from './incentive.service';
 import { getDemandHeatmap } from './heatmap.service';
@@ -350,13 +351,14 @@ driverRouter.post(
   })
 );
 
-// Dev-only manual trigger, standing in for the real event-bus consumer that
-// would call runDispatchCycle automatically on BookingCreated (PRD Section 22).
-driverRouter.post(
-  '/dev/trigger-dispatch/:bookingId',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    const result = await runDispatchCycle(req.params.bookingId as string);
-    res.status(200).json(result);
-  })
-);
+// Dev-only manual trigger — not registered in production.
+if (isDevRoutesEnabled()) {
+  driverRouter.post(
+    '/dev/trigger-dispatch/:bookingId',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const result = await runDispatchCycle(req.params.bookingId as string);
+      res.status(200).json(result);
+    })
+  );
+}

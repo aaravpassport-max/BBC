@@ -17,6 +17,7 @@ import { verifyPaymentSignature, verifyWebhookSignature } from './razorpay.provi
 import { confirmTripPayment } from '../booking/payment.service';
 import { runDispatchCycle } from '../driver/dispatch.service';
 import { pool } from '../../db/pool';
+import { isDevRoutesEnabled } from '../../config/env';
 
 const addMoneySchema = z.object({
   amount: z.number().positive(),
@@ -131,21 +132,18 @@ walletRouter.post(
   })
 );
 
-// Dev-only helper route standing in for the real gateway webhook when
-// Razorpay isn't configured — never exposed like this in production,
-// where /webhook above (unauthenticated, signature-verified) is the real
-// path. Kept behind requireAuth specifically so it can reuse the
-// ownership-checked confirmTopUpAsCustomer rather than trusting a
-// caller-supplied identity.
-walletRouter.post(
-  '/dev/simulate-webhook',
-  requireAuth,
-  asyncHandler(async (req, res) => {
-    const { gateway_ref } = req.body;
-    await confirmTopUpAsCustomer(req.user!.userId, gateway_ref);
-    res.status(200).json({ confirmed: true });
-  })
-);
+// Dev-only helper route — not registered in production (see config/env.ts).
+if (isDevRoutesEnabled()) {
+  walletRouter.post(
+    '/dev/simulate-webhook',
+    requireAuth,
+    asyncHandler(async (req, res) => {
+      const { gateway_ref } = req.body;
+      await confirmTopUpAsCustomer(req.user!.userId, gateway_ref);
+      res.status(200).json({ confirmed: true });
+    })
+  );
+}
 
 const savePaymentMethodSchema = z.object({
   method_type: z.enum(['card', 'upi']),

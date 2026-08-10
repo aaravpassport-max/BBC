@@ -27,8 +27,10 @@ export function SosQueuePage() {
     }
   }, []);
 
-  useOpsRealtime(() => {
-    void refresh();
+  useOpsRealtime((msg) => {
+    if (msg.event === 'sos.triggered' || msg.event === 'sos.escalated' || msg.event === 'sos.location') {
+      void refresh();
+    }
   });
 
   useEffect(() => {
@@ -163,8 +165,19 @@ export function SosQueuePage() {
               </div>
 
               {e.trigger_lat && e.trigger_lng && (
-                <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: 12 }}>
-                  {e.trigger_lat.toFixed(5)}, {e.trigger_lng.toFixed(5)}
+                <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)', marginBottom: 8 }}>
+                  Trigger: {e.trigger_lat.toFixed(5)}, {e.trigger_lng.toFixed(5)}
+                </div>
+              )}
+              {e.driver_lat != null && e.driver_lng != null && (
+                <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--danger)', marginBottom: 12, fontWeight: 600 }}>
+                  Live driver: {e.driver_lat.toFixed(5)}, {e.driver_lng.toFixed(5)}
+                  {e.driver_last_ping && (
+                    <span style={{ color: 'var(--text-muted)', fontWeight: 400 }}>
+                      {' '}
+                      · ping {new Date(e.driver_last_ping).toLocaleTimeString()}
+                    </span>
+                  )}
                 </div>
               )}
 

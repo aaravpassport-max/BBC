@@ -2,9 +2,11 @@ import { createServer } from 'http';
 import { createApp } from './app';
 import { startBackgroundJobs } from './jobs/scheduler';
 import { assertTestOtpConfigSafe } from './modules/auth/otp-test';
+import { assertProductionConfig } from './config/production';
 import { attachRealtimeServer } from './modules/realtime/realtime.hub';
 
 assertTestOtpConfigSafe();
+assertProductionConfig();
 
 const app = createApp();
 const server = createServer(app);

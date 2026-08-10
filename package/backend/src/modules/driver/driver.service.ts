@@ -111,6 +111,26 @@ export async function updateDriverLocation(
     on_trip: (active.rowCount ?? 0) > 0,
     booking_id: active.rowCount ? (active.rows[0].id as string) : null,
   });
+
+  const activeSos = await pool.query(
+    `SELECT se.id, se.booking_id FROM sos_events se
+     JOIN bookings b ON b.id = se.booking_id
+     WHERE b.driver_id = $1 AND se.status IN ('triggered', 'acknowledged')
+       AND b.status IN ('driver_assigned', 'in_progress')
+     LIMIT 1`,
+    [driverId]
+  );
+  if (activeSos.rowCount && activeSos.rowCount > 0) {
+    broadcastOpsEvent({
+      event: 'sos.location',
+      sos_id: activeSos.rows[0].id,
+      booking_id: activeSos.rows[0].booking_id,
+      driver_id: driverId,
+      lat,
+      lng,
+      at: new Date().toISOString(),
+    });
+  }
 }
 
 /**

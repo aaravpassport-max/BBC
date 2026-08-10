@@ -182,6 +182,7 @@ export function HomePage() {
                         onChange={(loc) => updateDrop(idx, loc)}
                         savedAddresses={savedAddresses}
                         onPickOnMap={() => setMapTarget(idx)}
+                        searchBias={pickup ? { lat: pickup.lat, lng: pickup.lng } : undefined}
                       />
                     </div>
                     {drops.length > 1 && (

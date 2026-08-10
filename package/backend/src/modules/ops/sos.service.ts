@@ -1,6 +1,7 @@
 import { pool } from '../../db/pool';
 import { Errors } from '../../utils/errors';
 import { broadcastOpsEvent, broadcastBookingEvent } from '../realtime/realtime.hub';
+import { sendNotification, deriveEventId } from '../notifications/notifications.service';
 
 /**
  * Triggers an SOS event from an active booking (PRD 10A.1). Either the
@@ -44,7 +45,7 @@ export async function triggerSos(params: {
 
   const sosId = result.rows[0].id as string;
 
-  broadcastOpsEvent({ event: 'sos.triggered', sos_id: sosId, booking_id: bookingId, role });
+  broadcastOpsEvent({ event: 'sos.triggered', sos_id: sosId, booking_id: bookingId, role, lat, lng });
   broadcastBookingEvent(bookingId, { event: 'sos.triggered', sos_id: sosId });
 
   return { id: sosId };
@@ -57,9 +58,11 @@ export async function getSosQueue() {
     `SELECT se.id, se.booking_id, se.triggered_by_role, se.trigger_lat, se.trigger_lng,
             se.status, se.acknowledged_at, se.created_at,
             se.escalated_at, se.auto_escalated,
-            b.status AS booking_status, b.pickup_address_snapshot
+            b.status AS booking_status, b.pickup_address_snapshot, b.driver_id,
+            dp.current_lat AS driver_lat, dp.current_lng AS driver_lng, dp.last_ping_at AS driver_last_ping
      FROM sos_events se
      JOIN bookings b ON b.id = se.booking_id
+     LEFT JOIN driver_profiles dp ON dp.user_id = b.driver_id
      WHERE se.status != 'resolved'
      ORDER BY (se.status = 'triggered') DESC, se.created_at ASC`
   );
@@ -120,6 +123,42 @@ export async function resolveSos(params: {
 
 const AUTO_ESCALATE_THRESHOLD_SECONDS = 30; // PRD 10A.1: "e.g., 30s"
 
+async function notifySafetyTeam(params: {
+  sosId: string;
+  bookingId: string;
+  templateId: string;
+  eventKey: string;
+}): Promise<void> {
+  const { sosId, bookingId, templateId, eventKey } = params;
+  const recipients = await pool.query(
+    `SELECT DISTINCT u.id FROM users u
+     JOIN user_roles ur ON ur.user_id = u.id
+     JOIN role_permissions rp ON rp.role_id = ur.role_id
+     JOIN permissions p ON p.id = rp.permission_id
+     WHERE p.resource = 'ops' AND p.action = 'sos_escalate'`
+  );
+
+  for (const row of recipients.rows) {
+    const userId = row.id as string;
+    void sendNotification({
+      eventId: deriveEventId(`${eventKey}:${sosId}:${userId}`),
+      userId,
+      category: 'sos',
+      channel: 'push',
+      templateId,
+    }).catch(() => undefined);
+    void sendNotification({
+      eventId: deriveEventId(`${eventKey}:sms:${sosId}:${userId}`),
+      userId,
+      category: 'sos',
+      channel: 'sms',
+      templateId: `${templateId}_sms`,
+    }).catch(() => undefined);
+  }
+
+  broadcastOpsEvent({ event: 'sos.escalated', sos_id: sosId, booking_id: bookingId, template: templateId });
+}
+
 /**
  * Manual "Escalate to Safety Team Lead" action (PRD 10A.1 layout — one of
  * the one-tap actions on the alert). Deliberately gated by a SEPARATE
@@ -141,6 +180,16 @@ export async function escalateSos(id: string, escalatedBy: string): Promise<void
   if (result.rowCount === 0) {
     throw Errors.validation({ sos: 'This SOS event was not found or is already resolved.' });
   }
+
+  const row = await pool.query(`SELECT booking_id FROM sos_events WHERE id = $1`, [id]);
+  if (row.rowCount) {
+    await notifySafetyTeam({
+      sosId: id,
+      bookingId: row.rows[0].booking_id as string,
+      templateId: 'sos_manual_escalation',
+      eventKey: 'sos:manual_escalate',
+    });
+  }
 }
 
 /**
@@ -158,12 +207,17 @@ export async function sweepUnacknowledgedSos(): Promise<number> {
     `UPDATE sos_events SET auto_escalated = true, escalated_at = now()
      WHERE status = 'triggered' AND auto_escalated = false
        AND created_at < now() - interval '${AUTO_ESCALATE_THRESHOLD_SECONDS} seconds'
-     RETURNING id`
+     RETURNING id, booking_id`
   );
-  // A real deployment would fire the "distinct louder/broader alert tier"
-  // here (e.g., an SMS to a safety-team distribution list) — this
-  // reference backend has no SMS provider (see the README's dev-only-
-  // substitutes list); the auto_escalated flag itself is what the Control
-  // Room UI surfaces instead.
+
+  for (const row of result.rows) {
+    await notifySafetyTeam({
+      sosId: row.id as string,
+      bookingId: row.booking_id as string,
+      templateId: 'sos_auto_escalation',
+      eventKey: 'sos:auto_escalate',
+    });
+  }
+
   return result.rowCount || 0;
 }
