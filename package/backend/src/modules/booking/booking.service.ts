@@ -4,6 +4,7 @@ import { Errors } from '../../utils/errors';
 import { redeemCoupon } from '../pricing/coupon.service';
 import { reserveCorporateSpend, releaseReservationInTransaction, checkPerUserMonthlyCap } from '../corporate/corporate.service';
 import { sendNotification, deriveEventId } from '../notifications/notifications.service';
+import { debitCustomerForBooking, debitCustomerCancellationFee } from '../wallet/wallet.service';
 
 export async function createBooking(params: {
   customerId: string;
@@ -213,6 +214,20 @@ export async function createBooking(params: {
       ]);
     }
 
+    const fareAmount = (quote.fare_breakdown as { final_fare: number }).final_fare;
+
+    if (paymentMethod === 'wallet') {
+      await debitCustomerForBooking(client, { customerId, bookingId, amount: fareAmount });
+    }
+
+    if (paymentMethod === 'card' || paymentMethod === 'upi') {
+      await client.query(
+        `INSERT INTO payments (gateway_ref, status, amount, method, customer_id)
+         VALUES ($1, 'succeeded', $2, $3, $4)`,
+        [`trip_${bookingId}`, fareAmount, paymentMethod, customerId]
+      );
+    }
+
     // In a full implementation, this is where a `BookingCreated` event (PRD
     // Section 22) is published, which the Dispatch Engine consumes to begin
     // the offer sequence (PRD Section 4) — modeled as a direct call here for
@@ -279,10 +294,9 @@ export async function cancelBooking(params: {
       await releaseReservationInTransaction(client, bookingId);
     }
 
-    // Fee charge failure must never block the cancellation itself (PRD 2A.1
-    // rule) — in a full implementation, the actual wallet debit for feeAmount
-    // happens here via the wallet service, wrapped so its failure only marks
-    // an outstanding balance rather than rolling back this transaction.
+    if (feeAmount > 0) {
+      await debitCustomerCancellationFee(client, { customerId, bookingId, amount: feeAmount });
+    }
 
     return { feeCharged: feeAmount > 0, feeAmount, driverId: booking.driver_id as string | null };
   }).then((result) => {

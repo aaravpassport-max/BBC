@@ -109,6 +109,10 @@ export function getNotificationInbox() {
   return api.get<InboxNotification[]>('/v1/notifications/inbox');
 }
 
+export function registerDeviceToken(platform: 'android' | 'ios' | 'web', token: string) {
+  return api.post<{ registered: boolean }>('/v1/notifications/device-tokens', { platform, token });
+}
+
 // ---------- Subscriptions ----------
 
 export interface Subscription {

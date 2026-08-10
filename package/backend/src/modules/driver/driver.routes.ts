@@ -160,6 +160,15 @@ const registerVehicleSchema = z.object({
   plate_number: z.string().min(1).max(20),
 });
 
+driverRouter.get(
+  '/vehicles',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const profile = await getDriverPartnerProfile(req.user!.userId);
+    res.status(200).json(profile.vehicle);
+  })
+);
+
 // PRD 3.2 step 4 / Section A.2 Vehicle Management
 driverRouter.post(
   '/vehicles',

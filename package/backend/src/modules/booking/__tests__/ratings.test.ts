@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { createApp } from '../../../app';
 import { pool } from '../../../db/pool';
-import { loginAsNewUser, randomPhone } from '../../../test-utils/helpers';
+import { loginAsFundedUser, randomPhone } from '../../../test-utils/helpers';
 import { assertReferenceSeedPresent, createOnlineEligibleDriver, samplePickupDrop } from '../../../test-utils/seed';
 
 const app = createApp();
@@ -21,8 +21,8 @@ async function setUpCompletedTrip() {
   await pool.query(`UPDATE driver_profiles SET online_status = false`); // test isolation, see trip.test.ts's note
   const driverId = await createOnlineEligibleDriver({ phone: randomPhone() });
   const driverPhone = (await pool.query('SELECT phone FROM users WHERE id = $1', [driverId])).rows[0].phone;
-  const driver = await loginAsNewUser(app, driverPhone);
-  const customer = await loginAsNewUser(app);
+  const driver = await loginAsFundedUser(app, driverPhone);
+  const customer = await loginAsFundedUser(app);
 
   const quoteRes = await request(app)
     .post('/v1/pricing/quote')
@@ -109,7 +109,7 @@ describe('Ratings: bidirectional submission and tamper protection (PRD 17B.1)', 
 
   it('rejects a rating from someone who is not a party to the booking (tamper protection)', async () => {
     const trip = await setUpCompletedTrip();
-    const outsider = await loginAsNewUser(app);
+    const outsider = await loginAsFundedUser(app);
     const res = await request(app)
       .post(`/v1/bookings/${trip.bookingId}/rate`)
       .set('Authorization', `Bearer ${outsider.accessToken}`)
@@ -121,8 +121,8 @@ describe('Ratings: bidirectional submission and tamper protection (PRD 17B.1)', 
     await pool.query(`UPDATE driver_profiles SET online_status = false`);
     const driverId = await createOnlineEligibleDriver({ phone: randomPhone() });
     const driverPhone = (await pool.query('SELECT phone FROM users WHERE id = $1', [driverId])).rows[0].phone;
-    await loginAsNewUser(app, driverPhone);
-    const customer = await loginAsNewUser(app);
+    await loginAsFundedUser(app, driverPhone);
+    const customer = await loginAsFundedUser(app);
 
     const quoteRes = await request(app)
       .post('/v1/pricing/quote')

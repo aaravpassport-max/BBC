@@ -57,3 +57,41 @@ export async function loginAsNewUser(
     isNewUser: verifyRes.body.is_new_user,
   };
 }
+
+/** Funds a customer wallet via the dev simulate-webhook path (test environments only). */
+export async function fundCustomerWallet(app: Express, accessToken: string, amount: number): Promise<void> {
+  const topUp = await request(app)
+    .post('/v1/wallet/add-money')
+    .set('Authorization', `Bearer ${accessToken}`)
+    .send({ amount, payment_method_id: 'test' });
+
+  if (topUp.status !== 202) {
+    throw new Error(`Wallet top-up failed: ${JSON.stringify(topUp.body)}`);
+  }
+
+  const gatewayRef = (topUp.body.gateway_session as { gateway_ref?: string }).gateway_ref;
+  if (!gatewayRef) {
+    throw new Error('No gateway_ref in simulated top-up response.');
+  }
+
+  const confirm = await request(app)
+    .post('/v1/wallet/dev/simulate-webhook')
+    .set('Authorization', `Bearer ${accessToken}`)
+    .send({ gateway_ref: gatewayRef });
+
+  if (confirm.status !== 200) {
+    throw new Error(`Wallet confirm failed: ${JSON.stringify(confirm.body)}`);
+  }
+}
+
+/** Login helper that pre-funds the wallet for booking/subscription tests. */
+export async function loginAsFundedUser(
+  app: Express,
+  phone: string = randomPhone(),
+  deviceId?: string,
+  walletAmount = 10000
+): Promise<{ accessToken: string; userId: string; phone: string; isNewUser: boolean }> {
+  const session = await loginAsNewUser(app, phone, deviceId);
+  await fundCustomerWallet(app, session.accessToken, walletAmount);
+  return session;
+}

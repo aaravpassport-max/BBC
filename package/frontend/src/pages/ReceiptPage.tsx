@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
-import { getBooking, getErrorMessage, type Booking } from '../api';
+import { getBooking, getProfile, getErrorMessage, type Booking } from '../api';
 import { BRAND } from '../constants/brand';
 import { Skeleton } from '../components/Skeleton';
 
@@ -25,12 +25,18 @@ export function ReceiptPage() {
   const { bookingId } = useParams<{ bookingId: string }>();
   const navigate = useNavigate();
   const [booking, setBooking] = useState<Booking | null>(null);
+  const [gstin, setGstin] = useState<string | null>(null);
+  const [businessName, setBusinessName] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (!bookingId) return;
-    getBooking(bookingId)
-      .then(setBooking)
+    Promise.all([getBooking(bookingId), getProfile()])
+      .then(([b, profile]) => {
+        setBooking(b);
+        setGstin(profile.gstin);
+        setBusinessName(profile.business_name);
+      })
       .catch((err) => setError(getErrorMessage(err, 'Could not load this receipt.')));
   }, [bookingId]);
 
@@ -127,6 +133,13 @@ export function ReceiptPage() {
               <div>{date.toLocaleDateString()}</div>
             </div>
           </div>
+
+          {(businessName || gstin) && (
+            <div style={{ fontSize: 13, marginBottom: 16, padding: '10px 12px', background: 'var(--bg)', borderRadius: 8 }}>
+              {businessName && <div style={{ fontWeight: 600 }}>{businessName}</div>}
+              {gstin && <div style={{ color: 'var(--text-muted)', marginTop: 4 }}>GSTIN: {gstin}</div>}
+            </div>
+          )}
 
           <div style={{ borderTop: '1px dashed var(--border)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <ReceiptLine label="Base fare" value={money(fb.base_fare)} />

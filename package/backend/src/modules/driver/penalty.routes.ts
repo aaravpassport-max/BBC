@@ -10,6 +10,7 @@ import {
   listPenalties,
   disputePenalty,
   resolvePenaltyDispute,
+  listAdminPenalties,
 } from './penalty.service';
 import { getTransactionHistory } from '../wallet/wallet.service';
 
@@ -92,6 +93,17 @@ penaltyRouter.post(
 );
 
 // Admin-only (PRD Section 22 RBAC) — issuing and resolving penalties.
+penaltyRouter.get(
+  '/admin/penalties',
+  requireAuth,
+  requirePermission('driver', 'suspend'),
+  asyncHandler(async (req, res) => {
+    const status = req.query.status as string | undefined;
+    const penalties = await listAdminPenalties(status);
+    res.status(200).json(penalties);
+  })
+);
+
 penaltyRouter.post(
   '/admin/penalties',
   requireAuth,

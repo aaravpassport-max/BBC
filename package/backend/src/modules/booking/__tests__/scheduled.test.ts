@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { createApp } from '../../../app';
 import { pool } from '../../../db/pool';
-import { loginAsNewUser } from '../../../test-utils/helpers';
+import { loginAsFundedUser } from '../../../test-utils/helpers';
 import { samplePickupDrop } from '../../../test-utils/seed';
 import { sweepScheduledBookings } from '../../driver/dispatch.service';
 
@@ -25,7 +25,7 @@ function futureIso(minutesFromNow: number): string {
 
 describe('Scheduled bookings: creation (P1 gap-analysis item)', () => {
   it('a booking with no scheduled_for still enters SEARCHING immediately — unchanged instant-booking behavior', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const quoteId = await getQuoteId(accessToken);
     const res = await request(app)
       .post('/v1/bookings')
@@ -37,7 +37,7 @@ describe('Scheduled bookings: creation (P1 gap-analysis item)', () => {
   });
 
   it('a booking with a valid future scheduled_for enters SCHEDULED, not SEARCHING', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const quoteId = await getQuoteId(accessToken);
     const res = await request(app)
       .post('/v1/bookings')
@@ -52,7 +52,7 @@ describe('Scheduled bookings: creation (P1 gap-analysis item)', () => {
   });
 
   it('rejects a scheduled_for less than the minimum lead time away', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const quoteId = await getQuoteId(accessToken);
     const res = await request(app)
       .post('/v1/bookings')
@@ -63,7 +63,7 @@ describe('Scheduled bookings: creation (P1 gap-analysis item)', () => {
   });
 
   it('rejects a scheduled_for in the past', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const quoteId = await getQuoteId(accessToken);
     const res = await request(app)
       .post('/v1/bookings')
@@ -74,7 +74,7 @@ describe('Scheduled bookings: creation (P1 gap-analysis item)', () => {
   });
 
   it('rejects a scheduled_for too far in the future', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const quoteId = await getQuoteId(accessToken);
     const res = await request(app)
       .post('/v1/bookings')
@@ -85,7 +85,7 @@ describe('Scheduled bookings: creation (P1 gap-analysis item)', () => {
   });
 
   it('a scheduled booking can be cancelled with no fee, same as an un-dispatched instant booking', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const quoteId = await getQuoteId(accessToken);
     const created = await request(app)
       .post('/v1/bookings')
@@ -104,7 +104,7 @@ describe('Scheduled bookings: creation (P1 gap-analysis item)', () => {
 
 describe('Scheduled bookings: the real dispatch trigger job (previously — before this pass — nothing ever transitioned a scheduled booking out of that status)', () => {
   it('does nothing to a booking whose scheduled time is still far away', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const quoteId = await getQuoteId(accessToken);
     const created = await request(app)
       .post('/v1/bookings')
@@ -119,7 +119,7 @@ describe('Scheduled bookings: the real dispatch trigger job (previously — befo
   });
 
   it('transitions a booking into real dispatch once it enters the lead-time window', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const quoteId = await getQuoteId(accessToken);
     const created = await request(app)
       .post('/v1/bookings')
@@ -139,7 +139,7 @@ describe('Scheduled bookings: the real dispatch trigger job (previously — befo
   });
 
   it('is idempotent — running it twice never dispatches the same booking twice', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const quoteId = await getQuoteId(accessToken);
     const created = await request(app)
       .post('/v1/bookings')

@@ -22,3 +22,8 @@ export const demoLoginSchema = z.object({
   country_code: z.string().min(2).max(5),
   device_id: z.string().min(1),
 });
+
+export const refreshTokenSchema = z.object({
+  refresh_token: z.string().min(1),
+  device_id: z.string().min(1),
+});

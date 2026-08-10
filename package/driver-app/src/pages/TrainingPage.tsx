@@ -99,21 +99,25 @@ export function TrainingPage() {
           Watch the safety and platform-policy video before you can take the quiz. ({status.video_watched_pct}%
           watched)
         </p>
-        <div
-          style={{
-            aspectRatio: '16/9',
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 12,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--text-muted)',
-            fontSize: 13,
+        <video
+          controls
+          style={{ width: '100%', borderRadius: 12, background: '#000' }}
+          onTimeUpdate={(e) => {
+            const video = e.currentTarget;
+            if (!video.duration) return;
+            const pct = Math.min(100, Math.round((video.currentTime / video.duration) * 100));
+            if (pct > (status.video_watched_pct || 0) && pct % 10 === 0) {
+              void updateTrainingProgress(pct).then(setStatus).catch(() => undefined);
+            }
           }}
+          onEnded={() => void handleWatchVideo()}
         >
-          Training video player
-        </div>
+          <source src="https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4" type="video/mp4" />
+          Your browser does not support video playback.
+        </video>
+        <p style={{ color: 'var(--text-muted)', fontSize: 12, marginTop: 8 }}>
+          Watch the full video to unlock the quiz. ({status.video_watched_pct}% watched)
+        </p>
         {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
         <Button onClick={handleWatchVideo}>Mark video as watched</Button>
       </Screen>

@@ -129,9 +129,34 @@ export async function sendNotification(params: {
 
   // Real send (SMS/push provider API call) would happen here; this reference
   // implementation logs instead, same testability seam as auth.service's OTP.
-  console.log(`[DEV ONLY] Notification sent: user=${userId} category=${category} channel=${channel} template=${templateId}`);
+  const tokens = await pool.query(`SELECT token, platform FROM device_tokens WHERE user_id = $1`, [userId]);
+  if (channel === 'push' && tokens.rowCount && tokens.rowCount > 0) {
+    console.log(
+      `[DEV ONLY] Push to ${tokens.rowCount} device(s): user=${userId} template=${templateId} tokens=${tokens.rows.map((t) => t.platform).join(',')}`
+    );
+  } else {
+    console.log(`[DEV ONLY] Notification sent: user=${userId} category=${category} channel=${channel} template=${templateId}`);
+  }
 
   return { sent: true };
+}
+
+export async function registerDeviceToken(params: {
+  userId: string;
+  platform: string;
+  token: string;
+}): Promise<void> {
+  const { userId, platform, token } = params;
+  await pool.query(
+    `INSERT INTO device_tokens (user_id, platform, token, updated_at)
+     VALUES ($1, $2, $3, now())
+     ON CONFLICT (user_id, token) DO UPDATE SET platform = $2, updated_at = now()`,
+    [userId, platform, token]
+  );
+}
+
+export async function unregisterDeviceToken(params: { userId: string; token: string }): Promise<void> {
+  await pool.query(`DELETE FROM device_tokens WHERE user_id = $1 AND token = $2`, [params.userId, params.token]);
 }
 
 export async function getInbox(userId: string) {

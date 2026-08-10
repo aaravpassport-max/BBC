@@ -1,5 +1,6 @@
 import { pool, withTransaction } from '../../db/pool';
 import { Errors } from '../../utils/errors';
+import { debitCustomerForSubscription } from '../wallet/wallet.service';
 
 // PRD 19A.1 — config-driven plan catalog, fixed here for the reference implementation.
 export const PLANS: Record<string, { monthlyFee: number; waivesPlatformFee: boolean; surgeExempt: boolean }> = {
@@ -22,6 +23,9 @@ export async function purchaseSubscription(userId: string, planId: string): Prom
     if (existing.rowCount && existing.rowCount > 0) {
       throw Errors.validation({ subscription: 'You already have an active subscription.' });
     }
+
+    const plan = PLANS[planId];
+    await debitCustomerForSubscription(client, { customerId: userId, amount: plan.monthlyFee });
 
     const result = await client.query(
       `INSERT INTO subscriptions (user_id, plan_id, status, current_period_start, current_period_end, payment_method_id)
@@ -83,6 +87,11 @@ export async function attemptRenewal(
     }
 
     if (simulateSuccess) {
+      const plan = PLANS[sub.plan_id];
+      if (!plan) {
+        throw Errors.validation({ plan_id: 'Unknown subscription plan.' });
+      }
+      await debitCustomerForSubscription(client, { customerId: sub.user_id, amount: plan.monthlyFee });
       await client.query(
         `UPDATE subscriptions
          SET status = 'active', current_period_start = now(), current_period_end = now() + interval '30 days',
@@ -158,4 +167,33 @@ export async function getActiveSubscriptionBenefit(
   if (result.rowCount === 0) return null;
   const plan = PLANS[result.rows[0].plan_id];
   return plan ? { waivesPlatformFee: plan.waivesPlatformFee, surgeExempt: plan.surgeExempt } : null;
+}
+
+/**
+ * Background job: finds subscriptions past current_period_end and attempts
+ * renewal (wallet charge). Returns count of subscriptions processed.
+ */
+export async function sweepSubscriptionRenewals(): Promise<number> {
+  const due = await pool.query(
+    `SELECT id FROM subscriptions
+     WHERE status IN ('active', 'grace_period')
+       AND current_period_end <= now()
+     ORDER BY current_period_end ASC
+     LIMIT 50`
+  );
+  let processed = 0;
+  for (const row of due.rows) {
+    try {
+      await attemptRenewal(row.id, true);
+      processed++;
+    } catch {
+      try {
+        await attemptRenewal(row.id, false);
+        processed++;
+      } catch {
+        // logged by attemptRenewal's caller in production; skip here
+      }
+    }
+  }
+  return processed;
 }

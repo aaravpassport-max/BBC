@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { createApp } from '../../../app';
 import { pool } from '../../../db/pool';
-import { loginAsNewUser, randomPhone } from '../../../test-utils/helpers';
+import { loginAsFundedUser, randomPhone } from '../../../test-utils/helpers';
 import {
   assertReferenceSeedPresent,
   createCoupon,
@@ -32,7 +32,7 @@ async function getQuote(token: string, couponCode?: string) {
 
 describe('Booking: idempotency (PRD 2.2.6 hard requirement)', () => {
   it('the same Idempotency-Key returns the SAME booking on a duplicate request, never creates two', async () => {
-    const { accessToken, userId } = await loginAsNewUser(app);
+    const { accessToken, userId } = await loginAsFundedUser(app);
     const quote = await getQuote(accessToken);
     const idempotencyKey = `idem-${crypto.randomUUID()}`;
 
@@ -57,7 +57,7 @@ describe('Booking: idempotency (PRD 2.2.6 hard requirement)', () => {
   });
 
   it('a quote can only be used for ONE booking — reuse with a different idempotency key is rejected', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const quote = await getQuote(accessToken);
 
     const first = await request(app)
@@ -77,7 +77,7 @@ describe('Booking: idempotency (PRD 2.2.6 hard requirement)', () => {
   });
 
   it('rejects booking creation without an Idempotency-Key header', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const quote = await getQuote(accessToken);
 
     const res = await request(app)
@@ -90,7 +90,7 @@ describe('Booking: idempotency (PRD 2.2.6 hard requirement)', () => {
 
 describe('Booking: cancellation (PRD 2A.1)', () => {
   it('cancelling twice returns ALREADY_CANCELLED on the second attempt, not a duplicate cancellation', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const quote = await getQuote(accessToken);
     const booking = await request(app)
       .post('/v1/bookings')
@@ -118,8 +118,8 @@ describe('Booking: coupon redemption race (PRD 15A.1 hard concurrency requiremen
     const couponCode = `RACE${Date.now()}`;
     const couponId = await createCoupon({ code: couponCode, discountValue: 10, globalLimit: 1 });
 
-    const cust1 = await loginAsNewUser(app);
-    const cust2 = await loginAsNewUser(app);
+    const cust1 = await loginAsFundedUser(app);
+    const cust2 = await loginAsFundedUser(app);
 
     const [q1, q2] = await Promise.all([getQuote(cust1.accessToken, couponCode), getQuote(cust2.accessToken, couponCode)]);
     expect(q1.fare_breakdown.coupon_discount).toBe(10);
@@ -168,15 +168,15 @@ describe('Booking: corporate credit-limit race (PRD 14A.1 hard concurrency requi
     // (silently, since nothing re-derives it) when the exact distance/fare
     // formula changed elsewhere in the codebase; deriving it from an
     // actual quote call means this test can never drift from reality.
-    const probeEmployee = await loginAsNewUser(app);
+    const probeEmployee = await loginAsFundedUser(app);
     const probeQuote = await getQuote(probeEmployee.accessToken);
     const singleFare = probeQuote.fare_breakdown.final_fare;
     const tightLimit = singleFare * 1.5; // room for exactly one, never two
 
     const accountId = await createCorporateAccount({ name: `Race Corp ${Date.now()}`, creditLimit: tightLimit });
 
-    const emp1 = await loginAsNewUser(app);
-    const emp2 = await loginAsNewUser(app);
+    const emp1 = await loginAsFundedUser(app);
+    const emp2 = await loginAsFundedUser(app);
     await addCorporateEmployee({ accountId, userId: emp1.userId, email: `${emp1.phone}@test.com` });
     await addCorporateEmployee({ accountId, userId: emp2.userId, email: `${emp2.phone}@test.com` });
 
@@ -222,7 +222,7 @@ describe('Booking: corporate credit-limit race (PRD 14A.1 hard concurrency requi
 
   it('cancelling a reserved corporate booking releases the reservation immediately', async () => {
     const accountId = await createCorporateAccount({ name: `Release Corp ${Date.now()}`, creditLimit: 200 });
-    const emp = await loginAsNewUser(app);
+    const emp = await loginAsFundedUser(app);
     await addCorporateEmployee({ accountId, userId: emp.userId, email: `${emp.phone}@test.com` });
 
     const quote = await getQuote(emp.accessToken);
@@ -250,8 +250,8 @@ describe('Dispatch: no-double-offer guarantee under concurrency (PRD Section 4 h
   it('two bookings dispatched concurrently against a SINGLE online driver: at most one active offer exists for that driver', async () => {
     const driverId = await createOnlineEligibleDriver({ phone: randomPhone() });
 
-    const cust1 = await loginAsNewUser(app);
-    const cust2 = await loginAsNewUser(app);
+    const cust1 = await loginAsFundedUser(app);
+    const cust2 = await loginAsFundedUser(app);
     const [q1, q2] = await Promise.all([getQuote(cust1.accessToken), getQuote(cust2.accessToken)]);
 
     const b1 = await request(app)

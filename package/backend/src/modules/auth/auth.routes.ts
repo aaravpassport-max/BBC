@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../middleware/errorHandler';
 import { validateBody } from '../../middleware/validate';
-import { requestOtpSchema, verifyOtpSchema, demoLoginSchema } from './auth.schemas';
-import { requestOtp, verifyOtp, demoLogin } from './auth.service';
+import { requestOtpSchema, verifyOtpSchema, demoLoginSchema, refreshTokenSchema } from './auth.schemas';
+import { requestOtp, verifyOtp, demoLogin, refreshAccessToken } from './auth.service';
 
 export const authRouter = Router();
 
@@ -49,6 +49,19 @@ authRouter.post(
       refresh_token: result.refreshToken,
       is_new_user: result.isNewUser,
       user_id: result.userId,
+    });
+  })
+);
+
+authRouter.post(
+  '/refresh',
+  validateBody(refreshTokenSchema),
+  asyncHandler(async (req, res) => {
+    const { refresh_token, device_id } = req.body;
+    const result = await refreshAccessToken({ refreshToken: refresh_token, deviceId: device_id });
+    res.status(200).json({
+      access_token: result.accessToken,
+      refresh_token: result.refreshToken,
     });
   })
 );

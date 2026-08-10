@@ -155,6 +155,21 @@ export async function listPenalties(driverId: string) {
   return result.rows;
 }
 
+/** Admin view — penalties filterable by status (default: disputed + issued). */
+export async function listAdminPenalties(status?: string) {
+  const clause = status ? 'WHERE p.status = $1' : `WHERE p.status IN ('issued', 'disputed')`;
+  const args = status ? [status] : [];
+  const result = await pool.query(
+    `SELECT p.id, p.driver_id, p.amount, p.reason_code, p.status, p.dispute_note, p.created_at, u.phone
+     FROM penalties p JOIN users u ON u.id = p.driver_id
+     ${clause}
+     ORDER BY p.created_at DESC
+     LIMIT 100`,
+    args
+  );
+  return result.rows;
+}
+
 /**
  * Driver disputes a penalty (PRD Section A.2: "every penalty has a
  * disputable path with a structured, reasoned resolution"). Only an

@@ -21,6 +21,13 @@ import { SupportTicketPage } from './pages/SupportTicketPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ReferralPage } from './pages/ReferralPage';
+import { EditProfilePage } from './pages/EditProfilePage';
+import { usePushRegistration } from './hooks/usePushRegistration';
+
+function PushRegistration() {
+  usePushRegistration();
+  return null;
+}
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -48,6 +55,7 @@ function AppRoutes() {
       <Route path="/history" element={<AuthenticatedLayout><HistoryPage /></AuthenticatedLayout>} />
       <Route path="/earnings" element={<AuthenticatedLayout><EarningsPage /></AuthenticatedLayout>} />
       <Route path="/profile" element={<AuthenticatedLayout><ProfilePage /></AuthenticatedLayout>} />
+      <Route path="/profile/edit" element={<RequireAuth><EditProfilePage /></RequireAuth>} />
       <Route path="/vehicle" element={<RequireAuth><VehiclePage /></RequireAuth>} />
       <Route path="/penalties" element={<RequireAuth><PenaltiesPage /></RequireAuth>} />
       <Route path="/help" element={<RequireAuth><HelpPage /></RequireAuth>} />
@@ -69,6 +77,7 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <OfflineBanner />
+        <PushRegistration />
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>

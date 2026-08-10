@@ -300,3 +300,56 @@ export async function demoLogin(params: {
     return { accessToken, refreshToken: refreshTokenRaw, isNewUser, userId };
   });
 }
+
+/** Exchanges a valid refresh token for a new access token (and rotated refresh token). */
+export async function refreshAccessToken(params: {
+  refreshToken: string;
+  deviceId: string;
+}): Promise<{ accessToken: string; refreshToken: string }> {
+  const { refreshToken, deviceId } = params;
+
+  const candidates = await pool.query(
+    `SELECT id, user_id, token_hash, device_id, expires_at
+     FROM refresh_tokens
+     WHERE revoked_at IS NULL AND expires_at > now()
+     ORDER BY created_at DESC
+     LIMIT 200`
+  );
+
+  let matched: { id: string; user_id: string } | null = null;
+  for (const row of candidates.rows) {
+    if (row.device_id !== deviceId) continue;
+    const ok = await bcrypt.compare(refreshToken, row.token_hash);
+    if (ok) {
+      matched = { id: row.id, user_id: row.user_id };
+      break;
+    }
+  }
+
+  if (!matched) {
+    throw Errors.forbidden('Invalid or expired refresh token.');
+  }
+
+  return withTransaction(async (client: PoolClient) => {
+    await client.query(`UPDATE refresh_tokens SET revoked_at = now() WHERE id = $1`, [matched!.id]);
+
+    const user = await client.query(`SELECT account_type FROM users WHERE id = $1`, [matched!.user_id]);
+    const accountType = user.rows[0]?.account_type || 'customer';
+
+    const accessToken = jwt.sign(
+      { sub: matched!.user_id, account_type: accountType },
+      process.env.JWT_ACCESS_SECRET as string,
+      { expiresIn: (process.env.JWT_ACCESS_EXPIRY || '15m') as jwt.SignOptions['expiresIn'] }
+    );
+
+    const refreshTokenRaw = uuidv4() + uuidv4();
+    const refreshTokenHash = await bcrypt.hash(refreshTokenRaw, 10);
+    await client.query(
+      `INSERT INTO refresh_tokens (user_id, device_id, token_hash, expires_at)
+       VALUES ($1, $2, $3, now() + interval '30 days')`,
+      [matched!.user_id, deviceId, refreshTokenHash]
+    );
+
+    return { accessToken, refreshToken: refreshTokenRaw };
+  });
+}

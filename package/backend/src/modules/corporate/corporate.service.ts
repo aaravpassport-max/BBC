@@ -554,3 +554,46 @@ export async function getInvoiceDetail(accountId: string, invoiceId: string, req
 
   return { ...invoice.rows[0], lineItems: lineItems.rows };
 }
+
+export async function markInvoicePaid(params: {
+  accountId: string;
+  invoiceId: string;
+  requestingUserId: string;
+}): Promise<void> {
+  await withTransaction(async (client) => {
+    await requireAccountAdmin(client, params.accountId, params.requestingUserId);
+
+    const result = await client.query(
+      `UPDATE corporate_invoices SET status = 'paid'
+       WHERE id = $1 AND corporate_account_id = $2 AND status = 'issued'
+       RETURNING id`,
+      [params.invoiceId, params.accountId]
+    );
+    if (result.rowCount === 0) {
+      throw Errors.validation({ invoice: 'Invoice not found or already paid.' });
+    }
+  });
+}
+
+/** Monthly spend totals for the last N months (admin dashboard analytics). */
+export async function getSpendAnalytics(accountId: string, requestingUserId: string, months = 6) {
+  await requireActiveEmployee(accountId, requestingUserId);
+
+  const result = await pool.query(
+    `SELECT date_trunc('month', b.created_at) AS month,
+            SUM((b.fare_breakdown->>'final_fare')::numeric) AS total_spend,
+            COUNT(*) AS trip_count
+     FROM bookings b
+     WHERE b.corporate_account_id = $1 AND b.status = 'completed'
+       AND b.created_at >= date_trunc('month', now()) - ($2::int - 1) * interval '1 month'
+     GROUP BY 1
+     ORDER BY 1 DESC`,
+    [accountId, months]
+  );
+
+  return result.rows.map((r) => ({
+    month: r.month,
+    total_spend: parseFloat(r.total_spend),
+    trip_count: parseInt(r.trip_count, 10),
+  }));
+}

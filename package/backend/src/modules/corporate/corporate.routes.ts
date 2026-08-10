@@ -15,6 +15,8 @@ import {
   generateInvoice,
   listInvoices,
   getInvoiceDetail,
+  markInvoicePaid,
+  getSpendAnalytics,
 } from './corporate.service';
 
 export const corporateRouter = Router();
@@ -173,5 +175,28 @@ corporateRouter.get(
       req.user!.userId
     );
     res.status(200).json(detail);
+  })
+);
+
+corporateRouter.post(
+  '/:accountId/invoices/:invoiceId/mark-paid',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await markInvoicePaid({
+      accountId: req.params.accountId as string,
+      invoiceId: req.params.invoiceId as string,
+      requestingUserId: req.user!.userId,
+    });
+    res.status(200).json({ paid: true });
+  })
+);
+
+corporateRouter.get(
+  '/:accountId/spend-analytics',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const months = parseInt((req.query.months as string) || '6', 10);
+    const analytics = await getSpendAnalytics(req.params.accountId as string, req.user!.userId, months);
+    res.status(200).json(analytics);
   })
 );

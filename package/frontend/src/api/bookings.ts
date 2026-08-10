@@ -241,11 +241,3 @@ export function verifyPayment(params: { razorpay_order_id: string; razorpay_paym
 export function devSimulateWebhook(gatewayRef: string) {
   return api.post<{ confirmed: boolean }>('/v1/wallet/dev/simulate-webhook', { gateway_ref: gatewayRef });
 }
-
-// ---------- Dev-only dispatch trigger (stands in for the real event consumer) ----------
-
-export function triggerDispatch(bookingId: string) {
-  return api.post<{ status: string; offerId?: string; driverId?: string }>(
-    `/v1/driver/dev/trigger-dispatch/${bookingId}`
-  );
-}

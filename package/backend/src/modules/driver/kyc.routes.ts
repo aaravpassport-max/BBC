@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { asyncHandler } from '../../middleware/errorHandler';
 import { validateBody } from '../../middleware/validate';
 import { requireAuth, requirePermission } from '../../middleware/auth';
-import { registerAsDriver, submitKycStep, getKycStatus, reviewKycDocument } from './kyc.service';
+import { registerAsDriver, submitKycStep, getKycStatus, reviewKycDocument, listPendingKycDocuments } from './kyc.service';
 
 const submitStepSchema = z.object({
   fields: z.record(z.string(), z.unknown()).optional(),
@@ -53,6 +53,16 @@ kycRouter.get(
   asyncHandler(async (req, res) => {
     const status = await getKycStatus(req.user!.userId);
     res.status(200).json(status);
+  })
+);
+
+kycRouter.get(
+  '/admin/pending',
+  requireAuth,
+  requirePermission('driver', 'kyc_review'),
+  asyncHandler(async (_req, res) => {
+    const docs = await listPendingKycDocuments();
+    res.status(200).json(docs);
   })
 );
 

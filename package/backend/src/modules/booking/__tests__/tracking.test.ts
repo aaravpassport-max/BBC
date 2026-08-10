@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { createApp } from '../../../app';
 import { pool } from '../../../db/pool';
-import { loginAsNewUser, randomPhone } from '../../../test-utils/helpers';
+import { loginAsFundedUser, randomPhone } from '../../../test-utils/helpers';
 import { createOnlineEligibleDriver, samplePickupDrop } from '../../../test-utils/seed';
 
 const app = createApp();
@@ -12,7 +12,7 @@ afterAll(async () => {
 
 async function createSearchingBooking() {
   await pool.query(`UPDATE driver_profiles SET online_status = false`);
-  const customer = await loginAsNewUser(app);
+  const customer = await loginAsFundedUser(app);
   const quote = await request(app)
     .post('/v1/pricing/quote')
     .set('Authorization', `Bearer ${customer.accessToken}`)
@@ -37,7 +37,7 @@ describe('Live tracking: driver location during an active trip (PRD Section 8)',
 
   it('a different customer cannot see this location — 404, not just empty', async () => {
     const { bookingId } = await createSearchingBooking();
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const res = await request(app)
       .get(`/v1/bookings/${bookingId}/driver-location`)
       .set('Authorization', `Bearer ${accessToken}`);

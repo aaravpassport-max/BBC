@@ -185,4 +185,23 @@ export async function reviewKycDocument(params: {
      VALUES ($1, 'user', 'kyc_document.review', 'kyc_document', $2, $3)`,
     [reviewerId, documentId, JSON.stringify({ decision, rejectionReason })]
   );
+
+  const doc = await pool.query(`SELECT driver_id FROM kyc_documents WHERE id = $1`, [documentId]);
+  if (doc.rowCount && doc.rowCount > 0) {
+    await getKycStatus(doc.rows[0].driver_id);
+  }
+}
+
+/** Admin queue — documents awaiting review, newest first. */
+export async function listPendingKycDocuments(limit = 50) {
+  const result = await pool.query(
+    `SELECT kd.id, kd.driver_id, kd.doc_type, kd.status, kd.created_at, u.phone, u.name
+     FROM kyc_documents kd
+     JOIN users u ON u.id = kd.driver_id
+     WHERE kd.status = 'pending_review'
+     ORDER BY kd.created_at ASC
+     LIMIT $1`,
+    [limit]
+  );
+  return result.rows;
 }

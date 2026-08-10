@@ -54,6 +54,7 @@ export function ProfilePage() {
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <MenuRow icon="✏️" label="Edit profile" onClick={() => navigate('/profile/edit')} />
         <MenuRow icon="🚚" label="My vehicle" hint="Register or update vehicle" onClick={() => navigate('/vehicle')} />
         <MenuRow icon="⚠️" label="Penalties" hint="View and dispute charges" onClick={() => navigate('/penalties')} />
         <MenuRow icon="🔔" label="Notifications" onClick={() => navigate('/notifications')} />

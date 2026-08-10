@@ -54,7 +54,7 @@ export function PenaltiesPage() {
         >
           <div style={{ fontWeight: 600 }}>₹{p.amount} · {p.reason_code.replace(/_/g, ' ')}</div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Status: {p.status}</div>
-          {p.status === 'active' && (
+          {p.status === 'issued' && (
             <>
               <Input placeholder="Dispute reason" value={note} onChange={(e) => setNote(e.target.value)} />
               <Button loading={disputing === p.id} onClick={() => void handleDispute(p.id)}>

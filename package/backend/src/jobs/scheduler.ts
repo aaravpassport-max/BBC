@@ -1,6 +1,7 @@
 import { pool } from '../db/pool';
 import { sweepExpiredOffers, sweepScheduledBookings } from '../modules/driver/dispatch.service';
 import { sweepUnacknowledgedSos } from '../modules/ops/sos.service';
+import { sweepSubscriptionRenewals } from '../modules/booking/subscription.service';
 
 /**
  * Wraps a job function with the background_job_runs monitoring table
@@ -35,6 +36,7 @@ async function runMonitoredJob(jobName: string, fn: () => Promise<number>): Prom
 let sweepIntervalHandle: NodeJS.Timeout | null = null;
 let sosSweepIntervalHandle: NodeJS.Timeout | null = null;
 let scheduledBookingSweepIntervalHandle: NodeJS.Timeout | null = null;
+let subscriptionRenewalIntervalHandle: NodeJS.Timeout | null = null;
 
 /**
  * Starts the recurring jobs this reference backend actually needs running:
@@ -78,6 +80,12 @@ export function startBackgroundJobs(): void {
       console.error('Unexpected error in job scheduler:', err);
     });
   }, 60000);
+
+  subscriptionRenewalIntervalHandle = setInterval(() => {
+    runMonitoredJob('subscription_renewal_sweep', sweepSubscriptionRenewals).catch((err) => {
+      console.error('Unexpected error in job scheduler:', err);
+    });
+  }, 3600000);
 }
 
 export function stopBackgroundJobs(): void {
@@ -92,5 +100,9 @@ export function stopBackgroundJobs(): void {
   if (scheduledBookingSweepIntervalHandle) {
     clearInterval(scheduledBookingSweepIntervalHandle);
     scheduledBookingSweepIntervalHandle = null;
+  }
+  if (subscriptionRenewalIntervalHandle) {
+    clearInterval(subscriptionRenewalIntervalHandle);
+    subscriptionRenewalIntervalHandle = null;
   }
 }

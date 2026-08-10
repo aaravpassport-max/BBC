@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { createApp } from '../../../app';
 import { pool } from '../../../db/pool';
-import { loginAsNewUser, randomPhone } from '../../../test-utils/helpers';
+import { loginAsFundedUser, randomPhone } from '../../../test-utils/helpers';
 import { assertReferenceSeedPresent, createOnlineEligibleDriver, samplePickupDrop } from '../../../test-utils/seed';
 
 const app = createApp();
@@ -18,7 +18,7 @@ async function completeATripAsCustomer(customerToken: string) {
   await pool.query(`UPDATE driver_profiles SET online_status = false`);
   const driverId = await createOnlineEligibleDriver({ phone: randomPhone() });
   const driverPhone = (await pool.query('SELECT phone FROM users WHERE id = $1', [driverId])).rows[0].phone;
-  const driver = await loginAsNewUser(app, driverPhone);
+  const driver = await loginAsFundedUser(app, driverPhone);
 
   const quoteRes = await request(app)
     .post('/v1/pricing/quote')
@@ -55,7 +55,7 @@ async function completeATripAsCustomer(customerToken: string) {
 
 describe('Referral: code generation and redemption (PRD 18A.1)', () => {
   it('generates a stable referral code that stays the same on repeated requests', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const first = await request(app).get('/v1/referral/summary').set('Authorization', `Bearer ${accessToken}`);
     const second = await request(app).get('/v1/referral/summary').set('Authorization', `Bearer ${accessToken}`);
     expect(first.body.referral_code).toBe(second.body.referral_code);
@@ -63,7 +63,7 @@ describe('Referral: code generation and redemption (PRD 18A.1)', () => {
   });
 
   it('rejects redeeming an invalid code', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const res = await request(app)
       .post('/v1/referral/redeem')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -72,7 +72,7 @@ describe('Referral: code generation and redemption (PRD 18A.1)', () => {
   });
 
   it('rejects self-referral', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const summary = await request(app).get('/v1/referral/summary').set('Authorization', `Bearer ${accessToken}`);
     const res = await request(app)
       .post('/v1/referral/redeem')
@@ -83,9 +83,9 @@ describe('Referral: code generation and redemption (PRD 18A.1)', () => {
   });
 
   it('rejects a second redemption by the same referee (one referral per account)', async () => {
-    const referrer1 = await loginAsNewUser(app);
-    const referrer2 = await loginAsNewUser(app);
-    const referee = await loginAsNewUser(app);
+    const referrer1 = await loginAsFundedUser(app);
+    const referrer2 = await loginAsFundedUser(app);
+    const referee = await loginAsFundedUser(app);
     const code1 = (await request(app).get('/v1/referral/summary').set('Authorization', `Bearer ${referrer1.accessToken}`)).body.referral_code;
     const code2 = (await request(app).get('/v1/referral/summary').set('Authorization', `Bearer ${referrer2.accessToken}`)).body.referral_code;
 
@@ -105,8 +105,8 @@ describe('Referral: code generation and redemption (PRD 18A.1)', () => {
 
 describe('Referral: reward fulfillment on qualifying trip (PRD 18A.1 trigger)', () => {
   it('completing the referees FIRST trip credits both referrer and referee wallets', async () => {
-    const referrer = await loginAsNewUser(app);
-    const referee = await loginAsNewUser(app);
+    const referrer = await loginAsFundedUser(app);
+    const referee = await loginAsFundedUser(app);
     const code = (await request(app).get('/v1/referral/summary').set('Authorization', `Bearer ${referrer.accessToken}`)).body.referral_code;
     await request(app)
       .post('/v1/referral/redeem')
@@ -129,8 +129,8 @@ describe('Referral: reward fulfillment on qualifying trip (PRD 18A.1 trigger)', 
   });
 
   it('a SECOND completed trip by the same referee does not credit a second reward (idempotent)', async () => {
-    const referrer = await loginAsNewUser(app);
-    const referee = await loginAsNewUser(app);
+    const referrer = await loginAsFundedUser(app);
+    const referee = await loginAsFundedUser(app);
     const code = (await request(app).get('/v1/referral/summary').set('Authorization', `Bearer ${referrer.accessToken}`)).body.referral_code;
     await request(app)
       .post('/v1/referral/redeem')
@@ -153,7 +153,7 @@ describe('Referral: reward fulfillment on qualifying trip (PRD 18A.1 trigger)', 
   });
 
   it('completing a trip with NO referral in play does nothing (no error, no phantom credit)', async () => {
-    const { accessToken, userId } = await loginAsNewUser(app);
+    const { accessToken, userId } = await loginAsFundedUser(app);
     await completeATripAsCustomer(accessToken);
 
     const wallet = await request(app).get('/v1/wallet').set('Authorization', `Bearer ${accessToken}`);

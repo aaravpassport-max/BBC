@@ -24,6 +24,12 @@ import { CorporatePage } from './pages/CorporatePage';
 import { AddressesPage } from './pages/AddressesPage';
 import { EditProfilePage } from './pages/EditProfilePage';
 import { OfflineBanner } from './components/OfflineBanner';
+import { usePushRegistration } from './hooks/usePushRegistration';
+
+function PushRegistration() {
+  usePushRegistration();
+  return null;
+}
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -75,6 +81,7 @@ export default function App() {
     <AuthProvider>
       <BrowserRouter>
         <OfflineBanner />
+        <PushRegistration />
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>

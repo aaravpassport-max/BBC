@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { createApp } from '../../../app';
 import { pool } from '../../../db/pool';
-import { loginAsNewUser, randomPhone } from '../../../test-utils/helpers';
+import { loginAsFundedUser, randomPhone } from '../../../test-utils/helpers';
 import { createOnlineEligibleDriver, samplePickupDrop } from '../../../test-utils/seed';
 import { deriveEventId } from '../../notifications/notifications.service';
 
@@ -14,7 +14,7 @@ afterAll(async () => {
 async function bookAndAssignDriver() {
   await pool.query(`UPDATE driver_profiles SET online_status = false`);
   const driverId = await createOnlineEligibleDriver({ phone: randomPhone() });
-  const customer = await loginAsNewUser(app);
+  const customer = await loginAsFundedUser(app);
   const quote = await request(app)
     .post('/v1/pricing/quote')
     .set('Authorization', `Bearer ${customer.accessToken}`)
@@ -29,7 +29,7 @@ async function bookAndAssignDriver() {
     bookingRes.body.id,
   ]);
   const driverPhone = (await pool.query('SELECT phone FROM users WHERE id = $1', [driverId])).rows[0].phone;
-  const driverLogin = await loginAsNewUser(app, driverPhone);
+  const driverLogin = await loginAsFundedUser(app, driverPhone);
   return { bookingId: bookingRes.body.id, customer, driverId, driverToken: driverLogin.accessToken };
 }
 
@@ -56,7 +56,7 @@ describe('Trip chat: sending (P0 gap analysis item — direct in-app contact bet
 
   it('a third party — not the customer or the assigned driver — cannot send a message', async () => {
     const { bookingId } = await bookAndAssignDriver();
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const res = await request(app)
       .post(`/v1/bookings/${bookingId}/messages`)
       .set('Authorization', `Bearer ${accessToken}`)
@@ -138,7 +138,7 @@ describe('Trip chat: reading the thread', () => {
       .set('Authorization', `Bearer ${customer.accessToken}`)
       .send({ body: 'Private conversation.' });
 
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const res = await request(app).get(`/v1/bookings/${bookingId}/messages`).set('Authorization', `Bearer ${accessToken}`);
     expect(res.status).toBe(403);
   });

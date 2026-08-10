@@ -297,6 +297,106 @@ export async function confirmTopUpAsCustomer(customerId: string, gatewayRef: str
   await confirmTopUp(gatewayRef);
 }
 
+/**
+ * Debits a customer's wallet for a trip fare. Uses promotional balance first,
+ * then real money. Idempotent per booking.
+ */
+export async function debitCustomerForBooking(
+  client: PoolClient,
+  params: { customerId: string; bookingId: string; amount: number }
+): Promise<void> {
+  const { customerId, bookingId, amount } = params;
+  if (amount <= 0) return;
+
+  const existing = await client.query(
+    `SELECT 1 FROM wallet_transactions WHERE linked_booking_id = $1 AND reason = 'trip_charge'`,
+    [bookingId]
+  );
+  if (existing.rowCount && existing.rowCount > 0) return;
+
+  const walletId = await getOrCreateWallet(client, 'customer', customerId);
+  const wallet = await client.query(
+    `SELECT real_balance_cache, promo_balance_cache FROM wallets WHERE id = $1 FOR UPDATE`,
+    [walletId]
+  );
+  const promo = parseFloat(wallet.rows[0].promo_balance_cache);
+  const real = parseFloat(wallet.rows[0].real_balance_cache);
+  let remaining = amount;
+
+  const promoDebit = Math.min(promo, remaining);
+  if (promoDebit > 0) {
+    await recordLedgerEntry(client, {
+      debitWalletId: walletId,
+      creditWalletId: null,
+      amount: promoDebit,
+      balanceType: 'promo',
+      reason: 'trip_charge',
+      linkedBookingId: bookingId,
+    });
+    remaining -= promoDebit;
+  }
+
+  if (remaining > 0) {
+    if (real < remaining) {
+      throw Errors.insufficientBalance();
+    }
+    await recordLedgerEntry(client, {
+      debitWalletId: walletId,
+      creditWalletId: null,
+      amount: remaining,
+      balanceType: 'real',
+      reason: 'trip_charge',
+      linkedBookingId: bookingId,
+    });
+  }
+}
+
+/** Debits cancellation fee from customer wallet. Returns false if insufficient funds. */
+export async function debitCustomerCancellationFee(
+  client: PoolClient,
+  params: { customerId: string; bookingId: string; amount: number }
+): Promise<boolean> {
+  const { customerId, bookingId, amount } = params;
+  if (amount <= 0) return false;
+
+  const existing = await client.query(
+    `SELECT 1 FROM wallet_transactions WHERE linked_booking_id = $1 AND reason = 'cancellation_fee'`,
+    [bookingId]
+  );
+  if (existing.rowCount && existing.rowCount > 0) return true;
+
+  try {
+    const walletId = await getOrCreateWallet(client, 'customer', customerId);
+    await recordLedgerEntry(client, {
+      debitWalletId: walletId,
+      creditWalletId: null,
+      amount,
+      balanceType: 'real',
+      reason: 'cancellation_fee',
+      linkedBookingId: bookingId,
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Charges customer wallet for subscription purchase. */
+export async function debitCustomerForSubscription(
+  client: PoolClient,
+  params: { customerId: string; amount: number }
+): Promise<void> {
+  const { customerId, amount } = params;
+  const walletId = await getOrCreateWallet(client, 'customer', customerId);
+  await recordLedgerEntry(client, {
+    debitWalletId: walletId,
+    creditWalletId: null,
+    amount,
+    balanceType: 'real',
+    reason: 'subscription',
+  });
+}
+
 export async function getTransactionHistory(ownerType: string, ownerId: string, type?: string) {
   const walletResult = await pool.query(
     `SELECT id FROM wallets WHERE owner_type = $1 AND owner_id = $2`,

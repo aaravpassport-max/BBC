@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { createApp } from '../../../app';
 import { pool } from '../../../db/pool';
-import { loginAsNewUser } from '../../../test-utils/helpers';
+import { loginAsFundedUser } from '../../../test-utils/helpers';
 import { assertReferenceSeedPresent, samplePickupDrop } from '../../../test-utils/seed';
 
 const app = createApp();
@@ -16,7 +16,7 @@ afterAll(async () => {
 
 describe('Subscriptions: purchase and lifecycle (PRD 19A.1)', () => {
   it('purchases a subscription and it appears as active', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const purchase = await request(app)
       .post('/v1/subscriptions/purchase')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -29,7 +29,7 @@ describe('Subscriptions: purchase and lifecycle (PRD 19A.1)', () => {
   });
 
   it('rejects purchasing a second subscription while one is already active', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     await request(app)
       .post('/v1/subscriptions/purchase')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -42,7 +42,7 @@ describe('Subscriptions: purchase and lifecycle (PRD 19A.1)', () => {
   });
 
   it('rejects an unknown plan_id', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const res = await request(app)
       .post('/v1/subscriptions/purchase')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -51,7 +51,7 @@ describe('Subscriptions: purchase and lifecycle (PRD 19A.1)', () => {
   });
 
   it('proactive cancellation is clean — no grace period, immediately cancelled', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const purchase = await request(app)
       .post('/v1/subscriptions/purchase')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -69,7 +69,7 @@ describe('Subscriptions: purchase and lifecycle (PRD 19A.1)', () => {
 
 describe('Subscriptions: renewal and dunning (PRD 19A.1 grace-period flow)', () => {
   it('a failed renewal moves active -> grace_period, benefits still apply', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const purchase = await request(app)
       .post('/v1/subscriptions/purchase')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -87,7 +87,7 @@ describe('Subscriptions: renewal and dunning (PRD 19A.1 grace-period flow)', () 
   });
 
   it('a successful renewal restores active status and resets retry_count', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const purchase = await request(app)
       .post('/v1/subscriptions/purchase')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -111,7 +111,7 @@ describe('Subscriptions: renewal and dunning (PRD 19A.1 grace-period flow)', () 
   });
 
   it('exceeding max retries while still in grace lapses the subscription', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const purchase = await request(app)
       .post('/v1/subscriptions/purchase')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -131,7 +131,7 @@ describe('Subscriptions: renewal and dunning (PRD 19A.1 grace-period flow)', () 
   });
 
   it('reactivation within the window restores active status', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const purchase = await request(app)
       .post('/v1/subscriptions/purchase')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -153,7 +153,7 @@ describe('Subscriptions: renewal and dunning (PRD 19A.1 grace-period flow)', () 
   });
 
   it('rejects reactivating a subscription that is not lapsed', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const purchase = await request(app)
       .post('/v1/subscriptions/purchase')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -168,7 +168,7 @@ describe('Subscriptions: renewal and dunning (PRD 19A.1 grace-period flow)', () 
 
 describe('Subscriptions: benefit application in pricing (PRD 19A.1 acceptance criteria)', () => {
   it('a non-subscriber pays the full platform fee', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const quote = await request(app)
       .post('/v1/pricing/quote')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -178,7 +178,7 @@ describe('Subscriptions: benefit application in pricing (PRD 19A.1 acceptance cr
   });
 
   it('an active subscriber with a platform-fee-waiving plan gets the fee itemized off, final_fare reduced accordingly', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     await request(app)
       .post('/v1/subscriptions/purchase')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -195,7 +195,7 @@ describe('Subscriptions: benefit application in pricing (PRD 19A.1 acceptance cr
   });
 
   it('benefit still applies during grace_period (PRD 19A.1: benefits continue through grace, only cut off on lapse)', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const purchase = await request(app)
       .post('/v1/subscriptions/purchase')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -213,7 +213,7 @@ describe('Subscriptions: benefit application in pricing (PRD 19A.1 acceptance cr
   });
 
   it('benefit stops applying once lapsed', async () => {
-    const { accessToken } = await loginAsNewUser(app);
+    const { accessToken } = await loginAsFundedUser(app);
     const purchase = await request(app)
       .post('/v1/subscriptions/purchase')
       .set('Authorization', `Bearer ${accessToken}`)
