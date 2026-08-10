@@ -1,9 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { Waybill, WaybillLine, WaybillDivider } from '../components/Waybill';
-import { confirmBooking, triggerDispatch, ApiError, type Quote } from '../api';
+import {
+  confirmBooking,
+  triggerDispatch,
+  getWallet,
+  getMyCorporateAccounts,
+  ApiError,
+  type Quote,
+  type CorporateAccount,
+} from '../api';
+import { PAYMENT_METHODS, type PaymentMethodId } from '../constants/porter';
 
 interface LocationState {
   quote: Quote;
@@ -11,6 +20,7 @@ interface LocationState {
   dropLabel: string;
   goodsCategory: string;
   helperNeeded: boolean;
+  couponCode?: string;
   scheduledFor?: string;
 }
 
@@ -24,6 +34,18 @@ export function ConfirmPage() {
   const state = location.state as LocationState | undefined;
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>('wallet');
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [corporateAccounts, setCorporateAccounts] = useState<CorporateAccount[]>([]);
+
+  useEffect(() => {
+    getWallet()
+      .then((w) => setWalletBalance(w.real_money_balance + w.promotional_credit_balance))
+      .catch(() => undefined);
+    getMyCorporateAccounts()
+      .then(setCorporateAccounts)
+      .catch(() => undefined);
+  }, []);
 
   if (!state?.quote) {
     navigate('/home');
@@ -32,20 +54,16 @@ export function ConfirmPage() {
 
   const { quote, pickupLabel, dropLabel, goodsCategory, helperNeeded, scheduledFor } = state;
   const fb = quote.fare_breakdown;
+  const hasCorporate = corporateAccounts.length > 0;
+
+  const availableMethods = PAYMENT_METHODS.filter((m) => m.id !== 'corporate_bill' || hasCorporate);
 
   async function handleConfirm() {
     setError('');
     setLoading(true);
     try {
-      const booking = await confirmBooking(quote.quote_id, 'wallet', scheduledFor);
+      const booking = await confirmBooking(quote.quote_id, paymentMethod, scheduledFor);
       if (booking.status !== 'scheduled') {
-        // Stands in for the real event-bus consumer that triggers dispatch
-        // automatically on BookingCreated (PRD Section 22) — this reference
-        // frontend calls the dev-only manual trigger directly. A scheduled
-        // booking deliberately skips this: dispatching it immediately would
-        // defeat the entire point of scheduling — its own backend sweep job
-        // (scheduled_booking_dispatch_sweep) is what triggers real dispatch,
-        // at the right time, not this screen.
         await triggerDispatch(booking.id).catch(() => undefined);
       }
       navigate(`/track/${booking.id}`);
@@ -66,6 +84,7 @@ export function ConfirmPage() {
     <Screen
       eyebrow="Review & confirm"
       title="Confirm your booking"
+      onBack={() => navigate('/home')}
       footer={
         <>
           {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10 }}>{error}</p>}
@@ -84,6 +103,43 @@ export function ConfirmPage() {
         <span style={{ textTransform: 'capitalize' }}>{quote.vehicle_category.replace(/_/g, ' ')}</span> ·{' '}
         {goodsCategory}
         {helperNeeded ? ' · helper requested' : ''}
+      </div>
+
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Payment method</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {availableMethods.map((m) => (
+            <label
+              key={m.id}
+              style={{
+                display: 'flex',
+                gap: 10,
+                alignItems: 'flex-start',
+                border: `1px solid ${paymentMethod === m.id ? 'var(--accent)' : 'var(--border)'}`,
+                borderRadius: 12,
+                padding: '12px 14px',
+                background: paymentMethod === m.id ? 'var(--accent-soft)' : 'var(--surface)',
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="radio"
+                name="payment"
+                checked={paymentMethod === m.id}
+                onChange={() => setPaymentMethod(m.id)}
+                style={{ marginTop: 3 }}
+              />
+              <span>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{m.label}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  {m.description}
+                  {m.id === 'wallet' && walletBalance != null && ` · Balance ${money(walletBalance)}`}
+                  {m.id === 'corporate_bill' && hasCorporate && ` · ${corporateAccounts[0].name}`}
+                </div>
+              </span>
+            </label>
+          ))}
+        </div>
       </div>
 
       <Waybill label="Fare breakdown" id={quote.quote_id.slice(0, 8).toUpperCase()}>
@@ -106,7 +162,7 @@ export function ConfirmPage() {
       </Waybill>
 
       <p style={{ color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>
-        Price locked until {new Date(quote.expires_at).toLocaleTimeString()}. Paying from wallet.
+        Price locked until {new Date(quote.expires_at).toLocaleTimeString()}.
       </p>
 
       {scheduledFor && (
@@ -126,7 +182,7 @@ function RoutePoint({ kind, label }: { kind: 'pickup' | 'drop'; label: string })
           width: 10,
           height: 10,
           borderRadius: kind === 'pickup' ? '50%' : '2px',
-          background: kind === 'pickup' ? 'var(--accent)' : 'var(--text)',
+          background: kind === 'pickup' ? 'var(--pickup)' : 'var(--drop)',
           flexShrink: 0,
         }}
       />

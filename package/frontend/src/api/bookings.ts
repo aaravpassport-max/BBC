@@ -98,6 +98,11 @@ export function getQuote(params: {
   drops: { lat: number; lng: number }[];
   vehicle_category?: string;
   coupon_code?: string;
+  item_details?: {
+    goods_category?: string;
+    weight_band?: string;
+    helper_needed?: boolean;
+  };
 }) {
   return api.post<{ quotes: Quote[] }>('/v1/pricing/quote', params);
 }
@@ -138,9 +143,10 @@ export function listBookings() {
   return api.get<{ items: Booking[] }>('/v1/bookings');
 }
 
-export function cancelBooking(id: string, reasonCode: string) {
+export function cancelBooking(id: string, reasonCode: string, note?: string) {
   return api.post<{ fee_charged: boolean; fee_amount: number }>(`/v1/bookings/${id}/cancel`, {
     reason_code: reasonCode,
+    note,
   });
 }
 

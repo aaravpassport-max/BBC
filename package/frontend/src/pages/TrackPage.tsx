@@ -1,17 +1,31 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Geolocation } from '@capacitor/geolocation';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { StatusBadge } from '../components/StatusBadge';
 import { Waybill, WaybillLine, WaybillDivider } from '../components/Waybill';
 import { LiveMap } from '../components/LiveMap';
 import { TripChat } from '../components/TripChat';
+import { CancelTripModal } from '../components/CancelTripModal';
+import { RatingPanel } from '../components/RatingPanel';
 import { notify } from '../lib/notify';
-import { getBooking, getDriverLocation, cancelBooking, rateBooking, getErrorMessage, type Booking, type DriverLocation } from '../api';
+import {
+  getBooking,
+  getDriverLocation,
+  cancelBooking,
+  rateBooking,
+  triggerSos,
+  getErrorMessage,
+  type Booking,
+  type DriverLocation,
+} from '../api';
+import type { CancelReasonCode } from '../constants/porter';
 
 const POLL_INTERVAL_MS = 3000;
 const CANCELLABLE = new Set(['scheduled', 'searching', 'driver_assigned']);
 const TRACKABLE = new Set(['driver_assigned', 'in_progress']);
+const SOS_ELIGIBLE = new Set(['driver_assigned', 'in_progress']);
 
 function money(n: number): string {
   return `₹${n.toFixed(2)}`;
@@ -24,9 +38,11 @@ export function TrackPage() {
   const [driverLocation, setDriverLocation] = useState<DriverLocation | null>(null);
   const [error, setError] = useState('');
   const [cancelling, setCancelling] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [rated, setRated] = useState(false);
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
-  const [selectedStars, setSelectedStars] = useState(0);
+  const [sosSending, setSosSending] = useState(false);
+  const [sosSent, setSosSent] = useState(false);
   const previousStatus = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -34,9 +50,6 @@ export function TrackPage() {
     try {
       const b = await getBooking(bookingId);
 
-      // Fire a real notification only on a genuine transition, never on
-      // every 3s poll tick that happens to report the same status again —
-      // that would spam the notification tray instead of informing anyone.
       if (previousStatus.current && previousStatus.current !== b.status) {
         if (b.status === 'driver_assigned') {
           void notify('Driver on the way', 'Your driver has been assigned and is heading to pickup.');
@@ -52,9 +65,6 @@ export function TrackPage() {
 
       setBooking(b);
       if (TRACKABLE.has(b.status)) {
-        // Polled alongside the booking itself, not as a separate timer —
-        // one interval driving both keeps the map and the status text
-        // updating in lockstep rather than drifting out of sync.
         const loc = await getDriverLocation(bookingId);
         setDriverLocation(loc);
       } else {
@@ -73,30 +83,52 @@ export function TrackPage() {
     return () => clearInterval(interval);
   }, [refresh]);
 
-  async function handleCancel() {
-    if (!bookingId) return;
+  async function handleCancelConfirm(reason: CancelReasonCode, note?: string) {
+    if (!bookingId) throw new Error('Missing booking');
     setCancelling(true);
     try {
-      await cancelBooking(bookingId, 'BOOKED_BY_MISTAKE');
+      const result = await cancelBooking(bookingId, reason, note);
       await refresh();
-    } catch (err) {
-      setError(getErrorMessage(err, 'Could not cancel this trip.'));
+      return result;
     } finally {
       setCancelling(false);
     }
   }
 
-  async function handleRate(stars: number) {
+  async function handleRate(stars: number, tags: string[], comment: string) {
     if (!bookingId) return;
-    setSelectedStars(stars);
     setRatingSubmitting(true);
     try {
-      await rateBooking(bookingId, stars, []);
+      await rateBooking(bookingId, stars, tags, comment || undefined);
       setRated(true);
     } catch (err) {
       setError(getErrorMessage(err, 'Could not submit your rating.'));
     } finally {
       setRatingSubmitting(false);
+    }
+  }
+
+  async function handleSos() {
+    if (!bookingId || sosSent) return;
+    setSosSending(true);
+    setError('');
+    try {
+      let lat: number | undefined;
+      let lng: number | undefined;
+      try {
+        const pos = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 5000 });
+        lat = pos.coords.latitude;
+        lng = pos.coords.longitude;
+      } catch {
+        // Location optional for SOS
+      }
+      await triggerSos(bookingId, lat, lng);
+      setSosSent(true);
+      void notify('SOS sent', 'Our safety team has been alerted.');
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not send SOS alert.'));
+    } finally {
+      setSosSending(false);
     }
   }
 
@@ -116,7 +148,7 @@ export function TrackPage() {
 
       {booking.status === 'scheduled' && (
         <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-          Your delivery is scheduled. We'll start looking for a driver closer to your requested time.
+          Your delivery is scheduled. We&apos;ll start looking for a driver closer to your requested time.
         </p>
       )}
 
@@ -128,6 +160,39 @@ export function TrackPage() {
         </p>
       )}
 
+      {booking.driver_id && TRACKABLE.has(booking.status) && (
+        <div
+          style={{
+            border: '1px solid var(--border)',
+            borderRadius: 12,
+            background: 'var(--surface)',
+            padding: '14px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
+          <div
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: '50%',
+              background: 'var(--accent-soft)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 22,
+            }}
+          >
+            🚚
+          </div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 600 }}>Your driver</div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Partner ID {booking.driver_id.slice(0, 8)}</div>
+          </div>
+        </div>
+      )}
+
       {TRACKABLE.has(booking.status) && booking.pickup_lat != null && booking.pickup_lng != null && (
         <LiveMap
           pickup={{ lat: booking.pickup_lat, lng: booking.pickup_lng }}
@@ -136,6 +201,12 @@ export function TrackPage() {
       )}
 
       {TRACKABLE.has(booking.status) && bookingId && <TripChat bookingId={bookingId} myRole="customer" />}
+
+      {SOS_ELIGIBLE.has(booking.status) && (
+        <Button variant="danger" onClick={() => void handleSos()} loading={sosSending} disabled={sosSent}>
+          {sosSent ? 'SOS alert sent' : 'SOS — Emergency help'}
+        </Button>
+      )}
 
       {booking.status === 'no_drivers_found' && (
         <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
@@ -182,7 +253,7 @@ export function TrackPage() {
       )}
 
       {CANCELLABLE.has(booking.status) && (
-        <Button variant="ghost" onClick={handleCancel} loading={cancelling}>
+        <Button variant="ghost" onClick={() => setShowCancelModal(true)}>
           Cancel trip
         </Button>
       )}
@@ -199,33 +270,11 @@ export function TrackPage() {
           </Waybill>
 
           <Button variant="ghost" onClick={() => navigate(`/receipt/${booking.id}`)}>
-            🧾 View full receipt
+            View full receipt
           </Button>
 
           {!rated ? (
-            <div style={{ textAlign: 'center', paddingTop: 8 }}>
-              <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 10 }}>How was your delivery?</div>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    onClick={() => handleRate(star)}
-                    disabled={ratingSubmitting}
-                    aria-label={`Rate ${star} star${star > 1 ? 's' : ''}`}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      fontSize: 32,
-                      cursor: 'pointer',
-                      color: star <= selectedStars ? 'var(--accent)' : 'var(--border)',
-                      lineHeight: 1,
-                    }}
-                  >
-                    ★
-                  </button>
-                ))}
-              </div>
-            </div>
+            <RatingPanel onSubmit={handleRate} submitting={ratingSubmitting} />
           ) : (
             <p style={{ textAlign: 'center', color: 'var(--success)', fontSize: 14 }}>Thanks for rating your trip.</p>
           )}
@@ -241,6 +290,13 @@ export function TrackPage() {
       )}
 
       {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
+
+      <CancelTripModal
+        open={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        onConfirm={handleCancelConfirm}
+        loading={cancelling}
+      />
     </Screen>
   );
 }

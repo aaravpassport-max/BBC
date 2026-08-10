@@ -61,7 +61,12 @@ export function VerifyOtpPage() {
     try {
       const res = await verifyOtp(otpId, code, getDeviceId(), phone);
       auth.login(res.access_token, res.user_id);
-      navigate('/home');
+      const onboarded = localStorage.getItem('porter_onboarded') === 'true';
+      if (res.is_new_user && !onboarded) {
+        navigate('/onboarding', { replace: true });
+      } else {
+        navigate('/home', { replace: true });
+      }
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);

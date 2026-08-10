@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Geolocation } from '@capacitor/geolocation';
 import { PorterHeader } from '../components/PorterHeader';
 import { Button } from '../components/Button';
+import { PromoBanners } from '../components/PromoBanners';
 import { getQuote, getErrorMessage, type Quote } from '../api';
 import styles from './HomePage.module.css';
 
@@ -34,6 +35,7 @@ export function HomePage() {
   const [quotes, setQuotes] = useState<Quote[] | null>(null);
   const [choosingVehicle, setChoosingVehicle] = useState(false);
   const [scheduledFor, setScheduledFor] = useState('');
+  const [couponCode, setCouponCode] = useState('');
 
   const minScheduleValue = new Date(Date.now() + 35 * 60 * 1000).toISOString().slice(0, 16);
   const maxScheduleValue = new Date(Date.now() + 6.5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
@@ -73,6 +75,11 @@ export function HomePage() {
       const res = await getQuote({
         pickup: { lat: pickup.lat, lng: pickup.lng },
         drops: [{ lat: drop.lat, lng: drop.lng }],
+        coupon_code: couponCode.trim() || undefined,
+        item_details: {
+          goods_category: goodsCategory,
+          helper_needed: helperNeeded,
+        },
       });
       if (res.quotes.length === 0) {
         setError('No vehicles available for this route.');
@@ -97,6 +104,7 @@ export function HomePage() {
         dropLabel: drop.label,
         goodsCategory,
         helperNeeded,
+        couponCode: couponCode.trim() || undefined,
         scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
       },
     });
@@ -106,6 +114,7 @@ export function HomePage() {
     <div className={styles.page}>
       <PorterHeader />
       <div className={styles.body}>
+        <PromoBanners />
         <div className={styles.card}>
           <div className={styles.locationCard}>
             <div className={styles.locationRow}>
@@ -169,6 +178,17 @@ export function HomePage() {
             <input type="checkbox" checked={helperNeeded} onChange={(e) => setHelperNeeded(e.target.checked)} />
             Need helper for loading/unloading
           </label>
+
+          <div className={styles.section}>
+            <span className={styles.sectionLabel}>Promo code</span>
+            <input
+              type="text"
+              value={couponCode}
+              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+              placeholder="Enter coupon code"
+              className={styles.select}
+            />
+          </div>
 
           <div className={styles.section}>
             <span className={styles.sectionLabel}>When do you need it?</span>

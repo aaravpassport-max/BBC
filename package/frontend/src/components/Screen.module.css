@@ -16,6 +16,17 @@
   padding-bottom: calc(var(--nav-height) + 16px);
 }
 
+.back {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0;
+  margin: 0 0 10px;
+  cursor: pointer;
+}
+
 .eyebrow {
   font-size: 12px;
   font-weight: 600;
