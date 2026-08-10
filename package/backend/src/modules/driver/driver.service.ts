@@ -242,6 +242,7 @@ export async function getMyActiveJob(driverId: string) {
 
   const stops = await pool.query(
     `SELECT id, sequence, status, instructions, address_snapshot, arrived_at,
+            delivery_preference, proof_photo_url,
             ST_X(geo::geometry) AS drop_lng, ST_Y(geo::geometry) AS drop_lat
      FROM booking_stops WHERE booking_id = $1 ORDER BY sequence`,
     [result.rows[0].id]

@@ -41,6 +41,8 @@ import {
 import { runDispatchCycle } from './dispatch.service';
 import { verifyPickupOtp, completeStop, arriveAtPickup, arriveAtStop } from './trip.service';
 import { getActiveDriverIncentives } from './incentive.service';
+import { getDemandHeatmap } from './heatmap.service';
+import { saveProofPhoto } from './upload.service';
 import * as commsProvider from '../comms/comms.provider';
 import { pool } from '../../db/pool';
 
@@ -298,17 +300,41 @@ driverRouter.post(
   })
 );
 
+driverRouter.get(
+  '/demand-heatmap',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const lat = req.query.lat !== undefined ? parseFloat(req.query.lat as string) : undefined;
+    const lng = req.query.lng !== undefined ? parseFloat(req.query.lng as string) : undefined;
+    const radiusKm = req.query.radius_km !== undefined ? parseFloat(req.query.radius_km as string) : undefined;
+    res.status(200).json(await getDemandHeatmap({ lat, lng, radiusKm }));
+  })
+);
+
+driverRouter.post(
+  '/uploads/proof-photo',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { image_base64 } = req.body as { image_base64?: string };
+    if (!image_base64 || typeof image_base64 !== 'string') {
+      throw Errors.validation({ image_base64: 'image_base64 is required.' });
+    }
+    res.status(201).json(saveProofPhoto(image_base64));
+  })
+);
+
 // PRD 2.2.7/3B.1 — completes one drop stop; completing the last one completes the trip.
 driverRouter.post(
   '/jobs/:bookingId/stops/:stopId/complete',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const { otp } = req.body;
+    const { otp, photo_proof_url } = req.body;
     const result = await completeStop({
       bookingId: req.params.bookingId as string,
       stopId: req.params.stopId as string,
       driverId: req.user!.userId,
       otp,
+      photoProofUrl: photo_proof_url,
     });
     res.status(200).json(result);
   })

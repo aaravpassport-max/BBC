@@ -6,7 +6,8 @@ import { FareCard, FareCardLine } from '../components/FareCard';
 import { LiveMap } from '../components/LiveMap';
 import { acceptJob, declineJob, getPendingOffer, getErrorMessage, type PendingOffer } from '../api';
 import { formatAddress } from '../lib/address';
-import { haversineKm, formatDistanceKm, estimateEtaMinutes } from '../lib/geo';
+import { useRoute } from '../hooks/useRoute';
+import { formatDistanceKm } from '../lib/geo';
 
 function formatCategory(id: string | undefined): string {
   if (!id) return '—';
@@ -67,8 +68,7 @@ export function OfferPage() {
     lng: activeOffer.pickup_address_snapshot?.lng ?? activeOffer.pickup_lng,
   };
   const drop = activeOffer.first_drop_address;
-  const distanceKm =
-    drop?.lat != null && drop?.lng != null ? haversineKm(pickup, { lat: drop.lat, lng: drop.lng }) : null;
+  const { route } = useRoute([pickup, drop?.lat != null && drop?.lng != null ? { lat: drop.lat, lng: drop.lng } : null]);
 
   const drops =
     drop?.lat != null && drop?.lng != null ? [{ lat: drop.lat, lng: drop.lng }] : [];
@@ -137,17 +137,22 @@ export function OfferPage() {
         <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Respond before this offer expires</p>
       </div>
 
-      <LiveMap pickup={pickup} drops={drops} driver={null} />
+      <LiveMap pickup={pickup} drops={drops} driver={null} routePoints={route?.geometry} />
 
       <FareCard label="Job details">
         <FareCardLine label="Estimated earnings" value={`₹${activeOffer.fare_breakdown.final_fare.toFixed(2)}`} emphasis />
         <FareCardLine label="Pickup" value={formatAddress(activeOffer.pickup_address_snapshot)} />
         <FareCardLine label="First drop" value={formatAddress(activeOffer.first_drop_address, '—')} />
-        {distanceKm != null && (
+        {route != null ? (
           <FareCardLine
-            label="Distance to first drop"
-            value={`${formatDistanceKm(distanceKm)} · ~${estimateEtaMinutes(distanceKm)} min`}
+            label="Route to first drop"
+            value={`${formatDistanceKm(route.distanceM / 1000)} · ~${route.etaMinutes} min`}
           />
+        ) : (
+          drop?.lat != null &&
+          drop?.lng != null && (
+            <FareCardLine label="Route to first drop" value="Calculating route…" />
+          )
         )}
         {(activeOffer.stop_count ?? 0) > 0 && (
           <FareCardLine

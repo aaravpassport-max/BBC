@@ -189,9 +189,10 @@ export async function completeStop(params: {
   bookingId: string;
   stopId: string;
   driverId: string;
-  otp: string;
+  otp?: string;
+  photoProofUrl?: string;
 }): Promise<{ bookingStatus: string; tripCompleted: boolean }> {
-  const { bookingId, stopId, driverId, otp } = params;
+  const { bookingId, stopId, driverId, otp, photoProofUrl } = params;
 
   type Outcome =
     | { kind: 'success'; tripCompleted: boolean; finalFare?: number; platformFee?: number; customerId?: string }
@@ -199,7 +200,9 @@ export async function completeStop(params: {
     | { kind: 'wrong_trip_state'; status: string }
     | { kind: 'out_of_sequence' }
     | { kind: 'mismatch'; attemptsRemaining: number }
-    | { kind: 'locked' };
+    | { kind: 'locked' }
+    | { kind: 'photo_required' }
+    | { kind: 'otp_required' };
 
   const outcome = await withTransaction<Outcome>(async (client) => {
     const bookingResult = await client.query(
@@ -215,7 +218,8 @@ export async function completeStop(params: {
     }
 
     const stopResult = await client.query(
-      `SELECT id, sequence, status, otp_code, otp_attempts FROM booking_stops WHERE id = $1 AND booking_id = $2 FOR UPDATE`,
+      `SELECT id, sequence, status, otp_code, otp_attempts, delivery_preference, proof_photo_url
+       FROM booking_stops WHERE id = $1 AND booking_id = $2 FOR UPDATE`,
       [stopId, bookingId]
     );
     if (stopResult.rowCount === 0) {
@@ -241,15 +245,27 @@ export async function completeStop(params: {
       return { kind: 'locked' };
     }
 
-    if (stop.otp_code !== otp) {
-      const newAttempts = stop.otp_attempts + 1;
-      await client.query(`UPDATE booking_stops SET otp_attempts = $1 WHERE id = $2`, [newAttempts, stopId]);
-      return { kind: 'mismatch', attemptsRemaining: MAX_OTP_ATTEMPTS - newAttempts };
+    const prefersPhoto = stop.delivery_preference === 'photo_proof';
+    if (prefersPhoto) {
+      if (!photoProofUrl || typeof photoProofUrl !== 'string') {
+        return { kind: 'photo_required' };
+      }
+    } else {
+      if (!otp || typeof otp !== 'string') {
+        return { kind: 'otp_required' };
+      }
+      if (stop.otp_code !== otp) {
+        const newAttempts = stop.otp_attempts + 1;
+        await client.query(`UPDATE booking_stops SET otp_attempts = $1 WHERE id = $2`, [newAttempts, stopId]);
+        return { kind: 'mismatch', attemptsRemaining: MAX_OTP_ATTEMPTS - newAttempts };
+      }
     }
 
     await client.query(
-      `UPDATE booking_stops SET status = 'completed', completed_at = now() WHERE id = $1`,
-      [stopId]
+      prefersPhoto
+        ? `UPDATE booking_stops SET status = 'completed', completed_at = now(), proof_photo_url = $2 WHERE id = $1`
+        : `UPDATE booking_stops SET status = 'completed', completed_at = now() WHERE id = $1`,
+      prefersPhoto ? [stopId, photoProofUrl] : [stopId]
     );
 
     const remainingResult = await client.query(
@@ -328,5 +344,9 @@ export async function completeStop(params: {
       throw Errors.validation({ otp: 'Incorrect code.', attempts_remaining: outcome.attemptsRemaining });
     case 'locked':
       throw Errors.validation({ otp: 'Too many incorrect attempts. This trip has been flagged for support.' });
+    case 'photo_required':
+      throw Errors.validation({ photo_proof_url: 'A delivery photo is required for this stop.' });
+    case 'otp_required':
+      throw Errors.validation({ otp: 'OTP is required for this stop.' });
   }
 }

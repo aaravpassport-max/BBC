@@ -49,6 +49,8 @@ export interface Stop {
   drop_lng: number;
   address_snapshot?: AddressSnapshot;
   arrived_at?: string | null;
+  delivery_preference?: 'otp' | 'photo_proof';
+  proof_photo_url?: string | null;
 }
 
 export interface ActiveJob {
@@ -215,10 +217,10 @@ export function verifyPickupOtp(bookingId: string, otp: string) {
   return api.post<{ status: string }>(`/v1/driver/jobs/${bookingId}/verify-pickup`, { otp });
 }
 
-export function completeStop(bookingId: string, stopId: string, otp: string) {
+export function completeStop(bookingId: string, stopId: string, otp?: string, photoProofUrl?: string) {
   return api.post<{ bookingStatus: string; tripCompleted: boolean }>(
     `/v1/driver/jobs/${bookingId}/stops/${stopId}/complete`,
-    { otp }
+    { otp, photo_proof_url: photoProofUrl }
   );
 }
 

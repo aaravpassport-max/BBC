@@ -276,6 +276,26 @@ export function DriverHomePage() {
           </div>
         )}
 
+        {online && (
+          <button
+            type="button"
+            onClick={() => navigate('/heatmap')}
+            style={{
+              marginTop: 12,
+              width: '100%',
+              padding: '10px 12px',
+              borderRadius: 10,
+              border: '1px solid var(--border)',
+              background: 'var(--surface)',
+              fontSize: 13,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            🗺️ View demand heatmap
+          </button>
+        )}
+
         {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginTop: 12 }}>{error}</p>}
         {!hasVehicle && (
           <Button variant="ghost" onClick={() => navigate('/vehicle')} style={{ marginTop: 12 }}>

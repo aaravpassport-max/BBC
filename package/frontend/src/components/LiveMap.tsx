@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, CircleMarker, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import styles from './LiveMap.module.css';
 
@@ -47,38 +47,70 @@ export function LiveMap({
   pickup,
   drops = [],
   driver,
+  routePoints,
+  heatCells = [],
 }: {
   pickup: { lat: number; lng: number } | null;
   drops?: Array<{ lat: number; lng: number }>;
   driver: { lat: number; lng: number } | null;
+  routePoints?: Array<{ lat: number; lng: number }>;
+  heatCells?: Array<{ lat: number; lng: number; demand_score: number; surge_zone?: boolean }>;
 }) {
-  if (!pickup && !driver && drops.length === 0) return null;
+  if (!pickup && !driver && drops.length === 0 && heatCells.length === 0) return null;
 
   const points: [number, number][] = [];
   if (pickup) points.push([pickup.lat, pickup.lng]);
   for (const d of drops) points.push([d.lat, d.lng]);
   if (driver) points.push([driver.lat, driver.lng]);
 
-  const route: [number, number][] = [];
-  if (pickup) route.push([pickup.lat, pickup.lng]);
-  for (const d of drops) route.push([d.lat, d.lng]);
+  const fallbackRoute: [number, number][] = [];
+  if (pickup) fallbackRoute.push([pickup.lat, pickup.lng]);
+  for (const d of drops) fallbackRoute.push([d.lat, d.lng]);
 
-  const center = points[0] || [12.9716, 77.5946];
+  const polyline: [number, number][] =
+    routePoints && routePoints.length >= 2
+      ? routePoints.map((p) => [p.lat, p.lng] as [number, number])
+      : fallbackRoute;
+
+  const center = points[0] || heatCells[0] ? [heatCells[0]?.lat ?? 12.9716, heatCells[0]?.lng ?? 77.5946] : [12.9716, 77.5946];
 
   return (
     <div className={styles.mapWrap}>
-      <MapContainer center={center} zoom={14} scrollWheelZoom={false} className={styles.map} attributionControl={true}>
+      <MapContainer center={center as [number, number]} zoom={14} scrollWheelZoom={false} className={styles.map} attributionControl={true}>
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         />
+        {heatCells.map((cell, i) => (
+          <CircleMarker
+            key={`heat-${i}-${cell.lat}`}
+            center={[cell.lat, cell.lng]}
+            radius={12 + cell.demand_score * 18}
+            pathOptions={{
+              color: cell.surge_zone ? '#e67e22' : '#e74c3c',
+              fillColor: cell.surge_zone ? '#f39c12' : '#e74c3c',
+              fillOpacity: 0.25 + cell.demand_score * 0.45,
+              weight: 1,
+            }}
+          />
+        ))}
         {pickup && <Marker position={[pickup.lat, pickup.lng]} icon={pickupIcon} />}
         {drops.map((d, i) => (
           <Marker key={`drop-${i}-${d.lat}`} position={[d.lat, d.lng]} icon={dropIcon} />
         ))}
         {driver && <Marker position={[driver.lat, driver.lng]} icon={driverIcon} />}
-        {route.length >= 2 && <Polyline positions={route} pathOptions={{ color: '#2b6ce6', weight: 4, opacity: 0.7, dashArray: '8 6' }} />}
-        <AutoFit points={points} />
+        {polyline.length >= 2 && (
+          <Polyline
+            positions={polyline}
+            pathOptions={{
+              color: routePoints ? '#1a5fd4' : '#2b6ce6',
+              weight: routePoints ? 5 : 4,
+              opacity: routePoints ? 0.85 : 0.7,
+              dashArray: routePoints ? undefined : '8 6',
+            }}
+          />
+        )}
+        <AutoFit points={points.length > 0 ? points : heatCells.map((c) => [c.lat, c.lng] as [number, number])} />
       </MapContainer>
     </div>
   );

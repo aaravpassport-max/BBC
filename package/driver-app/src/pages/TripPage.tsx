@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { StatusBadge } from '../components/StatusBadge';
@@ -8,7 +9,9 @@ import { TripChat } from '../components/TripChat';
 import { LiveMap } from '../components/LiveMap';
 import { POSITIVE_RATING_TAGS, NEGATIVE_RATING_TAGS } from '../constants/brand';
 import { formatAddress } from '../lib/address';
-import { getActiveJob, verifyPickupOtp, completeStop, arriveAtPickup, arriveAtStop, rateBooking, triggerSos, callCustomer, getErrorMessage, type ActiveJob } from '../api';
+import { formatDistanceKm } from '../lib/geo';
+import { useRoute } from '../hooks/useRoute';
+import { getActiveJob, verifyPickupOtp, completeStop, arriveAtPickup, arriveAtStop, rateBooking, triggerSos, callCustomer, uploadProofPhoto, getErrorMessage, type ActiveJob } from '../api';
 import { Geolocation } from '@capacitor/geolocation';
 
 // Deep-links to the device's own maps app rather than embedding a routing
@@ -34,6 +37,8 @@ export function TripPage() {
   const [ratingTags, setRatingTags] = useState<string[]>([]);
   const [tripDone, setTripDone] = useState(false);
   const [arrivedPickup, setArrivedPickup] = useState(false);
+  const [proofPreview, setProofPreview] = useState<string | null>(null);
+  const [proofUrl, setProofUrl] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -56,6 +61,17 @@ export function TripPage() {
 
   const nextStop = job?.stops.find((s) => s.status !== 'completed');
   const awaitingPickup = job?.status === 'driver_assigned';
+  const needsPhotoProof = !awaitingPickup && nextStop?.delivery_preference === 'photo_proof';
+
+  const routeWaypoints = useMemo(() => {
+    if (!job) return [];
+    const pickup = { lat: job.pickup_lat, lng: job.pickup_lng };
+    const targetStop = awaitingPickup ? job.stops[0] : nextStop;
+    if (targetStop) return [pickup, { lat: targetStop.drop_lat, lng: targetStop.drop_lng }];
+    return [];
+  }, [job, awaitingPickup, nextStop]);
+
+  const { route } = useRoute(routeWaypoints);
 
   async function handleArrivePickup() {
     if (!bookingId) return;
@@ -100,20 +116,48 @@ export function TripPage() {
     }
   }
 
+  async function handleCaptureProof() {
+    setSubmitting(true);
+    setError('');
+    try {
+      const photo = await Camera.getPhoto({
+        quality: 80,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Camera,
+        allowEditing: false,
+      });
+      if (!photo.dataUrl) throw new Error('No photo captured');
+      setProofPreview(photo.dataUrl);
+      const uploaded = await uploadProofPhoto(photo.dataUrl);
+      setProofUrl(uploaded.url);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not capture delivery photo.'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function handleCompleteStop() {
     if (!bookingId || !nextStop) return;
     setSubmitting(true);
     setError('');
     try {
-      const result = await completeStop(bookingId, nextStop.id, otp);
+      const result = await completeStop(
+        bookingId,
+        nextStop.id,
+        needsPhotoProof ? undefined : otp,
+        needsPhotoProof ? proofUrl ?? undefined : undefined
+      );
       setOtp('');
+      setProofPreview(null);
+      setProofUrl(null);
       if (result.tripCompleted) {
         setTripDone(true);
       } else {
         await refresh();
       }
     } catch (err) {
-      setError(getErrorMessage(err, 'Could not verify this code.'));
+      setError(getErrorMessage(err, 'Could not complete this stop.'));
     } finally {
       setSubmitting(false);
     }
@@ -149,7 +193,13 @@ export function TripPage() {
         pickup={{ lat: job.pickup_lat, lng: job.pickup_lng }}
         drops={job.stops.map((s) => ({ lat: s.drop_lat, lng: s.drop_lng }))}
         driver={null}
+        routePoints={route?.geometry}
       />
+      {route && (
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center' }}>
+          Route ~{formatDistanceKm(route.distanceM / 1000)} · ~{route.etaMinutes} min
+        </p>
+      )}
 
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16, background: 'var(--surface)' }}>
         {job.stops.map((stop) => (
@@ -231,39 +281,64 @@ export function TripPage() {
       )}
 
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 18, background: 'var(--surface)' }}>
-        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10 }}>
-          {awaitingPickup
-            ? 'Ask the customer for their pickup code and enter it below.'
-            : `Ask the customer for the drop code for stop ${nextStop?.sequence} and enter it below.`}
-        </p>
-        <input
-          value={otp}
-          onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 4))}
-          inputMode="numeric"
-          placeholder="0000"
-          maxLength={4}
-          style={{
-            width: '100%',
-            textAlign: 'center',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 28,
-            fontWeight: 700,
-            letterSpacing: '0.2em',
-            padding: '14px',
-            background: 'var(--bg)',
-            border: '1px solid var(--border)',
-            borderRadius: 10,
-            color: 'var(--text)',
-            marginBottom: 12,
-          }}
-        />
-        <Button
-          onClick={awaitingPickup ? handleVerifyPickup : handleCompleteStop}
-          loading={submitting}
-          disabled={otp.length !== 4}
-        >
-          {awaitingPickup ? 'Confirm pickup' : 'Confirm drop'}
-        </Button>
+        {needsPhotoProof ? (
+          <>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10 }}>
+              This stop requires a delivery photo instead of an OTP. Capture proof of handoff at stop {nextStop?.sequence}.
+            </p>
+            {proofPreview && (
+              <img
+                src={proofPreview}
+                alt="Delivery proof"
+                style={{ width: '100%', borderRadius: 10, marginBottom: 12, maxHeight: 200, objectFit: 'cover' }}
+              />
+            )}
+            <Button variant="ghost" onClick={() => void handleCaptureProof()} loading={submitting}>
+              {proofPreview ? 'Retake photo' : '📷 Capture delivery photo'}
+            </Button>
+            <div style={{ marginTop: 12 }}>
+              <Button onClick={handleCompleteStop} loading={submitting} disabled={!proofUrl}>
+                Confirm delivery with photo
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10 }}>
+              {awaitingPickup
+                ? 'Ask the customer for their pickup code and enter it below.'
+                : `Ask the customer for the drop code for stop ${nextStop?.sequence} and enter it below.`}
+            </p>
+            <input
+              value={otp}
+              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              inputMode="numeric"
+              placeholder="0000"
+              maxLength={4}
+              style={{
+                width: '100%',
+                textAlign: 'center',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 28,
+                fontWeight: 700,
+                letterSpacing: '0.2em',
+                padding: '14px',
+                background: 'var(--bg)',
+                border: '1px solid var(--border)',
+                borderRadius: 10,
+                color: 'var(--text)',
+                marginBottom: 12,
+              }}
+            />
+            <Button
+              onClick={awaitingPickup ? handleVerifyPickup : handleCompleteStop}
+              loading={submitting}
+              disabled={otp.length !== 4}
+            >
+              {awaitingPickup ? 'Confirm pickup' : 'Confirm drop'}
+            </Button>
+          </>
+        )}
       </div>
 
       <TripChat bookingId={job.id} myRole="driver" />

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Geolocation } from '@capacitor/geolocation';
 import { Screen } from '../components/Screen';
@@ -11,6 +11,8 @@ import { CancelTripModal } from '../components/CancelTripModal';
 import { RatingPanel } from '../components/RatingPanel';
 import { TipPanel } from '../components/TipPanel';
 import { useBookingRealtime } from '../hooks/useBookingRealtime';
+import { useRoute } from '../hooks/useRoute';
+import { formatDistanceKm } from '../lib/geo';
 import { notify } from '../lib/notify';
 import {
   getBooking,
@@ -105,6 +107,27 @@ export function TrackPage() {
     }, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [refresh]);
+
+  const routeWaypoints = useMemo(() => {
+    if (!booking || !TRACKABLE.has(booking.status)) return [];
+    const pickup =
+      booking.pickup_lat != null && booking.pickup_lng != null
+        ? { lat: booking.pickup_lat, lng: booking.pickup_lng }
+        : null;
+    const driver = driverLocation ? { lat: driverLocation.lat, lng: driverLocation.lng } : null;
+    const nextStop = booking.stops?.find((s) => s.status !== 'completed');
+    const nextDrop =
+      nextStop?.drop_lat != null && nextStop?.drop_lng != null
+        ? { lat: nextStop.drop_lat, lng: nextStop.drop_lng }
+        : null;
+
+    if (booking.status === 'driver_assigned' && driver && pickup) return [driver, pickup];
+    if (booking.status === 'in_progress' && driver && nextDrop) return [driver, nextDrop];
+    if (pickup && nextDrop) return [pickup, nextDrop];
+    return [];
+  }, [booking, driverLocation]);
+
+  const { route } = useRoute(routeWaypoints);
 
   async function handleCancelConfirm(reason: CancelReasonCode, note?: string) {
     if (!bookingId) throw new Error('Missing booking');
@@ -356,13 +379,21 @@ export function TrackPage() {
       )}
 
       {TRACKABLE.has(booking.status) && booking.pickup_lat != null && booking.pickup_lng != null && (
-        <LiveMap
-          pickup={{ lat: booking.pickup_lat, lng: booking.pickup_lng }}
-          drops={(booking.stops || [])
-            .filter((s) => s.drop_lat != null && s.drop_lng != null)
-            .map((s) => ({ lat: s.drop_lat!, lng: s.drop_lng! }))}
-          driver={driverLocation ? { lat: driverLocation.lat, lng: driverLocation.lng } : null}
-        />
+        <>
+          <LiveMap
+            pickup={{ lat: booking.pickup_lat, lng: booking.pickup_lng }}
+            drops={(booking.stops || [])
+              .filter((s) => s.drop_lat != null && s.drop_lng != null)
+              .map((s) => ({ lat: s.drop_lat!, lng: s.drop_lng! }))}
+            driver={driverLocation ? { lat: driverLocation.lat, lng: driverLocation.lng } : null}
+            routePoints={route?.geometry}
+          />
+          {route && (
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', textAlign: 'center', marginTop: -4 }}>
+              ETA ~{route.etaMinutes} min · {formatDistanceKm(route.distanceM / 1000)} remaining
+            </p>
+          )}
+        </>
       )}
 
       {TRACKABLE.has(booking.status) && bookingId && <TripChat bookingId={bookingId} myRole="customer" />}

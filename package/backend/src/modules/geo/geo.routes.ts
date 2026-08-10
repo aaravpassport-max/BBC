@@ -4,6 +4,7 @@ import { requireAuth } from '../../middleware/auth';
 import { Errors } from '../../utils/errors';
 import * as places from './places.provider';
 import { checkServiceability } from './geo.service';
+import { fetchDrivingRoute } from './route.service';
 
 export const geoRouter = Router();
 
@@ -38,5 +39,40 @@ geoRouter.get(
       throw Errors.validation({ lat: 'lat and lng are required.' });
     }
     res.status(200).json(await checkServiceability(lat, lng));
+  })
+);
+
+geoRouter.get(
+  '/route',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const raw = typeof req.query.waypoints === 'string' ? req.query.waypoints : '';
+    if (!raw) {
+      throw Errors.validation({ waypoints: 'waypoints query param is required (lat,lng;lat,lng;...).' });
+    }
+
+    const waypoints = raw.split(';').map((pair, i) => {
+      const [latStr, lngStr] = pair.split(',');
+      const lat = parseFloat(latStr);
+      const lng = parseFloat(lngStr);
+      if (Number.isNaN(lat) || Number.isNaN(lng)) {
+        throw Errors.validation({ waypoints: `Invalid coordinate at position ${i + 1}.` });
+      }
+      return { lat, lng };
+    });
+
+    if (waypoints.length < 2) {
+      throw Errors.validation({ waypoints: 'At least two waypoints are required.' });
+    }
+    if (waypoints.length > 10) {
+      throw Errors.validation({ waypoints: 'At most 10 waypoints are supported.' });
+    }
+
+    const route = await fetchDrivingRoute(waypoints);
+    if (!route) {
+      throw Errors.validation({ route: 'Could not compute a driving route for these waypoints.' });
+    }
+
+    res.status(200).json(route);
   })
 );
