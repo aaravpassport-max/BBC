@@ -3,6 +3,7 @@ import { pool } from '../../db/pool';
 import { Errors } from '../../utils/errors';
 import { validateCoupon } from './coupon.service';
 import { getActiveSubscriptionBenefit } from '../booking/subscription.service';
+import { computeLoyaltyDiscount } from '../loyalty/loyalty.service';
 
 const QUOTE_TTL_SECONDS = parseInt(process.env.QUOTE_TTL_SECONDS || '90', 10);
 
@@ -18,6 +19,7 @@ export interface FareBreakdown {
   tax: number;
   coupon_discount: number;
   subscription_benefit: number;
+  loyalty_discount: number;
   final_fare: number;
 }
 
@@ -77,8 +79,9 @@ function computeFare(params: {
   surgeMultiplier: number;
   couponDiscount: number;
   subscriptionBenefit: number;
+  loyaltyDiscount: number;
 }): FareBreakdown {
-  const { rateCard, distanceKm, surgeMultiplier, couponDiscount, subscriptionBenefit } = params;
+  const { rateCard, distanceKm, surgeMultiplier, couponDiscount, subscriptionBenefit, loyaltyDiscount } = params;
 
   const base_fare = parseFloat(rateCard.base_fare);
   const distance_charge = distanceKm * parseFloat(rateCard.per_km_rate);
@@ -97,7 +100,7 @@ function computeFare(params: {
   const preTaxTotal = surgedSubtotal + platform_fee + toll_pass_through;
   const tax = preTaxTotal * (parseFloat(rateCard.tax_rate_pct) / 100);
 
-  let final_fare = preTaxTotal + tax - couponDiscount - subscriptionBenefit;
+  let final_fare = preTaxTotal + tax - couponDiscount - subscriptionBenefit - loyaltyDiscount;
 
   // Minimum fare floor applies after additive components, before treating
   // coupon/subscription discounts as able to push below it, per PRD Section 5 —
@@ -120,6 +123,7 @@ function computeFare(params: {
     tax: round2(tax),
     coupon_discount: round2(couponDiscount),
     subscription_benefit: round2(subscriptionBenefit),
+    loyalty_discount: round2(loyaltyDiscount),
     final_fare: round2(final_fare),
   };
 }
@@ -142,8 +146,9 @@ export async function generateQuotes(params: {
   drops: { lat: number; lng: number }[];
   vehicleCategory?: string;
   couponCode?: string;
+  loyaltyPointsToRedeem?: number;
 }): Promise<QuoteResult[]> {
-  const { customerId, pickup, drops, vehicleCategory, couponCode } = params;
+  const { customerId, pickup, drops, vehicleCategory, couponCode, loyaltyPointsToRedeem } = params;
 
   // Resolve serviceable zone -> city, to know which rate cards apply (PRD Section 8/9).
   const zoneResult = await pool.query(
@@ -203,8 +208,9 @@ export async function generateQuotes(params: {
       distanceKm: totalDistanceKm,
       surgeMultiplier,
       couponDiscount: 0,
-      subscriptionBenefit: 0,
-    });
+    subscriptionBenefit: 0,
+    loyaltyDiscount: 0,
+  });
 
     let couponId: string | null = null;
     if (couponCode) {
@@ -246,6 +252,22 @@ export async function generateQuotes(params: {
         subscription_benefit: waived,
         final_fare: round2(fareBreakdown.final_fare - waived),
       };
+    }
+
+    if (loyaltyPointsToRedeem && loyaltyPointsToRedeem > 0) {
+      const { discount, pointsUsed } = await computeLoyaltyDiscount(
+        customerId,
+        loyaltyPointsToRedeem,
+        fareBreakdown.final_fare
+      );
+      if (pointsUsed > 0) {
+        fareBreakdown = {
+          ...fareBreakdown,
+          loyalty_discount: discount,
+          final_fare: round2(fareBreakdown.final_fare - discount),
+          ...( { loyalty_points_used: pointsUsed } as { loyalty_points_used?: number }),
+        };
+      }
     }
 
     const quoteId = uuidv4();

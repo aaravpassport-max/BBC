@@ -7,12 +7,75 @@ import {
   getMySubscription,
   getSubscriptionPlans,
   purchaseSubscription,
+  verifySubscriptionPayment,
+  devConfirmSubscriptionPayment,
   cancelSubscription,
   reactivateSubscription,
   getErrorMessage,
   type Subscription,
   type SubscriptionPlan,
 } from '../api';
+
+const RAZORPAY_SCRIPT_URL = 'https://checkout.razorpay.com/v1/checkout.js';
+
+declare global {
+  interface Window {
+    Razorpay: new (options: Record<string, unknown>) => { open: () => void };
+  }
+}
+
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = RAZORPAY_SCRIPT_URL;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
+async function completeSubscriptionPayment(
+  planId: string,
+  session: {
+    simulated: boolean;
+    gateway_ref?: string;
+    order_id?: string;
+    amount?: number;
+    currency?: string;
+    key_id?: string;
+  }
+): Promise<void> {
+  if (session.simulated) {
+    await devConfirmSubscriptionPayment(session.gateway_ref!, planId);
+    return;
+  }
+  const loaded = await loadRazorpayScript();
+  if (!loaded) throw new Error('Could not load the payment provider.');
+  await new Promise<void>((resolve, reject) => {
+    const razorpay = new window.Razorpay({
+      key: session.key_id,
+      amount: session.amount,
+      currency: session.currency,
+      order_id: session.order_id,
+      name: BRAND.name,
+      description: 'Membership subscription',
+      handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+        try {
+          await verifySubscriptionPayment({ ...response, plan_id: planId });
+          resolve();
+        } catch (err) {
+          reject(err);
+        }
+      },
+      modal: { ondismiss: () => reject(new Error('Payment cancelled.')) },
+    });
+    razorpay.open();
+  });
+}
 
 export function SubscriptionPage() {
   const navigate = useNavigate();
@@ -45,7 +108,10 @@ export function SubscriptionPage() {
     setLoading(true);
     setError('');
     try {
-      await purchaseSubscription(plan.id);
+      const result = await purchaseSubscription(plan.id);
+      if (result.payment_required && result.gateway_session) {
+        await completeSubscriptionPayment(plan.id, result.gateway_session);
+      }
       await refresh();
     } catch (err) {
       setError(getErrorMessage(err, 'Could not start membership.'));

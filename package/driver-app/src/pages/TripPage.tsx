@@ -7,7 +7,7 @@ import { Skeleton } from '../components/Skeleton';
 import { TripChat } from '../components/TripChat';
 import { LiveMap } from '../components/LiveMap';
 import { POSITIVE_RATING_TAGS, NEGATIVE_RATING_TAGS } from '../constants/brand';
-import { getActiveJob, verifyPickupOtp, completeStop, rateBooking, triggerSos, getErrorMessage, type ActiveJob } from '../api';
+import { getActiveJob, verifyPickupOtp, completeStop, rateBooking, triggerSos, callCustomer, getErrorMessage, type ActiveJob } from '../api';
 import { Geolocation } from '@capacitor/geolocation';
 
 // Deep-links to the device's own maps app rather than embedding a routing
@@ -163,6 +163,19 @@ export function TripPage() {
       >
         🧭 Navigate to {awaitingPickup ? 'pickup' : `stop ${nextStop?.sequence}`}
       </Button>
+
+      {bookingId && (
+        <Button
+          variant="ghost"
+          onClick={() => {
+            void callCustomer(bookingId).then((r) => {
+              window.location.href = r.call_uri;
+            });
+          }}
+        >
+          📞 Call customer
+        </Button>
+      )}
 
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 18, background: 'var(--surface)' }}>
         <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10 }}>

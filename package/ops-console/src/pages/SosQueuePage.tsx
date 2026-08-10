@@ -5,6 +5,7 @@ import { Input } from '../components/Input';
 import { AccessDenied } from '../components/AccessDenied';
 import { getSosQueue, acknowledgeSos, resolveSos, escalateSos, ApiError, getErrorMessage, type SosEvent } from '../api';
 import { SkeletonRowList } from '../components/Skeleton';
+import { useOpsRealtime } from '../hooks/useOpsRealtime';
 
 const POLL_INTERVAL_MS = 4000;
 
@@ -25,6 +26,10 @@ export function SosQueuePage() {
       else setError(getErrorMessage(err, 'Could not load the SOS queue.'));
     }
   }, []);
+
+  useOpsRealtime(() => {
+    void refresh();
+  });
 
   useEffect(() => {
     void refresh();

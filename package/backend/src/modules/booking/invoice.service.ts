@@ -27,6 +27,41 @@ async function nextInvoiceNumber(): Promise<string> {
   return `PMS/${fy}/${String(num).padStart(6, '0')}`;
 }
 
+async function getOrCreateInvoiceRecord(
+  bookingId: string,
+  customerId: string,
+  amount: number
+): Promise<string> {
+  const cached = await pool.query(
+    `SELECT invoice_number FROM trip_invoices WHERE booking_id = $1 AND status = 'active'`,
+    [bookingId]
+  );
+  if (cached.rowCount && cached.rowCount > 0) {
+    return cached.rows[0].invoice_number as string;
+  }
+
+  const invoiceNo = await nextInvoiceNumber();
+  await pool.query(
+    `INSERT INTO trip_invoices (booking_id, customer_id, invoice_number, amount)
+     VALUES ($1, $2, $3, $4)`,
+    [bookingId, customerId, invoiceNo, amount]
+  );
+  return invoiceNo;
+}
+
+export async function listCustomerInvoices(customerId: string) {
+  const result = await pool.query(
+    `SELECT ti.id, ti.booking_id, ti.invoice_number, ti.amount, ti.generated_at, b.status AS booking_status
+     FROM trip_invoices ti
+     JOIN bookings b ON b.id = ti.booking_id
+     WHERE ti.customer_id = $1 AND ti.status = 'active'
+     ORDER BY ti.generated_at DESC
+     LIMIT 100`,
+    [customerId]
+  );
+  return result.rows;
+}
+
 function splitGst(taxAmount: number, customerState = 'KA'): { cgst: number; sgst: number; igst: number } {
   const half = taxAmount / 2;
   if (customerState === 'KA') return { cgst: half, sgst: half, igst: 0 };
@@ -56,8 +91,10 @@ export async function generateTripInvoicePdf(bookingId: string, customerId: stri
     final_fare: number;
     coupon_discount?: number;
     subscription_benefit?: number;
+    loyalty_discount?: number;
   };
-  const invoiceNo = await nextInvoiceNumber();
+
+  const invoiceNo = await getOrCreateInvoiceRecord(bookingId, customerId, fb.final_fare);
   const gst = splitGst(fb.tax || 0);
   const taxable = fb.final_fare - (fb.tax || 0);
 
@@ -98,6 +135,7 @@ export async function generateTripInvoicePdf(bookingId: string, customerId: stri
     ];
     if (fb.coupon_discount) lines.push(['Coupon discount', -fb.coupon_discount]);
     if (fb.subscription_benefit) lines.push(['Membership benefit', -fb.subscription_benefit]);
+    if (fb.loyalty_discount) lines.push(['Loyalty points', -fb.loyalty_discount]);
     for (const [label, amt] of lines) {
       doc.text(label, 50, doc.y, { continued: true, width: 300 });
       doc.text(amt.toFixed(2), { align: 'right' });

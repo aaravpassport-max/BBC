@@ -37,6 +37,8 @@ import {
 } from './driver.service';
 import { runDispatchCycle } from './dispatch.service';
 import { verifyPickupOtp, completeStop } from './trip.service';
+import * as commsProvider from '../comms/comms.provider';
+import { pool } from '../../db/pool';
 
 const statusSchema = z.object({
   online: z.boolean(),
@@ -152,6 +154,47 @@ driverRouter.get(
   asyncHandler(async (req, res) => {
     const job = await getMyActiveJob(req.user!.userId);
     res.status(200).json(job);
+  })
+);
+
+driverRouter.get(
+  '/jobs/:bookingId/call-customer',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const bookingId = req.params.bookingId as string;
+    const driverId = req.user!.userId;
+
+    const phones = await pool.query(
+      `SELECT cu.phone AS customer_phone, du.phone AS driver_phone, b.customer_id, b.driver_id, b.status
+       FROM bookings b
+       JOIN users cu ON cu.id = b.customer_id
+       JOIN users du ON du.id = b.driver_id
+       WHERE b.id = $1 AND b.driver_id = $2`,
+      [bookingId, driverId]
+    );
+    if (phones.rowCount === 0) {
+      throw Errors.notFound('Active trip');
+    }
+    const row = phones.rows[0];
+    if (!['driver_assigned', 'in_progress'].includes(row.status)) {
+      throw Errors.validation({ booking: 'Calls are only available during an active trip.' });
+    }
+
+    const call = await commsProvider.initiateMaskedCall({
+      fromPhone: row.driver_phone,
+      toPhone: row.customer_phone,
+    });
+
+    await pool.query(
+      `INSERT INTO call_logs (booking_id, caller_id, callee_id, provider_ref, masked_number, status)
+       VALUES ($1, $2, $3, $4, $5, 'initiated')`,
+      [bookingId, driverId, row.customer_id, call.providerRef ?? null, call.displayNumber]
+    );
+
+    res.status(200).json({
+      call_uri: call.callUri,
+      display_number: call.displayNumber,
+    });
   })
 );
 

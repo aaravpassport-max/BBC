@@ -1,6 +1,8 @@
 import { pool, withTransaction } from '../../db/pool';
 import { Errors } from '../../utils/errors';
-import { debitCustomerForSubscription } from '../wallet/wallet.service';
+import { randomUUID as uuidv4 } from 'crypto';
+import { debitCustomerForSubscription, getWalletBalance } from '../wallet/wallet.service';
+import * as razorpay from '../wallet/razorpay.provider';
 
 // PRD 19A.1 — config-driven plan catalog, fixed here for the reference implementation.
 export const PLANS: Record<string, { monthlyFee: number; waivesPlatformFee: boolean; surgeExempt: boolean }> = {
@@ -11,26 +13,112 @@ const GRACE_PERIOD_DAYS = 3; // PRD 19A.1 config
 const MAX_RENEWAL_RETRIES = 3;
 const REACTIVATION_WINDOW_DAYS = 14; // PRD 19A.1 secondary window
 
-export async function purchaseSubscription(userId: string, planId: string): Promise<{ id: string }> {
+export async function purchaseSubscription(
+  userId: string,
+  planId: string
+): Promise<{ id: string; payment_required?: boolean; gateway_session?: Record<string, unknown> }> {
   if (!PLANS[planId]) {
     throw Errors.validation({ plan_id: 'Unknown subscription plan.' });
   }
 
+  const existing = await pool.query(
+    `SELECT id FROM subscriptions WHERE user_id = $1 AND status IN ('active', 'grace_period')`,
+    [userId]
+  );
+  if (existing.rowCount && existing.rowCount > 0) {
+    throw Errors.validation({ subscription: 'You already have an active subscription.' });
+  }
+
+  const plan = PLANS[planId];
+  const balance = await getWalletBalance('customer', userId);
+  if (balance.real_money_balance < plan.monthlyFee) {
+    let gatewayRef: string;
+    let gatewaySession: Record<string, unknown>;
+
+    if (razorpay.isConfigured()) {
+      const order = await razorpay.createOrder({
+        amountRupees: plan.monthlyFee,
+        receipt: `sub_${userId.slice(0, 8)}`,
+        notes: { user_id: userId, plan_id: planId, type: 'subscription' },
+      });
+      gatewayRef = order.id;
+      gatewaySession = {
+        order_id: order.id,
+        amount: order.amount,
+        currency: order.currency,
+        key_id: process.env.RAZORPAY_KEY_ID,
+        simulated: false,
+        plan_id: planId,
+      };
+    } else {
+      gatewayRef = `sim_sub_${uuidv4()}`;
+      gatewaySession = {
+        gateway_ref: gatewayRef,
+        simulated: true,
+        amount: Math.round(plan.monthlyFee * 100),
+        currency: 'INR',
+        plan_id: planId,
+      };
+    }
+
+    await pool.query(
+      `INSERT INTO payments (gateway_ref, status, amount, method, customer_id)
+       VALUES ($1, 'pending', $2, 'card', $3)`,
+      [gatewayRef, plan.monthlyFee, userId]
+    );
+
+    return { id: '', payment_required: true, gateway_session: gatewaySession };
+  }
+
   return withTransaction(async (client) => {
+    await debitCustomerForSubscription(client, { customerId: userId, amount: plan.monthlyFee });
+
+    const result = await client.query(
+      `INSERT INTO subscriptions (user_id, plan_id, status, current_period_start, current_period_end, payment_method_id)
+       VALUES ($1, $2, 'active', now(), now() + interval '30 days', 'wallet')
+       RETURNING id`,
+      [userId, planId]
+    );
+    return { id: result.rows[0].id };
+  });
+}
+
+export async function confirmSubscriptionPayment(
+  userId: string,
+  gatewayRef: string,
+  planId: string
+): Promise<{ id: string }> {
+  return withTransaction(async (client) => {
+    const payment = await client.query(
+      `SELECT id, status, customer_id, amount FROM payments WHERE gateway_ref = $1 FOR UPDATE`,
+      [gatewayRef]
+    );
+    if (payment.rowCount === 0) throw Errors.notFound('Payment');
+    if (payment.rows[0].customer_id !== userId) throw Errors.forbidden('This payment does not belong to you.');
+    if (payment.rows[0].status === 'succeeded') {
+      const sub = await client.query(`SELECT id FROM subscriptions WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1`, [
+        userId,
+      ]);
+      return { id: sub.rows[0]?.id || '' };
+    }
+
     const existing = await client.query(
-      `SELECT id FROM subscriptions WHERE user_id = $1 AND status IN ('active', 'grace_period') FOR UPDATE`,
+      `SELECT id FROM subscriptions WHERE user_id = $1 AND status IN ('active', 'grace_period')`,
       [userId]
     );
     if (existing.rowCount && existing.rowCount > 0) {
       throw Errors.validation({ subscription: 'You already have an active subscription.' });
     }
 
-    const plan = PLANS[planId];
-    await debitCustomerForSubscription(client, { customerId: userId, amount: plan.monthlyFee });
+    if (!PLANS[planId]) throw Errors.validation({ plan_id: 'Unknown subscription plan.' });
+
+    await client.query(`UPDATE payments SET status = 'succeeded', webhook_received_at = now() WHERE id = $1`, [
+      payment.rows[0].id,
+    ]);
 
     const result = await client.query(
       `INSERT INTO subscriptions (user_id, plan_id, status, current_period_start, current_period_end, payment_method_id)
-       VALUES ($1, $2, 'active', now(), now() + interval '30 days', 'default')
+       VALUES ($1, $2, 'active', now(), now() + interval '30 days', 'razorpay')
        RETURNING id`,
       [userId, planId]
     );

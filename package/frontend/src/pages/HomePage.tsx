@@ -7,7 +7,7 @@ import { PromoBanners } from '../components/PromoBanners';
 import { LocationPicker } from '../components/LocationPicker';
 import { MapPicker } from '../components/MapPicker';
 import { LiveMap } from '../components/LiveMap';
-import { getQuote, getErrorMessage, listAddresses, type Quote } from '../api';
+import { getQuote, getErrorMessage, listAddresses, getLoyaltySummary, type Quote } from '../api';
 import { PRESET_LOCATIONS, sameLocation, type LocationPoint } from '../lib/locations';
 import type { SavedAddress } from '../api/profile';
 import styles from './HomePage.module.css';
@@ -42,6 +42,8 @@ export function HomePage() {
   const [choosingVehicle, setChoosingVehicle] = useState(false);
   const [scheduledFor, setScheduledFor] = useState('');
   const [couponCode, setCouponCode] = useState('');
+  const [loyaltyBalance, setLoyaltyBalance] = useState(0);
+  const [loyaltyToRedeem, setLoyaltyToRedeem] = useState(0);
 
   const minScheduleValue = new Date(Date.now() + 35 * 60 * 1000).toISOString().slice(0, 16);
   const maxScheduleValue = new Date(Date.now() + 6.5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
@@ -49,6 +51,9 @@ export function HomePage() {
   useEffect(() => {
     listAddresses()
       .then(setSavedAddresses)
+      .catch(() => undefined);
+    getLoyaltySummary()
+      .then((s) => setLoyaltyBalance(s.balance))
       .catch(() => undefined);
   }, []);
 
@@ -72,6 +77,7 @@ export function HomePage() {
         pickup: { lat: pickup.lat, lng: pickup.lng },
         drops: drops.map((d) => ({ lat: d.lat, lng: d.lng })),
         coupon_code: couponCode.trim() || undefined,
+        loyalty_points_to_redeem: loyaltyToRedeem > 0 ? loyaltyToRedeem : undefined,
         item_details: {
           goods_category: goodsCategory,
           weight_band: weightBand,
@@ -208,6 +214,22 @@ export function HomePage() {
               className={styles.select}
             />
           </div>
+
+          {loyaltyBalance > 0 && (
+            <div className={styles.section}>
+              <span className={styles.sectionLabel}>Loyalty points ({loyaltyBalance} available · 10 pts = ₹1)</span>
+              <input
+                type="number"
+                min={0}
+                max={loyaltyBalance}
+                step={10}
+                value={loyaltyToRedeem || ''}
+                onChange={(e) => setLoyaltyToRedeem(Math.min(loyaltyBalance, Math.max(0, parseInt(e.target.value, 10) || 0)))}
+                placeholder="Points to redeem"
+                className={styles.select}
+              />
+            </div>
+          )}
 
           <div className={styles.section}>
             <span className={styles.sectionLabel}>When do you need it?</span>

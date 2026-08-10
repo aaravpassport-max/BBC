@@ -6,7 +6,8 @@ import { requireAuth } from '../../middleware/auth';
 import { Errors } from '../../utils/errors';
 import { createBooking, cancelBooking, getBooking, getBookingDriverLocation, listBookings, previewCancellation } from './booking.service';
 import { confirmTripPaymentAsCustomer } from './payment.service';
-import { generateTripInvoicePdf } from './invoice.service';
+import { submitTip, getTipForBooking, getPresetTipAmounts } from './tip.service';
+import { listCustomerInvoices, generateTripInvoicePdf } from './invoice.service';
 import { runDispatchCycle } from '../driver/dispatch.service';
 import { sendTripMessage, getTripMessages } from './chat.service';
 import { submitRating } from './ratings.service';
@@ -42,6 +43,8 @@ const verifyTripPaymentSchema = z.object({
   razorpay_payment_id: z.string().min(1),
   razorpay_signature: z.string().min(1),
 });
+
+const tipSchema = z.object({ amount: z.number().positive() });
 
 export const bookingRouter = Router();
 
@@ -85,6 +88,23 @@ bookingRouter.get(
 
     const items = await listBookings({ customerId: req.user!.userId, status, page, pageSize });
     res.status(200).json({ items, page });
+  })
+);
+
+bookingRouter.get(
+  '/invoices',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const items = await listCustomerInvoices(req.user!.userId);
+    res.status(200).json({ items });
+  })
+);
+
+bookingRouter.get(
+  '/tip-presets',
+  requireAuth,
+  asyncHandler(async (_req, res) => {
+    res.status(200).json({ amounts: getPresetTipAmounts() });
   })
 );
 
@@ -243,6 +263,37 @@ bookingRouter.post(
     res.status(201).json(result);
   })
 );
+
+bookingRouter.get(
+  '/:id/final-fare',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const booking = await getBooking(req.params.id as string, req.user!.userId);
+    if (booking.status !== 'completed') {
+      throw Errors.validation({ booking: 'Final fare is available only for completed trips.' });
+    }
+    const tip = await getTipForBooking(req.params.id as string, req.user!.userId);
+    res.status(200).json({
+      ...booking.fare_breakdown,
+      tip_amount: tip ? parseFloat(String(tip.amount)) : 0,
+    });
+  })
+);
+
+bookingRouter.post(
+  '/:id/tip',
+  requireAuth,
+  validateBody(tipSchema),
+  asyncHandler(async (req, res) => {
+    const result = await submitTip({
+      bookingId: req.params.id as string,
+      customerId: req.user!.userId,
+      amount: req.body.amount,
+    });
+    res.status(201).json(result);
+  })
+);
+
 bookingRouter.post(
   '/:id/cancel',
   requireAuth,

@@ -397,6 +397,40 @@ export async function debitCustomerForSubscription(
   });
 }
 
+/** Debits driver wallet when a payout batch line is submitted to the bank. */
+export async function debitDriverForPayout(
+  client: PoolClient,
+  params: { driverId: string; amount: number }
+): Promise<void> {
+  const { driverId, amount } = params;
+  const walletId = await getOrCreateWallet(client, 'driver', driverId);
+  await recordLedgerEntry(client, {
+    debitWalletId: walletId,
+    creditWalletId: null,
+    amount,
+    balanceType: 'real',
+    reason: 'payout',
+  });
+}
+
+/** Transfers a tip from customer to driver — distinct ledger reason from trip fare. */
+export async function transferTip(
+  client: PoolClient,
+  params: { customerId: string; driverId: string; bookingId: string; amount: number }
+): Promise<void> {
+  const { customerId, driverId, bookingId, amount } = params;
+  const customerWalletId = await getOrCreateWallet(client, 'customer', customerId);
+  const driverWalletId = await getOrCreateWallet(client, 'driver', driverId);
+  await recordLedgerEntry(client, {
+    debitWalletId: customerWalletId,
+    creditWalletId: driverWalletId,
+    amount,
+    balanceType: 'real',
+    reason: 'tip',
+    linkedBookingId: bookingId,
+  });
+}
+
 export async function getTransactionHistory(ownerType: string, ownerId: string, type?: string) {
   const walletResult = await pool.query(
     `SELECT id FROM wallets WHERE owner_type = $1 AND owner_id = $2`,

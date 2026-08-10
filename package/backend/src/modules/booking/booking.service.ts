@@ -6,6 +6,7 @@ import { reserveCorporateSpend, releaseReservationInTransaction, checkPerUserMon
 import { sendNotification, deriveEventId } from '../notifications/notifications.service';
 import { debitCustomerForBooking, debitCustomerCancellationFee } from '../wallet/wallet.service';
 import { initiateTripPayment } from './payment.service';
+import { redeemPointsForBooking } from '../loyalty/loyalty.service';
 
 export async function createBooking(params: {
   customerId: string;
@@ -124,6 +125,17 @@ export async function createBooking(params: {
     );
 
     const bookingId = bookingResult.rows[0].id;
+
+    const loyaltyPointsUsed = (quote.fare_breakdown as { loyalty_points_used?: number }).loyalty_points_used;
+    const loyaltyDiscount = (quote.fare_breakdown as { loyalty_discount?: number }).loyalty_discount;
+    if (loyaltyPointsUsed && loyaltyPointsUsed > 0 && loyaltyDiscount) {
+      await redeemPointsForBooking({
+        userId: customerId,
+        bookingId,
+        pointsUsed: loyaltyPointsUsed,
+        discountAmount: loyaltyDiscount,
+      });
+    }
 
     // Materialize the quote's drops into booking_stops (PRD Section 24 schema
     // existed since migration 003, but no code path ever populated it until

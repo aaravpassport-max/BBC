@@ -225,6 +225,7 @@ export function ConfirmPage() {
         <FareCardLine label="Tax" value={money(fb.tax)} />
         {fb.coupon_discount > 0 && <FareCardLine label="Coupon discount" value={`−${money(fb.coupon_discount)}`} muted />}
         {fb.subscription_benefit > 0 && <FareCardLine label="Membership benefit" value={`−${money(fb.subscription_benefit)}`} muted />}
+        {(fb.loyalty_discount ?? 0) > 0 && <FareCardLine label="Loyalty points" value={`−${money(fb.loyalty_discount!)}`} muted />}
         <FareCardDivider />
         <FareCardLine label="Total" value={money(fb.final_fare)} emphasis />
       </FareCard>

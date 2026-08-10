@@ -56,8 +56,8 @@ financeRouter.post(
   requireAuth,
   requirePermission('finance', 'approve'),
   asyncHandler(async (req, res) => {
-    await approvePayoutBatch(req.params.id as string, req.user!.userId);
-    res.status(200).json({ approved: true });
+    const result = await approvePayoutBatch(req.params.id as string, req.user!.userId);
+    res.status(200).json({ approved: true, ...result });
   })
 );
 

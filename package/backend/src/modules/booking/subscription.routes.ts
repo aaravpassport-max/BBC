@@ -3,7 +3,9 @@ import { z } from 'zod';
 import { asyncHandler } from '../../middleware/errorHandler';
 import { validateBody } from '../../middleware/validate';
 import { requireAuth } from '../../middleware/auth';
-import { PLANS, purchaseSubscription, getMySubscription, cancelSubscription, attemptRenewal, reactivateSubscription } from './subscription.service';
+import { Errors } from '../../utils/errors';
+import { verifyPaymentSignature } from '../wallet/razorpay.provider';
+import { PLANS, purchaseSubscription, getMySubscription, cancelSubscription, attemptRenewal, reactivateSubscription, confirmSubscriptionPayment } from './subscription.service';
 
 export function listSubscriptionPlans() {
   return Object.entries(PLANS).map(([id, plan]) => ({
@@ -19,6 +21,13 @@ export function listSubscriptionPlans() {
 }
 
 const purchaseSchema = z.object({ plan_id: z.string() });
+
+const verifySubscriptionPaymentSchema = z.object({
+  razorpay_order_id: z.string().min(1),
+  razorpay_payment_id: z.string().min(1),
+  razorpay_signature: z.string().min(1),
+  plan_id: z.string(),
+});
 
 export const subscriptionRouter = Router();
 
@@ -36,7 +45,37 @@ subscriptionRouter.post(
   validateBody(purchaseSchema),
   asyncHandler(async (req, res) => {
     const result = await purchaseSubscription(req.user!.userId, req.body.plan_id);
-    res.status(201).json(result);
+    res.status(result.payment_required ? 200 : 201).json(result);
+  })
+);
+
+subscriptionRouter.post(
+  '/verify-payment',
+  requireAuth,
+  validateBody(verifySubscriptionPaymentSchema),
+  asyncHandler(async (req, res) => {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, plan_id } = req.body;
+    const valid = verifyPaymentSignature({
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      signature: razorpay_signature,
+    });
+    if (!valid) {
+      throw Errors.validation({ signature: 'Payment signature verification failed.' });
+    }
+    const result = await confirmSubscriptionPayment(req.user!.userId, razorpay_order_id, plan_id);
+    res.status(200).json({ confirmed: true, subscription_id: result.id });
+  })
+);
+
+subscriptionRouter.post(
+  '/dev/confirm-payment',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { gateway_ref, plan_id } = req.body as { gateway_ref?: string; plan_id?: string };
+    if (!gateway_ref || !plan_id) throw Errors.validation({ gateway_ref: 'Required.', plan_id: 'Required.' });
+    const result = await confirmSubscriptionPayment(req.user!.userId, gateway_ref, plan_id);
+    res.status(200).json({ confirmed: true, subscription_id: result.id });
   })
 );
 

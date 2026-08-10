@@ -1,5 +1,6 @@
 import { pool } from '../../db/pool';
 import { Errors } from '../../utils/errors';
+import { broadcastOpsEvent, broadcastBookingEvent } from '../realtime/realtime.hub';
 
 /**
  * Triggers an SOS event from an active booking (PRD 10A.1). Either the
@@ -41,7 +42,12 @@ export async function triggerSos(params: {
   // and the booking's current pickup/drop geography already on the
   // `bookings` row, are what the Control Room queue surfaces instead.
 
-  return { id: result.rows[0].id };
+  const sosId = result.rows[0].id as string;
+
+  broadcastOpsEvent({ event: 'sos.triggered', sos_id: sosId, booking_id: bookingId, role });
+  broadcastBookingEvent(bookingId, { event: 'sos.triggered', sos_id: sosId });
+
+  return { id: sosId };
 }
 
 /** The live Control Room queue (PRD 10A.1) — every SOS not yet resolved,

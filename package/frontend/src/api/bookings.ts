@@ -21,6 +21,7 @@ export interface FareBreakdown {
   tax: number;
   coupon_discount: number;
   subscription_benefit: number;
+  loyalty_discount?: number;
   final_fare: number;
 }
 
@@ -114,6 +115,7 @@ export function getQuote(params: {
   drops: { lat: number; lng: number }[];
   vehicle_category?: string;
   coupon_code?: string;
+  loyalty_points_to_redeem?: number;
   item_details?: {
     goods_category?: string;
     weight_band?: string;
@@ -208,6 +210,31 @@ export function rateBooking(id: string, stars: number, tags: string[], comment?:
     tags,
     comment,
   });
+}
+
+export interface TripInvoice {
+  id: string;
+  booking_id: string;
+  invoice_number: string;
+  amount: string;
+  generated_at: string;
+  booking_status: string;
+}
+
+export function listInvoices() {
+  return api.get<{ items: TripInvoice[] }>('/v1/bookings/invoices');
+}
+
+export function getTipPresets() {
+  return api.get<{ amounts: number[] }>('/v1/bookings/tip-presets');
+}
+
+export function submitTip(bookingId: string, amount: number) {
+  return api.post<{ tipped: boolean; amount: number }>(`/v1/bookings/${bookingId}/tip`, { amount });
+}
+
+export function getFinalFare(bookingId: string) {
+  return api.get<FareBreakdown & { tip_amount?: number }>(`/v1/bookings/${bookingId}/final-fare`);
 }
 
 // ---------- Wallet ----------

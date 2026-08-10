@@ -44,6 +44,47 @@ export async function getLoyaltyHistory(userId: string) {
   return result.rows;
 }
 
+/** 10 points = ₹1 discount, capped at 50% of fare. */
+export async function computeLoyaltyDiscount(
+  userId: string,
+  pointsRequested: number,
+  fareBeforeDiscount: number
+): Promise<{ discount: number; pointsUsed: number }> {
+  if (pointsRequested <= 0) return { discount: 0, pointsUsed: 0 };
+
+  const summary = await getLoyaltySummary(userId);
+  const maxDiscount = fareBeforeDiscount * 0.5;
+  const maxPointsByFare = Math.floor(maxDiscount * 10);
+  const pointsUsed = Math.min(pointsRequested, summary.balance, maxPointsByFare);
+  const discount = Math.round((pointsUsed / 10) * 100) / 100;
+  return { discount, pointsUsed };
+}
+
+export async function redeemPointsForBooking(params: {
+  userId: string;
+  bookingId: string;
+  pointsUsed: number;
+  discountAmount: number;
+}): Promise<void> {
+  const { userId, bookingId, pointsUsed, discountAmount } = params;
+  if (pointsUsed <= 0) return;
+
+  await pool.query(
+    `UPDATE loyalty_points SET balance = balance - $1, updated_at = now() WHERE user_id = $2 AND balance >= $1`,
+    [pointsUsed, userId]
+  );
+  await pool.query(
+    `INSERT INTO loyalty_transactions (user_id, points, reason, linked_booking_id)
+     VALUES ($1, $2, 'redeem', $3)`,
+    [userId, -pointsUsed, bookingId]
+  );
+  await pool.query(
+    `INSERT INTO loyalty_redemptions (user_id, booking_id, points_used, discount_amount)
+     VALUES ($1, $2, $3, $4)`,
+    [userId, bookingId, pointsUsed, discountAmount]
+  );
+}
+
 /** Accrue points on trip completion — 1 point per ₹10 spent, minimum 10. */
 export async function accrueTripPoints(userId: string, bookingId: string, finalFare: number): Promise<void> {
   const points = Math.max(10, Math.floor(finalFare / 10));

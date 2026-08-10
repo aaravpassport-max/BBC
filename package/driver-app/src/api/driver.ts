@@ -302,3 +302,8 @@ export function rateBooking(bookingId: string, stars: number, tags: string[], co
     comment,
   });
 }
+
+export function callCustomer(bookingId: string) {
+  if (isDemoSession()) return Promise.resolve({ call_uri: 'tel:+919000000001', display_number: '+91 90000 00001' });
+  return api.get<{ call_uri: string; display_number: string }>(`/v1/driver/jobs/${bookingId}/call-customer`);
+}

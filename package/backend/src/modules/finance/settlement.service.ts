@@ -1,4 +1,7 @@
 import { pool, withTransaction } from '../../db/pool';
+import { Errors } from '../../utils/errors';
+import { submitDriverPayout } from './payout.provider';
+import { debitDriverForPayout } from '../wallet/wallet.service';
 
 export async function listPayoutBatches() {
   const result = await pool.query(
@@ -73,12 +76,76 @@ export async function generatePayoutBatch(params: {
   });
 }
 
-export async function approvePayoutBatch(batchId: string, approverId: string): Promise<void> {
+export async function approvePayoutBatch(batchId: string, approverId: string): Promise<{ submitted: number; failed: number }> {
+  const batch = await pool.query(`SELECT status FROM payout_batches WHERE id = $1`, [batchId]);
+  if (batch.rowCount === 0) throw Errors.notFound('Payout batch');
+  if (batch.rows[0].status !== 'proposed') {
+    throw Errors.validation({ batch: 'Only proposed batches can be approved.' });
+  }
+
   await pool.query(
-    `UPDATE payout_batches SET status = 'approved', approved_by = $1, approved_at = now()
-     WHERE id = $2 AND status = 'proposed'`,
+    `UPDATE payout_batches SET status = 'submitting', approved_by = $1, approved_at = now() WHERE id = $2`,
     [approverId, batchId]
   );
+
+  const lines = await pool.query(
+    `SELECT pbl.id, pbl.driver_id, pbl.net_payout, u.name, u.phone,
+            kd.manual_entry AS bank_json
+     FROM payout_batch_lines pbl
+     JOIN users u ON u.id = pbl.driver_id
+     LEFT JOIN LATERAL (
+       SELECT manual_entry FROM kyc_documents
+       WHERE subject_type = 'driver' AND subject_id = pbl.driver_id AND doc_type = 'bank_details' AND status = 'approved'
+       ORDER BY version DESC LIMIT 1
+     ) kd ON true
+     WHERE pbl.batch_id = $1 AND pbl.status = 'eligible'`,
+    [batchId]
+  );
+
+  let submitted = 0;
+  let failed = 0;
+
+  for (const line of lines.rows) {
+    const bank = (line.bank_json || {}) as { account?: string; ifsc?: string; holder?: string };
+    const accountNumber = bank.account || `sim${String(line.driver_id).slice(0, 8)}`;
+    const ifsc = bank.ifsc || 'HDFC0000001';
+    const name = bank.holder || line.name || `Driver ${line.phone}`;
+
+    try {
+      const payout = await submitDriverPayout({
+        driverId: line.driver_id,
+        amountRupees: parseFloat(line.net_payout),
+        accountNumber,
+        ifsc,
+        name,
+        reference: `batch_${batchId}_line_${line.id}`,
+      });
+
+      await withTransaction(async (client) => {
+        await debitDriverForPayout(client, {
+          driverId: line.driver_id,
+          amount: parseFloat(line.net_payout),
+        });
+        await client.query(
+          `UPDATE payout_batch_lines SET status = 'submitted', provider_txn_ref = $1 WHERE id = $2`,
+          [payout.providerRef, line.id]
+        );
+      });
+      submitted++;
+    } catch (err) {
+      failed++;
+      const reason = err instanceof Error ? err.message : 'Payout submission failed';
+      await pool.query(
+        `UPDATE payout_batch_lines SET status = 'failed', failure_reason = $1, retry_count = retry_count + 1 WHERE id = $2`,
+        [reason.slice(0, 500), line.id]
+      );
+    }
+  }
+
+  const finalStatus = failed === 0 ? 'completed' : failed === lines.rowCount ? 'partially_failed' : 'completed';
+  await pool.query(`UPDATE payout_batches SET status = $1 WHERE id = $2`, [finalStatus, batchId]);
+
+  return { submitted, failed };
 }
 
 export async function runLedgerIntegrityCheck(): Promise<{ mismatches: number }> {

@@ -130,7 +130,35 @@ export function getMySubscription() {
 }
 
 export function purchaseSubscription(planId: string) {
-  return api.post<{ id: string }>('/v1/subscriptions/purchase', { plan_id: planId });
+  return api.post<{
+    id: string;
+    payment_required?: boolean;
+    gateway_session?: {
+      simulated: boolean;
+      gateway_ref?: string;
+      order_id?: string;
+      amount?: number;
+      currency?: string;
+      key_id?: string;
+      plan_id?: string;
+    };
+  }>('/v1/subscriptions/purchase', { plan_id: planId });
+}
+
+export function verifySubscriptionPayment(params: {
+  razorpay_order_id: string;
+  razorpay_payment_id: string;
+  razorpay_signature: string;
+  plan_id: string;
+}) {
+  return api.post<{ confirmed: boolean; subscription_id: string }>('/v1/subscriptions/verify-payment', params);
+}
+
+export function devConfirmSubscriptionPayment(gatewayRef: string, planId: string) {
+  return api.post<{ confirmed: boolean; subscription_id: string }>('/v1/subscriptions/dev/confirm-payment', {
+    gateway_ref: gatewayRef,
+    plan_id: planId,
+  });
 }
 
 export function cancelSubscription(id: string) {

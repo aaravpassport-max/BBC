@@ -121,12 +121,20 @@ export function SettlementPage() {
                   style={{ width: 'auto' }}
                   onClick={() => {
                     void approvePayoutBatch(batch.id)
-                      .then(() => refresh())
+                      .then((r) => {
+                        if (r.failed > 0) {
+                          setError(`${r.submitted} payouts submitted, ${r.failed} failed — check batch lines.`);
+                        }
+                        return refresh();
+                      })
                       .catch((err) => setError(getErrorMessage(err, 'Could not approve batch.')));
                   }}
                 >
-                  Approve
+                  Approve & submit payouts
                 </Button>
+              )}
+              {batch.status === 'completed' && (
+                <span style={{ fontSize: 12, color: 'var(--success)' }}>Paid out</span>
               )}
             </div>
           ))}

@@ -20,6 +20,7 @@ const quoteRequestSchema = z.object({
     })
     .optional(),
   coupon_code: z.string().nullable().optional(),
+  loyalty_points_to_redeem: z.number().int().min(0).optional(),
 });
 
 export const pricingRouter = Router();
@@ -30,13 +31,14 @@ pricingRouter.post(
   requireAuth,
   validateBody(quoteRequestSchema),
   asyncHandler(async (req, res) => {
-    const { pickup, drops, vehicle_category, coupon_code } = req.body;
+    const { pickup, drops, vehicle_category, coupon_code, loyalty_points_to_redeem } = req.body;
     const quotes = await generateQuotes({
       customerId: req.user!.userId,
       pickup,
       drops,
       vehicleCategory: vehicle_category,
       couponCode: coupon_code || undefined,
+      loyaltyPointsToRedeem: loyalty_points_to_redeem,
     });
     res.status(200).json({ quotes });
   })

@@ -9,6 +9,8 @@ import { LiveMap } from '../components/LiveMap';
 import { TripChat } from '../components/TripChat';
 import { CancelTripModal } from '../components/CancelTripModal';
 import { RatingPanel } from '../components/RatingPanel';
+import { TipPanel } from '../components/TipPanel';
+import { useBookingRealtime } from '../hooks/useBookingRealtime';
 import { notify } from '../lib/notify';
 import {
   getBooking,
@@ -41,6 +43,7 @@ export function TrackPage() {
   const [cancelling, setCancelling] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [rated, setRated] = useState(false);
+  const [tipped, setTipped] = useState(false);
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [sosSending, setSosSending] = useState(false);
   const [sosSent, setSosSent] = useState(false);
@@ -75,6 +78,15 @@ export function TrackPage() {
       setError(getErrorMessage(err, 'Could not load this trip.'));
     }
   }, [bookingId]);
+
+  useBookingRealtime(bookingId, {
+    onStatusChange: () => {
+      void refresh();
+    },
+    onDriverLocation: (lat, lng) => {
+      setDriverLocation({ lat, lng, last_ping_at: new Date().toISOString() });
+    },
+  });
 
   useEffect(() => {
     void refresh();
@@ -343,8 +355,13 @@ export function TrackPage() {
 
           {!rated ? (
             <RatingPanel onSubmit={handleRate} submitting={ratingSubmitting} />
+          ) : !tipped ? (
+            <>
+              <p style={{ textAlign: 'center', color: 'var(--success)', fontSize: 14 }}>Thanks for rating your trip.</p>
+              <TipPanel bookingId={booking.id} onTipped={() => setTipped(true)} />
+            </>
           ) : (
-            <p style={{ textAlign: 'center', color: 'var(--success)', fontSize: 14 }}>Thanks for rating your trip.</p>
+            <p style={{ textAlign: 'center', color: 'var(--success)', fontSize: 14 }}>Thanks for rating and tipping your driver!</p>
           )}
 
           <Button variant="ghost" onClick={() => navigate('/home')}>

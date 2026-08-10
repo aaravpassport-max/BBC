@@ -1,6 +1,7 @@
 import { pool, withTransaction } from '../../db/pool';
 import { Errors } from '../../utils/errors';
 import { sendNotification, deriveEventId } from '../notifications/notifications.service';
+import { broadcastBookingEvent, broadcastUserEvent } from '../realtime/realtime.hub';
 
 /**
  * Computes job-eligibility live from the driver's current state — never a
@@ -78,6 +79,21 @@ export async function updateDriverLocation(
     `UPDATE driver_profiles SET current_lat = $1, current_lng = $2, last_ping_at = now() WHERE user_id = $3`,
     [lat, lng, driverId]
   );
+
+  const active = await pool.query(
+    `SELECT id, customer_id FROM bookings WHERE driver_id = $1 AND status IN ('driver_assigned', 'in_progress') LIMIT 1`,
+    [driverId]
+  );
+  if (active.rowCount && active.rowCount > 0) {
+    const bookingId = active.rows[0].id as string;
+    broadcastBookingEvent(bookingId, { event: 'driver.location', lat, lng, at: new Date().toISOString() });
+    broadcastUserEvent(active.rows[0].customer_id as string, {
+      event: 'driver.location',
+      booking_id: bookingId,
+      lat,
+      lng,
+    });
+  }
 }
 
 /**
@@ -146,6 +162,12 @@ export async function acceptJobOffer(
         channel: 'push',
         templateId: 'driver_on_the_way',
       }).catch((err) => console.error('Failed to notify customer of driver assignment:', err));
+      broadcastBookingEvent(outcome.bookingId, { event: 'booking.status', status: 'driver_assigned' });
+      broadcastUserEvent(outcome.customerId, {
+        event: 'booking.status',
+        booking_id: outcome.bookingId,
+        status: 'driver_assigned',
+      });
       return { bookingId: outcome.bookingId };
     case 'not_found':
       throw Errors.notFound('Job offer');

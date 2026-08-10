@@ -22,7 +22,9 @@ export function generatePayoutBatch(periodStart: string, periodEnd: string) {
 }
 
 export function approvePayoutBatch(batchId: string) {
-  return api.post<{ approved: boolean }>(`/admin/v1/finance/payout-batches/${batchId}/approve`);
+  return api.post<{ approved: boolean; submitted: number; failed: number }>(
+    `/admin/v1/finance/payout-batches/${batchId}/approve`
+  );
 }
 
 export function getLedgerIntegrity() {
