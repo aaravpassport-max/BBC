@@ -58,7 +58,7 @@ export function VerifyOtpPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await verifyOtp(otpId, code, getDeviceId());
+      const res = await verifyOtp(otpId, code, getDeviceId(), phone);
       auth.login(res.access_token, res.user_id);
       navigate('/home');
     } catch (err) {

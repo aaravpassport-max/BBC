@@ -1,4 +1,13 @@
 import { api, newIdempotencyKey } from './client';
+import {
+  isDemoPhone,
+  isDemoOtp,
+  isDemoOtpRequest,
+  localDemoAuth,
+  localRequestOtp,
+  localVerifyOtp,
+} from './demoAuth';
+import { DEMO_PHONE } from '../config/testCredentials';
 
 export interface KycStepStatus {
   step: string;
@@ -40,13 +49,19 @@ export interface ActiveJob {
 // ---------- Auth (shared OTP flow with the Customer app's contract) ----------
 
 export function requestOtp(phone: string, deviceId: string) {
+  if (isDemoPhone(phone)) {
+    return Promise.resolve(localRequestOtp(phone));
+  }
   return api.public.post<{ otp_id: string; expires_in_seconds: number; resend_after_seconds: number }>(
     '/v1/auth/otp/request',
     { phone, country_code: '+91', device_id: deviceId, app_version: '1.0.0' }
   );
 }
 
-export function verifyOtp(otpId: string, code: string, deviceId: string) {
+export function verifyOtp(otpId: string, code: string, deviceId: string, phone?: string) {
+  if ((phone && isDemoPhone(phone) && isDemoOtp(code)) || (isDemoOtpRequest(otpId) && isDemoOtp(code))) {
+    return Promise.resolve(localVerifyOtp(phone ?? DEMO_PHONE, code));
+  }
   return api.public.post<{ access_token: string; refresh_token: string; is_new_user: boolean; user_id: string }>(
     '/v1/auth/otp/verify',
     { otp_id: otpId, code, device_id: deviceId }
@@ -54,6 +69,9 @@ export function verifyOtp(otpId: string, code: string, deviceId: string) {
 }
 
 export function demoLogin(phone: string, deviceId: string) {
+  if (isDemoPhone(phone)) {
+    return Promise.resolve(localDemoAuth());
+  }
   return api.public.post<{ access_token: string; refresh_token: string; is_new_user: boolean; user_id: string }>(
     '/v1/auth/demo/login',
     { phone, country_code: '+91', device_id: deviceId }

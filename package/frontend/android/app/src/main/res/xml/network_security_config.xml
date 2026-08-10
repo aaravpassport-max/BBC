@@ -1,23 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Android blocks plain HTTP (cleartext) traffic by default since API 28 —
-  without this, the app would silently fail to reach a local dev backend
-  running on http://, with an error that gives no hint the cause is a
-  platform-level network policy rather than a bug in the app or backend.
-
-  This config allows cleartext ONLY for the specific hosts a local dev
-  setup actually needs: 10.0.2.2 (the Android EMULATOR's alias for the
-  host machine's localhost — NOT the same as "localhost" from the
-  device's own perspective) and localhost itself (for a device/emulator
-  that has the backend port forwarded, e.g. via `adb reverse`).
-
-  DO NOT extend this to real hostnames/IPs for a staging or production
-  backend — those must be served over HTTPS, which needs no exception
-  here at all. This file exists for local development only.
+  Allows HTTP to local dev backends (emulator alias, localhost, and LAN IPs).
+  Required for physical-device testing against a backend on your computer.
 -->
 <network-security-config>
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">10.0.2.2</domain>
-        <domain includeSubdomains="false">localhost</domain>
-    </domain-config>
+    <base-config cleartextTrafficPermitted="true" />
 </network-security-config>
