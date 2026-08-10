@@ -73,6 +73,10 @@ async function tryRefreshAccessToken(): Promise<boolean> {
   return refreshInFlight;
 }
 
+export async function refreshSession(): Promise<boolean> {
+  return tryRefreshAccessToken();
+}
+
 export async function logoutSession(): Promise<void> {
   const refreshToken = getRefreshToken();
   const deviceId = localStorage.getItem('device_id');

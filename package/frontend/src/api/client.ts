@@ -73,6 +73,11 @@ async function tryRefreshAccessToken(): Promise<boolean> {
   return refreshInFlight;
 }
 
+/** Proactively refresh the access token (no-op when no refresh token is stored). */
+export async function refreshSession(): Promise<boolean> {
+  return tryRefreshAccessToken();
+}
+
 /** Revokes the refresh token server-side and clears local auth state. */
 export async function logoutSession(): Promise<void> {
   const refreshToken = getRefreshToken();

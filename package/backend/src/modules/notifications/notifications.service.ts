@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { pool } from '../../db/pool';
 import { Errors } from '../../utils/errors';
+import * as fcmProvider from './fcm.provider';
 
 /**
  * Derives a deterministic, syntactically-valid UUID from a domain event's
@@ -127,13 +128,20 @@ export async function sendNotification(params: {
     throw err;
   }
 
-  // Real send (SMS/push provider API call) would happen here; this reference
-  // implementation logs instead, same testability seam as auth.service's OTP.
-  const tokens = await pool.query(`SELECT token, platform FROM device_tokens WHERE user_id = $1`, [userId]);
-  if (channel === 'push' && tokens.rowCount && tokens.rowCount > 0) {
-    console.log(
-      `[DEV ONLY] Push to ${tokens.rowCount} device(s): user=${userId} template=${templateId} tokens=${tokens.rows.map((t) => t.platform).join(',')}`
-    );
+  if (channel === 'push') {
+    const tokens = await pool.query(`SELECT token FROM device_tokens WHERE user_id = $1`, [userId]);
+    const tokenList = tokens.rows.map((t) => t.token as string);
+
+    if (fcmProvider.isConfigured() && tokenList.length > 0) {
+      const result = await fcmProvider.sendPush({ tokens: tokenList, templateId });
+      for (const stale of result.invalidTokens) {
+        await pool.query(`DELETE FROM device_tokens WHERE user_id = $1 AND token = $2`, [userId, stale]);
+      }
+    } else {
+      console.log(
+        `[DEV ONLY] Push to ${tokenList.length} device(s): user=${userId} template=${templateId}`
+      );
+    }
   } else {
     console.log(`[DEV ONLY] Notification sent: user=${userId} category=${category} channel=${channel} template=${templateId}`);
   }

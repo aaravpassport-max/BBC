@@ -23,9 +23,15 @@ import { SettingsPage } from './pages/SettingsPage';
 import { ReferralPage } from './pages/ReferralPage';
 import { EditProfilePage } from './pages/EditProfilePage';
 import { usePushRegistration } from './hooks/usePushRegistration';
+import { useSessionKeepAlive } from './hooks/useSessionKeepAlive';
 
 function PushRegistration() {
   usePushRegistration();
+  return null;
+}
+
+function SessionKeepAlive() {
+  useSessionKeepAlive();
   return null;
 }
 
@@ -78,6 +84,7 @@ export default function App() {
       <BrowserRouter>
         <OfflineBanner />
         <PushRegistration />
+        <SessionKeepAlive />
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>

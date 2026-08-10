@@ -53,7 +53,7 @@ export function LocationPicker({
     setSuggestions([]);
   }
 
-  async function useCurrentLocation() {
+  async function captureCurrentLocation() {
     setLocating(true);
     try {
       const permission = await Geolocation.requestPermissions();
@@ -107,7 +107,7 @@ export function LocationPicker({
         autoFocus
       />
       <div className={styles.actions}>
-        <button type="button" className={styles.actionLink} onClick={() => void useCurrentLocation()} disabled={locating}>
+        <button type="button" className={styles.actionLink} onClick={() => void captureCurrentLocation()} disabled={locating}>
           {locating ? 'Getting location…' : '📍 Use current location'}
         </button>
         {onPickOnMap && (

@@ -27,6 +27,8 @@ tags:
   - name: Corporate
   - name: Notifications
   - name: Referral
+  - name: Subscriptions
+  - name: Fleet
 
 paths:
 
@@ -144,8 +146,25 @@ paths:
     post:
       tags: [Auth]
       summary: Invalidate current session (PRD 2.1 Screen 60 — blocked if an active trip exists)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token, device_id]
+              properties:
+                refresh_token: { type: string }
+                device_id: { type: string }
       responses:
-        '200': { description: Logged out }
+        '200':
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  logged_out: { type: boolean }
         '409':
           description: Blocked — active trip in progress (PRD Section A.9 Settings screen rule)
           content:
@@ -727,6 +746,231 @@ paths:
         '200': { description: Updated }
         '400': { description: "Attempted to set a non-toggleable critical category (rejected server-side per PRD 16A.1)" }
 
+  /notifications/inbox:
+    get:
+      tags: [Notifications]
+      summary: Notification history for the signed-in user (PRD Screens 47-48)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: string, format: uuid }
+                    category: { type: string }
+                    channel: { type: string }
+                    template_id: { type: string }
+                    status: { type: string }
+                    created_at: { type: string, format: date-time }
+
+  /notifications/device-tokens:
+    post:
+      tags: [Notifications]
+      summary: Register a device push token (FCM/APNs/web pseudo-token)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [platform, token]
+              properties:
+                platform: { type: string, enum: [android, ios, web] }
+                token: { type: string }
+      responses:
+        '200':
+          description: Registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  registered: { type: boolean }
+    delete:
+      tags: [Notifications]
+      summary: Unregister a device push token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        '200':
+          description: Removed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  removed: { type: boolean }
+
+  # ============================= SUBSCRIPTIONS =============================
+  /subscriptions/plans:
+    get:
+      tags: [Subscriptions]
+      summary: List available subscription plans (PRD Screen 59)
+      security: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/SubscriptionPlan' }
+
+  /subscriptions/purchase:
+    post:
+      tags: [Subscriptions]
+      summary: Purchase a subscription plan (PRD 19A.1)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [plan_id]
+              properties:
+                plan_id: { type: string, example: platform_plus }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+
+  /subscriptions/me:
+    get:
+      tags: [Subscriptions]
+      summary: Current subscription status for the signed-in user
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Subscription' }
+
+  /subscriptions/{id}/cancel:
+    post:
+      tags: [Subscriptions]
+      summary: Cancel subscription at period end (PRD 19A.1)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  cancelled: { type: boolean }
+
+  /subscriptions/{id}/reactivate:
+    post:
+      tags: [Subscriptions]
+      summary: Reactivate a lapsed subscription within the 14-day window (PRD 19A.1)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reactivated: { type: boolean }
+
+  # ============================= FLEET =============================
+  /fleet/vehicles:
+    get:
+      tags: [Fleet]
+      summary: List fleet-owned vehicles (PRD Section 13)
+      responses:
+        '200':
+          description: Fleet vehicles
+
+  /fleet/vehicles/{id}/reassign:
+    post:
+      tags: [Fleet]
+      summary: Reassign a fleet vehicle to another driver (PRD 13A.1)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [new_driver_id]
+              properties:
+                new_driver_id: { type: string, format: uuid }
+      responses:
+        '200': { description: Reassigned }
+
+  /fleet/drivers:
+    get:
+      tags: [Fleet]
+      summary: List drivers in the fleet owner's roster
+      responses:
+        '200': { description: Fleet driver roster }
+    post:
+      tags: [Fleet]
+      summary: Add an existing driver to the fleet by phone number
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [driver_phone]
+              properties:
+                driver_phone: { type: string }
+      responses:
+        '201':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  driver_id: { type: string, format: uuid }
+
+  /fleet/drivers/{driverId}:
+    get:
+      tags: [Fleet]
+      summary: Fleet driver detail (wallet, transactions) — ownership-scoped
+      parameters:
+        - { name: driverId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Driver detail }
+        '403': { description: Driver does not belong to this fleet }
+    delete:
+      tags: [Fleet]
+      summary: Remove a driver from the fleet
+      parameters:
+        - { name: driverId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  removed: { type: boolean }
+
+  /fleet/earnings:
+    get:
+      tags: [Fleet]
+      summary: Fleet-wide earnings summary for today
+      responses:
+        '200': { description: Earnings summary }
+
   # ============================= REFERRAL =============================
   /referral/summary:
     get:
@@ -865,3 +1109,25 @@ components:
         successful_referrals: { type: integer }
         earned_confirmed: { type: number, format: double }
         earned_pending_review: { type: number, format: double, description: "Reflects PRD 18A.1 fraud-hold state — never shown as usable balance." }
+
+    SubscriptionPlan:
+      type: object
+      properties:
+        id: { type: string, example: platform_plus }
+        name: { type: string, example: PORTMYSTUFF Plus }
+        monthly_fee: { type: number, format: double }
+        benefits:
+          type: array
+          items: { type: string }
+
+    Subscription:
+      type: object
+      nullable: true
+      properties:
+        id: { type: string, format: uuid }
+        plan_id: { type: string }
+        status: { type: string, enum: [active, grace_period, cancelled, lapsed] }
+        current_period_start: { type: string, format: date-time }
+        current_period_end: { type: string, format: date-time }
+        grace_period_ends_at: { type: string, format: date-time, nullable: true }
+        retry_count: { type: integer }

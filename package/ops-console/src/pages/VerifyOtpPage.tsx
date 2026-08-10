@@ -57,7 +57,7 @@ export function VerifyOtpPage() {
     setLoading(true);
     try {
       const res = await verifyOtp(otpId, code, getDeviceId());
-      auth.login(res.access_token, res.user_id);
+      auth.login(res.access_token, res.user_id, res.refresh_token);
       navigate('/sos');
     } catch (err) {
       setError(getErrorMessage(err, 'Something went wrong.'));

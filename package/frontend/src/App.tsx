@@ -25,9 +25,15 @@ import { AddressesPage } from './pages/AddressesPage';
 import { EditProfilePage } from './pages/EditProfilePage';
 import { OfflineBanner } from './components/OfflineBanner';
 import { usePushRegistration } from './hooks/usePushRegistration';
+import { useSessionKeepAlive } from './hooks/useSessionKeepAlive';
 
 function PushRegistration() {
   usePushRegistration();
+  return null;
+}
+
+function SessionKeepAlive() {
+  useSessionKeepAlive();
   return null;
 }
 
@@ -82,6 +88,7 @@ export default function App() {
       <BrowserRouter>
         <OfflineBanner />
         <PushRegistration />
+        <SessionKeepAlive />
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>
