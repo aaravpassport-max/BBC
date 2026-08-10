@@ -27,3 +27,8 @@ export const refreshTokenSchema = z.object({
   refresh_token: z.string().min(1),
   device_id: z.string().min(1),
 });
+
+export const logoutSchema = z.object({
+  refresh_token: z.string().min(1),
+  device_id: z.string().min(1),
+});

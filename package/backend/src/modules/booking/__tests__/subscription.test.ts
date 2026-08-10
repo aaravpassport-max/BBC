@@ -131,7 +131,7 @@ describe('Subscriptions: renewal and dunning (PRD 19A.1 grace-period flow)', () 
   });
 
   it('reactivation within the window restores active status', async () => {
-    const { accessToken } = await loginAsFundedUser(app);
+    const { accessToken, userId } = await loginAsFundedUser(app);
     const purchase = await request(app)
       .post('/v1/subscriptions/purchase')
       .set('Authorization', `Bearer ${accessToken}`)
@@ -143,13 +143,19 @@ describe('Subscriptions: renewal and dunning (PRD 19A.1 grace-period flow)', () 
         .send({ simulate_success: false });
     }
 
+    const walletBefore = await request(app).get('/v1/wallet').set('Authorization', `Bearer ${accessToken}`);
+
     const reactivate = await request(app)
       .post(`/v1/subscriptions/${purchase.body.id}/reactivate`)
       .set('Authorization', `Bearer ${accessToken}`);
     expect(reactivate.status).toBe(200);
 
+    const walletAfter = await request(app).get('/v1/wallet').set('Authorization', `Bearer ${accessToken}`);
+    expect(walletAfter.body.real_money_balance).toBeLessThan(walletBefore.body.real_money_balance);
+
     const me = await request(app).get('/v1/subscriptions/me').set('Authorization', `Bearer ${accessToken}`);
     expect(me.body.status).toBe('active');
+    void userId;
   });
 
   it('rejects reactivating a subscription that is not lapsed', async () => {

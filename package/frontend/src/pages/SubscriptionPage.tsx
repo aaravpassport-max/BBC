@@ -136,7 +136,16 @@ export function SubscriptionPage() {
       )}
 
       {sub && sub.status === 'cancelled' && (
-        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Your membership is cancelled.</p>
+        <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+          Your membership is cancelled. Benefits ended at the close of your last paid period.
+        </p>
+      )}
+
+      {sub && sub.status === 'lapsed' && (
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          <p>Your membership lapsed after renewal failed. Reactivate within 14 days to restore continuity — your original billing period is preserved.</p>
+          <p>Reactivation charges your wallet for one month (₹{plan?.monthly_fee ?? '—'}).</p>
+        </div>
       )}
 
       {!sub && sub !== undefined && plan && (
@@ -149,7 +158,7 @@ export function SubscriptionPage() {
           Cancel membership
         </Button>
       )}
-      {sub && sub.status === 'cancelled' && (
+      {sub && sub.status === 'lapsed' && (
         <Button onClick={() => void handleReactivate()} loading={loading}>
           Reactivate membership
         </Button>

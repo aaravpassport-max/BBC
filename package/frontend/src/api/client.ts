@@ -13,34 +13,12 @@ export class ApiError extends Error {
   }
 }
 
-/**
- * A genuine network-level failure — the request never reached the server
- * at all (no connectivity, DNS failure, the server is simply unreachable)
- * — as distinct from ApiError, which means the server WAS reached and
- * responded with an error. Real offline/poor-connectivity hardening
- * starts with this distinction: previously both cases fell through to
- * the same generic "Could not load X" message every screen's catch block
- * already had, giving a user on a dead connection no way to tell "the
- * server is down" from "you have no signal" — and no reason to believe
- * retrying (once they're back online) would help.
- */
 export class NetworkError extends Error {
   constructor() {
     super('Could not reach the server. Check your connection and try again.');
   }
 }
 
-/**
- * The one place every page's catch block should get its error message
- * from, instead of each writing its own `instanceof ApiError ? ... : ...`
- * — found necessary the hard way: that inline pattern, copied across
- * every screen in every app, checked for ApiError only, so a genuine
- * NetworkError (a real network outage) silently fell through to each
- * page's own generic fallback text ("Could not load X"), discarding the
- * actually-useful "check your connection" message entirely. A single
- * shared helper means this class of bug can only exist in one place, not
- * be reintroduced by the next screen that copies the old pattern.
- */
 export function getErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof ApiError || err instanceof NetworkError) return err.message;
   return fallback;
@@ -55,15 +33,81 @@ export function setToken(token: string | null) {
   else localStorage.removeItem('access_token');
 }
 
+export function getRefreshToken(): string | null {
+  return localStorage.getItem('refresh_token');
+}
+
+export function setRefreshToken(token: string | null) {
+  if (token) localStorage.setItem('refresh_token', token);
+  else localStorage.removeItem('refresh_token');
+}
+
+let refreshInFlight: Promise<boolean> | null = null;
+
+async function tryRefreshAccessToken(): Promise<boolean> {
+  if (refreshInFlight) return refreshInFlight;
+
+  refreshInFlight = (async () => {
+    const refreshToken = getRefreshToken();
+    const deviceId = localStorage.getItem('device_id');
+    if (!refreshToken || refreshToken === 'demo-refresh-token' || !deviceId) return false;
+
+    try {
+      const res = await fetch(`${API_BASE}/v1/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh_token: refreshToken, device_id: deviceId }),
+      });
+      if (!res.ok) return false;
+      const json = (await res.json()) as { access_token: string; refresh_token: string };
+      setToken(json.access_token);
+      setRefreshToken(json.refresh_token);
+      return true;
+    } catch {
+      return false;
+    } finally {
+      refreshInFlight = null;
+    }
+  })();
+
+  return refreshInFlight;
+}
+
+/** Revokes the refresh token server-side and clears local auth state. */
+export async function logoutSession(): Promise<void> {
+  const refreshToken = getRefreshToken();
+  const deviceId = localStorage.getItem('device_id');
+  const accessToken = getToken();
+
+  if (refreshToken && refreshToken !== 'demo-refresh-token' && deviceId && accessToken) {
+    try {
+      await fetch(`${API_BASE}/v1/auth/logout`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ refresh_token: refreshToken, device_id: deviceId }),
+      });
+    } catch {
+      // Best-effort — local session is cleared regardless.
+    }
+  }
+
+  setToken(null);
+  setRefreshToken(null);
+}
+
 interface RequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
   body?: unknown;
   idempotencyKey?: string;
   auth?: boolean;
+  retried?: boolean;
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, idempotencyKey, auth = true } = options;
+  const { method = 'GET', body, idempotencyKey, auth = true, retried = false } = options;
 
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (auth) {
@@ -80,14 +124,14 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
-    // fetch() itself throws (not a rejected-with-error-status response,
-    // an actual thrown exception) specifically when the request never
-    // reached the server — offline, DNS failure, connection refused. This
-    // is the ONE place in the whole app where that distinction can still
-    // be made; by the time an error reaches a page's own catch block,
-    // "TypeError: Failed to fetch" and a real 500 look identical unless
-    // it's wrapped here.
     throw new NetworkError();
+  }
+
+  if (res.status === 401 && auth && !retried) {
+    const refreshed = await tryRefreshAccessToken();
+    if (refreshed) {
+      return request<T>(path, { ...options, retried: true });
+    }
   }
 
   const text = await res.text();
@@ -95,10 +139,6 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   try {
     json = text ? JSON.parse(text) : {};
   } catch {
-    // A response that isn't valid JSON — a proxy/gateway error page, or a
-    // connection that dropped mid-response on a poor network — treated the
-    // same as a network failure, since from the caller's perspective the
-    // real data never actually arrived either way.
     throw new NetworkError();
   }
 

@@ -9,6 +9,7 @@ export const PLANS: Record<string, { monthlyFee: number; waivesPlatformFee: bool
 
 const GRACE_PERIOD_DAYS = 3; // PRD 19A.1 config
 const MAX_RENEWAL_RETRIES = 3;
+const REACTIVATION_WINDOW_DAYS = 14; // PRD 19A.1 secondary window
 
 export async function purchaseSubscription(userId: string, planId: string): Promise<{ id: string }> {
   if (!PLANS[planId]) {
@@ -137,17 +138,38 @@ export async function attemptRenewal(
  * no perceived gap — NOT a fresh period from reactivation date).
  */
 export async function reactivateSubscription(userId: string, subscriptionId: string): Promise<void> {
-  const result = await pool.query(
-    `UPDATE subscriptions
-     SET status = 'active', grace_period_ends_at = NULL, retry_count = 0, lapsed_at = NULL,
-         current_period_end = current_period_start + interval '30 days'
-     WHERE id = $1 AND user_id = $2 AND status = 'lapsed'
-     RETURNING id`,
-    [subscriptionId, userId]
-  );
-  if (result.rowCount === 0) {
-    throw Errors.notFound('Lapsed subscription');
-  }
+  return withTransaction(async (client) => {
+    const subResult = await client.query(
+      `SELECT * FROM subscriptions WHERE id = $1 AND user_id = $2 AND status = 'lapsed' FOR UPDATE`,
+      [subscriptionId, userId]
+    );
+    if (subResult.rowCount === 0) {
+      throw Errors.notFound('Lapsed subscription');
+    }
+    const sub = subResult.rows[0];
+
+    if (sub.lapsed_at) {
+      const windowEnd = new Date(sub.lapsed_at);
+      windowEnd.setDate(windowEnd.getDate() + REACTIVATION_WINDOW_DAYS);
+      if (new Date() > windowEnd) {
+        throw Errors.validation({ subscription: 'Reactivation window has expired.' });
+      }
+    }
+
+    const plan = PLANS[sub.plan_id];
+    if (!plan) {
+      throw Errors.validation({ plan_id: 'Unknown subscription plan.' });
+    }
+
+    await debitCustomerForSubscription(client, { customerId: userId, amount: plan.monthlyFee });
+
+    await client.query(
+      `UPDATE subscriptions
+       SET status = 'active', grace_period_ends_at = NULL, retry_count = 0, lapsed_at = NULL
+       WHERE id = $1`,
+      [subscriptionId]
+    );
+  });
 }
 
 /**

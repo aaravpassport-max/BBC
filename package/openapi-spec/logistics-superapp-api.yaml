@@ -1,0 +1,867 @@
+openapi: 3.0.3
+info:
+  title: Logistics Super App API
+  description: >
+    Core API contract for the Logistics Super App platform, implementing the
+    requirements defined in Master PRD v1.0, Section 23 (API Specifications).
+    Covers Auth, Geo, Pricing, Booking, Driver, Wallet, and Corporate endpoint
+    groups. Admin/internal endpoints are defined in a separate admin-api.yaml
+    file to keep the public/app-facing contract clean.
+  version: 1.0.0
+servers:
+  - url: https://api.example.com/v1
+    description: Production
+  - url: https://staging-api.example.com/v1
+    description: Staging
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: Auth
+  - name: Geo
+  - name: Pricing
+  - name: Booking
+  - name: Driver
+  - name: Wallet
+  - name: Corporate
+  - name: Notifications
+  - name: Referral
+
+paths:
+
+  # ============================= AUTH =============================
+  /auth/otp/request:
+    post:
+      tags: [Auth]
+      summary: Request an OTP for phone verification (PRD 2.2.1)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, country_code, device_id, app_version]
+              properties:
+                phone: { type: string, example: "9876543210" }
+                country_code: { type: string, example: "+91" }
+                device_id: { type: string }
+                app_version: { type: string }
+      responses:
+        '202':
+          description: OTP sent
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  otp_id: { type: string, format: uuid }
+                  expires_in_seconds: { type: integer, example: 300 }
+                  resend_after_seconds: { type: integer, example: 30 }
+        '429':
+          description: Rate limited (PRD 2.2.1 edge case — max requests per number/device)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /auth/otp/verify:
+    post:
+      tags: [Auth]
+      summary: Verify OTP and issue tokens (PRD 2.2.2)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [otp_id, code, device_id]
+              properties:
+                otp_id: { type: string, format: uuid }
+                code: { type: string, example: "123456" }
+                device_id: { type: string }
+      responses:
+        '200':
+          description: Verified — tokens issued
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token: { type: string }
+                  refresh_token: { type: string }
+                  is_new_user: { type: boolean }
+                  user_id: { type: string, format: uuid }
+        '401':
+          description: Wrong code
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { $ref: '#/components/schemas/Error' }
+                  attempts_remaining: { type: integer }
+        '423':
+          description: Locked out after too many failed attempts (PRD 2.2.2)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { $ref: '#/components/schemas/Error' }
+                  locked_until: { type: string, format: date-time }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Rotate access token using a refresh token
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token, device_id]
+              properties:
+                refresh_token: { type: string }
+                device_id: { type: string, description: "Must match the device the refresh token was bound to (PRD Section 27, device-binding)." }
+      responses:
+        '200':
+          description: New token pair
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token: { type: string }
+                  refresh_token: { type: string }
+        '401':
+          description: Refresh token invalid, expired, or used from an unrecognized device (revoked)
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Invalidate current session (PRD 2.1 Screen 60 — blocked if an active trip exists)
+      responses:
+        '200': { description: Logged out }
+        '409':
+          description: Blocked — active trip in progress (PRD Section A.9 Settings screen rule)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  # ============================= GEO =============================
+  /geo/autocomplete:
+    get:
+      tags: [Geo]
+      summary: Address search-as-you-type (PRD 2.2.4)
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string } }
+        - { name: session_token, in: query, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Candidate addresses
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    place_id: { type: string }
+                    description: { type: string }
+
+  /geo/reverse:
+    get:
+      tags: [Geo]
+      summary: Reverse-geocode a lat/lng to an address
+      parameters:
+        - { name: lat, in: query, required: true, schema: { type: number, format: double } }
+        - { name: lng, in: query, required: true, schema: { type: number, format: double } }
+      responses:
+        '200':
+          description: Resolved address
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/GeoPoint' }
+
+  /geo/serviceability:
+    get:
+      tags: [Geo]
+      summary: Check whether a location is inside a serviceable geofence (PRD 2.2.4, Section 8)
+      parameters:
+        - { name: lat, in: query, required: true, schema: { type: number, format: double } }
+        - { name: lng, in: query, required: true, schema: { type: number, format: double } }
+      responses:
+        '200':
+          description: Serviceability result
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  serviceable: { type: boolean }
+                  city_id: { type: string, format: uuid, nullable: true }
+                  zone_id: { type: string, format: uuid, nullable: true }
+
+  # ============================= PRICING =============================
+  /pricing/quote:
+    post:
+      tags: [Pricing]
+      summary: Generate a fare quote (PRD 2.2.5) — server-authoritative, TTL-bound
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pickup, drops, vehicle_category]
+              properties:
+                pickup: { $ref: '#/components/schemas/GeoPoint' }
+                drops:
+                  type: array
+                  items: { $ref: '#/components/schemas/GeoPoint' }
+                  minItems: 1
+                  maxItems: 5
+                  description: "Max stops per PRD 2.2.4 config (default 5)."
+                vehicle_category: { type: string }
+                scheduled_at: { type: string, format: date-time, nullable: true, description: "PRD 2.2 Screens 15-16" }
+                item_details:
+                  type: object
+                  properties:
+                    goods_category: { type: string }
+                    weight_band: { type: string }
+                    helper_needed: { type: boolean }
+                coupon_code: { type: string, nullable: true }
+                corporate_account_id: { type: string, format: uuid, nullable: true }
+      responses:
+        '200':
+          description: One quote per eligible vehicle category
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  quotes:
+                    type: array
+                    items: { $ref: '#/components/schemas/Quote' }
+        '422':
+          description: Item weight/category incompatible with any available vehicle (PRD 2.2 Screen 12)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  # ============================= BOOKING =============================
+  /bookings:
+    post:
+      tags: [Booking]
+      summary: Confirm a booking against a locked quote (PRD 2.2.6)
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: true
+          schema: { type: string }
+          description: "Client-generated UUID. Same key returns the existing booking rather than creating a duplicate (PRD 2.2.6 hard requirement)."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quote_id, payment_method]
+              properties:
+                quote_id: { type: string, format: uuid }
+                payment_method: { type: string, enum: [wallet, card, upi, corporate_bill] }
+      responses:
+        '201':
+          description: Booking created, entering SEARCHING or SCHEDULED state
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Booking' }
+        '409':
+          description: Quote expired or already used — re-quote required (PRD 2.2.5)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '402':
+          description: Payment authorization failed or corporate credit limit exceeded (PRD 14A.1)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+    get:
+      tags: [Booking]
+      summary: List the authenticated user's bookings (PRD 2.1 Screens 33-34)
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [searching, driver_assigned, in_progress, completed, cancelled] } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: page_size, in: query, schema: { type: integer, default: 20, maximum: 100 } }
+      responses:
+        '200':
+          description: Paginated booking list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: '#/components/schemas/Booking' }
+                  page: { type: integer }
+                  total_pages: { type: integer }
+
+  /bookings/{id}:
+    get:
+      tags: [Booking]
+      summary: Get booking detail (immutable historical record once terminal, PRD Screen 34)
+      parameters:
+        - { $ref: '#/components/parameters/BookingId' }
+      responses:
+        '200':
+          description: Booking detail
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Booking' }
+        '404': { description: Not found }
+
+  /bookings/{id}/cancel:
+    post:
+      tags: [Booking]
+      summary: Cancel a booking (PRD 2A.1) — fee computed server-side from live trip stage
+      parameters:
+        - { $ref: '#/components/parameters/BookingId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason_code]
+              properties:
+                reason_code: { type: string, enum: [BOOKED_BY_MISTAKE, PRICE_TOO_HIGH, DRIVER_TOO_LONG, FOUND_ALTERNATIVE, OTHER] }
+                note: { type: string, maxLength: 300 }
+      responses:
+        '200':
+          description: Cancelled
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fee_charged: { type: boolean }
+                  fee_amount: { type: number, format: double }
+        '409':
+          description: Already cancelled by the other party (PRD 2A.1 race-condition rule)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { $ref: '#/components/schemas/Error' }
+                  already_cancelled_by: { type: string, enum: [driver, customer, system] }
+
+  /bookings/{id}/rate:
+    post:
+      tags: [Booking]
+      summary: Submit a post-trip rating (PRD 17B.1) — one rating per party per trip
+      parameters:
+        - { $ref: '#/components/parameters/BookingId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [stars]
+              properties:
+                stars: { type: integer, minimum: 1, maximum: 5 }
+                tags:
+                  type: array
+                  items: { type: string }
+                  maxItems: 3
+                comment: { type: string, maxLength: 500 }
+      responses:
+        '201': { description: Rating recorded }
+        '403': { description: "Rater is not a genuine party to this booking (PRD 17B.1 tamper rule)" }
+        '409': { description: "Already rated (edit-in-window policy is deployment-configurable)" }
+
+  /bookings/{id}/tip:
+    post:
+      tags: [Booking]
+      summary: Tip the driver post-rating (PRD Screen 32)
+      parameters:
+        - { $ref: '#/components/parameters/BookingId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount]
+              properties:
+                amount: { type: number, format: double }
+      responses:
+        '200': { description: Tip charged and credited to driver wallet, tagged distinctly from trip fare (PRD Screen 32 rule) }
+
+  /bookings/{id}/final-fare:
+    get:
+      tags: [Booking]
+      summary: Get the itemized final fare breakdown (PRD Section 5, Screen 30)
+      parameters:
+        - { $ref: '#/components/parameters/BookingId' }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FareBreakdown' }
+
+  /bookings/{id}/invoice.pdf:
+    get:
+      tags: [Booking]
+      summary: Download the trip invoice (PRD Screen 44) — cached unless fare_breakdown was amended
+      parameters:
+        - { $ref: '#/components/parameters/BookingId' }
+      responses:
+        '200':
+          description: PDF invoice
+          content:
+            application/pdf: {}
+
+  # ============================= DRIVER =============================
+  /driver/kyc/{step}:
+    post:
+      tags: [Driver]
+      summary: Submit a single KYC onboarding step (PRD 3.2)
+      parameters:
+        - name: step
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [personal_details, identity_document, driving_license, vehicle_documents, bank_details, vehicle_photos, consent]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                fields: { type: object }
+                documents:
+                  type: array
+                  items: { type: string, format: binary }
+      responses:
+        '202': { description: Step received, pending review or auto-validation (OCR/quality checks per PRD 3.2) }
+        '422': { description: "Document failed automated quality gate (blur/glare) before upload accepted" }
+
+  /driver/kyc/status:
+    get:
+      tags: [Driver]
+      summary: Get overall + per-step KYC status (PRD 3.2)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  overall_status: { type: string, enum: [incomplete, pending_review, approved, rejected] }
+                  steps:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        step: { type: string }
+                        status: { type: string }
+                        rejection_reason: { type: string, nullable: true, description: "Fixed taxonomy, e.g. DOC_BLURRY, DOC_EXPIRED, NAME_MISMATCH, FACE_MISMATCH" }
+
+  /driver/status:
+    post:
+      tags: [Driver]
+      summary: Toggle online/offline (PRD Home screen, A.2) — blocked if KYC/documents invalid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [online]
+              properties:
+                online: { type: boolean }
+                offline_reason: { type: string, nullable: true }
+      responses:
+        '200': { description: Status updated }
+        '403':
+          description: "Blocked — KYC not approved or a required document is expired"
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /driver/jobs/{id}/accept:
+    post:
+      tags: [Driver]
+      summary: Accept an offered job (PRD 3.3)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Accepted, trip context returned }
+        '409': { description: "Offer expired or already revoked (customer cancelled mid-offer)" }
+
+  /driver/jobs/{id}/decline:
+    post:
+      tags: [Driver]
+      summary: Decline an offered job (PRD 3.3)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Declined, logged for dispatch scoring (PRD Section 4) }
+
+  /driver/jobs/{id}/route:
+    get:
+      tags: [Driver]
+      summary: Get the ordered stop sequence for an active job (PRD 3B.1)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Stop' }
+
+  /driver/jobs/{id}/stops/{stopId}/arrive:
+    post:
+      tags: [Driver]
+      summary: Mark arrival at a stop (PRD 3B.1) — sequence enforced server-side
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: stopId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Arrival recorded }
+        '409': { description: "Out-of-sequence arrival rejected (PRD 3B.1 sequence-integrity rule)" }
+
+  /driver/jobs/{id}/stops/{stopId}/complete:
+    post:
+      tags: [Driver]
+      summary: Complete a stop via OTP or photo proof (PRD 2.2.7, 3B.1)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: stopId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                otp: { type: string, nullable: true }
+                photo_proof_url: { type: string, nullable: true }
+      responses:
+        '200': { description: Stop completed }
+        '400': { description: "OTP mismatch or missing required photo proof" }
+
+  /driver/wallet/withdraw:
+    post:
+      tags: [Driver]
+      summary: On-demand payout request (PRD Section A.2 Withdraw Funds)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, mode]
+              properties:
+                amount: { type: number, format: double }
+                mode: { type: string, enum: [instant, standard] }
+      responses:
+        '202': { description: Withdrawal queued }
+        '422': { description: "Amount exceeds available (non-held) balance" }
+
+  # ============================= WALLET =============================
+  /wallet:
+    get:
+      tags: [Wallet]
+      summary: Get current wallet balance (real-money vs promotional-credit split, PRD Section 6)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/WalletBalance' }
+
+  /wallet/add-money:
+    post:
+      tags: [Wallet]
+      summary: Top up wallet via gateway-tokenized payment (PRD 2A.2)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amount, payment_method_id]
+              properties:
+                amount: { type: number, format: double }
+                payment_method_id: { type: string }
+      responses:
+        '202':
+          description: "Transaction created as PENDING — balance updates only on server-confirmed gateway webhook (PRD Section 6 hard rule)"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  transaction_id: { type: string, format: uuid }
+                  gateway_session: { type: object }
+
+  /wallet/transactions/{id}/status:
+    get:
+      tags: [Wallet]
+      summary: Poll a pending top-up's confirmation status (PRD 2A.2 reconnect/resume rule)
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, enum: [pending, succeeded, failed] }
+
+  /wallet/transactions:
+    get:
+      tags: [Wallet]
+      summary: Full transaction history (PRD Screen 42) — permanent, append-only
+      parameters:
+        - { name: type, in: query, schema: { type: string, enum: [topup, trip_charge, refund, promo_credit, tip, payout] } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/WalletTransaction' }
+
+  # ============================= CORPORATE =============================
+  /corporate/link:
+    post:
+      tags: [Corporate]
+      summary: Link personal account to a corporate account via invite code (PRD Screen 57)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [invite_code]
+              properties:
+                invite_code: { type: string }
+      responses:
+        '200': { description: Linked — "bill to company" now available as a payment method }
+
+  /corporate/{accountId}/employees:
+    get:
+      tags: [Corporate]
+      summary: List employee roster (PRD 14B.1)
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/CorporateEmployee' }
+    post:
+      tags: [Corporate]
+      summary: Invite an employee (PRD 14B.1)
+      parameters:
+        - { name: accountId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, role]
+              properties:
+                email: { type: string, format: email }
+                per_user_monthly_cap: { type: number, format: double, nullable: true }
+                role: { type: string, enum: [employee, account_admin] }
+      responses:
+        '201': { description: Invited }
+        '409': { description: "Email already on this account's roster" }
+
+  # ============================= NOTIFICATIONS =============================
+  /notifications/preferences:
+    get:
+      tags: [Notifications]
+      summary: Get channel/category preferences (PRD 16A.1)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/NotificationPreference' }
+    put:
+      tags: [Notifications]
+      summary: Update a single preference toggle (PRD 16A.1) — OTP/SOS categories are not settable here
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [category, channel, enabled]
+              properties:
+                category: { type: string, enum: [trip_updates, promotions, account_activity, product_news] }
+                channel: { type: string, enum: [push, sms, whatsapp, email] }
+                enabled: { type: boolean }
+      responses:
+        '200': { description: Updated }
+        '400': { description: "Attempted to set a non-toggleable critical category (rejected server-side per PRD 16A.1)" }
+
+  # ============================= REFERRAL =============================
+  /referral/summary:
+    get:
+      tags: [Referral]
+      summary: Referral code, confirmed + pending-review earnings (PRD Screens 45-46, 18A.1)
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReferralSummary' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    BookingId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string, example: "QUOTE_EXPIRED" }
+            message: { type: string, description: "Human-readable, safe to display verbatim (PRD Section 23 error-envelope standard)." }
+            details: { type: object }
+
+    GeoPoint:
+      type: object
+      required: [lat, lng]
+      properties:
+        lat: { type: number, format: double }
+        lng: { type: number, format: double }
+        address_text: { type: string, nullable: true }
+        landmark_instructions: { type: string, nullable: true, maxLength: 100 }
+        contact_name: { type: string, nullable: true }
+        contact_phone: { type: string, nullable: true }
+
+    Stop:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        sequence: { type: integer }
+        geo: { $ref: '#/components/schemas/GeoPoint' }
+        status: { type: string, enum: [pending, arrived, completed] }
+
+    Quote:
+      type: object
+      properties:
+        quote_id: { type: string, format: uuid }
+        vehicle_category: { type: string }
+        expires_at: { type: string, format: date-time }
+        surge_multiplier: { type: number, format: double }
+        fare_breakdown: { $ref: '#/components/schemas/FareBreakdown' }
+
+    FareBreakdown:
+      type: object
+      description: "Every component individually itemized per PRD Section 5 acceptance criteria."
+      properties:
+        base_fare: { type: number, format: double }
+        distance_charge: { type: number, format: double }
+        time_charge: { type: number, format: double }
+        waiting_charge: { type: number, format: double }
+        toll_pass_through: { type: number, format: double }
+        night_surcharge: { type: number, format: double }
+        surge_multiplier: { type: number, format: double }
+        platform_fee: { type: number, format: double }
+        tax: { type: number, format: double }
+        coupon_discount: { type: number, format: double }
+        subscription_benefit: { type: number, format: double }
+        final_fare: { type: number, format: double }
+
+    Booking:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        status: { type: string, enum: [searching, scheduled, driver_assigned, in_progress, completed, cancelled, no_drivers_found] }
+        pickup: { $ref: '#/components/schemas/GeoPoint' }
+        drops:
+          type: array
+          items: { $ref: '#/components/schemas/GeoPoint' }
+        vehicle_category: { type: string }
+        quote_id: { type: string, format: uuid }
+        fare_breakdown: { $ref: '#/components/schemas/FareBreakdown' }
+        driver_id: { type: string, format: uuid, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    WalletBalance:
+      type: object
+      properties:
+        real_money_balance: { type: number, format: double }
+        promotional_credit_balance: { type: number, format: double }
+        promotional_credit_expires_at: { type: string, format: date-time, nullable: true }
+        held_balance: { type: number, format: double, description: "Funds frozen by an active fraud hold (PRD Section A.2 Withdraw Funds rule)." }
+
+    WalletTransaction:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string }
+        amount: { type: number, format: double }
+        balance_after: { type: number, format: double }
+        reason: { type: string, nullable: true }
+        linked_booking_id: { type: string, format: uuid, nullable: true }
+        created_at: { type: string, format: date-time }
+
+    CorporateEmployee:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        status: { type: string, enum: [invited, active, removed] }
+        role: { type: string, enum: [employee, account_admin] }
+        per_user_monthly_cap: { type: number, format: double, nullable: true }
+
+    NotificationPreference:
+      type: object
+      properties:
+        category: { type: string }
+        channel: { type: string }
+        enabled: { type: boolean }
+
+    ReferralSummary:
+      type: object
+      properties:
+        referral_code: { type: string }
+        successful_referrals: { type: integer }
+        earned_confirmed: { type: number, format: double }
+        earned_pending_review: { type: number, format: double, description: "Reflects PRD 18A.1 fraud-hold state — never shown as usable balance." }

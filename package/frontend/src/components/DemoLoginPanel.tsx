@@ -15,7 +15,7 @@ export function DemoLoginPanel() {
   function enterDemo() {
     setLoading(true);
     const res = localDemoAuth();
-    auth.login(res.access_token, res.user_id);
+    auth.login(res.access_token, res.user_id, res.refresh_token);
     setLoading(false);
     navigate('/home');
   }

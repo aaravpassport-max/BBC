@@ -353,3 +353,25 @@ export async function refreshAccessToken(params: {
     return { accessToken, refreshToken: refreshTokenRaw };
   });
 }
+
+/** Revokes the refresh token for this device (PRD /v1/auth/logout). */
+export async function logoutSession(params: {
+  userId: string;
+  refreshToken: string;
+  deviceId: string;
+}): Promise<void> {
+  const { userId, refreshToken, deviceId } = params;
+  const candidates = await pool.query(
+    `SELECT id, token_hash FROM refresh_tokens
+     WHERE user_id = $1 AND device_id = $2 AND revoked_at IS NULL`,
+    [userId, deviceId]
+  );
+
+  for (const row of candidates.rows) {
+    const ok = await bcrypt.compare(refreshToken, row.token_hash);
+    if (ok) {
+      await pool.query(`UPDATE refresh_tokens SET revoked_at = now() WHERE id = $1`, [row.id]);
+      return;
+    }
+  }
+}

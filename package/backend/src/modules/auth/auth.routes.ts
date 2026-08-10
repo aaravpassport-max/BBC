@@ -1,8 +1,9 @@
 import { Router } from 'express';
 import { asyncHandler } from '../../middleware/errorHandler';
 import { validateBody } from '../../middleware/validate';
-import { requestOtpSchema, verifyOtpSchema, demoLoginSchema, refreshTokenSchema } from './auth.schemas';
-import { requestOtp, verifyOtp, demoLogin, refreshAccessToken } from './auth.service';
+import { requestOtpSchema, verifyOtpSchema, demoLoginSchema, refreshTokenSchema, logoutSchema } from './auth.schemas';
+import { requestOtp, verifyOtp, demoLogin, refreshAccessToken, logoutSession } from './auth.service';
+import { requireAuth } from '../../middleware/auth';
 
 export const authRouter = Router();
 
@@ -63,5 +64,16 @@ authRouter.post(
       access_token: result.accessToken,
       refresh_token: result.refreshToken,
     });
+  })
+);
+
+authRouter.post(
+  '/logout',
+  requireAuth,
+  validateBody(logoutSchema),
+  asyncHandler(async (req, res) => {
+    const { refresh_token, device_id } = req.body;
+    await logoutSession({ userId: req.user!.userId, refreshToken: refresh_token, deviceId: device_id });
+    res.status(200).json({ logged_out: true });
   })
 );
