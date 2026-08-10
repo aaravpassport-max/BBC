@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
-import { FAQ_ITEMS } from '../constants/porter';
+import { FAQ_ITEMS } from '../constants/brand';
 
 export function HelpPage() {
   const navigate = useNavigate();

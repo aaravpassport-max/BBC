@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { StatusBadge } from '../components/StatusBadge';
-import { Waybill, WaybillLine, WaybillDivider } from '../components/Waybill';
+import { FareCard, FareCardLine, FareCardDivider } from '../components/FareCard';
 import { getBooking, getErrorMessage, type Booking } from '../api';
 
 const ACTIVE_STATUSES = new Set(['scheduled', 'searching', 'driver_assigned', 'in_progress']);
@@ -50,17 +50,17 @@ export function TripDetailPage() {
       <StatusBadge status={booking.status} />
       <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{new Date(booking.created_at).toLocaleString()}</div>
 
-      <Waybill label="Fare summary" id={booking.id.slice(0, 8).toUpperCase()}>
-        <WaybillLine label="Base fare" value={money(fb.base_fare)} />
-        <WaybillLine label="Distance" value={money(fb.distance_charge)} />
-        <WaybillLine label="Platform fee" value={money(fb.platform_fee)} />
-        <WaybillLine label="Tax" value={money(fb.tax)} />
+      <FareCard label="Fare summary" id={booking.id.slice(0, 8).toUpperCase()}>
+        <FareCardLine label="Base fare" value={money(fb.base_fare)} />
+        <FareCardLine label="Distance" value={money(fb.distance_charge)} />
+        <FareCardLine label="Platform fee" value={money(fb.platform_fee)} />
+        <FareCardLine label="Tax" value={money(fb.tax)} />
         {fb.coupon_discount > 0 && (
-          <WaybillLine label="Coupon" value={`−${money(fb.coupon_discount)}`} muted />
+          <FareCardLine label="Coupon" value={`−${money(fb.coupon_discount)}`} muted />
         )}
-        <WaybillDivider />
-        <WaybillLine label="Total" value={money(fb.final_fare)} emphasis />
-      </Waybill>
+        <FareCardDivider />
+        <FareCardLine label="Total" value={money(fb.final_fare)} emphasis />
+      </FareCard>
 
       {booking.status === 'completed' && (
         <>

@@ -4,7 +4,7 @@ import { Geolocation } from '@capacitor/geolocation';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { StatusBadge } from '../components/StatusBadge';
-import { Waybill, WaybillLine, WaybillDivider } from '../components/Waybill';
+import { FareCard, FareCardLine, FareCardDivider } from '../components/FareCard';
 import { LiveMap } from '../components/LiveMap';
 import { TripChat } from '../components/TripChat';
 import { CancelTripModal } from '../components/CancelTripModal';
@@ -21,7 +21,7 @@ import {
   type Booking,
   type DriverLocation,
 } from '../api';
-import type { CancelReasonCode } from '../constants/porter';
+import type { CancelReasonCode } from '../constants/brand';
 
 const POLL_INTERVAL_MS = 3000;
 const CANCELLABLE = new Set(['scheduled', 'searching', 'driver_assigned']);
@@ -317,14 +317,14 @@ export function TrackPage() {
 
       {booking.status === 'completed' && (
         <>
-          <Waybill label="Trip receipt" id={booking.id.slice(0, 8).toUpperCase()}>
-            <WaybillLine label="Base fare" value={money(fb.base_fare)} />
-            <WaybillLine label="Distance" value={money(fb.distance_charge)} />
-            <WaybillLine label="Platform fee" value={money(fb.platform_fee)} />
-            <WaybillLine label="Tax" value={money(fb.tax)} />
-            <WaybillDivider />
-            <WaybillLine label="Total paid" value={money(fb.final_fare)} emphasis />
-          </Waybill>
+          <FareCard label="Trip receipt" id={booking.id.slice(0, 8).toUpperCase()}>
+            <FareCardLine label="Base fare" value={money(fb.base_fare)} />
+            <FareCardLine label="Distance" value={money(fb.distance_charge)} />
+            <FareCardLine label="Platform fee" value={money(fb.platform_fee)} />
+            <FareCardLine label="Tax" value={money(fb.tax)} />
+            <FareCardDivider />
+            <FareCardLine label="Total paid" value={money(fb.final_fare)} emphasis />
+          </FareCard>
 
           <Button variant="ghost" onClick={() => navigate(`/receipt/${booking.id}`)}>
             View full receipt

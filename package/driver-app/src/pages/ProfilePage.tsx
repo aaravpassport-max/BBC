@@ -4,6 +4,7 @@ import { Screen } from '../components/Screen';
 import { MenuRow } from '../components/MenuRow';
 import { useAuth } from '../context/AuthContext';
 import { getDriverProfile } from '../api';
+import { BRAND } from '../constants/brand';
 
 export function ProfilePage() {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ export function ProfilePage() {
   useEffect(() => {
     getDriverProfile()
       .then((p) => {
-        setName(p.name || 'Porter Partner');
+        setName(p.name || BRAND.partnerName);
         setRating(p.rating_avg);
       })
       .catch(() => undefined);

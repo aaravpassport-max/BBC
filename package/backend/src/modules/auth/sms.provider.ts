@@ -50,7 +50,7 @@ export interface SmsSendResult {
  *
  * The template referenced by MSG91_OTP_TEMPLATE_ID must contain a single
  * variable, conventionally named OTP, e.g. approved DLT wording like
- * "##OTP## is your Waybill verification code. Valid for 5 minutes."
+ * "##OTP## is your PORTMYSTUFF verification code. Valid for 5 minutes."
  */
 export async function sendOtpSms(params: {
   countryCode: string;

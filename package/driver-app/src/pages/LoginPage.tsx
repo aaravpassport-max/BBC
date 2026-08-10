@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PorterHeader } from '../components/PorterHeader';
+import { PortMyStuffHeader } from '../components/PortMyStuffHeader';
+import { BRAND } from '../constants/brand';
 import { Input } from '../components/Input';
 import { Button } from '../components/Button';
 import { requestOtp, ApiError } from '../api';
@@ -35,10 +36,10 @@ export function LoginPage() {
 
   return (
     <div className={styles.page}>
-      <PorterHeader variant="auth" />
+      <PortMyStuffHeader variant="auth" />
       <div className={styles.sheet}>
         <h2 className={styles.title}>Partner login</h2>
-        <p className={styles.subtitle}>Sign in to start earning with Porter Partner</p>
+        <p className={styles.subtitle}>Sign in to start earning with {BRAND.partnerName}</p>
         <form onSubmit={handleSubmit} className={styles.form}>
           <Input
             label="Mobile number"

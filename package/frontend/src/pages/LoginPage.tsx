@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { PorterHeader } from '../components/PorterHeader';
+import { PortMyStuffHeader } from '../components/PortMyStuffHeader';
 import { Input } from '../components/Input';
 import { Button } from '../components/Button';
 import { requestOtp, ApiError } from '../api';
@@ -37,7 +37,7 @@ export function LoginPage() {
 
   return (
     <div className={styles.page}>
-      <PorterHeader variant="auth" />
+      <PortMyStuffHeader variant="auth" />
       <div className={styles.sheet}>
         <h2 className={styles.title}>Enter mobile number</h2>
         <p className={styles.subtitle}>We'll send you a one-time password to verify</p>

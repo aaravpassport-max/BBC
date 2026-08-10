@@ -3,10 +3,7 @@ import { Screen } from '../components/Screen';
 import { MenuRow } from '../components/MenuRow';
 import { useAuth } from '../context/AuthContext';
 
-function getDisplayName(): string {
-  return localStorage.getItem('porter_display_name') || 'Porter user';
-}
-
+import { BRAND, getDisplayName } from '../constants/brand';
 export function ProfilePage() {
   const navigate = useNavigate();
   const { logout } = useAuth();
@@ -44,7 +41,7 @@ export function ProfilePage() {
         </div>
         <div>
           <div style={{ fontSize: 18, fontWeight: 700 }}>{getDisplayName()}</div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Manage your Porter account</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Manage your {BRAND.name} account</div>
         </div>
       </div>
 
@@ -53,7 +50,7 @@ export function ProfilePage() {
         <MenuRow icon="🏢" label="Corporate billing" onClick={() => navigate('/corporate')} />
         <MenuRow icon="🔔" label="Notifications" hint="Trip updates and offers" onClick={() => navigate('/notifications')} />
         <MenuRow icon="🎁" label="Refer & earn" hint="Invite friends, earn rewards" onClick={() => navigate('/referral')} />
-        <MenuRow icon="⭐" label="Porter Plus" hint="Membership benefits" onClick={() => navigate('/subscription')} />
+        <MenuRow icon="⭐" label={BRAND.plus} hint="Membership benefits" onClick={() => navigate('/subscription')} />
         <MenuRow icon="❓" label="Help & support" hint="FAQs and support tickets" onClick={() => navigate('/help')} />
         <MenuRow icon="⚙️" label="Settings" hint="Notification preferences" onClick={() => navigate('/settings')} />
         <MenuRow icon="🚪" label="Log out" onClick={handleLogout} danger />

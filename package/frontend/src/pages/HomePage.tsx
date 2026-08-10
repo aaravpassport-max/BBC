@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Geolocation } from '@capacitor/geolocation';
-import { PorterHeader } from '../components/PorterHeader';
+import { PortMyStuffHeader } from '../components/PortMyStuffHeader';
 import { Button } from '../components/Button';
 import { PromoBanners } from '../components/PromoBanners';
 import { getQuote, getErrorMessage, type Quote } from '../api';
@@ -112,7 +112,7 @@ export function HomePage() {
 
   return (
     <div className={styles.page}>
-      <PorterHeader />
+      <PortMyStuffHeader />
       <div className={styles.body}>
         <PromoBanners />
         <div className={styles.card}>

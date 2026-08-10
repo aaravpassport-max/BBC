@@ -1,21 +1,13 @@
 import { type ReactNode } from 'react';
-import styles from './Waybill.module.css';
+import styles from './FareCard.module.css';
 
-interface WaybillProps {
+interface FareCardProps {
   label: string;
   id?: string;
   children: ReactNode;
 }
 
-/**
- * The app's signature visual element: a shipping-waybill / cargo-manifest
- * styled card, used everywhere money or trip-status figures are shown
- * (fare breakdown, trip receipt). The perforated top edge and monospace
- * ledger lines are meant to evoke a physical waybill stapled to a crate —
- * appropriate for a goods-transport app in a way a generic rounded card
- * wouldn't be.
- */
-export function Waybill({ label, id, children }: WaybillProps) {
+export function FareCard({ label, id, children }: FareCardProps) {
   return (
     <div className={styles.wrapper}>
       <div className={styles.perforation} aria-hidden="true" />
@@ -30,7 +22,7 @@ export function Waybill({ label, id, children }: WaybillProps) {
   );
 }
 
-export function WaybillLine({
+export function FareCardLine({
   label,
   value,
   emphasis,
@@ -49,6 +41,6 @@ export function WaybillLine({
   );
 }
 
-export function WaybillDivider() {
+export function FareCardDivider() {
   return <div className={styles.divider} aria-hidden="true" />;
 }

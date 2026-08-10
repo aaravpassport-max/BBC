@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
-import { Waybill, WaybillLine, WaybillDivider } from '../components/Waybill';
+import { FareCard, FareCardLine, FareCardDivider } from '../components/FareCard';
 import {
   confirmBooking,
   triggerDispatch,
@@ -12,7 +12,7 @@ import {
   type Quote,
   type CorporateAccount,
 } from '../api';
-import { PAYMENT_METHODS, type PaymentMethodId } from '../constants/porter';
+import { PAYMENT_METHODS, type PaymentMethodId } from '../constants/brand';
 
 interface LocationState {
   quote: Quote;
@@ -142,24 +142,24 @@ export function ConfirmPage() {
         </div>
       </div>
 
-      <Waybill label="Fare breakdown" id={quote.quote_id.slice(0, 8).toUpperCase()}>
-        <WaybillLine label="Base fare" value={money(fb.base_fare)} />
-        <WaybillLine label="Distance" value={money(fb.distance_charge)} />
-        {fb.night_surcharge > 0 && <WaybillLine label="Night surcharge" value={money(fb.night_surcharge)} />}
+      <FareCard label="Fare breakdown" id={quote.quote_id.slice(0, 8).toUpperCase()}>
+        <FareCardLine label="Base fare" value={money(fb.base_fare)} />
+        <FareCardLine label="Distance" value={money(fb.distance_charge)} />
+        {fb.night_surcharge > 0 && <FareCardLine label="Night surcharge" value={money(fb.night_surcharge)} />}
         {fb.surge_multiplier > 1 && (
-          <WaybillLine label={`Demand surge · ${fb.surge_multiplier}×`} value="" />
+          <FareCardLine label={`Demand surge · ${fb.surge_multiplier}×`} value="" />
         )}
-        <WaybillLine label="Platform fee" value={money(fb.platform_fee)} />
-        <WaybillLine label="Tax" value={money(fb.tax)} />
+        <FareCardLine label="Platform fee" value={money(fb.platform_fee)} />
+        <FareCardLine label="Tax" value={money(fb.tax)} />
         {fb.coupon_discount > 0 && (
-          <WaybillLine label="Coupon discount" value={`−${money(fb.coupon_discount)}`} muted />
+          <FareCardLine label="Coupon discount" value={`−${money(fb.coupon_discount)}`} muted />
         )}
         {fb.subscription_benefit > 0 && (
-          <WaybillLine label="Membership benefit" value={`−${money(fb.subscription_benefit)}`} muted />
+          <FareCardLine label="Membership benefit" value={`−${money(fb.subscription_benefit)}`} muted />
         )}
-        <WaybillDivider />
-        <WaybillLine label="Total" value={money(fb.final_fare)} emphasis />
-      </Waybill>
+        <FareCardDivider />
+        <FareCardLine label="Total" value={money(fb.final_fare)} emphasis />
+      </FareCard>
 
       <p style={{ color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>
         Price locked until {new Date(quote.expires_at).toLocaleTimeString()}.

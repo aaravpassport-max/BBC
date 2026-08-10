@@ -7,7 +7,9 @@ import {
   SHOW_TEST_CREDENTIALS,
 } from '../config/testCredentials';
 
-const DEMO_SESSION_KEY = 'porter_driver_demo_session';
+import { STORAGE_KEYS } from '../constants/brand';
+
+const DEMO_SESSION_KEY = STORAGE_KEYS.demoDriverSession;
 
 export function enableDemoSession() {
   localStorage.setItem(DEMO_SESSION_KEY, 'true');
@@ -18,7 +20,11 @@ export function clearDemoSession() {
 }
 
 export function isDemoSession(): boolean {
-  return localStorage.getItem(DEMO_SESSION_KEY) === 'true' || localStorage.getItem('user_id') === DEMO_USER_ID;
+  return (
+    localStorage.getItem(DEMO_SESSION_KEY) === 'true' ||
+    localStorage.getItem('porter_driver_demo_session') === 'true' ||
+    localStorage.getItem('user_id') === DEMO_USER_ID
+  );
 }
 
 export interface DemoAuthResult {

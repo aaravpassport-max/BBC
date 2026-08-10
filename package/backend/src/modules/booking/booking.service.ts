@@ -370,7 +370,7 @@ export async function getBooking(bookingId: string, customerId: string) {
     driver: row.driver_id
       ? {
           id: row.driver_id,
-          name: row.driver_name || 'Porter Partner',
+          name: row.driver_name || 'PORTMYSTUFF Partner',
           phone_masked: maskedPhone,
           rating: row.driver_rating ? parseFloat(row.driver_rating) : null,
           vehicle: row.vehicle_plate

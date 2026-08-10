@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
-import { Waybill, WaybillLine } from '../components/Waybill';
+import { FareCard, FareCardLine } from '../components/FareCard';
 import { acceptJob, declineJob, getErrorMessage, type PendingOffer } from '../api';
 
 export function OfferPage() {
@@ -97,9 +97,9 @@ export function OfferPage() {
         <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Respond before this offer expires</p>
       </div>
 
-      <Waybill label="Job details">
-        <WaybillLine label="Estimated earnings" value={`₹${offer.fare_breakdown.final_fare.toFixed(2)}`} emphasis />
-      </Waybill>
+      <FareCard label="Job details">
+        <FareCardLine label="Estimated earnings" value={`₹${offer.fare_breakdown.final_fare.toFixed(2)}`} emphasis />
+      </FareCard>
 
       {error && <p style={{ color: 'var(--danger)', fontSize: 13, textAlign: 'center' }}>{error}</p>}
 

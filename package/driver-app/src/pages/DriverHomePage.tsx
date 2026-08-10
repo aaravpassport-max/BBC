@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Geolocation } from '@capacitor/geolocation';
-import { PorterHeader } from '../components/PorterHeader';
+import { PortMyStuffHeader } from '../components/PortMyStuffHeader';
 import { notify } from '../lib/notify';
 import { Button } from '../components/Button';
 import { Skeleton } from '../components/Skeleton';
@@ -135,7 +135,7 @@ export function DriverHomePage() {
   if (checkingKyc) {
     return (
       <div className={styles.page}>
-        <PorterHeader />
+        <PortMyStuffHeader />
         <div style={{ padding: 20 }}>
           <Skeleton width="60%" height={14} />
         </div>
@@ -145,7 +145,7 @@ export function DriverHomePage() {
 
   return (
     <div className={styles.page}>
-      <PorterHeader />
+      <PortMyStuffHeader />
       <div style={{ padding: '0 16px 16px' }}>
         <div
           style={{

@@ -1,3 +1,18 @@
+export const BRAND = {
+  name: 'PORTMYSTUFF',
+  partnerName: 'PORTMYSTUFF Partner',
+  wallet: 'PORTMYSTUFF Wallet',
+  plus: 'PORTMYSTUFF Plus',
+  tagline: 'Move anything, anywhere.',
+  partnerTagline: 'Deliver. Earn. Grow.',
+  defaultUserName: 'PORTMYSTUFF user',
+} as const;
+
+export const STORAGE_KEYS = {
+  displayName: 'portmystuff_display_name',
+  onboarded: 'portmystuff_onboarded',
+} as const;
+
 export const CANCEL_REASONS = [
   { code: 'BOOKED_BY_MISTAKE', label: 'Booked by mistake' },
   { code: 'PRICE_TOO_HIGH', label: 'Price too high' },
@@ -12,7 +27,7 @@ export const POSITIVE_RATING_TAGS = ['On time', 'Friendly', 'Careful handling', 
 export const NEGATIVE_RATING_TAGS = ['Unsafe driving', 'Rude', 'Damaged goods', 'Overcharged'];
 
 export const PAYMENT_METHODS = [
-  { id: 'wallet', label: 'Porter Wallet', description: 'Pay from your wallet balance' },
+  { id: 'wallet', label: BRAND.wallet, description: 'Pay from your wallet balance' },
   { id: 'upi', label: 'UPI / Cash', description: 'Pay driver at pickup' },
   { id: 'card', label: 'Card', description: 'Debit or credit card' },
   { id: 'corporate_bill', label: 'Corporate billing', description: 'Bill to your company account' },
@@ -38,7 +53,7 @@ export const FAQ_ITEMS = [
     a: 'Yes, before pickup. A cancellation fee may apply depending on trip status.',
   },
   {
-    q: 'How does Porter Wallet work?',
+    q: `How does ${BRAND.wallet} work?`,
     a: 'Add money to your wallet and pay for trips instantly. Promo credits are applied automatically.',
   },
   {
@@ -46,7 +61,22 @@ export const FAQ_ITEMS = [
     a: 'Share your code with friends. You earn rewards when they complete their first trip.',
   },
   {
-    q: 'What is Porter Plus?',
+    q: `What is ${BRAND.plus}?`,
     a: 'A monthly membership that waives platform fees on every trip.',
   },
 ];
+
+export function getDisplayName(): string {
+  return (
+    localStorage.getItem(STORAGE_KEYS.displayName) ||
+    localStorage.getItem('porter_display_name') ||
+    BRAND.defaultUserName
+  );
+}
+
+export function isOnboarded(): boolean {
+  return (
+    localStorage.getItem(STORAGE_KEYS.onboarded) === 'true' ||
+    localStorage.getItem('porter_onboarded') === 'true'
+  );
+}

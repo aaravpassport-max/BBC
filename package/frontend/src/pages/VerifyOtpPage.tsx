@@ -1,6 +1,7 @@
 import { useState, useRef, type KeyboardEvent, type ClipboardEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { PorterHeader } from '../components/PorterHeader';
+import { PortMyStuffHeader } from '../components/PortMyStuffHeader';
+import { isOnboarded } from '../constants/brand';
 import { Button } from '../components/Button';
 import { verifyOtp, requestOtp, ApiError } from '../api';
 import { useAuth, getDeviceId } from '../context/AuthContext';
@@ -61,7 +62,7 @@ export function VerifyOtpPage() {
     try {
       const res = await verifyOtp(otpId, code, getDeviceId(), phone);
       auth.login(res.access_token, res.user_id);
-      const onboarded = localStorage.getItem('porter_onboarded') === 'true';
+      const onboarded = isOnboarded();
       if (res.is_new_user && !onboarded) {
         navigate('/onboarding', { replace: true });
       } else {
@@ -100,7 +101,7 @@ export function VerifyOtpPage() {
 
   return (
     <div className={styles.page}>
-      <PorterHeader variant="auth" />
+      <PortMyStuffHeader variant="auth" />
       <div className={styles.sheet}>
         <h2 className={styles.title}>Enter OTP</h2>
         <p className={styles.subtitle}>

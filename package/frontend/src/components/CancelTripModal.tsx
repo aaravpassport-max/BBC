@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from './Button';
 import { previewCancellation } from '../api';
-import { CANCEL_REASONS, type CancelReasonCode } from '../constants/porter';
+import { CANCEL_REASONS, type CancelReasonCode } from '../constants/brand';
 import styles from './CancelTripModal.module.css';
 
 export function CancelTripModal({

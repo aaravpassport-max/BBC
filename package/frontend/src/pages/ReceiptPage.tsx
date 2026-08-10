@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { getBooking, getErrorMessage, type Booking } from '../api';
+import { BRAND } from '../constants/brand';
 import { Skeleton } from '../components/Skeleton';
 
 function money(n: number): string {
@@ -112,7 +113,7 @@ export function ReceiptPage() {
           }}
         >
           <div style={{ textAlign: 'center', marginBottom: 20 }}>
-            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22 }}>Waybill</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: 22 }}>{BRAND.name}</div>
             <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Trip receipt / tax invoice</div>
           </div>
 

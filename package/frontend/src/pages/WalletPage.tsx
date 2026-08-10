@@ -12,6 +12,7 @@ import {
   type WalletBalance,
   type WalletTransaction,
 } from '../api';
+import { BRAND } from '../constants/brand';
 import { Skeleton, SkeletonRowList } from '../components/Skeleton';
 
 // Razorpay's Checkout widget is loaded from their own CDN, on demand, only
@@ -104,7 +105,7 @@ export function WalletPage() {
         amount: gateway_session.amount,
         currency: gateway_session.currency,
         order_id: gateway_session.order_id,
-        name: 'Waybill',
+        name: BRAND.name,
         description: 'Wallet top-up',
         handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
           try {
@@ -129,7 +130,7 @@ export function WalletPage() {
   }
 
   return (
-    <Screen eyebrow="Wallet" title="Porter Wallet" withNav>
+    <Screen eyebrow="Wallet" title={BRAND.wallet} withNav>
       {balance ? (
         <div
           style={{

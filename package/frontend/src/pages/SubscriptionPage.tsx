@@ -10,10 +10,11 @@ import {
   getErrorMessage,
   type Subscription,
 } from '../api';
+import { BRAND } from '../constants/brand';
 
 const PLAN = {
   id: 'platform_plus',
-  name: 'Porter Plus',
+  name: BRAND.plus,
   price: 99,
   benefits: ['Zero platform fee on every trip', 'Priority support', 'Exclusive offers'],
 };
@@ -82,7 +83,7 @@ export function SubscriptionPage() {
   const isActive = sub?.status === 'active' || sub?.status === 'grace_period';
 
   return (
-    <Screen eyebrow="Membership" title="Porter Plus" onBack={() => navigate('/profile')}>
+    <Screen eyebrow="Membership" title={BRAND.plus} onBack={() => navigate('/profile')}>
       <div
         style={{
           border: '1px solid var(--border)',
@@ -120,7 +121,7 @@ export function SubscriptionPage() {
 
       {!sub && sub !== undefined && (
         <Button onClick={() => void handlePurchase()} loading={loading}>
-          Join Porter Plus
+          Join {BRAND.plus}
         </Button>
       )}
       {sub && isActive && (

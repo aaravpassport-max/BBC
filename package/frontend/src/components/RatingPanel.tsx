@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from './Button';
-import { NEGATIVE_RATING_TAGS, POSITIVE_RATING_TAGS } from '../constants/porter';
+import { NEGATIVE_RATING_TAGS, POSITIVE_RATING_TAGS } from '../constants/brand';
 
 export function RatingPanel({
   onSubmit,

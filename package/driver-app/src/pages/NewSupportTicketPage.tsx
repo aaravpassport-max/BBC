@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { createSupportTicket, getErrorMessage, ApiError } from '../api';
-import { SUPPORT_CATEGORIES } from '../constants/porter';
+import { SUPPORT_CATEGORIES } from '../constants/brand';
 
 export function NewSupportTicketPage() {
   const navigate = useNavigate();
