@@ -5,6 +5,10 @@ import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { getMyCorporateAccounts, acceptCorporateInvite, getErrorMessage, type CorporateAccount } from '../api';
 
+function money(n: number): string {
+  return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
+}
+
 export function CorporatePage() {
   const navigate = useNavigate();
   const [accounts, setAccounts] = useState<CorporateAccount[]>([]);
@@ -44,6 +48,10 @@ export function CorporatePage() {
 
   return (
     <Screen eyebrow="Business" title="Corporate billing" onBack={() => navigate('/profile')}>
+      <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 0 }}>
+        Bill deliveries to your company account with centralized invoicing and spend controls.
+      </p>
+
       {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
       {success && <p style={{ color: 'var(--success)', fontSize: 13 }}>{success}</p>}
 
@@ -58,29 +66,60 @@ export function CorporatePage() {
           key={a.account_id}
           style={{
             border: '1px solid var(--border)',
-            borderRadius: 12,
+            borderRadius: 16,
             background: 'var(--surface)',
-            padding: 16,
+            padding: 18,
           }}
         >
-          <div style={{ fontWeight: 700, fontSize: 16 }}>{a.name}</div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
-            Role: {a.role} · Status: {a.status}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: 17 }}>{a.name}</div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
+                Role: <strong>{a.role}</strong> · {a.status}
+              </div>
+            </div>
+            <span
+              style={{
+                fontSize: 11,
+                fontWeight: 700,
+                padding: '4px 10px',
+                borderRadius: 20,
+                background: a.status === 'active' ? 'var(--success-soft, #f0fff4)' : 'var(--border)',
+                color: a.status === 'active' ? 'var(--success)' : 'var(--text-muted)',
+              }}
+            >
+              {a.status}
+            </span>
           </div>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 8 }}>
-            Select &quot;Corporate billing&quot; at checkout to bill trips to this account.
+
+          {a.available_credit != null && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 14 }}>
+              <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Available credit</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--accent-strong)' }}>{money(a.available_credit)}</div>
+              </div>
+              <div style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 12 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Credit limit</div>
+                <div style={{ fontSize: 18, fontWeight: 700 }}>{money(a.credit_limit ?? 0)}</div>
+              </div>
+            </div>
+          )}
+
+          {a.per_user_monthly_cap != null && a.per_user_monthly_cap > 0 && (
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 10, marginBottom: 0 }}>
+              Your monthly spend cap: {money(a.per_user_monthly_cap)}
+            </p>
+          )}
+
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 12, marginBottom: 0 }}>
+            Select &quot;Corporate billing&quot; at checkout and choose this account if you have multiple.
           </p>
         </div>
       ))}
 
-      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16, marginTop: 8 }}>
         <div style={{ fontWeight: 600, marginBottom: 8 }}>Join with invite email</div>
-        <Input
-          type="email"
-          placeholder="work@company.com"
-          value={inviteEmail}
-          onChange={(e) => setInviteEmail(e.target.value)}
-        />
+        <Input type="email" placeholder="work@company.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} />
         <Button loading={loading} onClick={() => void handleAcceptInvite()}>Accept invite</Button>
       </div>
     </Screen>

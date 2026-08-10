@@ -11,12 +11,14 @@ export function ProfilePage() {
   const { logout } = useAuth();
   const [name, setName] = useState(getDisplayName());
   const [email, setEmail] = useState<string | null>(null);
+  const [phone, setPhone] = useState<string | null>(null);
 
   useEffect(() => {
     getProfile()
       .then((p) => {
         if (p.name) setName(p.name);
         setEmail(p.email);
+        setPhone(p.phone ? `${p.country_code} ${p.phone}` : null);
       })
       .catch(() => undefined);
   }, []);
@@ -62,8 +64,39 @@ export function ProfilePage() {
         </div>
         <div>
           <div style={{ fontSize: 18, fontWeight: 700 }}>{name}</div>
-          {email && <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{email}</div>}
-          <div style={{ fontSize: 13, color: 'var(--accent)' }}>Edit profile →</div>
+          {phone && <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>{phone}</div>}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+            {email && (
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: '3px 8px',
+                  borderRadius: 20,
+                  background: 'var(--accent-soft)',
+                  color: 'var(--accent-strong)',
+                }}
+              >
+                ✓ Email verified
+              </span>
+            )}
+            {phone && (
+              <span
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  padding: '3px 8px',
+                  borderRadius: 20,
+                  background: 'var(--bg)',
+                  color: 'var(--text-muted)',
+                  border: '1px solid var(--border)',
+                }}
+              >
+                ✓ Phone verified
+              </span>
+            )}
+          </div>
+          <div style={{ fontSize: 13, color: 'var(--accent)', marginTop: 8 }}>Edit profile →</div>
         </div>
       </button>
 

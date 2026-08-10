@@ -96,6 +96,7 @@ export function ConfirmPage() {
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [corporateAccounts, setCorporateAccounts] = useState<CorporateAccount[]>([]);
   const [selectedCorporateId, setSelectedCorporateId] = useState<string | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   useEffect(() => {
     getWallet()
@@ -118,12 +119,19 @@ export function ConfirmPage() {
   const fb = quote.fare_breakdown;
   const hasCorporate = corporateAccounts.length > 0;
   const availableMethods = PAYMENT_METHODS.filter((m) => m.id !== 'corporate_bill' || hasCorporate);
+  const selectedCorporate = corporateAccounts.find((a) => a.account_id === selectedCorporateId);
 
   async function handleConfirm() {
+    if (!termsAccepted) {
+      setError('Please accept the terms to continue.');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
-      const booking = await confirmBooking(quote.quote_id, paymentMethod, scheduledFor);
+      const corporateId =
+        paymentMethod === 'corporate_bill' ? selectedCorporateId ?? undefined : undefined;
+      const booking = await confirmBooking(quote.quote_id, paymentMethod, scheduledFor, corporateId);
 
       if (booking.payment_required && booking.gateway_session) {
         await completeCardPayment(booking.id, booking.gateway_session);
@@ -149,7 +157,7 @@ export function ConfirmPage() {
       footer={
         <>
           {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10 }}>{error}</p>}
-          <Button onClick={() => void handleConfirm()} loading={loading}>
+          <Button onClick={() => void handleConfirm()} loading={loading} disabled={!termsAccepted}>
             Confirm · {money(fb.final_fare)}
           </Button>
         </>
@@ -198,17 +206,26 @@ export function ConfirmPage() {
                   {m.description}
                   {m.id === 'wallet' && walletBalance != null && ` · Balance ${money(walletBalance)}`}
                 </div>
-                {m.id === 'corporate_bill' && paymentMethod === 'corporate_bill' && corporateAccounts.length > 1 && (
-                  <select
-                    value={selectedCorporateId ?? ''}
-                    onChange={(e) => setSelectedCorporateId(e.target.value)}
-                    style={{ marginTop: 8, width: '100%', padding: 8, borderRadius: 8, border: '1px solid var(--border)' }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {corporateAccounts.map((a) => (
-                      <option key={a.account_id} value={a.account_id}>{a.name}</option>
-                    ))}
-                  </select>
+                {m.id === 'corporate_bill' && paymentMethod === 'corporate_bill' && (
+                  <div style={{ marginTop: 8 }}>
+                    {selectedCorporate && (
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--accent-strong)' }}>
+                        Billing to: {selectedCorporate.name}
+                      </div>
+                    )}
+                    {corporateAccounts.length > 1 && (
+                      <select
+                        value={selectedCorporateId ?? ''}
+                        onChange={(e) => setSelectedCorporateId(e.target.value)}
+                        style={{ marginTop: 6, width: '100%', padding: 8, borderRadius: 8, border: '1px solid var(--border)' }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {corporateAccounts.map((a) => (
+                          <option key={a.account_id} value={a.account_id}>{a.name}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
                 )}
               </span>
             </label>
@@ -239,6 +256,31 @@ export function ConfirmPage() {
           📅 Scheduled for {new Date(scheduledFor).toLocaleString()}
         </p>
       )}
+
+      <label
+        style={{
+          display: 'flex',
+          gap: 10,
+          alignItems: 'flex-start',
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          padding: '12px 14px',
+          background: 'var(--surface)',
+          cursor: 'pointer',
+          fontSize: 13,
+          lineHeight: 1.5,
+        }}
+      >
+        <input
+          type="checkbox"
+          checked={termsAccepted}
+          onChange={(e) => setTermsAccepted(e.target.checked)}
+          style={{ marginTop: 3 }}
+        />
+        <span>
+          I agree to the service terms, fare estimate, and cancellation policy. Goods must be legal and properly packed for transport.
+        </span>
+      </label>
     </Screen>
   );
 }

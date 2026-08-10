@@ -10,6 +10,13 @@ const TIER_LABELS: Record<string, string> = {
   platinum: 'Platinum',
 };
 
+const TIER_BENEFITS: Record<string, string[]> = {
+  bronze: ['1 point per ₹10 spent', 'Standard redemption rate', 'Birthday bonus points'],
+  silver: ['1.1× points on every trip', 'Priority support queue', 'Exclusive promo offers'],
+  gold: ['1.25× points multiplier', 'Free platform fee on 1 trip/month', 'Early access to new features'],
+  platinum: ['1.5× points multiplier', 'Dedicated support line', 'Highest redemption value', 'VIP surge protection'],
+};
+
 export function LoyaltyPage() {
   const [summary, setSummary] = useState<LoyaltySummary | null>(null);
   const [history, setHistory] = useState<LoyaltyTransaction[] | null>(null);
@@ -52,6 +59,35 @@ export function LoyaltyPage() {
           </div>
         </div>
       )}
+
+      <div style={{ marginTop: 24 }}>
+        <h2 style={{ fontSize: 15, marginBottom: 12 }}>Tier benefits</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          {Object.entries(TIER_BENEFITS).map(([tier, benefits]) => (
+            <div
+              key={tier}
+              style={{
+                border: `1px solid ${summary?.tier === tier ? 'var(--accent)' : 'var(--border)'}`,
+                borderRadius: 12,
+                padding: 14,
+                background: summary?.tier === tier ? 'var(--accent-soft)' : 'var(--surface)',
+              }}
+            >
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>
+                {TIER_LABELS[tier] ?? tier}
+                {summary?.tier === tier && (
+                  <span style={{ fontSize: 11, color: 'var(--accent-strong)', marginLeft: 6 }}>Your tier</span>
+                )}
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+                {benefits.map((b) => (
+                  <li key={b}>{b}</li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+      </div>
 
       <div style={{ marginTop: 24 }}>
         <h2 style={{ fontSize: 15, marginBottom: 12 }}>How to redeem</h2>

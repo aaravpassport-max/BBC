@@ -5,6 +5,7 @@ import { Button } from '../components/Button';
 import { getBooking, getProfile, downloadInvoicePdf, getErrorMessage, type Booking } from '../api';
 import { BRAND } from '../constants/brand';
 import { Skeleton } from '../components/Skeleton';
+import { formatAddress } from '../lib/address';
 
 function money(n: number): string {
   return `₹${n.toFixed(2)}`;
@@ -163,6 +164,38 @@ export function ReceiptPage() {
             <div style={{ fontSize: 13, marginBottom: 16, padding: '10px 12px', background: 'var(--bg)', borderRadius: 8 }}>
               {businessName && <div style={{ fontWeight: 600 }}>{businessName}</div>}
               {gstin && <div style={{ color: 'var(--text-muted)', marginTop: 4 }}>GSTIN: {gstin}</div>}
+            </div>
+          )}
+
+          <div style={{ fontSize: 13, marginBottom: 16, lineHeight: 1.6 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Route</div>
+            <div>
+              <span style={{ color: 'var(--success)', fontWeight: 600 }}>Pickup · </span>
+              {formatAddress(booking.pickup_address)}
+            </div>
+            {booking.stops?.map((s, i) => (
+              <div key={s.id} style={{ marginTop: 4 }}>
+                <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Drop {i + 1} · </span>
+                {formatAddress(s.address_snapshot)}
+              </div>
+            ))}
+            {!booking.stops?.length && booking.first_drop_address && (
+              <div style={{ marginTop: 4 }}>
+                <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Drop · </span>
+                {formatAddress(booking.first_drop_address)}
+              </div>
+            )}
+          </div>
+
+          {booking.driver && (
+            <div style={{ fontSize: 13, marginBottom: 16, padding: '10px 12px', background: 'var(--bg)', borderRadius: 8 }}>
+              <div style={{ fontWeight: 600 }}>{booking.driver.name}</div>
+              {booking.driver.vehicle && (
+                <div style={{ color: 'var(--text-muted)', marginTop: 4 }}>
+                  {booking.driver.vehicle.plate} · {booking.driver.vehicle.category.replace(/_/g, ' ')}
+                  {booking.driver.vehicle.make && ` · ${booking.driver.vehicle.make}`}
+                </div>
+              )}
             </div>
           )}
 

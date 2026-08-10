@@ -29,10 +29,12 @@ export function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]['id']>('all');
 
-  async function loadPage(p: number, append = false) {
+  async function loadPage(p: number, append = false, statusFilter?: string) {
     setLoading(true);
     try {
-      const res = await listBookings({ page: p, page_size: 10 });
+      const apiStatus =
+        statusFilter === 'completed' || statusFilter === 'cancelled' ? statusFilter : undefined;
+      const res = await listBookings({ page: p, page_size: 10, status: apiStatus });
       setBookings((prev) => (append ? [...prev, ...res.items] : res.items));
       setHasMore(res.items.length === 10);
       setPage(p);
@@ -44,16 +46,14 @@ export function HistoryPage() {
   }
 
   useEffect(() => {
-    void loadPage(1);
-  }, []);
+    void loadPage(1, false, filter);
+  }, [filter]);
 
-  const filtered = bookings.filter((b) => {
-    if (filter === 'all') return true;
-    if (filter === 'active') return ACTIVE.has(b.status);
-    if (filter === 'completed') return b.status === 'completed';
-    if (filter === 'cancelled') return b.status === 'cancelled';
-    return true;
-  });
+  const filtered =
+    filter === 'active' ? bookings.filter((b) => ACTIVE.has(b.status)) : bookings;
+
+  const tripCount = filtered.length;
+  const totalSpent = filtered.reduce((sum, b) => sum + b.fare_breakdown.final_fare, 0);
 
   function openTrip(b: Booking) {
     if (ACTIVE.has(b.status)) navigate(`/track/${b.id}`);
@@ -62,6 +62,28 @@ export function HistoryPage() {
 
   return (
     <Screen eyebrow="Trips" title="Your orders" withNav>
+      {tripCount > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            border: '1px solid var(--border)',
+            borderRadius: 12,
+            background: 'var(--surface)',
+            padding: '12px 16px',
+            fontSize: 13,
+          }}
+        >
+          <span>
+            <strong>{tripCount}</strong> trip{tripCount !== 1 ? 's' : ''} in this view
+          </span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: 'var(--accent-strong)' }}>
+            {money(totalSpent)} total
+          </span>
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {FILTERS.map((f) => (
           <button
@@ -83,6 +105,13 @@ export function HistoryPage() {
           </button>
         ))}
       </div>
+
+      {filtered.length > 0 && (
+        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+          {filtered.length} trip{filtered.length === 1 ? '' : 's'}
+          {totalSpent > 0 && ` · ${money(totalSpent)} spent`}
+        </div>
+      )}
 
       {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
       {loading && bookings.length === 0 && <SkeletonRowList count={3} />}
@@ -137,8 +166,8 @@ export function HistoryPage() {
         </div>
       )}
 
-      {hasMore && filter === 'all' && (
-        <Button variant="ghost" loading={loading} onClick={() => void loadPage(page + 1, true)}>
+      {hasMore && filter !== 'active' && (
+        <Button variant="ghost" loading={loading} onClick={() => void loadPage(page + 1, true, filter)}>
           Load more
         </Button>
       )}

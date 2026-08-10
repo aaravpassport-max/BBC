@@ -6,6 +6,7 @@ import { Button } from '../components/Button';
 import { requestOtp, ApiError } from '../api';
 import { getDeviceId } from '../context/AuthContext';
 import { DemoLoginPanel } from '../components/DemoLoginPanel';
+import { BRAND } from '../constants/brand';
 import styles from './LoginPage.module.css';
 
 export function LoginPage() {
@@ -59,6 +60,9 @@ export function LoginPage() {
           </Button>
         </form>
         <DemoLoginPanel />
+        <p style={{ marginTop: 16, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
+          By continuing, you agree to {BRAND.name}&apos;s Terms of Service and Privacy Policy.
+        </p>
       </div>
     </div>
   );

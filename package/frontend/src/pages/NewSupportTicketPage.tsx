@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { listBookings, createSupportTicket, getErrorMessage, ApiError, type Booking } from '../api';
@@ -7,12 +7,23 @@ import { SUPPORT_CATEGORIES } from '../constants/brand';
 
 const PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const;
 
+interface LocationState {
+  linkedBookingId?: string;
+  category?: string;
+}
+
 export function NewSupportTicketPage() {
   const navigate = useNavigate();
-  const [category, setCategory] = useState(SUPPORT_CATEGORIES[0]);
+  const location = useLocation();
+  const routeState = (location.state as LocationState | undefined) ?? {};
+  const [category, setCategory] = useState(
+    routeState.category && SUPPORT_CATEGORIES.includes(routeState.category)
+      ? routeState.category
+      : SUPPORT_CATEGORIES[0]
+  );
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<(typeof PRIORITIES)[number]>('normal');
-  const [linkedBookingId, setLinkedBookingId] = useState('');
+  const [linkedBookingId, setLinkedBookingId] = useState(routeState.linkedBookingId ?? '');
   const [recentTrips, setRecentTrips] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');

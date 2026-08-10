@@ -15,11 +15,6 @@ import {
 import { BRAND } from '../constants/brand';
 import { Skeleton, SkeletonRowList } from '../components/Skeleton';
 
-// Razorpay's Checkout widget is loaded from their own CDN, on demand, only
-// when a real (non-simulated) payment is actually being made — no point
-// loading a third-party script for users who never touch this flow, and
-// this reference environment's own network restrictions mean it can only
-// ever be exercised with real credentials on a real deployment anyway.
 const RAZORPAY_SCRIPT_URL = 'https://checkout.razorpay.com/v1/checkout.js';
 
 declare global {
@@ -47,6 +42,7 @@ function money(n: number | string): string {
 }
 
 const QUICK_AMOUNTS = [200, 500, 1000, 2000];
+const TX_FILTERS = ['all', 'credit', 'debit'] as const;
 
 export function WalletPage() {
   const [balance, setBalance] = useState<WalletBalance | null>(null);
@@ -55,6 +51,7 @@ export function WalletPage() {
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [txFilter, setTxFilter] = useState<(typeof TX_FILTERS)[number]>('all');
 
   const refresh = useCallback(async () => {
     try {
@@ -80,21 +77,13 @@ export function WalletPage() {
     setProcessing(true);
     try {
       const { gateway_session } = await addMoney(chosenAmount);
-
       if (gateway_session.simulated) {
-        // No real Razorpay account configured on the backend — this
-        // reference environment's own dev-only stand-in for a real
-        // gateway webhook, confirming the SAME top-up server-side rather
-        // than skipping confirmation entirely.
         await devSimulateWebhook(gateway_session.gateway_ref!);
         setSuccess(`Added ${money(chosenAmount)} to your wallet.`);
         setAmount('');
         await refresh();
         return;
       }
-
-      // Real flow: load Razorpay's actual Checkout widget and let the user
-      // pay with a real card/UPI/etc.
       const loaded = await loadRazorpayScript();
       if (!loaded) {
         setError('Could not load the payment provider. Check your connection and try again.');
@@ -117,9 +106,7 @@ export function WalletPage() {
             setError(getErrorMessage(err, 'Payment could not be verified.'));
           }
         },
-        modal: {
-          ondismiss: () => setProcessing(false),
-        },
+        modal: { ondismiss: () => setProcessing(false) },
       });
       razorpay.open();
     } catch (err) {
@@ -129,57 +116,58 @@ export function WalletPage() {
     }
   }
 
+  const filteredTx =
+    transactions?.filter((t) => txFilter === 'all' || t.entry_type === txFilter) ?? [];
+
   return (
     <Screen eyebrow="Wallet" title={BRAND.wallet} withNav>
       {balance ? (
-        <div
-          style={{
-            border: 'none',
-            borderRadius: 16,
-            background: 'linear-gradient(135deg, #2b6ce6 0%, #1d5fd4 100%)',
-            padding: 24,
-            textAlign: 'center',
-            color: 'white',
-            boxShadow: 'var(--shadow-md)',
-          }}
-        >
-          <div style={{ fontSize: 12, opacity: 0.9, marginBottom: 6 }}>Available balance</div>
-          <div style={{ fontSize: 36, fontWeight: 700 }}>
-            {money(balance.real_money_balance)}
+        <>
+          <div
+            style={{
+              border: 'none',
+              borderRadius: 16,
+              background: 'linear-gradient(135deg, #2b6ce6 0%, #1d5fd4 100%)',
+              padding: 24,
+              textAlign: 'center',
+              color: 'white',
+              boxShadow: 'var(--shadow-md)',
+            }}
+          >
+            <div style={{ fontSize: 12, opacity: 0.9, marginBottom: 6 }}>Available balance</div>
+            <div style={{ fontSize: 36, fontWeight: 700 }}>{money(balance.real_money_balance)}</div>
+            {balance.promotional_credit_balance > 0 && (
+              <div style={{ fontSize: 12, opacity: 0.9, marginTop: 6 }}>
+                + {money(balance.promotional_credit_balance)} promo credit
+              </div>
+            )}
           </div>
-          {balance.promotional_credit_balance > 0 && (
-            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
-              + {money(balance.promotional_credit_balance)} promo credit
+          {balance.held_balance > 0 && (
+            <div
+              style={{
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                padding: 14,
+                background: 'var(--surface)',
+                fontSize: 13,
+                color: 'var(--text-muted)',
+              }}
+            >
+              <strong style={{ color: 'var(--danger)' }}>{money(balance.held_balance)} on hold</strong>
+              {' '}— reserved for active trips or pending refunds. Released when the trip completes or is cancelled.
             </div>
           )}
-        </div>
+        </>
       ) : (
-        <div
-          style={{
-            border: '1px solid var(--border)',
-            borderRadius: 16,
-            background: 'var(--surface)',
-            padding: 24,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 10,
-          }}
-        >
-          <Skeleton width={110} height={12} />
-          <Skeleton width={160} height={36} />
+        <div style={{ border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
+          <Skeleton width={110} height={12} style={{ margin: '0 auto 8px' }} />
+          <Skeleton width={160} height={36} style={{ margin: '0 auto' }} />
         </div>
       )}
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
         {QUICK_AMOUNTS.map((a) => (
-          <Button
-            key={a}
-            variant="ghost"
-            style={{ width: 'auto', padding: '8px 16px' }}
-            disabled={processing}
-            onClick={() => handleAddMoney(a)}
-          >
+          <Button key={a} variant="ghost" style={{ width: 'auto', padding: '8px 16px' }} disabled={processing} onClick={() => handleAddMoney(a)}>
             + ₹{a}
           </Button>
         ))}
@@ -187,11 +175,7 @@ export function WalletPage() {
 
       <div style={{ display: 'flex', gap: 8 }}>
         <div style={{ flex: 1 }}>
-          <Input
-            placeholder="Custom amount"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))}
-          />
+          <Input placeholder="Custom amount" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))} />
         </div>
         <Button loading={processing} style={{ width: 'auto', padding: '0 20px' }} onClick={() => handleAddMoney(Number(amount))}>
           Add money
@@ -201,14 +185,38 @@ export function WalletPage() {
       {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
       {success && <p style={{ color: 'var(--success)', fontSize: 13 }}>{success}</p>}
 
-      <h2 style={{ fontSize: 15, marginTop: 10 }}>Recent transactions</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+        <h2 style={{ fontSize: 15, margin: 0 }}>Transactions</h2>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {TX_FILTERS.map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => setTxFilter(f)}
+              style={{
+                border: `1px solid ${txFilter === f ? 'var(--accent)' : 'var(--border)'}`,
+                background: txFilter === f ? 'var(--accent-soft)' : 'var(--surface)',
+                borderRadius: 16,
+                padding: '4px 10px',
+                fontSize: 11,
+                fontWeight: 600,
+                cursor: 'pointer',
+                textTransform: 'capitalize',
+              }}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {transactions === null && !error ? (
         <SkeletonRowList count={3} />
-      ) : transactions && transactions.length === 0 ? (
-        <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>No transactions yet.</p>
+      ) : filteredTx.length === 0 ? (
+        <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>No transactions in this category.</p>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {transactions?.map((t) => (
+          {filteredTx.map((t) => (
             <div
               key={t.id}
               style={{
@@ -223,15 +231,9 @@ export function WalletPage() {
               <div>
                 <div style={{ fontSize: 14, textTransform: 'capitalize' }}>{t.reason.replace(/_/g, ' ')}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{new Date(t.created_at).toLocaleString()}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Balance after: {money(t.balance_after)}</div>
               </div>
-              <div
-                style={{
-                  fontFamily: 'var(--font-mono)',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: t.entry_type === 'credit' ? 'var(--success)' : 'var(--danger)',
-                }}
-              >
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, fontWeight: 600, color: t.entry_type === 'credit' ? 'var(--success)' : 'var(--danger)' }}>
                 {t.entry_type === 'credit' ? '+' : '−'}
                 {money(t.amount)}
               </div>

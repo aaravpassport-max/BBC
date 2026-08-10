@@ -5,8 +5,9 @@ import { isOnboarded } from '../constants/brand';
 import { Button } from '../components/Button';
 import { verifyOtp, requestOtp, ApiError } from '../api';
 import { useAuth, getDeviceId } from '../context/AuthContext';
-import { DEMO_OTP } from '../config/testCredentials';
+import { DEMO_OTP, SHOW_TEST_CREDENTIALS } from '../config/testCredentials';
 import styles from './LoginPage.module.css';
+import { BRAND } from '../constants/brand';
 
 interface LocationState {
   phone: string;
@@ -105,7 +106,10 @@ export function VerifyOtpPage() {
       <div className={styles.sheet}>
         <h2 className={styles.title}>Enter OTP</h2>
         <p className={styles.subtitle}>
-          Sent to +91 {phone}. Demo OTP: <strong>{DEMO_OTP}</strong>
+          Sent to +91 {phone}.
+          {SHOW_TEST_CREDENTIALS && (
+            <> Demo OTP: <strong>{DEMO_OTP}</strong></>
+          )}
         </p>
         <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', marginBottom: 16 }}>
           {digits.map((d, i) => (
@@ -142,6 +146,9 @@ export function VerifyOtpPage() {
         <Button variant="ghost" onClick={resend} loading={resending} type="button">
           Resend OTP
         </Button>
+        <p style={{ marginTop: 16, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', lineHeight: 1.5 }}>
+          By verifying, you agree to {BRAND.name}&apos;s Terms of Service and Privacy Policy.
+        </p>
       </div>
     </div>
   );

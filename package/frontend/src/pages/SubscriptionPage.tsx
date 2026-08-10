@@ -193,6 +193,24 @@ export function SubscriptionPage() {
       {sub === undefined && <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Loading…</p>}
 
       {sub && isActive && (
+        <div
+          style={{
+            border: '1px solid var(--accent)',
+            borderRadius: 12,
+            background: 'var(--accent-soft)',
+            padding: 14,
+            fontSize: 13,
+            lineHeight: 1.5,
+          }}
+        >
+          <div style={{ fontWeight: 700, color: 'var(--accent-strong)' }}>Your savings estimate</div>
+          <p style={{ margin: '6px 0 0', color: 'var(--text-muted)' }}>
+            Platform fees are waived on every trip while your membership is active. Based on typical usage (~4 trips/month at ₹15 platform fee each), you save roughly ₹60/month — more than your ₹{plan?.monthly_fee ?? '—'} membership cost.
+          </p>
+        </div>
+      )}
+
+      {sub && isActive && (
         <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
           Active until {new Date(sub.current_period_end).toLocaleDateString()}
           {sub.status === 'grace_period' && sub.grace_period_ends_at && (

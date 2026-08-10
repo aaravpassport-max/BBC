@@ -84,9 +84,31 @@ export function ReferralPage() {
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
           <Stat label="Referrals" value={String(summary.successful_referrals)} />
           <Stat label="Earned" value={`₹${summary.earned_confirmed}`} />
-          <Stat label="Pending" value={`₹${summary.earned_pending_review}`} />
+          <Stat label="Pending review" value={`₹${summary.earned_pending_review}`} />
         </div>
       )}
+
+      {summary && summary.earned_pending_review > 0 && (
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', lineHeight: 1.5 }}>
+          ₹{summary.earned_pending_review} is pending review — rewards are credited after your friend&apos;s first trip is verified and completes without disputes.
+        </p>
+      )}
+
+      <div
+        style={{
+          border: '1px solid var(--border)',
+          borderRadius: 12,
+          background: 'var(--surface)',
+          padding: 16,
+        }}
+      >
+        <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 12 }}>How it works</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <Step n={1} title="Share your code" body="Send your referral code or invite link to friends who haven't used PORTMYSTUFF yet." />
+          <Step n={2} title="Friend books a trip" body="They sign up, apply your code, and complete their first delivery." />
+          <Step n={3} title="Both earn rewards" body="You receive wallet credit once their trip is verified. They get a welcome bonus too." />
+        </div>
+      </div>
 
       <div>
         <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Have a friend&apos;s code?</div>
@@ -111,6 +133,34 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 14, textAlign: 'center' }}>
       <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{label}</div>
       <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}>{value}</div>
+    </div>
+  );
+}
+
+function Step({ n, title, body }: { n: number; title: string; body: string }) {
+  return (
+    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+      <div
+        style={{
+          width: 28,
+          height: 28,
+          borderRadius: '50%',
+          background: 'var(--accent-soft)',
+          color: 'var(--accent-strong)',
+          fontWeight: 700,
+          fontSize: 14,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
+        {n}
+      </div>
+      <div>
+        <div style={{ fontWeight: 600, fontSize: 14 }}>{title}</div>
+        <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2, lineHeight: 1.5 }}>{body}</div>
+      </div>
     </div>
   );
 }

@@ -5,7 +5,8 @@ import { Button } from '../components/Button';
 import { StatusBadge } from '../components/StatusBadge';
 import { FareCard, FareCardLine, FareCardDivider } from '../components/FareCard';
 import { RatingPanel } from '../components/RatingPanel';
-import { getBooking, rateBooking, getErrorMessage, type Booking } from '../api';
+import { TipPanel } from '../components/TipPanel';
+import { getBooking, rateBooking, downloadInvoicePdf, getErrorMessage, type Booking } from '../api';
 import { formatAddress } from '../lib/address';
 
 const ACTIVE_STATUSES = new Set(['scheduled', 'searching', 'driver_assigned', 'in_progress']);
@@ -21,6 +22,8 @@ export function TripDetailPage() {
   const [error, setError] = useState('');
   const [rated, setRated] = useState(false);
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [downloading, setDownloading] = useState(false);
+  const [showTip, setShowTip] = useState(false);
 
   useEffect(() => {
     if (!bookingId) return;
@@ -45,6 +48,24 @@ export function TripDetailPage() {
       setError(getErrorMessage(err, 'Could not submit rating.'));
     } finally {
       setRatingSubmitting(false);
+    }
+  }
+
+  async function handleDownloadInvoice() {
+    if (!bookingId) return;
+    setDownloading(true);
+    try {
+      const blob = await downloadInvoicePdf(bookingId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `invoice-${bookingId.slice(0, 8)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not download invoice.'));
+    } finally {
+      setDownloading(false);
     }
   }
 
@@ -104,11 +125,34 @@ export function TripDetailPage() {
 
       {booking.status === 'completed' && (
         <>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Button variant="ghost" style={{ width: 'auto', flex: 1 }} onClick={() => navigate('/invoices')}>
+              View invoices
+            </Button>
+            <Button variant="ghost" style={{ width: 'auto', flex: 1 }} loading={downloading} onClick={() => void handleDownloadInvoice()}>
+              Download PDF
+            </Button>
+          </div>
           <Button variant="ghost" onClick={() => navigate(`/receipt/${booking.id}`)}>View receipt</Button>
+          <Button
+            variant="ghost"
+            onClick={() =>
+              navigate('/support/new', {
+                state: { linkedBookingId: booking.id, category: 'Trip issue' },
+              })
+            }
+          >
+            Report issue
+          </Button>
           {!rated ? (
             <RatingPanel onSubmit={handleRate} submitting={ratingSubmitting} />
           ) : (
             <p style={{ textAlign: 'center', color: 'var(--success)', fontSize: 14 }}>Thanks for rating your trip.</p>
+          )}
+          {showTip ? (
+            <TipPanel bookingId={booking.id} onTipped={() => setShowTip(false)} />
+          ) : (
+            <Button variant="ghost" onClick={() => setShowTip(true)}>Tip driver again</Button>
           )}
         </>
       )}

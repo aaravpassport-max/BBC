@@ -2,12 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { getNotificationPreferences, setNotificationPreference, getErrorMessage, type NotificationPreference } from '../api';
+import { BRAND } from '../constants/brand';
 
 const CATEGORY_LABELS: Record<string, string> = {
   trip_updates: 'Trip updates',
   promotions: 'Promotions',
   account_activity: 'Account activity',
   product_news: 'Product news',
+  sos: 'Safety alerts (SOS)',
+  otp: 'OTP & login codes',
 };
 
 const CHANNEL_LABELS: Record<string, string> = {
@@ -95,6 +98,10 @@ export function SettingsPage() {
           </div>
         ))}
       </div>
+
+      <p style={{ marginTop: 24, fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
+        {BRAND.name} v{(import.meta.env.VITE_APP_VERSION as string | undefined) ?? '1.0.0'}
+      </p>
     </Screen>
   );
 }

@@ -13,6 +13,8 @@ export function AddressesPage() {
   const [label, setLabel] = useState('Home');
   const [location, setLocation] = useState<LocationPoint | null>(PRESET_LOCATIONS[0]);
   const [addressLine, setAddressLine] = useState('');
+  const [contactName, setContactName] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
   const [mapOpen, setMapOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -34,6 +36,8 @@ export function AddressesPage() {
     setEditingId(a.id);
     setLabel(a.label);
     setAddressLine(a.address_line);
+    setContactName(a.contact_name ?? '');
+    setContactPhone(a.contact_phone ?? '');
     setLocation({ label: a.label, lat: a.lat, lng: a.lng, addressLine: a.address_line });
   }
 
@@ -41,6 +45,8 @@ export function AddressesPage() {
     setEditingId(null);
     setLabel('Home');
     setAddressLine('');
+    setContactName('');
+    setContactPhone('');
     setLocation(PRESET_LOCATIONS[0]);
   }
 
@@ -58,8 +64,8 @@ export function AddressesPage() {
         lat: location.lat,
         lng: location.lng,
         landmark: location.addressLine || null,
-        contact_name: null,
-        contact_phone: null,
+        contact_name: contactName.trim() || null,
+        contact_phone: contactPhone.trim() || null,
         is_default: addresses.length === 0,
       };
       if (editingId) {
@@ -102,6 +108,11 @@ export function AddressesPage() {
                 {a.is_default && <span style={{ fontSize: 11, color: 'var(--accent)' }}>· Default</span>}
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{a.address_line}</div>
+              {(a.contact_name || a.contact_phone) && (
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+                  {a.contact_name}{a.contact_name && a.contact_phone ? ' · ' : ''}{a.contact_phone}
+                </div>
+              )}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               <button type="button" onClick={() => startEdit(a)} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 12 }}>
@@ -135,6 +146,19 @@ export function AddressesPage() {
           placeholder="Flat / building / landmark"
           value={addressLine}
           onChange={(e) => setAddressLine(e.target.value)}
+          style={{ width: '100%', marginBottom: 8, padding: 10, borderRadius: 10, border: '1px solid var(--border)' }}
+        />
+        <input
+          placeholder="Contact name (optional)"
+          value={contactName}
+          onChange={(e) => setContactName(e.target.value)}
+          style={{ width: '100%', marginBottom: 8, padding: 10, borderRadius: 10, border: '1px solid var(--border)' }}
+        />
+        <input
+          placeholder="Contact phone (optional)"
+          type="tel"
+          value={contactPhone}
+          onChange={(e) => setContactPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
           style={{ width: '100%', marginBottom: 8, padding: 10, borderRadius: 10, border: '1px solid var(--border)' }}
         />
         <LocationPicker value={location} onChange={setLocation} onPickOnMap={() => setMapOpen(true)} />

@@ -30,6 +30,16 @@ const CANCELLABLE = new Set(['scheduled', 'searching', 'driver_assigned']);
 const TRACKABLE = new Set(['driver_assigned', 'in_progress']);
 const SOS_ELIGIBLE = new Set(['driver_assigned', 'in_progress']);
 
+const TIMELINE_STEPS = [
+  { status: 'scheduled', label: 'Scheduled', icon: '📅' },
+  { status: 'searching', label: 'Finding driver', icon: '🔍' },
+  { status: 'driver_assigned', label: 'Driver assigned', icon: '🚚' },
+  { status: 'in_progress', label: 'On the way', icon: '📦' },
+  { status: 'completed', label: 'Completed', icon: '✓' },
+];
+
+const STATUS_ORDER = ['scheduled', 'searching', 'driver_assigned', 'in_progress', 'completed'];
+
 function money(n: number): string {
   return `₹${n.toFixed(2)}`;
 }
@@ -154,10 +164,93 @@ export function TrackPage() {
   }
 
   const fb = booking.fare_breakdown;
+  const currentStatusIndex = STATUS_ORDER.indexOf(booking.status);
+  const tripRef = booking.id.slice(0, 8).toUpperCase();
+
+  async function handleShareTrip() {
+    const text = `Track my PORTMYSTUFF delivery — Trip #${tripRef}`;
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'Share trip', text, url });
+        return;
+      } catch {
+        // user cancelled
+      }
+    }
+    await navigator.clipboard.writeText(`${text}\n${url}`);
+    void notify('Link copied', 'Trip link copied to clipboard.');
+  }
 
   return (
     <Screen eyebrow={`Trip #${booking.id.slice(0, 8).toUpperCase()}`} title="Your delivery">
       <StatusBadge status={booking.status} />
+
+      <div style={{ display: 'flex', gap: 8 }}>
+        <Button variant="ghost" style={{ width: 'auto', flex: 1, padding: '8px 14px' }} onClick={() => void handleShareTrip()}>
+          Share trip
+        </Button>
+      </div>
+
+      {booking.status !== 'cancelled' && booking.status !== 'no_drivers_found' && (
+        <div
+          style={{
+            border: '1px solid var(--border)',
+            borderRadius: 12,
+            background: 'var(--surface)',
+            padding: 16,
+          }}
+        >
+          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Trip timeline</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+            {TIMELINE_STEPS.map((step, i) => {
+              const stepIndex = STATUS_ORDER.indexOf(step.status);
+              const done = currentStatusIndex >= stepIndex && currentStatusIndex >= 0;
+              const active = booking.status === step.status;
+              return (
+                <div key={step.status} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div
+                      style={{
+                        width: 32,
+                        height: 32,
+                        borderRadius: '50%',
+                        background: done ? 'var(--accent-soft)' : 'var(--bg)',
+                        border: `2px solid ${active ? 'var(--accent)' : done ? 'var(--accent)' : 'var(--border)'}`,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: 14,
+                        color: done ? 'var(--accent-strong)' : 'var(--text-muted)',
+                      }}
+                    >
+                      {done ? step.icon : '○'}
+                    </div>
+                    {i < TIMELINE_STEPS.length - 1 && (
+                      <div
+                        style={{
+                          width: 2,
+                          height: 20,
+                          background: done && currentStatusIndex > stepIndex ? 'var(--accent)' : 'var(--border)',
+                          margin: '4px 0',
+                        }}
+                      />
+                    )}
+                  </div>
+                  <div style={{ paddingBottom: i < TIMELINE_STEPS.length - 1 ? 16 : 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: active ? 700 : 600, color: done ? 'var(--text)' : 'var(--text-muted)' }}>
+                      {step.label}
+                    </div>
+                    {active && (
+                      <div style={{ fontSize: 12, color: 'var(--accent-strong)', marginTop: 2 }}>Current step</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {booking.status === 'scheduled' && (
         <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
