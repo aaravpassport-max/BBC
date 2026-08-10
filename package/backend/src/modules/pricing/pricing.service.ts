@@ -317,3 +317,58 @@ export async function generateQuotes(params: {
 
   return quotes;
 }
+
+export interface VehicleCategoryInfo {
+  name: string;
+  capacity_descriptor: string;
+  license_class_required: string | null;
+  permit_required: boolean;
+  vehicle_group: string;
+}
+
+async function resolveCityIdForPickup(pickup: { lat: number; lng: number }): Promise<string | null> {
+  const zoneResult = await pool.query(
+    `SELECT z.city_id
+     FROM zones z
+     WHERE z.zone_type = 'service_area'
+       AND ST_Covers(z.boundary::geometry, ST_SetSRID(ST_MakePoint($1, $2), 4326))
+     LIMIT 1`,
+    [pickup.lng, pickup.lat]
+  );
+  return zoneResult.rowCount ? (zoneResult.rows[0].city_id as string) : null;
+}
+
+function vehicleGroupForCategory(name: string): string {
+  if (['bike', 'scooter', 'two_wheeler'].includes(name)) return 'two_wheeler';
+  if (name === 'three_wheeler') return 'three_wheeler';
+  if (['mini_truck', 'pickup_truck', 'large_truck'].includes(name)) return 'truck';
+  return 'other';
+}
+
+/** Lists bookable vehicle categories for a pickup location (active + published rate card). */
+export async function listVehicleCategoriesForLocation(pickup: {
+  lat: number;
+  lng: number;
+}): Promise<VehicleCategoryInfo[]> {
+  const cityId = await resolveCityIdForPickup(pickup);
+  if (!cityId) {
+    throw Errors.validation({ pickup: 'This location is outside our serviceable area.' });
+  }
+
+  const result = await pool.query(
+    `SELECT DISTINCT vc.name, vc.capacity_descriptor, vc.license_class_required, vc.permit_required
+     FROM vehicle_categories vc
+     JOIN rate_cards rc ON rc.vehicle_category_id = vc.id
+     WHERE rc.city_id = $1 AND rc.status = 'published' AND vc.status = 'active'
+     ORDER BY vc.name`,
+    [cityId]
+  );
+
+  return result.rows.map((row) => ({
+    name: row.name as string,
+    capacity_descriptor: row.capacity_descriptor as string,
+    license_class_required: row.license_class_required as string | null,
+    permit_required: row.permit_required as boolean,
+    vehicle_group: vehicleGroupForCategory(row.name as string),
+  }));
+}

@@ -39,7 +39,9 @@ INSERT INTO vehicle_categories (id, name, capacity_descriptor, license_class_req
   ('c19526d0-1baf-4e63-8228-f014108dbc31', 'two_wheeler', 'Small parcels, up to 20kg', 'MC', false, 'active'),
   ('ada6b667-eae7-4c13-8841-946be998f936', 'three_wheeler', 'Up to 500kg', 'LMV', false, 'active'),
   ('861c719c-fdc4-4c66-b24c-fb04793d8343', 'pickup_truck', 'Up to 1500kg', 'LMV', true, 'active'),
-  ('3c022fa4-ce1c-4769-91f9-42770616dd83', 'large_truck', 'Up to 5000kg', 'HMV', true, 'active')
+  ('3c022fa4-ce1c-4769-91f9-42770616dd83', 'large_truck', 'Up to 5000kg', 'HMV', true, 'active'),
+  ('a1b2c3d4-e5f6-4789-a012-3456789abcde', 'bike', 'Documents & small parcels, up to 10kg', 'MC', false, 'active'),
+  ('b2c3d4e5-f6a7-4890-b123-456789abcdef', 'scooter', 'Parcels up to 20kg', 'MC', false, 'active')
 ON CONFLICT (id) DO NOTHING;
 
 -- A SEPARATE category, deliberately distinct from 'mini_truck' above.
@@ -99,7 +101,13 @@ VALUES
   -- large_truck: top tier, heavy-vehicle license class, highest permit/platform fee
   ('62d3437b-6ff3-4de7-a04f-1f66408ac49e', 'f7a78914-17a4-4b8f-91c9-79d76c87c9b9',
    '3c022fa4-ce1c-4769-91f9-42770616dd83',
-   150.00, 22.00, 2.20, 10, 3.00, 20.00, '22:00', '06:00', 200.00, 25.00, 5.00, 'published', now())
+   150.00, 22.00, 2.20, 10, 3.00, 20.00, '22:00', '06:00', 200.00, 25.00, 5.00, 'published', now()),
+  ('c3d4e5f6-a7b8-4901-c234-56789abcdef0', 'f7a78914-17a4-4b8f-91c9-79d76c87c9b9',
+   'a1b2c3d4-e5f6-4789-a012-3456789abcde',
+   20.00, 5.00, 0.80, 5, 1.00, 10.00, '22:00', '06:00', 30.00, 4.00, 5.00, 'published', now()),
+  ('d4e5f6a7-b8c9-4012-d345-6789abcdef01', 'f7a78914-17a4-4b8f-91c9-79d76c87c9b9',
+   'b2c3d4e5-f6a7-4890-b123-456789abcdef',
+   25.00, 6.00, 1.00, 5, 1.00, 10.00, '22:00', '06:00', 35.00, 5.00, 5.00, 'published', now())
 ON CONFLICT (id) DO NOTHING;
 
 -- ---------- Baseline permissions ----------

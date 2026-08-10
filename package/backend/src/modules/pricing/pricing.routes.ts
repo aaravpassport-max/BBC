@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { asyncHandler } from '../../middleware/errorHandler';
 import { validateBody } from '../../middleware/validate';
 import { requireAuth } from '../../middleware/auth';
-import { generateQuotes } from './pricing.service';
+import { Errors } from '../../utils/errors';
+import { generateQuotes, listVehicleCategoriesForLocation } from './pricing.service';
 
 const geoPointSchema = z.object({ lat: z.number(), lng: z.number() });
 
@@ -24,6 +25,20 @@ const quoteRequestSchema = z.object({
 });
 
 export const pricingRouter = Router();
+
+pricingRouter.get(
+  '/vehicle-categories',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const lat = parseFloat(req.query.lat as string);
+    const lng = parseFloat(req.query.lng as string);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      throw Errors.validation({ lat: 'lat and lng query params are required.' });
+    }
+    const categories = await listVehicleCategoriesForLocation({ lat, lng });
+    res.status(200).json(categories);
+  })
+);
 
 // PRD 2.2.5
 pricingRouter.post(

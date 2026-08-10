@@ -7,19 +7,12 @@ import { PromoBanners } from '../components/PromoBanners';
 import { LocationPicker } from '../components/LocationPicker';
 import { MapPicker } from '../components/MapPicker';
 import { LiveMap } from '../components/LiveMap';
-import { getQuote, getErrorMessage, listAddresses, getLoyaltySummary, listBookings, type Quote } from '../api';
+import { listAddresses, getLoyaltySummary, listBookings } from '../api';
 import { checkServiceability } from '../api/features';
 import { PRESET_LOCATIONS, sameLocation, type LocationPoint } from '../lib/locations';
 import type { SavedAddress } from '../api/profile';
+import type { BookingDraft } from '../api/vehicles';
 import styles from './HomePage.module.css';
-
-const CATEGORY_DISPLAY: Record<string, { icon: string; blurb: string }> = {
-  two_wheeler: { icon: '🛵', blurb: 'Small parcels, up to 20kg' },
-  three_wheeler: { icon: '🛺', blurb: 'Up to 500kg' },
-  mini_truck: { icon: '🚚', blurb: 'Up to 750kg' },
-  pickup_truck: { icon: '🚛', blurb: 'Up to 1500kg' },
-  large_truck: { icon: '🚛', blurb: 'Up to 5000kg' },
-};
 
 const WEIGHT_BANDS = [
   { id: 'light', label: 'Light (up to 20 kg)' },
@@ -39,10 +32,7 @@ export function HomePage() {
   const [goodsCategory, setGoodsCategory] = useState('Furniture');
   const [weightBand, setWeightBand] = useState('medium');
   const [helperNeeded, setHelperNeeded] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [quotes, setQuotes] = useState<Quote[] | null>(null);
-  const [choosingVehicle, setChoosingVehicle] = useState(false);
   const [scheduledFor, setScheduledFor] = useState('');
   const [couponCode, setCouponCode] = useState('');
   const [loyaltyBalance, setLoyaltyBalance] = useState(0);
@@ -93,7 +83,7 @@ export function HomePage() {
       .catch(() => setServiceable(null));
   }, [pickup?.lat, pickup?.lng]);
 
-  async function handleGetQuote() {
+  function handleContinueToVehicles() {
     setError('');
     if (!pickup) {
       setError('Select a pickup location.');
@@ -107,46 +97,18 @@ export function HomePage() {
       setError('Pickup is outside our service area. Try a different location.');
       return;
     }
-    setLoading(true);
-    try {
-      const res = await getQuote({
-        pickup: { lat: pickup.lat, lng: pickup.lng },
-        drops: drops.map((d) => ({ lat: d.lat, lng: d.lng })),
-        coupon_code: couponCode.trim() || undefined,
-        loyalty_points_to_redeem: loyaltyToRedeem > 0 ? loyaltyToRedeem : undefined,
-        item_details: {
-          goods_category: goodsCategory,
-          weight_band: weightBand,
-          helper_needed: helperNeeded,
-        },
-      });
-      if (res.quotes.length === 0) {
-        setError('No vehicles available for this route.');
-        return;
-      }
-      setQuotes(res.quotes);
-      setChoosingVehicle(true);
-    } catch (err) {
-      setError(getErrorMessage(err, 'Could not get fare. Please try again.'));
-    } finally {
-      setLoading(false);
-    }
-  }
 
-  function handleChooseVehicle(quote: Quote) {
-    if (!pickup) return;
-    navigate('/confirm', {
-      state: {
-        quote,
-        pickup,
-        drops,
-        goodsCategory,
-        weightBand,
-        helperNeeded,
-        couponCode: couponCode.trim() || undefined,
-        scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
-      },
-    });
+    const draft: BookingDraft = {
+      pickup,
+      drops,
+      goodsCategory,
+      weightBand,
+      helperNeeded,
+      couponCode: couponCode.trim() || undefined,
+      loyaltyToRedeem: loyaltyToRedeem > 0 ? loyaltyToRedeem : undefined,
+      scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
+    };
+    navigate('/vehicles', { state: draft });
   }
 
   function updateDrop(index: number, loc: LocationPoint) {
@@ -330,43 +292,10 @@ export function HomePage() {
 
           {error && <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{error}</p>}
 
-          <Button onClick={() => void handleGetQuote()} loading={loading}>
-            Get fare estimate
+          <Button onClick={() => void handleContinueToVehicles()}>
+            Choose vehicle & get fare
           </Button>
         </div>
-
-        {choosingVehicle && quotes && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 16 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ fontSize: 17 }}>Select vehicle</h2>
-              <button
-                type="button"
-                onClick={() => setChoosingVehicle(false)}
-                style={{ background: 'none', border: 'none', color: 'var(--accent)', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
-              >
-                Edit
-              </button>
-            </div>
-            {quotes
-              .slice()
-              .sort((a, b) => a.fare_breakdown.final_fare - b.fare_breakdown.final_fare)
-              .map((q) => {
-                const display = CATEGORY_DISPLAY[q.vehicle_category] ?? { icon: '🚐', blurb: '' };
-                return (
-                  <button key={q.quote_id} type="button" className={styles.vehicleCard} onClick={() => handleChooseVehicle(q)}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                      <span className={styles.vehicleIcon}>{display.icon}</span>
-                      <div>
-                        <div className={styles.vehicleName}>{q.vehicle_category.replace(/_/g, ' ')}</div>
-                        <div className={styles.vehicleBlurb}>{display.blurb}</div>
-                      </div>
-                    </div>
-                    <div className={styles.vehiclePrice}>₹{q.fare_breakdown.final_fare.toFixed(0)}</div>
-                  </button>
-                );
-              })}
-          </div>
-        )}
       </div>
 
       {mapTarget !== null && (

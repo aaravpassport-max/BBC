@@ -18,6 +18,7 @@ import {
   type SavedPaymentMethod,
 } from '../api';
 import { PAYMENT_METHODS, BRAND, type PaymentMethodId } from '../constants/brand';
+import { getVehicleMeta } from '../constants/vehicleCatalog';
 import type { LocationPoint } from '../lib/locations';
 
 const RAZORPAY_SCRIPT_URL = 'https://checkout.razorpay.com/v1/checkout.js';
@@ -197,7 +198,7 @@ export function ConfirmPage() {
       </div>
 
       <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-        <span style={{ textTransform: 'capitalize' }}>{quote.vehicle_category.replace(/_/g, ' ')}</span> · {goodsCategory}
+        <span style={{ textTransform: 'capitalize' }}>{getVehicleMeta(quote.vehicle_category).label}</span> · {goodsCategory}
         {weightBand ? ` · ${weightBand}` : ''}
         {helperNeeded ? ' · helper requested' : ''}
       </div>

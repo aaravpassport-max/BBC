@@ -5,6 +5,7 @@ import { LoginPage } from './pages/LoginPage';
 import { VerifyOtpPage } from './pages/VerifyOtpPage';
 import { OnboardingPage } from './pages/OnboardingPage';
 import { HomePage } from './pages/HomePage';
+import { VehicleSelectPage } from './pages/VehicleSelectPage';
 import { ConfirmPage } from './pages/ConfirmPage';
 import { TrackPage } from './pages/TrackPage';
 import { TripDetailPage } from './pages/TripDetailPage';
@@ -62,6 +63,7 @@ function AppRoutes() {
       <Route path="/verify" element={<VerifyOtpPage />} />
       <Route path="/onboarding" element={<RequireAuth><OnboardingPage /></RequireAuth>} />
       <Route path="/home" element={<AuthenticatedLayout><HomePage /></AuthenticatedLayout>} />
+      <Route path="/vehicles" element={<AuthenticatedLayout><VehicleSelectPage /></AuthenticatedLayout>} />
       <Route path="/confirm" element={<RequireAuth><ConfirmPage /></RequireAuth>} />
       <Route path="/track/:bookingId" element={<RequireAuth><TrackPage /></RequireAuth>} />
       <Route path="/trip/:bookingId" element={<RequireAuth><TripDetailPage /></RequireAuth>} />
