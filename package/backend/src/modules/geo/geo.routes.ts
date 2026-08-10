@@ -13,7 +13,14 @@ geoRouter.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     const q = typeof req.query.q === 'string' ? req.query.q : '';
-    const results = await places.autocomplete(q);
+    const sessionToken = typeof req.query.session_token === 'string' ? req.query.session_token : undefined;
+    const biasLat = req.query.lat != null ? parseFloat(req.query.lat as string) : undefined;
+    const biasLng = req.query.lng != null ? parseFloat(req.query.lng as string) : undefined;
+    const results = await places.autocomplete(q, {
+      sessionToken,
+      biasLat: Number.isFinite(biasLat) ? biasLat : undefined,
+      biasLng: Number.isFinite(biasLng) ? biasLng : undefined,
+    });
     res.status(200).json(results);
   })
 );

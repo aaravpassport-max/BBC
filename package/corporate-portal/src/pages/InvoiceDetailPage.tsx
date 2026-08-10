@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
-import { getInvoiceDetail, markInvoicePaid, getMyAccounts, getErrorMessage, type InvoiceDetail } from '../api';
+import { getInvoiceDetail, markInvoicePaid, emailCorporateInvoice, downloadCorporateInvoicePdf, getMyAccounts, getErrorMessage, type InvoiceDetail } from '../api';
 import { Skeleton } from '../components/Skeleton';
 
 function money(n: number | string): string {
@@ -15,7 +15,9 @@ export function InvoiceDetailPage() {
   const [invoice, setInvoice] = useState<InvoiceDetail | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [markingPaid, setMarkingPaid] = useState(false);
+  const [emailing, setEmailing] = useState(false);
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     if (!accountId || !invoiceId) return;
@@ -26,6 +28,37 @@ export function InvoiceDetailPage() {
       })
       .catch((err) => setError(getErrorMessage(err, 'Could not load this invoice.')));
   }, [accountId, invoiceId]);
+
+  async function handleDownloadPdf() {
+    if (!accountId || !invoiceId || !invoice) return;
+    setError('');
+    try {
+      const blob = await downloadCorporateInvoicePdf(accountId, invoiceId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${invoice.invoice_number}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not download PDF.'));
+    }
+  }
+
+  async function handleEmailInvoice() {
+    if (!accountId || !invoiceId) return;
+    setEmailing(true);
+    setError('');
+    setSuccess('');
+    try {
+      const result = await emailCorporateInvoice(accountId, invoiceId);
+      setSuccess(`Invoice emailed to ${result.recipients.join(', ')}.`);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not email this invoice.'));
+    } finally {
+      setEmailing(false);
+    }
+  }
 
   async function handleMarkPaid() {
     if (!accountId || !invoiceId) return;
@@ -84,19 +117,31 @@ export function InvoiceDetailPage() {
         }
       `}</style>
       <Screen eyebrow="Invoice" title={invoice.invoice_number}>
-        <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <div className="no-print" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'space-between' }}>
           <Button variant="ghost" style={{ width: 'auto', padding: '4px 0' }} onClick={() => navigate(-1)}>
             ← Back
           </Button>
-          <Button style={{ width: 'auto', padding: '8px 18px' }} onClick={() => window.print()}>
-            🖨️ Print / Save as PDF
-          </Button>
-          {isAdmin && invoice.status === 'issued' && (
-            <Button loading={markingPaid} style={{ width: 'auto', padding: '8px 18px' }} onClick={() => void handleMarkPaid()}>
-              Mark as paid
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Button variant="ghost" style={{ width: 'auto', padding: '8px 14px' }} onClick={() => void handleDownloadPdf()}>
+              Download PDF
             </Button>
-          )}
+            {isAdmin && (
+              <Button loading={emailing} variant="ghost" style={{ width: 'auto', padding: '8px 14px' }} onClick={() => void handleEmailInvoice()}>
+                Email to billing
+              </Button>
+            )}
+            <Button style={{ width: 'auto', padding: '8px 18px' }} onClick={() => window.print()}>
+              Print
+            </Button>
+            {isAdmin && invoice.status === 'issued' && (
+              <Button loading={markingPaid} style={{ width: 'auto', padding: '8px 18px' }} onClick={() => void handleMarkPaid()}>
+                Mark as paid
+              </Button>
+            )}
+          </div>
         </div>
+
+        {success && <p style={{ color: 'var(--success)', fontSize: 13 }}>{success}</p>}
 
         <div
           className="invoice-print-area"

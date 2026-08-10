@@ -12,6 +12,8 @@ import {
   saveSavedPaymentMethod,
   deleteSavedPaymentMethod,
   setDefaultSavedPaymentMethod,
+  initiateSavePaymentMethod,
+  completeSavePaymentMethod,
   getErrorMessage,
   type WalletBalance,
   type WalletTransaction,
@@ -128,22 +130,63 @@ export function WalletPage() {
 
   async function handleSaveMethod() {
     const label = newMethodLabel.trim();
-    if (!label) {
-      setError('Enter a label for this payment method (e.g. UPI ID or card ending 4242).');
+    if (!label && newMethodType === 'upi') {
+      setError('Enter a label for this payment method (e.g. your UPI ID).');
       return;
     }
     setSavingMethod(true);
     setError('');
     try {
-      await saveSavedPaymentMethod({
-        method_type: newMethodType,
-        display_label: label,
-        token_ref: `sim_${Date.now()}`,
-        set_default: (savedMethods?.length ?? 0) === 0,
+      const { gateway_session } = await initiateSavePaymentMethod();
+      if (gateway_session.simulated) {
+        await saveSavedPaymentMethod({
+          method_type: newMethodType,
+          display_label: label || `${newMethodType.toUpperCase()} (simulated)`,
+          token_ref: `sim_${Date.now()}`,
+          set_default: (savedMethods?.length ?? 0) === 0,
+        });
+        setNewMethodLabel('');
+        setSuccess('Payment method saved for faster checkout.');
+        await refresh();
+        return;
+      }
+
+      const loaded = await loadRazorpayScript();
+      if (!loaded) {
+        setError('Could not load the payment provider. Check your connection and try again.');
+        return;
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        const razorpay = new window.Razorpay({
+          key: gateway_session.key_id,
+          amount: gateway_session.amount,
+          currency: gateway_session.currency,
+          order_id: gateway_session.order_id,
+          customer_id: gateway_session.customer_id,
+          name: BRAND.name,
+          description: 'Save payment method',
+          save: 1,
+          handler: async (response: { razorpay_payment_id: string }) => {
+            try {
+              await completeSavePaymentMethod({
+                razorpay_payment_id: response.razorpay_payment_id,
+                method_type: newMethodType,
+                display_label: label || undefined,
+                set_default: (savedMethods?.length ?? 0) === 0,
+              });
+              setNewMethodLabel('');
+              setSuccess('Payment method saved for faster checkout.');
+              await refresh();
+              resolve();
+            } catch (err) {
+              reject(err);
+            }
+          },
+          modal: { ondismiss: () => reject(new Error('Save cancelled.')) },
+        });
+        razorpay.open();
       });
-      setNewMethodLabel('');
-      setSuccess('Payment method saved for faster checkout.');
-      await refresh();
     } catch (err) {
       setError(getErrorMessage(err, 'Could not save this payment method.'));
     } finally {

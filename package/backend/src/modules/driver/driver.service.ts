@@ -1,7 +1,7 @@
 import { pool, withTransaction } from '../../db/pool';
 import { Errors } from '../../utils/errors';
 import { sendNotification, deriveEventId } from '../notifications/notifications.service';
-import { broadcastBookingEvent, broadcastUserEvent } from '../realtime/realtime.hub';
+import { broadcastBookingEvent, broadcastUserEvent, broadcastOpsEvent } from '../realtime/realtime.hub';
 
 /**
  * Computes job-eligibility live from the driver's current state — never a
@@ -101,6 +101,16 @@ export async function updateDriverLocation(
       lng,
     });
   }
+
+  broadcastOpsEvent({
+    event: 'location.update',
+    driver_id: driverId,
+    lat,
+    lng,
+    at: new Date().toISOString(),
+    on_trip: (active.rowCount ?? 0) > 0,
+    booking_id: active.rowCount ? (active.rows[0].id as string) : null,
+  });
 }
 
 /**

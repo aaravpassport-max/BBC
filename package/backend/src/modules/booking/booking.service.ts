@@ -5,7 +5,7 @@ import { redeemCoupon } from '../pricing/coupon.service';
 import { reserveCorporateSpend, releaseReservationInTransaction, checkPerUserMonthlyCap } from '../corporate/corporate.service';
 import { sendNotification, deriveEventId } from '../notifications/notifications.service';
 import { debitCustomerForBooking, debitCustomerCancellationFee } from '../wallet/wallet.service';
-import { initiateTripPayment } from './payment.service';
+import { initiateTripPayment, chargeTripWithSavedMethod } from './payment.service';
 import { redeemPointsForBooking } from '../loyalty/loyalty.service';
 import { broadcastBookingEvent } from '../realtime/realtime.hub';
 
@@ -19,6 +19,7 @@ export async function createBooking(params: {
   paymentMethod: string;
   idempotencyKey: string;
   corporateAccountId?: string;
+  savedPaymentMethodId?: string;
   // P1 gap-analysis item — scheduled (future-dated) bookings. The schema
   // (status='scheduled', bookings.scheduled_at) existed since migration 003
   // but no code path ever set either one; every booking was hardcoded to
@@ -27,7 +28,8 @@ export async function createBooking(params: {
   // arrives.
   scheduledFor?: string;
 }): Promise<{ id: string; status: string; gateway_session?: Record<string, unknown>; payment_required?: boolean }> {
-  const { customerId, quoteId, paymentMethod, idempotencyKey, scheduledFor, corporateAccountId } = params;
+  const { customerId, quoteId, paymentMethod, idempotencyKey, scheduledFor, corporateAccountId, savedPaymentMethodId } =
+    params;
 
   return withTransaction(async (client: PoolClient) => {
     // Idempotency check first: same key from this customer returns the existing
@@ -243,14 +245,6 @@ export async function createBooking(params: {
       await debitCustomerForBooking(client, { customerId, bookingId, amount: fareAmount });
     }
 
-    if (paymentMethod === 'upi') {
-      await client.query(
-        `UPDATE bookings SET payment_method = $1, payment_status = 'pending_collection' WHERE id = $2`,
-        [paymentMethod, bookingId]
-      );
-      return { ...bookingResult.rows[0], payment_status: 'pending_collection' };
-    }
-
     if (paymentMethod === 'wallet' || paymentMethod === 'corporate_bill') {
       await client.query(
         `UPDATE bookings SET payment_method = $1, payment_status = 'paid' WHERE id = $2`,
@@ -258,8 +252,26 @@ export async function createBooking(params: {
       );
     }
 
-    if (paymentMethod === 'card') {
+    if (paymentMethod === 'card' || paymentMethod === 'upi') {
       await client.query(`UPDATE bookings SET payment_method = $1 WHERE id = $2`, [paymentMethod, bookingId]);
+
+      if (savedPaymentMethodId) {
+        await chargeTripWithSavedMethod(client, {
+          customerId,
+          bookingId,
+          amount: fareAmount,
+          method: paymentMethod,
+          savedPaymentMethodId,
+        });
+        await client.query(`UPDATE bookings SET payment_status = 'paid' WHERE id = $1`, [bookingId]);
+        return bookingResult.rows[0];
+      }
+
+      if (paymentMethod === 'upi') {
+        await client.query(`UPDATE bookings SET payment_status = 'pending_collection' WHERE id = $1`, [bookingId]);
+        return { ...bookingResult.rows[0], payment_status: 'pending_collection' };
+      }
+
       const gatewaySession = await initiateTripPayment(client, {
         customerId,
         bookingId,

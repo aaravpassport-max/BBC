@@ -5,6 +5,7 @@ import { LoginPage } from './pages/LoginPage';
 import { VerifyOtpPage } from './pages/VerifyOtpPage';
 import { SosQueuePage } from './pages/SosQueuePage';
 import { DispatchMonitorPage } from './pages/DispatchMonitorPage';
+import { LiveMapPage } from './pages/LiveMapPage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -20,6 +21,7 @@ function AppRoutes() {
       <Route path="/verify" element={<VerifyOtpPage />} />
       <Route path="/sos" element={<RequireAuth><SosQueuePage /></RequireAuth>} />
       <Route path="/dispatch" element={<RequireAuth><DispatchMonitorPage /></RequireAuth>} />
+      <Route path="/live-map" element={<RequireAuth><LiveMapPage /></RequireAuth>} />
       <Route path="*" element={<Navigate to={isAuthenticated ? '/sos' : '/login'} replace />} />
     </Routes>
   );

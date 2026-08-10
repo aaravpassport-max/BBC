@@ -18,29 +18,62 @@ export interface PlaceSuggestion {
   lng: number;
 }
 
-export async function autocomplete(query: string, limit = 8): Promise<PlaceSuggestion[]> {
+export interface AutocompleteOptions {
+  limit?: number;
+  sessionToken?: string;
+  biasLat?: number;
+  biasLng?: number;
+  biasRadiusMeters?: number;
+}
+
+export async function autocomplete(query: string, options: AutocompleteOptions = {}): Promise<PlaceSuggestion[]> {
   const q = query.trim();
   if (q.length < 2) return [];
 
+  const limit = options.limit ?? 8;
+
   if (isGoogleConfigured()) {
-    return searchGooglePlaces(q, limit);
+    return searchGooglePlaces(q, limit, options);
   }
-  return searchNominatim(q, limit);
+  return searchNominatim(q, limit, options);
 }
 
-async function searchGooglePlaces(query: string, limit: number): Promise<PlaceSuggestion[]> {
+async function searchGooglePlaces(
+  query: string,
+  limit: number,
+  options: AutocompleteOptions
+): Promise<PlaceSuggestion[]> {
+  const body: Record<string, unknown> = {
+    textQuery: query,
+    maxResultCount: limit,
+    languageCode: 'en',
+    regionCode: 'IN',
+  };
+
+  if (options.biasLat != null && options.biasLng != null) {
+    body.locationBias = {
+      circle: {
+        center: { latitude: options.biasLat, longitude: options.biasLng },
+        radius: options.biasRadiusMeters ?? 25000,
+      },
+    };
+  } else {
+    body.textQuery = `${query}, Bengaluru, India`;
+  }
+
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-Goog-Api-Key': process.env.GOOGLE_PLACES_API_KEY as string,
+    'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location',
+  };
+  if (options.sessionToken) {
+    headers['X-Goog-Session-Token'] = options.sessionToken;
+  }
+
   const res = await fetch(GOOGLE_PLACES_BASE, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Goog-Api-Key': process.env.GOOGLE_PLACES_API_KEY as string,
-      'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location',
-    },
-    body: JSON.stringify({
-      textQuery: `${query}, Bengaluru, India`,
-      maxResultCount: limit,
-      languageCode: 'en',
-    }),
+    headers,
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) return [];
@@ -63,13 +96,23 @@ async function searchGooglePlaces(query: string, limit: number): Promise<PlaceSu
   }));
 }
 
-async function searchNominatim(query: string, limit: number): Promise<PlaceSuggestion[]> {
+async function searchNominatim(
+  query: string,
+  limit: number,
+  options: AutocompleteOptions
+): Promise<PlaceSuggestion[]> {
   const params = new URLSearchParams({
-    q: `${query}, Bengaluru, India`,
+    q: options.biasLat != null ? query : `${query}, Bengaluru, India`,
     format: 'json',
     limit: String(limit),
     countrycodes: 'in',
   });
+
+  if (options.biasLat != null && options.biasLng != null) {
+    const delta = 0.25;
+    params.set('viewbox', `${options.biasLng - delta},${options.biasLat + delta},${options.biasLng + delta},${options.biasLat - delta}`);
+    params.set('bounded', '1');
+  }
 
   const res = await fetch(`${NOMINATIM_BASE}/search?${params}`, {
     headers: { Accept: 'application/json', 'User-Agent': 'PORTMYSTUFF/1.0' },

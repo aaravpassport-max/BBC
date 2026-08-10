@@ -14,6 +14,19 @@ interface GeoSuggestion {
   lng: number;
 }
 
+let sessionToken: string | null = null;
+
+function getSessionToken(): string {
+  if (!sessionToken) {
+    sessionToken = crypto.randomUUID();
+  }
+  return sessionToken;
+}
+
+export function resetPlacesSession(): void {
+  sessionToken = null;
+}
+
 /** Local search across presets (instant, works offline) */
 export function searchLocalPlaces(query: string, limit = 8): PlaceResult[] {
   const q = query.trim().toLowerCase();
@@ -28,11 +41,23 @@ export function searchLocalPlaces(query: string, limit = 8): PlaceResult[] {
 }
 
 /** Server-side places proxy (Google Places or Nominatim fallback) */
-export async function searchPlacesOnline(query: string): Promise<PlaceResult[]> {
+export async function searchPlacesOnline(
+  query: string,
+  bias?: { lat: number; lng: number }
+): Promise<PlaceResult[]> {
   const q = query.trim();
   if (q.length < 2) return [];
 
-  const results = await api.get<GeoSuggestion[]>(`/v1/geo/autocomplete?q=${encodeURIComponent(q)}`);
+  const params = new URLSearchParams({
+    q,
+    session_token: getSessionToken(),
+  });
+  if (bias) {
+    params.set('lat', String(bias.lat));
+    params.set('lng', String(bias.lng));
+  }
+
+  const results = await api.get<GeoSuggestion[]>(`/v1/geo/autocomplete?${params}`);
   return results.map((item) => ({
     label: item.label,
     addressLine: item.address_line,
@@ -43,10 +68,10 @@ export async function searchPlacesOnline(query: string): Promise<PlaceResult[]> 
   }));
 }
 
-export async function searchPlaces(query: string): Promise<PlaceResult[]> {
+export async function searchPlaces(query: string, bias?: { lat: number; lng: number }): Promise<PlaceResult[]> {
   const local = searchLocalPlaces(query);
   try {
-    const online = await searchPlacesOnline(query);
+    const online = await searchPlacesOnline(query, bias);
     const seen = new Set(local.map((p) => `${p.lat}:${p.lng}`));
     const merged = [...local];
     for (const p of online) {

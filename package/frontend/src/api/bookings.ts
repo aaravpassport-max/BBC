@@ -130,7 +130,13 @@ export function getQuote(params: {
   return api.post<{ quotes: Quote[] }>('/v1/pricing/quote', params);
 }
 
-export function confirmBooking(quoteId: string, paymentMethod: string, scheduledFor?: string, corporateAccountId?: string) {
+export function confirmBooking(
+  quoteId: string,
+  paymentMethod: string,
+  scheduledFor?: string,
+  corporateAccountId?: string,
+  savedPaymentMethodId?: string
+) {
   return api.post<Booking & { payment_required?: boolean; gateway_session?: GatewaySession }>(
     '/v1/bookings',
     {
@@ -138,6 +144,7 @@ export function confirmBooking(quoteId: string, paymentMethod: string, scheduled
       payment_method: paymentMethod,
       scheduled_for: scheduledFor,
       corporate_account_id: corporateAccountId,
+      saved_payment_method_id: savedPaymentMethodId,
     },
     newIdempotencyKey()
   );
@@ -330,4 +337,19 @@ export function deleteSavedPaymentMethod(id: string) {
 
 export function setDefaultSavedPaymentMethod(id: string) {
   return api.post<{ updated: boolean }>(`/v1/wallet/payment-methods/${id}/default`);
+}
+
+export function initiateSavePaymentMethod() {
+  return api.post<{ gateway_session: GatewaySession & { customer_id?: string } }>(
+    '/v1/wallet/payment-methods/initiate-save'
+  );
+}
+
+export function completeSavePaymentMethod(params: {
+  razorpay_payment_id: string;
+  method_type: 'card' | 'upi';
+  display_label?: string;
+  set_default?: boolean;
+}) {
+  return api.post<{ id: string }>('/v1/wallet/payment-methods/complete-save', params);
 }

@@ -6,6 +6,7 @@ import styles from './Layout.module.css';
 const NAV_ITEMS = [
   { to: '/sos', label: 'SOS Queue' },
   { to: '/dispatch', label: 'Dispatch Monitor' },
+  { to: '/live-map', label: 'Live Map' },
 ];
 
 export function Layout({ title, actions, children }: { title: string; actions?: ReactNode; children: ReactNode }) {

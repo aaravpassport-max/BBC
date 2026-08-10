@@ -75,3 +75,21 @@ export function getDispatchLog(bookingId: string) {
 export function forceAssignDriver(bookingId: string, driverId: string) {
   return api.post<{ assigned: boolean }>(`/ops/v1/bookings/${bookingId}/force-assign`, { driver_id: driverId });
 }
+
+// ---------- Live fleet map ----------
+
+export interface LiveDriverPin {
+  driver_id: string;
+  phone: string;
+  name: string | null;
+  lat: number;
+  lng: number;
+  online_status: boolean;
+  on_trip: boolean;
+  last_ping_at: string | null;
+  active_booking_id: string | null;
+}
+
+export function getLiveDrivers() {
+  return api.get<LiveDriverPin[]>('/ops/v1/live-map/drivers');
+}

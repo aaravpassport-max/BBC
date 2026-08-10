@@ -10,6 +10,8 @@ import {
   savePaymentMethod,
   deletePaymentMethod,
   setDefaultPaymentMethod,
+  initiateSaveCardSession,
+  completeSaveCardFromPayment,
 } from './saved-payment.service';
 import { verifyPaymentSignature, verifyWebhookSignature } from './razorpay.provider';
 import { confirmTripPayment } from '../booking/payment.service';
@@ -193,5 +195,38 @@ walletRouter.post(
   asyncHandler(async (req, res) => {
     await setDefaultPaymentMethod(req.user!.userId, req.params.id as string);
     res.status(200).json({ updated: true });
+  })
+);
+
+walletRouter.post(
+  '/payment-methods/initiate-save',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const session = await initiateSaveCardSession(req.user!.userId);
+    res.status(200).json({ gateway_session: session });
+  })
+);
+
+const completeSaveSchema = z.object({
+  razorpay_payment_id: z.string().min(1),
+  method_type: z.enum(['card', 'upi']),
+  display_label: z.string().max(80).optional(),
+  set_default: z.boolean().optional(),
+});
+
+walletRouter.post(
+  '/payment-methods/complete-save',
+  requireAuth,
+  validateBody(completeSaveSchema),
+  asyncHandler(async (req, res) => {
+    const { razorpay_payment_id, method_type, display_label, set_default } = req.body;
+    const result = await completeSaveCardFromPayment({
+      userId: req.user!.userId,
+      paymentId: razorpay_payment_id,
+      methodType: method_type,
+      displayLabel: display_label,
+      setDefault: set_default,
+    });
+    res.status(201).json(result);
   })
 );

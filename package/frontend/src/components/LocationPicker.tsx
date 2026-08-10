@@ -11,6 +11,8 @@ interface LocationPickerProps {
   placeholder?: string;
   savedAddresses?: SavedAddress[];
   onPickOnMap?: () => void;
+  /** Bias online search toward this coordinate (e.g. pickup GPS or current location). */
+  searchBias?: { lat: number; lng: number };
 }
 
 export function LocationPicker({
@@ -19,6 +21,7 @@ export function LocationPicker({
   placeholder = 'Search address or landmark',
   savedAddresses = [],
   onPickOnMap,
+  searchBias,
 }: LocationPickerProps) {
   const [editing, setEditing] = useState(!value);
   const [query, setQuery] = useState('');
@@ -32,14 +35,14 @@ export function LocationPicker({
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       setLoading(true);
-      void searchPlaces(query)
+      void searchPlaces(query, searchBias)
         .then(setSuggestions)
         .finally(() => setLoading(false));
     }, query.length > 0 ? 300 : 0);
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [query, editing]);
+  }, [query, editing, searchBias?.lat, searchBias?.lng]);
 
   function selectPlace(place: PlaceResult) {
     onChange({

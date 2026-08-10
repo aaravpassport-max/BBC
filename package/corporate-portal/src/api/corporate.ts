@@ -130,6 +130,23 @@ export function markInvoicePaid(accountId: string, invoiceId: string) {
   return api.post<{ paid: boolean }>(`/v1/corporate/${accountId}/invoices/${invoiceId}/mark-paid`);
 }
 
+export async function downloadCorporateInvoicePdf(accountId: string, invoiceId: string): Promise<Blob> {
+  const token = localStorage.getItem('access_token');
+  const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+  const res = await fetch(`${base}/v1/corporate/${accountId}/invoices/${invoiceId}/invoice.pdf`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error('Could not download invoice PDF');
+  return res.blob();
+}
+
+export function emailCorporateInvoice(accountId: string, invoiceId: string, toEmail?: string) {
+  return api.post<{ sent: boolean; recipients: string[] }>(
+    `/v1/corporate/${accountId}/invoices/${invoiceId}/email`,
+    toEmail ? { to_email: toEmail } : {}
+  );
+}
+
 export interface SpendAnalyticsRow {
   month: string;
   total_spend: number;

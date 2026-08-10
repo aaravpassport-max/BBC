@@ -8,6 +8,8 @@ import {
   getPayoutBatchDetail,
   generatePayoutBatch,
   approvePayoutBatch,
+  holdPayoutLine,
+  releasePayoutLine,
   runLedgerIntegrityCheck,
 } from './settlement.service';
 
@@ -58,6 +60,37 @@ financeRouter.post(
   asyncHandler(async (req, res) => {
     const result = await approvePayoutBatch(req.params.id as string, req.user!.userId);
     res.status(200).json({ approved: true, ...result });
+  })
+);
+
+const holdLineSchema = z.object({
+  reason: z.enum(['DISPUTE_PENDING', 'FRAUD_REVIEW', 'BANK_DETAILS_INVALID', 'OTHER']),
+  note: z.string().max(500).optional(),
+});
+
+financeRouter.post(
+  '/payout-batches/:batchId/lines/:lineId/hold',
+  requireAuth,
+  requirePermission('finance', 'approve'),
+  validateBody(holdLineSchema),
+  asyncHandler(async (req, res) => {
+    await holdPayoutLine({
+      batchId: req.params.batchId as string,
+      lineId: req.params.lineId as string,
+      reason: req.body.reason,
+      note: req.body.note,
+    });
+    res.status(200).json({ held: true });
+  })
+);
+
+financeRouter.post(
+  '/payout-batches/:batchId/lines/:lineId/release',
+  requireAuth,
+  requirePermission('finance', 'approve'),
+  asyncHandler(async (req, res) => {
+    await releasePayoutLine(req.params.batchId as string, req.params.lineId as string);
+    res.status(200).json({ released: true });
   })
 );
 

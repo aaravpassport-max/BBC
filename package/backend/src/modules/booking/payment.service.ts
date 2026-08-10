@@ -3,6 +3,7 @@ import { PoolClient } from 'pg';
 import { pool, withTransaction } from '../../db/pool';
 import { Errors } from '../../utils/errors';
 import * as razorpay from '../wallet/razorpay.provider';
+import { getOrCreateRazorpayCustomerId, getSavedPaymentMethod } from '../wallet/saved-payment.service';
 import { runDispatchCycle } from '../driver/dispatch.service';
 
 export async function initiateTripPayment(
@@ -40,6 +41,54 @@ export async function initiateTripPayment(
   );
 
   return gatewaySession;
+}
+
+/**
+ * Charges a saved Razorpay token server-side — no Checkout UI for the customer.
+ */
+export async function chargeTripWithSavedMethod(
+  client: PoolClient,
+  params: {
+    customerId: string;
+    bookingId: string;
+    amount: number;
+    method: string;
+    savedPaymentMethodId: string;
+  }
+): Promise<{ charged: boolean; gatewayRef: string }> {
+  const { customerId, bookingId, amount, method, savedPaymentMethodId } = params;
+
+  const saved = await getSavedPaymentMethod(customerId, savedPaymentMethodId);
+  if (!saved) throw Errors.notFound('Payment method');
+
+  let gatewayRef: string;
+
+  if (razorpay.isConfigured() && !saved.token_ref.startsWith('sim_')) {
+    const customerIdRzp = await getOrCreateRazorpayCustomerId(customerId);
+    const user = await pool.query(`SELECT phone FROM users WHERE id = $1`, [customerId]);
+    const payment = await razorpay.chargeWithToken({
+      amountRupees: amount,
+      customerId: customerIdRzp,
+      token: saved.token_ref,
+      contact: user.rows[0]?.phone,
+      receipt: `trip_${bookingId.slice(0, 8)}`,
+      notes: { booking_id: bookingId, saved_method_id: savedPaymentMethodId },
+    });
+    gatewayRef = payment.id;
+    if (payment.status !== 'captured' && payment.status !== 'authorized') {
+      throw Errors.validation({ payment: `Payment failed with status: ${payment.status}` });
+    }
+  } else {
+    gatewayRef = `sim_saved_${uuidv4()}`;
+  }
+
+  await client.query(
+    `INSERT INTO payments (gateway_ref, status, amount, method, customer_id, booking_id, webhook_received_at)
+     VALUES ($1, 'succeeded', $2, $3, $4, $5, now())`,
+    [gatewayRef, amount, method, customerId, bookingId]
+  );
+
+  return { charged: true, gatewayRef };
 }
 
 export async function confirmTripPayment(gatewayRef: string): Promise<{ bookingId: string | null }> {

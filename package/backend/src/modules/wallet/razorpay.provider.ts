@@ -122,3 +122,112 @@ function safeCompare(a: string, b: string): boolean {
   if (bufA.length !== bufB.length) return false;
   return timingSafeEqual(bufA, bufB);
 }
+
+function authHeader(): string {
+  const keyId = process.env.RAZORPAY_KEY_ID!;
+  const keySecret = process.env.RAZORPAY_KEY_SECRET!;
+  return 'Basic ' + Buffer.from(`${keyId}:${keySecret}`).toString('base64');
+}
+
+async function razorpayRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  if (!isConfigured()) {
+    throw new Error('Razorpay is not configured — RAZORPAY_KEY_ID/RAZORPAY_KEY_SECRET are not set.');
+  }
+  const response = await fetch(`${RAZORPAY_API_BASE}${path}`, {
+    ...init,
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: authHeader(),
+      ...(init?.headers ?? {}),
+    },
+  });
+  if (!response.ok) {
+    const errorBody = await response.text();
+    throw new Error(`Razorpay API ${path} failed (${response.status}): ${errorBody}`);
+  }
+  return (await response.json()) as T;
+}
+
+export interface RazorpayCustomer {
+  id: string;
+}
+
+/** Creates or returns an existing Razorpay customer (fail_existing=0). */
+export async function createCustomer(params: {
+  name: string;
+  email?: string;
+  contact: string;
+}): Promise<RazorpayCustomer> {
+  return razorpayRequest<RazorpayCustomer>('/customers', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: params.name,
+      email: params.email,
+      contact: params.contact,
+      fail_existing: '0',
+    }),
+  });
+}
+
+export interface RazorpayPayment {
+  id: string;
+  status: string;
+  method: string;
+  token_id?: string;
+  card?: { last4?: string; network?: string };
+  vpa?: string;
+}
+
+export async function fetchPayment(paymentId: string): Promise<RazorpayPayment> {
+  return razorpayRequest<RazorpayPayment>(`/payments/${paymentId}`);
+}
+
+/** Small auth order used to tokenize a card/UPI via Checkout (save=1). */
+export async function createTokenizationOrder(params: {
+  amountRupees: number;
+  customerId: string;
+  receipt: string;
+}): Promise<RazorpayOrder> {
+  const amountPaise = Math.round(params.amountRupees * 100);
+  const order = await razorpayRequest<{ id: string; amount: number; currency: string; status: string }>('/orders', {
+    method: 'POST',
+    body: JSON.stringify({
+      amount: amountPaise,
+      currency: 'INR',
+      receipt: params.receipt,
+      customer_id: params.customerId,
+      payment_capture: 1,
+      notes: { purpose: 'tokenization' },
+    }),
+  });
+  return { id: order.id, amount: order.amount, currency: order.currency, status: order.status };
+}
+
+/**
+ * Charges a saved token (card/UPI mandate) — server-side, no Checkout UI.
+ * https://razorpay.com/docs/payments/payment-methods/cards/features/saved-cards/
+ */
+export async function chargeWithToken(params: {
+  amountRupees: number;
+  customerId: string;
+  token: string;
+  email?: string;
+  contact?: string;
+  receipt: string;
+  notes?: Record<string, string>;
+}): Promise<{ id: string; status: string }> {
+  const amountPaise = Math.round(params.amountRupees * 100);
+  return razorpayRequest<{ id: string; status: string }>('/payments', {
+    method: 'POST',
+    body: JSON.stringify({
+      amount: amountPaise,
+      currency: 'INR',
+      customer_id: params.customerId,
+      token: params.token,
+      email: params.email,
+      contact: params.contact,
+      receipt: params.receipt,
+      notes: params.notes,
+    }),
+  });
+}

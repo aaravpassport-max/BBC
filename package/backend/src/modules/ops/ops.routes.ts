@@ -5,6 +5,7 @@ import { validateBody } from '../../middleware/validate';
 import { requireAuth, requirePermission } from '../../middleware/auth';
 import { triggerSos, getSosQueue, acknowledgeSos, resolveSos, escalateSos } from './sos.service';
 import { getDispatchLog, forceAssignDriver } from './dispatch-monitor.service';
+import { listLiveDrivers } from './live-map.service';
 
 const triggerSchema = z.object({
   booking_id: z.string().uuid(),
@@ -107,5 +108,14 @@ opsRouter.post(
       actorId: req.user!.userId,
     });
     res.status(200).json({ assigned: true });
+  })
+);
+
+opsRouter.get(
+  '/live-map/drivers',
+  requireAuth,
+  requirePermission('ops', 'dispatch_override'),
+  asyncHandler(async (_req, res) => {
+    res.status(200).json(await listLiveDrivers());
   })
 );

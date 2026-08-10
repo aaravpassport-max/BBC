@@ -154,7 +154,11 @@ export function ConfirmPage() {
     try {
       const corporateId =
         paymentMethod === 'corporate_bill' ? selectedCorporateId ?? undefined : undefined;
-      const booking = await confirmBooking(quote.quote_id, paymentMethod, scheduledFor, corporateId);
+      const savedId =
+        (paymentMethod === 'card' || paymentMethod === 'upi') && selectedSavedMethodId
+          ? selectedSavedMethodId
+          : undefined;
+      const booking = await confirmBooking(quote.quote_id, paymentMethod, scheduledFor, corporateId, savedId);
 
       if (booking.payment_required && booking.gateway_session) {
         await completeCardPayment(booking.id, booking.gateway_session);

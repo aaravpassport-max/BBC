@@ -21,6 +21,7 @@ import {
   getSuggestedInvoicePeriod,
   getInvoiceAutomationStatus,
 } from './corporate.service';
+import { generateCorporateInvoicePdf, emailCorporateInvoice } from './corporate-invoice.service';
 
 export const corporateRouter = Router();
 
@@ -209,6 +210,38 @@ corporateRouter.post(
       requestingUserId: req.user!.userId,
     });
     res.status(200).json({ paid: true });
+  })
+);
+
+corporateRouter.get(
+  '/:accountId/invoices/:invoiceId/invoice.pdf',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const pdf = await generateCorporateInvoicePdf(
+      req.params.accountId as string,
+      req.params.invoiceId as string,
+      req.user!.userId
+    );
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'attachment; filename="invoice.pdf"');
+    res.status(200).send(pdf);
+  })
+);
+
+const emailInvoiceSchema = z.object({ to_email: z.string().email().optional() });
+
+corporateRouter.post(
+  '/:accountId/invoices/:invoiceId/email',
+  requireAuth,
+  validateBody(emailInvoiceSchema),
+  asyncHandler(async (req, res) => {
+    const result = await emailCorporateInvoice({
+      accountId: req.params.accountId as string,
+      invoiceId: req.params.invoiceId as string,
+      requestingUserId: req.user!.userId,
+      toEmail: req.body.to_email,
+    });
+    res.status(200).json(result);
   })
 );
 

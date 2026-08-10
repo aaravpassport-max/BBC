@@ -2,6 +2,7 @@ import { createHash } from 'crypto';
 import { pool } from '../../db/pool';
 import { Errors } from '../../utils/errors';
 import * as fcmProvider from './fcm.provider';
+import * as emailProvider from './email.provider';
 
 /**
  * Derives a deterministic, syntactically-valid UUID from a domain event's
@@ -142,6 +143,14 @@ export async function sendNotification(params: {
         `[DEV ONLY] Push to ${tokenList.length} device(s): user=${userId} template=${templateId}`
       );
     }
+  } else if (channel === 'email') {
+    const user = await pool.query(`SELECT phone, name FROM users WHERE id = $1`, [userId]);
+    const email = `${user.rows[0]?.phone}@customers.portmystuff.local`;
+    await emailProvider.sendEmail({
+      to: email,
+      subject: `PORTMYSTUFF — ${templateId}`,
+      text: `Notification: ${templateId} (category: ${category})`,
+    });
   } else {
     console.log(`[DEV ONLY] Notification sent: user=${userId} category=${category} channel=${channel} template=${templateId}`);
   }

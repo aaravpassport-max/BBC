@@ -15,11 +15,14 @@ export async function getPayoutBatchDetail(batchId: string) {
   const batch = await pool.query(`SELECT * FROM payout_batches WHERE id = $1`, [batchId]);
   if (batch.rowCount === 0) return null;
   const lines = await pool.query(
-    `SELECT pbl.id, pbl.driver_id, pbl.gross_earnings, pbl.net_payout, pbl.status, u.phone, dp.kyc_status
+    `SELECT pbl.id, pbl.driver_id, pbl.gross_earnings, pbl.net_payout, pbl.status,
+            pbl.hold_reason, pbl.hold_note, pbl.failure_reason, pbl.provider_txn_ref,
+            u.phone, u.name, dp.kyc_status
      FROM payout_batch_lines pbl
      JOIN users u ON u.id = pbl.driver_id
      LEFT JOIN driver_profiles dp ON dp.user_id = pbl.driver_id
-     WHERE pbl.batch_id = $1`,
+     WHERE pbl.batch_id = $1
+     ORDER BY pbl.status, u.phone`,
     [batchId]
   );
   return { ...batch.rows[0], lines: lines.rows };
@@ -65,27 +68,112 @@ export async function generatePayoutBatch(params: {
 
     for (const d of drivers.rows) {
       const amount = parseFloat(d.balance);
+      const kyc = await client.query(`SELECT kyc_status FROM driver_profiles WHERE user_id = $1`, [d.driver_id]);
+      const kycStatus = kyc.rows[0]?.kyc_status;
+      const held = kycStatus !== 'approved';
       await client.query(
-        `INSERT INTO payout_batch_lines (batch_id, driver_id, gross_earnings, deductions, net_payout, status)
-         VALUES ($1, $2, $3, 0, $3, 'eligible')`,
-        [batchId, d.driver_id, amount]
+        `INSERT INTO payout_batch_lines (batch_id, driver_id, gross_earnings, deductions, net_payout, status, hold_reason, hold_note)
+         VALUES ($1, $2, $3, 0, $3, $4, $5, $6)`,
+        [
+          batchId,
+          d.driver_id,
+          amount,
+          held ? 'held' : 'eligible',
+          held ? 'FRAUD_REVIEW' : null,
+          held ? 'KYC not approved — auto-held for review' : null,
+        ]
       );
+      if (held) total -= amount;
     }
+
+    await client.query(`UPDATE payout_batches SET total_amount = $1 WHERE id = $2`, [total, batchId]);
 
     return { batchId, driverCount: drivers.rowCount ?? 0, totalAmount: total };
   });
 }
 
-export async function approvePayoutBatch(batchId: string, approverId: string): Promise<{ submitted: number; failed: number }> {
+export async function holdPayoutLine(params: {
+  batchId: string;
+  lineId: string;
+  reason: string;
+  note?: string;
+}): Promise<void> {
+  const { batchId, lineId, reason, note } = params;
   const batch = await pool.query(`SELECT status FROM payout_batches WHERE id = $1`, [batchId]);
   if (batch.rowCount === 0) throw Errors.notFound('Payout batch');
-  if (batch.rows[0].status !== 'proposed') {
-    throw Errors.validation({ batch: 'Only proposed batches can be approved.' });
+  if (!['proposed', 'reviewing'].includes(batch.rows[0].status)) {
+    throw Errors.validation({ batch: 'Cannot hold lines on a batch that is already submitting.' });
+  }
+
+  const line = await pool.query(
+    `UPDATE payout_batch_lines SET status = 'held', hold_reason = $1, hold_note = $2
+     WHERE id = $3 AND batch_id = $4 AND status IN ('eligible', 'held')
+     RETURNING net_payout`,
+    [reason, note ?? null, lineId, batchId]
+  );
+  if (line.rowCount === 0) throw Errors.notFound('Payout line');
+
+  const eligibleTotal = await pool.query(
+    `SELECT COALESCE(SUM(net_payout), 0) AS total FROM payout_batch_lines WHERE batch_id = $1 AND status = 'eligible'`,
+    [batchId]
+  );
+  await pool.query(`UPDATE payout_batches SET total_amount = $1, status = 'reviewing' WHERE id = $2`, [
+    eligibleTotal.rows[0].total,
+    batchId,
+  ]);
+}
+
+export async function releasePayoutLine(batchId: string, lineId: string): Promise<void> {
+  const batch = await pool.query(`SELECT status FROM payout_batches WHERE id = $1`, [batchId]);
+  if (batch.rowCount === 0) throw Errors.notFound('Payout batch');
+  if (!['proposed', 'reviewing'].includes(batch.rows[0].status)) {
+    throw Errors.validation({ batch: 'Cannot release lines on a batch that is already submitting.' });
+  }
+
+  const line = await pool.query(
+    `UPDATE payout_batch_lines SET status = 'eligible', hold_reason = NULL, hold_note = NULL
+     WHERE id = $1 AND batch_id = $2 AND status = 'held'
+     RETURNING id`,
+    [lineId, batchId]
+  );
+  if (line.rowCount === 0) throw Errors.notFound('Payout line');
+
+  const eligibleTotal = await pool.query(
+    `SELECT COALESCE(SUM(net_payout), 0) AS total FROM payout_batch_lines WHERE batch_id = $1 AND status = 'eligible'`,
+    [batchId]
+  );
+  await pool.query(`UPDATE payout_batches SET total_amount = $1 WHERE id = $2`, [
+    eligibleTotal.rows[0].total,
+    batchId,
+  ]);
+}
+
+export async function approvePayoutBatch(batchId: string, approverId: string): Promise<{ submitted: number; failed: number }> {
+  const integrity = await runLedgerIntegrityCheck();
+  if (integrity.mismatches > 0) {
+    throw Errors.validation({
+      ledger: `${integrity.mismatches} wallet cache mismatch(es) — resolve before approving payouts.`,
+    });
+  }
+
+  const batch = await pool.query(`SELECT status, version FROM payout_batches WHERE id = $1`, [batchId]);
+  if (batch.rowCount === 0) throw Errors.notFound('Payout batch');
+  if (batch.rows[0].status !== 'proposed' && batch.rows[0].status !== 'reviewing') {
+    throw Errors.validation({ batch: 'Only proposed or reviewing batches can be approved.' });
+  }
+
+  const held = await pool.query(
+    `SELECT count(*) FROM payout_batch_lines WHERE batch_id = $1 AND status = 'held'`,
+    [batchId]
+  );
+  if (parseInt(held.rows[0].count, 10) > 0) {
+    throw Errors.validation({ batch: 'Release or exclude all held lines before approving.' });
   }
 
   await pool.query(
-    `UPDATE payout_batches SET status = 'submitting', approved_by = $1, approved_at = now() WHERE id = $2`,
-    [approverId, batchId]
+    `UPDATE payout_batches SET status = 'submitting', approved_by = $1, approved_at = now(), version = version + 1
+     WHERE id = $2 AND version = $3`,
+    [approverId, batchId, batch.rows[0].version]
   );
 
   const lines = await pool.query(

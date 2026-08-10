@@ -1,5 +1,6 @@
 import { pool, withTransaction } from '../../db/pool';
 import { Errors } from '../../utils/errors';
+import { sendNotification, deriveEventId } from '../notifications/notifications.service';
 
 /**
  * P1 gap-analysis item — the Fleet/Owner experience. The gap-analysis
@@ -76,6 +77,13 @@ export async function addDriverToFleet(params: { ownerId: string; driverPhone: s
     }
 
     await client.query(`UPDATE driver_profiles SET fleet_owner_id = $1 WHERE user_id = $2`, [ownerId, driverId]);
+    void sendNotification({
+      eventId: deriveEventId(`fleet:driver_added:${ownerId}:${driverId}`),
+      userId: driverId,
+      category: 'account_activity',
+      channel: 'push',
+      templateId: 'fleet_driver_added',
+    }).catch(() => undefined);
     return { driverId };
   });
 }
@@ -96,6 +104,13 @@ export async function removeDriverFromFleet(params: { ownerId: string; driverId:
   if (result.rowCount === 0) {
     throw Errors.notFound('Driver');
   }
+  void sendNotification({
+    eventId: deriveEventId(`fleet:driver_removed:${ownerId}:${driverId}`),
+    userId: driverId,
+    category: 'account_activity',
+    channel: 'push',
+    templateId: 'fleet_driver_removed',
+  }).catch(() => undefined);
 }
 
 /**
@@ -229,6 +244,13 @@ export async function reassignVehicle(params: {
       `INSERT INTO driver_vehicle_assignment (driver_id, vehicle_id, is_active) VALUES ($1, $2, true)`,
       [newDriverId, vehicleId]
     );
+    void sendNotification({
+      eventId: deriveEventId(`fleet:vehicle_reassigned:${vehicleId}:${newDriverId}`),
+      userId: newDriverId,
+      category: 'trip_updates',
+      channel: 'push',
+      templateId: 'fleet_vehicle_assigned',
+    }).catch(() => undefined);
     return { effective: 'immediate' as const };
   });
 }
