@@ -7,6 +7,20 @@ import {
   SHOW_TEST_CREDENTIALS,
 } from '../config/testCredentials';
 
+const DEMO_SESSION_KEY = 'porter_driver_demo_session';
+
+export function enableDemoSession() {
+  localStorage.setItem(DEMO_SESSION_KEY, 'true');
+}
+
+export function clearDemoSession() {
+  localStorage.removeItem(DEMO_SESSION_KEY);
+}
+
+export function isDemoSession(): boolean {
+  return localStorage.getItem(DEMO_SESSION_KEY) === 'true' || localStorage.getItem('user_id') === DEMO_USER_ID;
+}
+
 export interface DemoAuthResult {
   access_token: string;
   refresh_token: string;
@@ -27,6 +41,7 @@ export function isDemoOtpRequest(otpId: string): boolean {
 }
 
 export function localDemoAuth(): DemoAuthResult {
+  enableDemoSession();
   return {
     access_token: DEMO_ACCESS_TOKEN,
     refresh_token: 'demo-refresh-token',

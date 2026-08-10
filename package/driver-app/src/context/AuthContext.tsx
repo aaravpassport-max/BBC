@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
 import { setToken } from '../api/client';
+import { clearDemoSession } from '../api/demoAuth';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -22,6 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setToken(null);
     localStorage.removeItem('user_id');
+    clearDemoSession();
     setUserId(null);
   }, []);
 

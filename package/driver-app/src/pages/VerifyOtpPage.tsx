@@ -2,7 +2,7 @@ import { useState, useRef, type KeyboardEvent, type ClipboardEvent } from 'react
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PorterHeader } from '../components/PorterHeader';
 import { Button } from '../components/Button';
-import { verifyOtp, requestOtp, ApiError } from '../api';
+import { verifyOtp, requestOtp, ApiError, isDemoPhone } from '../api';
 import { useAuth, getDeviceId } from '../context/AuthContext';
 import { DEMO_OTP } from '../config/testCredentials';
 import styles from './LoginPage.module.css';
@@ -61,7 +61,7 @@ export function VerifyOtpPage() {
     try {
       const res = await verifyOtp(otpId, code, getDeviceId(), phone);
       auth.login(res.access_token, res.user_id);
-      navigate('/kyc', { replace: true });
+      navigate(isDemoPhone(phone) ? '/home' : '/kyc', { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
