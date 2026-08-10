@@ -1,40 +1,22 @@
 import { useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { PushNotifications } from '@capacitor/push-notifications';
 import { useAuth, getDeviceId } from '../context/AuthContext';
 import { registerDeviceToken } from '../api/features';
 
-/** Registers this device for push notifications when the user is signed in. */
+/**
+ * Registers a device token with the backend for notification routing.
+ * Uses local notifications on-device (see lib/notify.ts) — native FCM push
+ * is intentionally not wired here because it requires google-services.json
+ * and crashes the Android app without it.
+ */
 export function usePushRegistration() {
   const { isAuthenticated } = useAuth();
 
   useEffect(() => {
     if (!isAuthenticated) return;
 
-    let cancelled = false;
-
-    async function register() {
-      if (Capacitor.isNativePlatform()) {
-        const perm = await PushNotifications.requestPermissions();
-        if (perm.receive !== 'granted') return;
-
-        await PushNotifications.register();
-        PushNotifications.addListener('registration', (token) => {
-          if (cancelled) return;
-          const platform = Capacitor.getPlatform() === 'ios' ? 'ios' : 'android';
-          void registerDeviceToken(platform, token.value).catch(() => undefined);
-        });
-        return;
-      }
-
-      const webToken = `web_${getDeviceId()}`;
-      await registerDeviceToken('web', webToken);
-    }
-
-    void register().catch(() => undefined);
-
-    return () => {
-      cancelled = true;
-    };
+    const platform = Capacitor.getPlatform() === 'ios' ? 'ios' : Capacitor.getPlatform() === 'android' ? 'android' : 'web';
+    const token = platform === 'web' ? `web_${getDeviceId()}` : `${platform}_${getDeviceId()}`;
+    void registerDeviceToken(platform, token).catch(() => undefined);
   }, [isAuthenticated]);
 }

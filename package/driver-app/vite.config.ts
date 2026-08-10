@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react'
 // can run side by side against the same backend during development.
 export default defineConfig({
   plugins: [react()],
+  base: './',
   server: {
     port: 5175,
   },
