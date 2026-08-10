@@ -253,6 +253,9 @@ export function TrackPage() {
       {TRACKABLE.has(booking.status) && booking.pickup_lat != null && booking.pickup_lng != null && (
         <LiveMap
           pickup={{ lat: booking.pickup_lat, lng: booking.pickup_lng }}
+          drops={(booking.stops || [])
+            .filter((s) => s.drop_lat != null && s.drop_lng != null)
+            .map((s) => ({ lat: s.drop_lat!, lng: s.drop_lng! }))}
           driver={driverLocation ? { lat: driverLocation.lat, lng: driverLocation.lng } : null}
         />
       )}
@@ -291,21 +294,29 @@ export function TrackPage() {
       )}
 
       {booking.status === 'in_progress' && booking.stops && booking.stops.length > 0 && (
-        <div
-          style={{
-            background: 'var(--surface)',
-            border: '1px solid var(--border)',
-            borderRadius: 12,
-            padding: 18,
-            textAlign: 'center',
-          }}
-        >
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
-            In transit. Drop code, read aloud on arrival
-          </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 34, fontWeight: 700, letterSpacing: '0.15em', color: 'var(--accent-strong)' }}>
-            {booking.stops[0].otp_code}
-          </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {booking.stops.map((stop, i) => (
+            <div
+              key={stop.id}
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 12,
+                padding: 18,
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
+                Drop {booking.stops!.length > 1 ? i + 1 : ''} code — read aloud on arrival
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 34, fontWeight: 700, letterSpacing: '0.15em', color: 'var(--accent-strong)' }}>
+                {stop.otp_code}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6, textTransform: 'capitalize' }}>
+                Status: {stop.status.replace(/_/g, ' ')}
+              </div>
+            </div>
+          ))}
         </div>
       )}
 

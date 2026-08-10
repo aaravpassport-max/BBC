@@ -3,36 +3,50 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { FareCard, FareCardLine } from '../components/FareCard';
-import { acceptJob, declineJob, getErrorMessage, type PendingOffer } from '../api';
+import { LiveMap } from '../components/LiveMap';
+import { acceptJob, declineJob, getPendingOffer, getErrorMessage, type PendingOffer } from '../api';
 
 export function OfferPage() {
   const { offerId } = useParams<{ offerId: string }>();
   const location = useLocation();
   const navigate = useNavigate();
+  const goHome = useCallback(() => navigate('/home', { replace: true }), [navigate]);
   const offer = (location.state as { offer: PendingOffer } | undefined)?.offer;
+  const [loadedOffer, setLoadedOffer] = useState<PendingOffer | null>(offer ?? null);
+
+  useEffect(() => {
+    if (offer) {
+      setLoadedOffer(offer);
+      return;
+    }
+    if (!offerId) return;
+    getPendingOffer()
+      .then((o) => {
+        if (o && o.offer_id === offerId) setLoadedOffer(o);
+        else goHome();
+      })
+      .catch(() => goHome());
+  }, [offer, offerId, goHome]);
+
+  const activeOffer = loadedOffer;
 
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [acting, setActing] = useState(false);
   const [error, setError] = useState('');
 
-  const goHome = useCallback(() => navigate('/home', { replace: true }), [navigate]);
-
   useEffect(() => {
-    if (!offer) {
-      goHome();
-      return;
-    }
+    if (!activeOffer) return;
     const tick = () => {
-      const remaining = Math.max(0, Math.floor((new Date(offer.expires_at).getTime() - Date.now()) / 1000));
+      const remaining = Math.max(0, Math.floor((new Date(activeOffer.expires_at).getTime() - Date.now()) / 1000));
       setSecondsLeft(remaining);
-      if (remaining === 0) goHome(); // offer expired locally — the backend's sweep job independently expires it server-side
+      if (remaining === 0) goHome();
     };
     tick();
     const interval = setInterval(tick, 1000);
     return () => clearInterval(interval);
-  }, [offer, goHome]);
+  }, [activeOffer, goHome]);
 
-  if (!offer || !offerId) return null;
+  if (!activeOffer || !offerId) return null;
 
   async function handleAccept() {
     setActing(true);
@@ -97,8 +111,11 @@ export function OfferPage() {
         <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Respond before this offer expires</p>
       </div>
 
+      <LiveMap pickup={{ lat: activeOffer.pickup_lat, lng: activeOffer.pickup_lng }} drops={[]} driver={null} />
+
       <FareCard label="Job details">
-        <FareCardLine label="Estimated earnings" value={`₹${offer.fare_breakdown.final_fare.toFixed(2)}`} emphasis />
+        <FareCardLine label="Estimated earnings" value={`₹${activeOffer.fare_breakdown.final_fare.toFixed(2)}`} emphasis />
+        <FareCardLine label="Pickup" value={`${activeOffer.pickup_lat.toFixed(4)}, ${activeOffer.pickup_lng.toFixed(4)}`} />
       </FareCard>
 
       {error && <p style={{ color: 'var(--danger)', fontSize: 13, textAlign: 'center' }}>{error}</p>}

@@ -2,21 +2,19 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
-import { Input } from '../components/Input';
-import { listAddresses, createAddress, deleteAddress, getErrorMessage, type SavedAddress } from '../api';
-
-const LOCATIONS = [
-  { label: 'Koramangala Warehouse', lat: 12.952, lng: 77.602 },
-  { label: 'Indiranagar Depot', lat: 12.97, lng: 77.62 },
-  { label: 'HSR Layout Store', lat: 12.912, lng: 77.638 },
-];
+import { LocationPicker } from '../components/LocationPicker';
+import { MapPicker } from '../components/MapPicker';
+import { listAddresses, createAddress, updateAddress, deleteAddress, getErrorMessage, type SavedAddress } from '../api';
+import { PRESET_LOCATIONS, type LocationPoint } from '../lib/locations';
 
 export function AddressesPage() {
   const navigate = useNavigate();
   const [addresses, setAddresses] = useState<SavedAddress[]>([]);
   const [label, setLabel] = useState('Home');
+  const [location, setLocation] = useState<LocationPoint | null>(PRESET_LOCATIONS[0]);
   const [addressLine, setAddressLine] = useState('');
-  const [locIndex, setLocIndex] = useState(0);
+  const [mapOpen, setMapOpen] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -32,32 +30,57 @@ export function AddressesPage() {
     void refresh();
   }, []);
 
-  async function handleAdd() {
-    if (!addressLine.trim()) {
-      setError('Enter an address label.');
+  function startEdit(a: SavedAddress) {
+    setEditingId(a.id);
+    setLabel(a.label);
+    setAddressLine(a.address_line);
+    setLocation({ label: a.label, lat: a.lat, lng: a.lng, addressLine: a.address_line });
+  }
+
+  function resetForm() {
+    setEditingId(null);
+    setLabel('Home');
+    setAddressLine('');
+    setLocation(PRESET_LOCATIONS[0]);
+  }
+
+  async function handleSave() {
+    if (!location || !addressLine.trim()) {
+      setError('Enter address details and pick a location.');
       return;
     }
-    const loc = LOCATIONS[locIndex];
     setLoading(true);
     setError('');
     try {
-      await createAddress({
+      const payload = {
         label,
         address_line: addressLine.trim(),
-        lat: loc.lat,
-        lng: loc.lng,
-        landmark: null,
+        lat: location.lat,
+        lng: location.lng,
+        landmark: location.addressLine || null,
         contact_name: null,
         contact_phone: null,
         is_default: addresses.length === 0,
-      });
-      setAddressLine('');
+      };
+      if (editingId) {
+        await updateAddress(editingId, payload);
+      } else {
+        await createAddress(payload);
+      }
+      resetForm();
       await refresh();
     } catch (err) {
       setError(getErrorMessage(err, 'Could not save address.'));
     } finally {
       setLoading(false);
     }
+  }
+
+  async function setDefault(id: string) {
+    const addr = addresses.find((a) => a.id === id);
+    if (!addr) return;
+    await updateAddress(id, { is_default: true });
+    await refresh();
   }
 
   return (
@@ -70,27 +93,35 @@ export function AddressesPage() {
             borderRadius: 12,
             background: 'var(--surface)',
             padding: 14,
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
           }}
         >
-          <div>
-            <div style={{ fontWeight: 600 }}>{a.label} {a.is_default && <span style={{ fontSize: 11, color: 'var(--accent)' }}>· Default</span>}</div>
-            <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{a.address_line}</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+            <div>
+              <div style={{ fontWeight: 600 }}>
+                {a.label}{' '}
+                {a.is_default && <span style={{ fontSize: 11, color: 'var(--accent)' }}>· Default</span>}
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{a.address_line}</div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <button type="button" onClick={() => startEdit(a)} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 12 }}>
+                Edit
+              </button>
+              {!a.is_default && (
+                <button type="button" onClick={() => void setDefault(a.id)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: 12 }}>
+                  Set default
+                </button>
+              )}
+              <button type="button" onClick={() => void deleteAddress(a.id).then(refresh)} style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', fontSize: 12 }}>
+                Delete
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => void deleteAddress(a.id).then(refresh)}
-            style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}
-          >
-            Delete
-          </button>
         </div>
       ))}
 
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
-        <div style={{ fontWeight: 600, marginBottom: 10 }}>Add address</div>
+        <div style={{ fontWeight: 600, marginBottom: 10 }}>{editingId ? 'Edit address' : 'Add address'}</div>
         <select
           value={label}
           onChange={(e) => setLabel(e.target.value)}
@@ -100,19 +131,30 @@ export function AddressesPage() {
           <option>Work</option>
           <option>Other</option>
         </select>
-        <Input placeholder="Address name / landmark" value={addressLine} onChange={(e) => setAddressLine(e.target.value)} />
-        <select
-          value={locIndex}
-          onChange={(e) => setLocIndex(Number(e.target.value))}
+        <input
+          placeholder="Flat / building / landmark"
+          value={addressLine}
+          onChange={(e) => setAddressLine(e.target.value)}
           style={{ width: '100%', marginBottom: 8, padding: 10, borderRadius: 10, border: '1px solid var(--border)' }}
-        >
-          {LOCATIONS.map((l, i) => (
-            <option key={l.label} value={i}>{l.label}</option>
-          ))}
-        </select>
+        />
+        <LocationPicker value={location} onChange={setLocation} onPickOnMap={() => setMapOpen(true)} />
         {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
-        <Button loading={loading} onClick={() => void handleAdd()}>Save address</Button>
+        <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <Button loading={loading} onClick={() => void handleSave()}>{editingId ? 'Update' : 'Save address'}</Button>
+          {editingId && <Button variant="ghost" onClick={resetForm}>Cancel</Button>}
+        </div>
       </div>
+
+      {mapOpen && (
+        <MapPicker
+          initial={location ?? undefined}
+          onConfirm={(loc) => {
+            setLocation(loc);
+            setMapOpen(false);
+          }}
+          onClose={() => setMapOpen(false)}
+        />
+      )}
     </Screen>
   );
 }

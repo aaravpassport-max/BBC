@@ -5,6 +5,8 @@ import { Button } from '../components/Button';
 import { StatusBadge } from '../components/StatusBadge';
 import { Skeleton } from '../components/Skeleton';
 import { TripChat } from '../components/TripChat';
+import { LiveMap } from '../components/LiveMap';
+import { POSITIVE_RATING_TAGS, NEGATIVE_RATING_TAGS } from '../constants/brand';
 import { getActiveJob, verifyPickupOtp, completeStop, rateBooking, triggerSos, getErrorMessage, type ActiveJob } from '../api';
 import { Geolocation } from '@capacitor/geolocation';
 
@@ -28,6 +30,7 @@ export function TripPage() {
   const [loading, setLoading] = useState(true);
   const [sosSent, setSosSent] = useState(false);
   const [ratingStars, setRatingStars] = useState(0);
+  const [ratingTags, setRatingTags] = useState<string[]>([]);
   const [tripDone, setTripDone] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -104,6 +107,12 @@ export function TripPage() {
       title={awaitingPickup ? 'Head to pickup' : 'On the way to drop'}
     >
       <StatusBadge status={job.status} />
+
+      <LiveMap
+        pickup={{ lat: job.pickup_lat, lng: job.pickup_lng }}
+        drops={job.stops.map((s) => ({ lat: s.drop_lat, lng: s.drop_lng }))}
+        driver={null}
+      />
 
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16, background: 'var(--surface)' }}>
         {job.stops.map((stop) => (
@@ -236,14 +245,35 @@ export function TripPage() {
             ))}
           </div>
           {ratingStars > 0 && (
-            <Button
-              onClick={() => {
-                if (!bookingId) return;
-                void rateBooking(bookingId, ratingStars, []).then(() => navigate('/home', { replace: true }));
-              }}
-            >
-              Submit & go home
-            </Button>
+            <>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', margin: '10px 0' }}>
+                {(ratingStars >= 4 ? POSITIVE_RATING_TAGS : NEGATIVE_RATING_TAGS).map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => setRatingTags((prev) => (prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]))}
+                    style={{
+                      border: `1px solid ${ratingTags.includes(tag) ? 'var(--accent)' : 'var(--border)'}`,
+                      background: ratingTags.includes(tag) ? 'var(--accent-soft)' : 'var(--surface)',
+                      borderRadius: 20,
+                      padding: '4px 10px',
+                      fontSize: 12,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+              <Button
+                onClick={() => {
+                  if (!bookingId) return;
+                  void rateBooking(bookingId, ratingStars, ratingTags).then(() => navigate('/home', { replace: true }));
+                }}
+              >
+                Submit & go home
+              </Button>
+            </>
           )}
         </div>
       )}

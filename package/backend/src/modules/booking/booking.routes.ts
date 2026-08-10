@@ -5,6 +5,7 @@ import { validateBody } from '../../middleware/validate';
 import { requireAuth } from '../../middleware/auth';
 import { Errors } from '../../utils/errors';
 import { createBooking, cancelBooking, getBooking, getBookingDriverLocation, listBookings, previewCancellation } from './booking.service';
+import { runDispatchCycle } from '../driver/dispatch.service';
 import { sendTripMessage, getTripMessages } from './chat.service';
 import { submitRating } from './ratings.service';
 
@@ -55,6 +56,9 @@ bookingRouter.post(
       idempotencyKey,
       scheduledFor: scheduled_for,
     });
+    if (booking.status === 'searching') {
+      void runDispatchCycle(booking.id).catch(() => undefined);
+    }
     res.status(201).json(booking);
   })
 );

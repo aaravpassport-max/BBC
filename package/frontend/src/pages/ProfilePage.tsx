@@ -1,12 +1,25 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { MenuRow } from '../components/MenuRow';
 import { useAuth } from '../context/AuthContext';
-
+import { getProfile } from '../api';
 import { BRAND, getDisplayName } from '../constants/brand';
+
 export function ProfilePage() {
   const navigate = useNavigate();
   const { logout } = useAuth();
+  const [name, setName] = useState(getDisplayName());
+  const [email, setEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    getProfile()
+      .then((p) => {
+        if (p.name) setName(p.name);
+        setEmail(p.email);
+      })
+      .catch(() => undefined);
+  }, []);
 
   function handleLogout() {
     logout();
@@ -15,12 +28,20 @@ export function ProfilePage() {
 
   return (
     <Screen eyebrow="Account" title="Profile" withNav>
-      <div
+      <button
+        type="button"
+        onClick={() => navigate('/profile/edit')}
         style={{
           display: 'flex',
           alignItems: 'center',
           gap: 14,
           padding: '16px 4px 20px',
+          background: 'none',
+          border: 'none',
+          width: '100%',
+          textAlign: 'left',
+          cursor: 'pointer',
+          color: 'inherit',
         }}
       >
         <div
@@ -37,13 +58,14 @@ export function ProfilePage() {
             fontWeight: 700,
           }}
         >
-          {getDisplayName().charAt(0).toUpperCase()}
+          {name.charAt(0).toUpperCase()}
         </div>
         <div>
-          <div style={{ fontSize: 18, fontWeight: 700 }}>{getDisplayName()}</div>
-          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Manage your {BRAND.name} account</div>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>{name}</div>
+          {email && <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{email}</div>}
+          <div style={{ fontSize: 13, color: 'var(--accent)' }}>Edit profile →</div>
         </div>
-      </div>
+      </button>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <MenuRow icon="📍" label="Saved addresses" onClick={() => navigate('/addresses')} />

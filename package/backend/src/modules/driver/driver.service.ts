@@ -308,6 +308,19 @@ export async function listDriverJobHistory(driverId: string, page = 1, pageSize 
   return result.rows;
 }
 
+export async function updateDriverPartnerProfile(
+  driverId: string,
+  data: { name?: string; email?: string | null }
+) {
+  if (data.name !== undefined) {
+    await pool.query(`UPDATE users SET name = $1, updated_at = now() WHERE id = $2`, [data.name, driverId]);
+  }
+  if (data.email !== undefined) {
+    await pool.query(`UPDATE users SET email = $1, updated_at = now() WHERE id = $2`, [data.email, driverId]);
+  }
+  return getDriverPartnerProfile(driverId);
+}
+
 export async function getDriverPartnerProfile(driverId: string) {
   const result = await pool.query(
     `SELECT u.id, u.name, u.phone, u.email,

@@ -150,6 +150,23 @@ export function getMyCorporateAccounts() {
   return api.get<CorporateAccount[]>('/v1/corporate/my-accounts');
 }
 
+export function acceptCorporateInvite(email: string) {
+  return api.post<{ accepted: boolean }>('/v1/corporate/invites/accept', { email });
+}
+
+// ---------- Subscription plans ----------
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  monthly_fee: number;
+  benefits: string[];
+}
+
+export function getSubscriptionPlans() {
+  return api.get<SubscriptionPlan[]>('/v1/subscriptions/plans');
+}
+
 // ---------- SOS ----------
 
 export function triggerSos(bookingId: string, lat?: number, lng?: number) {

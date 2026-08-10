@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
+import { BRAND } from '../constants/brand';
 import { getReferralSummary, redeemReferralCode, getErrorMessage, type ReferralSummary } from '../api';
 
 export function ReferralPage() {
@@ -35,10 +36,25 @@ export function ReferralPage() {
     }
   }
 
-  function copyCode() {
+  async function copyCode() {
     if (!summary) return;
-    void navigator.clipboard.writeText(summary.referral_code);
+    await navigator.clipboard.writeText(summary.referral_code);
     setSuccess('Code copied to clipboard!');
+  }
+
+  async function shareInvite() {
+    if (!summary) return;
+    const text = `Use my ${BRAND.name} referral code ${summary.referral_code} on your first trip and we both earn rewards!`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: `${BRAND.name} referral`, text });
+        return;
+      } catch {
+        // user cancelled
+      }
+    }
+    await navigator.clipboard.writeText(text);
+    setSuccess('Invite message copied — share it with friends!');
   }
 
   return (
@@ -57,16 +73,18 @@ export function ReferralPage() {
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 28, fontWeight: 700, letterSpacing: '0.1em', margin: '8px 0' }}>
             {summary.referral_code}
           </div>
-          <Button variant="ghost" onClick={copyCode} style={{ width: 'auto', margin: '0 auto' }}>
-            Copy code
-          </Button>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Button variant="ghost" onClick={() => void copyCode()} style={{ width: 'auto' }}>Copy code</Button>
+            <Button variant="ghost" onClick={() => void shareInvite()} style={{ width: 'auto' }}>Share invite</Button>
+          </div>
         </div>
       )}
 
       {summary && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-          <Stat label="Successful referrals" value={String(summary.successful_referrals)} />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+          <Stat label="Referrals" value={String(summary.successful_referrals)} />
           <Stat label="Earned" value={`₹${summary.earned_confirmed}`} />
+          <Stat label="Pending" value={`₹${summary.earned_pending_review}`} />
         </div>
       )}
 
@@ -92,7 +110,7 @@ function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 14, textAlign: 'center' }}>
       <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{label}</div>
-      <div style={{ fontSize: 20, fontWeight: 700, marginTop: 4 }}>{value}</div>
+      <div style={{ fontSize: 18, fontWeight: 700, marginTop: 4 }}>{value}</div>
     </div>
   );
 }

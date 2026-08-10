@@ -3,17 +3,31 @@ import { z } from 'zod';
 import { asyncHandler } from '../../middleware/errorHandler';
 import { validateBody } from '../../middleware/validate';
 import { requireAuth } from '../../middleware/auth';
-import {
-  purchaseSubscription,
-  getMySubscription,
-  cancelSubscription,
-  attemptRenewal,
-  reactivateSubscription,
-} from './subscription.service';
+import { PLANS, purchaseSubscription, getMySubscription, cancelSubscription, attemptRenewal, reactivateSubscription } from './subscription.service';
+
+export function listSubscriptionPlans() {
+  return Object.entries(PLANS).map(([id, plan]) => ({
+    id,
+    name: id === 'platform_plus' ? 'PORTMYSTUFF Plus' : id,
+    monthly_fee: plan.monthlyFee,
+    benefits: [
+      plan.waivesPlatformFee ? 'Zero platform fee on every trip' : null,
+      'Priority support',
+      'Exclusive offers',
+    ].filter(Boolean) as string[],
+  }));
+}
 
 const purchaseSchema = z.object({ plan_id: z.string() });
 
 export const subscriptionRouter = Router();
+
+subscriptionRouter.get(
+  '/plans',
+  asyncHandler(async (_req, res) => {
+    res.status(200).json(listSubscriptionPlans());
+  })
+);
 
 // PRD Screen 59
 subscriptionRouter.post(

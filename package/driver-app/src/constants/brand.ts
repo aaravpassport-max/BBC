@@ -44,23 +44,23 @@ export const SUPPORT_CATEGORIES = [
 
 export const FAQ_ITEMS = [
   {
-    q: 'How do I track my delivery?',
-    a: 'Open Trips and tap your active order, or go to the live tracking screen after booking.',
+    q: 'How do I go online and get jobs?',
+    a: 'Complete KYC, training, and vehicle registration. Then toggle Online on the home screen.',
   },
   {
-    q: 'Can I cancel my trip?',
-    a: 'Yes, before pickup. A cancellation fee may apply depending on trip status.',
+    q: 'How are earnings paid out?',
+    a: 'View your balance on the Earnings tab and request instant or standard withdrawal.',
   },
   {
-    q: `How does ${BRAND.wallet} work?`,
-    a: 'Add money to your wallet and pay for trips instantly. Promo credits are applied automatically.',
+    q: 'What if a customer gives the wrong OTP?',
+    a: 'Ask them to check the drop code in their app. Only enter the code they read aloud.',
+  },
+  {
+    q: 'How do penalties work?',
+    a: 'Penalties appear under Profile → Penalties. You can dispute any charge with a note.',
   },
   {
     q: 'How do referrals work?',
-    a: 'Share your code with friends. You earn rewards when they complete their first trip.',
-  },
-  {
-    q: `What is ${BRAND.plus}?`,
-    a: 'A monthly membership that waives platform fees on every trip.',
+    a: 'Share your partner referral code. You earn when referred drivers complete trips.',
   },
 ];

@@ -5,7 +5,6 @@ import { Button } from '../components/Button';
 import { FareCard, FareCardLine, FareCardDivider } from '../components/FareCard';
 import {
   confirmBooking,
-  triggerDispatch,
   getWallet,
   getMyCorporateAccounts,
   ApiError,
@@ -13,12 +12,14 @@ import {
   type CorporateAccount,
 } from '../api';
 import { PAYMENT_METHODS, type PaymentMethodId } from '../constants/brand';
+import type { LocationPoint } from '../lib/locations';
 
 interface LocationState {
   quote: Quote;
-  pickupLabel: string;
-  dropLabel: string;
+  pickup: LocationPoint;
+  drops: LocationPoint[];
   goodsCategory: string;
+  weightBand?: string;
   helperNeeded: boolean;
   couponCode?: string;
   scheduledFor?: string;
@@ -37,22 +38,26 @@ export function ConfirmPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>('wallet');
   const [walletBalance, setWalletBalance] = useState<number | null>(null);
   const [corporateAccounts, setCorporateAccounts] = useState<CorporateAccount[]>([]);
+  const [selectedCorporateId, setSelectedCorporateId] = useState<string | null>(null);
 
   useEffect(() => {
     getWallet()
       .then((w) => setWalletBalance(w.real_money_balance + w.promotional_credit_balance))
       .catch(() => undefined);
     getMyCorporateAccounts()
-      .then(setCorporateAccounts)
+      .then((accounts) => {
+        setCorporateAccounts(accounts);
+        if (accounts.length > 0) setSelectedCorporateId(accounts[0].account_id);
+      })
       .catch(() => undefined);
   }, []);
 
-  if (!state?.quote) {
+  if (!state?.quote || !state.pickup || !state.drops?.length) {
     navigate('/home');
     return null;
   }
 
-  const { quote, pickupLabel, dropLabel, goodsCategory, helperNeeded, scheduledFor } = state;
+  const { quote, pickup, drops, goodsCategory, weightBand, helperNeeded, scheduledFor } = state;
   const fb = quote.fare_breakdown;
   const hasCorporate = corporateAccounts.length > 0;
 
@@ -63,9 +68,6 @@ export function ConfirmPage() {
     setLoading(true);
     try {
       const booking = await confirmBooking(quote.quote_id, paymentMethod, scheduledFor);
-      if (booking.status !== 'scheduled') {
-        await triggerDispatch(booking.id).catch(() => undefined);
-      }
       navigate(`/track/${booking.id}`);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'QUOTE_EXPIRED') {
@@ -88,20 +90,22 @@ export function ConfirmPage() {
       footer={
         <>
           {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10 }}>{error}</p>}
-          <Button onClick={handleConfirm} loading={loading}>
+          <Button onClick={() => void handleConfirm()} loading={loading}>
             Confirm · {money(fb.final_fare)}
           </Button>
         </>
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <RoutePoint kind="pickup" label={pickupLabel} />
-        <RoutePoint kind="drop" label={dropLabel} />
+        <RoutePoint kind="pickup" label={pickup.label} sub={pickup.addressLine} />
+        {drops.map((drop, i) => (
+          <RoutePoint key={i} kind="drop" label={drop.label} sub={drop.addressLine} index={drops.length > 1 ? i + 1 : undefined} />
+        ))}
       </div>
 
       <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
-        <span style={{ textTransform: 'capitalize' }}>{quote.vehicle_category.replace(/_/g, ' ')}</span> ·{' '}
-        {goodsCategory}
+        <span style={{ textTransform: 'capitalize' }}>{quote.vehicle_category.replace(/_/g, ' ')}</span> · {goodsCategory}
+        {weightBand ? ` · ${weightBand}` : ''}
         {helperNeeded ? ' · helper requested' : ''}
       </div>
 
@@ -129,13 +133,27 @@ export function ConfirmPage() {
                 onChange={() => setPaymentMethod(m.id)}
                 style={{ marginTop: 3 }}
               />
-              <span>
+              <span style={{ flex: 1 }}>
                 <div style={{ fontSize: 14, fontWeight: 600 }}>{m.label}</div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                   {m.description}
                   {m.id === 'wallet' && walletBalance != null && ` · Balance ${money(walletBalance)}`}
-                  {m.id === 'corporate_bill' && hasCorporate && ` · ${corporateAccounts[0].name}`}
                 </div>
+                {m.id === 'corporate_bill' && paymentMethod === 'corporate_bill' && corporateAccounts.length > 1 && (
+                  <select
+                    value={selectedCorporateId ?? ''}
+                    onChange={(e) => setSelectedCorporateId(e.target.value)}
+                    style={{ marginTop: 8, width: '100%', padding: 8, borderRadius: 8, border: '1px solid var(--border)' }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {corporateAccounts.map((a) => (
+                      <option key={a.account_id} value={a.account_id}>{a.name}</option>
+                    ))}
+                  </select>
+                )}
+                {m.id === 'corporate_bill' && hasCorporate && corporateAccounts.length === 1 && (
+                  <div style={{ fontSize: 12, marginTop: 4 }}>Billing to {corporateAccounts[0].name}</div>
+                )}
               </span>
             </label>
           ))}
@@ -146,17 +164,11 @@ export function ConfirmPage() {
         <FareCardLine label="Base fare" value={money(fb.base_fare)} />
         <FareCardLine label="Distance" value={money(fb.distance_charge)} />
         {fb.night_surcharge > 0 && <FareCardLine label="Night surcharge" value={money(fb.night_surcharge)} />}
-        {fb.surge_multiplier > 1 && (
-          <FareCardLine label={`Demand surge · ${fb.surge_multiplier}×`} value="" />
-        )}
+        {fb.surge_multiplier > 1 && <FareCardLine label={`Demand surge · ${fb.surge_multiplier}×`} value="" />}
         <FareCardLine label="Platform fee" value={money(fb.platform_fee)} />
         <FareCardLine label="Tax" value={money(fb.tax)} />
-        {fb.coupon_discount > 0 && (
-          <FareCardLine label="Coupon discount" value={`−${money(fb.coupon_discount)}`} muted />
-        )}
-        {fb.subscription_benefit > 0 && (
-          <FareCardLine label="Membership benefit" value={`−${money(fb.subscription_benefit)}`} muted />
-        )}
+        {fb.coupon_discount > 0 && <FareCardLine label="Coupon discount" value={`−${money(fb.coupon_discount)}`} muted />}
+        {fb.subscription_benefit > 0 && <FareCardLine label="Membership benefit" value={`−${money(fb.subscription_benefit)}`} muted />}
         <FareCardDivider />
         <FareCardLine label="Total" value={money(fb.final_fare)} emphasis />
       </FareCard>
@@ -174,7 +186,17 @@ export function ConfirmPage() {
   );
 }
 
-function RoutePoint({ kind, label }: { kind: 'pickup' | 'drop'; label: string }) {
+function RoutePoint({
+  kind,
+  label,
+  sub,
+  index,
+}: {
+  kind: 'pickup' | 'drop';
+  label: string;
+  sub?: string;
+  index?: number;
+}) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
       <span
@@ -188,9 +210,10 @@ function RoutePoint({ kind, label }: { kind: 'pickup' | 'drop'; label: string })
       />
       <div>
         <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          {kind === 'pickup' ? 'Pickup' : 'Drop'}
+          {kind === 'pickup' ? 'Pickup' : index ? `Drop ${index}` : 'Drop'}
         </div>
         <div style={{ fontSize: 15 }}>{label}</div>
+        {sub && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{sub}</div>}
       </div>
     </div>
   );

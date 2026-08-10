@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { StatusBadge } from '../components/StatusBadge';
 import { SkeletonRowList } from '../components/Skeleton';
+import { Button } from '../components/Button';
 import { listBookings, getErrorMessage, type Booking } from '../api';
 
 const FILTERS = [
@@ -20,31 +21,42 @@ function money(n: number): string {
 
 export function HistoryPage() {
   const navigate = useNavigate();
-  const [bookings, setBookings] = useState<Booking[] | null>(null);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]['id']>('all');
 
+  async function loadPage(p: number, append = false) {
+    setLoading(true);
+    try {
+      const res = await listBookings({ page: p, page_size: 10 });
+      setBookings((prev) => (append ? [...prev, ...res.items] : res.items));
+      setHasMore(res.items.length === 10);
+      setPage(p);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not load your trip history.'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
-    listBookings()
-      .then((res) => setBookings(res.items))
-      .catch((err) => setError(getErrorMessage(err, 'Could not load your trip history.')));
+    void loadPage(1);
   }, []);
 
-  const filtered =
-    bookings?.filter((b) => {
-      if (filter === 'all') return true;
-      if (filter === 'active') return ACTIVE.has(b.status);
-      if (filter === 'completed') return b.status === 'completed';
-      if (filter === 'cancelled') return b.status === 'cancelled';
-      return true;
-    }) ?? null;
+  const filtered = bookings.filter((b) => {
+    if (filter === 'all') return true;
+    if (filter === 'active') return ACTIVE.has(b.status);
+    if (filter === 'completed') return b.status === 'completed';
+    if (filter === 'cancelled') return b.status === 'cancelled';
+    return true;
+  });
 
   function openTrip(b: Booking) {
-    if (ACTIVE.has(b.status)) {
-      navigate(`/track/${b.id}`);
-    } else {
-      navigate(`/trip/${b.id}`);
-    }
+    if (ACTIVE.has(b.status)) navigate(`/track/${b.id}`);
+    else navigate(`/trip/${b.id}`);
   }
 
   return (
@@ -72,14 +84,13 @@ export function HistoryPage() {
       </div>
 
       {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
+      {loading && bookings.length === 0 && <SkeletonRowList count={3} />}
 
-      {filtered === null && !error && <SkeletonRowList count={3} />}
-
-      {filtered && filtered.length === 0 && (
+      {filtered.length === 0 && !loading && (
         <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>No trips in this category yet.</p>
       )}
 
-      {filtered && filtered.length > 0 && (
+      {filtered.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {filtered.map((b) => (
             <button
@@ -106,6 +117,9 @@ export function HistoryPage() {
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
                   {new Date(b.created_at).toLocaleString()}
                 </div>
+                <div style={{ fontSize: 13, marginTop: 4, textTransform: 'capitalize' }}>
+                  {b.vehicle_category_id?.replace(/_/g, ' ') || 'Delivery'}
+                </div>
                 <div style={{ marginTop: 6 }}>
                   <StatusBadge status={b.status} />
                 </div>
@@ -116,6 +130,12 @@ export function HistoryPage() {
             </button>
           ))}
         </div>
+      )}
+
+      {hasMore && filter === 'all' && (
+        <Button variant="ghost" loading={loading} onClick={() => void loadPage(page + 1, true)}>
+          Load more
+        </Button>
       )}
     </Screen>
   );

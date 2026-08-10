@@ -2,33 +2,32 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
+import { BRAND } from '../constants/brand';
 import {
   getMySubscription,
+  getSubscriptionPlans,
   purchaseSubscription,
   cancelSubscription,
   reactivateSubscription,
   getErrorMessage,
   type Subscription,
+  type SubscriptionPlan,
 } from '../api';
-import { BRAND } from '../constants/brand';
-
-const PLAN = {
-  id: 'platform_plus',
-  name: BRAND.plus,
-  price: 99,
-  benefits: ['Zero platform fee on every trip', 'Priority support', 'Exclusive offers'],
-};
 
 export function SubscriptionPage() {
   const navigate = useNavigate();
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [sub, setSub] = useState<Subscription | null | undefined>(undefined);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function refresh() {
     try {
-      const s = await getMySubscription();
+      const [s, p] = await Promise.all([getMySubscription(), getSubscriptionPlans()]);
       setSub(s);
+      setPlans(p);
+      if (!selectedPlan && p.length > 0) setSelectedPlan(p[0].id);
     } catch (err) {
       setError(getErrorMessage(err, 'Could not load membership.'));
       setSub(null);
@@ -39,11 +38,14 @@ export function SubscriptionPage() {
     void refresh();
   }, []);
 
+  const plan = plans.find((p) => p.id === selectedPlan) ?? plans[0];
+
   async function handlePurchase() {
+    if (!plan) return;
     setLoading(true);
     setError('');
     try {
-      await purchaseSubscription(PLAN.id);
+      await purchaseSubscription(plan.id);
       await refresh();
     } catch (err) {
       setError(getErrorMessage(err, 'Could not start membership.'));
@@ -84,25 +86,43 @@ export function SubscriptionPage() {
 
   return (
     <Screen eyebrow="Membership" title={BRAND.plus} onBack={() => navigate('/profile')}>
-      <div
-        style={{
-          border: '1px solid var(--border)',
-          borderRadius: 16,
-          background: 'var(--surface)',
-          padding: 20,
-        }}
-      >
-        <div style={{ fontSize: 20, fontWeight: 700 }}>{PLAN.name}</div>
-        <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--accent-strong)', margin: '8px 0' }}>
-          ₹{PLAN.price}
-          <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-muted)' }}>/month</span>
-        </div>
-        <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.6 }}>
-          {PLAN.benefits.map((b) => (
-            <li key={b}>{b}</li>
+      {plans.length > 1 && (
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {plans.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => setSelectedPlan(p.id)}
+              style={{
+                border: `1px solid ${selectedPlan === p.id ? 'var(--accent)' : 'var(--border)'}`,
+                background: selectedPlan === p.id ? 'var(--accent-soft)' : 'var(--surface)',
+                borderRadius: 20,
+                padding: '6px 14px',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              {p.name}
+            </button>
           ))}
-        </ul>
-      </div>
+        </div>
+      )}
+
+      {plan && (
+        <div style={{ border: '1px solid var(--border)', borderRadius: 16, background: 'var(--surface)', padding: 20 }}>
+          <div style={{ fontSize: 20, fontWeight: 700 }}>{plan.name}</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--accent-strong)', margin: '8px 0' }}>
+            ₹{plan.monthly_fee}
+            <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text-muted)' }}>/month</span>
+          </div>
+          <ul style={{ margin: 0, paddingLeft: 18, color: 'var(--text-muted)', fontSize: 14, lineHeight: 1.6 }}>
+            {plan.benefits.map((b) => (
+              <li key={b}>{b}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {sub === undefined && <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>Loading…</p>}
 
@@ -119,9 +139,9 @@ export function SubscriptionPage() {
         <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Your membership is cancelled.</p>
       )}
 
-      {!sub && sub !== undefined && (
+      {!sub && sub !== undefined && plan && (
         <Button onClick={() => void handlePurchase()} loading={loading}>
-          Join {BRAND.plus}
+          Join {plan.name}
         </Button>
       )}
       {sub && isActive && (

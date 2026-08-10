@@ -1,18 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Geolocation } from '@capacitor/geolocation';
 import { PortMyStuffHeader } from '../components/PortMyStuffHeader';
 import { Button } from '../components/Button';
 import { PromoBanners } from '../components/PromoBanners';
-import { getQuote, getErrorMessage, type Quote } from '../api';
+import { LocationPicker } from '../components/LocationPicker';
+import { MapPicker } from '../components/MapPicker';
+import { LiveMap } from '../components/LiveMap';
+import { getQuote, getErrorMessage, listAddresses, type Quote } from '../api';
+import { PRESET_LOCATIONS, sameLocation, type LocationPoint } from '../lib/locations';
+import type { SavedAddress } from '../api/profile';
 import styles from './HomePage.module.css';
-
-const LOCATIONS = [
-  { label: 'Koramangala Warehouse', lat: 12.952, lng: 77.602 },
-  { label: 'Indiranagar Depot', lat: 12.97, lng: 77.62 },
-  { label: 'HSR Layout Store', lat: 12.912, lng: 77.638 },
-  { label: 'Whitefield Yard', lat: 12.969, lng: 77.75 },
-];
 
 const CATEGORY_DISPLAY: Record<string, { icon: string; blurb: string }> = {
   two_wheeler: { icon: '🛵', blurb: 'Small parcels, up to 20kg' },
@@ -22,16 +20,24 @@ const CATEGORY_DISPLAY: Record<string, { icon: string; blurb: string }> = {
   large_truck: { icon: '🚛', blurb: 'Up to 5000kg' },
 };
 
+const WEIGHT_BANDS = [
+  { id: 'light', label: 'Light (up to 20 kg)' },
+  { id: 'medium', label: 'Medium (20–100 kg)' },
+  { id: 'heavy', label: 'Heavy (100–500 kg)' },
+  { id: 'bulk', label: 'Bulk (500+ kg)' },
+];
+
 export function HomePage() {
   const navigate = useNavigate();
-  const [pickupIndex, setPickupIndex] = useState(0);
-  const [dropIndices, setDropIndices] = useState<number[]>([1]);
+  const [pickup, setPickup] = useState<LocationPoint | null>(PRESET_LOCATIONS[0]);
+  const [drops, setDrops] = useState<LocationPoint[]>([PRESET_LOCATIONS[1]]);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [mapTarget, setMapTarget] = useState<'pickup' | number | null>(null);
   const [goodsCategory, setGoodsCategory] = useState('Furniture');
+  const [weightBand, setWeightBand] = useState('medium');
   const [helperNeeded, setHelperNeeded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [locating, setLocating] = useState(false);
-  const [devicePickup, setDevicePickup] = useState<{ lat: number; lng: number; label: string } | null>(null);
   const [quotes, setQuotes] = useState<Quote[] | null>(null);
   const [choosingVehicle, setChoosingVehicle] = useState(false);
   const [scheduledFor, setScheduledFor] = useState('');
@@ -40,33 +46,23 @@ export function HomePage() {
   const minScheduleValue = new Date(Date.now() + 35 * 60 * 1000).toISOString().slice(0, 16);
   const maxScheduleValue = new Date(Date.now() + 6.5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
 
-  async function handleUseMyLocation() {
-    setError('');
-    setLocating(true);
-    try {
-      const permission = await Geolocation.requestPermissions();
-      if (permission.location !== 'granted' && permission.coarseLocation !== 'granted') {
-        setError('Location permission denied. Pick a location from the list.');
-        return;
-      }
-      const position = await Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 });
-      setDevicePickup({
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-        label: 'Current location',
-      });
-    } catch {
-      setError('Could not get location. Pick from the list instead.');
-    } finally {
-      setLocating(false);
-    }
-  }
+  useEffect(() => {
+    listAddresses()
+      .then(setSavedAddresses)
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
+    void Geolocation.requestPermissions().catch(() => undefined);
+  }, []);
 
   async function handleGetQuote() {
     setError('');
-    const pickup = devicePickup ?? LOCATIONS[pickupIndex];
-    const drops = dropIndices.map((i) => LOCATIONS[i]);
-    if (!devicePickup && dropIndices.some((i) => i === pickupIndex)) {
+    if (!pickup) {
+      setError('Select a pickup location.');
+      return;
+    }
+    if (drops.some((d) => sameLocation(pickup, d))) {
       setError('Pickup and drop cannot be the same.');
       return;
     }
@@ -78,6 +74,7 @@ export function HomePage() {
         coupon_code: couponCode.trim() || undefined,
         item_details: {
           goods_category: goodsCategory,
+          weight_band: weightBand,
           helper_needed: helperNeeded,
         },
       });
@@ -95,19 +92,23 @@ export function HomePage() {
   }
 
   function handleChooseVehicle(quote: Quote) {
-    const pickup = devicePickup ?? LOCATIONS[pickupIndex];
-    const drop = LOCATIONS[dropIndices[0]];
+    if (!pickup) return;
     navigate('/confirm', {
       state: {
         quote,
-        pickupLabel: pickup.label,
-        dropLabel: drop.label,
+        pickup,
+        drops,
         goodsCategory,
+        weightBand,
         helperNeeded,
         couponCode: couponCode.trim() || undefined,
         scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
       },
     });
+  }
+
+  function updateDrop(index: number, loc: LocationPoint) {
+    setDrops((prev) => prev.map((d, i) => (i === index ? loc : d)));
   }
 
   return (
@@ -116,83 +117,60 @@ export function HomePage() {
       <div className={styles.body}>
         <PromoBanners />
         <div className={styles.card}>
+          {pickup && drops.length > 0 && (
+            <LiveMap pickup={pickup} drops={drops} driver={null} />
+          )}
+
           <div className={styles.locationCard}>
             <div className={styles.locationRow}>
               <span className={`${styles.dot} ${styles.dotPickup}`} />
               <div className={styles.fieldBlock}>
                 <div className={styles.fieldLabel}>Pickup from</div>
-                {devicePickup ? (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontWeight: 600 }}>{devicePickup.label}</span>
-                    <button type="button" className={styles.gpsLink} onClick={() => setDevicePickup(null)}>
-                      Change
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <select
-                      value={pickupIndex}
-                      onChange={(e) => setPickupIndex(Number(e.target.value))}
-                      className={styles.select}
-                    >
-                      {LOCATIONS.map((loc, i) => (
-                        <option key={loc.label} value={i}>
-                          {loc.label}
-                        </option>
-                      ))}
-                    </select>
-                    <button type="button" className={styles.gpsLink} onClick={() => void handleUseMyLocation()} disabled={locating}>
-                      {locating ? 'Getting location…' : '📍 Use current location'}
-                    </button>
-                  </>
-                )}
+                <LocationPicker
+                  value={pickup}
+                  onChange={setPickup}
+                  savedAddresses={savedAddresses}
+                  onPickOnMap={() => setMapTarget('pickup')}
+                />
               </div>
             </div>
             <div className={styles.connector} />
-            <div className={styles.locationRow}>
-              <span className={`${styles.dot} ${styles.dotDrop}`} />
-              <div className={styles.fieldBlock}>
-                <div className={styles.fieldLabel}>Drop at</div>
-                {dropIndices.map((dropIndex, idx) => (
-                  <div key={idx} style={{ display: 'flex', gap: 8, marginBottom: idx < dropIndices.length - 1 ? 8 : 0 }}>
-                    <select
-                      value={dropIndex}
-                      onChange={(e) => {
-                        const next = [...dropIndices];
-                        next[idx] = Number(e.target.value);
-                        setDropIndices(next);
-                      }}
-                      className={styles.select}
-                      style={{ flex: 1 }}
-                    >
-                      {LOCATIONS.map((loc, i) => (
-                        <option key={loc.label} value={i}>
-                          {loc.label}
-                        </option>
-                      ))}
-                    </select>
-                    {dropIndices.length > 1 && (
+            {drops.map((drop, idx) => (
+              <div key={idx} className={styles.locationRow}>
+                <span className={`${styles.dot} ${styles.dotDrop}`} />
+                <div className={styles.fieldBlock}>
+                  <div className={styles.fieldLabel}>Drop {drops.length > 1 ? idx + 1 : 'at'}</div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                    <div style={{ flex: 1 }}>
+                      <LocationPicker
+                        value={drop}
+                        onChange={(loc) => updateDrop(idx, loc)}
+                        savedAddresses={savedAddresses}
+                        onPickOnMap={() => setMapTarget(idx)}
+                      />
+                    </div>
+                    {drops.length > 1 && (
                       <button
                         type="button"
-                        onClick={() => setDropIndices(dropIndices.filter((_, i) => i !== idx))}
-                        style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}
+                        onClick={() => setDrops(drops.filter((_, i) => i !== idx))}
+                        style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer', marginTop: 8 }}
                       >
                         ✕
                       </button>
                     )}
                   </div>
-                ))}
-                {dropIndices.length < 3 && (
-                  <button
-                    type="button"
-                    className={styles.gpsLink}
-                    onClick={() => setDropIndices([...dropIndices, (dropIndices[dropIndices.length - 1] + 1) % LOCATIONS.length])}
-                  >
-                    + Add another drop
-                  </button>
-                )}
+                </div>
               </div>
-            </div>
+            ))}
+            {drops.length < 3 && (
+              <button
+                type="button"
+                className={styles.gpsLink}
+                onClick={() => setDrops([...drops, PRESET_LOCATIONS[(drops.length + 2) % PRESET_LOCATIONS.length]])}
+              >
+                + Add another drop
+              </button>
+            )}
           </div>
 
           <div className={styles.section}>
@@ -201,7 +179,17 @@ export function HomePage() {
               <option>Furniture</option>
               <option>Electronics</option>
               <option>Boxes</option>
+              <option>Appliances</option>
               <option>Other</option>
+            </select>
+          </div>
+
+          <div className={styles.section}>
+            <span className={styles.sectionLabel}>Weight</span>
+            <select value={weightBand} onChange={(e) => setWeightBand(e.target.value)} className={styles.select}>
+              {WEIGHT_BANDS.map((w) => (
+                <option key={w.id} value={w.id}>{w.label}</option>
+              ))}
             </select>
           </div>
 
@@ -253,7 +241,7 @@ export function HomePage() {
 
           {error && <p style={{ color: 'var(--danger)', fontSize: 13, margin: 0 }}>{error}</p>}
 
-          <Button onClick={handleGetQuote} loading={loading}>
+          <Button onClick={() => void handleGetQuote()} loading={loading}>
             Get fare estimate
           </Button>
         </div>
@@ -291,6 +279,22 @@ export function HomePage() {
           </div>
         )}
       </div>
+
+      {mapTarget !== null && (
+        <MapPicker
+          initial={
+            mapTarget === 'pickup'
+              ? pickup ?? undefined
+              : drops[mapTarget as number] ?? undefined
+          }
+          onConfirm={(loc) => {
+            if (mapTarget === 'pickup') setPickup(loc);
+            else updateDrop(mapTarget as number, loc);
+            setMapTarget(null);
+          }}
+          onClose={() => setMapTarget(null)}
+        />
+      )}
     </div>
   );
 }

@@ -65,16 +65,16 @@ export function SupportTicketPage() {
           <div
             key={m.id}
             style={{
-              alignSelf: m.sender_role === 'customer' ? 'flex-end' : 'flex-start',
+              alignSelf: m.sender_role === 'agent' ? 'flex-start' : 'flex-end',
               maxWidth: '85%',
-              background: m.sender_role === 'customer' ? 'var(--accent-soft)' : 'var(--surface)',
+              background: m.sender_role === 'agent' ? 'var(--surface)' : 'var(--accent-soft)',
               border: '1px solid var(--border)',
               borderRadius: 12,
               padding: '10px 12px',
             }}
           >
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 4 }}>
-              {m.sender_role === 'customer' ? 'You' : 'Support'} · {new Date(m.created_at).toLocaleString()}
+              {m.sender_role === 'agent' ? 'Support' : 'You'} · {new Date(m.created_at).toLocaleString()}
             </div>
             <div style={{ fontSize: 14 }}>{m.body}</div>
           </div>

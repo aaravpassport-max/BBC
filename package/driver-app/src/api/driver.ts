@@ -276,6 +276,17 @@ export function getDriverProfile() {
   }>('/v1/driver/profile');
 }
 
+export function updateDriverProfile(data: { name?: string; email?: string | null }) {
+  if (isDemoSession()) return localGetDriverProfile();
+  return api.put<{
+    id: string;
+    name: string | null;
+    phone: string;
+    email: string | null;
+    online_status: boolean;
+  }>('/v1/driver/profile', data);
+}
+
 export function listJobHistory(page = 1, pageSize = 20) {
   if (isDemoSession()) return localListJobHistory();
   return api.get<{ items: { id: string; status: string; fare_breakdown: { final_fare: number }; created_at: string }[]; page: number }>(

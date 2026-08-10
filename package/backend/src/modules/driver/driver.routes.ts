@@ -33,6 +33,7 @@ import {
   registerVehicle,
   listDriverJobHistory,
   getDriverPartnerProfile,
+  updateDriverPartnerProfile,
 } from './driver.service';
 import { runDispatchCycle } from './dispatch.service';
 import { verifyPickupOtp, completeStop } from './trip.service';
@@ -114,11 +115,25 @@ driverRouter.get(
   })
 );
 
+const profileUpdateSchema = z.object({
+  name: z.string().min(1).max(100).optional(),
+  email: z.string().email().nullable().optional(),
+});
+
 driverRouter.get(
   '/profile',
   requireAuth,
   asyncHandler(async (req, res) => {
     res.status(200).json(await getDriverPartnerProfile(req.user!.userId));
+  })
+);
+
+driverRouter.put(
+  '/profile',
+  requireAuth,
+  validateBody(profileUpdateSchema),
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await updateDriverPartnerProfile(req.user!.userId, req.body));
   })
 );
 

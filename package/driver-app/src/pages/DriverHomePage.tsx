@@ -17,6 +17,7 @@ import {
   ApiError,
   getErrorMessage,
 } from '../api';
+import { LiveMap } from '../components/LiveMap';
 import styles from '../pages/LoginPage.module.css';
 
 const POLL_INTERVAL_MS = 3000;
@@ -30,6 +31,7 @@ export function DriverHomePage() {
   const [checkingKyc, setCheckingKyc] = useState(true);
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [hasVehicle, setHasVehicle] = useState(true);
+  const [driverLoc, setDriverLoc] = useState(FALLBACK_LOCATION);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const checkKycThenLoad = useCallback(async () => {
@@ -46,6 +48,7 @@ export function DriverHomePage() {
       }
       const profile = await getDriverProfile();
       setHasVehicle(!!profile.vehicle);
+      setOnline(!!profile.online_status);
       if (!profile.vehicle) {
         navigate('/vehicle');
         return;
@@ -103,10 +106,16 @@ export function DriverHomePage() {
 
   useEffect(() => {
     if (!online || checkingKyc) return;
-    void getLocation().then((loc) => updateLocation(loc.lat, loc.lng));
+    void getLocation().then((loc) => {
+      setDriverLoc(loc);
+      return updateLocation(loc.lat, loc.lng);
+    });
     void pollForWork();
     pollRef.current = setInterval(() => {
-      void getLocation().then((loc) => updateLocation(loc.lat, loc.lng));
+      void getLocation().then((loc) => {
+        setDriverLoc(loc);
+        return updateLocation(loc.lat, loc.lng);
+      });
       void pollForWork();
     }, POLL_INTERVAL_MS);
     return () => {
@@ -147,6 +156,7 @@ export function DriverHomePage() {
     <div className={styles.page}>
       <PortMyStuffHeader />
       <div style={{ padding: '0 16px 16px' }}>
+        <LiveMap pickup={driverLoc} drops={[]} driver={online ? driverLoc : null} />
         <div
           style={{
             border: '1px solid var(--border)',
