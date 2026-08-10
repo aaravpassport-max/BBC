@@ -130,10 +130,15 @@ export function getQuote(params: {
   return api.post<{ quotes: Quote[] }>('/v1/pricing/quote', params);
 }
 
-export function confirmBooking(quoteId: string, paymentMethod: string, scheduledFor?: string) {
+export function confirmBooking(quoteId: string, paymentMethod: string, scheduledFor?: string, corporateAccountId?: string) {
   return api.post<Booking & { payment_required?: boolean; gateway_session?: GatewaySession }>(
     '/v1/bookings',
-    { quote_id: quoteId, payment_method: paymentMethod, scheduled_for: scheduledFor },
+    {
+      quote_id: quoteId,
+      payment_method: paymentMethod,
+      scheduled_for: scheduledFor,
+      corporate_account_id: corporateAccountId,
+    },
     newIdempotencyKey()
   );
 }

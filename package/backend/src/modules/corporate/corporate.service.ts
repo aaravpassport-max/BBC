@@ -176,7 +176,10 @@ export async function getCorporateAccountSummary(accountId: string, requestingUs
  */
 export async function getMyAccounts(userId: string) {
   const result = await pool.query(
-    `SELECT ce.corporate_account_id AS account_id, ce.role, ca.name, ca.status
+    `SELECT ce.corporate_account_id AS account_id, ce.role, ca.name, ca.status,
+            ca.credit_limit::float AS credit_limit,
+            (ca.credit_limit - ca.committed_spend - ca.reserved_spend)::float AS available_credit,
+            ce.per_user_monthly_cap::float AS per_user_monthly_cap
      FROM corporate_employees ce JOIN corporate_accounts ca ON ca.id = ce.corporate_account_id
      WHERE ce.user_id = $1 AND ce.status = 'active'
      ORDER BY ca.name`,

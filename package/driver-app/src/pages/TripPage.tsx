@@ -7,6 +7,7 @@ import { Skeleton } from '../components/Skeleton';
 import { TripChat } from '../components/TripChat';
 import { LiveMap } from '../components/LiveMap';
 import { POSITIVE_RATING_TAGS, NEGATIVE_RATING_TAGS } from '../constants/brand';
+import { formatAddress } from '../lib/address';
 import { getActiveJob, verifyPickupOtp, completeStop, arriveAtPickup, arriveAtStop, rateBooking, triggerSos, callCustomer, getErrorMessage, type ActiveJob } from '../api';
 import { Geolocation } from '@capacitor/geolocation';
 
@@ -137,6 +138,13 @@ export function TripPage() {
     >
       <StatusBadge status={job.status} />
 
+      {job.pickup_address && (
+        <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '12px 16px', background: 'var(--surface)' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Pickup</div>
+          <div style={{ fontSize: 14 }}>{formatAddress(job.pickup_address)}</div>
+        </div>
+      )}
+
       <LiveMap
         pickup={{ lat: job.pickup_lat, lng: job.pickup_lng }}
         drops={job.stops.map((s) => ({ lat: s.drop_lat, lng: s.drop_lng }))}
@@ -173,7 +181,8 @@ export function TripPage() {
             </span>
             <span style={{ fontSize: 14 }}>
               Stop {stop.sequence}
-              {stop.instructions ? ` — ${stop.instructions}` : ''}
+              {stop.address_snapshot && ` — ${formatAddress(stop.address_snapshot)}`}
+              {stop.instructions ? ` (${stop.instructions})` : ''}
             </span>
           </div>
         ))}

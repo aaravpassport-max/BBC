@@ -203,8 +203,10 @@ export async function declineJobOffer(offerId: string, driverId: string): Promis
 export async function getMyPendingOffer(driverId: string) {
   const result = await pool.query(
     `SELECT o.id AS offer_id, o.booking_id, o.expires_at,
-            b.pickup_geo, b.fare_breakdown,
-            ST_X(b.pickup_geo::geometry) AS pickup_lng, ST_Y(b.pickup_geo::geometry) AS pickup_lat
+            b.pickup_address_snapshot, b.fare_breakdown, b.vehicle_category_id,
+            ST_X(b.pickup_geo::geometry) AS pickup_lng, ST_Y(b.pickup_geo::geometry) AS pickup_lat,
+            (SELECT count(*)::int FROM booking_stops WHERE booking_id = b.id) AS stop_count,
+            (SELECT address_snapshot FROM booking_stops WHERE booking_id = b.id ORDER BY sequence LIMIT 1) AS first_drop_address
      FROM dispatch_offers o
      JOIN bookings b ON b.id = o.booking_id
      WHERE o.driver_id = $1 AND o.status = 'offered' AND o.expires_at > now()
@@ -316,14 +318,109 @@ export async function registerVehicle(params: {
 export async function listDriverJobHistory(driverId: string, page = 1, pageSize = 20) {
   const offset = (page - 1) * pageSize;
   const result = await pool.query(
-    `SELECT id, status, fare_breakdown, created_at, updated_at
-     FROM bookings
-     WHERE driver_id = $1 AND status IN ('completed', 'cancelled')
-     ORDER BY created_at DESC
+    `SELECT b.id, b.status, b.fare_breakdown, b.created_at, b.updated_at, b.vehicle_category_id,
+            b.pickup_address_snapshot,
+            ST_X(b.pickup_geo::geometry) AS pickup_lng, ST_Y(b.pickup_geo::geometry) AS pickup_lat,
+            (SELECT address_snapshot FROM booking_stops WHERE booking_id = b.id ORDER BY sequence LIMIT 1) AS first_drop_address,
+            (SELECT count(*)::int FROM booking_stops WHERE booking_id = b.id) AS stop_count
+     FROM bookings b
+     WHERE b.driver_id = $1 AND b.status IN ('completed', 'cancelled')
+     ORDER BY b.created_at DESC
      LIMIT $2 OFFSET $3`,
     [driverId, pageSize, offset]
   );
-  return result.rows;
+  return result.rows.map((row) => ({
+    id: row.id,
+    status: row.status,
+    fare_breakdown: row.fare_breakdown,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    vehicle_category_id: row.vehicle_category_id,
+    pickup_address: row.pickup_address_snapshot,
+    pickup_lat: row.pickup_lat,
+    pickup_lng: row.pickup_lng,
+    first_drop_address: row.first_drop_address,
+    stop_count: row.stop_count,
+  }));
+}
+
+export async function getDriverJobDetail(driverId: string, bookingId: string) {
+  const result = await pool.query(
+    `SELECT b.id, b.status, b.fare_breakdown, b.created_at, b.updated_at, b.vehicle_category_id,
+            b.pickup_address_snapshot, b.started_at,
+            ST_X(b.pickup_geo::geometry) AS pickup_lng, ST_Y(b.pickup_geo::geometry) AS pickup_lat,
+            cu.name AS customer_name
+     FROM bookings b
+     LEFT JOIN users cu ON cu.id = b.customer_id
+     WHERE b.id = $1 AND b.driver_id = $2`,
+    [bookingId, driverId]
+  );
+  if (result.rowCount === 0) {
+    throw Errors.notFound('Trip');
+  }
+  const row = result.rows[0];
+  const stops = await pool.query(
+    `SELECT id, sequence, status, instructions, address_snapshot, arrived_at, completed_at,
+            ST_X(geo::geometry) AS drop_lng, ST_Y(geo::geometry) AS drop_lat
+     FROM booking_stops WHERE booking_id = $1 ORDER BY sequence`,
+    [bookingId]
+  );
+  return {
+    id: row.id,
+    status: row.status,
+    fare_breakdown: row.fare_breakdown,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    started_at: row.started_at,
+    vehicle_category_id: row.vehicle_category_id,
+    pickup_address: row.pickup_address_snapshot,
+    pickup_lat: row.pickup_lat,
+    pickup_lng: row.pickup_lng,
+    customer_name: row.customer_name,
+    stops: stops.rows,
+  };
+}
+
+export async function getEarningsSummary(driverId: string) {
+  const weekStart = `date_trunc('week', now() AT TIME ZONE 'Asia/Kolkata') AT TIME ZONE 'Asia/Kolkata'`;
+  const monthStart = `date_trunc('month', now() AT TIME ZONE 'Asia/Kolkata') AT TIME ZONE 'Asia/Kolkata'`;
+
+  const trips = await pool.query(
+    `SELECT
+       count(*) FILTER (WHERE status = 'completed' AND created_at >= ${weekStart})::int AS trips_week,
+       count(*) FILTER (WHERE status = 'completed' AND created_at >= ${monthStart})::int AS trips_month,
+       coalesce(sum((fare_breakdown->>'final_fare')::numeric) FILTER (
+         WHERE status = 'completed' AND created_at >= ${weekStart}
+       ), 0)::float AS gross_week,
+       coalesce(sum((fare_breakdown->>'final_fare')::numeric) FILTER (
+         WHERE status = 'completed' AND created_at >= ${monthStart}
+       ), 0)::float AS gross_month
+     FROM bookings WHERE driver_id = $1`,
+    [driverId]
+  );
+
+  const credits = await pool.query(
+    `SELECT
+       coalesce(sum(wt.amount) FILTER (WHERE wt.entry_type = 'credit' AND wt.created_at >= ${weekStart}), 0)::float AS credits_week,
+       coalesce(sum(wt.amount) FILTER (WHERE wt.entry_type = 'credit' AND wt.created_at >= ${monthStart}), 0)::float AS credits_month,
+       coalesce(sum(wt.amount) FILTER (WHERE wt.entry_type = 'debit' AND wt.reason = 'payout'), 0)::float AS total_withdrawn
+     FROM wallet_transactions wt
+     JOIN wallets w ON w.id = wt.wallet_id
+     WHERE w.owner_id = $1 AND w.owner_type = 'driver'`,
+    [driverId]
+  );
+
+  const row = trips.rows[0];
+  const cr = credits.rows[0];
+  return {
+    trips_week: row.trips_week,
+    trips_month: row.trips_month,
+    gross_earnings_week: row.gross_week,
+    gross_earnings_month: row.gross_month,
+    wallet_credits_week: cr.credits_week,
+    wallet_credits_month: cr.credits_month,
+    total_withdrawn: cr.total_withdrawn,
+  };
 }
 
 export async function updateDriverPartnerProfile(

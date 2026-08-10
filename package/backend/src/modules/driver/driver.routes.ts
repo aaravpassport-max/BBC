@@ -35,6 +35,8 @@ import {
   getDriverPartnerProfile,
   updateDriverPartnerProfile,
   getDriverDashboard,
+  getDriverJobDetail,
+  getEarningsSummary,
 } from './driver.service';
 import { runDispatchCycle } from './dispatch.service';
 import { verifyPickupOtp, completeStop, arriveAtPickup, arriveAtStop } from './trip.service';
@@ -116,6 +118,23 @@ driverRouter.get(
     const pageSize = Math.min(parseInt((req.query.page_size as string) || '20', 10), 100);
     const items = await listDriverJobHistory(req.user!.userId, page, pageSize);
     res.status(200).json({ items, page });
+  })
+);
+
+driverRouter.get(
+  '/jobs/:bookingId',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const bookingId = requireUuidParam(req.params.bookingId as string, 'bookingId');
+    res.status(200).json(await getDriverJobDetail(req.user!.userId, bookingId));
+  })
+);
+
+driverRouter.get(
+  '/earnings/summary',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await getEarningsSummary(req.user!.userId));
   })
 );
 

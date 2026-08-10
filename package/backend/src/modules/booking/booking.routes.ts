@@ -19,6 +19,7 @@ const createBookingSchema = z.object({
   quote_id: z.string().uuid(),
   payment_method: z.enum(['wallet', 'card', 'upi', 'corporate_bill']),
   scheduled_for: z.string().datetime().optional(),
+  corporate_account_id: z.string().uuid().optional(),
 });
 
 const cancelBookingSchema = z.object({
@@ -62,13 +63,14 @@ bookingRouter.post(
       throw Errors.validation({ 'Idempotency-Key': 'This header is required.' });
     }
 
-    const { quote_id, payment_method, scheduled_for } = req.body;
+    const { quote_id, payment_method, scheduled_for, corporate_account_id } = req.body;
     const booking = await createBooking({
       customerId: req.user!.userId,
       quoteId: quote_id,
       paymentMethod: payment_method,
       idempotencyKey,
       scheduledFor: scheduled_for,
+      corporateAccountId: corporate_account_id,
     });
     if (!booking.payment_required && booking.status === 'searching') {
       void runDispatchCycle(booking.id).catch(() => undefined);

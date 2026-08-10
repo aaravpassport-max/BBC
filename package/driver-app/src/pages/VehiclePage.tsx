@@ -7,11 +7,28 @@ import { getDriverProfile, registerVehicle, getErrorMessage } from '../api';
 
 const CATEGORIES = ['two_wheeler', 'three_wheeler', 'mini_truck', 'pickup_truck', 'large_truck'];
 
+const CATEGORY_HINTS: Record<string, string> = {
+  two_wheeler: 'Small parcels and documents',
+  three_wheeler: 'Light goods, short distances',
+  mini_truck: 'Furniture, appliances, medium loads',
+  pickup_truck: 'Bulky items, construction materials',
+  large_truck: 'Heavy commercial freight',
+};
+
+function formatCategory(id: string): string {
+  return id.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function VehiclePage() {
   const navigate = useNavigate();
   const [category, setCategory] = useState(CATEGORIES[0]);
   const [plate, setPlate] = useState('');
-  const [existingPlate, setExistingPlate] = useState<string | null>(null);
+  const [existingVehicle, setExistingVehicle] = useState<{
+    plate: string;
+    category: string;
+    make: string | null;
+    model: string | null;
+  } | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -20,7 +37,7 @@ export function VehiclePage() {
     getDriverProfile()
       .then((p) => {
         if (p.vehicle) {
-          setExistingPlate(p.vehicle.plate);
+          setExistingVehicle(p.vehicle);
           setPlate(p.vehicle.plate);
           setCategory(p.vehicle.category);
         }
@@ -37,7 +54,7 @@ export function VehiclePage() {
     setError('');
     try {
       await registerVehicle(category, plate.trim().toUpperCase());
-      setExistingPlate(plate.trim().toUpperCase());
+      setExistingVehicle({ plate: plate.trim().toUpperCase(), category, make: existingVehicle?.make ?? null, model: existingVehicle?.model ?? null });
       setSuccess('Vehicle registered successfully.');
     } catch (err) {
       setError(getErrorMessage(err, 'Could not register vehicle.'));
@@ -48,14 +65,23 @@ export function VehiclePage() {
 
   return (
     <Screen eyebrow="Vehicle" title="My vehicle" onBack={() => navigate('/profile')}>
-      {existingPlate && (
-        <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-          Current vehicle: <strong>{existingPlate.replace(/_/g, ' ')}</strong> ({category.replace(/_/g, ' ')})
-        </p>
+      {existingVehicle && (
+        <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16, background: 'var(--surface)' }}>
+          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Registered vehicle</div>
+          <div style={{ fontSize: 18, fontWeight: 700, fontFamily: 'var(--font-mono)' }}>{existingVehicle.plate}</div>
+          <div style={{ fontSize: 14, marginTop: 4 }}>{formatCategory(existingVehicle.category)}</div>
+          {(existingVehicle.make || existingVehicle.model) && (
+            <div style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
+              {[existingVehicle.make, existingVehicle.model].filter(Boolean).join(' ')}
+            </div>
+          )}
+        </div>
       )}
+
       <p style={{ color: 'var(--text-muted)', fontSize: 14, margin: 0 }}>
-        Register or update your vehicle to receive job offers.
+        Register or update your vehicle to receive job offers matched to your category.
       </p>
+
       <label style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
         Vehicle type
         <select
@@ -65,16 +91,20 @@ export function VehiclePage() {
         >
           {CATEGORIES.map((c) => (
             <option key={c} value={c}>
-              {c.replace(/_/g, ' ')}
+              {formatCategory(c)}
             </option>
           ))}
         </select>
       </label>
+      {CATEGORY_HINTS[category] && (
+        <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: '-4px 0 8px' }}>{CATEGORY_HINTS[category]}</p>
+      )}
+
       <Input label="Plate number" value={plate} onChange={(e) => setPlate(e.target.value.toUpperCase())} placeholder="KA01AB1234" />
       {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
       {success && <p style={{ color: 'var(--success)', fontSize: 13 }}>{success}</p>}
       <Button loading={loading} onClick={() => void handleSubmit()}>
-        {existingPlate ? 'Update vehicle' : 'Save vehicle'}
+        {existingVehicle ? 'Update vehicle' : 'Save vehicle'}
       </Button>
     </Screen>
   );

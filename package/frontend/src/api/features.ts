@@ -176,6 +176,9 @@ export interface CorporateAccount {
   role: string;
   name: string;
   status: string;
+  credit_limit?: number;
+  available_credit?: number;
+  per_user_monthly_cap?: number | null;
 }
 
 export function getMyCorporateAccounts() {

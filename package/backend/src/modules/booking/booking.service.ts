@@ -17,6 +17,7 @@ export async function createBooking(params: {
   // which triggers the credit-reservation flow (PRD 14A.1) below.
   paymentMethod: string;
   idempotencyKey: string;
+  corporateAccountId?: string;
   // P1 gap-analysis item — scheduled (future-dated) bookings. The schema
   // (status='scheduled', bookings.scheduled_at) existed since migration 003
   // but no code path ever set either one; every booking was hardcoded to
@@ -25,7 +26,7 @@ export async function createBooking(params: {
   // arrives.
   scheduledFor?: string;
 }): Promise<{ id: string; status: string; gateway_session?: Record<string, unknown>; payment_required?: boolean }> {
-  const { customerId, quoteId, paymentMethod, idempotencyKey, scheduledFor } = params;
+  const { customerId, quoteId, paymentMethod, idempotencyKey, scheduledFor, corporateAccountId } = params;
 
   return withTransaction(async (client: PoolClient) => {
     // Idempotency check first: same key from this customer returns the existing
@@ -193,49 +194,44 @@ export async function createBooking(params: {
     // exactly like the coupon race above, rather than leaving a confirmed
     // booking with no valid payment authorization behind it.
     if (paymentMethod === 'corporate_bill') {
-      const employeeResult = await client.query(
-        `SELECT corporate_account_id FROM corporate_employees
-         WHERE user_id = $1 AND status = 'active' LIMIT 1`,
-        [customerId]
-      );
-      if (employeeResult.rowCount === 0) {
-        throw Errors.forbidden('Your account is not linked to an active corporate account.');
+      let corporateAccountIdResolved: string;
+      if (corporateAccountId) {
+        const membership = await client.query(
+          `SELECT corporate_account_id FROM corporate_employees
+           WHERE user_id = $1 AND corporate_account_id = $2 AND status = 'active'`,
+          [customerId, corporateAccountId]
+        );
+        if (membership.rowCount === 0) {
+          throw Errors.forbidden('You are not linked to the selected corporate account.');
+        }
+        corporateAccountIdResolved = corporateAccountId;
+      } else {
+        const employeeResult = await client.query(
+          `SELECT corporate_account_id FROM corporate_employees
+           WHERE user_id = $1 AND status = 'active' LIMIT 1`,
+          [customerId]
+        );
+        if (employeeResult.rowCount === 0) {
+          throw Errors.forbidden('Your account is not linked to an active corporate account.');
+        }
+        corporateAccountIdResolved = employeeResult.rows[0].corporate_account_id;
       }
-      const corporateAccountId = employeeResult.rows[0].corporate_account_id;
       const fareAmount = (quote.fare_breakdown as { final_fare: number }).final_fare;
 
-      // PRD 14B.1: the per-user monthly cap, if the employee has one, is
-      // enforced BEFORE the account-wide credit reservation — a cap
-      // violation should surface as "you've hit your personal limit," not
-      // get conflated with the account running out of credit entirely.
       await checkPerUserMonthlyCap(client, {
-        corporateAccountId,
+        corporateAccountId: corporateAccountIdResolved,
         employeeUserId: customerId,
         additionalAmount: fareAmount,
       });
 
-      // LOCK ORDERING FIX (found via a flaky-test investigation — see git
-      // history / PR notes): reserveCorporateSpend's SELECT ... FOR UPDATE
-      // takes an EXCLUSIVE lock on the corporate_accounts row. The UPDATE
-      // below sets bookings.corporate_account_id, a foreign key reference,
-      // which Postgres implicitly protects with a FOR KEY SHARE lock on the
-      // REFERENCED corporate_accounts row. If that FK-referencing UPDATE ran
-      // BEFORE reserveCorporateSpend (as it originally did), two concurrent
-      // transactions could each acquire the shared FK lock first and then
-      // both block trying to upgrade to the exclusive lock the other is
-      // holding — a textbook deadlock (Postgres error 40P01), reproduced
-      // under real concurrency by the "two employees racing" test at roughly
-      // a 1-in-4 rate. Acquiring the exclusive lock FIRST (reserve before
-      // the FK-setting UPDATE) means only one transaction can ever be in the
-      // critical section at a time — no cycle, no deadlock possible.
       await reserveCorporateSpend(client, {
-        corporateAccountId,
+        corporateAccountId: corporateAccountIdResolved,
         bookingId,
         amount: fareAmount,
       });
 
       await client.query(`UPDATE bookings SET corporate_account_id = $1 WHERE id = $2`, [
-        corporateAccountId,
+        corporateAccountIdResolved,
         bookingId,
       ]);
     }

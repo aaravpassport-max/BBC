@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { SkeletonRowList } from '../components/Skeleton';
 import { getNotificationInbox, getErrorMessage, type InboxNotification } from '../api';
+import { notificationBody } from '../lib/notificationCopy';
 
 const CATEGORY_LABELS: Record<string, string> = {
   trip_updates: 'Trip update',
@@ -48,7 +49,10 @@ export function NotificationsPage() {
               <div style={{ fontSize: 14, fontWeight: 600 }}>
                 {CATEGORY_LABELS[n.category] || n.category}
               </div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>
+              <div style={{ fontSize: 13, color: 'var(--text)', marginTop: 6, lineHeight: 1.45 }}>
+                {notificationBody(n.template_id, n.category)}
+              </div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>
                 {new Date(n.created_at).toLocaleString()} · {n.channel}
               </div>
             </div>

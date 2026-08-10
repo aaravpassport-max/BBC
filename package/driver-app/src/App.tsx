@@ -9,6 +9,7 @@ import { TrainingPage } from './pages/TrainingPage';
 import { DriverHomePage } from './pages/DriverHomePage';
 import { OfferPage } from './pages/OfferPage';
 import { TripPage } from './pages/TripPage';
+import { TripSummaryPage } from './pages/TripSummaryPage';
 import { EarningsPage } from './pages/EarningsPage';
 import { IncentivesPage } from './pages/IncentivesPage';
 import { HistoryPage } from './pages/HistoryPage';
@@ -60,6 +61,7 @@ function AppRoutes() {
       <Route path="/training" element={<RequireAuth><TrainingPage /></RequireAuth>} />
       <Route path="/home" element={<AuthenticatedLayout><DriverHomePage /></AuthenticatedLayout>} />
       <Route path="/history" element={<AuthenticatedLayout><HistoryPage /></AuthenticatedLayout>} />
+      <Route path="/trip-summary/:bookingId" element={<RequireAuth><TripSummaryPage /></RequireAuth>} />
       <Route path="/earnings" element={<AuthenticatedLayout><EarningsPage /></AuthenticatedLayout>} />
       <Route path="/incentives" element={<AuthenticatedLayout><IncentivesPage /></AuthenticatedLayout>} />
       <Route path="/profile" element={<AuthenticatedLayout><ProfilePage /></AuthenticatedLayout>} />
@@ -75,6 +77,7 @@ function AppRoutes() {
       <Route path="/referral" element={<RequireAuth><ReferralPage /></RequireAuth>} />
       <Route path="/offer/:offerId" element={<RequireAuth><OfferPage /></RequireAuth>} />
       <Route path="/trip/:bookingId" element={<RequireAuth><TripPage /></RequireAuth>} />
+      <Route path="/trip-summary/:bookingId" element={<RequireAuth><TripSummaryPage /></RequireAuth>} />
       <Route path="*" element={<Navigate to={isAuthenticated ? '/home' : '/login'} replace />} />
     </Routes>
   );

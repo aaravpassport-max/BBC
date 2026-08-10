@@ -16,6 +16,16 @@ const STEP_LABELS: Record<string, string> = {
   consent: 'Background check consent',
 };
 
+const STEP_DESCRIPTIONS: Record<string, string> = {
+  personal_details: 'Your legal name, PAN, and residential address for verification.',
+  identity_document: 'Upload a clear photo of your Aadhaar card or PAN card.',
+  driving_license: 'Valid commercial driving license for your vehicle class.',
+  vehicle_documents: 'Registration certificate (RC) and valid insurance papers.',
+  bank_details: 'Account where your earnings will be deposited.',
+  vehicle_photos: 'Front, rear, and side photos of your registered vehicle.',
+  consent: 'Authorize background verification per partner terms.',
+};
+
 const STATUS_COPY: Record<string, { label: string; tone: string }> = {
   not_submitted: { label: 'Not submitted', tone: 'var(--text-muted)' },
   not_applicable: { label: '—', tone: 'var(--text-muted)' },
@@ -107,6 +117,11 @@ export function KycPage() {
               <span style={{ fontWeight: 600, fontSize: 14 }}>{STEP_LABELS[s.step] || s.step}</span>
               <span style={{ fontSize: 12, fontWeight: 600, color: copy.tone }}>{copy.label}</span>
             </div>
+            {STEP_DESCRIPTIONS[s.step] && (
+              <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6, marginBottom: 0, lineHeight: 1.45 }}>
+                {STEP_DESCRIPTIONS[s.step]}
+              </p>
+            )}
             {s.rejection_reason && <p style={{ fontSize: 12, color: 'var(--danger)', marginTop: 6 }}>Reason: {s.rejection_reason}</p>}
 
             {needsAction && s.step === 'personal_details' && (

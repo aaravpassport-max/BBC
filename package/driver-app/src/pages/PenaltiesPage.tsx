@@ -12,7 +12,7 @@ export function PenaltiesPage() {
   >(null);
   const [error, setError] = useState('');
   const [disputing, setDisputing] = useState<string | null>(null);
-  const [note, setNote] = useState('');
+  const [notes, setNotes] = useState<Record<string, string>>({});
 
   async function refresh() {
     try {
@@ -27,11 +27,16 @@ export function PenaltiesPage() {
   }, []);
 
   async function handleDispute(id: string) {
-    if (!note.trim()) return;
+    const note = notes[id]?.trim();
+    if (!note) return;
     setDisputing(id);
     try {
-      await disputePenalty(id, note.trim());
-      setNote('');
+      await disputePenalty(id, note);
+      setNotes((prev) => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
       await refresh();
     } catch (err) {
       setError(getErrorMessage(err, 'Could not submit dispute.'));
@@ -42,6 +47,9 @@ export function PenaltiesPage() {
 
   return (
     <Screen eyebrow="Account" title="Penalties" onBack={() => navigate('/profile')}>
+      <p style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 0 }}>
+        Review charges applied to your account. You can dispute any penalty with a short explanation.
+      </p>
       {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
       {penalties === null && <p style={{ color: 'var(--text-muted)' }}>Loading…</p>}
       {penalties && penalties.length === 0 && (
@@ -54,9 +62,26 @@ export function PenaltiesPage() {
         >
           <div style={{ fontWeight: 600 }}>₹{p.amount} · {p.reason_code.replace(/_/g, ' ')}</div>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>Status: {p.status}</div>
+          {p.dispute_note && (
+            <div
+              style={{
+                marginTop: 8,
+                padding: '8px 10px',
+                borderRadius: 8,
+                background: 'var(--accent-soft)',
+                fontSize: 13,
+              }}
+            >
+              <strong>Your dispute:</strong> {p.dispute_note}
+            </div>
+          )}
           {p.status === 'issued' && (
             <>
-              <Input placeholder="Dispute reason" value={note} onChange={(e) => setNote(e.target.value)} />
+              <Input
+                placeholder="Dispute reason"
+                value={notes[p.id] || ''}
+                onChange={(e) => setNotes((prev) => ({ ...prev, [p.id]: e.target.value }))}
+              />
               <Button loading={disputing === p.id} onClick={() => void handleDispute(p.id)}>
                 Dispute
               </Button>

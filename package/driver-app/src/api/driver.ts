@@ -27,6 +27,10 @@ export interface PendingOffer {
   fare_breakdown: { final_fare: number };
   pickup_lat: number;
   pickup_lng: number;
+  pickup_address_snapshot?: AddressSnapshot;
+  first_drop_address?: AddressSnapshot;
+  stop_count?: number;
+  vehicle_category_id?: string;
 }
 
 export interface AddressSnapshot {
@@ -284,9 +288,50 @@ export function updateDriverProfile(data: { name?: string; email?: string | null
 }
 
 export function listJobHistory(page = 1, pageSize = 20) {
-  return api.get<{ items: { id: string; status: string; fare_breakdown: { final_fare: number }; created_at: string }[]; page: number }>(
-    `/v1/driver/jobs/history?page=${page}&page_size=${pageSize}`
-  );
+  return api.get<{
+    items: {
+      id: string;
+      status: string;
+      fare_breakdown: { final_fare: number };
+      created_at: string;
+      vehicle_category_id?: string;
+      pickup_address?: AddressSnapshot;
+      first_drop_address?: AddressSnapshot;
+      stop_count?: number;
+    }[];
+    page: number;
+  }>(`/v1/driver/jobs/history?page=${page}&page_size=${pageSize}`);
+}
+
+export function getJobDetail(bookingId: string) {
+  return api.get<{
+    id: string;
+    status: string;
+    fare_breakdown: { final_fare: number; platform_fee?: number };
+    created_at: string;
+    updated_at: string;
+    started_at?: string;
+    vehicle_category_id?: string;
+    pickup_address?: AddressSnapshot;
+    pickup_lat: number;
+    pickup_lng: number;
+    customer_name?: string;
+    stops: Stop[];
+  }>(`/v1/driver/jobs/${bookingId}`);
+}
+
+export interface EarningsSummary {
+  trips_week: number;
+  trips_month: number;
+  gross_earnings_week: number;
+  gross_earnings_month: number;
+  wallet_credits_week: number;
+  wallet_credits_month: number;
+  total_withdrawn: number;
+}
+
+export function getEarningsSummary() {
+  return api.get<EarningsSummary>('/v1/driver/earnings/summary');
 }
 
 export function rateBooking(bookingId: string, stars: number, tags: string[], comment?: string) {

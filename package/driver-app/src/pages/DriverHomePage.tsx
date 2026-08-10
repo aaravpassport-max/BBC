@@ -34,6 +34,8 @@ export function DriverHomePage() {
   const [tripsToday, setTripsToday] = useState(0);
   const [incentiveRemaining, setIncentiveRemaining] = useState<number | null>(null);
   const [hasVehicle, setHasVehicle] = useState(true);
+  const [showOfflineReason, setShowOfflineReason] = useState(false);
+  const [offlineReason, setOfflineReason] = useState('break');
   const [driverLoc, setDriverLoc] = useState(FALLBACK_LOCATION);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -135,11 +137,29 @@ export function DriverHomePage() {
 
   async function handleToggle() {
     setError('');
+    if (online) {
+      setShowOfflineReason(true);
+      return;
+    }
     setToggling(true);
     try {
-      const next = !online;
-      await setOnlineStatus(next);
-      setOnline(next);
+      await setOnlineStatus(true);
+      setOnline(true);
+      setShowOfflineReason(false);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not update your status.'));
+    } finally {
+      setToggling(false);
+    }
+  }
+
+  async function confirmGoOffline() {
+    setToggling(true);
+    setError('');
+    try {
+      await setOnlineStatus(false, offlineReason);
+      setOnline(false);
+      setShowOfflineReason(false);
     } catch (err) {
       setError(getErrorMessage(err, 'Could not update your status.'));
     } finally {
@@ -234,6 +254,27 @@ export function DriverHomePage() {
             {online ? 'Go offline' : 'Go online'}
           </Button>
         </div>
+
+        {showOfflineReason && (
+          <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16, background: 'var(--surface)', marginTop: 12 }}>
+            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Why are you going offline?</div>
+            <select
+              value={offlineReason}
+              onChange={(e) => setOfflineReason(e.target.value)}
+              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid var(--border)', marginBottom: 12 }}
+            >
+              <option value="break">Taking a break</option>
+              <option value="fuel">Refuelling</option>
+              <option value="personal">Personal errand</option>
+              <option value="end_of_shift">End of shift</option>
+              <option value="other">Other</option>
+            </select>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button variant="ghost" onClick={() => setShowOfflineReason(false)}>Cancel</Button>
+              <Button variant="danger" loading={toggling} onClick={() => void confirmGoOffline()}>Confirm offline</Button>
+            </div>
+          </div>
+        )}
 
         {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginTop: 12 }}>{error}</p>}
         {!hasVehicle && (
