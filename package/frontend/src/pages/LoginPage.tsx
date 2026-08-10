@@ -1,12 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Screen } from '../components/Screen';
+import { PorterHeader } from '../components/PorterHeader';
 import { Input } from '../components/Input';
 import { Button } from '../components/Button';
 import { requestOtp, ApiError } from '../api';
 import { getDeviceId } from '../context/AuthContext';
-import { TestCredentialsHint } from '../components/TestCredentialsHint';
 import { DemoLoginPanel } from '../components/DemoLoginPanel';
+import styles from './LoginPage.module.css';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -36,29 +36,30 @@ export function LoginPage() {
   }
 
   return (
-    <Screen eyebrow="Freight, on call" title="Move anything, anywhere">
-      <p style={{ color: 'var(--text-muted)', fontSize: 15, lineHeight: 1.6, marginBottom: 8 }}>
-        Enter your mobile number. We'll text you a code to confirm it's you.
-      </p>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <Input
-          label="Mobile number"
-          type="tel"
-          inputMode="numeric"
-          prefix="+91"
-          placeholder="98765 43210"
-          value={phone}
-          maxLength={10}
-          onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-          error={error}
-          autoFocus
-        />
-        <Button type="submit" loading={loading}>
-          Send code
-        </Button>
-      </form>
-      <DemoLoginPanel />
-      <TestCredentialsHint />
-    </Screen>
+    <div className={styles.page}>
+      <PorterHeader variant="auth" />
+      <div className={styles.sheet}>
+        <h2 className={styles.title}>Enter mobile number</h2>
+        <p className={styles.subtitle}>We'll send you a one-time password to verify</p>
+        <form onSubmit={handleSubmit} className={styles.form}>
+          <Input
+            label="Mobile number"
+            type="tel"
+            inputMode="numeric"
+            prefix="+91"
+            placeholder="98765 43210"
+            value={phone}
+            maxLength={10}
+            onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+            error={error}
+            autoFocus
+          />
+          <Button type="submit" loading={loading}>
+            Continue
+          </Button>
+        </form>
+        <DemoLoginPanel />
+      </div>
+    </div>
   );
 }

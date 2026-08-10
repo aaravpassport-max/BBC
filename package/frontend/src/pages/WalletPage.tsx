@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
@@ -49,7 +48,6 @@ function money(n: number | string): string {
 const QUICK_AMOUNTS = [200, 500, 1000, 2000];
 
 export function WalletPage() {
-  const navigate = useNavigate();
   const [balance, setBalance] = useState<WalletBalance | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[] | null>(null);
   const [amount, setAmount] = useState('');
@@ -131,23 +129,21 @@ export function WalletPage() {
   }
 
   return (
-    <Screen eyebrow="Wallet" title="Your balance">
-      <Button variant="ghost" style={{ width: 'auto', padding: '4px 0', marginBottom: 4 }} onClick={() => navigate(-1)}>
-        ← Back
-      </Button>
-
+    <Screen eyebrow="Wallet" title="Porter Wallet" withNav>
       {balance ? (
         <div
           style={{
-            border: '1px solid var(--border)',
+            border: 'none',
             borderRadius: 16,
-            background: 'var(--surface)',
+            background: 'linear-gradient(135deg, #2b6ce6 0%, #1d5fd4 100%)',
             padding: 24,
             textAlign: 'center',
+            color: 'white',
+            boxShadow: 'var(--shadow-md)',
           }}
         >
-          <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 6 }}>Available balance</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 36, fontWeight: 700, color: 'var(--accent-strong)' }}>
+          <div style={{ fontSize: 12, opacity: 0.9, marginBottom: 6 }}>Available balance</div>
+          <div style={{ fontSize: 36, fontWeight: 700 }}>
             {money(balance.real_money_balance)}
           </div>
           {balance.promotional_credit_balance > 0 && (

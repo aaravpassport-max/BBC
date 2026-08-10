@@ -1,10 +1,11 @@
 import { useState, useRef, type KeyboardEvent, type ClipboardEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Screen } from '../components/Screen';
+import { PorterHeader } from '../components/PorterHeader';
 import { Button } from '../components/Button';
 import { verifyOtp, requestOtp, ApiError } from '../api';
 import { useAuth, getDeviceId } from '../context/AuthContext';
-import { TestCredentialsHint } from '../components/TestCredentialsHint';
+import { DEMO_OTP } from '../config/testCredentials';
+import styles from './LoginPage.module.css';
 
 interface LocationState {
   phone: string;
@@ -93,47 +94,49 @@ export function VerifyOtpPage() {
   }
 
   return (
-    <Screen eyebrow={`+91 ${phone}`} title="Enter the code">
-      <p style={{ color: 'var(--text-muted)', fontSize: 15, marginBottom: 8 }}>
-        We sent a 6-digit code by SMS. It expires in a few minutes.
-      </p>
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between' }}>
-        {digits.map((d, i) => (
-          <input
-            key={i}
-            ref={(el) => {
-              inputRefs.current[i] = el;
-            }}
-            value={d}
-            onChange={(e) => setDigit(i, e.target.value)}
-            onKeyDown={(e) => handleKeyDown(i, e)}
-            onPaste={handlePaste}
-            inputMode="numeric"
-            maxLength={1}
-            aria-label={`Digit ${i + 1}`}
-            style={{
-              width: 46,
-              height: 56,
-              textAlign: 'center',
-              fontFamily: 'var(--font-mono)',
-              fontSize: 24,
-              fontWeight: 600,
-              background: 'var(--surface)',
-              border: `1px solid ${error ? 'var(--danger)' : 'var(--border)'}`,
-              borderRadius: 10,
-              color: 'var(--text)',
-              outline: 'none',
-            }}
-            disabled={loading}
-          />
-        ))}
+    <div className={styles.page}>
+      <PorterHeader variant="auth" />
+      <div className={styles.sheet}>
+        <h2 className={styles.title}>Enter OTP</h2>
+        <p className={styles.subtitle}>
+          Sent to +91 {phone}. Demo OTP: <strong>{DEMO_OTP}</strong>
+        </p>
+        <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', marginBottom: 16 }}>
+          {digits.map((d, i) => (
+            <input
+              key={i}
+              ref={(el) => {
+                inputRefs.current[i] = el;
+              }}
+              value={d}
+              onChange={(e) => setDigit(i, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(i, e)}
+              onPaste={handlePaste}
+              inputMode="numeric"
+              maxLength={1}
+              aria-label={`Digit ${i + 1}`}
+              style={{
+                width: 46,
+                height: 52,
+                textAlign: 'center',
+                fontSize: 22,
+                fontWeight: 700,
+                background: 'var(--surface-raised)',
+                border: `2px solid ${error ? 'var(--danger)' : 'var(--border)'}`,
+                borderRadius: 12,
+                color: 'var(--text)',
+                outline: 'none',
+              }}
+              disabled={loading}
+            />
+          ))}
+        </div>
+        {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
+        {loading && <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Verifying…</p>}
+        <Button variant="ghost" onClick={resend} loading={resending} type="button">
+          Resend OTP
+        </Button>
       </div>
-      {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
-      {loading && <p style={{ color: 'var(--text-muted)', fontSize: 13 }}>Verifying…</p>}
-      <Button variant="ghost" onClick={resend} loading={resending} type="button">
-        Resend code
-      </Button>
-      <TestCredentialsHint />
-    </Screen>
+    </div>
   );
 }

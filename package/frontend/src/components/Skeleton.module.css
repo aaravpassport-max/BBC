@@ -1,7 +1,8 @@
 .shimmer {
-  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-raised) 50%, var(--surface) 75%);
+  background: linear-gradient(90deg, #eef2f7 0%, #f8fafc 50%, #eef2f7 100%);
   background-size: 200% 100%;
-  animation: shimmer 1.4s ease-in-out infinite;
+  animation: shimmer 1.2s ease-in-out infinite;
+  border-radius: 8px;
 }
 
 @keyframes shimmer {
@@ -13,9 +14,20 @@
   }
 }
 
+.row {
+  height: 56px;
+  border-radius: 12px;
+  margin-bottom: 10px;
+}
+
+.card {
+  height: 120px;
+  border-radius: 16px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .shimmer {
     animation: none;
-    background: var(--surface-raised);
+    background: #eef2f7;
   }
 }

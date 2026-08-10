@@ -1,10 +1,9 @@
 .btn {
-  font-family: var(--font-display);
-  font-weight: 700;
+  font-family: var(--font-body);
+  font-weight: 600;
   font-size: 15px;
-  letter-spacing: 0.01em;
   padding: 14px 20px;
-  border-radius: 10px;
+  border-radius: 12px;
   border: 1px solid transparent;
   cursor: pointer;
   width: 100%;
@@ -12,8 +11,9 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+  transition: transform 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
   min-height: 50px;
+  box-shadow: var(--shadow-sm);
 }
 
 .btn:active:not(:disabled) {
@@ -32,22 +32,26 @@
 
 .primary:hover:not(:disabled) {
   background: var(--accent-strong);
+  box-shadow: var(--shadow-md);
 }
 
 .ghost {
-  background: transparent;
+  background: var(--surface);
   color: var(--text);
   border-color: var(--border);
+  box-shadow: none;
 }
 
 .ghost:hover:not(:disabled) {
   border-color: var(--accent);
+  color: var(--accent);
 }
 
 .danger {
-  background: transparent;
+  background: var(--surface);
   color: var(--danger);
-  border-color: var(--danger);
+  border-color: #fecaca;
+  box-shadow: none;
 }
 
 .spinner {

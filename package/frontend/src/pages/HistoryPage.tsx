@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
-import { Button } from '../components/Button';
 import { StatusBadge } from '../components/StatusBadge';
 import { SkeletonRowList } from '../components/Skeleton';
 import { listBookings, getErrorMessage, type Booking } from '../api';
@@ -22,11 +21,7 @@ export function HistoryPage() {
   }, []);
 
   return (
-    <Screen eyebrow="History" title="Your trips">
-      <Button variant="ghost" style={{ width: 'auto', padding: '4px 0', marginBottom: 4 }} onClick={() => navigate(-1)}>
-        ← Back
-      </Button>
-
+    <Screen eyebrow="Trips" title="Your orders" withNav>
       {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
 
       {bookings === null && !error && <SkeletonRowList count={3} />}

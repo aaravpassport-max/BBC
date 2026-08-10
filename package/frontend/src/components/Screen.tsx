@@ -6,14 +6,16 @@ export function Screen({
   eyebrow,
   children,
   footer,
+  withNav = false,
 }: {
   title?: string;
   eyebrow?: string;
   children: ReactNode;
   footer?: ReactNode;
+  withNav?: boolean;
 }) {
   return (
-    <div className={styles.shell}>
+    <div className={`${styles.shell} ${withNav ? styles.withNav : ''}`}>
       <main className={styles.main}>
         {eyebrow && <div className={styles.eyebrow}>{eyebrow}</div>}
         {title && <h1 className={styles.title}>{title}</h1>}

@@ -4,27 +4,15 @@
 }
 
 .perforation {
-  height: 20px;
-  background: repeating-radial-gradient(
-    circle at 12px 10px,
-    var(--bg) 0,
-    var(--bg) 5px,
-    var(--surface) 5px,
-    var(--surface) 6px
-  );
-  background-size: 24px 20px;
-  background-repeat: repeat-x;
-  border-radius: 14px 14px 0 0;
-  border: 1px solid var(--border);
-  border-bottom: none;
-  margin-bottom: -1px;
+  display: none;
 }
 
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 0 0 14px 14px;
+  border-radius: var(--radius-lg);
   padding: 20px 22px 22px;
+  box-shadow: var(--shadow-sm);
 }
 
 .header {
@@ -33,20 +21,18 @@
   align-items: baseline;
   margin-bottom: 14px;
   padding-bottom: 14px;
-  border-bottom: 1px dashed var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
 .label {
-  font-family: var(--font-display);
   font-weight: 700;
   font-size: 13px;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-muted);
 }
 
 .id {
-  font-family: var(--font-mono);
   font-size: 12px;
   color: var(--text-muted);
 }
@@ -61,8 +47,8 @@
 }
 
 .lineValue {
-  font-family: var(--font-mono);
   color: var(--text);
+  font-weight: 500;
 }
 
 .lineEmphasis {
@@ -73,10 +59,9 @@
 }
 
 .lineEmphasis .lineValue {
-  font-family: var(--font-mono);
   font-weight: 700;
   font-size: 20px;
-  color: var(--accent-strong);
+  color: var(--accent);
 }
 
 .lineMuted .lineValue {
@@ -84,6 +69,6 @@
 }
 
 .divider {
-  border-top: 1px dashed var(--border);
+  border-top: 1px solid var(--border);
   margin: 8px 0;
 }

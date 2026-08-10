@@ -2,13 +2,12 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--font-display);
   font-weight: 600;
   font-size: 13px;
-  letter-spacing: 0.02em;
   padding: 8px 14px;
   border-radius: 100px;
   border: 1px solid var(--border);
+  background: var(--surface);
 }
 
 .dot {
@@ -19,8 +18,9 @@
 }
 
 .active {
-  color: var(--accent-strong);
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  color: var(--accent);
+  border-color: #bfdbfe;
+  background: var(--accent-soft);
 }
 
 .active .dot {
@@ -29,19 +29,27 @@
 
 .success {
   color: var(--success);
-  border-color: color-mix(in srgb, var(--success) 40%, var(--border));
+  border-color: #bbf7d0;
+  background: #f0fdf4;
 }
 
 .danger {
   color: var(--danger);
-  border-color: color-mix(in srgb, var(--danger) 40%, var(--border));
+  border-color: #fecaca;
+  background: #fef2f2;
 }
 
 .neutral {
   color: var(--text-muted);
+  background: var(--surface-raised);
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.35; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
 }

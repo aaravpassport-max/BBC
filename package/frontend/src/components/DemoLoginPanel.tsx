@@ -25,9 +25,9 @@ export function DemoLoginPanel() {
       style={{
         marginTop: 16,
         padding: '14px 14px',
-        borderRadius: 10,
-        border: '1px dashed var(--border)',
-        background: 'var(--surface)',
+        borderRadius: 12,
+        border: '1px solid #bfdbfe',
+        background: 'var(--accent-soft)',
         fontSize: 13,
         lineHeight: 1.5,
         color: 'var(--text-muted)',
