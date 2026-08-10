@@ -29,7 +29,7 @@ export const NEGATIVE_RATING_TAGS = ['Unsafe driving', 'Rude', 'Damaged goods', 
 export const PAYMENT_METHODS = [
   { id: 'wallet', label: BRAND.wallet, description: 'Pay from your wallet balance' },
   { id: 'upi', label: 'UPI / Cash', description: 'Pay driver at pickup' },
-  { id: 'card', label: 'Card', description: 'Debit or credit card' },
+  { id: 'card', label: 'Card / UPI', description: 'Pay securely via Razorpay (card, UPI, netbanking)' },
   { id: 'corporate_bill', label: 'Corporate billing', description: 'Bill to your company account' },
 ] as const;
 

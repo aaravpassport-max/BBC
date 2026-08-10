@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { Request } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -24,6 +24,9 @@ import { cmsRouter } from './modules/marketing/cms.routes';
 import { opsRouter } from './modules/ops/ops.routes';
 import { trainingRouter } from './modules/driver/training.routes';
 import { userRouter } from './modules/user/user.routes';
+import { geoRouter } from './modules/geo/geo.routes';
+import { loyaltyRouter } from './modules/loyalty/loyalty.routes';
+import { financeRouter } from './modules/finance/finance.routes';
 
 dotenv.config();
 
@@ -31,7 +34,24 @@ export function createApp() {
   const app = express();
 
   app.use(helmet());
-  app.use(cors());
+  const corsOrigins = process.env.CORS_ORIGIN?.split(',').map((s) => s.trim()).filter(Boolean) ?? [];
+  app.use(cors(corsOrigins.length > 0 ? { origin: corsOrigins } : undefined));
+
+  // Razorpay webhook HMAC must be computed over the raw request body.
+  app.use(
+    '/v1/wallet/webhook',
+    express.raw({ type: 'application/json' }),
+    (req: Request & { rawBody?: string; body: Buffer }, _res, next) => {
+      const raw = req.body?.length ? req.body.toString('utf8') : '';
+      req.rawBody = raw;
+      try {
+        (req as Request & { body: unknown }).body = raw ? JSON.parse(raw) : {};
+      } catch {
+        (req as Request & { body: unknown }).body = {};
+      }
+      next();
+    }
+  );
   app.use(express.json());
 
   // PRD Section 27: rate limiting on every endpoint, especially Auth.
@@ -58,6 +78,9 @@ export function createApp() {
 
   app.use('/v1/auth', authRouter);
   app.use('/v1', userRouter);
+  app.use('/v1/geo', geoRouter);
+  app.use('/v1/loyalty', loyaltyRouter);
+  app.use('/admin/v1/finance', financeRouter);
   app.use('/v1/pricing', pricingRouter);
   app.use('/v1/bookings', bookingRouter);
   app.use('/v1/wallet', walletRouter);

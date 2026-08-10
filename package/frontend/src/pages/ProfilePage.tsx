@@ -72,6 +72,7 @@ export function ProfilePage() {
         <MenuRow icon="🏢" label="Corporate billing" onClick={() => navigate('/corporate')} />
         <MenuRow icon="🔔" label="Notifications" hint="Trip updates and offers" onClick={() => navigate('/notifications')} />
         <MenuRow icon="🎁" label="Refer & earn" hint="Invite friends, earn rewards" onClick={() => navigate('/referral')} />
+        <MenuRow icon="🏆" label="Loyalty points" hint="Earn rewards on every trip" onClick={() => navigate('/loyalty')} />
         <MenuRow icon="⭐" label={BRAND.plus} hint="Membership benefits" onClick={() => navigate('/subscription')} />
         <MenuRow icon="❓" label="Help & support" hint="FAQs and support tickets" onClick={() => navigate('/help')} />
         <MenuRow icon="⚙️" label="Settings" hint="Notification preferences" onClick={() => navigate('/settings')} />

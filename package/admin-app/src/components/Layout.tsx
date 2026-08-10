@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { to: '/fraud-queue', label: 'Fraud Queue' },
   { to: '/support', label: 'Support' },
   { to: '/analytics', label: 'Analytics' },
+  { to: '/settlement', label: 'Settlement' },
   { to: '/marketing', label: 'Marketing' },
   { to: '/rbac', label: 'Roles & Access' },
 ];

@@ -6,6 +6,9 @@ import { requireAuth } from '../../middleware/auth';
 import { Errors } from '../../utils/errors';
 import { getWalletBalance, initiateTopUp, getTransactionHistory, confirmTopUp, confirmTopUpAsCustomer } from './wallet.service';
 import { verifyPaymentSignature, verifyWebhookSignature } from './razorpay.provider';
+import { confirmTripPayment } from '../booking/payment.service';
+import { runDispatchCycle } from '../driver/dispatch.service';
+import { pool } from '../../db/pool';
 
 const addMoneySchema = z.object({
   amount: z.number().positive(),
@@ -99,7 +102,18 @@ walletRouter.post(
     if (event.event === 'payment.captured') {
       const orderId = event.payload?.payment?.entity?.order_id;
       if (orderId) {
-        await confirmTopUp(orderId);
+        const payment = await pool.query(`SELECT method, booking_id FROM payments WHERE gateway_ref = $1`, [orderId]);
+        if (payment.rowCount && payment.rows[0].booking_id) {
+          const result = await confirmTripPayment(orderId);
+          if (result.bookingId) {
+            const booking = await pool.query(`SELECT status FROM bookings WHERE id = $1`, [result.bookingId]);
+            if (booking.rows[0]?.status === 'searching') {
+              void runDispatchCycle(result.bookingId).catch(() => undefined);
+            }
+          }
+        } else {
+          await confirmTopUp(orderId);
+        }
       }
     }
     // Razorpay expects a 200 for any event it doesn't need retried,

@@ -20,6 +20,7 @@ import { NotificationsPage } from './pages/NotificationsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { ReferralPage } from './pages/ReferralPage';
 import { SubscriptionPage } from './pages/SubscriptionPage';
+import { LoyaltyPage } from './pages/LoyaltyPage';
 import { CorporatePage } from './pages/CorporatePage';
 import { AddressesPage } from './pages/AddressesPage';
 import { EditProfilePage } from './pages/EditProfilePage';
@@ -73,6 +74,7 @@ function AppRoutes() {
       <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
       <Route path="/referral" element={<RequireAuth><ReferralPage /></RequireAuth>} />
       <Route path="/subscription" element={<RequireAuth><SubscriptionPage /></RequireAuth>} />
+      <Route path="/loyalty" element={<RequireAuth><LoyaltyPage /></RequireAuth>} />
       <Route path="/profile/edit" element={<RequireAuth><EditProfilePage /></RequireAuth>} />
       <Route path="/addresses" element={<RequireAuth><AddressesPage /></RequireAuth>} />
       <Route path="/corporate" element={<RequireAuth><CorporatePage /></RequireAuth>} />

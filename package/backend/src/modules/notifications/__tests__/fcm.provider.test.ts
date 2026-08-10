@@ -2,7 +2,7 @@ jest.mock('jsonwebtoken', () => ({
   sign: jest.fn(() => 'mock-jwt-assertion'),
 }));
 
-const ORIGINAL_ENV = { ...process.env };
+const FCM_ORIGINAL_ENV = { ...process.env };
 
 const MOCK_SA = {
   client_email: 'fcm@test.iam.gserviceaccount.com',
@@ -10,7 +10,7 @@ const MOCK_SA = {
 };
 
 afterEach(() => {
-  process.env = { ...ORIGINAL_ENV };
+  process.env = { ...FCM_ORIGINAL_ENV };
   jest.restoreAllMocks();
 });
 

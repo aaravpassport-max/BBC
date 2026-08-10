@@ -5,6 +5,7 @@ import { redeemCoupon } from '../pricing/coupon.service';
 import { reserveCorporateSpend, releaseReservationInTransaction, checkPerUserMonthlyCap } from '../corporate/corporate.service';
 import { sendNotification, deriveEventId } from '../notifications/notifications.service';
 import { debitCustomerForBooking, debitCustomerCancellationFee } from '../wallet/wallet.service';
+import { initiateTripPayment } from './payment.service';
 
 export async function createBooking(params: {
   customerId: string;
@@ -22,7 +23,7 @@ export async function createBooking(params: {
   // job that actually triggers dispatch once a scheduled booking's time
   // arrives.
   scheduledFor?: string;
-}): Promise<{ id: string; status: string }> {
+}): Promise<{ id: string; status: string; gateway_session?: Record<string, unknown>; payment_required?: boolean }> {
   const { customerId, quoteId, paymentMethod, idempotencyKey, scheduledFor } = params;
 
   return withTransaction(async (client: PoolClient) => {
@@ -35,7 +36,20 @@ export async function createBooking(params: {
       [customerId, idempotencyKey]
     );
     if (existing.rowCount && existing.rowCount > 0) {
-      return { id: existing.rows[0].id, status: existing.rows[0].status };
+      const existingId = existing.rows[0].id as string;
+      const pending = await client.query(
+        `SELECT gateway_ref FROM payments WHERE booking_id = $1 AND status = 'pending' LIMIT 1`,
+        [existingId]
+      );
+      if (pending.rowCount && pending.rowCount > 0) {
+        return {
+          id: existingId,
+          status: existing.rows[0].status,
+          payment_required: true,
+          gateway_session: { gateway_ref: pending.rows[0].gateway_ref, simulated: !process.env.RAZORPAY_KEY_ID },
+        };
+      }
+      return { id: existingId, status: existing.rows[0].status };
     }
 
     // Lock and validate the quote.
@@ -220,18 +234,15 @@ export async function createBooking(params: {
       await debitCustomerForBooking(client, { customerId, bookingId, amount: fareAmount });
     }
 
-    if (paymentMethod === 'card' || paymentMethod === 'upi') {
-      await client.query(
-        `INSERT INTO payments (gateway_ref, status, amount, method, customer_id)
-         VALUES ($1, 'succeeded', $2, $3, $4)`,
-        [`trip_${bookingId}`, fareAmount, paymentMethod, customerId]
-      );
+    if (paymentMethod === 'card') {
+      const gatewaySession = await initiateTripPayment(client, {
+        customerId,
+        bookingId,
+        amount: fareAmount,
+        method: 'card',
+      });
+      return { ...bookingResult.rows[0], payment_required: true, gateway_session: gatewaySession };
     }
-
-    // In a full implementation, this is where a `BookingCreated` event (PRD
-    // Section 22) is published, which the Dispatch Engine consumes to begin
-    // the offer sequence (PRD Section 4) — modeled as a direct call here for
-    // this reference implementation rather than a real message bus.
 
     return bookingResult.rows[0];
   });

@@ -112,6 +112,25 @@ finished.
 
 ---
 
+## Production environment variables (for your developer)
+
+Set these in Render (or your host) before going live with real customers:
+
+| Variable | Required for | Notes |
+|----------|--------------|-------|
+| `ALLOW_TEST_OTP` | Security | Set to `false` in production |
+| `CORS_ORIGIN` | Web apps | Comma-separated frontend URLs |
+| `RAZORPAY_KEY_ID/SECRET/WEBHOOK_SECRET` | Payments | Wallet top-ups + trip card/UPI payments |
+| `MSG91_*` | OTP SMS | DLT-approved template required |
+| `FCM_PROJECT_ID` + `FCM_SERVICE_ACCOUNT_JSON` | Push | Firebase service account JSON |
+| `GOOGLE_PLACES_API_KEY` | Address search | Server-side proxy; Nominatim fallback if unset |
+| `EXOTEL_*` | Masked calling | Customer ↔ driver calls without exposing numbers |
+| `PLATFORM_GSTIN` + `PLATFORM_LEGAL_NAME` | GST invoices | Server-generated PDF invoices |
+
+Configure the Razorpay webhook URL to `https://your-api.com/v1/wallet/webhook` — the backend verifies signatures using the raw request body.
+
+---
+
 ## If you hire a developer for this part
 
 Hand them exactly this, and it should be a short, well-scoped job:

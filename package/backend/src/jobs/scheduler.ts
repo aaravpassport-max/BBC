@@ -2,6 +2,7 @@ import { pool } from '../db/pool';
 import { sweepExpiredOffers, sweepScheduledBookings } from '../modules/driver/dispatch.service';
 import { sweepUnacknowledgedSos } from '../modules/ops/sos.service';
 import { sweepSubscriptionRenewals } from '../modules/booking/subscription.service';
+import { runLedgerIntegrityCheck } from '../modules/finance/settlement.service';
 
 /**
  * Wraps a job function with the background_job_runs monitoring table
@@ -37,6 +38,7 @@ let sweepIntervalHandle: NodeJS.Timeout | null = null;
 let sosSweepIntervalHandle: NodeJS.Timeout | null = null;
 let scheduledBookingSweepIntervalHandle: NodeJS.Timeout | null = null;
 let subscriptionRenewalIntervalHandle: NodeJS.Timeout | null = null;
+let ledgerIntegrityIntervalHandle: NodeJS.Timeout | null = null;
 
 /**
  * Starts the recurring jobs this reference backend actually needs running:
@@ -86,6 +88,19 @@ export function startBackgroundJobs(): void {
       console.error('Unexpected error in job scheduler:', err);
     });
   }, 3600000);
+
+  // Daily ledger integrity check (PRD Section 6 — cached balances must match ledger sums).
+  ledgerIntegrityIntervalHandle = setInterval(() => {
+    runMonitoredJob('ledger_integrity_check', async () => {
+      const result = await runLedgerIntegrityCheck();
+      if (result.mismatches > 0) {
+        console.error(`LEDGER INTEGRITY ALERT: ${result.mismatches} wallet cache mismatch(es)`);
+      }
+      return result.mismatches;
+    }).catch((err) => {
+      console.error('Unexpected error in job scheduler:', err);
+    });
+  }, 86400000);
 }
 
 export function stopBackgroundJobs(): void {
@@ -104,5 +119,9 @@ export function stopBackgroundJobs(): void {
   if (subscriptionRenewalIntervalHandle) {
     clearInterval(subscriptionRenewalIntervalHandle);
     subscriptionRenewalIntervalHandle = null;
+  }
+  if (ledgerIntegrityIntervalHandle) {
+    clearInterval(ledgerIntegrityIntervalHandle);
+    ledgerIntegrityIntervalHandle = null;
   }
 }

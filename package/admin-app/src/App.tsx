@@ -12,6 +12,7 @@ import { MarketingPage } from './pages/MarketingPage';
 import { RbacPage } from './pages/RbacPage';
 import { KycReviewPage } from './pages/KycReviewPage';
 import { PenaltiesPage } from './pages/PenaltiesPage';
+import { SettlementPage } from './pages/SettlementPage';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -32,6 +33,7 @@ function AppRoutes() {
       <Route path="/fraud-queue" element={<RequireAuth><FraudQueuePage /></RequireAuth>} />
       <Route path="/support" element={<RequireAuth><SupportPage /></RequireAuth>} />
       <Route path="/analytics" element={<RequireAuth><AnalyticsPage /></RequireAuth>} />
+      <Route path="/settlement" element={<RequireAuth><SettlementPage /></RequireAuth>} />
       <Route path="/marketing" element={<RequireAuth><MarketingPage /></RequireAuth>} />
       <Route path="/rbac" element={<RequireAuth><RbacPage /></RequireAuth>} />
       <Route path="*" element={<Navigate to={isAuthenticated ? '/rate-cards' : '/login'} replace />} />

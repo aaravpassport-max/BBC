@@ -5,14 +5,40 @@ import { Button } from '../components/Button';
 import { FareCard, FareCardLine, FareCardDivider } from '../components/FareCard';
 import {
   confirmBooking,
+  verifyBookingPayment,
+  devConfirmBookingPayment,
   getWallet,
   getMyCorporateAccounts,
   ApiError,
+  getErrorMessage,
   type Quote,
   type CorporateAccount,
+  type GatewaySession,
 } from '../api';
-import { PAYMENT_METHODS, type PaymentMethodId } from '../constants/brand';
+import { PAYMENT_METHODS, BRAND, type PaymentMethodId } from '../constants/brand';
 import type { LocationPoint } from '../lib/locations';
+
+const RAZORPAY_SCRIPT_URL = 'https://checkout.razorpay.com/v1/checkout.js';
+
+declare global {
+  interface Window {
+    Razorpay: new (options: Record<string, unknown>) => { open: () => void };
+  }
+}
+
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = RAZORPAY_SCRIPT_URL;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
 
 interface LocationState {
   quote: Quote;
@@ -27,6 +53,37 @@ interface LocationState {
 
 function money(n: number): string {
   return `₹${n.toFixed(2)}`;
+}
+
+async function completeCardPayment(bookingId: string, session: GatewaySession): Promise<void> {
+  if (session.simulated) {
+    await devConfirmBookingPayment(bookingId, session.gateway_ref!);
+    return;
+  }
+
+  const loaded = await loadRazorpayScript();
+  if (!loaded) throw new Error('Could not load the payment provider.');
+
+  await new Promise<void>((resolve, reject) => {
+    const razorpay = new window.Razorpay({
+      key: session.key_id,
+      amount: session.amount,
+      currency: session.currency,
+      order_id: session.order_id,
+      name: BRAND.name,
+      description: 'Trip payment',
+      handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+        try {
+          await verifyBookingPayment(bookingId, response);
+          resolve();
+        } catch (err) {
+          reject(err);
+        }
+      },
+      modal: { ondismiss: () => reject(new Error('Payment cancelled.')) },
+    });
+    razorpay.open();
+  });
 }
 
 export function ConfirmPage() {
@@ -60,7 +117,6 @@ export function ConfirmPage() {
   const { quote, pickup, drops, goodsCategory, weightBand, helperNeeded, scheduledFor } = state;
   const fb = quote.fare_breakdown;
   const hasCorporate = corporateAccounts.length > 0;
-
   const availableMethods = PAYMENT_METHODS.filter((m) => m.id !== 'corporate_bill' || hasCorporate);
 
   async function handleConfirm() {
@@ -68,14 +124,17 @@ export function ConfirmPage() {
     setLoading(true);
     try {
       const booking = await confirmBooking(quote.quote_id, paymentMethod, scheduledFor);
+
+      if (booking.payment_required && booking.gateway_session) {
+        await completeCardPayment(booking.id, booking.gateway_session);
+      }
+
       navigate(`/track/${booking.id}`);
     } catch (err) {
       if (err instanceof ApiError && err.code === 'QUOTE_EXPIRED') {
         setError('This price has expired. Please get a new quote.');
-      } else if (err instanceof ApiError) {
-        setError(err.message);
       } else {
-        setError('Could not confirm your booking. Please try again.');
+        setError(getErrorMessage(err, 'Could not confirm your booking. Please try again.'));
       }
     } finally {
       setLoading(false);
@@ -150,9 +209,6 @@ export function ConfirmPage() {
                       <option key={a.account_id} value={a.account_id}>{a.name}</option>
                     ))}
                   </select>
-                )}
-                {m.id === 'corporate_bill' && hasCorporate && corporateAccounts.length === 1 && (
-                  <div style={{ fontSize: 12, marginTop: 4 }}>Billing to {corporateAccounts[0].name}</div>
                 )}
               </span>
             </label>

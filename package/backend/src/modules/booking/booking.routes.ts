@@ -5,9 +5,14 @@ import { validateBody } from '../../middleware/validate';
 import { requireAuth } from '../../middleware/auth';
 import { Errors } from '../../utils/errors';
 import { createBooking, cancelBooking, getBooking, getBookingDriverLocation, listBookings, previewCancellation } from './booking.service';
+import { confirmTripPaymentAsCustomer } from './payment.service';
+import { generateTripInvoicePdf } from './invoice.service';
 import { runDispatchCycle } from '../driver/dispatch.service';
 import { sendTripMessage, getTripMessages } from './chat.service';
 import { submitRating } from './ratings.service';
+import { verifyPaymentSignature } from '../wallet/razorpay.provider';
+import * as commsProvider from '../comms/comms.provider';
+import { pool } from '../../db/pool';
 
 const createBookingSchema = z.object({
   quote_id: z.string().uuid(),
@@ -30,6 +35,12 @@ const rateBookingSchema = z.object({
   stars: z.number().int().min(1).max(5),
   tags: z.array(z.string()).max(3).optional(),
   comment: z.string().max(500).optional(),
+});
+
+const verifyTripPaymentSchema = z.object({
+  razorpay_order_id: z.string().min(1),
+  razorpay_payment_id: z.string().min(1),
+  razorpay_signature: z.string().min(1),
 });
 
 export const bookingRouter = Router();
@@ -56,7 +67,7 @@ bookingRouter.post(
       idempotencyKey,
       scheduledFor: scheduled_for,
     });
-    if (booking.status === 'searching') {
+    if (!booking.payment_required && booking.status === 'searching') {
       void runDispatchCycle(booking.id).catch(() => undefined);
     }
     res.status(201).json(booking);
@@ -86,17 +97,84 @@ bookingRouter.get(
   })
 );
 
+bookingRouter.post(
+  '/:id/verify-payment',
+  requireAuth,
+  validateBody(verifyTripPaymentSchema),
+  asyncHandler(async (req, res) => {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    const valid = verifyPaymentSignature({
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      signature: razorpay_signature,
+    });
+    if (!valid) {
+      throw Errors.validation({ signature: 'Payment signature verification failed.' });
+    }
+    const result = await confirmTripPaymentAsCustomer(req.user!.userId, razorpay_order_id);
+    res.status(200).json({ confirmed: true, booking_id: result.bookingId });
+  })
+);
+
+bookingRouter.post(
+  '/:id/dev/confirm-payment',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { gateway_ref } = req.body as { gateway_ref?: string };
+    if (!gateway_ref) throw Errors.validation({ gateway_ref: 'Required.' });
+    const result = await confirmTripPaymentAsCustomer(req.user!.userId, gateway_ref);
+    res.status(200).json({ confirmed: true, booking_id: result.bookingId });
+  })
+);
+
+bookingRouter.get(
+  '/:id/invoice.pdf',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const pdf = await generateTripInvoicePdf(req.params.id as string, req.user!.userId);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="invoice-${req.params.id}.pdf"`);
+    res.status(200).send(pdf);
+  })
+);
+
 bookingRouter.get(
   '/:id/call-driver',
   requireAuth,
   asyncHandler(async (req, res) => {
-    const booking = await getBooking(req.params.id as string, req.user!.userId);
+    const bookingId = req.params.id as string;
+    const customerId = req.user!.userId;
+    const booking = await getBooking(bookingId, customerId);
     if (!booking.driver?.phone_masked) {
       throw Errors.validation({ driver: 'No driver assigned to call yet.' });
     }
+
+    const phones = await pool.query(
+      `SELECT cu.phone AS customer_phone, du.phone AS driver_phone, b.driver_id
+       FROM bookings b
+       JOIN users cu ON cu.id = b.customer_id
+       LEFT JOIN users du ON du.id = b.driver_id
+       WHERE b.id = $1 AND b.customer_id = $2`,
+      [bookingId, customerId]
+    );
+    if (phones.rowCount === 0 || !phones.rows[0].driver_phone) {
+      throw Errors.validation({ driver: 'No driver assigned to call yet.' });
+    }
+
+    const call = await commsProvider.initiateMaskedCall({
+      fromPhone: phones.rows[0].customer_phone,
+      toPhone: phones.rows[0].driver_phone,
+    });
+
+    await pool.query(
+      `INSERT INTO call_logs (booking_id, caller_id, callee_id, provider_ref, masked_number, status)
+       VALUES ($1, $2, $3, $4, $5, 'initiated')`,
+      [bookingId, customerId, phones.rows[0].driver_id, call.providerRef ?? null, call.displayNumber]
+    );
+
     res.status(200).json({
-      call_uri: `tel:+91000000${String(booking.driver.id).slice(0, 4)}`,
-      display_number: booking.driver.phone_masked,
+      call_uri: call.callUri,
+      display_number: call.displayNumber,
     });
   })
 );

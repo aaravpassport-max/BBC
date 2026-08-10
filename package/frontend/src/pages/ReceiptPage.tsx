@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
-import { getBooking, getProfile, getErrorMessage, type Booking } from '../api';
+import { getBooking, getProfile, downloadInvoicePdf, getErrorMessage, type Booking } from '../api';
 import { BRAND } from '../constants/brand';
 import { Skeleton } from '../components/Skeleton';
 
@@ -28,6 +28,7 @@ export function ReceiptPage() {
   const [gstin, setGstin] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     if (!bookingId) return;
@@ -104,9 +105,33 @@ export function ReceiptPage() {
           <Button variant="ghost" style={{ width: 'auto', padding: '4px 0' }} onClick={() => navigate(-1)}>
             ← Back
           </Button>
-          <Button style={{ width: 'auto', padding: '8px 18px' }} onClick={() => window.print()}>
-            🖨️ Print / Save as PDF
-          </Button>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button style={{ width: 'auto', padding: '8px 18px' }} onClick={() => window.print()}>
+              🖨️ Print
+            </Button>
+            <Button
+              variant="ghost"
+              style={{ width: 'auto', padding: '8px 18px' }}
+              loading={downloading}
+              onClick={() => {
+                if (!bookingId) return;
+                setDownloading(true);
+                void downloadInvoicePdf(bookingId)
+                  .then((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `invoice-${bookingId.slice(0, 8)}.pdf`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  })
+                  .catch((err) => setError(getErrorMessage(err, 'Could not download GST invoice.')))
+                  .finally(() => setDownloading(false));
+              }}
+            >
+              📄 GST PDF
+            </Button>
+          </div>
         </div>
 
         <div

@@ -124,11 +124,34 @@ export function getQuote(params: {
 }
 
 export function confirmBooking(quoteId: string, paymentMethod: string, scheduledFor?: string) {
-  return api.post<Booking>(
+  return api.post<Booking & { payment_required?: boolean; gateway_session?: GatewaySession }>(
     '/v1/bookings',
     { quote_id: quoteId, payment_method: paymentMethod, scheduled_for: scheduledFor },
     newIdempotencyKey()
   );
+}
+
+export function verifyBookingPayment(
+  bookingId: string,
+  params: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }
+) {
+  return api.post<{ confirmed: boolean; booking_id: string }>(`/v1/bookings/${bookingId}/verify-payment`, params);
+}
+
+export function devConfirmBookingPayment(bookingId: string, gatewayRef: string) {
+  return api.post<{ confirmed: boolean; booking_id: string }>(`/v1/bookings/${bookingId}/dev/confirm-payment`, {
+    gateway_ref: gatewayRef,
+  });
+}
+
+export async function downloadInvoicePdf(bookingId: string): Promise<Blob> {
+  const token = localStorage.getItem('access_token');
+  const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+  const res = await fetch(`${base}/v1/bookings/${bookingId}/invoice.pdf`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new Error('Could not download invoice');
+  return res.blob();
 }
 
 export function getBooking(id: string) {

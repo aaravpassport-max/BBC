@@ -5,6 +5,7 @@ import { processReferralOnTripCompletion } from '../booking/referral.service';
 import { applyScheduledReassignment } from '../fleet/fleet.service';
 import { sendNotification, deriveEventId } from '../notifications/notifications.service';
 import { creditDriverTripEarnings } from '../wallet/wallet.service';
+import { accrueTripPoints } from '../loyalty/loyalty.service';
 
 const MAX_OTP_ATTEMPTS = 3; // PRD 2.2.7 "OTP mismatch 3x -> escalation" edge case
 
@@ -205,6 +206,11 @@ export async function completeStop(params: {
         });
       }
       if (outcome.tripCompleted && outcome.customerId) {
+        if (outcome.finalFare !== undefined) {
+          void accrueTripPoints(outcome.customerId, bookingId, outcome.finalFare).catch((err) =>
+            console.error('Failed to accrue loyalty points:', err)
+          );
+        }
         void sendNotification({
           eventId: deriveEventId(`${bookingId}:completed`),
           userId: outcome.customerId,
