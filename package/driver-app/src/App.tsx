@@ -10,6 +10,7 @@ import { DriverHomePage } from './pages/DriverHomePage';
 import { OfferPage } from './pages/OfferPage';
 import { TripPage } from './pages/TripPage';
 import { EarningsPage } from './pages/EarningsPage';
+import { IncentivesPage } from './pages/IncentivesPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { VehiclePage } from './pages/VehiclePage';
@@ -60,6 +61,7 @@ function AppRoutes() {
       <Route path="/home" element={<AuthenticatedLayout><DriverHomePage /></AuthenticatedLayout>} />
       <Route path="/history" element={<AuthenticatedLayout><HistoryPage /></AuthenticatedLayout>} />
       <Route path="/earnings" element={<AuthenticatedLayout><EarningsPage /></AuthenticatedLayout>} />
+      <Route path="/incentives" element={<AuthenticatedLayout><IncentivesPage /></AuthenticatedLayout>} />
       <Route path="/profile" element={<AuthenticatedLayout><ProfilePage /></AuthenticatedLayout>} />
       <Route path="/profile/edit" element={<RequireAuth><EditProfilePage /></RequireAuth>} />
       <Route path="/vehicle" element={<RequireAuth><VehiclePage /></RequireAuth>} />

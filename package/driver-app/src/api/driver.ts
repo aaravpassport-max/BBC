@@ -3,38 +3,10 @@ import {
   isDemoPhone,
   isDemoOtp,
   isDemoOtpRequest,
-  isDemoSession,
   localDemoAuth,
   localRequestOtp,
   localVerifyOtp,
 } from './demoAuth';
-import {
-  localRegisterAsDriver,
-  localGetKycStatus,
-  localSubmitKycStep,
-  localGetTrainingStatus,
-  localUpdateTrainingProgress,
-  localSubmitTrainingQuiz,
-  localSetOnlineStatus,
-  localUpdateLocation,
-  localGetPendingOffer,
-  localGetActiveJob,
-  localGetTripMessages,
-  localSendTripMessage,
-  localAcceptJob,
-  localDeclineJob,
-  localVerifyPickupOtp,
-  localCompleteStop,
-  localGetWithdrawableBalance,
-  localRequestWithdrawal,
-  localGetEarningsHistory,
-  localListPenalties,
-  localDisputePenalty,
-  localRegisterVehicle,
-  localGetDriverProfile,
-  localListJobHistory,
-  localRateBooking,
-} from './demoDriver';
 import { DEMO_PHONE } from '../config/testCredentials';
 
 export interface KycStepStatus {
@@ -57,6 +29,13 @@ export interface PendingOffer {
   pickup_lng: number;
 }
 
+export interface AddressSnapshot {
+  lat: number;
+  lng: number;
+  formatted?: string;
+  line1?: string;
+}
+
 export interface Stop {
   id: string;
   sequence: number;
@@ -64,6 +43,8 @@ export interface Stop {
   instructions: string | null;
   drop_lat: number;
   drop_lng: number;
+  address_snapshot?: AddressSnapshot;
+  arrived_at?: string | null;
 }
 
 export interface ActiveJob {
@@ -71,7 +52,30 @@ export interface ActiveJob {
   status: string;
   pickup_lat: number;
   pickup_lng: number;
+  pickup_address?: AddressSnapshot;
   stops: Stop[];
+}
+
+export interface DriverDashboard {
+  trips_today: number;
+  active_trips: number;
+  gross_earnings_today: number;
+  wallet_credits_today: number;
+  rating_avg: number | null;
+  rating_count: number;
+  online_status: boolean;
+}
+
+export interface DriverIncentive {
+  id: string;
+  title: string;
+  description: string;
+  bonus_amount: number;
+  target: number;
+  progress: number;
+  remaining: number;
+  completed: boolean;
+  period: string;
 }
 
 // ---------- Auth (shared OTP flow with the Customer app's contract) ----------
@@ -109,17 +113,14 @@ export function demoLogin(phone: string, deviceId: string) {
 // ---------- KYC (PRD 3.2) ----------
 
 export function registerAsDriver() {
-  if (isDemoSession()) return localRegisterAsDriver();
   return api.post<{ registered: boolean }>('/v1/driver/kyc/register');
 }
 
 export function getKycStatus() {
-  if (isDemoSession()) return localGetKycStatus();
   return api.get<KycStatus>('/v1/driver/kyc/status');
 }
 
 export function submitKycStep(step: string, documentUrl: string) {
-  if (isDemoSession()) return localSubmitKycStep();
   return api.post<{ submitted: boolean }>(`/v1/driver/kyc/${step}`, { document_url: documentUrl });
 }
 
@@ -136,41 +137,42 @@ export interface TrainingStatus {
 }
 
 export function getTrainingStatus() {
-  if (isDemoSession()) return localGetTrainingStatus();
   return api.get<TrainingStatus>('/v1/driver/training/modules');
 }
 
 export function updateTrainingProgress(watchedPct: number) {
-  if (isDemoSession()) return localUpdateTrainingProgress(watchedPct);
   return api.post<TrainingStatus>('/v1/driver/training/platform_basics/progress', { watched_pct: watchedPct });
 }
 
 export function submitTrainingQuiz(answers: number[]) {
-  if (isDemoSession()) return localSubmitTrainingQuiz();
   return api.post<{ passed: boolean; scorePct: number; status: string }>(
     '/v1/driver/training/platform_basics/quiz-submit',
     { answers }
   );
 }
 
-export function setOnlineStatus(online: boolean) {
-  if (isDemoSession()) return localSetOnlineStatus(online);
-  return api.post<{ online: boolean }>('/v1/driver/status', { online });
+export function setOnlineStatus(online: boolean, offlineReason?: string) {
+  return api.post<{ online: boolean }>('/v1/driver/status', { online, offline_reason: offlineReason });
 }
 
 export function updateLocation(lat: number, lng: number) {
-  if (isDemoSession()) return localUpdateLocation();
   return api.post<{ acknowledged: boolean }>('/v1/driver/location', { lat, lng });
 }
 
 export function getPendingOffer() {
-  if (isDemoSession()) return localGetPendingOffer();
   return api.get<PendingOffer | null>('/v1/driver/jobs/pending-offer');
 }
 
 export function getActiveJob() {
-  if (isDemoSession()) return localGetActiveJob();
   return api.get<ActiveJob | null>('/v1/driver/jobs/active');
+}
+
+export function getDriverDashboard() {
+  return api.get<DriverDashboard>('/v1/driver/dashboard');
+}
+
+export function getActiveIncentives() {
+  return api.get<{ items: DriverIncentive[] }>('/v1/driver/incentives/active');
 }
 
 export interface TripMessage {
@@ -182,32 +184,34 @@ export interface TripMessage {
 }
 
 export function getTripMessages(bookingId: string) {
-  if (isDemoSession()) return localGetTripMessages();
   return api.get<TripMessage[]>(`/v1/bookings/${bookingId}/messages`);
 }
 
 export function sendTripMessage(bookingId: string, body: string) {
-  if (isDemoSession()) return localSendTripMessage();
   return api.post<{ id: string; senderRole: string; createdAt: string }>(`/v1/bookings/${bookingId}/messages`, { body });
 }
 
 export function acceptJob(offerId: string) {
-  if (isDemoSession()) return localAcceptJob();
   return api.post<{ bookingId: string }>(`/v1/driver/jobs/${offerId}/accept`);
 }
 
 export function declineJob(offerId: string) {
-  if (isDemoSession()) return localDeclineJob();
   return api.post<{ declined: boolean }>(`/v1/driver/jobs/${offerId}/decline`);
 }
 
+export function arriveAtPickup(bookingId: string) {
+  return api.post<{ notified: boolean }>(`/v1/driver/jobs/${bookingId}/arrive-pickup`);
+}
+
+export function arriveAtStop(bookingId: string, stopId: string) {
+  return api.post<{ status: string }>(`/v1/driver/jobs/${bookingId}/stops/${stopId}/arrive`);
+}
+
 export function verifyPickupOtp(bookingId: string, otp: string) {
-  if (isDemoSession()) return localVerifyPickupOtp();
   return api.post<{ status: string }>(`/v1/driver/jobs/${bookingId}/verify-pickup`, { otp });
 }
 
 export function completeStop(bookingId: string, stopId: string, otp: string) {
-  if (isDemoSession()) return localCompleteStop();
   return api.post<{ bookingStatus: string; tripCompleted: boolean }>(
     `/v1/driver/jobs/${bookingId}/stops/${stopId}/complete`,
     { otp }
@@ -215,12 +219,10 @@ export function completeStop(bookingId: string, stopId: string, otp: string) {
 }
 
 export function getWithdrawableBalance() {
-  if (isDemoSession()) return localGetWithdrawableBalance();
   return api.get<{ available: number; held: number }>('/v1/driver/wallet/withdrawable');
 }
 
 export function requestWithdrawal(amount: number, mode: 'instant' | 'standard') {
-  if (isDemoSession()) return localRequestWithdrawal(amount);
   return api.post<{ id: string; status: string }>(
     '/v1/driver/wallet/withdraw',
     { amount, mode },
@@ -239,29 +241,24 @@ export interface EarningsTransaction {
 }
 
 export function getEarningsHistory() {
-  if (isDemoSession()) return localGetEarningsHistory();
   return api.get<EarningsTransaction[]>('/v1/driver/wallet/transactions');
 }
 
 export function listPenalties() {
-  if (isDemoSession()) return localListPenalties();
   return api.get<
     { id: string; amount: number; reason_code: string; status: string; dispute_note: string | null }[]
   >('/v1/driver/penalties');
 }
 
 export function disputePenalty(penaltyId: string, note: string) {
-  if (isDemoSession()) return localDisputePenalty();
   return api.post<{ disputed: boolean }>(`/v1/driver/penalties/${penaltyId}/dispute`, { note });
 }
 
 export function registerVehicle(category: string, plateNumber: string) {
-  if (isDemoSession()) return localRegisterVehicle();
   return api.post<{ id: string }>('/v1/driver/vehicles', { category, plate_number: plateNumber });
 }
 
 export function getDriverProfile() {
-  if (isDemoSession()) return localGetDriverProfile();
   return api.get<{
     id: string;
     name: string | null;
@@ -277,7 +274,6 @@ export function getDriverProfile() {
 }
 
 export function updateDriverProfile(data: { name?: string; email?: string | null }) {
-  if (isDemoSession()) return localGetDriverProfile();
   return api.put<{
     id: string;
     name: string | null;
@@ -288,14 +284,12 @@ export function updateDriverProfile(data: { name?: string; email?: string | null
 }
 
 export function listJobHistory(page = 1, pageSize = 20) {
-  if (isDemoSession()) return localListJobHistory();
   return api.get<{ items: { id: string; status: string; fare_breakdown: { final_fare: number }; created_at: string }[]; page: number }>(
     `/v1/driver/jobs/history?page=${page}&page_size=${pageSize}`
   );
 }
 
 export function rateBooking(bookingId: string, stars: number, tags: string[], comment?: string) {
-  if (isDemoSession()) return localRateBooking();
   return api.post<{ isLate: boolean; safetyFlagRaised: boolean }>(`/v1/bookings/${bookingId}/rate`, {
     stars,
     tags,
@@ -304,6 +298,5 @@ export function rateBooking(bookingId: string, stars: number, tags: string[], co
 }
 
 export function callCustomer(bookingId: string) {
-  if (isDemoSession()) return Promise.resolve({ call_uri: 'tel:+919000000001', display_number: '+91 90000 00001' });
   return api.get<{ call_uri: string; display_number: string }>(`/v1/driver/jobs/${bookingId}/call-customer`);
 }

@@ -70,6 +70,7 @@ export function ProfilePage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <MenuRow icon="📍" label="Saved addresses" onClick={() => navigate('/addresses')} />
         <MenuRow icon="🏢" label="Corporate billing" onClick={() => navigate('/corporate')} />
+        <MenuRow icon="🛡️" label="Safety center" hint="SOS, OTP tips, and trip safety" onClick={() => navigate('/safety')} />
         <MenuRow icon="🔔" label="Notifications" hint="Trip updates and offers" onClick={() => navigate('/notifications')} />
         <MenuRow icon="🎁" label="Refer & earn" hint="Invite friends, earn rewards" onClick={() => navigate('/referral')} />
         <MenuRow icon="🏆" label="Loyalty points" hint="Earn rewards on every trip" onClick={() => navigate('/loyalty')} />

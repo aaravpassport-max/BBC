@@ -6,8 +6,106 @@ import { applyScheduledReassignment } from '../fleet/fleet.service';
 import { sendNotification, deriveEventId } from '../notifications/notifications.service';
 import { creditDriverTripEarnings } from '../wallet/wallet.service';
 import { accrueTripPoints } from '../loyalty/loyalty.service';
+import { pool } from '../../db/pool';
 
 const MAX_OTP_ATTEMPTS = 3; // PRD 2.2.7 "OTP mismatch 3x -> escalation" edge case
+
+/**
+ * Driver taps "I've arrived" at pickup — notifies the customer without
+ * exposing OTP or changing trip state (still driver_assigned until OTP verified).
+ */
+export async function arriveAtPickup(params: {
+  bookingId: string;
+  driverId: string;
+}): Promise<{ notified: boolean }> {
+  const { bookingId, driverId } = params;
+  const booking = await pool.query(
+    `SELECT customer_id, status, driver_id FROM bookings WHERE id = $1`,
+    [bookingId]
+  );
+  if (booking.rowCount === 0 || booking.rows[0].driver_id !== driverId) {
+    throw Errors.notFound('Booking');
+  }
+  if (booking.rows[0].status !== 'driver_assigned') {
+    throw Errors.validation({ booking: 'Arrival can only be marked while heading to pickup.' });
+  }
+
+  void sendNotification({
+    eventId: deriveEventId(`${bookingId}:driver_arrived_pickup`),
+    userId: booking.rows[0].customer_id,
+    category: 'trip_updates',
+    channel: 'push',
+    templateId: 'driver_arrived',
+  }).catch((err) => console.error('Failed to notify customer of driver arrival:', err));
+
+  return { notified: true };
+}
+
+/**
+ * Driver marks arrival at a drop stop before OTP handoff (PRD 3B.1).
+ */
+export async function arriveAtStop(params: {
+  bookingId: string;
+  stopId: string;
+  driverId: string;
+}): Promise<{ status: string }> {
+  const { bookingId, stopId, driverId } = params;
+
+  const outcome = await withTransaction(async (client) => {
+    const bookingResult = await client.query(
+      `SELECT status, driver_id FROM bookings WHERE id = $1 FOR UPDATE`,
+      [bookingId]
+    );
+    if (bookingResult.rowCount === 0 || bookingResult.rows[0].driver_id !== driverId) {
+      return { kind: 'not_found' as const };
+    }
+    if (bookingResult.rows[0].status !== 'in_progress') {
+      return { kind: 'wrong_state' as const, status: bookingResult.rows[0].status };
+    }
+
+    const stopResult = await client.query(
+      `SELECT id, sequence, status FROM booking_stops WHERE id = $1 AND booking_id = $2 FOR UPDATE`,
+      [stopId, bookingId]
+    );
+    if (stopResult.rowCount === 0) {
+      return { kind: 'not_found' as const };
+    }
+    const stop = stopResult.rows[0];
+    if (stop.status === 'completed') {
+      return { kind: 'already_done' as const };
+    }
+    if (stop.status === 'arrived') {
+      return { kind: 'success' as const };
+    }
+
+    const earlierPending = await client.query(
+      `SELECT count(*) FROM booking_stops WHERE booking_id = $1 AND sequence < $2 AND status NOT IN ('completed', 'arrived')`,
+      [bookingId, stop.sequence]
+    );
+    if (parseInt(earlierPending.rows[0].count, 10) > 0) {
+      return { kind: 'out_of_sequence' as const };
+    }
+
+    await client.query(
+      `UPDATE booking_stops SET status = 'arrived', arrived_at = now() WHERE id = $1`,
+      [stopId]
+    );
+    return { kind: 'success' as const };
+  });
+
+  switch (outcome.kind) {
+    case 'success':
+      return { status: 'arrived' };
+    case 'not_found':
+      throw Errors.notFound('Booking or stop');
+    case 'wrong_state':
+      throw Errors.validation({ booking: `Cannot mark arrival while booking is ${outcome.status}.` });
+    case 'already_done':
+      throw Errors.validation({ stop: 'This stop is already completed.' });
+    case 'out_of_sequence':
+      throw Errors.validation({ stop: 'Complete or arrive at earlier stops first.' });
+  }
+}
 
 /**
  * Driver confirms arrival + verifies the customer-read pickup OTP (PRD

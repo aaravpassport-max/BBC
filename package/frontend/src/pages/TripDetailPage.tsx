@@ -6,6 +6,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { FareCard, FareCardLine, FareCardDivider } from '../components/FareCard';
 import { RatingPanel } from '../components/RatingPanel';
 import { getBooking, rateBooking, getErrorMessage, type Booking } from '../api';
+import { formatAddress } from '../lib/address';
 
 const ACTIVE_STATUSES = new Set(['scheduled', 'searching', 'driver_assigned', 'in_progress']);
 
@@ -62,6 +63,23 @@ export function TripDetailPage() {
       <StatusBadge status={booking.status} />
       <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{new Date(booking.created_at).toLocaleString()}</div>
 
+      <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 14, background: 'var(--surface)' }}>
+        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Route</div>
+        <div style={{ fontSize: 14, marginBottom: 8 }}>
+          <span style={{ color: 'var(--success)', fontWeight: 600 }}>Pickup · </span>
+          {formatAddress(booking.pickup_address)}
+        </div>
+        {booking.stops?.map((s, i) => (
+          <div key={s.id} style={{ fontSize: 14, marginBottom: 4 }}>
+            <span style={{ color: 'var(--accent)', fontWeight: 600 }}>Drop {i + 1} · </span>
+            {formatAddress(s.address_snapshot)}
+            <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 6 }}>
+              ({s.status.replace(/_/g, ' ')})
+            </span>
+          </div>
+        ))}
+      </div>
+
       {booking.driver && (
         <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 14, background: 'var(--surface)' }}>
           <div style={{ fontWeight: 600 }}>{booking.driver.name}</div>
@@ -71,17 +89,6 @@ export function TripDetailPage() {
               {booking.driver.vehicle.plate} · {booking.driver.vehicle.category.replace(/_/g, ' ')}
             </div>
           )}
-        </div>
-      )}
-
-      {booking.stops && booking.stops.length > 0 && (
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Stops</div>
-          {booking.stops.map((s, i) => (
-            <div key={s.id} style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 4 }}>
-              Drop {i + 1}: {s.status.replace(/_/g, ' ')}
-            </div>
-          ))}
         </div>
       )}
 

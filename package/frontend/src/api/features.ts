@@ -208,3 +208,15 @@ export function triggerSos(bookingId: string, lat?: number, lng?: number) {
     lng,
   });
 }
+
+// ---------- Geo ----------
+
+export interface ServiceabilityResult {
+  serviceable: boolean;
+  zone_name?: string;
+  city_name?: string;
+}
+
+export function checkServiceability(lat: number, lng: number) {
+  return api.get<ServiceabilityResult>(`/v1/geo/serviceability?lat=${lat}&lng=${lng}`);
+}

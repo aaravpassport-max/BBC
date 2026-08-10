@@ -7,7 +7,7 @@ import { Skeleton } from '../components/Skeleton';
 import { TripChat } from '../components/TripChat';
 import { LiveMap } from '../components/LiveMap';
 import { POSITIVE_RATING_TAGS, NEGATIVE_RATING_TAGS } from '../constants/brand';
-import { getActiveJob, verifyPickupOtp, completeStop, rateBooking, triggerSos, callCustomer, getErrorMessage, type ActiveJob } from '../api';
+import { getActiveJob, verifyPickupOtp, completeStop, arriveAtPickup, arriveAtStop, rateBooking, triggerSos, callCustomer, getErrorMessage, type ActiveJob } from '../api';
 import { Geolocation } from '@capacitor/geolocation';
 
 // Deep-links to the device's own maps app rather than embedding a routing
@@ -32,6 +32,7 @@ export function TripPage() {
   const [ratingStars, setRatingStars] = useState(0);
   const [ratingTags, setRatingTags] = useState<string[]>([]);
   const [tripDone, setTripDone] = useState(false);
+  const [arrivedPickup, setArrivedPickup] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -54,6 +55,34 @@ export function TripPage() {
 
   const nextStop = job?.stops.find((s) => s.status !== 'completed');
   const awaitingPickup = job?.status === 'driver_assigned';
+
+  async function handleArrivePickup() {
+    if (!bookingId) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      await arriveAtPickup(bookingId);
+      setArrivedPickup(true);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not mark arrival.'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleArriveStop() {
+    if (!bookingId || !nextStop) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      await arriveAtStop(bookingId, nextStop.id);
+      await refresh();
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not mark arrival.'));
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function handleVerifyPickup() {
     if (!bookingId) return;
@@ -163,6 +192,21 @@ export function TripPage() {
       >
         🧭 Navigate to {awaitingPickup ? 'pickup' : `stop ${nextStop?.sequence}`}
       </Button>
+
+      {awaitingPickup && !arrivedPickup && (
+        <Button variant="ghost" onClick={() => void handleArrivePickup()} loading={submitting}>
+          📍 I&apos;ve arrived at pickup
+        </Button>
+      )}
+      {awaitingPickup && arrivedPickup && (
+        <p style={{ fontSize: 13, color: 'var(--success)', textAlign: 'center' }}>Customer notified of your arrival</p>
+      )}
+
+      {!awaitingPickup && nextStop && nextStop.status === 'pending' && (
+        <Button variant="ghost" onClick={() => void handleArriveStop()} loading={submitting}>
+          📍 I&apos;ve arrived at stop {nextStop.sequence}
+        </Button>
+      )}
 
       {bookingId && (
         <Button

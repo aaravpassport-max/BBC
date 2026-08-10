@@ -12,7 +12,8 @@ import {
   getPendingOffer,
   getActiveJob,
   updateLocation,
-  getEarningsHistory,
+  getDriverDashboard,
+  getActiveIncentives,
   getDriverProfile,
   ApiError,
   getErrorMessage,
@@ -30,6 +31,8 @@ export function DriverHomePage() {
   const [error, setError] = useState('');
   const [checkingKyc, setCheckingKyc] = useState(true);
   const [todayEarnings, setTodayEarnings] = useState(0);
+  const [tripsToday, setTripsToday] = useState(0);
+  const [incentiveRemaining, setIncentiveRemaining] = useState<number | null>(null);
   const [hasVehicle, setHasVehicle] = useState(true);
   const [driverLoc, setDriverLoc] = useState(FALLBACK_LOCATION);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -63,13 +66,16 @@ export function DriverHomePage() {
 
   useEffect(() => {
     void checkKycThenLoad();
-    getEarningsHistory()
-      .then((txns) => {
-        const today = new Date().toDateString();
-        const sum = txns
-          .filter((t) => t.entry_type === 'credit' && new Date(t.created_at).toDateString() === today)
-          .reduce((s, t) => s + parseFloat(t.amount), 0);
-        setTodayEarnings(sum);
+    getDriverDashboard()
+      .then((d) => {
+        setTodayEarnings(d.wallet_credits_today || d.gross_earnings_today);
+        setTripsToday(d.trips_today);
+      })
+      .catch(() => undefined);
+    getActiveIncentives()
+      .then((r) => {
+        const first = r.items[0];
+        if (first && !first.completed) setIncentiveRemaining(first.remaining);
       })
       .catch(() => undefined);
   }, [checkKycThenLoad]);
@@ -168,8 +174,36 @@ export function DriverHomePage() {
             boxShadow: 'var(--shadow-sm)',
           }}
         >
-          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Today&apos;s earnings</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--accent-strong)' }}>₹{todayEarnings.toFixed(0)}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Today&apos;s earnings</div>
+              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-strong)' }}>₹{todayEarnings.toFixed(0)}</div>
+            </div>
+            <div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Trips today</div>
+              <div style={{ fontSize: 24, fontWeight: 700 }}>{tripsToday}</div>
+            </div>
+          </div>
+          {incentiveRemaining != null && incentiveRemaining > 0 && (
+            <button
+              type="button"
+              onClick={() => navigate('/incentives')}
+              style={{
+                marginTop: 14,
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: 10,
+                border: '1px solid var(--accent)',
+                background: 'var(--accent-soft)',
+                color: 'var(--accent-strong)',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              🎯 {incentiveRemaining} more trip{incentiveRemaining === 1 ? '' : 's'} for today&apos;s bonus
+            </button>
+          )}
         </div>
 
         <div

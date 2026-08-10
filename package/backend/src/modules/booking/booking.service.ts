@@ -366,6 +366,7 @@ export async function previewCancellation(bookingId: string, customerId: string)
 export async function getBooking(bookingId: string, customerId: string) {
   const result = await pool.query(
     `SELECT b.id, b.status, b.vehicle_category_id, b.fare_breakdown, b.driver_id, b.created_at, b.pickup_otp,
+            b.pickup_address_snapshot,
             ST_X(b.pickup_geo::geometry) AS pickup_lng, ST_Y(b.pickup_geo::geometry) AS pickup_lat,
             du.name AS driver_name, du.phone AS driver_phone,
             dp.rating_avg AS driver_rating,
@@ -384,8 +385,8 @@ export async function getBooking(bookingId: string, customerId: string) {
 
   const row = result.rows[0];
   const stopsResult = await pool.query(
-    `SELECT id, sequence, status, otp_code, instructions,
-            ST_X(drop_geo::geometry) AS drop_lng, ST_Y(drop_geo::geometry) AS drop_lat
+    `SELECT id, sequence, status, otp_code, instructions, address_snapshot, arrived_at,
+            ST_X(geo::geometry) AS drop_lng, ST_Y(geo::geometry) AS drop_lat
      FROM booking_stops WHERE booking_id = $1 ORDER BY sequence`,
     [bookingId]
   );
@@ -404,6 +405,7 @@ export async function getBooking(bookingId: string, customerId: string) {
     pickup_otp: row.pickup_otp,
     pickup_lat: row.pickup_lat,
     pickup_lng: row.pickup_lng,
+    pickup_address: row.pickup_address_snapshot,
     driver: row.driver_id
       ? {
           id: row.driver_id,
@@ -475,12 +477,28 @@ export async function listBookings(params: {
   const limitOffsetIndex = status ? 3 : 2;
 
   const result = await pool.query(
-    `SELECT id, status, fare_breakdown, driver_id, created_at
-     FROM bookings
-     WHERE customer_id = $1 ${whereClause}
-     ORDER BY created_at DESC
+    `SELECT b.id, b.status, b.fare_breakdown, b.driver_id, b.created_at, b.vehicle_category_id,
+            b.pickup_address_snapshot,
+            ST_X(b.pickup_geo::geometry) AS pickup_lng, ST_Y(b.pickup_geo::geometry) AS pickup_lat,
+            (SELECT address_snapshot FROM booking_stops WHERE booking_id = b.id ORDER BY sequence LIMIT 1) AS first_drop_address,
+            (SELECT count(*)::int FROM booking_stops WHERE booking_id = b.id) AS stop_count
+     FROM bookings b
+     WHERE b.customer_id = $1 ${whereClause}
+     ORDER BY b.created_at DESC
      LIMIT $${limitOffsetIndex} OFFSET $${limitOffsetIndex + 1}`,
     args
   );
-  return result.rows;
+  return result.rows.map((row) => ({
+    id: row.id,
+    status: row.status,
+    fare_breakdown: row.fare_breakdown,
+    driver_id: row.driver_id,
+    created_at: row.created_at,
+    vehicle_category_id: row.vehicle_category_id,
+    pickup_address: row.pickup_address_snapshot,
+    pickup_lat: row.pickup_lat,
+    pickup_lng: row.pickup_lng,
+    first_drop_address: row.first_drop_address,
+    stop_count: row.stop_count,
+  }));
 }

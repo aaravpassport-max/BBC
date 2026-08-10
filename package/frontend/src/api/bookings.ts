@@ -41,6 +41,8 @@ export interface Stop {
   instructions: string | null;
   drop_lat?: number;
   drop_lng?: number;
+  address_snapshot?: { lat?: number; lng?: number; formatted?: string; line1?: string };
+  arrived_at?: string | null;
 }
 
 export interface DriverInfo {
@@ -67,6 +69,9 @@ export interface Booking {
   pickup_otp?: string;
   pickup_lat?: number;
   pickup_lng?: number;
+  pickup_address?: { lat?: number; lng?: number; formatted?: string; line1?: string };
+  first_drop_address?: { lat?: number; lng?: number; formatted?: string; line1?: string };
+  stop_count?: number;
   stops?: Stop[];
 }
 

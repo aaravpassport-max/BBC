@@ -5,6 +5,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { SkeletonRowList } from '../components/Skeleton';
 import { Button } from '../components/Button';
 import { listBookings, getErrorMessage, type Booking } from '../api';
+import { formatAddress } from '../lib/address';
 
 const FILTERS = [
   { id: 'all', label: 'All' },
@@ -116,6 +117,10 @@ export function HistoryPage() {
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
                   {new Date(b.created_at).toLocaleString()}
+                </div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, maxWidth: 200 }}>
+                  {formatAddress(b.pickup_address, 'Pickup')} → {formatAddress(b.first_drop_address, 'Drop')}
+                  {(b.stop_count ?? 0) > 1 ? ` (+${(b.stop_count ?? 1) - 1} more)` : ''}
                 </div>
                 <div style={{ fontSize: 13, marginTop: 4, textTransform: 'capitalize' }}>
                   {b.vehicle_category_id?.replace(/_/g, ' ') || 'Delivery'}

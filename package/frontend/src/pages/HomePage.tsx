@@ -7,7 +7,8 @@ import { PromoBanners } from '../components/PromoBanners';
 import { LocationPicker } from '../components/LocationPicker';
 import { MapPicker } from '../components/MapPicker';
 import { LiveMap } from '../components/LiveMap';
-import { getQuote, getErrorMessage, listAddresses, getLoyaltySummary, type Quote } from '../api';
+import { getQuote, getErrorMessage, listAddresses, getLoyaltySummary, listBookings, type Quote } from '../api';
+import { checkServiceability } from '../api/features';
 import { PRESET_LOCATIONS, sameLocation, type LocationPoint } from '../lib/locations';
 import type { SavedAddress } from '../api/profile';
 import styles from './HomePage.module.css';
@@ -27,6 +28,8 @@ const WEIGHT_BANDS = [
   { id: 'bulk', label: 'Bulk (500+ kg)' },
 ];
 
+const ACTIVE_STATUSES = new Set(['scheduled', 'searching', 'driver_assigned', 'in_progress']);
+
 export function HomePage() {
   const navigate = useNavigate();
   const [pickup, setPickup] = useState<LocationPoint | null>(PRESET_LOCATIONS[0]);
@@ -44,6 +47,9 @@ export function HomePage() {
   const [couponCode, setCouponCode] = useState('');
   const [loyaltyBalance, setLoyaltyBalance] = useState(0);
   const [loyaltyToRedeem, setLoyaltyToRedeem] = useState(0);
+  const [activeTripId, setActiveTripId] = useState<string | null>(null);
+  const [serviceable, setServiceable] = useState<boolean | null>(null);
+  const [serviceCity, setServiceCity] = useState<string | null>(null);
 
   const minScheduleValue = new Date(Date.now() + 35 * 60 * 1000).toISOString().slice(0, 16);
   const maxScheduleValue = new Date(Date.now() + 6.5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
@@ -55,11 +61,37 @@ export function HomePage() {
     getLoyaltySummary()
       .then((s) => setLoyaltyBalance(s.balance))
       .catch(() => undefined);
+    listBookings({ page: 1, page_size: 5 })
+      .then((res) => {
+        const active = res.items.find((b) => ACTIVE_STATUSES.has(b.status));
+        if (active) setActiveTripId(active.id);
+      })
+      .catch(() => undefined);
   }, []);
 
   useEffect(() => {
     void Geolocation.requestPermissions().catch(() => undefined);
+    void Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 })
+      .then((pos) => {
+        const loc: LocationPoint = {
+          label: 'Current location',
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        };
+        setPickup(loc);
+      })
+      .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    if (!pickup) return;
+    checkServiceability(pickup.lat, pickup.lng)
+      .then((r) => {
+        setServiceable(r.serviceable);
+        setServiceCity(r.city_name ?? null);
+      })
+      .catch(() => setServiceable(null));
+  }, [pickup?.lat, pickup?.lng]);
 
   async function handleGetQuote() {
     setError('');
@@ -69,6 +101,10 @@ export function HomePage() {
     }
     if (drops.some((d) => sameLocation(pickup, d))) {
       setError('Pickup and drop cannot be the same.');
+      return;
+    }
+    if (serviceable === false) {
+      setError('Pickup is outside our service area. Try a different location.');
       return;
     }
     setLoading(true);
@@ -121,8 +157,39 @@ export function HomePage() {
     <div className={styles.page}>
       <PortMyStuffHeader />
       <div className={styles.body}>
+        {activeTripId && (
+          <button
+            type="button"
+            onClick={() => navigate(`/track/${activeTripId}`)}
+            style={{
+              width: '100%',
+              marginBottom: 12,
+              padding: '14px 16px',
+              borderRadius: 12,
+              border: '1px solid var(--accent)',
+              background: 'var(--accent-soft)',
+              color: 'var(--accent-strong)',
+              fontWeight: 600,
+              fontSize: 14,
+              cursor: 'pointer',
+              textAlign: 'left',
+            }}
+          >
+            🚚 Active trip in progress — tap to track
+          </button>
+        )}
         <PromoBanners />
         <div className={styles.card}>
+          {serviceable === false && (
+            <p style={{ color: 'var(--danger)', fontSize: 13, margin: '0 0 12px' }}>
+              This pickup location is outside our service area.
+            </p>
+          )}
+          {serviceable && serviceCity && (
+            <p style={{ color: 'var(--success)', fontSize: 13, margin: '0 0 12px' }}>
+              ✓ Serviceable in {serviceCity}
+            </p>
+          )}
           {pickup && drops.length > 0 && (
             <LiveMap pickup={pickup} drops={drops} driver={null} />
           )}

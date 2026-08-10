@@ -54,6 +54,15 @@ export function LoyaltyPage() {
       )}
 
       <div style={{ marginTop: 24 }}>
+        <h2 style={{ fontSize: 15, marginBottom: 12 }}>How to redeem</h2>
+        <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 14, background: 'var(--surface)', fontSize: 13, color: 'var(--text-muted)' }}>
+          <p style={{ margin: '0 0 8px' }}>• Earn 1 point for every ₹10 spent on completed trips</p>
+          <p style={{ margin: '0 0 8px' }}>• Redeem points at checkout — 10 points = ₹1 off your fare</p>
+          <p style={{ margin: 0 }}>• Higher tiers unlock better redemption rates in future releases</p>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 24 }}>
         <h2 style={{ fontSize: 15, marginBottom: 12 }}>Points history</h2>
         {history === null && !error && <SkeletonRowList count={3} />}
         {history && history.length === 0 && (

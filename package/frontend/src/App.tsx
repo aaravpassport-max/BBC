@@ -22,6 +22,7 @@ import { ReferralPage } from './pages/ReferralPage';
 import { SubscriptionPage } from './pages/SubscriptionPage';
 import { LoyaltyPage } from './pages/LoyaltyPage';
 import { InvoicesPage } from './pages/InvoicesPage';
+import { SafetyPage } from './pages/SafetyPage';
 import { CorporatePage } from './pages/CorporatePage';
 import { AddressesPage } from './pages/AddressesPage';
 import { EditProfilePage } from './pages/EditProfilePage';
@@ -77,6 +78,7 @@ function AppRoutes() {
       <Route path="/subscription" element={<RequireAuth><SubscriptionPage /></RequireAuth>} />
       <Route path="/loyalty" element={<RequireAuth><LoyaltyPage /></RequireAuth>} />
       <Route path="/invoices" element={<AuthenticatedLayout><InvoicesPage /></AuthenticatedLayout>} />
+      <Route path="/safety" element={<RequireAuth><SafetyPage /></RequireAuth>} />
       <Route path="/profile/edit" element={<RequireAuth><EditProfilePage /></RequireAuth>} />
       <Route path="/addresses" element={<RequireAuth><AddressesPage /></RequireAuth>} />
       <Route path="/corporate" element={<RequireAuth><CorporatePage /></RequireAuth>} />

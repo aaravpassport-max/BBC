@@ -229,7 +229,7 @@ export async function getMyPendingOffer(driverId: string) {
  * the server validates it server-side without ever exposing the answer. */
 export async function getMyActiveJob(driverId: string) {
   const result = await pool.query(
-    `SELECT id, status,
+    `SELECT id, status, pickup_address_snapshot,
             ST_X(pickup_geo::geometry) AS pickup_lng, ST_Y(pickup_geo::geometry) AS pickup_lat
      FROM bookings
      WHERE driver_id = $1 AND status IN ('driver_assigned', 'in_progress')
@@ -238,17 +238,13 @@ export async function getMyActiveJob(driverId: string) {
   );
   if (result.rowCount === 0) return null;
 
-  // P1 gap-analysis item (turn-by-turn navigation): drop coordinates were
-  // always stored (booking_stops.geo) but never queried here — the driver
-  // app had pickup coordinates only, meaning navigation could only ever
-  // work for the first leg of a trip. Real gap, not a simplification.
   const stops = await pool.query(
-    `SELECT id, sequence, status, instructions,
+    `SELECT id, sequence, status, instructions, address_snapshot, arrived_at,
             ST_X(geo::geometry) AS drop_lng, ST_Y(geo::geometry) AS drop_lat
      FROM booking_stops WHERE booking_id = $1 ORDER BY sequence`,
     [result.rows[0].id]
   );
-  return { ...result.rows[0], stops: stops.rows };
+  return { ...result.rows[0], pickup_address: result.rows[0].pickup_address_snapshot, stops: stops.rows };
 }
 
 /**
@@ -372,5 +368,42 @@ export async function getDriverPartnerProfile(driverId: string) {
     vehicle: row.plate_number
       ? { plate: row.plate_number, category: row.vehicle_category, make: row.make, model: row.model }
       : null,
+  };
+}
+
+export async function getDriverDashboard(driverId: string) {
+  const todayStart = `date_trunc('day', now() AT TIME ZONE 'Asia/Kolkata') AT TIME ZONE 'Asia/Kolkata'`;
+
+  const stats = await pool.query(
+    `SELECT
+       count(*) FILTER (WHERE status = 'completed' AND created_at >= ${todayStart})::int AS trips_today,
+       count(*) FILTER (WHERE status IN ('driver_assigned', 'in_progress'))::int AS active_trips,
+       coalesce(sum((fare_breakdown->>'final_fare')::numeric) FILTER (
+         WHERE status = 'completed' AND created_at >= ${todayStart}
+       ), 0)::float AS gross_earnings_today
+     FROM bookings
+     WHERE driver_id = $1`,
+    [driverId]
+  );
+
+  const wallet = await pool.query(
+    `SELECT coalesce(sum(wt.amount) FILTER (WHERE wt.entry_type = 'credit' AND wt.created_at >= ${todayStart}), 0)::float AS credits_today
+     FROM wallet_transactions wt
+     JOIN wallets w ON w.id = wt.wallet_id
+     WHERE w.owner_id = $1 AND w.owner_type = 'driver'`,
+    [driverId]
+  );
+
+  const profile = await getDriverPartnerProfile(driverId);
+  const row = stats.rows[0];
+
+  return {
+    trips_today: row.trips_today,
+    active_trips: row.active_trips,
+    gross_earnings_today: row.gross_earnings_today,
+    wallet_credits_today: wallet.rows[0]?.credits_today ?? 0,
+    rating_avg: profile.rating_avg,
+    rating_count: profile.rating_count,
+    online_status: profile.online_status,
   };
 }

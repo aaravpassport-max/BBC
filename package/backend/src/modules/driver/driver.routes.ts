@@ -34,9 +34,11 @@ import {
   listDriverJobHistory,
   getDriverPartnerProfile,
   updateDriverPartnerProfile,
+  getDriverDashboard,
 } from './driver.service';
 import { runDispatchCycle } from './dispatch.service';
-import { verifyPickupOtp, completeStop } from './trip.service';
+import { verifyPickupOtp, completeStop, arriveAtPickup, arriveAtStop } from './trip.service';
+import { getActiveDriverIncentives } from './incentive.service';
 import * as commsProvider from '../comms/comms.provider';
 import { pool } from '../../db/pool';
 
@@ -127,6 +129,22 @@ driverRouter.get(
   requireAuth,
   asyncHandler(async (req, res) => {
     res.status(200).json(await getDriverPartnerProfile(req.user!.userId));
+  })
+);
+
+driverRouter.get(
+  '/dashboard',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await getDriverDashboard(req.user!.userId));
+  })
+);
+
+driverRouter.get(
+  '/incentives/active',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.status(200).json({ items: await getActiveDriverIncentives(req.user!.userId) });
   })
 );
 
@@ -221,6 +239,28 @@ driverRouter.post(
     const { category, plate_number } = req.body;
     const result = await registerVehicle({ driverId: req.user!.userId, category, plateNumber: plate_number });
     res.status(201).json(result);
+  })
+);
+
+// PRD 2.2.7 — driver confirms arrival + verifies the pickup OTP the customer reads aloud.
+driverRouter.post(
+  '/jobs/:bookingId/arrive-pickup',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const bookingId = requireUuidParam(req.params.bookingId as string, 'bookingId');
+    const result = await arriveAtPickup({ bookingId, driverId: req.user!.userId });
+    res.status(200).json(result);
+  })
+);
+
+driverRouter.post(
+  '/jobs/:bookingId/stops/:stopId/arrive',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const bookingId = requireUuidParam(req.params.bookingId as string, 'bookingId');
+    const stopId = requireUuidParam(req.params.stopId as string, 'stopId');
+    const result = await arriveAtStop({ bookingId, stopId, driverId: req.user!.userId });
+    res.status(200).json(result);
   })
 );
 
