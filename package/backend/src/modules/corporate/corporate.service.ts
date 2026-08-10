@@ -509,6 +509,17 @@ export async function generateInvoice(params: {
        RETURNING id, invoice_number, total_amount, booking_count`,
       [accountId, invoiceNumber, periodStart, periodEnd, totalAmount, bookings.rowCount || 0]
     );
+
+    // Close this billing period against committed_spend (migration 017 intent).
+    if (totalAmount > 0) {
+      await client.query(
+        `UPDATE corporate_accounts
+         SET committed_spend = GREATEST(committed_spend - $1, 0)
+         WHERE id = $2`,
+        [totalAmount, accountId]
+      );
+    }
+
     return {
       id: result.rows[0].id,
       invoiceNumber: result.rows[0].invoice_number,
@@ -601,6 +612,109 @@ export async function getSpendAnalytics(accountId: string, requestingUserId: str
   }));
 }
 
+/** Per-employee spend for a billing period (corporate dashboard). */
+export async function getSpendByEmployee(
+  accountId: string,
+  requestingUserId: string,
+  periodStart?: string,
+  periodEnd?: string
+) {
+  await requireActiveEmployee(accountId, requestingUserId);
+
+  const now = new Date();
+  const start =
+    periodStart ?? new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
+  const end = periodEnd ?? now.toISOString();
+
+  const result = await pool.query(
+    `SELECT u.phone AS employee_phone,
+            COALESCE(u.name, u.phone) AS employee_name,
+            COUNT(*)::int AS trip_count,
+            SUM((b.fare_breakdown->>'final_fare')::numeric) AS total_spend
+     FROM bookings b
+     JOIN users u ON u.id = b.customer_id
+     WHERE b.corporate_account_id = $1 AND b.status = 'completed'
+       AND b.created_at >= $2 AND b.created_at < $3
+     GROUP BY u.id, u.phone, u.name
+     ORDER BY total_spend DESC`,
+    [accountId, start, end]
+  );
+
+  return {
+    period_start: start,
+    period_end: end,
+    employees: result.rows.map((r) => ({
+      employee_phone: r.employee_phone,
+      employee_name: r.employee_name,
+      trip_count: r.trip_count as number,
+      total_spend: parseFloat(r.total_spend),
+    })),
+  };
+}
+
+/** Suggests the next uninvoiced calendar month with completed trips. */
+export async function getSuggestedInvoicePeriod(accountId: string, requestingUserId: string) {
+  await requireActiveEmployee(accountId, requestingUserId);
+
+  const now = new Date();
+  const periodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+
+  const existing = await pool.query(
+    `SELECT 1 FROM corporate_invoices
+     WHERE corporate_account_id = $1 AND period_start = $2 AND period_end = $3`,
+    [accountId, periodStart.toISOString(), periodEnd.toISOString()]
+  );
+
+  const trips = await pool.query(
+    `SELECT count(*)::int AS c,
+            COALESCE(SUM((fare_breakdown->>'final_fare')::numeric), 0) AS total
+     FROM bookings
+     WHERE corporate_account_id = $1 AND status = 'completed'
+       AND created_at >= $2 AND created_at < $3`,
+    [accountId, periodStart.toISOString(), periodEnd.toISOString()]
+  );
+
+  const tripCount = trips.rows[0].c as number;
+  const estimatedTotal = parseFloat(trips.rows[0].total);
+
+  return {
+    period_start: periodStart.toISOString(),
+    period_end: periodEnd.toISOString(),
+    trip_count: tripCount,
+    estimated_total: estimatedTotal,
+    invoice_exists: (existing.rowCount ?? 0) > 0,
+    needs_invoice: tripCount > 0 && (existing.rowCount ?? 0) === 0,
+  };
+}
+
+/** Last automated monthly invoice sweep status (for portal visibility). */
+export async function getInvoiceAutomationStatus(accountId: string, requestingUserId: string) {
+  await requireActiveEmployee(accountId, requestingUserId);
+
+  const job = await pool.query(
+    `SELECT status, finished_at, rows_affected, error_detail
+     FROM background_job_runs
+     WHERE job_name = 'corporate_monthly_invoice_sweep'
+     ORDER BY started_at DESC
+     LIMIT 1`
+  );
+
+  const suggested = await getSuggestedInvoicePeriod(accountId, requestingUserId);
+
+  return {
+    last_sweep: job.rows[0]
+      ? {
+          status: job.rows[0].status,
+          finished_at: job.rows[0].finished_at,
+          invoices_generated: job.rows[0].rows_affected,
+          error_detail: job.rows[0].error_detail,
+        }
+      : null,
+    suggested_period: suggested,
+  };
+}
+
 /**
  * Background job: auto-generates invoices for the previous calendar month
  * for every active corporate account that has completed trips and no
@@ -634,7 +748,7 @@ export async function sweepMonthlyCorporateInvoices(): Promise<number> {
 
     const admin = await pool.query(
       `SELECT user_id FROM corporate_employees
-       WHERE corporate_account_id = $1 AND role = 'admin' AND status = 'active'
+       WHERE corporate_account_id = $1 AND role = 'account_admin' AND status = 'active'
        LIMIT 1`,
       [accountId]
     );

@@ -14,11 +14,13 @@ import {
   getMyAccounts,
   getAccountBookings,
   getSpendAnalytics,
+  getSpendByEmployee,
   ApiError, getErrorMessage,
   type AccountSummary,
   type Employee,
   type AccountBooking,
   type SpendAnalyticsRow,
+  type SpendByEmployeeRow,
 } from '../api';
 
 function money(v: string): string {
@@ -32,6 +34,7 @@ export function AccountDashboardPage() {
   const [employees, setEmployees] = useState<Employee[] | null>(null);
   const [bookings, setBookings] = useState<AccountBooking[] | null>(null);
   const [spendAnalytics, setSpendAnalytics] = useState<SpendAnalyticsRow[] | null>(null);
+  const [employeeSpend, setEmployeeSpend] = useState<SpendByEmployeeRow[] | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState('');
   const [showInvite, setShowInvite] = useState(false);
@@ -45,17 +48,19 @@ export function AccountDashboardPage() {
   const refresh = useCallback(async () => {
     if (!accountId) return;
     try {
-      const [s, e, b, analytics, myAccounts] = await Promise.all([
+      const [s, e, b, analytics, byEmployee, myAccounts] = await Promise.all([
         getAccountSummary(accountId),
         listEmployees(accountId),
         getAccountBookings(accountId),
         getSpendAnalytics(accountId),
+        getSpendByEmployee(accountId).catch(() => null),
         getMyAccounts(),
       ]);
       setSummary(s);
       setEmployees(e);
       setBookings(b);
       setSpendAnalytics(analytics);
+      setEmployeeSpend(byEmployee?.employees ?? []);
       setIsAdmin(myAccounts.some((a) => a.account_id === accountId && a.role === 'account_admin'));
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
@@ -124,7 +129,7 @@ export function AccountDashboardPage() {
     );
   }
 
-  if (!summary || !employees || !bookings || !spendAnalytics) {
+  if (!summary || !employees || !bookings || !spendAnalytics || employeeSpend === null) {
     return (
       <Screen eyebrow="Corporate Portal" title="Account">
         <div style={{ border: '1px solid var(--border)', borderRadius: 16, background: 'var(--surface)', padding: 24 }}>
@@ -171,6 +176,34 @@ export function AccountDashboardPage() {
               <div>
                 <div style={{ fontSize: 13 }}>{new Date(row.month).toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{row.trip_count} trip{row.trip_count === 1 ? '' : 's'}</div>
+              </div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{money(String(row.total_spend))}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <h2 style={{ fontSize: 15, marginTop: 10 }}>Spend by employee (this month)</h2>
+      {employeeSpend.length === 0 ? (
+        <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>No completed trips this month.</p>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {employeeSpend.map((row) => (
+            <div
+              key={row.employee_phone}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                border: '1px solid var(--border)',
+                borderRadius: 10,
+                padding: '10px 14px',
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 13 }}>{row.employee_name}</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                  +91 {row.employee_phone} · {row.trip_count} trip{row.trip_count === 1 ? '' : 's'}
+                </div>
               </div>
               <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{money(String(row.total_spend))}</div>
             </div>

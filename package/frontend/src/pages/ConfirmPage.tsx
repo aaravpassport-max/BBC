@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { FareCard, FareCardLine, FareCardDivider } from '../components/FareCard';
@@ -9,11 +9,13 @@ import {
   devConfirmBookingPayment,
   getWallet,
   getMyCorporateAccounts,
+  getSavedPaymentMethods,
   ApiError,
   getErrorMessage,
   type Quote,
   type CorporateAccount,
   type GatewaySession,
+  type SavedPaymentMethod,
 } from '../api';
 import { PAYMENT_METHODS, BRAND, type PaymentMethodId } from '../constants/brand';
 import type { LocationPoint } from '../lib/locations';
@@ -97,6 +99,8 @@ export function ConfirmPage() {
   const [corporateAccounts, setCorporateAccounts] = useState<CorporateAccount[]>([]);
   const [selectedCorporateId, setSelectedCorporateId] = useState<string | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
+  const [savedMethods, setSavedMethods] = useState<SavedPaymentMethod[]>([]);
+  const [selectedSavedMethodId, setSelectedSavedMethodId] = useState<string | null>(null);
 
   useEffect(() => {
     getWallet()
@@ -106,6 +110,17 @@ export function ConfirmPage() {
       .then((accounts) => {
         setCorporateAccounts(accounts);
         if (accounts.length > 0) setSelectedCorporateId(accounts[0].account_id);
+      })
+      .catch(() => undefined);
+    getSavedPaymentMethods()
+      .then((methods) => {
+        setSavedMethods(methods);
+        const defaultMethod = methods.find((m) => m.is_default) ?? methods[0];
+        if (defaultMethod) {
+          setSelectedSavedMethodId(defaultMethod.id);
+          if (defaultMethod.method_type === 'card') setPaymentMethod('card');
+          if (defaultMethod.method_type === 'upi') setPaymentMethod('upi');
+        }
       })
       .catch(() => undefined);
   }, []);
@@ -120,10 +135,17 @@ export function ConfirmPage() {
   const hasCorporate = corporateAccounts.length > 0;
   const availableMethods = PAYMENT_METHODS.filter((m) => m.id !== 'corporate_bill' || hasCorporate);
   const selectedCorporate = corporateAccounts.find((a) => a.account_id === selectedCorporateId);
+  const walletInsufficient = paymentMethod === 'wallet' && walletBalance != null && walletBalance < fb.final_fare;
+  const cardSavedMethods = savedMethods.filter((m) => m.method_type === 'card');
+  const upiSavedMethods = savedMethods.filter((m) => m.method_type === 'upi');
 
   async function handleConfirm() {
     if (!termsAccepted) {
       setError('Please accept the terms to continue.');
+      return;
+    }
+    if (walletInsufficient) {
+      setError('Insufficient wallet balance. Add money or choose another payment method.');
       return;
     }
     setError('');
@@ -157,7 +179,11 @@ export function ConfirmPage() {
       footer={
         <>
           {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10 }}>{error}</p>}
-          <Button onClick={() => void handleConfirm()} loading={loading} disabled={!termsAccepted}>
+          <Button
+            onClick={() => void handleConfirm()}
+            loading={loading}
+            disabled={!termsAccepted || walletInsufficient}
+          >
             Confirm · {money(fb.final_fare)}
           </Button>
         </>
@@ -205,7 +231,45 @@ export function ConfirmPage() {
                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
                   {m.description}
                   {m.id === 'wallet' && walletBalance != null && ` · Balance ${money(walletBalance)}`}
+                  {m.id === 'wallet' && walletInsufficient && (
+                    <span style={{ color: 'var(--danger)', display: 'block', marginTop: 4 }}>
+                      Insufficient balance for this trip.
+                    </span>
+                  )}
                 </div>
+                {m.id === 'card' && paymentMethod === 'card' && cardSavedMethods.length > 0 && (
+                  <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {cardSavedMethods.map((sm) => (
+                      <label key={sm.id} style={{ display: 'flex', gap: 8, fontSize: 12, alignItems: 'center' }}>
+                        <input
+                          type="radio"
+                          name="saved-card"
+                          checked={selectedSavedMethodId === sm.id}
+                          onChange={() => setSelectedSavedMethodId(sm.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        {sm.display_label}
+                        {sm.is_default ? ' (default)' : ''}
+                      </label>
+                    ))}
+                  </div>
+                )}
+                {m.id === 'upi' && paymentMethod === 'upi' && upiSavedMethods.length > 0 && (
+                  <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {upiSavedMethods.map((sm) => (
+                      <label key={sm.id} style={{ display: 'flex', gap: 8, fontSize: 12, alignItems: 'center' }}>
+                        <input
+                          type="radio"
+                          name="saved-upi"
+                          checked={selectedSavedMethodId === sm.id}
+                          onChange={() => setSelectedSavedMethodId(sm.id)}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        {sm.display_label}
+                      </label>
+                    ))}
+                  </div>
+                )}
                 {m.id === 'corporate_bill' && paymentMethod === 'corporate_bill' && (
                   <div style={{ marginTop: 8 }}>
                     {selectedCorporate && (
@@ -231,6 +295,9 @@ export function ConfirmPage() {
             </label>
           ))}
         </div>
+        <p style={{ fontSize: 12, marginTop: 8 }}>
+          <Link to="/wallet" style={{ color: 'var(--accent-strong)' }}>Manage saved payment methods</Link>
+        </p>
       </div>
 
       <FareCard label="Fare breakdown" id={quote.quote_id.slice(0, 8).toUpperCase()}>

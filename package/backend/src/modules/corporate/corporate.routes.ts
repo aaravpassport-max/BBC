@@ -17,6 +17,9 @@ import {
   getInvoiceDetail,
   markInvoicePaid,
   getSpendAnalytics,
+  getSpendByEmployee,
+  getSuggestedInvoicePeriod,
+  getInvoiceAutomationStatus,
 } from './corporate.service';
 
 export const corporateRouter = Router();
@@ -166,6 +169,24 @@ corporateRouter.get(
 );
 
 corporateRouter.get(
+  '/:accountId/invoices/suggested-period',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const suggested = await getSuggestedInvoicePeriod(req.params.accountId as string, req.user!.userId);
+    res.status(200).json(suggested);
+  })
+);
+
+corporateRouter.get(
+  '/:accountId/invoices/automation-status',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const status = await getInvoiceAutomationStatus(req.params.accountId as string, req.user!.userId);
+    res.status(200).json(status);
+  })
+);
+
+corporateRouter.get(
   '/:accountId/invoices/:invoiceId',
   requireAuth,
   asyncHandler(async (req, res) => {
@@ -197,6 +218,22 @@ corporateRouter.get(
   asyncHandler(async (req, res) => {
     const months = parseInt((req.query.months as string) || '6', 10);
     const analytics = await getSpendAnalytics(req.params.accountId as string, req.user!.userId, months);
+    res.status(200).json(analytics);
+  })
+);
+
+corporateRouter.get(
+  '/:accountId/spend-by-employee',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const periodStart = typeof req.query.period_start === 'string' ? req.query.period_start : undefined;
+    const periodEnd = typeof req.query.period_end === 'string' ? req.query.period_end : undefined;
+    const analytics = await getSpendByEmployee(
+      req.params.accountId as string,
+      req.user!.userId,
+      periodStart,
+      periodEnd
+    );
     res.status(200).json(analytics);
   })
 );

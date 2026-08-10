@@ -139,3 +139,51 @@ export interface SpendAnalyticsRow {
 export function getSpendAnalytics(accountId: string, months = 6) {
   return api.get<SpendAnalyticsRow[]>(`/v1/corporate/${accountId}/spend-analytics?months=${months}`);
 }
+
+export interface SpendByEmployeeRow {
+  employee_phone: string;
+  employee_name: string;
+  trip_count: number;
+  total_spend: number;
+}
+
+export interface SpendByEmployeeResult {
+  period_start: string;
+  period_end: string;
+  employees: SpendByEmployeeRow[];
+}
+
+export function getSpendByEmployee(accountId: string, periodStart?: string, periodEnd?: string) {
+  const query = new URLSearchParams();
+  if (periodStart) query.set('period_start', periodStart);
+  if (periodEnd) query.set('period_end', periodEnd);
+  const qs = query.toString();
+  return api.get<SpendByEmployeeResult>(`/v1/corporate/${accountId}/spend-by-employee${qs ? `?${qs}` : ''}`);
+}
+
+export interface SuggestedInvoicePeriod {
+  period_start: string;
+  period_end: string;
+  trip_count: number;
+  estimated_total: number;
+  invoice_exists: boolean;
+  needs_invoice: boolean;
+}
+
+export interface InvoiceAutomationStatus {
+  last_sweep: {
+    status: string;
+    finished_at: string;
+    invoices_generated: number;
+    error_detail: string | null;
+  } | null;
+  suggested_period: SuggestedInvoicePeriod;
+}
+
+export function getSuggestedInvoicePeriod(accountId: string) {
+  return api.get<SuggestedInvoicePeriod>(`/v1/corporate/${accountId}/invoices/suggested-period`);
+}
+
+export function getInvoiceAutomationStatus(accountId: string) {
+  return api.get<InvoiceAutomationStatus>(`/v1/corporate/${accountId}/invoices/automation-status`);
+}

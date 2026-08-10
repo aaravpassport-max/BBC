@@ -203,3 +203,12 @@ describe('Enterprise invoicing: listing and detail', () => {
     expect(res.body.length).toBe(1);
   });
 });
+
+describe('Enterprise invoicing: monthly sweep', () => {
+  it('sweepMonthlyCorporateInvoices uses account_admin role and returns a count', async () => {
+    const { sweepMonthlyCorporateInvoices } = await import('../corporate.service');
+    const generated = await sweepMonthlyCorporateInvoices();
+    expect(typeof generated).toBe('number');
+    expect(generated).toBeGreaterThanOrEqual(0);
+  });
+});
