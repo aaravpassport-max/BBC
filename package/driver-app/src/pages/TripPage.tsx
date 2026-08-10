@@ -11,7 +11,7 @@ import { POSITIVE_RATING_TAGS, NEGATIVE_RATING_TAGS } from '../constants/brand';
 import { formatAddress } from '../lib/address';
 import { formatDistanceKm } from '../lib/geo';
 import { useRoute } from '../hooks/useRoute';
-import { getActiveJob, verifyPickupOtp, completeStop, arriveAtPickup, arriveAtStop, rateBooking, triggerSos, callCustomer, uploadProofPhoto, getErrorMessage, type ActiveJob } from '../api';
+import { getActiveJob, verifyPickupOtp, completeStop, arriveAtPickup, arriveAtStop, rateBooking, triggerSos, callCustomer, uploadProofPhoto, collectTripPayment, getErrorMessage, type ActiveJob } from '../api';
 import { Geolocation } from '@capacitor/geolocation';
 
 // Deep-links to the device's own maps app rather than embedding a routing
@@ -237,6 +237,26 @@ export function TripPage() {
           </div>
         ))}
       </div>
+
+      {job.payment_method === 'upi' && job.payment_status === 'pending_collection' && (
+        <div style={{ border: '1px solid var(--accent)', borderRadius: 12, padding: 14, background: 'var(--accent-soft)' }}>
+          <p style={{ fontSize: 13, marginBottom: 10 }}>Collect UPI/cash payment from the customer before completing the trip.</p>
+          <Button
+            variant="ghost"
+            loading={submitting}
+            onClick={() => {
+              if (!bookingId) return;
+              setSubmitting(true);
+              void collectTripPayment(bookingId)
+                .then(() => refresh())
+                .catch((err) => setError(getErrorMessage(err, 'Could not confirm payment collection.')))
+                .finally(() => setSubmitting(false));
+            }}
+          >
+            💵 Payment collected
+          </Button>
+        </div>
+      )}
 
       <Button
         variant="ghost"

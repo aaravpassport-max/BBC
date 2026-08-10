@@ -1,6 +1,7 @@
 import { randomUUID as uuidv4 } from 'crypto';
 import { pool, withTransaction } from '../../db/pool';
 import { sendNotification, deriveEventId } from '../notifications/notifications.service';
+import { broadcastUserEvent } from '../realtime/realtime.hub';
 
 const OFFER_TIMEOUT_SECONDS = 15; // PRD 3.3 config default
 const SEARCH_RADII_KM = [2, 4, 6]; // PRD Section 4 — expanding rings on no match
@@ -155,8 +156,14 @@ export async function runDispatchCycle(bookingId: string): Promise<DispatchResul
           userId: best.driver_id,
           category: 'trip_updates',
           channel: 'push',
-          templateId: 'new_job_offer',
+          templateId: 'new_offer',
         }).catch((err) => console.error('Failed to notify driver of new offer:', err));
+        broadcastUserEvent(best.driver_id, {
+          event: 'dispatch.offer',
+          offer_id: offerId,
+          booking_id: bookingId,
+          expires_at: new Date(Date.now() + OFFER_TIMEOUT_SECONDS * 1000).toISOString(),
+        });
         return { status: 'offer_sent', offerId, driverId: best.driver_id };
       } catch (err) {
         // Unique-violation on the one-active-offer-per-driver index means this

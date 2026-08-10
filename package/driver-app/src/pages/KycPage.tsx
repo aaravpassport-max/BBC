@@ -4,7 +4,7 @@ import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
-import { registerAsDriver, getKycStatus, submitKycStep, getErrorMessage, type KycStatus } from '../api';
+import { registerAsDriver, getKycStatus, submitKycStep, uploadKycDocument, getErrorMessage, type KycStatus } from '../api';
 
 const STEP_LABELS: Record<string, string> = {
   personal_details: 'Personal details',
@@ -75,7 +75,10 @@ export function KycPage() {
   async function handleTakePhoto(step: string) {
     try {
       const photo = await Camera.getPhoto({ resultType: CameraResultType.DataUrl, source: CameraSource.Camera, quality: 80 });
-      if (photo.dataUrl) setStepData((prev) => ({ ...prev, [step]: photo.dataUrl! }));
+      if (photo.dataUrl) {
+        const uploaded = await uploadKycDocument(photo.dataUrl);
+        setStepData((prev) => ({ ...prev, [step]: uploaded.url }));
+      }
     } catch {
       // cancelled
     }

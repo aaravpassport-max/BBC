@@ -2,6 +2,8 @@ import { randomUUID as uuidv4 } from 'crypto';
 import { pool } from '../../db/pool';
 import { Errors } from '../../utils/errors';
 import { validateCoupon } from './coupon.service';
+import { computeSurgeMultiplier } from './surge.service';
+import { fetchDrivingRoute } from '../geo/route.service';
 import { getActiveSubscriptionBenefit } from '../booking/subscription.service';
 import { computeLoyaltyDiscount } from '../loyalty/loyalty.service';
 
@@ -76,16 +78,17 @@ function isWithinNightWindow(start: string | null, end: string | null): boolean 
 function computeFare(params: {
   rateCard: RateCard;
   distanceKm: number;
+  durationMin: number;
   surgeMultiplier: number;
   couponDiscount: number;
   subscriptionBenefit: number;
   loyaltyDiscount: number;
 }): FareBreakdown {
-  const { rateCard, distanceKm, surgeMultiplier, couponDiscount, subscriptionBenefit, loyaltyDiscount } = params;
+  const { rateCard, distanceKm, durationMin, surgeMultiplier, couponDiscount, subscriptionBenefit, loyaltyDiscount } = params;
 
   const base_fare = parseFloat(rateCard.base_fare);
   const distance_charge = distanceKm * parseFloat(rateCard.per_km_rate);
-  const time_charge = 0; // populated by a real routing ETA in production
+  const time_charge = durationMin * parseFloat(rateCard.per_min_rate);
   const waiting_charge = 0; // realized only during the actual trip, not at quote time
   const toll_pass_through = 0; // populated by a real routing/toll provider
 
@@ -179,38 +182,49 @@ export async function generateQuotes(params: {
     throw Errors.notFound('No available vehicle categories for this location');
   }
 
-  // Total distance across an ordered stop sequence — PRD Section 5: computed on
-  // the optimized route order, not a raw sum of unordered points. This reference
-  // implementation sums pickup->drop1->drop2... in the order given; a production
-  // system would call a routing engine to also optimize stop order if allowed.
+  // Total distance/duration — prefer OSRM road routing; fall back to haversine.
   let totalDistanceKm = 0;
-  let previous = pickup;
-  for (const drop of drops) {
-    totalDistanceKm += haversineKm(previous, drop);
-    previous = drop;
+  let totalDurationMin = 0;
+  const route = await fetchDrivingRoute([pickup, ...drops]);
+  if (route) {
+    totalDistanceKm = route.distance_m / 1000;
+    totalDurationMin = route.duration_s / 60;
+  } else {
+    let previous = pickup;
+    for (const drop of drops) {
+      totalDistanceKm += haversineKm(previous, drop);
+      previous = drop;
+    }
+    totalDurationMin = (totalDistanceKm / 25) * 60;
   }
 
   const quotes: QuoteResult[] = [];
   const expiresAt = new Date(Date.now() + QUOTE_TTL_SECONDS * 1000);
 
-  // Fetched once, applies identically to every category in this quote batch
-  // (PRD 19A.1 — a platform-fee waiver isn't category-specific).
   const subscriptionBenefit = await getActiveSubscriptionBenefit(customerId);
 
   for (const rateCard of rateCardsResult.rows) {
-    // Surge multiplier: discrete tiers only (PRD Section 5). This reference
-    // implementation defaults to 1.0 — a real deployment computes this from
-    // live demand/supply per zone (Section 5/20B.1) before quoting.
-    const surgeMultiplier = 1.0;
+    const surgeTiers = (rateCard.surge_tiers as number[]) || [1.0, 1.2, 1.5, 2.0];
+    const surgeCap = parseFloat(rateCard.surge_cap as string) || 3.0;
+    let surgeMultiplier = await computeSurgeMultiplier({
+      pickupLat: pickup.lat,
+      pickupLng: pickup.lng,
+      surgeTiers,
+      surgeCap,
+    });
+    if (subscriptionBenefit?.surgeExempt) {
+      surgeMultiplier = 1.0;
+    }
 
     let fareBreakdown = computeFare({
       rateCard,
       distanceKm: totalDistanceKm,
+      durationMin: totalDurationMin,
       surgeMultiplier,
       couponDiscount: 0,
-    subscriptionBenefit: 0,
-    loyaltyDiscount: 0,
-  });
+      subscriptionBenefit: 0,
+      loyaltyDiscount: 0,
+    });
 
     let couponId: string | null = null;
     if (couponCode) {

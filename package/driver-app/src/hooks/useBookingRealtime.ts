@@ -8,7 +8,6 @@ export interface RealtimeHandlers {
   onChatMessage?: (payload: { message_id: string; sender_role: string; body: string; created_at: string }) => void;
 }
 
-/** WebSocket subscription for live trip updates — supplements polling on TrackPage. */
 export function useBookingRealtime(bookingId: string | undefined, handlers: RealtimeHandlers): void {
   const handlersRef = useRef(handlers);
   handlersRef.current = handlers;
@@ -23,17 +22,8 @@ export function useBookingRealtime(bookingId: string | undefined, handlers: Real
 
     ws.onmessage = (event) => {
       try {
-        const msg = JSON.parse(event.data as string) as {
-          event?: string;
-          status?: string;
-          lat?: number;
-          lng?: number;
-          message_id?: string;
-          sender_role?: string;
-          body?: string;
-          created_at?: string;
-        };
-        if (msg.event === 'booking.status' && msg.status) {
+        const msg = JSON.parse(event.data as string) as Record<string, unknown>;
+        if (msg.event === 'booking.status' && typeof msg.status === 'string') {
           handlersRef.current.onStatusChange?.(msg.status);
         }
         if (msg.event === 'driver.location' && typeof msg.lat === 'number' && typeof msg.lng === 'number') {

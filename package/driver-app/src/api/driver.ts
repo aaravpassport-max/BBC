@@ -59,6 +59,8 @@ export interface ActiveJob {
   pickup_lat: number;
   pickup_lng: number;
   pickup_address?: AddressSnapshot;
+  payment_method?: string | null;
+  payment_status?: string | null;
   stops: Stop[];
 }
 
@@ -222,6 +224,30 @@ export function completeStop(bookingId: string, stopId: string, otp?: string, ph
     `/v1/driver/jobs/${bookingId}/stops/${stopId}/complete`,
     { otp, photo_proof_url: photoProofUrl }
   );
+}
+
+export function collectTripPayment(bookingId: string) {
+  return api.post<{ collected: boolean }>(`/v1/driver/jobs/${bookingId}/collect-payment`);
+}
+
+export interface DriverDocument {
+  id: string;
+  doc_type: string;
+  status: string;
+  document_url: string;
+  expiry_date: string | null;
+  rejection_reason: string | null;
+  version: number;
+  created_at: string;
+  days_until_expiry: number | null;
+}
+
+export function listDriverDocuments() {
+  return api.get<{ items: DriverDocument[] }>('/v1/driver/kyc/documents');
+}
+
+export function uploadKycDocument(imageBase64: string) {
+  return api.post<{ url: string }>('/v1/driver/kyc/uploads/document', { image_base64: imageBase64 });
 }
 
 export function getWithdrawableBalance() {

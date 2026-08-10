@@ -7,6 +7,7 @@ import { sendNotification, deriveEventId } from '../notifications/notifications.
 import { debitCustomerForBooking, debitCustomerCancellationFee } from '../wallet/wallet.service';
 import { initiateTripPayment } from './payment.service';
 import { redeemPointsForBooking } from '../loyalty/loyalty.service';
+import { broadcastBookingEvent } from '../realtime/realtime.hub';
 
 export async function createBooking(params: {
   customerId: string;
@@ -242,7 +243,23 @@ export async function createBooking(params: {
       await debitCustomerForBooking(client, { customerId, bookingId, amount: fareAmount });
     }
 
+    if (paymentMethod === 'upi') {
+      await client.query(
+        `UPDATE bookings SET payment_method = $1, payment_status = 'pending_collection' WHERE id = $2`,
+        [paymentMethod, bookingId]
+      );
+      return { ...bookingResult.rows[0], payment_status: 'pending_collection' };
+    }
+
+    if (paymentMethod === 'wallet' || paymentMethod === 'corporate_bill') {
+      await client.query(
+        `UPDATE bookings SET payment_method = $1, payment_status = 'paid' WHERE id = $2`,
+        [paymentMethod, bookingId]
+      );
+    }
+
     if (paymentMethod === 'card') {
+      await client.query(`UPDATE bookings SET payment_method = $1 WHERE id = $2`, [paymentMethod, bookingId]);
       const gatewaySession = await initiateTripPayment(client, {
         customerId,
         bookingId,
@@ -319,6 +336,7 @@ export async function cancelBooking(params: {
 
     return { feeCharged: feeAmount > 0, feeAmount, driverId: booking.driver_id as string | null };
   }).then((result) => {
+    broadcastBookingEvent(bookingId, { event: 'booking.status', status: 'cancelled' });
     if (result.driverId) {
       // Fired only AFTER the transaction has genuinely committed — never
       // speculatively, the same rule already established for corporate

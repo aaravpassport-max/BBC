@@ -22,6 +22,7 @@ import { NewSupportTicketPage } from './pages/NewSupportTicketPage';
 import { SupportTicketPage } from './pages/SupportTicketPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { DocumentsPage } from './pages/DocumentsPage';
 import { HeatmapPage } from './pages/HeatmapPage';
 import { ReferralPage } from './pages/ReferralPage';
 import { EditProfilePage } from './pages/EditProfilePage';
@@ -65,6 +66,7 @@ function AppRoutes() {
       <Route path="/trip-summary/:bookingId" element={<RequireAuth><TripSummaryPage /></RequireAuth>} />
       <Route path="/earnings" element={<AuthenticatedLayout><EarningsPage /></AuthenticatedLayout>} />
       <Route path="/incentives" element={<AuthenticatedLayout><IncentivesPage /></AuthenticatedLayout>} />
+      <Route path="/documents" element={<RequireAuth><DocumentsPage /></RequireAuth>} />
       <Route path="/heatmap" element={<AuthenticatedLayout><HeatmapPage /></AuthenticatedLayout>} />
       <Route path="/profile" element={<AuthenticatedLayout><ProfilePage /></AuthenticatedLayout>} />
       <Route path="/profile/edit" element={<RequireAuth><EditProfilePage /></RequireAuth>} />

@@ -1,6 +1,7 @@
 import { pool } from '../../db/pool';
 import { Errors } from '../../utils/errors';
 import { sendNotification, deriveEventId } from '../notifications/notifications.service';
+import { broadcastBookingEvent } from '../realtime/realtime.hub';
 
 async function getParticipantRole(bookingId: string, userId: string): Promise<'customer' | 'driver'> {
   const result = await pool.query(`SELECT customer_id, driver_id FROM bookings WHERE id = $1`, [bookingId]);
@@ -59,6 +60,13 @@ export async function sendTripMessage(params: {
   const row = result.rows[0];
 
   if (recipientId) {
+    broadcastBookingEvent(bookingId, {
+      event: 'chat.message',
+      message_id: row.id,
+      sender_role: senderRole,
+      body: trimmed,
+      created_at: row.created_at,
+    });
     // Each message gets its own event_id (not one shared per booking) so
     // every message genuinely notifies — idempotency here means "don't
     // double-notify for the SAME message," not "only ever notify once per

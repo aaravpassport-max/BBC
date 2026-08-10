@@ -192,6 +192,32 @@ export async function reviewKycDocument(params: {
   }
 }
 
+/** Driver-facing document center — latest version per doc type. */
+export async function listDriverDocuments(driverId: string) {
+  const result = await pool.query(
+    `SELECT DISTINCT ON (doc_type)
+       id, doc_type, status, document_url, expiry_date, rejection_reason, version, created_at
+     FROM kyc_documents
+     WHERE subject_type = 'driver' AND subject_id = $1
+     ORDER BY doc_type, version DESC`,
+    [driverId]
+  );
+  return result.rows.map((row) => ({
+    id: row.id,
+    doc_type: row.doc_type,
+    status: row.status,
+    document_url: row.document_url,
+    expiry_date: row.expiry_date,
+    rejection_reason: row.rejection_reason,
+    version: row.version,
+    created_at: row.created_at,
+    days_until_expiry:
+      row.expiry_date != null
+        ? Math.ceil((new Date(row.expiry_date).getTime() - Date.now()) / (24 * 60 * 60 * 1000))
+        : null,
+  }));
+}
+
 /** Admin queue — documents awaiting review, newest first. */
 export async function listPendingKycDocuments(limit = 50) {
   const result = await pool.query(

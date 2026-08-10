@@ -7,8 +7,30 @@ import { sendNotification, deriveEventId } from '../notifications/notifications.
 import { creditDriverTripEarnings } from '../wallet/wallet.service';
 import { accrueTripPoints } from '../loyalty/loyalty.service';
 import { pool } from '../../db/pool';
+import { escalateOtpLockout } from '../support/escalation.service';
+import { broadcastBookingEvent } from '../realtime/realtime.hub';
 
 const MAX_OTP_ATTEMPTS = 3; // PRD 2.2.7 "OTP mismatch 3x -> escalation" edge case
+
+export async function collectTripPayment(params: {
+  bookingId: string;
+  driverId: string;
+}): Promise<{ collected: boolean }> {
+  const { bookingId, driverId } = params;
+  const result = await pool.query(
+    `SELECT payment_method, payment_status, driver_id FROM bookings WHERE id = $1`,
+    [bookingId]
+  );
+  if (result.rowCount === 0 || result.rows[0].driver_id !== driverId) {
+    throw Errors.notFound('Booking');
+  }
+  const booking = result.rows[0];
+  if (booking.payment_method !== 'upi' || booking.payment_status !== 'pending_collection') {
+    throw Errors.validation({ payment: 'No UPI/cash payment is pending collection for this trip.' });
+  }
+  await pool.query(`UPDATE bookings SET payment_status = 'collected', updated_at = now() WHERE id = $1`, [bookingId]);
+  return { collected: true };
+}
 
 /**
  * Driver taps "I've arrived" at pickup — notifies the customer without
@@ -160,6 +182,7 @@ export async function verifyPickupOtp(params: {
 
   switch (outcome.kind) {
     case 'success':
+      broadcastBookingEvent(bookingId, { event: 'booking.status', status: 'in_progress' });
       return { status: 'in_progress' };
     case 'not_found':
       throw Errors.notFound('Booking');
@@ -167,12 +190,22 @@ export async function verifyPickupOtp(params: {
       throw Errors.validation({ booking: `Cannot verify pickup OTP while booking is ${outcome.status}.` });
     case 'mismatch':
       throw Errors.validation({ otp: 'Incorrect code.', attempts_remaining: outcome.attemptsRemaining });
-    case 'locked':
-      // PRD 2.2.7: 3x mismatch escalates to support chat automatically in
-      // both apps — this reference implementation surfaces the escalation
-      // signal to the client; wiring it to actually auto-open a Support
-      // ticket (Section 11B.1) is a follow-up once that flow exists.
+    case 'locked': {
+      const booking = await pool.query(`SELECT customer_id, driver_id FROM bookings WHERE id = $1`, [bookingId]);
+      if (booking.rowCount && booking.rowCount > 0) {
+        const ticketId = await escalateOtpLockout({
+          bookingId,
+          customerId: booking.rows[0].customer_id,
+          driverId: booking.rows[0].driver_id,
+          context: 'pickup',
+        });
+        throw Errors.validation({
+          otp: 'Too many incorrect attempts. This trip has been flagged for support.',
+          support_ticket_id: ticketId,
+        });
+      }
       throw Errors.validation({ otp: 'Too many incorrect attempts. This trip has been flagged for support.' });
+    }
   }
 }
 
@@ -320,6 +353,7 @@ export async function completeStop(params: {
         });
       }
       if (outcome.tripCompleted && outcome.customerId) {
+        broadcastBookingEvent(bookingId, { event: 'booking.status', status: 'completed' });
         if (outcome.finalFare !== undefined) {
           void accrueTripPoints(outcome.customerId, bookingId, outcome.finalFare).catch((err) =>
             console.error('Failed to accrue loyalty points:', err)
@@ -342,8 +376,22 @@ export async function completeStop(params: {
       throw Errors.validation({ stop: 'An earlier stop on this trip has not been completed yet.' });
     case 'mismatch':
       throw Errors.validation({ otp: 'Incorrect code.', attempts_remaining: outcome.attemptsRemaining });
-    case 'locked':
+    case 'locked': {
+      const booking = await pool.query(`SELECT customer_id, driver_id FROM bookings WHERE id = $1`, [bookingId]);
+      if (booking.rowCount && booking.rowCount > 0) {
+        const ticketId = await escalateOtpLockout({
+          bookingId,
+          customerId: booking.rows[0].customer_id,
+          driverId: booking.rows[0].driver_id,
+          context: 'drop',
+        });
+        throw Errors.validation({
+          otp: 'Too many incorrect attempts. This trip has been flagged for support.',
+          support_ticket_id: ticketId,
+        });
+      }
       throw Errors.validation({ otp: 'Too many incorrect attempts. This trip has been flagged for support.' });
+    }
     case 'photo_required':
       throw Errors.validation({ photo_proof_url: 'A delivery photo is required for this stop.' });
     case 'otp_required':

@@ -39,7 +39,7 @@ import {
   getEarningsSummary,
 } from './driver.service';
 import { runDispatchCycle } from './dispatch.service';
-import { verifyPickupOtp, completeStop, arriveAtPickup, arriveAtStop } from './trip.service';
+import { verifyPickupOtp, completeStop, arriveAtPickup, arriveAtStop, collectTripPayment } from './trip.service';
 import { getActiveDriverIncentives } from './incentive.service';
 import { getDemandHeatmap } from './heatmap.service';
 import { saveProofPhoto } from './upload.service';
@@ -336,6 +336,16 @@ driverRouter.post(
       otp,
       photoProofUrl: photo_proof_url,
     });
+    res.status(200).json(result);
+  })
+);
+
+driverRouter.post(
+  '/jobs/:bookingId/collect-payment',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const bookingId = requireUuidParam(req.params.bookingId as string, 'bookingId');
+    const result = await collectTripPayment({ bookingId, driverId: req.user!.userId });
     res.status(200).json(result);
   })
 );

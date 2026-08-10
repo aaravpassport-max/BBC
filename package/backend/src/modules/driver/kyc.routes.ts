@@ -3,7 +3,9 @@ import { z } from 'zod';
 import { asyncHandler } from '../../middleware/errorHandler';
 import { validateBody } from '../../middleware/validate';
 import { requireAuth, requirePermission } from '../../middleware/auth';
-import { registerAsDriver, submitKycStep, getKycStatus, reviewKycDocument, listPendingKycDocuments } from './kyc.service';
+import { Errors } from '../../utils/errors';
+import { registerAsDriver, submitKycStep, getKycStatus, reviewKycDocument, listPendingKycDocuments, listDriverDocuments } from './kyc.service';
+import { saveKycDocument } from './upload.service';
 
 const submitStepSchema = z.object({
   fields: z.record(z.string(), z.unknown()).optional(),
@@ -53,6 +55,26 @@ kycRouter.get(
   asyncHandler(async (req, res) => {
     const status = await getKycStatus(req.user!.userId);
     res.status(200).json(status);
+  })
+);
+
+kycRouter.get(
+  '/documents',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.status(200).json({ items: await listDriverDocuments(req.user!.userId) });
+  })
+);
+
+kycRouter.post(
+  '/uploads/document',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const { image_base64 } = req.body as { image_base64?: string };
+    if (!image_base64 || typeof image_base64 !== 'string') {
+      throw Errors.validation({ image_base64: 'image_base64 is required.' });
+    }
+    res.status(201).json(saveKycDocument(image_base64));
   })
 );
 

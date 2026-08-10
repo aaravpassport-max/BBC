@@ -67,7 +67,14 @@ export async function setDriverOnlineStatus(
     [online, driverId]
   );
 
-  void offlineReason; // captured for analytics (PRD Section A.2) — not persisted in this reference schema yet
+  if (!online && offlineReason) {
+    const loc = await pool.query(`SELECT current_lat, current_lng FROM driver_profiles WHERE user_id = $1`, [driverId]);
+    await pool.query(
+      `INSERT INTO driver_offline_events (driver_id, reason_code, lat, lng)
+       VALUES ($1, $2, $3, $4)`,
+      [driverId, offlineReason, loc.rows[0]?.current_lat ?? null, loc.rows[0]?.current_lng ?? null]
+    );
+  }
 }
 
 export async function updateDriverLocation(
@@ -231,7 +238,7 @@ export async function getMyPendingOffer(driverId: string) {
  * the server validates it server-side without ever exposing the answer. */
 export async function getMyActiveJob(driverId: string) {
   const result = await pool.query(
-    `SELECT id, status, pickup_address_snapshot,
+    `SELECT id, status, pickup_address_snapshot, payment_method, payment_status,
             ST_X(pickup_geo::geometry) AS pickup_lng, ST_Y(pickup_geo::geometry) AS pickup_lat
      FROM bookings
      WHERE driver_id = $1 AND status IN ('driver_assigned', 'in_progress')

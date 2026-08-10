@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { getTripMessages, sendTripMessage, ApiError, type TripMessage } from '../api';
+import { useBookingRealtime } from '../hooks/useBookingRealtime';
 import { Button } from './Button';
 import styles from './TripChat.module.css';
 
@@ -24,6 +25,24 @@ export function TripChat({ bookingId, myRole }: { bookingId: string; myRole: 'cu
       // the next poll tick rather than surfacing a persistent error banner.
     }
   }, [bookingId]);
+
+  useBookingRealtime(bookingId, {
+    onChatMessage: (msg) => {
+      setMessages((prev) => {
+        if (prev.some((m) => m.id === msg.message_id)) return prev;
+        return [
+          ...prev,
+          {
+            id: msg.message_id,
+            sender_id: '',
+            sender_role: msg.sender_role as TripMessage['sender_role'],
+            body: msg.body,
+            created_at: msg.created_at,
+          },
+        ];
+      });
+    },
+  });
 
   useEffect(() => {
     void refresh();

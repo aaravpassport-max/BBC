@@ -19,6 +19,7 @@ import {
   getErrorMessage,
 } from '../api';
 import { LiveMap } from '../components/LiveMap';
+import { useDriverRealtime } from '../hooks/useDriverRealtime';
 import styles from '../pages/LoginPage.module.css';
 
 const POLL_INTERVAL_MS = 3000;
@@ -98,6 +99,16 @@ export function DriverHomePage() {
       if (err instanceof ApiError) setError(err.message);
     }
   }, [navigate]);
+
+  useDriverRealtime({
+    onNewOffer: (payload) => {
+      void notify('New job offer', 'A new delivery job is available — respond quickly.');
+      void getPendingOffer().then((offer) => {
+        if (offer) navigate(`/offer/${offer.offer_id}`, { state: { offer } });
+        else navigate(`/offer/${payload.offer_id}`);
+      });
+    },
+  });
 
   const getLocation = useCallback(async (): Promise<{ lat: number; lng: number }> => {
     try {
