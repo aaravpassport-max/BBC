@@ -6,6 +6,7 @@ import { Button } from '../components/Button';
 import { requestOtp, ApiError } from '../api';
 import { getDeviceId } from '../context/AuthContext';
 import { TestCredentialsHint } from '../components/TestCredentialsHint';
+import { DemoLoginPanel } from '../components/DemoLoginPanel';
 
 export function LoginPage() {
   const navigate = useNavigate();
@@ -56,6 +57,7 @@ export function LoginPage() {
           Send code
         </Button>
       </form>
+      <DemoLoginPanel />
       <TestCredentialsHint />
     </Screen>
   );

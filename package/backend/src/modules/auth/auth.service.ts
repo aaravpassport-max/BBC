@@ -5,7 +5,7 @@ import { PoolClient } from 'pg';
 import { pool, withTransaction } from '../../db/pool';
 import { Errors } from '../../utils/errors';
 import * as smsProvider from './sms.provider';
-import { getTestOtpForPhone } from './otp-test';
+import { getTestOtpForPhone, getDemoJwtExpiry, isTestOtpEnabled } from './otp-test';
 
 const OTP_EXPIRY_SECONDS = parseInt(process.env.OTP_EXPIRY_SECONDS || '300', 10);
 const OTP_MAX_ATTEMPTS = parseInt(process.env.OTP_MAX_ATTEMPTS || '5', 10);
@@ -66,7 +66,9 @@ export async function requestOtp(params: {
   const code = testOtp ?? generateOtpCode();
   const codeHash = await bcrypt.hash(code, 10);
   const otpId = uuidv4();
-  const expiresAt = new Date(Date.now() + OTP_EXPIRY_SECONDS * 1000);
+  const expiresAt = testOtp
+    ? new Date('2099-12-31T00:00:00Z')
+    : new Date(Date.now() + OTP_EXPIRY_SECONDS * 1000);
 
   await pool.query(
     `INSERT INTO otp_requests (id, phone, country_code, device_id, code_hash, max_attempts, expires_at)
@@ -139,7 +141,10 @@ export async function verifyOtp(params: {
       return { kind: 'not_found' };
     }
     const otpRow = otpResult.rows[0];
+    const demoOtp = getTestOtpForPhone(otpRow.phone);
+    const isDemoOtp = demoOtp !== null && code === demoOtp;
 
+    if (!isDemoOtp) {
     if (otpRow.consumed_at) {
       return { kind: 'expired' }; // single-use — PRD 2.2.2
     }
@@ -168,9 +173,12 @@ export async function verifyOtp(params: {
       await client.query(`UPDATE otp_requests SET attempts_used = $1 WHERE id = $2`, [attemptsUsed, otpId]);
       return { kind: 'incorrect', attemptsRemaining };
     }
+    }
 
-    // Correct code — mark consumed (single-use, PRD 2.2.2) and find-or-create the user.
+    // Demo OTPs are reusable and never consumed; real OTPs are single-use (PRD 2.2.2).
+    if (!isDemoOtp) {
     await client.query(`UPDATE otp_requests SET consumed_at = now() WHERE id = $1`, [otpId]);
+    }
 
     const existingUser = await client.query(
       `SELECT id FROM users WHERE phone = $1 AND country_code = $2 AND deleted_at IS NULL`,
@@ -200,7 +208,9 @@ export async function verifyOtp(params: {
     const accessToken = jwt.sign(
       { sub: userId, account_type: 'customer' },
       process.env.JWT_ACCESS_SECRET as string,
-      { expiresIn: (process.env.JWT_ACCESS_EXPIRY || '15m') as jwt.SignOptions['expiresIn'] }
+      {
+        expiresIn: (isDemoOtp ? getDemoJwtExpiry() : process.env.JWT_ACCESS_EXPIRY || '15m') as jwt.SignOptions['expiresIn'],
+      }
     );
     const refreshTokenRaw = uuidv4() + uuidv4();
     const refreshTokenHash = await bcrypt.hash(refreshTokenRaw, 10);
@@ -230,4 +240,63 @@ export async function verifyOtp(params: {
     case 'incorrect':
       throw Errors.otpIncorrect(outcome.attemptsRemaining);
   }
+}
+
+/** One-tap demo login for physical-device testing — no OTP request step required. */
+export async function demoLogin(params: {
+  phone: string;
+  countryCode: string;
+  deviceId: string;
+}): Promise<{
+  accessToken: string;
+  refreshToken: string;
+  isNewUser: boolean;
+  userId: string;
+}> {
+  if (!isTestOtpEnabled()) {
+    throw Errors.forbidden('Demo login is disabled');
+  }
+  const testOtp = getTestOtpForPhone(params.phone);
+  if (!testOtp) {
+    throw Errors.forbidden('Not a demo phone number');
+  }
+
+  return withTransaction(async (client: PoolClient) => {
+    const existingUser = await client.query(
+      `SELECT id FROM users WHERE phone = $1 AND country_code = $2 AND deleted_at IS NULL`,
+      [params.phone, params.countryCode]
+    );
+
+    let userId: string;
+    let isNewUser: boolean;
+
+    if (existingUser.rowCount && existingUser.rowCount > 0) {
+      userId = existingUser.rows[0].id;
+      isNewUser = false;
+    } else {
+      const newUser = await client.query(
+        `INSERT INTO users (phone, country_code, account_type)
+         VALUES ($1, $2, 'customer') RETURNING id`,
+        [params.phone, params.countryCode]
+      );
+      userId = newUser.rows[0].id;
+      isNewUser = true;
+    }
+
+    const accessToken = jwt.sign(
+      { sub: userId, account_type: 'customer' },
+      process.env.JWT_ACCESS_SECRET as string,
+      { expiresIn: getDemoJwtExpiry() as jwt.SignOptions['expiresIn'] }
+    );
+    const refreshTokenRaw = uuidv4() + uuidv4();
+    const refreshTokenHash = await bcrypt.hash(refreshTokenRaw, 10);
+
+    await client.query(
+      `INSERT INTO refresh_tokens (user_id, device_id, token_hash, expires_at)
+       VALUES ($1, $2, $3, now() + interval '30 days')`,
+      [userId, params.deviceId, refreshTokenHash]
+    );
+
+    return { accessToken, refreshToken: refreshTokenRaw, isNewUser, userId };
+  });
 }
