@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { AppShell } from './components/AppShell';
 import { OfflineBanner } from './components/OfflineBanner';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { LoginPage } from './pages/LoginPage';
 import { VerifyOtpPage } from './pages/VerifyOtpPage';
 import { KycPage } from './pages/KycPage';
@@ -92,13 +93,22 @@ function AppRoutes() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
-        <OfflineBanner />
-        <PushRegistration />
-        <SessionKeepAlive />
-        <AppRoutes />
-      </BrowserRouter>
-    </AuthProvider>
+    <ErrorBoundary
+      label="App"
+      fallback={
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24, textAlign: 'center', background: '#f4f6f9', color: '#64748b' }}>
+          The app hit an unexpected error. Close and reopen, or clear app data and log in again.
+        </div>
+      }
+    >
+      <AuthProvider>
+        <BrowserRouter>
+          <OfflineBanner />
+          <PushRegistration />
+          <SessionKeepAlive />
+          <AppRoutes />
+        </BrowserRouter>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

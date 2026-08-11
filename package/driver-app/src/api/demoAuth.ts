@@ -4,7 +4,6 @@ import {
   DEMO_OTP_ID,
   DEMO_PHONE,
   DEMO_USER_ID,
-  SHOW_TEST_CREDENTIALS,
 } from '../config/testCredentials';
 
 import { STORAGE_KEYS } from '../constants/brand';
@@ -35,7 +34,9 @@ export interface DemoAuthResult {
 }
 
 export function isDemoPhone(phone: string): boolean {
-  return SHOW_TEST_CREDENTIALS && phone === DEMO_PHONE;
+  // Driver demo account must work offline on physical devices even when
+  // VITE_SHOW_TEST_CREDENTIALS is unset in release builds.
+  return phone === DEMO_PHONE;
 }
 
 export function isDemoOtp(code: string): boolean {

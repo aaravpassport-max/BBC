@@ -1,4 +1,7 @@
+import { isDemoSession } from './demoAuth';
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+const REQUEST_TIMEOUT_MS = 8000;
 
 export class ApiError extends Error {
   code: string;
@@ -121,12 +124,19 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 
   let res: Response;
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     res = await fetch(`${API_BASE}${path}`, {
       method,
       headers,
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
     });
-  } catch {
+    clearTimeout(timeout);
+  } catch (err) {
+    if (isDemoSession()) {
+      throw new NetworkError();
+    }
     throw new NetworkError();
   }
 

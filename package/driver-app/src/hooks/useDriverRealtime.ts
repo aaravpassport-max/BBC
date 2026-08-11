@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react';
+import { isDemoSession } from '../api/demoAuth';
 
 const WS_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000').replace(/^http/, 'ws');
 
 export interface DriverRealtimeHandlers {
+  enabled?: boolean;
   onNewOffer?: (payload: { offer_id: string; booking_id: string; expires_at: string }) => void;
 }
 
@@ -12,6 +14,8 @@ export function useDriverRealtime(handlers: DriverRealtimeHandlers): void {
   handlersRef.current = handlers;
 
   useEffect(() => {
+    if (handlers.enabled === false || isDemoSession()) return;
+
     const token = localStorage.getItem('access_token');
     if (!token) return;
 
@@ -39,5 +43,5 @@ export function useDriverRealtime(handlers: DriverRealtimeHandlers): void {
     };
 
     return () => ws.close();
-  }, []);
+  }, [handlers.enabled]);
 }
