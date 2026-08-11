@@ -126,6 +126,15 @@ export function BookingLocationPage() {
     setDrops((prev) => prev.map((d, i) => (i === index ? loc : d)));
   }
 
+  function swapPickupAndDrop() {
+    if (!pickup || drops.length === 0) return;
+    setPickup(drops[0]);
+    setDrops([pickup, ...drops.slice(1)]);
+    setError('');
+  }
+
+  const canSwap = Boolean(pickup && drops.length > 0);
+
   return (
     <Screen
       eyebrow={serviceLabel(vehicleGroup)}
@@ -148,49 +157,66 @@ export function BookingLocationPage() {
       {pickup && drops.length > 0 && <LiveMap pickup={pickup} drops={drops} driver={null} />}
 
       <div className={styles.locationCard}>
-        <div className={styles.locationRow}>
-          <span className={`${styles.dot} ${styles.dotPickup}`} />
-          <div className={styles.fieldBlock}>
-            <div className={styles.fieldLabel}>Pickup from</div>
-            <LocationPicker
-              value={pickup}
-              onChange={setPickup}
-              savedAddresses={savedAddresses}
-              onPickOnMap={() => setMapTarget('pickup')}
-            />
-          </div>
-        </div>
-        <div className={styles.connector} />
-        {drops.map((drop, idx) => (
-          <div key={idx} className={styles.locationRow}>
-            <span className={`${styles.dot} ${styles.dotDrop}`} />
-            <div className={styles.fieldBlock}>
-              <div className={styles.fieldLabel}>Drop {drops.length > 1 ? idx + 1 : 'at'}</div>
-              <div className={styles.dropRow}>
-                <div className={styles.dropField}>
-                  <LocationPicker
-                    value={drop}
-                    onChange={(loc) => updateDrop(idx, loc)}
-                    savedAddresses={savedAddresses}
-                    onPickOnMap={() => setMapTarget(idx)}
-                    searchBias={pickup ? { lat: pickup.lat, lng: pickup.lng } : undefined}
-                    placeholder="Where is your drop?"
-                  />
-                </div>
-                {drops.length > 1 && (
-                  <button
-                    type="button"
-                    className={styles.removeDrop}
-                    onClick={() => setDrops(drops.filter((_, i) => i !== idx))}
-                    aria-label="Remove drop"
-                  >
-                    ✕
-                  </button>
-                )}
+        <div className={styles.routeWrap}>
+          <div className={styles.routeFields}>
+            <div className={styles.locationRow}>
+              <span className={`${styles.dot} ${styles.dotPickup}`} />
+              <div className={styles.fieldBlock}>
+                <div className={styles.fieldLabel}>Pickup from</div>
+                <LocationPicker
+                  value={pickup}
+                  onChange={setPickup}
+                  savedAddresses={savedAddresses}
+                  onPickOnMap={() => setMapTarget('pickup')}
+                />
               </div>
             </div>
+            <div className={styles.connector} />
+            {drops.map((drop, idx) => (
+              <div key={idx} className={styles.locationRow}>
+                <span className={`${styles.dot} ${styles.dotDrop}`} />
+                <div className={styles.fieldBlock}>
+                  <div className={styles.fieldLabel}>Drop {drops.length > 1 ? idx + 1 : 'at'}</div>
+                  <div className={styles.dropRow}>
+                    <div className={styles.dropField}>
+                      <LocationPicker
+                        value={drop}
+                        onChange={(loc) => updateDrop(idx, loc)}
+                        savedAddresses={savedAddresses}
+                        onPickOnMap={() => setMapTarget(idx)}
+                        searchBias={pickup ? { lat: pickup.lat, lng: pickup.lng } : undefined}
+                        placeholder="Where is your drop?"
+                      />
+                    </div>
+                    {drops.length > 1 && (
+                      <button
+                        type="button"
+                        className={styles.removeDrop}
+                        onClick={() => setDrops(drops.filter((_, i) => i !== idx))}
+                        aria-label="Remove drop"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-        ))}
+          {canSwap && (
+            <button
+              type="button"
+              className={styles.swapBtn}
+              onClick={swapPickupAndDrop}
+              aria-label="Switch pickup and drop"
+              title="Switch pickup and drop"
+            >
+              <span className={styles.swapIcon} aria-hidden>
+                ⇅
+              </span>
+            </button>
+          )}
+        </div>
         {drops.length < 3 && (
           <button
             type="button"

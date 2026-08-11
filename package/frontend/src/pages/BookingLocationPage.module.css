@@ -8,6 +8,49 @@
   gap: 0;
 }
 
+.routeWrap {
+  display: flex;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.routeFields {
+  flex: 1;
+  min-width: 0;
+}
+
+.swapBtn {
+  align-self: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--accent-strong);
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.swapBtn:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.swapBtn:active {
+  transform: scale(0.96);
+}
+
+.swapIcon {
+  font-size: 20px;
+  line-height: 1;
+  font-weight: 700;
+}
+
 .locationRow {
   display: flex;
   align-items: flex-start;
