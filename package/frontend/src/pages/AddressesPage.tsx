@@ -4,7 +4,7 @@ import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { LocationPicker } from '../components/LocationPicker';
 import { MapPicker } from '../components/MapPicker';
-import { listAddresses, createAddress, updateAddress, deleteAddress, getErrorMessage, type SavedAddress } from '../api';
+import { listAddresses, createAddress, updateAddress, deleteAddress, setAddressFavourite, getErrorMessage, type SavedAddress } from '../api';
 import { PRESET_LOCATIONS, type LocationPoint } from '../lib/locations';
 
 export function AddressesPage() {
@@ -89,6 +89,11 @@ export function AddressesPage() {
     await refresh();
   }
 
+  async function toggleFavourite(id: string, isFavourite: boolean) {
+    await setAddressFavourite(id, isFavourite);
+    await refresh();
+  }
+
   return (
     <Screen eyebrow="Addresses" title="Saved addresses" onBack={() => navigate('/profile')}>
       {addresses.map((a) => (
@@ -104,8 +109,10 @@ export function AddressesPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
             <div>
               <div style={{ fontWeight: 600 }}>
+                {a.is_favourite ? '★ ' : ''}
                 {a.label}{' '}
                 {a.is_default && <span style={{ fontSize: 11, color: 'var(--accent)' }}>· Default</span>}
+                {a.last_used_at && <span style={{ fontSize: 11, color: 'var(--text-muted)' }}> · Recent</span>}
               </div>
               <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{a.address_line}</div>
               {(a.contact_name || a.contact_phone) && (
@@ -115,6 +122,13 @@ export function AddressesPage() {
               )}
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <button
+                type="button"
+                onClick={() => void toggleFavourite(a.id, !a.is_favourite)}
+                style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 12 }}
+              >
+                {a.is_favourite ? 'Unfavourite' : 'Favourite'}
+              </button>
               <button type="button" onClick={() => startEdit(a)} style={{ background: 'none', border: 'none', color: 'var(--accent)', cursor: 'pointer', fontSize: 12 }}>
                 Edit
               </button>

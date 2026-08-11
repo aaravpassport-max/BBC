@@ -6,6 +6,7 @@ import { SkeletonRowList } from '../components/Skeleton';
 import { Button } from '../components/Button';
 import { listBookings, getErrorMessage, type Booking } from '../api';
 import { formatAddress } from '../lib/address';
+import { rebookFromHistory } from '../lib/rebookNavigation';
 
 const FILTERS = [
   { id: 'all', label: 'All' },
@@ -15,6 +16,7 @@ const FILTERS = [
 ] as const;
 
 const ACTIVE = new Set(['scheduled', 'searching', 'driver_assigned', 'in_progress']);
+const REBOOKABLE = new Set(['completed', 'cancelled']);
 
 function money(n: number): string {
   return `₹${n.toFixed(2)}`;
@@ -27,6 +29,7 @@ export function HistoryPage() {
   const [hasMore, setHasMore] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [rebookingId, setRebookingId] = useState<string | null>(null);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]['id']>('all');
 
   async function loadPage(p: number, append = false, statusFilter?: string) {
@@ -58,6 +61,13 @@ export function HistoryPage() {
   function openTrip(b: Booking) {
     if (ACTIVE.has(b.status)) navigate(`/track/${b.id}`);
     else navigate(`/trip/${b.id}`);
+  }
+
+  async function handleRebook(bookingId: string) {
+    setRebookingId(bookingId);
+    setError('');
+    await rebookFromHistory(navigate, bookingId, setError);
+    setRebookingId(null);
   }
 
   return (
@@ -106,13 +116,6 @@ export function HistoryPage() {
         ))}
       </div>
 
-      {filtered.length > 0 && (
-        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-          {filtered.length} trip{filtered.length === 1 ? '' : 's'}
-          {totalSpent > 0 && ` · ${money(totalSpent)} spent`}
-        </div>
-      )}
-
       {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
       {loading && bookings.length === 0 && <SkeletonRowList count={3} />}
 
@@ -123,45 +126,62 @@ export function HistoryPage() {
       {filtered.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {filtered.map((b) => (
-            <button
+            <div
               key={b.id}
-              type="button"
-              onClick={() => openTrip(b)}
               style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                textAlign: 'left',
                 border: '1px solid var(--border)',
                 borderRadius: 12,
                 background: 'var(--surface)',
-                padding: '14px 16px',
-                cursor: 'pointer',
-                color: 'var(--text)',
+                overflow: 'hidden',
               }}
             >
-              <div>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>
-                  #{b.id.slice(0, 8).toUpperCase()}
+              <button
+                type="button"
+                onClick={() => openTrip(b)}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  width: '100%',
+                  textAlign: 'left',
+                  border: 'none',
+                  background: 'transparent',
+                  padding: '14px 16px',
+                  cursor: 'pointer',
+                  color: 'var(--text)',
+                }}
+              >
+                <div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>
+                    #{b.id.slice(0, 8).toUpperCase()}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                    {new Date(b.created_at).toLocaleString()}
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, maxWidth: 220 }}>
+                    {formatAddress(b.pickup_address, 'Pickup')} → {formatAddress(b.first_drop_address, 'Drop')}
+                    {(b.stop_count ?? 0) > 1 ? ` (+${(b.stop_count ?? 1) - 1} more)` : ''}
+                  </div>
+                  <div style={{ marginTop: 6 }}>
+                    <StatusBadge status={b.status} />
+                  </div>
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
-                  {new Date(b.created_at).toLocaleString()}
+                <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 16, color: 'var(--accent-strong)' }}>
+                  {money(b.fare_breakdown.final_fare)}
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4, maxWidth: 200 }}>
-                  {formatAddress(b.pickup_address, 'Pickup')} → {formatAddress(b.first_drop_address, 'Drop')}
-                  {(b.stop_count ?? 0) > 1 ? ` (+${(b.stop_count ?? 1) - 1} more)` : ''}
+              </button>
+              {REBOOKABLE.has(b.status) && (
+                <div style={{ padding: '0 16px 14px' }}>
+                  <Button
+                    variant="ghost"
+                    loading={rebookingId === b.id}
+                    onClick={() => void handleRebook(b.id)}
+                  >
+                    Book again
+                  </Button>
                 </div>
-                <div style={{ fontSize: 13, marginTop: 4, textTransform: 'capitalize' }}>
-                  {b.vehicle_category_id?.replace(/_/g, ' ') || 'Delivery'}
-                </div>
-                <div style={{ marginTop: 6 }}>
-                  <StatusBadge status={b.status} />
-                </div>
-              </div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 16, color: 'var(--accent-strong)' }}>
-                {money(b.fare_breakdown.final_fare)}
-              </div>
-            </button>
+              )}
+            </div>
           ))}
         </div>
       )}

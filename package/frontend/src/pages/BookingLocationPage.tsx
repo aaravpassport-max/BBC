@@ -6,7 +6,11 @@ import { Button } from '../components/Button';
 import { LocationPicker } from '../components/LocationPicker';
 import { MapPicker } from '../components/MapPicker';
 import { LiveMap } from '../components/LiveMap';
-import { listAddresses, getProfile } from '../api';
+import { listAddresses, getProfile, listRecentAddresses, listFavouriteAddresses } from '../api';
+import { listBookingTemplates } from '../api/rebook';
+import { swapBookingParties } from '../lib/bookingDraft';
+import { startFromTemplate } from '../lib/rebookNavigation';
+import type { BookingTemplate } from '../lib/bookingDraft';
 import { checkServiceability } from '../api/features';
 import { PRESET_LOCATIONS, sameLocation, type LocationPoint } from '../lib/locations';
 import type { SavedAddress } from '../api/profile';
@@ -38,11 +42,15 @@ export function BookingLocationPage() {
   const serviceId = nav?.serviceId;
   const resumeDraft = nav?.draft;
   const deepLinkFilled = nav?.deepLinkFilled;
+  const entrySource = nav?.entrySource ?? 'blank';
   const defaults = serviceId ? serviceDefaults(serviceId) : serviceDefaults('two_wheeler');
 
   const [pickup, setPickup] = useState<LocationPoint | null>(resumeDraft?.pickup ?? PRESET_LOCATIONS[0]);
   const [drops, setDrops] = useState<LocationPoint[]>(resumeDraft?.drops ?? [PRESET_LOCATIONS[1]]);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [recentAddresses, setRecentAddresses] = useState<SavedAddress[]>([]);
+  const [favouriteAddresses, setFavouriteAddresses] = useState<SavedAddress[]>([]);
+  const [templates, setTemplates] = useState<BookingTemplate[]>([]);
   const [mapTarget, setMapTarget] = useState<'pickup' | number | null>(null);
   const [goodsCategory, setGoodsCategory] = useState(resumeDraft?.goodsCategory ?? defaults.goodsCategory);
   const [weightBand, setWeightBand] = useState(resumeDraft?.weightBand ?? defaults.weightBand);
@@ -64,9 +72,10 @@ export function BookingLocationPage() {
   }, [serviceId, resumeDraft, navigate]);
 
   useEffect(() => {
-    listAddresses()
-      .then(setSavedAddresses)
-      .catch(() => undefined);
+    listAddresses().then(setSavedAddresses).catch(() => undefined);
+    listRecentAddresses().then(setRecentAddresses).catch(() => undefined);
+    listFavouriteAddresses().then(setFavouriteAddresses).catch(() => undefined);
+    listBookingTemplates().then(setTemplates).catch(() => undefined);
   }, []);
 
   useEffect(() => {
@@ -139,6 +148,15 @@ export function BookingLocationPage() {
       scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
     };
 
+    const contactsComplete =
+      Boolean(pickup.contactName && pickup.contactPhone) &&
+      drops.every((d) => d.contactName && d.contactPhone);
+
+    if ((entrySource === 'rebook' || entrySource === 'template') && contactsComplete) {
+      navigate('/vehicles', { state: draft });
+      return;
+    }
+
     if (deepLinkFilled === 'pickup') {
       navigate('/book/drop-details', { state: { draft } });
       return;
@@ -156,8 +174,18 @@ export function BookingLocationPage() {
 
   function swapPickupAndDrop() {
     if (!pickup || drops.length === 0) return;
-    setPickup(drops[0]);
-    setDrops([pickup, ...drops.slice(1)]);
+    const swapped = swapBookingParties({
+      serviceId: activeServiceId,
+      vehicleGroup: serviceToVehicleGroup(activeServiceId),
+      pickup,
+      drops,
+      goodsCategory,
+      weightBand,
+      helperNeeded,
+      scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
+    });
+    setPickup(swapped.pickup);
+    setDrops(swapped.drops);
     setError('');
   }
 
@@ -170,11 +198,22 @@ export function BookingLocationPage() {
       onBack={() => navigate('/home')}
       footer={
         <>
+          {canSwap && (
+            <button type="button" className={styles.swapFullBtn} onClick={swapPickupAndDrop}>
+              ⇅ Switch sender & receiver
+            </button>
+          )}
           {error && <p className={styles.error}>{error}</p>}
           <Button onClick={() => void handleContinue()}>Continue</Button>
         </>
       }
     >
+      {entrySource === 'rebook' && (
+        <p className={styles.success}>Previous trip details loaded — edit anything before continuing.</p>
+      )}
+      {entrySource === 'template' && (
+        <p className={styles.success}>Favourite route loaded — edit anything before continuing.</p>
+      )}
       {deepLinkFilled === 'pickup' && (
         <p className={styles.success}>Pickup from shared location is set — choose where to drop.</p>
       )}
@@ -190,6 +229,24 @@ export function BookingLocationPage() {
 
       {pickup && drops.length > 0 && <LiveMap pickup={pickup} drops={drops} driver={null} />}
 
+      {templates.length > 0 && (
+        <div className={styles.section}>
+          <span className={styles.sectionLabel}>Favourite routes</span>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {templates.slice(0, 4).map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                className={styles.addDrop}
+                onClick={() => startFromTemplate(navigate, t)}
+              >
+                ★ {t.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className={styles.locationCard}>
         <div className={styles.routeWrap}>
           <div className={styles.routeFields}>
@@ -201,6 +258,8 @@ export function BookingLocationPage() {
                   value={pickup}
                   onChange={setPickup}
                   savedAddresses={savedAddresses}
+                  recentAddresses={recentAddresses}
+                  favouriteAddresses={favouriteAddresses}
                   onPickOnMap={() => setMapTarget('pickup')}
                 />
               </div>
@@ -217,6 +276,8 @@ export function BookingLocationPage() {
                         value={drop}
                         onChange={(loc) => updateDrop(idx, loc)}
                         savedAddresses={savedAddresses}
+                        recentAddresses={recentAddresses}
+                        favouriteAddresses={favouriteAddresses}
                         onPickOnMap={() => setMapTarget(idx)}
                         searchBias={pickup ? { lat: pickup.lat, lng: pickup.lng } : undefined}
                         placeholder="Where is your drop?"

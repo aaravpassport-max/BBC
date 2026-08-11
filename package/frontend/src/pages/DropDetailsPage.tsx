@@ -10,6 +10,7 @@ import type { SavedAddress } from '../api/profile';
 import type { BookingDraft } from '../api/vehicles';
 import type { AddressSaveAs, LocationPoint } from '../lib/locations';
 import type { BookingFlowState } from '../lib/bookingFlow';
+import { swapBookingParties } from '../lib/bookingDraft';
 import styles from './DropDetailsPage.module.css';
 
 const SAVE_AS_OPTIONS: { id: AddressSaveAs; label: string; icon: string }[] = [
@@ -173,6 +174,20 @@ export function DropDetailsPage() {
       onBack={handleBack}
       footer={
         <>
+          <button
+            type="button"
+            className={styles.switchBtn}
+            onClick={() => {
+              const swapped = swapBookingParties(draft);
+              navigate('/book/drop-details', {
+                state: flow.returnTo
+                  ? { ...flow, draft: swapped, dropIndex: 0 }
+                  : { draft: swapped, dropIndex: 0 },
+              });
+            }}
+          >
+            ⇅ Switch sender & receiver
+          </button>
           {error && <p className={styles.error}>{error}</p>}
           <Button loading={saving} onClick={() => void handleConfirm()}>
             {saveLabel}

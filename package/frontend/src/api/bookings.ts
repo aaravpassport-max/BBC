@@ -135,7 +135,8 @@ export function confirmBooking(
   paymentMethod: string,
   scheduledFor?: string,
   corporateAccountId?: string,
-  savedPaymentMethodId?: string
+  savedPaymentMethodId?: string,
+  rebookSnapshot?: Record<string, unknown>
 ) {
   return api.post<Booking & { payment_required?: boolean; gateway_session?: GatewaySession }>(
     '/v1/bookings',
@@ -145,6 +146,7 @@ export function confirmBooking(
       scheduled_for: scheduledFor,
       corporate_account_id: corporateAccountId,
       saved_payment_method_id: savedPaymentMethodId,
+      rebook_snapshot: rebookSnapshot,
     },
     newIdempotencyKey()
   );

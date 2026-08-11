@@ -5,6 +5,14 @@ import { validateBody } from '../../middleware/validate';
 import { requireAuth } from '../../middleware/auth';
 import { getProfile, updateProfile } from './profile.service';
 import { listAddresses, createAddress, updateAddress, deleteAddress } from './addresses.service';
+import {
+  listRecentAddresses,
+  listFavouriteAddresses,
+  setAddressFavourite,
+  listBookingTemplates,
+  createBookingTemplate,
+  deleteBookingTemplate,
+} from './favourites.service';
 
 const updateProfileSchema = z.object({
   name: z.string().min(1).max(100).optional(),
@@ -24,6 +32,12 @@ const addressSchema = z.object({
   contact_name: z.string().max(100).optional(),
   contact_phone: z.string().max(20).optional(),
   is_default: z.boolean().optional(),
+  is_favourite: z.boolean().optional(),
+});
+
+const templateSchema = z.object({
+  name: z.string().min(1).max(120),
+  snapshot: z.record(z.string(), z.unknown()),
 });
 
 export const userRouter = Router();
@@ -53,12 +67,39 @@ userRouter.get(
   })
 );
 
+userRouter.get(
+  '/addresses/recent',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await listRecentAddresses(req.user!.userId));
+  })
+);
+
+userRouter.get(
+  '/addresses/favourites',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await listFavouriteAddresses(req.user!.userId));
+  })
+);
+
 userRouter.post(
   '/addresses',
   requireAuth,
   validateBody(addressSchema),
   asyncHandler(async (req, res) => {
     res.status(201).json(await createAddress(req.user!.userId, req.body));
+  })
+);
+
+userRouter.post(
+  '/addresses/:id/favourite',
+  requireAuth,
+  validateBody(z.object({ is_favourite: z.boolean() })),
+  asyncHandler(async (req, res) => {
+    res.status(200).json(
+      await setAddressFavourite(req.user!.userId, req.params.id as string, req.body.is_favourite)
+    );
   })
 );
 
@@ -76,6 +117,32 @@ userRouter.delete(
   requireAuth,
   asyncHandler(async (req, res) => {
     await deleteAddress(req.user!.userId, req.params.id as string);
+    res.status(200).json({ deleted: true });
+  })
+);
+
+userRouter.get(
+  '/booking-templates',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    res.status(200).json(await listBookingTemplates(req.user!.userId));
+  })
+);
+
+userRouter.post(
+  '/booking-templates',
+  requireAuth,
+  validateBody(templateSchema),
+  asyncHandler(async (req, res) => {
+    res.status(201).json(await createBookingTemplate(req.user!.userId, req.body.name, req.body.snapshot));
+  })
+);
+
+userRouter.delete(
+  '/booking-templates/:id',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    await deleteBookingTemplate(req.user!.userId, req.params.id as string);
     res.status(200).json({ deleted: true });
   })
 );

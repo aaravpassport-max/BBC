@@ -5,6 +5,8 @@ import { validateBody } from '../../middleware/validate';
 import { requireAuth } from '../../middleware/auth';
 import { Errors } from '../../utils/errors';
 import { createBooking, cancelBooking, getBooking, getBookingDriverLocation, listBookings, previewCancellation } from './booking.service';
+import { getRebookPrefill } from './rebook.service';
+import { recordAddressUsage } from '../user/favourites.service';
 import { confirmTripPaymentAsCustomer } from './payment.service';
 import { submitTip, getTipForBooking, getPresetTipAmounts } from './tip.service';
 import { listCustomerInvoices, generateTripInvoicePdf } from './invoice.service';
@@ -16,12 +18,34 @@ import * as commsProvider from '../comms/comms.provider';
 import { pool } from '../../db/pool';
 import { isDevRoutesEnabled } from '../../config/env';
 
+const locationPointSchema = z.object({
+  label: z.string().optional(),
+  lat: z.number(),
+  lng: z.number(),
+  addressLine: z.string().optional(),
+  unitDetail: z.string().optional(),
+  contactName: z.string().optional(),
+  contactPhone: z.string().optional(),
+  saveAs: z.string().optional(),
+});
+
+const rebookSnapshotSchema = z.object({
+  serviceId: z.string().optional(),
+  vehicleGroup: z.string().optional(),
+  goodsCategory: z.string().optional(),
+  weightBand: z.string().optional(),
+  helperNeeded: z.boolean().optional(),
+  pickup: locationPointSchema,
+  drops: z.array(locationPointSchema).min(1),
+});
+
 const createBookingSchema = z.object({
   quote_id: z.string().uuid(),
   payment_method: z.enum(['wallet', 'card', 'upi', 'corporate_bill']),
   scheduled_for: z.string().datetime().optional(),
   corporate_account_id: z.string().uuid().optional(),
   saved_payment_method_id: z.string().uuid().optional(),
+  rebook_snapshot: rebookSnapshotSchema.optional(),
 });
 
 const cancelBookingSchema = z.object({
@@ -65,7 +89,7 @@ bookingRouter.post(
       throw Errors.validation({ 'Idempotency-Key': 'This header is required.' });
     }
 
-    const { quote_id, payment_method, scheduled_for, corporate_account_id, saved_payment_method_id } = req.body;
+    const { quote_id, payment_method, scheduled_for, corporate_account_id, saved_payment_method_id, rebook_snapshot } = req.body;
     const booking = await createBooking({
       customerId: req.user!.userId,
       quoteId: quote_id,
@@ -74,7 +98,31 @@ bookingRouter.post(
       scheduledFor: scheduled_for,
       corporateAccountId: corporate_account_id,
       savedPaymentMethodId: saved_payment_method_id,
+      rebookSnapshot: rebook_snapshot,
     });
+    if (rebook_snapshot) {
+      const snap = rebook_snapshot;
+      void recordAddressUsage(req.user!.userId, {
+        label: snap.pickup.label || 'Pickup',
+        address_line: snap.pickup.addressLine || snap.pickup.label || 'Pickup',
+        lat: snap.pickup.lat,
+        lng: snap.pickup.lng,
+        landmark: snap.pickup.unitDetail ?? null,
+        contact_name: snap.pickup.contactName ?? null,
+        contact_phone: snap.pickup.contactPhone ?? null,
+      }).catch(() => undefined);
+      for (const drop of snap.drops) {
+        void recordAddressUsage(req.user!.userId, {
+          label: drop.label || 'Drop',
+          address_line: drop.addressLine || drop.label || 'Drop',
+          lat: drop.lat,
+          lng: drop.lng,
+          landmark: drop.unitDetail ?? null,
+          contact_name: drop.contactName ?? null,
+          contact_phone: drop.contactPhone ?? null,
+        }).catch(() => undefined);
+      }
+    }
     if (!booking.payment_required && booking.status === 'searching') {
       void runDispatchCycle(booking.id).catch(() => undefined);
     }
@@ -110,6 +158,15 @@ bookingRouter.get(
   requireAuth,
   asyncHandler(async (_req, res) => {
     res.status(200).json({ amounts: getPresetTipAmounts() });
+  })
+);
+
+bookingRouter.get(
+  '/:id/rebook',
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const prefill = await getRebookPrefill(req.params.id as string, req.user!.userId);
+    res.status(200).json(prefill);
   })
 );
 

@@ -17,6 +17,10 @@ export interface BookingLocationNavState {
   draft?: BookingDraft;
   /** Which end was filled from a shared WhatsApp / maps link. */
   deepLinkFilled?: 'pickup' | 'drop';
+  /** How this booking was started — drives rebook banners and skip logic. */
+  entrySource?: 'blank' | 'rebook' | 'template' | 'favourite';
+  rebookFromBookingId?: string;
+  templateId?: string;
 }
 
 export interface SharedLocationNavState {

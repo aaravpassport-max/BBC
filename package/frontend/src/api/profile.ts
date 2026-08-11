@@ -22,6 +22,9 @@ export interface SavedAddress {
   contact_name: string | null;
   contact_phone: string | null;
   is_default: boolean;
+  is_favourite?: boolean;
+  last_used_at?: string | null;
+  usage_count?: number;
   created_at: string;
 }
 
@@ -47,4 +50,16 @@ export function updateAddress(id: string, data: Partial<Omit<SavedAddress, 'id' 
 
 export function deleteAddress(id: string) {
   return api.del<{ deleted: boolean }>(`/v1/addresses/${id}`);
+}
+
+export function listRecentAddresses() {
+  return api.get<SavedAddress[]>('/v1/addresses/recent');
+}
+
+export function listFavouriteAddresses() {
+  return api.get<SavedAddress[]>('/v1/addresses/favourites');
+}
+
+export function setAddressFavourite(id: string, isFavourite: boolean) {
+  return api.post<SavedAddress>(`/v1/addresses/${id}/favourite`, { is_favourite: isFavourite });
 }

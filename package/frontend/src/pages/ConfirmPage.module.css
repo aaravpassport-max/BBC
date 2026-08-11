@@ -35,6 +35,19 @@
   margin: 0 0 10px;
 }
 
+.switchBtn {
+  width: 100%;
+  margin-top: 8px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--accent-strong);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
 .vehicleCard {
   display: flex;
   gap: 12px;

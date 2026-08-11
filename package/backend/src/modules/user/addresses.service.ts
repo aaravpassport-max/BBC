@@ -3,8 +3,9 @@ import { Errors } from '../../utils/errors';
 
 export async function listAddresses(userId: string) {
   const result = await pool.query(
-    `SELECT id, label, address_line, lat, lng, landmark, contact_name, contact_phone, is_default, created_at
-     FROM saved_addresses WHERE user_id = $1 ORDER BY is_default DESC, created_at DESC`,
+    `SELECT id, label, address_line, lat, lng, landmark, contact_name, contact_phone,
+            is_default, is_favourite, last_used_at, usage_count, created_at
+     FROM saved_addresses WHERE user_id = $1 ORDER BY is_favourite DESC, is_default DESC, last_used_at DESC NULLS LAST, created_at DESC`,
     [userId]
   );
   return result.rows;

@@ -10,9 +10,25 @@ interface LocationPickerProps {
   onChange: (loc: LocationPoint) => void;
   placeholder?: string;
   savedAddresses?: SavedAddress[];
+  recentAddresses?: SavedAddress[];
+  favouriteAddresses?: SavedAddress[];
   onPickOnMap?: () => void;
   /** Bias online search toward this coordinate (e.g. pickup GPS or current location). */
   searchBias?: { lat: number; lng: number };
+}
+
+function savedToPlace(a: SavedAddress, source: 'saved' | 'recent' | 'favourite'): PlaceResult {
+  return {
+    id: a.id,
+    label: a.label,
+    addressLine: a.address_line,
+    lat: a.lat,
+    lng: a.lng,
+    source,
+    contactName: a.contact_name ?? undefined,
+    contactPhone: a.contact_phone ?? undefined,
+    unitDetail: a.landmark ?? undefined,
+  } as PlaceResult & { contactName?: string; contactPhone?: string; unitDetail?: string };
 }
 
 export function LocationPicker({
@@ -20,6 +36,8 @@ export function LocationPicker({
   onChange,
   placeholder = 'Search address or landmark',
   savedAddresses = [],
+  recentAddresses = [],
+  favouriteAddresses = [],
   onPickOnMap,
   searchBias,
 }: LocationPickerProps) {
@@ -46,14 +64,17 @@ export function LocationPicker({
 
   function selectPlace(place: PlaceResult) {
     const saved = savedAddresses.find((a) => a.id === place.id);
+    const recent = recentAddresses.find((a) => a.id === place.id);
+    const favourite = favouriteAddresses.find((a) => a.id === place.id);
+    const fromSaved = saved ?? recent ?? favourite;
     onChange({
       label: place.label,
       lat: place.lat,
       lng: place.lng,
       addressLine: place.addressLine,
-      contactName: saved?.contact_name ?? undefined,
-      contactPhone: saved?.contact_phone ?? undefined,
-      unitDetail: saved?.landmark ?? undefined,
+      contactName: fromSaved?.contact_name ?? (place as PlaceResult & { contactName?: string }).contactName,
+      contactPhone: fromSaved?.contact_phone ?? (place as PlaceResult & { contactPhone?: string }).contactPhone,
+      unitDetail: fromSaved?.landmark ?? (place as PlaceResult & { unitDetail?: string }).unitDetail,
     });
     setEditing(false);
     setQuery('');
@@ -77,18 +98,24 @@ export function LocationPicker({
     }
   }
 
-  const savedResults: PlaceResult[] = savedAddresses.map((a) => ({
-    id: a.id,
-    label: a.label,
-    addressLine: a.address_line,
-    lat: a.lat,
-    lng: a.lng,
-    source: 'saved',
-  }));
+  const favouriteResults = favouriteAddresses.map((a) => savedToPlace(a, 'favourite'));
+  const recentResults = recentAddresses
+    .filter((a) => !favouriteAddresses.some((f) => f.id === a.id))
+    .map((a) => savedToPlace(a, 'recent'));
+  const savedResults = savedAddresses
+    .filter((a) => !favouriteAddresses.some((f) => f.id === a.id) && !recentAddresses.some((r) => r.id === a.id))
+    .map((a) => savedToPlace(a, 'saved'));
 
   const displaySuggestions = query.trim()
     ? suggestions
-    : [...savedResults, ...suggestions.filter((s) => s.source === 'preset')];
+    : [...favouriteResults, ...recentResults, ...savedResults, ...suggestions.filter((s) => s.source === 'preset')];
+
+  function badgeFor(place: PlaceResult) {
+    if (place.source === 'favourite') return '★ Favourite';
+    if (place.source === 'recent') return 'Recent';
+    if (place.source === 'saved') return 'Saved';
+    return null;
+  }
 
   if (!editing && value) {
     return (
@@ -135,20 +162,23 @@ export function LocationPicker({
               Searching…
             </div>
           )}
-          {displaySuggestions.map((place) => (
-            <button
-              key={`${place.source}-${place.id ?? place.label}-${place.lat}`}
-              type="button"
-              className={styles.suggestion}
-              onClick={() => selectPlace(place)}
-            >
-              <div className={styles.suggestionTitle}>
-                {place.label}{' '}
-                {place.source === 'saved' && <span className={styles.badge}>Saved</span>}
-              </div>
-              {place.addressLine && <div className={styles.suggestionSub}>{place.addressLine}</div>}
-            </button>
-          ))}
+          {displaySuggestions.map((place) => {
+            const badge = badgeFor(place);
+            return (
+              <button
+                key={`${place.source}-${place.id ?? place.label}-${place.lat}`}
+                type="button"
+                className={styles.suggestion}
+                onClick={() => selectPlace(place)}
+              >
+                <div className={styles.suggestionTitle}>
+                  {place.label}{' '}
+                  {badge && <span className={styles.badge}>{badge}</span>}
+                </div>
+                {place.addressLine && <div className={styles.suggestionSub}>{place.addressLine}</div>}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

@@ -8,27 +8,19 @@ import { debitCustomerForBooking, debitCustomerCancellationFee } from '../wallet
 import { initiateTripPayment, chargeTripWithSavedMethod } from './payment.service';
 import { redeemPointsForBooking } from '../loyalty/loyalty.service';
 import { broadcastBookingEvent } from '../realtime/realtime.hub';
+import { locationSnapshotToJson, type RebookSnapshot } from './rebook.service';
 
 export async function createBooking(params: {
   customerId: string;
   quoteId: string;
-  // paymentMethod is accepted from the API today and will drive real payment
-  // authorization once the Payments module is wired in (PRD Section 6) — not
-  // yet consumed by this reference implementation, EXCEPT for 'corporate_bill'
-  // which triggers the credit-reservation flow (PRD 14A.1) below.
   paymentMethod: string;
   idempotencyKey: string;
   corporateAccountId?: string;
   savedPaymentMethodId?: string;
-  // P1 gap-analysis item — scheduled (future-dated) bookings. The schema
-  // (status='scheduled', bookings.scheduled_at) existed since migration 003
-  // but no code path ever set either one; every booking was hardcoded to
-  // instant dispatch. See scheduled-dispatch.service.ts for the background
-  // job that actually triggers dispatch once a scheduled booking's time
-  // arrives.
   scheduledFor?: string;
+  rebookSnapshot?: RebookSnapshot;
 }): Promise<{ id: string; status: string; gateway_session?: Record<string, unknown>; payment_required?: boolean }> {
-  const { customerId, quoteId, paymentMethod, idempotencyKey, scheduledFor, corporateAccountId, savedPaymentMethodId } =
+  const { customerId, quoteId, paymentMethod, idempotencyKey, scheduledFor, corporateAccountId, savedPaymentMethodId, rebookSnapshot } =
     params;
 
   return withTransaction(async (client: PoolClient) => {
@@ -105,11 +97,15 @@ export async function createBooking(params: {
     // note on why this differs from the hashed login OTP (auth.service).
     const pickupOtp = Math.floor(1000 + Math.random() * 9000).toString();
 
+    const pickupSnapshot = rebookSnapshot?.pickup
+      ? locationSnapshotToJson(rebookSnapshot.pickup)
+      : { lat, lng };
+
     const bookingResult = await client.query(
       `INSERT INTO bookings (customer_id, idempotency_key, status, vehicle_category_id,
                               pickup_geo, pickup_address_snapshot, quote_id, fare_breakdown,
-                              coupon_id, corporate_account_id, pickup_otp, scheduled_at)
-       VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, $8, $9, $10, $11, $12, $13)
+                              coupon_id, corporate_account_id, pickup_otp, scheduled_at, rebook_snapshot)
+       VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING id, status`,
       [
         customerId,
@@ -118,13 +114,14 @@ export async function createBooking(params: {
         quote.vehicle_category_id,
         lng,
         lat,
-        JSON.stringify({ lat, lng }),
+        JSON.stringify(pickupSnapshot),
         quoteId,
         quote.fare_breakdown,
-        null, // coupon_id starts null — see the lock-ordering note below for why
-        null, // corporate_account_id: same reasoning, set after its own reservation succeeds
+        null,
+        null,
         pickupOtp,
         scheduledAt,
+        rebookSnapshot ? JSON.stringify(rebookSnapshot) : null,
       ]
     );
 
@@ -151,6 +148,9 @@ export async function createBooking(params: {
     for (let i = 0; i < dropsGeo.length; i++) {
       const drop = dropsGeo[i];
       const stopOtp = Math.floor(1000 + Math.random() * 9000).toString();
+      const dropSnapshot = rebookSnapshot?.drops?.[i]
+        ? locationSnapshotToJson(rebookSnapshot.drops[i])
+        : { lat: drop.lat, lng: drop.lng };
       await client.query(
         `INSERT INTO booking_stops (booking_id, sequence, geo, address_snapshot, instructions, otp_code)
          VALUES ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326), $5, $6, $7)`,
@@ -159,8 +159,8 @@ export async function createBooking(params: {
           i + 1,
           drop.lng,
           drop.lat,
-          JSON.stringify({ lat: drop.lat, lng: drop.lng }),
-          drop.landmark_instructions || null,
+          JSON.stringify(dropSnapshot),
+          drop.landmark_instructions || rebookSnapshot?.drops?.[i]?.unitDetail || null,
           stopOtp,
         ]
       );

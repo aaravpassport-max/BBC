@@ -19,6 +19,8 @@ import {
 import { PAYMENT_METHODS, BRAND, type PaymentMethodId } from '../constants/brand';
 import { getVehicleMeta } from '../constants/vehicleCatalog';
 import type { BookingDraft } from '../api/vehicles';
+import { buildRebookSnapshot, swapBookingParties, draftTripLabel } from '../lib/bookingDraft';
+import { saveBookingTemplate } from '../api/rebook';
 import type { BookingFlowState, ConfirmNavState } from '../lib/bookingFlow';
 import styles from './ConfirmPage.module.css';
 
@@ -102,6 +104,9 @@ export function ConfirmPage() {
   const [showBreakup, setShowBreakup] = useState(false);
   const [gstin, setGstin] = useState<string | null>(null);
   const [couponOpen, setCouponOpen] = useState(false);
+  const [tripPickup, setTripPickup] = useState(state?.pickup);
+  const [tripDrops, setTripDrops] = useState(state?.drops ?? []);
+  const [savingFavourite, setSavingFavourite] = useState(false);
 
   useEffect(() => {
     getWallet()
@@ -131,12 +136,14 @@ export function ConfirmPage() {
       .catch(() => undefined);
   }, []);
 
-  if (!state?.quote || !state.pickup || !state.drops?.length || !quote) {
+  if (!state?.quote || !tripPickup || !tripDrops?.length || !quote) {
     navigate('/home');
     return null;
   }
 
-  const { pickup, drops, goodsCategory, weightBand, helperNeeded, scheduledFor, vehicleGroup, serviceId } = state;
+  const pickup = tripPickup;
+  const drops = tripDrops;
+  const { goodsCategory, weightBand, helperNeeded, scheduledFor, vehicleGroup, serviceId } = state;
   const fb = quote.fare_breakdown;
   const vehicleMeta = getVehicleMeta(quote.vehicle_category);
   const hasCorporate = corporateAccounts.length > 0;
@@ -198,14 +205,39 @@ export function ConfirmPage() {
     navigate('/vehicles', { state: buildDraft() });
   }
 
-  async function refreshQuote(nextCoupon: string, nextLoyalty: number) {
+  function switchParties() {
+    const swapped = swapBookingParties(buildDraft());
+    setTripPickup(swapped.pickup);
+    setTripDrops(swapped.drops);
+    void refreshQuote(couponCode.trim(), loyaltyToRedeem, swapped.pickup, swapped.drops);
+  }
+
+  async function handleSaveFavourite() {
+    setSavingFavourite(true);
+    setError('');
+    try {
+      const draft = buildDraft();
+      await saveBookingTemplate(draftTripLabel(draft), draft);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not save favourite route.'));
+    } finally {
+      setSavingFavourite(false);
+    }
+  }
+
+  async function refreshQuote(
+    nextCoupon: string,
+    nextLoyalty: number,
+    nextPickup = pickup,
+    nextDrops = drops
+  ) {
     if (!quote) return;
     setQuoteLoading(true);
     setError('');
     try {
       const res = await getQuote({
-        pickup: { lat: pickup.lat, lng: pickup.lng },
-        drops: drops.map((d) => ({ lat: d.lat, lng: d.lng })),
+        pickup: { lat: nextPickup.lat, lng: nextPickup.lng },
+        drops: nextDrops.map((d) => ({ lat: d.lat, lng: d.lng })),
         vehicle_category: quote.vehicle_category,
         coupon_code: nextCoupon || undefined,
         loyalty_points_to_redeem: nextLoyalty > 0 ? nextLoyalty : undefined,
@@ -261,7 +293,8 @@ export function ConfirmPage() {
         paymentMethod,
         scheduledFor,
         corporateId,
-        savedId
+        savedId,
+        buildRebookSnapshot(buildDraft()) as unknown as Record<string, unknown>
       );
 
       if (booking.payment_required && booking.gateway_session) {
@@ -322,6 +355,17 @@ export function ConfirmPage() {
               onEdit={() => editReceiver(i)}
             />
           ))}
+          <button type="button" className={styles.switchBtn} onClick={switchParties}>
+            ⇅ Switch sender & receiver
+          </button>
+          <button
+            type="button"
+            className={styles.switchBtn}
+            onClick={() => void handleSaveFavourite()}
+            disabled={savingFavourite}
+          >
+            {savingFavourite ? 'Saving…' : '★ Save as favourite route'}
+          </button>
         </section>
 
         <section className={styles.section}>

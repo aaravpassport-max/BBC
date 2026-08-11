@@ -17,6 +17,7 @@ import {
   getVehicleMeta,
   isRecommendedForWeight,
 } from '../constants/vehicleCatalog';
+import { swapBookingParties } from '../lib/bookingDraft';
 import type { BookingFlowState } from '../lib/bookingFlow';
 import styles from './VehicleSelectPage.module.css';
 
@@ -105,11 +106,7 @@ export function VehicleSelectPage() {
 
   function swapLocations() {
     if (!tripDraft?.pickup || tripDraft.drops.length === 0) return;
-    setTripDraft({
-      ...tripDraft,
-      pickup: tripDraft.drops[0],
-      drops: [tripDraft.pickup, ...tripDraft.drops.slice(1)],
-    });
+    setTripDraft(swapBookingParties(tripDraft));
   }
 
   function handleContinue() {

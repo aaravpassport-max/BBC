@@ -7,7 +7,10 @@ import { FareCard, FareCardLine, FareCardDivider } from '../components/FareCard'
 import { RatingPanel } from '../components/RatingPanel';
 import { TipPanel } from '../components/TipPanel';
 import { getBooking, rateBooking, downloadInvoicePdf, getErrorMessage, type Booking } from '../api';
+import { saveBookingTemplate } from '../api/rebook';
 import { formatAddress } from '../lib/address';
+import { rebookFromHistory } from '../lib/rebookNavigation';
+import { draftTripLabel, bookingDetailToDraft } from '../lib/bookingDraft';
 
 const ACTIVE_STATUSES = new Set(['scheduled', 'searching', 'driver_assigned', 'in_progress']);
 
@@ -24,6 +27,8 @@ export function TripDetailPage() {
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [showTip, setShowTip] = useState(false);
+  const [rebooking, setRebooking] = useState(false);
+  const [savingFavourite, setSavingFavourite] = useState(false);
 
   useEffect(() => {
     if (!bookingId) return;
@@ -66,6 +71,28 @@ export function TripDetailPage() {
       setError(getErrorMessage(err, 'Could not download invoice.'));
     } finally {
       setDownloading(false);
+    }
+  }
+
+  async function handleRebook() {
+    if (!bookingId) return;
+    setRebooking(true);
+    setError('');
+    await rebookFromHistory(navigate, bookingId, setError);
+    setRebooking(false);
+  }
+
+  async function handleSaveFavourite() {
+    if (!booking) return;
+    setSavingFavourite(true);
+    setError('');
+    try {
+      const draft = bookingDetailToDraft(booking);
+      await saveBookingTemplate(draftTripLabel(draft), draft);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Could not save favourite route.'));
+    } finally {
+      setSavingFavourite(false);
     }
   }
 
@@ -157,7 +184,14 @@ export function TripDetailPage() {
         </>
       )}
 
-      <Button onClick={() => navigate('/home')}>Book again</Button>
+      <Button loading={rebooking} onClick={() => void handleRebook()}>
+        Book again
+      </Button>
+      {booking.status === 'completed' && (
+        <Button variant="ghost" loading={savingFavourite} onClick={() => void handleSaveFavourite()}>
+          Save as favourite route
+        </Button>
+      )}
       {error && <p style={{ color: 'var(--danger)', fontSize: 13 }}>{error}</p>}
     </Screen>
   );

@@ -2,7 +2,7 @@ import { api } from '../api/client';
 import { PRESET_LOCATIONS, type LocationPoint } from './locations';
 
 export interface PlaceResult extends LocationPoint {
-  source: 'preset' | 'search' | 'saved';
+  source: 'preset' | 'search' | 'saved' | 'recent' | 'favourite';
   id?: string;
 }
 
