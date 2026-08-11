@@ -59,11 +59,9 @@ export function DriverHomePage() {
         navigate('/vehicle');
         return;
       }
+      setCheckingKyc(false);
     } catch {
       navigate('/kyc');
-      return;
-    } finally {
-      setCheckingKyc(false);
     }
   }, [navigate]);
 

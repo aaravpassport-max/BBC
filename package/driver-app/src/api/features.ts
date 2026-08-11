@@ -1,4 +1,18 @@
 import { api, newIdempotencyKey } from './client';
+import { isDemoSession } from './demoAuth';
+import {
+  localGetActiveBanners,
+  localListSupportTickets,
+  localGetSupportTicket,
+  localCreateSupportTicket,
+  localAddSupportMessage,
+  localReferralSummary,
+  localRedeemReferral,
+  localNotificationPreferences,
+  localSetNotificationPreference,
+  localNotificationInbox,
+  localTriggerSos,
+} from './demoDriver';
 
 // ---------- CMS / Promotions ----------
 
@@ -11,6 +25,7 @@ export interface PromoBanner {
 }
 
 export function getActiveBanners(segment?: string) {
+  if (isDemoSession()) return localGetActiveBanners();
   const query = segment ? `?segment=${encodeURIComponent(segment)}` : '';
   return api.get<PromoBanner[]>(`/v1/cms/banners/active${query}`);
 }
@@ -40,10 +55,12 @@ export interface SupportTicketDetail extends SupportTicketSummary {
 }
 
 export function listSupportTickets() {
+  if (isDemoSession()) return localListSupportTickets();
   return api.get<SupportTicketSummary[]>('/v1/support/tickets');
 }
 
 export function getSupportTicket(id: string) {
+  if (isDemoSession()) return localGetSupportTicket(id);
   return api.get<SupportTicketDetail>(`/v1/support/tickets/${id}`);
 }
 
@@ -53,10 +70,12 @@ export function createSupportTicket(params: {
   linked_booking_id?: string;
   priority?: 'low' | 'normal' | 'high' | 'urgent';
 }) {
+  if (isDemoSession()) return localCreateSupportTicket();
   return api.post<{ id: string; status: string }>('/v1/support/tickets', params, newIdempotencyKey());
 }
 
 export function addSupportMessage(ticketId: string, body: string) {
+  if (isDemoSession()) return localAddSupportMessage();
   return api.post<{ ticketId: string; reopened: boolean; newTicketCreated: boolean }>(
     `/v1/support/tickets/${ticketId}/messages`,
     { body }
@@ -73,10 +92,12 @@ export interface ReferralSummary {
 }
 
 export function getReferralSummary() {
+  if (isDemoSession()) return localReferralSummary();
   return api.get<ReferralSummary>('/v1/referral/summary');
 }
 
 export function redeemReferralCode(referralCode: string) {
+  if (isDemoSession()) return localRedeemReferral();
   return api.post<{ redeemed: boolean }>('/v1/referral/redeem', { referral_code: referralCode });
 }
 
@@ -98,14 +119,17 @@ export interface InboxNotification {
 }
 
 export function getNotificationPreferences() {
+  if (isDemoSession()) return localNotificationPreferences();
   return api.get<NotificationPreference[]>('/v1/notifications/preferences');
 }
 
 export function setNotificationPreference(category: string, channel: string, enabled: boolean) {
+  if (isDemoSession()) return localSetNotificationPreference();
   return api.put<{ updated: boolean }>('/v1/notifications/preferences', { category, channel, enabled });
 }
 
 export function getNotificationInbox() {
+  if (isDemoSession()) return localNotificationInbox();
   return api.get<InboxNotification[]>('/v1/notifications/inbox');
 }
 
@@ -153,6 +177,7 @@ export function getMyCorporateAccounts() {
 // ---------- SOS ----------
 
 export function triggerSos(bookingId: string, lat?: number, lng?: number) {
+  if (isDemoSession()) return localTriggerSos();
   return api.post<{ id: string; status: string }>('/ops/v1/sos/trigger', {
     booking_id: bookingId,
     lat,

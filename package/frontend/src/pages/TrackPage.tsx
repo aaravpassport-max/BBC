@@ -28,11 +28,11 @@ import {
 import type { CancelReasonCode } from '../constants/brand';
 
 const POLL_INTERVAL_MS = 3000;
-const CANCELLABLE = new Set(['scheduled', 'searching', 'driver_assigned']);
-const TRACKABLE = new Set(['driver_assigned', 'in_progress']);
-const SOS_ELIGIBLE = new Set(['driver_assigned', 'in_progress']);
+const CANCELLABLE = new Set(['scheduled', 'searching', 'driver_assigned', 'driver_arriving', 'driver_arrived']);
+const TRACKABLE = new Set(['driver_assigned', 'driver_arriving', 'driver_arrived', 'in_progress']);
+const SOS_ELIGIBLE = new Set(['driver_assigned', 'driver_arriving', 'driver_arrived', 'in_progress']);
 
-const TIMELINE_STEPS = [
+const PARCEL_TIMELINE = [
   { status: 'scheduled', label: 'Scheduled', icon: '📅' },
   { status: 'searching', label: 'Finding driver', icon: '🔍' },
   { status: 'driver_assigned', label: 'Driver assigned', icon: '🚚' },
@@ -40,7 +40,25 @@ const TIMELINE_STEPS = [
   { status: 'completed', label: 'Completed', icon: '✓' },
 ];
 
-const STATUS_ORDER = ['scheduled', 'searching', 'driver_assigned', 'in_progress', 'completed'];
+const RIDE_TIMELINE = [
+  { status: 'scheduled', label: 'Scheduled', icon: '📅' },
+  { status: 'searching', label: 'Finding driver', icon: '🔍' },
+  { status: 'driver_assigned', label: 'Driver on the way', icon: '🚗' },
+  { status: 'driver_arrived', label: 'Driver arrived', icon: '📍' },
+  { status: 'in_progress', label: 'Ride in progress', icon: '🛣️' },
+  { status: 'completed', label: 'Completed', icon: '✓' },
+];
+
+const PARCEL_STATUS_ORDER = ['scheduled', 'searching', 'driver_assigned', 'in_progress', 'completed'];
+const RIDE_STATUS_ORDER = ['scheduled', 'searching', 'driver_assigned', 'driver_arriving', 'driver_arrived', 'in_progress', 'completed'];
+
+function statusIndex(status: string, isRide: boolean): number {
+  const order = isRide ? RIDE_STATUS_ORDER : PARCEL_STATUS_ORDER;
+  const idx = order.indexOf(status);
+  if (idx >= 0) return idx;
+  if (isRide && status === 'driver_arriving') return order.indexOf('driver_assigned');
+  return -1;
+}
 
 function money(n: number): string {
   return `₹${n.toFixed(2)}`;
@@ -67,12 +85,24 @@ export function TrackPage() {
       const b = await getBooking(bookingId);
 
       if (previousStatus.current && previousStatus.current !== b.status) {
+        const isRide = b.booking_type === 'ride';
         if (b.status === 'driver_assigned') {
-          void notify('Driver on the way', 'Your driver has been assigned and is heading to pickup.');
+          void notify(
+            isRide ? 'Driver on the way' : 'Driver on the way',
+            isRide ? 'Your driver is heading to the pickup point.' : 'Your driver has been assigned and is heading to pickup.'
+          );
+        } else if (b.status === 'driver_arrived') {
+          void notify('Driver arrived', 'Your driver has arrived at the pickup location.');
         } else if (b.status === 'in_progress') {
-          void notify('Pickup verified', 'Your delivery is now on its way.');
+          void notify(
+            isRide ? 'Ride started' : 'Pickup verified',
+            isRide ? 'Your ride is now in progress.' : 'Your delivery is now on its way.'
+          );
         } else if (b.status === 'completed') {
-          void notify('Delivery complete', 'Your delivery has been completed. Rate your experience!');
+          void notify(
+            isRide ? 'Ride complete' : 'Delivery complete',
+            isRide ? 'Your ride has been completed. Rate your experience!' : 'Your delivery has been completed. Rate your experience!'
+          );
         } else if (b.status === 'no_drivers_found') {
           void notify('No drivers available', 'We could not find a driver for this booking right now.');
         }
@@ -122,6 +152,9 @@ export function TrackPage() {
         : null;
 
     if (booking.status === 'driver_assigned' && driver && pickup) return [driver, pickup];
+    if ((booking.status === 'driver_arriving' || booking.status === 'driver_arrived') && driver && pickup) {
+      return [driver, pickup];
+    }
     if (booking.status === 'in_progress' && driver && nextDrop) return [driver, nextDrop];
     if (pickup && nextDrop) return [pickup, nextDrop];
     return [];
@@ -187,11 +220,20 @@ export function TrackPage() {
   }
 
   const fb = booking.fare_breakdown;
-  const currentStatusIndex = STATUS_ORDER.indexOf(booking.status);
+  const isRide = booking.booking_type === 'ride';
+  const timelineSteps = isRide ? RIDE_TIMELINE : PARCEL_TIMELINE;
+  const currentStatusIndex = statusIndex(booking.status, isRide);
   const tripRef = booking.id.slice(0, 8).toUpperCase();
+  const showDropOtp =
+    !isRide &&
+    booking.status === 'in_progress' &&
+    booking.stops &&
+    booking.stops.some((s) => s.delivery_preference !== 'none' && s.status !== 'completed');
 
   async function handleShareTrip() {
-    const text = `Track my PORTMYSTUFF delivery — Trip #${tripRef}`;
+    const text = isRide
+      ? `Track my PORTMYSTUFF ride — Trip #${tripRef}`
+      : `Track my PORTMYSTUFF delivery — Trip #${tripRef}`;
     const url = window.location.href;
     if (navigator.share) {
       try {
@@ -206,8 +248,14 @@ export function TrackPage() {
   }
 
   return (
-    <Screen eyebrow={`Trip #${booking.id.slice(0, 8).toUpperCase()}`} title="Your delivery">
-      <StatusBadge status={booking.status} />
+    <Screen eyebrow={`Trip #${booking.id.slice(0, 8).toUpperCase()}`} title={isRide ? 'Your ride' : 'Your delivery'}>
+      <StatusBadge status={booking.status} bookingType={booking.booking_type ?? 'parcel'} />
+
+      {isRide && booking.passenger_count != null && booking.passenger_count > 0 && (
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: -8 }}>
+          {booking.passenger_count} passenger{booking.passenger_count === 1 ? '' : 's'}
+        </p>
+      )}
 
       <div style={{ display: 'flex', gap: 8 }}>
         <Button variant="ghost" style={{ width: 'auto', flex: 1, padding: '8px 14px' }} onClick={() => void handleShareTrip()}>
@@ -226,10 +274,12 @@ export function TrackPage() {
         >
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Trip timeline</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-            {TIMELINE_STEPS.map((step, i) => {
-              const stepIndex = STATUS_ORDER.indexOf(step.status);
+            {timelineSteps.map((step, i) => {
+              const stepIndex = statusIndex(step.status, isRide);
               const done = currentStatusIndex >= stepIndex && currentStatusIndex >= 0;
-              const active = booking.status === step.status;
+              const active =
+                booking.status === step.status ||
+                (isRide && step.status === 'driver_assigned' && booking.status === 'driver_arriving');
               return (
                 <div key={step.status} style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -249,7 +299,7 @@ export function TrackPage() {
                     >
                       {done ? step.icon : '○'}
                     </div>
-                    {i < TIMELINE_STEPS.length - 1 && (
+                    {i < timelineSteps.length - 1 && (
                       <div
                         style={{
                           width: 2,
@@ -260,7 +310,7 @@ export function TrackPage() {
                       />
                     )}
                   </div>
-                  <div style={{ paddingBottom: i < TIMELINE_STEPS.length - 1 ? 16 : 0 }}>
+                  <div style={{ paddingBottom: i < timelineSteps.length - 1 ? 16 : 0 }}>
                     <div style={{ fontSize: 14, fontWeight: active ? 700 : 600, color: done ? 'var(--text)' : 'var(--text-muted)' }}>
                       {step.label}
                     </div>
@@ -277,15 +327,22 @@ export function TrackPage() {
 
       {booking.status === 'scheduled' && (
         <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
-          Your delivery is scheduled. We&apos;ll start looking for a driver closer to your requested time.
+          {isRide
+            ? 'Your ride is scheduled. We will start looking for a driver closer to your requested time.'
+            : 'Your delivery is scheduled. We will start looking for a driver closer to your requested time.'}
         </p>
       )}
 
-      {(booking.status === 'searching' || booking.status === 'driver_assigned') && (
+      {(booking.status === 'searching' ||
+        booking.status === 'driver_assigned' ||
+        booking.status === 'driver_arriving' ||
+        booking.status === 'driver_arrived') && (
         <p style={{ color: 'var(--text-muted)', fontSize: 14 }}>
           {booking.status === 'searching'
             ? 'Looking for a nearby driver…'
-            : 'Your driver is on the way to pickup.'}
+            : booking.status === 'driver_arrived'
+              ? 'Your driver has arrived. Share your pickup code to start the ride.'
+              : 'Your driver is on the way to pickup.'}
         </p>
       )}
 
@@ -315,7 +372,7 @@ export function TrackPage() {
                 fontSize: 22,
               }}
             >
-              🚚
+              {isRide ? '🚗' : '🚚'}
             </div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 600 }}>{booking.driver.name}</div>
@@ -369,7 +426,7 @@ export function TrackPage() {
               fontSize: 22,
             }}
           >
-            🚚
+            {isRide ? '🚗' : '🚚'}
           </div>
           <div>
             <div style={{ fontSize: 14, fontWeight: 600 }}>Your driver</div>
@@ -410,7 +467,11 @@ export function TrackPage() {
         </p>
       )}
 
-      {booking.pickup_otp && (booking.status === 'driver_assigned' || booking.status === 'searching') && (
+      {booking.pickup_otp &&
+        (booking.status === 'driver_assigned' ||
+          booking.status === 'driver_arriving' ||
+          booking.status === 'driver_arrived' ||
+          booking.status === 'searching') && (
         <div
           style={{
             background: 'var(--surface)',
@@ -421,7 +482,7 @@ export function TrackPage() {
           }}
         >
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
-            Read this code to your driver at pickup
+            {isRide ? 'Share this ride code with your driver at pickup' : 'Read this code to your driver at pickup'}
           </div>
           <div style={{ fontFamily: 'var(--font-mono)', fontSize: 34, fontWeight: 700, letterSpacing: '0.15em', color: 'var(--accent-strong)' }}>
             {booking.pickup_otp}
@@ -429,9 +490,10 @@ export function TrackPage() {
         </div>
       )}
 
-      {booking.status === 'in_progress' && booking.stops && booking.stops.length > 0 && (
+      {showDropOtp && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {booking.stops.map((stop, i) => (
+          {booking.stops!.map((stop, i) => (
+            stop.delivery_preference === 'none' || stop.status === 'completed' ? null : (
             <div
               key={stop.id}
               style={{
@@ -452,6 +514,7 @@ export function TrackPage() {
                 Status: {stop.status.replace(/_/g, ' ')}
               </div>
             </div>
+            )
           ))}
         </div>
       )}

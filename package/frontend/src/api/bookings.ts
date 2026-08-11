@@ -39,6 +39,7 @@ export interface Stop {
   status: string;
   otp_code: string;
   instructions: string | null;
+  delivery_preference?: 'otp' | 'photo_proof' | 'none';
   drop_lat?: number;
   drop_lng?: number;
   address_snapshot?: { lat?: number; lng?: number; formatted?: string; line1?: string };

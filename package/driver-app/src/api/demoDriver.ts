@@ -138,6 +138,107 @@ export function localGetDriverProfile() {
   });
 }
 
+export function localGetDriverDashboard() {
+  return Promise.resolve({
+    trips_today: 3,
+    active_trips: 0,
+    gross_earnings_today: 450,
+    wallet_credits_today: 450,
+    rating_avg: 4.8,
+    rating_count: 42,
+    online_status: false,
+  });
+}
+
+export function localGetActiveIncentives() {
+  return Promise.resolve({
+    items: [
+      {
+        id: 'demo-incentive-1',
+        title: 'Complete 5 trips today',
+        description: 'Earn a ₹100 bonus when you finish 5 deliveries.',
+        bonus_amount: 100,
+        target: 5,
+        progress: 3,
+        remaining: 2,
+        completed: false,
+        period: 'daily',
+      },
+    ],
+  });
+}
+
+export function localGetEarningsSummary() {
+  return Promise.resolve({
+    trips_week: 12,
+    trips_month: 48,
+    gross_earnings_week: 3200,
+    gross_earnings_month: 12800,
+    wallet_credits_week: 3200,
+    wallet_credits_month: 12800,
+    total_withdrawn: 5000,
+  });
+}
+
+export function localGetJobDetail(bookingId: string) {
+  return Promise.resolve({
+    id: bookingId,
+    status: 'completed',
+    fare_breakdown: { final_fare: 150, platform_fee: 10 },
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    started_at: new Date().toISOString(),
+    vehicle_category_id: 'cc0530bc-0866-406f-86cd-2244d997ea9f',
+    pickup_lat: 12.951,
+    pickup_lng: 77.601,
+    pickup_address: { lat: 12.951, lng: 77.601, formatted: 'Demo pickup' },
+    customer_name: 'Demo Customer',
+    stops: [],
+  });
+}
+
+export function localArriveAtPickup() {
+  return Promise.resolve({ notified: true });
+}
+
+export function localArriveAtStop() {
+  return Promise.resolve({ status: 'arrived' });
+}
+
+export function localCollectTripPayment() {
+  return Promise.resolve({ collected: true });
+}
+
+export function localListDriverDocuments() {
+  return Promise.resolve({ items: [] });
+}
+
+export function localUploadKycDocument() {
+  return Promise.resolve({ url: 'demo://document' });
+}
+
+export function localUpdateDriverProfile(data: { name?: string; email?: string | null }) {
+  return Promise.resolve({
+    id: DEMO_USER_ID,
+    name: data.name ?? 'Demo Driver',
+    phone: DEMO_PHONE,
+    email: data.email ?? null,
+    online_status: false,
+  });
+}
+
+export function localCallCustomer() {
+  return Promise.resolve({ call_uri: 'tel:+919000000001', display_number: '9000000001' });
+}
+
+export function localRegisterDeviceToken() {
+  return Promise.resolve({ registered: true });
+}
+
+export function localGetActiveBanners() {
+  return Promise.resolve([]);
+}
+
 export function localListJobHistory() {
   return Promise.resolve({ items: [], page: 1 });
 }

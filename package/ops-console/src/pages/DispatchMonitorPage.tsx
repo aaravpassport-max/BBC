@@ -88,6 +88,25 @@ export function DispatchMonitorPage() {
               </span>
               <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>{log.booking.status}</span>
             </div>
+            <div style={{ fontSize: 13, marginBottom: 6 }}>
+              <span
+                style={{
+                  display: 'inline-block',
+                  padding: '2px 8px',
+                  borderRadius: 6,
+                  fontWeight: 600,
+                  background: log.booking.booking_type === 'ride' ? '#e8f4fd' : '#fff7ed',
+                  color: log.booking.booking_type === 'ride' ? '#0369a1' : '#c2410c',
+                }}
+              >
+                {log.booking.booking_type === 'ride' ? '🚗 Ride' : '📦 Parcel'}
+              </span>
+              {log.booking.booking_type === 'ride' && log.booking.passenger_count != null && (
+                <span style={{ marginLeft: 8, fontSize: 12, color: 'var(--text-muted)' }}>
+                  {log.booking.passenger_count} passenger{log.booking.passenger_count === 1 ? '' : 's'}
+                </span>
+              )}
+            </div>
             {log.booking.driver_id && (
               <div style={{ fontSize: 12, fontFamily: 'var(--font-mono)', color: 'var(--text-muted)' }}>
                 Driver: {log.booking.driver_id.slice(0, 8)}

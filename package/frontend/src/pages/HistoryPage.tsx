@@ -165,7 +165,7 @@ export function HistoryPage() {
                     {(b.stop_count ?? 0) > 1 ? ` (+${(b.stop_count ?? 1) - 1} more)` : ''}
                   </div>
                   <div style={{ marginTop: 6 }}>
-                    <StatusBadge status={b.status} />
+                    <StatusBadge status={b.status} bookingType={b.booking_type ?? 'parcel'} />
                   </div>
                 </div>
                 <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, fontSize: 16, color: 'var(--accent-strong)' }}>

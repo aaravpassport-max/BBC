@@ -420,7 +420,7 @@ export async function getBooking(bookingId: string, customerId: string) {
 
   const row = result.rows[0];
   const stopsResult = await pool.query(
-    `SELECT id, sequence, status, otp_code, instructions, address_snapshot, arrived_at,
+    `SELECT id, sequence, status, otp_code, instructions, address_snapshot, arrived_at, delivery_preference,
             ST_X(geo::geometry) AS drop_lng, ST_Y(geo::geometry) AS drop_lat
      FROM booking_stops WHERE booking_id = $1 ORDER BY sequence`,
     [bookingId]

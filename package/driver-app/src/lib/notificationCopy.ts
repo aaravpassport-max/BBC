@@ -5,6 +5,8 @@ const TEMPLATES: Record<string, () => string> = {
   payout_processed: () => 'Your withdrawal has been processed.',
   incentive_unlocked: () => 'You unlocked a bonus mission reward!',
   penalty_issued: () => 'A penalty was applied to your account. Review in Penalties.',
+  new_offer: () => 'You have a new parcel delivery offer nearby.',
+  new_ride_offer: () => 'You have a new passenger ride offer nearby.',
   kyc_approved: () => 'Your documents were approved. You can go online.',
   kyc_rejected: () => 'A KYC document needs resubmission.',
 };

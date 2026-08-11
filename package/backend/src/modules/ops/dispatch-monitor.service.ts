@@ -6,7 +6,10 @@ import { checkDriverEligibility } from '../driver/driver.service';
  * DriverOffered/Accepted/Declined/Expired event, in order, for an admin
  * investigating why a specific booking took the dispatch path it did. */
 export async function getDispatchLog(bookingId: string) {
-  const booking = await pool.query(`SELECT id, status, driver_id FROM bookings WHERE id = $1`, [bookingId]);
+  const booking = await pool.query(
+    `SELECT id, status, driver_id, booking_type, passenger_count FROM bookings WHERE id = $1`,
+    [bookingId]
+  );
   if (booking.rowCount === 0) {
     throw Errors.notFound('Booking');
   }

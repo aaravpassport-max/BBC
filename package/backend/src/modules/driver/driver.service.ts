@@ -273,7 +273,7 @@ export async function getMyActiveJob(driverId: string) {
             booking_type, passenger_count,
             ST_X(pickup_geo::geometry) AS pickup_lng, ST_Y(pickup_geo::geometry) AS pickup_lat
      FROM bookings
-     WHERE driver_id = $1 AND status IN ('driver_assigned', 'in_progress')
+     WHERE driver_id = $1 AND status IN ('driver_assigned', 'driver_arriving', 'driver_arrived', 'in_progress')
      ORDER BY created_at DESC LIMIT 1`,
     [driverId]
   );
@@ -358,7 +358,7 @@ export async function registerVehicle(params: {
 export async function listDriverJobHistory(driverId: string, page = 1, pageSize = 20) {
   const offset = (page - 1) * pageSize;
   const result = await pool.query(
-    `SELECT b.id, b.status, b.fare_breakdown, b.created_at, b.updated_at, b.vehicle_category_id,
+    `SELECT b.id, b.status, b.booking_type, b.passenger_count, b.fare_breakdown, b.created_at, b.updated_at, b.vehicle_category_id,
             b.pickup_address_snapshot,
             ST_X(b.pickup_geo::geometry) AS pickup_lng, ST_Y(b.pickup_geo::geometry) AS pickup_lat,
             (SELECT address_snapshot FROM booking_stops WHERE booking_id = b.id ORDER BY sequence LIMIT 1) AS first_drop_address,
@@ -372,6 +372,8 @@ export async function listDriverJobHistory(driverId: string, page = 1, pageSize 
   return result.rows.map((row) => ({
     id: row.id,
     status: row.status,
+    booking_type: row.booking_type || 'parcel',
+    passenger_count: row.passenger_count ?? 1,
     fare_breakdown: row.fare_breakdown,
     created_at: row.created_at,
     updated_at: row.updated_at,

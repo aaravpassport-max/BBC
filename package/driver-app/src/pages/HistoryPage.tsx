@@ -19,6 +19,8 @@ function formatCategory(id: string | undefined): string {
 type HistoryItem = {
   id: string;
   status: string;
+  booking_type?: 'parcel' | 'ride';
+  passenger_count?: number;
   fare_breakdown: { final_fare: number };
   created_at: string;
   vehicle_category_id?: string;
@@ -89,6 +91,7 @@ export function HistoryPage() {
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>
                   #{b.id.slice(0, 8).toUpperCase()}
+                  {b.booking_type === 'ride' ? ' · 🚗 Ride' : ' · 📦 Parcel'}
                 </div>
                 <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
                   {new Date(b.created_at).toLocaleString()}
@@ -112,7 +115,7 @@ export function HistoryPage() {
                   </div>
                 )}
                 <div style={{ marginTop: 6 }}>
-                  <StatusBadge status={b.status} />
+                  <StatusBadge status={b.status} bookingType={b.booking_type ?? 'parcel'} />
                 </div>
               </div>
               <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--accent-strong)', flexShrink: 0 }}>

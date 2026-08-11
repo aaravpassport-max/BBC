@@ -67,7 +67,13 @@ export interface DispatchOffer {
 }
 
 export interface DispatchLog {
-  booking: { id: string; status: string; driver_id: string | null };
+  booking: {
+    id: string;
+    status: string;
+    driver_id: string | null;
+    booking_type?: 'parcel' | 'ride';
+    passenger_count?: number;
+  };
   offers: DispatchOffer[];
 }
 

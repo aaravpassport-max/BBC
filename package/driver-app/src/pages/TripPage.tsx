@@ -59,9 +59,18 @@ export function TripPage() {
     void refresh();
   }, [refresh]);
 
+  const isRide = job?.booking_type === 'ride';
   const nextStop = job?.stops.find((s) => s.status !== 'completed');
-  const awaitingPickup = job?.status === 'driver_assigned';
+  const awaitingPickup =
+    job?.status === 'driver_assigned' || job?.status === 'driver_arriving' || job?.status === 'driver_arrived';
   const needsPhotoProof = !awaitingPickup && nextStop?.delivery_preference === 'photo_proof';
+  const rideDropNoOtp = isRide || nextStop?.delivery_preference === 'none';
+
+  useEffect(() => {
+    if (job?.status === 'driver_arrived') {
+      setArrivedPickup(true);
+    }
+  }, [job?.status]);
 
   const routeWaypoints = useMemo(() => {
     if (!job) return [];
@@ -178,9 +187,36 @@ export function TripPage() {
   return (
     <Screen
       eyebrow={`Trip #${job.id.slice(0, 8).toUpperCase()}`}
-      title={awaitingPickup ? 'Head to pickup' : 'On the way to drop'}
+      title={
+        awaitingPickup
+          ? isRide
+            ? 'Pick up passenger'
+            : 'Head to pickup'
+          : isRide
+            ? 'Drop off passenger'
+            : 'On the way to drop'
+      }
     >
-      <StatusBadge status={job.status} />
+      <div
+        style={{
+          padding: '10px 14px',
+          borderRadius: 12,
+          marginBottom: 8,
+          fontWeight: 700,
+          fontSize: 14,
+          textAlign: 'center',
+          background: isRide ? '#e8f4fd' : '#fff7ed',
+          color: isRide ? '#0369a1' : '#c2410c',
+          border: `2px solid ${isRide ? '#7dd3fc' : '#fdba74'}`,
+        }}
+      >
+        {isRide ? '🚗 PASSENGER RIDE' : '📦 PARCEL DELIVERY'}
+        {isRide && job.passenger_count != null && (
+          <span style={{ fontWeight: 500, marginLeft: 8 }}>· {job.passenger_count} pax</span>
+        )}
+      </div>
+
+      <StatusBadge status={job.status} bookingType={job.booking_type ?? 'parcel'} />
 
       {job.pickup_address && (
         <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: '12px 16px', background: 'var(--surface)' }}>
@@ -230,7 +266,7 @@ export function TripPage() {
               {stop.status === 'completed' ? '✓' : stop.sequence}
             </span>
             <span style={{ fontSize: 14 }}>
-              Stop {stop.sequence}
+              {isRide ? 'Drop' : `Stop ${stop.sequence}`}
               {stop.address_snapshot && ` — ${formatAddress(stop.address_snapshot)}`}
               {stop.instructions ? ` (${stop.instructions})` : ''}
             </span>
@@ -322,11 +358,24 @@ export function TripPage() {
               </Button>
             </div>
           </>
+        ) : rideDropNoOtp && !awaitingPickup ? (
+          <>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10 }}>
+              {isRide
+                ? 'Confirm when you have dropped the passenger at their destination.'
+                : 'Confirm when you have completed this stop.'}
+            </p>
+            <Button onClick={handleCompleteStop} loading={submitting}>
+              {isRide ? 'Complete ride' : 'Confirm stop'}
+            </Button>
+          </>
         ) : (
           <>
             <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10 }}>
               {awaitingPickup
-                ? 'Ask the customer for their pickup code and enter it below.'
+                ? isRide
+                  ? 'Ask the passenger for their ride code and enter it below.'
+                  : 'Ask the customer for their pickup code and enter it below.'
                 : `Ask the customer for the drop code for stop ${nextStop?.sequence} and enter it below.`}
             </p>
             <input

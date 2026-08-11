@@ -1,4 +1,4 @@
-import { useState, useRef, type KeyboardEvent, type ClipboardEvent } from 'react';
+import { useState, useRef, useEffect, type KeyboardEvent, type ClipboardEvent } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { PortMyStuffHeader } from '../components/PortMyStuffHeader';
 import { Button } from '../components/Button';
@@ -25,10 +25,11 @@ export function VerifyOtpPage() {
   const [resending, setResending] = useState(false);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
-  if (!state?.phone) {
-    navigate('/login');
-    return null;
-  }
+  useEffect(() => {
+    if (!state?.phone) navigate('/login', { replace: true });
+  }, [state?.phone, navigate]);
+
+  if (!state?.phone) return null;
   const phone = state.phone;
 
   function setDigit(index: number, value: string) {

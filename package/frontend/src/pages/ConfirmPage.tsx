@@ -144,6 +144,7 @@ export function ConfirmPage() {
   const pickup = tripPickup;
   const drops = tripDrops;
   const { goodsCategory, weightBand, helperNeeded, scheduledFor, vehicleGroup, serviceId, bookingType, passengerCount } = state;
+  const isRide = (bookingType ?? 'parcel') === 'ride';
   const fb = quote.fare_breakdown;
   const vehicleMeta = getVehicleMeta(quote.vehicle_category);
   const hasCorporate = corporateAccounts.length > 0;
@@ -344,9 +345,9 @@ export function ConfirmPage() {
         </section>
 
         <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>Sender & Receiver</h2>
+          <h2 className={styles.sectionTitle}>{isRide ? 'Pickup & Drop' : 'Sender & Receiver'}</h2>
           <ContactCard
-            label="Sender"
+            label={isRide ? 'Pickup' : 'Sender'}
             name={pickup.contactName}
             phone={pickup.contactPhone}
             place={pickup.label}
@@ -356,7 +357,7 @@ export function ConfirmPage() {
           {drops.map((drop, i) => (
             <ContactCard
               key={i}
-              label={drops.length > 1 ? `Receiver ${i + 1}` : 'Receiver'}
+              label={isRide ? (drops.length > 1 ? `Drop ${i + 1}` : 'Drop') : drops.length > 1 ? `Receiver ${i + 1}` : 'Receiver'}
               name={drop.contactName}
               phone={drop.contactPhone}
               place={drop.label}
@@ -364,9 +365,17 @@ export function ConfirmPage() {
               onEdit={() => editReceiver(i)}
             />
           ))}
-          <button type="button" className={styles.switchBtn} onClick={switchParties}>
-            ⇅ Switch sender & receiver
-          </button>
+          {!isRide && (
+            <button type="button" className={styles.switchBtn} onClick={switchParties}>
+              ⇅ Switch sender & receiver
+            </button>
+          )}
+          {isRide && passengerCount != null && (
+            <div className={styles.contactCard} style={{ marginTop: 8 }}>
+              <div className={styles.contactLabel}>Passengers</div>
+              <div className={styles.contactName}>{passengerCount}</div>
+            </div>
+          )}
           <button
             type="button"
             className={styles.switchBtn}
@@ -456,7 +465,9 @@ export function ConfirmPage() {
         <label className={styles.terms}>
           <input type="checkbox" checked={termsAccepted} onChange={(e) => setTermsAccepted(e.target.checked)} />
           <span>
-            I agree to the service terms, fare estimate, and cancellation policy. Goods must be legal and properly packed.
+            {isRide
+              ? 'I agree to the service terms, fare estimate, and cancellation policy for passenger rides.'
+              : 'I agree to the service terms, fare estimate, and cancellation policy. Goods must be legal and properly packed.'}
           </span>
         </label>
       </main>
@@ -493,7 +504,7 @@ export function ConfirmPage() {
           onClick={() => void handleConfirm()}
           disabled={loading || quoteLoading || !termsAccepted || walletInsufficient}
         >
-          {loading ? 'Booking…' : `Book ${vehicleMeta.label}`}
+          {loading ? 'Booking…' : isRide ? `Book ${vehicleMeta.label} ride` : `Book ${vehicleMeta.label}`}
         </button>
       </div>
     </div>

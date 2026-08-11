@@ -108,7 +108,7 @@ export function TripDetailPage() {
 
   return (
     <Screen eyebrow={`Trip #${booking.id.slice(0, 8).toUpperCase()}`} title="Trip details" onBack={() => navigate('/history')}>
-      <StatusBadge status={booking.status} />
+      <StatusBadge status={booking.status} bookingType={booking.booking_type ?? 'parcel'} />
       <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>{new Date(booking.created_at).toLocaleString()}</div>
 
       <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 14, background: 'var(--surface)' }}>

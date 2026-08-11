@@ -41,7 +41,11 @@ function SessionKeepAlive() {
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  const hasStoredSession =
+    typeof window !== 'undefined' &&
+    !!localStorage.getItem('user_id') &&
+    !!localStorage.getItem('access_token');
+  if (!isAuthenticated && !hasStoredSession) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }
 
