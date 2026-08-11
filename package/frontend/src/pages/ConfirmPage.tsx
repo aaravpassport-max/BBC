@@ -18,7 +18,8 @@ import {
   type SavedPaymentMethod,
 } from '../api';
 import { PAYMENT_METHODS, BRAND, type PaymentMethodId } from '../constants/brand';
-import { getVehicleMeta } from '../constants/vehicleCatalog';
+import { getVehicleMeta, type VehicleGroupId } from '../constants/vehicleCatalog';
+import type { BookingDraft } from '../api/vehicles';
 import type { LocationPoint } from '../lib/locations';
 
 const RAZORPAY_SCRIPT_URL = 'https://checkout.razorpay.com/v1/checkout.js';
@@ -52,6 +53,7 @@ interface LocationState {
   helperNeeded: boolean;
   couponCode?: string;
   scheduledFor?: string;
+  vehicleGroup: VehicleGroupId;
 }
 
 function money(n: number): string {
@@ -131,7 +133,22 @@ export function ConfirmPage() {
     return null;
   }
 
-  const { quote, pickup, drops, goodsCategory, weightBand, helperNeeded, scheduledFor } = state;
+  const { quote, pickup, drops, goodsCategory, weightBand, helperNeeded, scheduledFor, vehicleGroup } = state;
+
+  function backToVehicles() {
+    if (!state) return;
+    const draft: BookingDraft = {
+      vehicleGroup,
+      pickup,
+      drops,
+      goodsCategory,
+      weightBand: weightBand ?? 'medium',
+      helperNeeded,
+      couponCode: state.couponCode,
+      scheduledFor,
+    };
+    navigate('/vehicles', { state: draft });
+  }
   const fb = quote.fare_breakdown;
   const hasCorporate = corporateAccounts.length > 0;
   const availableMethods = PAYMENT_METHODS.filter((m) => m.id !== 'corporate_bill' || hasCorporate);
@@ -180,7 +197,7 @@ export function ConfirmPage() {
     <Screen
       eyebrow="Review & confirm"
       title="Confirm your booking"
-      onBack={() => navigate('/home')}
+      onBack={backToVehicles}
       footer={
         <>
           {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10 }}>{error}</p>}

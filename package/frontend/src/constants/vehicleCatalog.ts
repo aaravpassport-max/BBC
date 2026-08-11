@@ -17,6 +17,35 @@ export const VEHICLE_GROUPS: { id: VehicleGroupId; label: string; description: s
   { id: 'truck', label: 'Trucks', description: 'Mini to large trucks for furniture & bulk' },
 ];
 
+/** Porter-style service tiles shown on the home screen. */
+export const HOME_SERVICE_TILES: {
+  id: VehicleGroupId;
+  label: string;
+  description: string;
+  icon: string;
+  wide?: boolean;
+}[] = [
+  {
+    id: 'truck',
+    label: 'Trucks',
+    description: 'Mini to large trucks for furniture & bulk',
+    icon: '🚚',
+  },
+  {
+    id: 'two_wheeler',
+    label: '2 Wheeler',
+    description: 'Bikes & scooters for parcels',
+    icon: '🛵',
+  },
+  {
+    id: 'three_wheeler',
+    label: '3-Wheeler',
+    description: 'Auto / tempo for medium loads',
+    icon: '🛺',
+    wide: true,
+  },
+];
+
 export const VEHICLE_TYPES: VehicleTypeMeta[] = [
   {
     id: 'bike',

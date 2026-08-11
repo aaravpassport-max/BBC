@@ -24,14 +24,14 @@ export function VehicleSelectPage() {
   const location = useLocation();
   const draft = location.state as BookingDraft | undefined;
 
-  const [activeGroup, setActiveGroup] = useState<VehicleGroupId>('two_wheeler');
+  const [activeGroup, setActiveGroup] = useState<VehicleGroupId>(draft?.vehicleGroup ?? 'two_wheeler');
   const [options, setOptions] = useState<VehicleQuoteOption[] | null>(null);
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!draft?.pickup || !draft.drops?.length) {
+    if (!draft?.pickup || !draft.drops?.length || !draft.vehicleGroup) {
       navigate('/home', { replace: true });
       return;
     }
@@ -73,7 +73,7 @@ export function VehicleSelectPage() {
         const pick = recommended ?? cheapest;
         setSelectedQuoteId(pick.quote.quote_id);
 
-        const group = getVehicleMeta(pick.quote.vehicle_category).group;
+        const group = draft!.vehicleGroup ?? getVehicleMeta(pick.quote.vehicle_category).group;
         setActiveGroup(group);
       } catch (err) {
         if (!cancelled) setError(getErrorMessage(err, 'Could not load vehicles for this route.'));
@@ -108,6 +108,7 @@ export function VehicleSelectPage() {
         helperNeeded: draft.helperNeeded,
         couponCode: draft.couponCode,
         scheduledFor: draft.scheduledFor,
+        vehicleGroup: draft.vehicleGroup,
       },
     });
   }
@@ -117,10 +118,20 @@ export function VehicleSelectPage() {
   return (
     <div className={styles.page}>
       <div className={styles.header}>
+        <button
+          type="button"
+          className={styles.backBtn}
+          onClick={() => navigate('/book', { state: { vehicleGroup: draft.vehicleGroup } })}
+        >
+          ← Back
+        </button>
         <PortMyStuffHeader />
       </div>
 
       <div className={styles.summary}>
+        <div>
+          <strong>Service:</strong> {VEHICLE_GROUPS.find((g) => g.id === draft.vehicleGroup)?.label ?? draft.vehicleGroup}
+        </div>
         <div>
           <strong>Pickup:</strong> {draft.pickup.label}
         </div>
@@ -141,15 +152,15 @@ export function VehicleSelectPage() {
       </p>
 
       <div className={styles.groupTabs}>
-        {VEHICLE_GROUPS.map((g) => {
+        {VEHICLE_GROUPS.filter((g) => g.id === draft.vehicleGroup).map((g) => {
           const count = options?.filter((o) => getVehicleMeta(o.quote.vehicle_category).group === g.id).length ?? 0;
           if (options && count === 0) return null;
           return (
             <button
               key={g.id}
               type="button"
-              className={`${styles.groupTab} ${activeGroup === g.id ? styles.groupTabActive : ''}`}
-              onClick={() => setActiveGroup(g.id)}
+              className={`${styles.groupTab} ${styles.groupTabActive}`}
+              disabled
             >
               {g.label}
             </button>

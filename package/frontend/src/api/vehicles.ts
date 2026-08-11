@@ -1,6 +1,7 @@
 import { api } from './client';
 import type { Quote } from './bookings';
 import type { LocationPoint } from '../lib/locations';
+import type { VehicleGroupId } from '../constants/vehicleCatalog';
 
 export interface VehicleCategoryInfo {
   name: string;
@@ -15,6 +16,7 @@ export function listVehicleCategories(lat: number, lng: number) {
 }
 
 export interface BookingDraft {
+  vehicleGroup: VehicleGroupId;
   pickup: LocationPoint;
   drops: LocationPoint[];
   goodsCategory: string;

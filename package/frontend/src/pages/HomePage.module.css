@@ -1,161 +1,3 @@
-.locationCard {
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.locationRow {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 8px 0;
-}
-
-.dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  margin-top: 6px;
-  flex-shrink: 0;
-}
-
-.dotPickup {
-  background: var(--pickup);
-  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
-}
-
-.dotDrop {
-  background: var(--drop);
-  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15);
-}
-
-.connector {
-  width: 2px;
-  height: 20px;
-  background: var(--border);
-  margin-left: 5px;
-}
-
-.fieldBlock {
-  flex: 1;
-  min-width: 0;
-}
-
-.fieldLabel {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  margin-bottom: 4px;
-}
-
-.select {
-  width: 100%;
-  background: var(--surface-raised);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  color: var(--text);
-  padding: 12px;
-  font-size: 15px;
-  font-weight: 500;
-  outline: none;
-}
-
-.gpsLink {
-  background: none;
-  border: none;
-  color: var(--accent);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  margin-top: 8px;
-  padding: 0;
-}
-
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.sectionLabel {
-  font-size: 13px;
-  color: var(--text-muted);
-  font-weight: 600;
-}
-
-.vehicleCard {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  width: 100%;
-  text-align: left;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
-  padding: 14px 16px;
-  cursor: pointer;
-  color: var(--text);
-  box-shadow: var(--shadow-sm);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.vehicleCard:hover {
-  border-color: var(--accent);
-  box-shadow: var(--shadow-md);
-}
-
-.vehicleIcon {
-  font-size: 28px;
-}
-
-.vehicleName {
-  font-weight: 700;
-  font-size: 15px;
-  text-transform: capitalize;
-}
-
-.vehicleBlurb {
-  color: var(--text-muted);
-  font-size: 12px;
-  margin-top: 2px;
-}
-
-.vehiclePrice {
-  font-weight: 700;
-  font-size: 17px;
-  color: var(--accent);
-}
-
-.toggleRow {
-  display: flex;
-  gap: 8px;
-}
-
-.toggleBtn {
-  flex: 1;
-  padding: 12px 0;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text);
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-}
-
-.toggleBtnActive {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: white;
-}
-
 .page {
   min-height: 100vh;
   max-width: 480px;
@@ -168,12 +10,101 @@
   margin-top: -16px;
 }
 
-.card {
-  background: var(--surface);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  padding: 16px;
+.activeTrip {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 8px 0 4px;
+}
+
+.sectionHint {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 14px;
+}
+
+.serviceGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.serviceTile {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 132px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 16px;
+  cursor: pointer;
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+}
+
+.serviceTile:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+}
+
+.serviceTileWide {
+  grid-column: 1 / -1;
+  min-height: auto;
+  flex-direction: row;
+  align-items: center;
+}
+
+.serviceIcon {
+  font-size: 36px;
+  line-height: 1;
+}
+
+.serviceCopy {
+  flex: 1;
+  min-width: 0;
+}
+
+.serviceLabel {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.serviceDesc {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.chevron {
+  position: absolute;
+  top: 16px;
+  right: 14px;
+  font-size: 22px;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+.serviceTileWide .chevron {
+  position: static;
+  margin-left: auto;
+  flex-shrink: 0;
 }
