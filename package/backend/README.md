@@ -13,23 +13,23 @@ of the platform described in the Master PRD.
 ```bash
 npm install
 
-# Create the database
+# Option A — Docker (recommended when available)
+docker compose up --build
+# Migrations run automatically on backend start.
+
+# Option B — native Postgres (no Docker)
+./scripts/dev-setup.sh
+# Creates app_user/logistics_superapp, enables PostGIS, runs migrate + seed.
+
+# Option C — manual
 createdb logistics_superapp
 psql -d logistics_superapp -c "CREATE EXTENSION IF NOT EXISTS pgcrypto;"
 psql -d logistics_superapp -c "CREATE EXTENSION IF NOT EXISTS postgis;"
-
-# Run every migration, in order
-for f in migrations/*.sql; do psql -d logistics_superapp -f "$f"; done
-
-# Load reference data (a service city, 5 real vehicle categories with
-# tiered rate cards - two-wheeler through large truck - and the baseline
-# admin/support/kyc-reviewer roles) — required for the app to actually
-# generate quotes and for RBAC-gated routes to have a role to grant.
-psql -d logistics_superapp -f seed/001_reference_data.sql
-
 cp .env.example .env
-# edit .env — at minimum set DATABASE_URL to match the database you created
-# and replace the JWT secrets before ever deploying this anywhere real
+# edit .env — set DATABASE_URL and JWT secrets
+npm run build
+npm run migrate
+npm run seed
 
 npm run dev       # starts the API on http://localhost:3000
 ```
