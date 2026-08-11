@@ -3,8 +3,9 @@ import styles from './BottomNav.module.css';
 
 const TABS = [
   { path: '/home', label: 'Home', icon: '🏠' },
-  { path: '/history', label: 'Trips', icon: '📋' },
-  { path: '/wallet', label: 'Wallet', icon: '💳' },
+  { path: '/history', label: 'Orders', icon: '📋' },
+  { path: '/loyalty', label: 'Coins', icon: '🪙' },
+  { path: '/wallet', label: 'Payments', icon: '💳' },
   { path: '/profile', label: 'Account', icon: '👤' },
 ] as const;
 

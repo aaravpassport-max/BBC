@@ -1,8 +1,14 @@
+export type AddressSaveAs = 'home' | 'shop' | 'other';
+
 export interface LocationPoint {
   label: string;
   lat: number;
   lng: number;
   addressLine?: string;
+  unitDetail?: string;
+  contactName?: string;
+  contactPhone?: string;
+  saveAs?: AddressSaveAs;
 }
 
 /** Bengaluru reference locations for demo + offline use */

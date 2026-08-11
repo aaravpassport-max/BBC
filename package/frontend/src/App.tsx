@@ -6,6 +6,8 @@ import { VerifyOtpPage } from './pages/VerifyOtpPage';
 import { OnboardingPage } from './pages/OnboardingPage';
 import { HomePage } from './pages/HomePage';
 import { BookingLocationPage } from './pages/BookingLocationPage';
+import { DropDetailsPage } from './pages/DropDetailsPage';
+import { AnnouncementsPage } from './pages/AnnouncementsPage';
 import { VehicleSelectPage } from './pages/VehicleSelectPage';
 import { ConfirmPage } from './pages/ConfirmPage';
 import { TrackPage } from './pages/TrackPage';
@@ -65,6 +67,8 @@ function AppRoutes() {
       <Route path="/onboarding" element={<RequireAuth><OnboardingPage /></RequireAuth>} />
       <Route path="/home" element={<AuthenticatedLayout><HomePage /></AuthenticatedLayout>} />
       <Route path="/book" element={<RequireAuth><BookingLocationPage /></RequireAuth>} />
+      <Route path="/book/drop-details" element={<RequireAuth><DropDetailsPage /></RequireAuth>} />
+      <Route path="/announcements" element={<AuthenticatedLayout><AnnouncementsPage /></AuthenticatedLayout>} />
       <Route path="/vehicles" element={<AuthenticatedLayout><VehicleSelectPage /></AuthenticatedLayout>} />
       <Route path="/confirm" element={<RequireAuth><ConfirmPage /></RequireAuth>} />
       <Route path="/track/:bookingId" element={<RequireAuth><TrackPage /></RequireAuth>} />
@@ -80,7 +84,7 @@ function AppRoutes() {
       <Route path="/settings" element={<RequireAuth><SettingsPage /></RequireAuth>} />
       <Route path="/referral" element={<RequireAuth><ReferralPage /></RequireAuth>} />
       <Route path="/subscription" element={<RequireAuth><SubscriptionPage /></RequireAuth>} />
-      <Route path="/loyalty" element={<RequireAuth><LoyaltyPage /></RequireAuth>} />
+      <Route path="/loyalty" element={<AuthenticatedLayout><LoyaltyPage /></AuthenticatedLayout>} />
       <Route path="/invoices" element={<AuthenticatedLayout><InvoicesPage /></AuthenticatedLayout>} />
       <Route path="/safety" element={<RequireAuth><SafetyPage /></RequireAuth>} />
       <Route path="/profile/edit" element={<RequireAuth><EditProfilePage /></RequireAuth>} />

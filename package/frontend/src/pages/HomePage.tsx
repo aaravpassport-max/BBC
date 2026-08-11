@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { PortMyStuffHeader } from '../components/PortMyStuffHeader';
 import { PromoBanners } from '../components/PromoBanners';
 import { listBookings } from '../api';
-import { HOME_SERVICE_TILES, type VehicleGroupId } from '../constants/vehicleCatalog';
+import { HOME_SERVICE_TILES, type ServiceId } from '../constants/vehicleCatalog';
 import styles from './HomePage.module.css';
 
 const ACTIVE_STATUSES = new Set(['scheduled', 'searching', 'driver_assigned', 'in_progress']);
@@ -21,8 +21,8 @@ export function HomePage() {
       .catch(() => undefined);
   }, []);
 
-  function selectVehicle(group: VehicleGroupId) {
-    navigate('/book', { state: { vehicleGroup: group } });
+  function selectService(serviceId: ServiceId) {
+    navigate('/book', { state: { serviceId } });
   }
 
   return (
@@ -42,7 +42,7 @@ export function HomePage() {
         <PromoBanners />
 
         <h2 className={styles.sectionTitle}>What do you need?</h2>
-        <p className={styles.sectionHint}>Choose a vehicle type to get started</p>
+        <p className={styles.sectionHint}>Choose a service to get started</p>
 
         <div className={styles.serviceGrid}>
           {HOME_SERVICE_TILES.map((tile) => (
@@ -50,7 +50,7 @@ export function HomePage() {
               key={tile.id}
               type="button"
               className={`${styles.serviceTile} ${tile.wide ? styles.serviceTileWide : ''}`}
-              onClick={() => selectVehicle(tile.id)}
+              onClick={() => selectService(tile.id)}
             >
               <span className={styles.serviceIcon} aria-hidden>
                 {tile.icon}

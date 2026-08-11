@@ -6,12 +6,17 @@ import { Button } from '../components/Button';
 import { LocationPicker } from '../components/LocationPicker';
 import { MapPicker } from '../components/MapPicker';
 import { LiveMap } from '../components/LiveMap';
-import { listAddresses, getLoyaltySummary } from '../api';
+import { listAddresses } from '../api';
 import { checkServiceability } from '../api/features';
 import { PRESET_LOCATIONS, sameLocation, type LocationPoint } from '../lib/locations';
 import type { SavedAddress } from '../api/profile';
 import type { BookingDraft } from '../api/vehicles';
-import { HOME_SERVICE_TILES, type VehicleGroupId } from '../constants/vehicleCatalog';
+import {
+  HOME_SERVICE_TILES,
+  serviceDefaults,
+  serviceToVehicleGroup,
+  type ServiceId,
+} from '../constants/vehicleCatalog';
 import styles from './BookingLocationPage.module.css';
 
 const WEIGHT_BANDS = [
@@ -22,30 +27,28 @@ const WEIGHT_BANDS = [
 ];
 
 interface BookingLocationState {
-  vehicleGroup: VehicleGroupId;
+  serviceId: ServiceId;
 }
 
-function serviceLabel(group: VehicleGroupId): string {
-  return HOME_SERVICE_TILES.find((t) => t.id === group)?.label ?? group.replace(/_/g, ' ');
+function serviceLabel(serviceId: ServiceId): string {
+  return HOME_SERVICE_TILES.find((t) => t.id === serviceId)?.label ?? serviceId.replace(/_/g, ' ');
 }
 
 export function BookingLocationPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const vehicleGroup = (location.state as BookingLocationState | undefined)?.vehicleGroup;
+  const serviceId = (location.state as BookingLocationState | undefined)?.serviceId;
+  const defaults = serviceId ? serviceDefaults(serviceId) : serviceDefaults('two_wheeler');
 
   const [pickup, setPickup] = useState<LocationPoint | null>(PRESET_LOCATIONS[0]);
   const [drops, setDrops] = useState<LocationPoint[]>([PRESET_LOCATIONS[1]]);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [mapTarget, setMapTarget] = useState<'pickup' | number | null>(null);
-  const [goodsCategory, setGoodsCategory] = useState('Furniture');
-  const [weightBand, setWeightBand] = useState('medium');
-  const [helperNeeded, setHelperNeeded] = useState(false);
+  const [goodsCategory, setGoodsCategory] = useState(defaults.goodsCategory);
+  const [weightBand, setWeightBand] = useState(defaults.weightBand);
+  const [helperNeeded, setHelperNeeded] = useState(defaults.helperNeeded);
   const [error, setError] = useState('');
   const [scheduledFor, setScheduledFor] = useState('');
-  const [couponCode, setCouponCode] = useState('');
-  const [loyaltyBalance, setLoyaltyBalance] = useState(0);
-  const [loyaltyToRedeem, setLoyaltyToRedeem] = useState(0);
   const [serviceable, setServiceable] = useState<boolean | null>(null);
   const [serviceCity, setServiceCity] = useState<string | null>(null);
 
@@ -53,17 +56,14 @@ export function BookingLocationPage() {
   const maxScheduleValue = new Date(Date.now() + 6.5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
 
   useEffect(() => {
-    if (!vehicleGroup) {
+    if (!serviceId) {
       navigate('/home', { replace: true });
     }
-  }, [vehicleGroup, navigate]);
+  }, [serviceId, navigate]);
 
   useEffect(() => {
     listAddresses()
       .then(setSavedAddresses)
-      .catch(() => undefined);
-    getLoyaltySummary()
-      .then((s) => setLoyaltyBalance(s.balance))
       .catch(() => undefined);
   }, []);
 
@@ -91,9 +91,9 @@ export function BookingLocationPage() {
       .catch(() => setServiceable(null));
   }, [pickup?.lat, pickup?.lng]);
 
-  if (!vehicleGroup) return null;
+  if (!serviceId) return null;
 
-  function handleContinueToVehicles() {
+  function handleContinue() {
     setError('');
     if (!pickup) {
       setError('Select a pickup location.');
@@ -109,17 +109,16 @@ export function BookingLocationPage() {
     }
 
     const draft: BookingDraft = {
-      vehicleGroup: vehicleGroup!,
+      serviceId: serviceId!,
+      vehicleGroup: serviceToVehicleGroup(serviceId!),
       pickup,
       drops,
       goodsCategory,
       weightBand,
       helperNeeded,
-      couponCode: couponCode.trim() || undefined,
-      loyaltyToRedeem: loyaltyToRedeem > 0 ? loyaltyToRedeem : undefined,
       scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
     };
-    navigate('/vehicles', { state: draft });
+    navigate('/book/drop-details', { state: draft });
   }
 
   function updateDrop(index: number, loc: LocationPoint) {
@@ -137,13 +136,13 @@ export function BookingLocationPage() {
 
   return (
     <Screen
-      eyebrow={serviceLabel(vehicleGroup)}
+      eyebrow={serviceLabel(serviceId)}
       title="Pickup & drop"
       onBack={() => navigate('/home')}
       footer={
         <>
           {error && <p className={styles.error}>{error}</p>}
-          <Button onClick={() => void handleContinueToVehicles()}>Choose vehicle & get fare</Button>
+          <Button onClick={() => void handleContinue()}>Continue</Button>
         </>
       }
     >
@@ -254,37 +253,6 @@ export function BookingLocationPage() {
         <input type="checkbox" checked={helperNeeded} onChange={(e) => setHelperNeeded(e.target.checked)} />
         Need helper for loading/unloading
       </label>
-
-      <div className={styles.section}>
-        <span className={styles.sectionLabel}>Promo code</span>
-        <input
-          type="text"
-          value={couponCode}
-          onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-          placeholder="Enter coupon code"
-          className={styles.select}
-        />
-      </div>
-
-      {loyaltyBalance > 0 && (
-        <div className={styles.section}>
-          <span className={styles.sectionLabel}>
-            Loyalty points ({loyaltyBalance} available · 10 pts = ₹1)
-          </span>
-          <input
-            type="number"
-            min={0}
-            max={loyaltyBalance}
-            step={10}
-            value={loyaltyToRedeem || ''}
-            onChange={(e) =>
-              setLoyaltyToRedeem(Math.min(loyaltyBalance, Math.max(0, parseInt(e.target.value, 10) || 0)))
-            }
-            placeholder="Points to redeem"
-            className={styles.select}
-          />
-        </div>
-      )}
 
       <div className={styles.section}>
         <span className={styles.sectionLabel}>When do you need it?</span>

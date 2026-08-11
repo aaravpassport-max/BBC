@@ -1,50 +1,82 @@
-.wrap {
+.section {
+  margin-bottom: 16px;
+}
+
+.header {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  margin-bottom: 12px;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.viewAll {
+  background: none;
+  border: none;
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
 }
 
 .banner {
   display: flex;
-  gap: 12px;
   align-items: center;
-  background: linear-gradient(135deg, #e8f0fe 0%, #f0f7ff 100%);
-  border: 1px solid #c7d9f7;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
-  padding: 12px;
-  overflow: hidden;
-}
-
-.image {
-  width: 56px;
-  height: 56px;
-  border-radius: 8px;
-  object-fit: cover;
-  flex-shrink: 0;
-}
-
-.placeholder {
-  width: 56px;
-  height: 56px;
-  border-radius: 8px;
-  background: var(--accent-soft);
-  flex-shrink: 0;
-}
-
-.content {
-  flex: 1;
-  min-width: 0;
-}
-
-.headline {
-  font-size: 14px;
-  font-weight: 600;
+  padding: 14px 16px;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
   color: var(--text);
 }
 
-.cta {
-  font-size: 12px;
-  color: var(--accent-strong);
-  margin-top: 4px;
+.bell {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.headline {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  min-width: 0;
+}
+
+.chevron {
+  color: var(--text-muted);
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.dots {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  border: none;
+  background: var(--border);
+  padding: 0;
+  cursor: pointer;
+}
+
+.dotActive {
+  width: 18px;
+  background: var(--accent);
 }

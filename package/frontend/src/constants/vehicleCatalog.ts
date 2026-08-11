@@ -1,5 +1,24 @@
 export type VehicleGroupId = 'two_wheeler' | 'three_wheeler' | 'truck';
 
+/** Home-screen service entry — may map to a vehicle group or a specialised flow. */
+export type ServiceId = VehicleGroupId | 'packers_movers';
+
+export function serviceToVehicleGroup(serviceId: ServiceId): VehicleGroupId {
+  if (serviceId === 'packers_movers') return 'truck';
+  return serviceId;
+}
+
+export function serviceDefaults(serviceId: ServiceId): {
+  goodsCategory: string;
+  weightBand: string;
+  helperNeeded: boolean;
+} {
+  if (serviceId === 'packers_movers') {
+    return { goodsCategory: 'Furniture', weightBand: 'heavy', helperNeeded: true };
+  }
+  return { goodsCategory: 'Furniture', weightBand: 'medium', helperNeeded: false };
+}
+
 export interface VehicleTypeMeta {
   id: string;
   label: string;
@@ -19,7 +38,7 @@ export const VEHICLE_GROUPS: { id: VehicleGroupId; label: string; description: s
 
 /** Porter-style service tiles shown on the home screen. */
 export const HOME_SERVICE_TILES: {
-  id: VehicleGroupId;
+  id: ServiceId;
   label: string;
   description: string;
   icon: string;
@@ -38,10 +57,10 @@ export const HOME_SERVICE_TILES: {
     icon: '🛵',
   },
   {
-    id: 'three_wheeler',
-    label: '3-Wheeler',
-    description: 'Auto / tempo for medium loads',
-    icon: '🛺',
+    id: 'packers_movers',
+    label: 'Packers & Movers',
+    description: 'Full home & office shifting with helpers',
+    icon: '📦',
     wide: true,
   },
 ];

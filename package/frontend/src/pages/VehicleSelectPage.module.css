@@ -19,15 +19,130 @@
   padding: 0 0 8px;
 }
 
-.summary {
-  margin: 0 16px 12px;
-  padding: 12px 14px;
+.pageTitle {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 8px 16px 12px;
+}
+
+.tripCard {
+  margin: 0 16px 10px;
+  border: 1px solid var(--border);
   border-radius: 12px;
   background: var(--surface);
-  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.tripCardBody {
+  display: flex;
+  gap: 8px;
+  padding: 14px;
+  align-items: stretch;
+}
+
+.tripStops {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tripRow {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.tripDot {
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.tripDotPickup {
+  border-radius: 50%;
+  background: var(--pickup);
+}
+
+.tripDotDrop {
+  border-radius: 2px;
+  background: var(--drop);
+}
+
+.tripText {
+  min-width: 0;
+}
+
+.tripHead {
   font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tripSub {
+  font-size: 12px;
   color: var(--text-muted);
-  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.swapBtn {
+  align-self: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--accent-strong);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tripActions {
+  display: flex;
+  border-top: 1px solid var(--border);
+}
+
+.tripAction {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.tripAction + .tripAction {
+  border-left: 1px solid var(--border);
+}
+
+.summaryMeta {
+  margin: 0 16px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.inlineError {
+  color: var(--danger);
+  font-size: 13px;
+  padding: 0 16px;
+  margin: 0;
+}
+
+.empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
 }
 
 .groupTabs {
@@ -154,11 +269,4 @@
   margin: 0 auto;
   padding: 12px 16px;
   background: linear-gradient(to top, var(--bg) 80%, transparent);
-}
-
-.empty {
-  padding: 24px 16px;
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 14px;
 }
