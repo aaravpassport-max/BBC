@@ -6,6 +6,7 @@ import { SkeletonRowList } from '../components/Skeleton';
 import { Button } from '../components/Button';
 import { listBookings, getErrorMessage, type Booking } from '../api';
 import { formatAddress } from '../lib/address';
+import { bookingTypeIcon, bookingTypeLabel } from '../constants/vehicleCatalog';
 import { rebookFromHistory } from '../lib/rebookNavigation';
 
 const FILTERS = [
@@ -15,7 +16,7 @@ const FILTERS = [
   { id: 'cancelled', label: 'Cancelled' },
 ] as const;
 
-const ACTIVE = new Set(['scheduled', 'searching', 'driver_assigned', 'in_progress']);
+const ACTIVE = new Set(['scheduled', 'searching', 'driver_assigned', 'driver_arriving', 'driver_arrived', 'in_progress']);
 const REBOOKABLE = new Set(['completed', 'cancelled']);
 
 function money(n: number): string {
@@ -153,7 +154,8 @@ export function HistoryPage() {
               >
                 <div>
                   <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--text-muted)' }}>
-                    #{b.id.slice(0, 8).toUpperCase()}
+                    #{b.id.slice(0, 8).toUpperCase()} · {bookingTypeIcon(b.booking_type ?? 'parcel')}{' '}
+                    {bookingTypeLabel(b.booking_type ?? 'parcel')}
                   </div>
                   <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
                     {new Date(b.created_at).toLocaleString()}

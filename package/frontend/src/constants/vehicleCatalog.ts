@@ -1,10 +1,13 @@
-export type VehicleGroupId = 'two_wheeler' | 'three_wheeler' | 'truck';
+export type BookingType = 'parcel' | 'ride';
+
+export type VehicleGroupId = 'two_wheeler' | 'three_wheeler' | 'truck' | 'ride';
 
 /** Home-screen service entry — may map to a vehicle group or a specialised flow. */
-export type ServiceId = VehicleGroupId | 'packers_movers';
+export type ServiceId = VehicleGroupId | 'packers_movers' | 'ride';
 
 export function serviceToVehicleGroup(serviceId: ServiceId): VehicleGroupId {
   if (serviceId === 'packers_movers') return 'truck';
+  if (serviceId === 'ride') return 'ride';
   return serviceId;
 }
 
@@ -12,11 +15,15 @@ export function serviceDefaults(serviceId: ServiceId): {
   goodsCategory: string;
   weightBand: string;
   helperNeeded: boolean;
+  bookingType: BookingType;
 } {
-  if (serviceId === 'packers_movers') {
-    return { goodsCategory: 'Furniture', weightBand: 'heavy', helperNeeded: true };
+  if (serviceId === 'ride') {
+    return { goodsCategory: '', weightBand: 'light', helperNeeded: false, bookingType: 'ride' };
   }
-  return { goodsCategory: 'Furniture', weightBand: 'medium', helperNeeded: false };
+  if (serviceId === 'packers_movers') {
+    return { goodsCategory: 'Furniture', weightBand: 'heavy', helperNeeded: true, bookingType: 'parcel' };
+  }
+  return { goodsCategory: 'Furniture', weightBand: 'medium', helperNeeded: false, bookingType: 'parcel' };
 }
 
 export interface VehicleTypeMeta {
@@ -27,17 +34,19 @@ export interface VehicleTypeMeta {
   capacity: string;
   examples?: string;
   group: VehicleGroupId;
+  bookingType: BookingType;
   sortOrder: number;
 }
 
 export const VEHICLE_GROUPS: { id: VehicleGroupId; label: string; description: string }[] = [
+  { id: 'ride', label: 'Ride', description: 'Book a vehicle to travel' },
   { id: 'two_wheeler', label: 'Bike & Scooter', description: 'Fast delivery for small parcels' },
   { id: 'three_wheeler', label: '3-Wheeler', description: 'Auto / tempo for medium loads' },
   { id: 'truck', label: 'Trucks', description: 'Mini to large trucks for furniture & bulk' },
 ];
 
-/** Porter-style service tiles shown on the home screen. */
-export const HOME_SERVICE_TILES: {
+/** Porter-style parcel service tiles on the home screen. */
+export const HOME_PARCEL_TILES: {
   id: ServiceId;
   label: string;
   description: string;
@@ -65,7 +74,57 @@ export const HOME_SERVICE_TILES: {
   },
 ];
 
+/** @deprecated use HOME_PARCEL_TILES */
+export const HOME_SERVICE_TILES = HOME_PARCEL_TILES;
+
+export const HOME_RIDE_TILE = {
+  id: 'ride' as const,
+  label: 'Book a Ride',
+  description: 'Travel from pickup to drop — like Uber or Rapido',
+  icon: '🚗',
+};
+
 export const VEHICLE_TYPES: VehicleTypeMeta[] = [
+  {
+    id: 'auto',
+    label: 'Auto',
+    icon: '🛺',
+    blurb: 'Affordable 3-wheeler ride',
+    capacity: 'Up to 3 passengers',
+    group: 'ride',
+    bookingType: 'ride',
+    sortOrder: 1,
+  },
+  {
+    id: 'hatchback',
+    label: 'Hatchback',
+    icon: '🚗',
+    blurb: 'Compact car for city trips',
+    capacity: 'Up to 4 passengers',
+    group: 'ride',
+    bookingType: 'ride',
+    sortOrder: 2,
+  },
+  {
+    id: 'sedan',
+    label: 'Sedan',
+    icon: '🚙',
+    blurb: 'Comfortable sedan',
+    capacity: 'Up to 4 passengers',
+    group: 'ride',
+    bookingType: 'ride',
+    sortOrder: 3,
+  },
+  {
+    id: 'suv',
+    label: 'SUV',
+    icon: '🚐',
+    blurb: 'Spacious SUV for groups',
+    capacity: 'Up to 6 passengers',
+    group: 'ride',
+    bookingType: 'ride',
+    sortOrder: 4,
+  },
   {
     id: 'bike',
     label: 'Bike',
@@ -74,7 +133,8 @@ export const VEHICLE_TYPES: VehicleTypeMeta[] = [
     capacity: 'Up to 10 kg',
     examples: 'Envelopes, tiffin, pharmacy',
     group: 'two_wheeler',
-    sortOrder: 1,
+    bookingType: 'parcel',
+    sortOrder: 10,
   },
   {
     id: 'scooter',
@@ -84,7 +144,8 @@ export const VEHICLE_TYPES: VehicleTypeMeta[] = [
     capacity: 'Up to 20 kg',
     examples: 'Shoes, gadgets, groceries',
     group: 'two_wheeler',
-    sortOrder: 2,
+    bookingType: 'parcel',
+    sortOrder: 11,
   },
   {
     id: 'two_wheeler',
@@ -93,7 +154,8 @@ export const VEHICLE_TYPES: VehicleTypeMeta[] = [
     blurb: 'General two-wheeler delivery',
     capacity: 'Up to 20 kg',
     group: 'two_wheeler',
-    sortOrder: 3,
+    bookingType: 'parcel',
+    sortOrder: 12,
   },
   {
     id: 'three_wheeler',
@@ -103,7 +165,8 @@ export const VEHICLE_TYPES: VehicleTypeMeta[] = [
     capacity: 'Up to 500 kg',
     examples: 'Cartons, small appliances',
     group: 'three_wheeler',
-    sortOrder: 4,
+    bookingType: 'parcel',
+    sortOrder: 13,
   },
   {
     id: 'mini_truck',
@@ -113,7 +176,8 @@ export const VEHICLE_TYPES: VehicleTypeMeta[] = [
     capacity: 'Up to 750 kg',
     examples: 'Single sofa, fridge, 15–20 boxes',
     group: 'truck',
-    sortOrder: 5,
+    bookingType: 'parcel',
+    sortOrder: 14,
   },
   {
     id: 'pickup_truck',
@@ -123,7 +187,8 @@ export const VEHICLE_TYPES: VehicleTypeMeta[] = [
     capacity: 'Up to 1,500 kg',
     examples: 'Office shifting, construction material',
     group: 'truck',
-    sortOrder: 6,
+    bookingType: 'parcel',
+    sortOrder: 15,
   },
   {
     id: 'large_truck',
@@ -133,7 +198,8 @@ export const VEHICLE_TYPES: VehicleTypeMeta[] = [
     capacity: 'Up to 5,000 kg',
     examples: 'Full home move, pallet loads',
     group: 'truck',
-    sortOrder: 7,
+    bookingType: 'parcel',
+    sortOrder: 16,
   },
 ];
 
@@ -148,12 +214,12 @@ export function getVehicleMeta(categoryName: string): VehicleTypeMeta {
       blurb: '',
       capacity: '',
       group: 'truck' as VehicleGroupId,
+      bookingType: 'parcel' as BookingType,
       sortOrder: 99,
     }
   );
 }
 
-/** Weight band → recommended vehicle category ids (customer hint). */
 export const WEIGHT_RECOMMENDATIONS: Record<string, string[]> = {
   light: ['bike', 'scooter', 'two_wheeler'],
   medium: ['scooter', 'three_wheeler', 'mini_truck'],
@@ -164,4 +230,12 @@ export const WEIGHT_RECOMMENDATIONS: Record<string, string[]> = {
 export function isRecommendedForWeight(categoryName: string, weightBand: string): boolean {
   const rec = WEIGHT_RECOMMENDATIONS[weightBand];
   return rec ? rec.includes(categoryName) : false;
+}
+
+export function bookingTypeLabel(type: BookingType): string {
+  return type === 'ride' ? 'Ride' : 'Parcel';
+}
+
+export function bookingTypeIcon(type: BookingType): string {
+  return type === 'ride' ? '🚗' : '📦';
 }

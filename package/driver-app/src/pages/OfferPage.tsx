@@ -104,6 +104,21 @@ export function OfferPage() {
 
   return (
     <Screen eyebrow="New job" title="Job offer">
+      <div
+        style={{
+          padding: '12px 14px',
+          borderRadius: 12,
+          marginBottom: 12,
+          fontWeight: 700,
+          fontSize: 15,
+          textAlign: 'center',
+          background: activeOffer.booking_type === 'ride' ? '#e8f4fd' : '#fff7ed',
+          color: activeOffer.booking_type === 'ride' ? '#0369a1' : '#c2410c',
+          border: `2px solid ${activeOffer.booking_type === 'ride' ? '#7dd3fc' : '#fdba74'}`,
+        }}
+      >
+        {activeOffer.booking_type === 'ride' ? '🚗 PASSENGER RIDE' : '📦 PARCEL DELIVERY'}
+      </div>
       <div style={{ textAlign: 'center', margin: '4px 0 8px' }}>
         <div
           style={{
@@ -140,6 +155,10 @@ export function OfferPage() {
       <LiveMap pickup={pickup} drops={drops} driver={null} routePoints={route?.geometry} />
 
       <FareCard label="Job details">
+        <FareCardLine label="Type" value={activeOffer.booking_type === 'ride' ? 'Passenger ride' : 'Parcel delivery'} />
+        {activeOffer.booking_type === 'ride' && activeOffer.passenger_count != null && (
+          <FareCardLine label="Passengers" value={String(activeOffer.passenger_count)} />
+        )}
         <FareCardLine label="Estimated earnings" value={`₹${activeOffer.fare_breakdown.final_fare.toFixed(2)}`} emphasis />
         <FareCardLine label="Pickup" value={formatAddress(activeOffer.pickup_address_snapshot)} />
         <FareCardLine label="First drop" value={formatAddress(activeOffer.first_drop_address, '—')} />

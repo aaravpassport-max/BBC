@@ -24,6 +24,8 @@ export interface PendingOffer {
   offer_id: string;
   booking_id: string;
   expires_at: string;
+  booking_type?: 'parcel' | 'ride';
+  passenger_count?: number;
   fare_breakdown: { final_fare: number };
   pickup_lat: number;
   pickup_lng: number;
@@ -56,6 +58,8 @@ export interface Stop {
 export interface ActiveJob {
   id: string;
   status: string;
+  booking_type?: 'parcel' | 'ride';
+  passenger_count?: number;
   pickup_lat: number;
   pickup_lng: number;
   pickup_address?: AddressSnapshot;

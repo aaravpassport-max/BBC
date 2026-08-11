@@ -48,9 +48,11 @@ export async function arriveAtPickup(params: {
   if (booking.rowCount === 0 || booking.rows[0].driver_id !== driverId) {
     throw Errors.notFound('Booking');
   }
-  if (booking.rows[0].status !== 'driver_assigned') {
+  if (booking.rows[0].status !== 'driver_assigned' && booking.rows[0].status !== 'driver_arriving') {
     throw Errors.validation({ booking: 'Arrival can only be marked while heading to pickup.' });
   }
+
+  await pool.query(`UPDATE bookings SET status = 'driver_arrived', updated_at = now() WHERE id = $1`, [bookingId]);
 
   void sendNotification({
     eventId: deriveEventId(`${bookingId}:driver_arrived_pickup`),
@@ -156,7 +158,7 @@ export async function verifyPickupOtp(params: {
     }
     const booking = bookingResult.rows[0];
 
-    if (booking.status !== 'driver_assigned') {
+    if (booking.status !== 'driver_assigned' && booking.status !== 'driver_arrived') {
       return { kind: 'wrong_state', status: booking.status };
     }
 
@@ -279,11 +281,12 @@ export async function completeStop(params: {
     }
 
     const prefersPhoto = stop.delivery_preference === 'photo_proof';
+    const noOtpRequired = stop.delivery_preference === 'none';
     if (prefersPhoto) {
       if (!photoProofUrl || typeof photoProofUrl !== 'string') {
         return { kind: 'photo_required' };
       }
-    } else {
+    } else if (!noOtpRequired) {
       if (!otp || typeof otp !== 'string') {
         return { kind: 'otp_required' };
       }

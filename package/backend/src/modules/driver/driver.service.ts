@@ -241,6 +241,7 @@ export async function getMyPendingOffer(driverId: string) {
   const result = await pool.query(
     `SELECT o.id AS offer_id, o.booking_id, o.expires_at,
             b.pickup_address_snapshot, b.fare_breakdown, b.vehicle_category_id,
+            b.booking_type, b.passenger_count,
             ST_X(b.pickup_geo::geometry) AS pickup_lng, ST_Y(b.pickup_geo::geometry) AS pickup_lat,
             (SELECT count(*)::int FROM booking_stops WHERE booking_id = b.id) AS stop_count,
             (SELECT address_snapshot FROM booking_stops WHERE booking_id = b.id ORDER BY sequence LIMIT 1) AS first_drop_address
@@ -269,6 +270,7 @@ export async function getMyPendingOffer(driverId: string) {
 export async function getMyActiveJob(driverId: string) {
   const result = await pool.query(
     `SELECT id, status, pickup_address_snapshot, payment_method, payment_status,
+            booking_type, passenger_count,
             ST_X(pickup_geo::geometry) AS pickup_lng, ST_Y(pickup_geo::geometry) AS pickup_lat
      FROM bookings
      WHERE driver_id = $1 AND status IN ('driver_assigned', 'in_progress')

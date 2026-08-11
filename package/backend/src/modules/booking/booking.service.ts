@@ -19,8 +19,9 @@ export async function createBooking(params: {
   savedPaymentMethodId?: string;
   scheduledFor?: string;
   rebookSnapshot?: RebookSnapshot;
+  passengerCount?: number;
 }): Promise<{ id: string; status: string; gateway_session?: Record<string, unknown>; payment_required?: boolean }> {
-  const { customerId, quoteId, paymentMethod, idempotencyKey, scheduledFor, corporateAccountId, savedPaymentMethodId, rebookSnapshot } =
+  const { customerId, quoteId, paymentMethod, idempotencyKey, scheduledFor, corporateAccountId, savedPaymentMethodId, rebookSnapshot, passengerCount } =
     params;
 
   return withTransaction(async (client: PoolClient) => {
@@ -101,11 +102,15 @@ export async function createBooking(params: {
       ? locationSnapshotToJson(rebookSnapshot.pickup)
       : { lat, lng };
 
+    const bookingType = (quote.booking_type as string) || 'parcel';
+    const passengers = passengerCount && passengerCount > 0 ? passengerCount : 1;
+
     const bookingResult = await client.query(
       `INSERT INTO bookings (customer_id, idempotency_key, status, vehicle_category_id,
                               pickup_geo, pickup_address_snapshot, quote_id, fare_breakdown,
-                              coupon_id, corporate_account_id, pickup_otp, scheduled_at, rebook_snapshot)
-       VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, $8, $9, $10, $11, $12, $13, $14)
+                              coupon_id, corporate_account_id, pickup_otp, scheduled_at, rebook_snapshot,
+                              booking_type, passenger_count)
+       VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
        RETURNING id, status`,
       [
         customerId,
@@ -122,6 +127,8 @@ export async function createBooking(params: {
         pickupOtp,
         scheduledAt,
         rebookSnapshot ? JSON.stringify(rebookSnapshot) : null,
+        bookingType,
+        passengers,
       ]
     );
 
@@ -145,15 +152,16 @@ export async function createBooking(params: {
     // customer specified at quote time (PRD 3B.1's sequence-integrity rule
     // enforced at completion time, not creation time).
     const dropsGeo = quote.drops_geo as Array<{ lat: number; lng: number; landmark_instructions?: string }>;
+    const isRide = bookingType === 'ride';
     for (let i = 0; i < dropsGeo.length; i++) {
       const drop = dropsGeo[i];
-      const stopOtp = Math.floor(1000 + Math.random() * 9000).toString();
+      const stopOtp = isRide ? null : Math.floor(1000 + Math.random() * 9000).toString();
       const dropSnapshot = rebookSnapshot?.drops?.[i]
         ? locationSnapshotToJson(rebookSnapshot.drops[i])
         : { lat: drop.lat, lng: drop.lng };
       await client.query(
-        `INSERT INTO booking_stops (booking_id, sequence, geo, address_snapshot, instructions, otp_code)
-         VALUES ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326), $5, $6, $7)`,
+        `INSERT INTO booking_stops (booking_id, sequence, geo, address_snapshot, instructions, otp_code, delivery_preference)
+         VALUES ($1, $2, ST_SetSRID(ST_MakePoint($3, $4), 4326), $5, $6, $7, $8)`,
         [
           bookingId,
           i + 1,
@@ -162,6 +170,7 @@ export async function createBooking(params: {
           JSON.stringify(dropSnapshot),
           drop.landmark_instructions || rebookSnapshot?.drops?.[i]?.unitDetail || null,
           stopOtp,
+          isRide ? 'none' : 'otp',
         ]
       );
     }
@@ -392,7 +401,7 @@ export async function previewCancellation(bookingId: string, customerId: string)
 export async function getBooking(bookingId: string, customerId: string) {
   const result = await pool.query(
     `SELECT b.id, b.status, b.vehicle_category_id, b.fare_breakdown, b.driver_id, b.created_at, b.pickup_otp,
-            b.pickup_address_snapshot,
+            b.pickup_address_snapshot, b.booking_type, b.passenger_count,
             ST_X(b.pickup_geo::geometry) AS pickup_lng, ST_Y(b.pickup_geo::geometry) AS pickup_lat,
             du.name AS driver_name, du.phone AS driver_phone,
             dp.rating_avg AS driver_rating,
@@ -424,6 +433,8 @@ export async function getBooking(bookingId: string, customerId: string) {
   return {
     id: row.id,
     status: row.status,
+    booking_type: row.booking_type || 'parcel',
+    passenger_count: row.passenger_count ?? 1,
     vehicle_category_id: row.vehicle_category_id,
     fare_breakdown: row.fare_breakdown,
     driver_id: row.driver_id,
@@ -504,6 +515,7 @@ export async function listBookings(params: {
 
   const result = await pool.query(
     `SELECT b.id, b.status, b.fare_breakdown, b.driver_id, b.created_at, b.vehicle_category_id,
+            b.booking_type, b.passenger_count,
             b.pickup_address_snapshot,
             ST_X(b.pickup_geo::geometry) AS pickup_lng, ST_Y(b.pickup_geo::geometry) AS pickup_lat,
             (SELECT address_snapshot FROM booking_stops WHERE booking_id = b.id ORDER BY sequence LIMIT 1) AS first_drop_address,
@@ -517,6 +529,8 @@ export async function listBookings(params: {
   return result.rows.map((row) => ({
     id: row.id,
     status: row.status,
+    booking_type: row.booking_type || 'parcel',
+    passenger_count: row.passenger_count ?? 1,
     fare_breakdown: row.fare_breakdown,
     driver_id: row.driver_id,
     created_at: row.created_at,

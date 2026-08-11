@@ -70,6 +70,7 @@ export function vehicleCategoryToServiceId(categoryName: string): ServiceId {
 export function snapshotPayloadToDraft(snapshot: RebookSnapshotPayload): BookingDraft {
   const defaults = serviceDefaults(snapshot.serviceId);
   return {
+    bookingType: defaults.bookingType,
     serviceId: snapshot.serviceId,
     vehicleGroup: snapshot.vehicleGroup ?? serviceToVehicleGroup(snapshot.serviceId),
     pickup: snapshot.pickup,
@@ -141,6 +142,7 @@ export function bookingDetailToDraft(booking: {
     }) ?? [];
 
   return {
+    bookingType: defaults.bookingType,
     serviceId,
     vehicleGroup: serviceToVehicleGroup(serviceId),
     pickup,

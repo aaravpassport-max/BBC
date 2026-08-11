@@ -143,7 +143,7 @@ export function ConfirmPage() {
 
   const pickup = tripPickup;
   const drops = tripDrops;
-  const { goodsCategory, weightBand, helperNeeded, scheduledFor, vehicleGroup, serviceId } = state;
+  const { goodsCategory, weightBand, helperNeeded, scheduledFor, vehicleGroup, serviceId, bookingType, passengerCount } = state;
   const fb = quote.fare_breakdown;
   const vehicleMeta = getVehicleMeta(quote.vehicle_category);
   const hasCorporate = corporateAccounts.length > 0;
@@ -153,6 +153,7 @@ export function ConfirmPage() {
 
   function buildDraft(): BookingDraft {
     return {
+      bookingType: bookingType ?? 'parcel',
       serviceId,
       vehicleGroup,
       pickup,
@@ -160,6 +161,7 @@ export function ConfirmPage() {
       goodsCategory,
       weightBand: weightBand ?? 'medium',
       helperNeeded,
+      passengerCount,
       couponCode: couponCode || undefined,
       loyaltyToRedeem: loyaltyToRedeem > 0 ? loyaltyToRedeem : undefined,
       scheduledFor,
@@ -179,6 +181,8 @@ export function ConfirmPage() {
       scheduledFor,
       vehicleGroup,
       serviceId,
+      bookingType,
+      passengerCount,
     };
   }
 
@@ -239,13 +243,17 @@ export function ConfirmPage() {
         pickup: { lat: nextPickup.lat, lng: nextPickup.lng },
         drops: nextDrops.map((d) => ({ lat: d.lat, lng: d.lng })),
         vehicle_category: quote.vehicle_category,
+        booking_type: bookingType ?? 'parcel',
         coupon_code: nextCoupon || undefined,
         loyalty_points_to_redeem: nextLoyalty > 0 ? nextLoyalty : undefined,
-        item_details: {
-          goods_category: goodsCategory,
-          weight_band: weightBand,
-          helper_needed: helperNeeded,
-        },
+        item_details:
+          bookingType === 'ride'
+            ? undefined
+            : {
+                goods_category: goodsCategory,
+                weight_band: weightBand,
+                helper_needed: helperNeeded,
+              },
       });
       const match =
         res.quotes.find((q) => q.vehicle_category === quote.vehicle_category) ?? res.quotes[0];
@@ -294,7 +302,8 @@ export function ConfirmPage() {
         scheduledFor,
         corporateId,
         savedId,
-        buildRebookSnapshot(buildDraft()) as unknown as Record<string, unknown>
+        buildRebookSnapshot(buildDraft()) as unknown as Record<string, unknown>,
+        passengerCount
       );
 
       if (booking.payment_required && booking.gateway_session) {

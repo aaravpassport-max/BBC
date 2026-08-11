@@ -1,7 +1,7 @@
 import { api } from './client';
 import type { Quote } from './bookings';
 import type { LocationPoint } from '../lib/locations';
-import type { ServiceId, VehicleGroupId } from '../constants/vehicleCatalog';
+import type { ServiceId, VehicleGroupId, BookingType } from '../constants/vehicleCatalog';
 
 export interface VehicleCategoryInfo {
   name: string;
@@ -11,11 +11,14 @@ export interface VehicleCategoryInfo {
   vehicle_group: string;
 }
 
-export function listVehicleCategories(lat: number, lng: number) {
-  return api.get<VehicleCategoryInfo[]>(`/v1/pricing/vehicle-categories?lat=${lat}&lng=${lng}`);
+export function listVehicleCategories(lat: number, lng: number, bookingType: BookingType = 'parcel') {
+  return api.get<VehicleCategoryInfo[]>(
+    `/v1/pricing/vehicle-categories?lat=${lat}&lng=${lng}&booking_type=${bookingType}`
+  );
 }
 
 export interface BookingDraft {
+  bookingType: BookingType;
   serviceId: ServiceId;
   vehicleGroup: VehicleGroupId;
   pickup: LocationPoint;
@@ -23,6 +26,7 @@ export interface BookingDraft {
   goodsCategory: string;
   weightBand: string;
   helperNeeded: boolean;
+  passengerCount?: number;
   couponCode?: string;
   loyaltyToRedeem?: number;
   scheduledFor?: string;

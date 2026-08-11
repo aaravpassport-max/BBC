@@ -12,6 +12,7 @@ const quoteRequestSchema = z.object({
   pickup: geoPointSchema,
   drops: z.array(geoPointSchema).min(1).max(5),
   vehicle_category: z.string().optional(),
+  booking_type: z.enum(['parcel', 'ride']).optional(),
   scheduled_at: z.string().datetime().nullable().optional(),
   item_details: z
     .object({
@@ -35,7 +36,8 @@ pricingRouter.get(
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
       throw Errors.validation({ lat: 'lat and lng query params are required.' });
     }
-    const categories = await listVehicleCategoriesForLocation({ lat, lng });
+    const bookingType = (req.query.booking_type as string) === 'ride' ? 'ride' : 'parcel';
+    const categories = await listVehicleCategoriesForLocation({ lat, lng }, bookingType);
     res.status(200).json(categories);
   })
 );
@@ -46,7 +48,7 @@ pricingRouter.post(
   requireAuth,
   validateBody(quoteRequestSchema),
   asyncHandler(async (req, res) => {
-    const { pickup, drops, vehicle_category, coupon_code, loyalty_points_to_redeem } = req.body;
+    const { pickup, drops, vehicle_category, coupon_code, loyalty_points_to_redeem, booking_type } = req.body;
     const quotes = await generateQuotes({
       customerId: req.user!.userId,
       pickup,
@@ -54,6 +56,7 @@ pricingRouter.post(
       vehicleCategory: vehicle_category,
       couponCode: coupon_code || undefined,
       loyaltyPointsToRedeem: loyalty_points_to_redeem,
+      bookingType: booking_type === 'ride' ? 'ride' : 'parcel',
     });
     res.status(200).json({ quotes });
   })

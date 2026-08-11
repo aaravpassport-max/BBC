@@ -61,6 +61,8 @@ export interface DriverInfo {
 export interface Booking {
   id: string;
   status: string;
+  booking_type?: 'parcel' | 'ride';
+  passenger_count?: number;
   vehicle_category_id: string;
   fare_breakdown: FareBreakdown;
   driver_id: string | null;
@@ -119,6 +121,7 @@ export function getQuote(params: {
   pickup: { lat: number; lng: number };
   drops: { lat: number; lng: number }[];
   vehicle_category?: string;
+  booking_type?: 'parcel' | 'ride';
   coupon_code?: string;
   loyalty_points_to_redeem?: number;
   item_details?: {
@@ -136,7 +139,8 @@ export function confirmBooking(
   scheduledFor?: string,
   corporateAccountId?: string,
   savedPaymentMethodId?: string,
-  rebookSnapshot?: Record<string, unknown>
+  rebookSnapshot?: Record<string, unknown>,
+  passengerCount?: number
 ) {
   return api.post<Booking & { payment_required?: boolean; gateway_session?: GatewaySession }>(
     '/v1/bookings',
@@ -147,6 +151,7 @@ export function confirmBooking(
       corporate_account_id: corporateAccountId,
       saved_payment_method_id: savedPaymentMethodId,
       rebook_snapshot: rebookSnapshot,
+      passenger_count: passengerCount,
     },
     newIdempotencyKey()
   );

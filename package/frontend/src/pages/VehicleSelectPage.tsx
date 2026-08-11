@@ -12,19 +12,24 @@ import {
   type VehicleQuoteOption,
 } from '../api/vehicles';
 import {
-  HOME_SERVICE_TILES,
   VEHICLE_GROUPS,
   getVehicleMeta,
   isRecommendedForWeight,
+  bookingTypeLabel,
 } from '../constants/vehicleCatalog';
+import type { VehicleGroupId } from '../constants/vehicleCatalog';
 import { swapBookingParties } from '../lib/bookingDraft';
 import type { BookingFlowState } from '../lib/bookingFlow';
 import styles from './VehicleSelectPage.module.css';
 
-function formatStop(point: BookingDraft['pickup']) {
+function formatStop(point: BookingDraft['pickup'], isRide: boolean) {
   const name = point.contactName;
   const phone = point.contactPhone;
-  const head = name && phone ? `${name} · ${phone}` : name || phone || point.label;
+  const head = isRide
+    ? point.label
+    : name && phone
+      ? `${name} · ${phone}`
+      : name || phone || point.label;
   return { head, sub: point.addressLine ?? point.label };
 }
 
@@ -36,29 +41,39 @@ export function VehicleSelectPage() {
   const [tripDraft, setTripDraft] = useState<BookingDraft | undefined>(initialDraft);
   const [options, setOptions] = useState<VehicleQuoteOption[] | null>(null);
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
+  const [activeGroup, setActiveGroup] = useState<VehicleGroupId | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const isRide = tripDraft?.bookingType === 'ride';
+
   useEffect(() => {
-    if (initialDraft) setTripDraft(initialDraft);
+    if (initialDraft) {
+      setTripDraft(initialDraft);
+      setActiveGroup(initialDraft.vehicleGroup);
+    }
   }, [initialDraft]);
 
   const loadQuotes = useCallback(async (draft: BookingDraft, cancelled: () => boolean) => {
     setLoading(true);
     setError('');
     try {
+      const bookingType = draft.bookingType ?? 'parcel';
       const [categories, quoteRes] = await Promise.all([
-        listVehicleCategories(draft.pickup.lat, draft.pickup.lng),
+        listVehicleCategories(draft.pickup.lat, draft.pickup.lng, bookingType),
         getQuote({
           pickup: { lat: draft.pickup.lat, lng: draft.pickup.lng },
           drops: draft.drops.map((d) => ({ lat: d.lat, lng: d.lng })),
+          booking_type: bookingType,
           coupon_code: draft.couponCode,
           loyalty_points_to_redeem: draft.loyaltyToRedeem,
-          item_details: {
-            goods_category: draft.goodsCategory,
-            weight_band: draft.weightBand,
-            helper_needed: draft.helperNeeded,
-          },
+          item_details: isRide
+            ? undefined
+            : {
+                goods_category: draft.goodsCategory,
+                weight_band: draft.weightBand,
+                helper_needed: draft.helperNeeded,
+              },
         }),
       ]);
 
@@ -72,9 +87,21 @@ export function VehicleSelectPage() {
       }
 
       setOptions(merged);
-      const inGroup = merged.filter((o) => getVehicleMeta(o.quote.vehicle_category).group === draft.vehicleGroup);
+
+      const groupsWithVehicles = VEHICLE_GROUPS.filter((g) =>
+        merged.some((o) => getVehicleMeta(o.quote.vehicle_category).group === g.id)
+      );
+      const preferredGroup =
+        groupsWithVehicles.find((g) => g.id === draft.vehicleGroup)?.id ??
+        groupsWithVehicles[0]?.id ??
+        draft.vehicleGroup;
+      setActiveGroup(preferredGroup);
+
+      const inGroup = merged.filter((o) => getVehicleMeta(o.quote.vehicle_category).group === preferredGroup);
       const pool = inGroup.length > 0 ? inGroup : merged;
-      const recommended = pool.find((o) => isRecommendedForWeight(o.quote.vehicle_category, draft.weightBand));
+      const recommended = isRide
+        ? pool[0]
+        : pool.find((o) => isRecommendedForWeight(o.quote.vehicle_category, draft.weightBand));
       const pick = recommended ?? pool[0];
       setSelectedQuoteId(pick.quote.quote_id);
     } catch (err) {
@@ -82,10 +109,10 @@ export function VehicleSelectPage() {
     } finally {
       if (!cancelled()) setLoading(false);
     }
-  }, []);
+  }, [isRide]);
 
   useEffect(() => {
-    if (!tripDraft?.pickup || !tripDraft.drops?.length || !tripDraft.vehicleGroup) {
+    if (!tripDraft?.pickup || !tripDraft.drops?.length) {
       navigate('/home', { replace: true });
       return;
     }
@@ -97,10 +124,19 @@ export function VehicleSelectPage() {
     };
   }, [tripDraft, navigate, loadQuotes]);
 
+  const availableGroups = useMemo(() => {
+    if (!options) return [];
+    return VEHICLE_GROUPS.filter((g) =>
+      options.some((o) => getVehicleMeta(o.quote.vehicle_category).group === g.id)
+    );
+  }, [options]);
+
   const filtered = useMemo(() => {
-    if (!options || !tripDraft) return [];
-    return options.filter((o) => getVehicleMeta(o.quote.vehicle_category).group === tripDraft.vehicleGroup);
-  }, [options, tripDraft]);
+    if (!options) return [];
+    if (!activeGroup) return options;
+    const inGroup = options.filter((o) => getVehicleMeta(o.quote.vehicle_category).group === activeGroup);
+    return inGroup.length > 0 ? inGroup : options;
+  }, [options, activeGroup]);
 
   const selected = options?.find((o) => o.quote.quote_id === selectedQuoteId);
 
@@ -123,16 +159,16 @@ export function VehicleSelectPage() {
         scheduledFor: tripDraft.scheduledFor,
         vehicleGroup: tripDraft.vehicleGroup,
         serviceId: tripDraft.serviceId,
+        bookingType: tripDraft.bookingType,
+        passengerCount: tripDraft.passengerCount,
       },
     });
   }
 
   if (!tripDraft?.pickup) return null;
 
-  const pickupFmt = formatStop(tripDraft.pickup);
-  const dropFmt = formatStop(tripDraft.drops[0]);
-  const serviceLabel =
-    HOME_SERVICE_TILES.find((t) => t.id === tripDraft.serviceId)?.label ?? tripDraft.serviceId;
+  const pickupFmt = formatStop(tripDraft.pickup, isRide);
+  const dropFmt = formatStop(tripDraft.drops[0], isRide);
 
   return (
     <div className={styles.page}>
@@ -140,14 +176,16 @@ export function VehicleSelectPage() {
         <button
           type="button"
           className={styles.backBtn}
-          onClick={() => navigate('/book/drop-details', { state: tripDraft })}
+          onClick={() => navigate(isRide ? '/ride' : '/book/drop-details', { state: tripDraft })}
         >
           ← Back
         </button>
         <PortMyStuffHeader />
       </div>
 
-      <h1 className={styles.pageTitle}>Select Vehicle</h1>
+      <h1 className={styles.pageTitle}>
+        {isRide ? 'Choose your ride' : 'Select Vehicle'}
+      </h1>
 
       <div className={styles.tripCard}>
         <div className={styles.tripCardBody}>
@@ -158,17 +196,19 @@ export function VehicleSelectPage() {
                 <div className={styles.tripHead}>{pickupFmt.head}</div>
                 <div className={styles.tripSub}>{pickupFmt.sub}</div>
               </div>
-              <button
-                type="button"
-                className={styles.editBtn}
-                onClick={() =>
-                  navigate('/book/sender-details', {
-                    state: { draft: tripDraft, returnTo: 'vehicles' } satisfies BookingFlowState,
-                  })
-                }
-              >
-                Edit
-              </button>
+              {!isRide && (
+                <button
+                  type="button"
+                  className={styles.editBtn}
+                  onClick={() =>
+                    navigate('/book/sender-details', {
+                      state: { draft: tripDraft, returnTo: 'vehicles' } satisfies BookingFlowState,
+                    })
+                  }
+                >
+                  Edit
+                </button>
+              )}
             </div>
             <div className={styles.tripRow}>
               <span className={`${styles.tripDot} ${styles.tripDotDrop}`} />
@@ -176,17 +216,19 @@ export function VehicleSelectPage() {
                 <div className={styles.tripHead}>{dropFmt.head}</div>
                 <div className={styles.tripSub}>{dropFmt.sub}</div>
               </div>
-              <button
-                type="button"
-                className={styles.editBtn}
-                onClick={() =>
-                  navigate('/book/drop-details', {
-                    state: { draft: tripDraft, returnTo: 'vehicles', dropIndex: 0 } satisfies BookingFlowState,
-                  })
-                }
-              >
-                Edit
-              </button>
+              {!isRide && (
+                <button
+                  type="button"
+                  className={styles.editBtn}
+                  onClick={() =>
+                    navigate('/book/drop-details', {
+                      state: { draft: tripDraft, returnTo: 'vehicles', dropIndex: 0 } satisfies BookingFlowState,
+                    })
+                  }
+                >
+                  Edit
+                </button>
+              )}
             </div>
           </div>
           <button type="button" className={styles.swapBtn} onClick={swapLocations} aria-label="Switch pickup and drop">
@@ -197,38 +239,59 @@ export function VehicleSelectPage() {
           <button
             type="button"
             className={styles.tripAction}
-            onClick={() => navigate('/book', { state: { serviceId: tripDraft.serviceId, draft: tripDraft } })}
+            onClick={() =>
+              navigate(isRide ? '/ride' : '/book', { state: { serviceId: tripDraft.serviceId, draft: tripDraft } })
+            }
           >
             Edit locations
           </button>
         </div>
       </div>
 
-      <div className={styles.summaryMeta}>
-        {serviceLabel} · {tripDraft.goodsCategory} · {tripDraft.weightBand.replace(/_/g, ' ')} weight
-        {tripDraft.helperNeeded ? ' · helper' : ''}
-      </div>
+      {!isRide && (
+        <div className={styles.summaryMeta}>
+          {bookingTypeLabel('parcel')} · {tripDraft.goodsCategory} · {tripDraft.weightBand.replace(/_/g, ' ')} weight
+          {tripDraft.helperNeeded ? ' · helper' : ''}
+        </div>
+      )}
+      {isRide && tripDraft.passengerCount && (
+        <div className={styles.summaryMeta}>
+          {tripDraft.passengerCount} passenger{tripDraft.passengerCount === 1 ? '' : 's'}
+        </div>
+      )}
 
       <LiveMap pickup={tripDraft.pickup} drops={tripDraft.drops} driver={null} />
 
-      <div className={styles.groupTabs}>
-        {VEHICLE_GROUPS.filter((g) => g.id === tripDraft.vehicleGroup).map((g) => (
-          <button key={g.id} type="button" className={`${styles.groupTab} ${styles.groupTabActive}`} disabled>
-            {g.label}
-          </button>
-        ))}
-      </div>
+      {availableGroups.length > 1 && (
+        <div className={styles.groupTabs}>
+          {availableGroups.map((g) => (
+            <button
+              key={g.id}
+              type="button"
+              className={`${styles.groupTab} ${activeGroup === g.id ? styles.groupTabActive : ''}`}
+              onClick={() => {
+                setActiveGroup(g.id);
+                const inGroup = options?.filter((o) => getVehicleMeta(o.quote.vehicle_category).group === g.id);
+                if (inGroup?.[0]) setSelectedQuoteId(inGroup[0].quote.quote_id);
+              }}
+            >
+              {g.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {error && <p className={styles.inlineError}>{error}</p>}
       {loading && <SkeletonRowList count={4} />}
       {!loading && filtered.length === 0 && !error && (
-        <div className={styles.empty}>No vehicles in this category for your route.</div>
+        <div className={styles.empty}>No vehicles available for your route.</div>
       )}
 
       <div className={styles.list}>
         {filtered.map((opt) => {
           const meta = getVehicleMeta(opt.quote.vehicle_category);
-          const recommended = isRecommendedForWeight(opt.quote.vehicle_category, tripDraft.weightBand);
+          const recommended =
+            !isRide && isRecommendedForWeight(opt.quote.vehicle_category, tripDraft.weightBand);
           const isSelected = selectedQuoteId === opt.quote.quote_id;
 
           return (
@@ -259,7 +322,9 @@ export function VehicleSelectPage() {
       <div className={styles.footer}>
         <Button disabled={!selected} onClick={handleContinue}>
           {selected
-            ? `Proceed with ${getVehicleMeta(selected.quote.vehicle_category).label}`
+            ? isRide
+              ? `Book ${getVehicleMeta(selected.quote.vehicle_category).label}`
+              : `Proceed with ${getVehicleMeta(selected.quote.vehicle_category).label}`
             : 'Select a vehicle'}
         </Button>
       </div>

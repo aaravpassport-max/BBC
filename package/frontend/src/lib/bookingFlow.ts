@@ -40,6 +40,8 @@ export interface ConfirmNavState {
   scheduledFor?: string;
   vehicleGroup: VehicleGroupId;
   serviceId: ServiceId;
+  bookingType?: 'parcel' | 'ride';
+  passengerCount?: number;
 }
 
 export function draftToConfirmState(
@@ -59,5 +61,7 @@ export function draftToConfirmState(
     scheduledFor: draft.scheduledFor,
     vehicleGroup: draft.vehicleGroup,
     serviceId: draft.serviceId,
+    bookingType: draft.bookingType,
+    passengerCount: draft.passengerCount,
   };
 }

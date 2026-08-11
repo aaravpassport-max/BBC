@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { PortMyStuffHeader } from '../components/PortMyStuffHeader';
 import { PromoBanners } from '../components/PromoBanners';
 import { listBookings } from '../api';
-import { HOME_SERVICE_TILES, type ServiceId } from '../constants/vehicleCatalog';
+import { HOME_PARCEL_TILES, HOME_RIDE_TILE, type ServiceId } from '../constants/vehicleCatalog';
 import styles from './HomePage.module.css';
 
-const ACTIVE_STATUSES = new Set(['scheduled', 'searching', 'driver_assigned', 'in_progress']);
+const ACTIVE_STATUSES = new Set(['scheduled', 'searching', 'driver_assigned', 'driver_arriving', 'driver_arrived', 'in_progress']);
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -21,7 +21,7 @@ export function HomePage() {
       .catch(() => undefined);
   }, []);
 
-  function selectService(serviceId: ServiceId) {
+  function selectParcelService(serviceId: ServiceId) {
     navigate('/book', { state: { serviceId } });
   }
 
@@ -41,16 +41,31 @@ export function HomePage() {
 
         <PromoBanners />
 
-        <h2 className={styles.sectionTitle}>What do you need?</h2>
-        <p className={styles.sectionHint}>Choose a service to get started</p>
+        <h2 className={styles.sectionTitle}>Book a ride</h2>
+        <p className={styles.sectionHint}>Travel from pickup to drop</p>
+        <button type="button" className={styles.rideHero} onClick={() => navigate('/ride')}>
+          <span className={styles.rideHeroIcon} aria-hidden>
+            {HOME_RIDE_TILE.icon}
+          </span>
+          <div className={styles.rideHeroCopy}>
+            <div className={styles.rideHeroLabel}>{HOME_RIDE_TILE.label}</div>
+            <div className={styles.rideHeroDesc}>{HOME_RIDE_TILE.description}</div>
+          </div>
+          <span className={styles.chevron} aria-hidden>
+            ›
+          </span>
+        </button>
+
+        <h2 className={styles.sectionTitle}>Send a parcel</h2>
+        <p className={styles.sectionHint}>Goods delivery — Porter style</p>
 
         <div className={styles.serviceGrid}>
-          {HOME_SERVICE_TILES.map((tile) => (
+          {HOME_PARCEL_TILES.map((tile) => (
             <button
               key={tile.id}
               type="button"
               className={`${styles.serviceTile} ${tile.wide ? styles.serviceTileWide : ''}`}
-              onClick={() => selectService(tile.id)}
+              onClick={() => selectParcelService(tile.id)}
             >
               <span className={styles.serviceIcon} aria-hidden>
                 {tile.icon}

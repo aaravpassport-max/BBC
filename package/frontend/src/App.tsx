@@ -33,6 +33,7 @@ import { AddressesPage } from './pages/AddressesPage';
 import { EditProfilePage } from './pages/EditProfilePage';
 import { SharedLocationRolePage } from './pages/SharedLocationRolePage';
 import { SharedLocationDetailsPage } from './pages/SharedLocationDetailsPage';
+import { RideLocationPage } from './pages/RideLocationPage';
 import { OfflineBanner } from './components/OfflineBanner';
 import { usePushRegistration } from './hooks/usePushRegistration';
 import { useSessionKeepAlive } from './hooks/useSessionKeepAlive';
@@ -77,6 +78,7 @@ function AppRoutes() {
       <Route path="/home" element={<AuthenticatedLayout><HomePage /></AuthenticatedLayout>} />
       <Route path="/book" element={<RequireAuth><BookingLocationPage /></RequireAuth>} />
       <Route path="/book/from-link" element={<RequireAuth><SharedLocationRolePage /></RequireAuth>} />
+      <Route path="/ride" element={<RequireAuth><RideLocationPage /></RequireAuth>} />
       <Route path="/book/shared-details" element={<RequireAuth><SharedLocationDetailsPage /></RequireAuth>} />
       <Route path="/book/sender-details" element={<RequireAuth><SenderDetailsPage /></RequireAuth>} />
       <Route path="/book/drop-details" element={<RequireAuth><DropDetailsPage /></RequireAuth>} />

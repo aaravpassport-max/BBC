@@ -45,6 +45,7 @@ const createBookingSchema = z.object({
   scheduled_for: z.string().datetime().optional(),
   corporate_account_id: z.string().uuid().optional(),
   saved_payment_method_id: z.string().uuid().optional(),
+  passenger_count: z.number().int().min(1).max(6).optional(),
   rebook_snapshot: rebookSnapshotSchema.optional(),
 });
 
@@ -89,7 +90,7 @@ bookingRouter.post(
       throw Errors.validation({ 'Idempotency-Key': 'This header is required.' });
     }
 
-    const { quote_id, payment_method, scheduled_for, corporate_account_id, saved_payment_method_id, rebook_snapshot } = req.body;
+    const { quote_id, payment_method, scheduled_for, corporate_account_id, saved_payment_method_id, rebook_snapshot, passenger_count } = req.body;
     const booking = await createBooking({
       customerId: req.user!.userId,
       quoteId: quote_id,
@@ -99,6 +100,7 @@ bookingRouter.post(
       corporateAccountId: corporate_account_id,
       savedPaymentMethodId: saved_payment_method_id,
       rebookSnapshot: rebook_snapshot,
+      passengerCount: passenger_count,
     });
     if (rebook_snapshot) {
       const snap = rebook_snapshot;

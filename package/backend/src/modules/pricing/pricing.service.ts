@@ -150,8 +150,9 @@ export async function generateQuotes(params: {
   vehicleCategory?: string;
   couponCode?: string;
   loyaltyPointsToRedeem?: number;
+  bookingType?: 'parcel' | 'ride';
 }): Promise<QuoteResult[]> {
-  const { customerId, pickup, drops, vehicleCategory, couponCode, loyaltyPointsToRedeem } = params;
+  const { customerId, pickup, drops, vehicleCategory, couponCode, loyaltyPointsToRedeem, bookingType = 'parcel' } = params;
 
   // Resolve serviceable zone -> city, to know which rate cards apply (PRD Section 8/9).
   const zoneResult = await pool.query(
@@ -169,13 +170,16 @@ export async function generateQuotes(params: {
   const cityId = zoneResult.rows[0].city_id;
 
   const categoryFilter = vehicleCategory ? 'AND vc.name = $2' : '';
+  const bookingTypeArg = vehicleCategory ? 3 : 2;
   const rateCardsResult = await pool.query(
     `SELECT rc.*, vc.name AS category_name
      FROM rate_cards rc
      JOIN vehicle_categories vc ON vc.id = rc.vehicle_category_id
-     WHERE rc.city_id = $1 AND rc.status = 'published' AND vc.status = 'active' ${categoryFilter}
+     WHERE rc.city_id = $1 AND rc.status = 'published' AND vc.status = 'active'
+       AND $${bookingTypeArg} = ANY(vc.booking_types)
+       ${categoryFilter}
      ORDER BY vc.name`,
-    vehicleCategory ? [cityId, vehicleCategory] : [cityId]
+    vehicleCategory ? [cityId, vehicleCategory, bookingType] : [cityId, bookingType]
   );
 
   if (rateCardsResult.rowCount === 0) {
@@ -288,8 +292,8 @@ export async function generateQuotes(params: {
 
     await pool.query(
       `INSERT INTO quotes (id, rate_card_id, rate_card_version, customer_id, pickup_geo, drops_geo,
-                            vehicle_category_id, surge_multiplier, fare_breakdown, coupon_id, expires_at)
-       VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, $8, $9, $10, $11, $12)`,
+                            vehicle_category_id, surge_multiplier, fare_breakdown, coupon_id, expires_at, booking_type)
+       VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, $8, $9, $10, $11, $12, $13)`,
       [
         quoteId,
         rateCard.id,
@@ -303,6 +307,7 @@ export async function generateQuotes(params: {
         JSON.stringify(fareBreakdown),
         couponId,
         expiresAt,
+        bookingType,
       ]
     );
 
@@ -342,6 +347,7 @@ function vehicleGroupForCategory(name: string): string {
   if (['bike', 'scooter', 'two_wheeler'].includes(name)) return 'two_wheeler';
   if (name === 'three_wheeler') return 'three_wheeler';
   if (['mini_truck', 'pickup_truck', 'large_truck'].includes(name)) return 'truck';
+  if (['auto', 'hatchback', 'sedan', 'suv'].includes(name)) return 'ride';
   return 'other';
 }
 
@@ -349,7 +355,7 @@ function vehicleGroupForCategory(name: string): string {
 export async function listVehicleCategoriesForLocation(pickup: {
   lat: number;
   lng: number;
-}): Promise<VehicleCategoryInfo[]> {
+}, bookingType: 'parcel' | 'ride' = 'parcel'): Promise<VehicleCategoryInfo[]> {
   const cityId = await resolveCityIdForPickup(pickup);
   if (!cityId) {
     throw Errors.validation({ pickup: 'This location is outside our serviceable area.' });
@@ -360,8 +366,9 @@ export async function listVehicleCategoriesForLocation(pickup: {
      FROM vehicle_categories vc
      JOIN rate_cards rc ON rc.vehicle_category_id = vc.id
      WHERE rc.city_id = $1 AND rc.status = 'published' AND vc.status = 'active'
+       AND $2 = ANY(vc.booking_types)
      ORDER BY vc.name`,
-    [cityId]
+    [cityId, bookingType]
   );
 
   return result.rows.map((row) => ({

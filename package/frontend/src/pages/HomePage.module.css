@@ -109,3 +109,45 @@
   margin-left: auto;
   flex-shrink: 0;
 }
+
+.rideHero {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  margin-bottom: 20px;
+  padding: 18px 16px;
+  border-radius: 16px;
+  border: 2px solid var(--accent);
+  background: linear-gradient(135deg, var(--accent-soft) 0%, #fff 100%);
+  cursor: pointer;
+  text-align: left;
+  box-shadow: var(--shadow-sm);
+}
+
+.rideHeroIcon {
+  font-size: 36px;
+  line-height: 1;
+}
+
+.rideHeroCopy {
+  flex: 1;
+  min-width: 0;
+}
+
+.rideHeroLabel {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.rideHeroDesc {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.rideHero .chevron {
+  position: static;
+  flex-shrink: 0;
+}

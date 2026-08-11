@@ -138,6 +138,7 @@ export function BookingLocationPage() {
     }
 
     const draft: BookingDraft = {
+      bookingType: defaults.bookingType,
       serviceId: activeServiceId,
       vehicleGroup: serviceToVehicleGroup(activeServiceId),
       pickup,
@@ -175,6 +176,7 @@ export function BookingLocationPage() {
   function swapPickupAndDrop() {
     if (!pickup || drops.length === 0) return;
     const swapped = swapBookingParties({
+      bookingType: defaults.bookingType,
       serviceId: activeServiceId,
       vehicleGroup: serviceToVehicleGroup(activeServiceId),
       pickup,
