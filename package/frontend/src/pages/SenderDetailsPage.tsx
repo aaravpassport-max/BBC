@@ -15,7 +15,7 @@ const SAVE_AS_OPTIONS: { id: AddressSaveAs; label: string; icon: string }[] = [
   { id: 'other', label: 'Other', icon: '❤️' },
 ];
 
-function finishAfterDrop(
+function finishAfterSender(
   navigate: ReturnType<typeof useNavigate>,
   flow: BookingFlowState,
   updated: BookingDraft
@@ -30,67 +30,62 @@ function finishAfterDrop(
     navigate('/vehicles', { state: updated });
     return;
   }
-  navigate('/vehicles', { state: updated });
+  navigate('/book/drop-details', { state: updated });
 }
 
-export function DropDetailsPage() {
+export function SenderDetailsPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const incoming = location.state as BookingFlowState | BookingDraft | undefined;
+  const flow = location.state as BookingFlowState | undefined;
+  const draft = flow?.draft;
 
-  const flow: BookingFlowState | null =
-    incoming && 'draft' in incoming ? incoming : incoming ? { draft: incoming } : null;
-
-  const [draft, setDraft] = useState<BookingDraft | null>(flow?.draft ?? null);
-  const [dropIndex, setDropIndex] = useState(flow?.dropIndex ?? 0);
   const [unitDetail, setUnitDetail] = useState('');
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [saveAs, setSaveAs] = useState<AddressSaveAs>('other');
   const [useMyPhone, setUseMyPhone] = useState(false);
   const [myPhone, setMyPhone] = useState('');
+  const [profileName, setProfileName] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
+  const pickup = draft?.pickup;
+
   useEffect(() => {
-    if (!flow?.draft?.pickup || !flow.draft.drops?.length) {
+    if (!draft?.pickup || !draft.drops?.length) {
       navigate('/home', { replace: true });
-      return;
     }
-    setDraft(flow.draft);
-    if (flow.dropIndex != null) setDropIndex(flow.dropIndex);
-  }, [flow, navigate]);
+  }, [draft, navigate]);
 
   useEffect(() => {
     getProfile()
-      .then((p) => setMyPhone(p.phone))
+      .then((p) => {
+        setMyPhone(p.phone);
+        if (p.name) setProfileName(p.name);
+      })
       .catch(() => undefined);
   }, []);
 
-  const drop = draft?.drops[dropIndex];
-
   useEffect(() => {
-    if (!drop) return;
-    setUnitDetail(drop.unitDetail ?? '');
-    setContactName(drop.contactName ?? '');
-    setContactPhone(drop.contactPhone ?? '');
-    setSaveAs(drop.saveAs ?? 'other');
+    if (!pickup) return;
+    setUnitDetail(pickup.unitDetail ?? '');
+    setContactName(pickup.contactName ?? profileName);
+    setContactPhone(pickup.contactPhone ?? '');
+    setSaveAs(pickup.saveAs ?? 'other');
     setUseMyPhone(false);
-  }, [drop?.lat, drop?.lng, dropIndex]);
+  }, [pickup?.lat, pickup?.lng, profileName]);
 
-  if (!draft?.pickup || !drop || !flow) return null;
+  if (!draft?.pickup || !flow) return null;
 
-  function patchDrop(fields: Partial<LocationPoint>): BookingDraft {
-    const drops = draft!.drops.map((d, i) => (i === dropIndex ? { ...d, ...fields } : d));
-    return { ...draft!, drops };
+  function patchPickup(fields: Partial<LocationPoint>): BookingDraft {
+    return { ...draft!, pickup: { ...draft!.pickup, ...fields } };
   }
 
   async function handleConfirm() {
-    const activeFlow = flow!;
     setError('');
     const phone = useMyPhone ? myPhone : contactPhone.trim();
     if (!contactName.trim()) {
-      setError("Enter the receiver's name.");
+      setError("Enter the sender's name.");
       return;
     }
     if (!phone || phone.length < 10) {
@@ -98,83 +93,63 @@ export function DropDetailsPage() {
       return;
     }
 
-    const updated = patchDrop({
+    const updated = patchPickup({
       unitDetail: unitDetail.trim() || undefined,
       contactName: contactName.trim(),
       contactPhone: phone,
       saveAs,
     });
 
-    if (!activeFlow.returnTo && dropIndex < updated.drops.length - 1) {
-      setDraft(updated);
-      setDropIndex((i) => i + 1);
-      return;
-    }
-
-    const activeDrop = drop!;
-
     setSaving(true);
     try {
+      const activeDraft = draft!;
       await createAddress({
-        label: activeDrop.label,
-        address_line: activeDrop.addressLine ?? activeDrop.label,
-        lat: activeDrop.lat,
-        lng: activeDrop.lng,
+        label: activeDraft.pickup.label,
+        address_line: activeDraft.pickup.addressLine ?? activeDraft.pickup.label,
+        lat: activeDraft.pickup.lat,
+        lng: activeDraft.pickup.lng,
         landmark: unitDetail.trim() || null,
         contact_name: contactName.trim(),
         contact_phone: phone,
         is_default: false,
       }).catch(() => undefined);
-      finishAfterDrop(navigate, activeFlow, updated);
+      finishAfterSender(navigate, flow!, updated);
     } finally {
       setSaving(false);
     }
   }
 
-  function handleBack() {
-    const activeFlow = flow!;
-    if (activeFlow.returnTo === 'confirm' && activeFlow.confirmState) {
-      navigate('/confirm', { state: activeFlow.confirmState });
-      return;
-    }
-    if (activeFlow.returnTo === 'vehicles') {
-      navigate('/vehicles', { state: draft });
-      return;
-    }
-    if (dropIndex > 0) {
-      setDropIndex((i) => i - 1);
-      return;
-    }
-    navigate('/book/sender-details', { state: { draft } });
-  }
-
-  const saveLabel = flow.returnTo
-    ? 'Save changes'
-    : dropIndex < draft.drops.length - 1
-      ? 'Next drop'
-      : 'Confirm and proceed';
-
   return (
     <Screen
-      eyebrow={draft.drops.length > 1 ? `Drop ${dropIndex + 1} of ${draft.drops.length}` : 'Drop-off'}
-      title="Receiver details"
-      onBack={handleBack}
+      eyebrow="Pickup"
+      title="Sender details"
+      onBack={() => {
+        if (flow.returnTo === 'confirm' && flow.confirmState) {
+          navigate('/confirm', { state: flow.confirmState });
+          return;
+        }
+        if (flow.returnTo === 'vehicles') {
+          navigate('/vehicles', { state: draft });
+          return;
+        }
+        navigate('/book', { state: { serviceId: draft.serviceId, draft } });
+      }}
       footer={
         <>
           {error && <p className={styles.error}>{error}</p>}
           <Button loading={saving} onClick={() => void handleConfirm()}>
-            {saveLabel}
+            {flow.returnTo ? 'Save changes' : 'Continue to drop-off'}
           </Button>
         </>
       }
     >
-      <LiveMap pickup={draft.pickup} drops={[drop]} driver={null} />
+      <LiveMap pickup={draft.pickup} drops={draft.drops} driver={null} />
 
       <div className={styles.addressCard}>
-        <span className={styles.dropDot} aria-hidden />
+        <span className={styles.pickupDot} aria-hidden />
         <div className={styles.addressCopy}>
-          <div className={styles.placeName}>{drop.label}</div>
-          <div className={styles.placeSub}>{drop.addressLine ?? drop.label}</div>
+          <div className={styles.placeName}>{draft.pickup.label}</div>
+          <div className={styles.placeSub}>{draft.pickup.addressLine ?? draft.pickup.label}</div>
         </div>
         <button
           type="button"
@@ -196,17 +171,17 @@ export function DropDetailsPage() {
       </label>
 
       <label className={styles.field}>
-        <span className={styles.label}>Receiver&apos;s name</span>
+        <span className={styles.label}>Sender&apos;s name</span>
         <input
           className={styles.input}
           value={contactName}
           onChange={(e) => setContactName(e.target.value)}
-          placeholder="Who will receive the goods?"
+          placeholder="Who is sending the goods?"
         />
       </label>
 
       <label className={styles.field}>
-        <span className={styles.label}>Receiver&apos;s mobile number</span>
+        <span className={styles.label}>Sender&apos;s mobile number</span>
         <input
           className={styles.input}
           type="tel"

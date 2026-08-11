@@ -7,6 +7,7 @@ import { OnboardingPage } from './pages/OnboardingPage';
 import { HomePage } from './pages/HomePage';
 import { BookingLocationPage } from './pages/BookingLocationPage';
 import { DropDetailsPage } from './pages/DropDetailsPage';
+import { SenderDetailsPage } from './pages/SenderDetailsPage';
 import { AnnouncementsPage } from './pages/AnnouncementsPage';
 import { VehicleSelectPage } from './pages/VehicleSelectPage';
 import { ConfirmPage } from './pages/ConfirmPage';
@@ -67,6 +68,7 @@ function AppRoutes() {
       <Route path="/onboarding" element={<RequireAuth><OnboardingPage /></RequireAuth>} />
       <Route path="/home" element={<AuthenticatedLayout><HomePage /></AuthenticatedLayout>} />
       <Route path="/book" element={<RequireAuth><BookingLocationPage /></RequireAuth>} />
+      <Route path="/book/sender-details" element={<RequireAuth><SenderDetailsPage /></RequireAuth>} />
       <Route path="/book/drop-details" element={<RequireAuth><DropDetailsPage /></RequireAuth>} />
       <Route path="/announcements" element={<AuthenticatedLayout><AnnouncementsPage /></AuthenticatedLayout>} />
       <Route path="/vehicles" element={<AuthenticatedLayout><VehicleSelectPage /></AuthenticatedLayout>} />

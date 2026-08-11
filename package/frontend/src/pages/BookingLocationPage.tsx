@@ -17,6 +17,7 @@ import {
   serviceToVehicleGroup,
   type ServiceId,
 } from '../constants/vehicleCatalog';
+import type { BookingLocationNavState } from '../lib/bookingFlow';
 import styles from './BookingLocationPage.module.css';
 
 const WEIGHT_BANDS = [
@@ -26,10 +27,6 @@ const WEIGHT_BANDS = [
   { id: 'bulk', label: 'Bulk (500+ kg)' },
 ];
 
-interface BookingLocationState {
-  serviceId: ServiceId;
-}
-
 function serviceLabel(serviceId: ServiceId): string {
   return HOME_SERVICE_TILES.find((t) => t.id === serviceId)?.label ?? serviceId.replace(/_/g, ' ');
 }
@@ -37,18 +34,22 @@ function serviceLabel(serviceId: ServiceId): string {
 export function BookingLocationPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const serviceId = (location.state as BookingLocationState | undefined)?.serviceId;
+  const nav = location.state as BookingLocationNavState | undefined;
+  const serviceId = nav?.serviceId;
+  const resumeDraft = nav?.draft;
   const defaults = serviceId ? serviceDefaults(serviceId) : serviceDefaults('two_wheeler');
 
-  const [pickup, setPickup] = useState<LocationPoint | null>(PRESET_LOCATIONS[0]);
-  const [drops, setDrops] = useState<LocationPoint[]>([PRESET_LOCATIONS[1]]);
+  const [pickup, setPickup] = useState<LocationPoint | null>(resumeDraft?.pickup ?? PRESET_LOCATIONS[0]);
+  const [drops, setDrops] = useState<LocationPoint[]>(resumeDraft?.drops ?? [PRESET_LOCATIONS[1]]);
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [mapTarget, setMapTarget] = useState<'pickup' | number | null>(null);
-  const [goodsCategory, setGoodsCategory] = useState(defaults.goodsCategory);
-  const [weightBand, setWeightBand] = useState(defaults.weightBand);
-  const [helperNeeded, setHelperNeeded] = useState(defaults.helperNeeded);
+  const [goodsCategory, setGoodsCategory] = useState(resumeDraft?.goodsCategory ?? defaults.goodsCategory);
+  const [weightBand, setWeightBand] = useState(resumeDraft?.weightBand ?? defaults.weightBand);
+  const [helperNeeded, setHelperNeeded] = useState(resumeDraft?.helperNeeded ?? defaults.helperNeeded);
   const [error, setError] = useState('');
-  const [scheduledFor, setScheduledFor] = useState('');
+  const [scheduledFor, setScheduledFor] = useState(
+    resumeDraft?.scheduledFor ? resumeDraft.scheduledFor.slice(0, 16) : ''
+  );
   const [serviceable, setServiceable] = useState<boolean | null>(null);
   const [serviceCity, setServiceCity] = useState<string | null>(null);
 
@@ -56,10 +57,10 @@ export function BookingLocationPage() {
   const maxScheduleValue = new Date(Date.now() + 6.5 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16);
 
   useEffect(() => {
-    if (!serviceId) {
+    if (!serviceId && !resumeDraft) {
       navigate('/home', { replace: true });
     }
-  }, [serviceId, navigate]);
+  }, [serviceId, resumeDraft, navigate]);
 
   useEffect(() => {
     listAddresses()
@@ -68,6 +69,7 @@ export function BookingLocationPage() {
   }, []);
 
   useEffect(() => {
+    if (resumeDraft?.pickup) return;
     void Geolocation.requestPermissions().catch(() => undefined);
     void Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 })
       .then((pos) => {
@@ -79,7 +81,7 @@ export function BookingLocationPage() {
         setPickup(loc);
       })
       .catch(() => undefined);
-  }, []);
+  }, [resumeDraft?.pickup]);
 
   useEffect(() => {
     if (!pickup) return;
@@ -91,7 +93,8 @@ export function BookingLocationPage() {
       .catch(() => setServiceable(null));
   }, [pickup?.lat, pickup?.lng]);
 
-  if (!serviceId) return null;
+  if (!serviceId && !resumeDraft) return null;
+  const activeServiceId = serviceId ?? resumeDraft!.serviceId;
 
   function handleContinue() {
     setError('');
@@ -109,8 +112,8 @@ export function BookingLocationPage() {
     }
 
     const draft: BookingDraft = {
-      serviceId: serviceId!,
-      vehicleGroup: serviceToVehicleGroup(serviceId!),
+      serviceId: activeServiceId,
+      vehicleGroup: serviceToVehicleGroup(activeServiceId),
       pickup,
       drops,
       goodsCategory,
@@ -118,7 +121,7 @@ export function BookingLocationPage() {
       helperNeeded,
       scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
     };
-    navigate('/book/drop-details', { state: draft });
+    navigate('/book/sender-details', { state: { draft } });
   }
 
   function updateDrop(index: number, loc: LocationPoint) {
@@ -136,7 +139,7 @@ export function BookingLocationPage() {
 
   return (
     <Screen
-      eyebrow={serviceLabel(serviceId)}
+      eyebrow={serviceLabel(activeServiceId)}
       title="Pickup & drop"
       onBack={() => navigate('/home')}
       footer={

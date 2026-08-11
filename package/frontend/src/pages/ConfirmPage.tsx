@@ -17,9 +17,9 @@ import {
   type GatewaySession,
 } from '../api';
 import { PAYMENT_METHODS, BRAND, type PaymentMethodId } from '../constants/brand';
-import { getVehicleMeta, type ServiceId, type VehicleGroupId } from '../constants/vehicleCatalog';
+import { getVehicleMeta } from '../constants/vehicleCatalog';
 import type { BookingDraft } from '../api/vehicles';
-import type { LocationPoint } from '../lib/locations';
+import type { BookingFlowState, ConfirmNavState } from '../lib/bookingFlow';
 import styles from './ConfirmPage.module.css';
 
 const RAZORPAY_SCRIPT_URL = 'https://checkout.razorpay.com/v1/checkout.js';
@@ -44,19 +44,7 @@ function loadRazorpayScript(): Promise<boolean> {
   });
 }
 
-interface LocationState {
-  quote: Quote;
-  pickup: LocationPoint;
-  drops: LocationPoint[];
-  goodsCategory: string;
-  weightBand?: string;
-  helperNeeded: boolean;
-  couponCode?: string;
-  loyaltyToRedeem?: number;
-  scheduledFor?: string;
-  vehicleGroup: VehicleGroupId;
-  serviceId: ServiceId;
-}
+interface LocationState extends ConfirmNavState {}
 
 function money(n: number): string {
   return `₹${Math.round(n)}`;
@@ -112,7 +100,6 @@ export function ConfirmPage() {
   const [loyaltyBalance, setLoyaltyBalance] = useState(0);
   const [loyaltyToRedeem, setLoyaltyToRedeem] = useState(state?.loyaltyToRedeem ?? 0);
   const [showBreakup, setShowBreakup] = useState(false);
-  const [showAddresses, setShowAddresses] = useState(false);
   const [gstin, setGstin] = useState<string | null>(null);
   const [couponOpen, setCouponOpen] = useState(false);
 
@@ -157,8 +144,8 @@ export function ConfirmPage() {
   const walletInsufficient = paymentMethod === 'wallet' && walletBalance != null && walletBalance < fb.final_fare;
   const maxCoinsDiscount = Math.floor(loyaltyBalance / 10);
 
-  function backToVehicles() {
-    const draft: BookingDraft = {
+  function buildDraft(): BookingDraft {
+    return {
       serviceId,
       vehicleGroup,
       pickup,
@@ -170,7 +157,45 @@ export function ConfirmPage() {
       loyaltyToRedeem: loyaltyToRedeem > 0 ? loyaltyToRedeem : undefined,
       scheduledFor,
     };
-    navigate('/vehicles', { state: draft });
+  }
+
+  function buildConfirmState(): ConfirmNavState {
+    return {
+      quote: quote!,
+      pickup,
+      drops,
+      goodsCategory,
+      weightBand,
+      helperNeeded,
+      couponCode: couponCode || undefined,
+      loyaltyToRedeem: loyaltyToRedeem > 0 ? loyaltyToRedeem : undefined,
+      scheduledFor,
+      vehicleGroup,
+      serviceId,
+    };
+  }
+
+  function editSender() {
+    const flow: BookingFlowState = {
+      draft: buildDraft(),
+      returnTo: 'confirm',
+      confirmState: buildConfirmState(),
+    };
+    navigate('/book/sender-details', { state: flow });
+  }
+
+  function editReceiver(index = 0) {
+    const flow: BookingFlowState = {
+      draft: buildDraft(),
+      returnTo: 'confirm',
+      confirmState: buildConfirmState(),
+      dropIndex: index,
+    };
+    navigate('/book/drop-details', { state: flow });
+  }
+
+  function backToVehicles() {
+    navigate('/vehicles', { state: buildDraft() });
   }
 
   async function refreshQuote(nextCoupon: string, nextLoyalty: number) {
@@ -268,31 +293,35 @@ export function ConfirmPage() {
             <span className={styles.vehicleIcon}>{vehicleMeta.icon}</span>
             <div>
               <div className={styles.vehicleName}>{vehicleMeta.label}</div>
-              <button type="button" className={styles.vehicleLink} onClick={() => setShowAddresses((v) => !v)}>
-                View address details
-              </button>
             </div>
           </div>
-          {showAddresses && (
-            <div className={styles.addressModal} style={{ marginTop: 10 }}>
-              <div>
-                <strong>Pickup</strong>
-                {pickup.contactName ? `${pickup.contactName} · ${pickup.contactPhone}` : pickup.label}
-                <div>{pickup.addressLine}</div>
-              </div>
-              {drops.map((drop, i) => (
-                <div key={i} style={{ marginTop: 10 }}>
-                  <strong>Drop {drops.length > 1 ? i + 1 : ''}</strong>
-                  {drop.contactName ? `${drop.contactName} · ${drop.contactPhone}` : drop.label}
-                  <div>{drop.addressLine}</div>
-                </div>
-              ))}
-            </div>
-          )}
           <div className={styles.infoBanner} style={{ marginTop: 10 }}>
             <span aria-hidden>🕐</span>
             Free loading-unloading time included for your vehicle category.
           </div>
+        </section>
+
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>Sender & Receiver</h2>
+          <ContactCard
+            label="Sender"
+            name={pickup.contactName}
+            phone={pickup.contactPhone}
+            place={pickup.label}
+            address={pickup.unitDetail || pickup.addressLine}
+            onEdit={editSender}
+          />
+          {drops.map((drop, i) => (
+            <ContactCard
+              key={i}
+              label={drops.length > 1 ? `Receiver ${i + 1}` : 'Receiver'}
+              name={drop.contactName}
+              phone={drop.contactPhone}
+              place={drop.label}
+              address={drop.unitDetail || drop.addressLine}
+              onEdit={() => editReceiver(i)}
+            />
+          ))}
         </section>
 
         <section className={styles.section}>
@@ -414,6 +443,37 @@ export function ConfirmPage() {
           {loading ? 'Booking…' : `Book ${vehicleMeta.label}`}
         </button>
       </div>
+    </div>
+  );
+}
+
+function ContactCard({
+  label,
+  name,
+  phone,
+  place,
+  address,
+  onEdit,
+}: {
+  label: string;
+  name?: string;
+  phone?: string;
+  place: string;
+  address?: string;
+  onEdit: () => void;
+}) {
+  return (
+    <div className={styles.contactCard}>
+      <div className={styles.contactHeader}>
+        <span className={styles.contactLabel}>{label}</span>
+        <button type="button" className={styles.contactEdit} onClick={onEdit}>
+          Edit
+        </button>
+      </div>
+      <div className={styles.contactName}>{name || '—'}</div>
+      <div className={styles.contactPhone}>{phone || 'No phone added'}</div>
+      <div className={styles.contactAddress}>{place}</div>
+      {address && address !== place && <div className={styles.contactSub}>{address}</div>}
     </div>
   );
 }

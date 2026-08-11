@@ -54,6 +54,17 @@
   align-items: flex-start;
 }
 
+.editBtn {
+  background: none;
+  border: none;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 4px 0;
+}
+
 .tripDot {
   width: 10px;
   height: 10px;

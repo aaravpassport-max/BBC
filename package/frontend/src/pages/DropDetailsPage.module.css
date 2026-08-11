@@ -18,6 +18,15 @@
   flex-shrink: 0;
 }
 
+.pickupDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--pickup);
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
 .addressCopy {
   flex: 1;
   min-width: 0;

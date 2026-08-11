@@ -17,6 +17,7 @@ import {
   getVehicleMeta,
   isRecommendedForWeight,
 } from '../constants/vehicleCatalog';
+import type { BookingFlowState } from '../lib/bookingFlow';
 import styles from './VehicleSelectPage.module.css';
 
 function formatStop(point: BookingDraft['pickup']) {
@@ -160,6 +161,17 @@ export function VehicleSelectPage() {
                 <div className={styles.tripHead}>{pickupFmt.head}</div>
                 <div className={styles.tripSub}>{pickupFmt.sub}</div>
               </div>
+              <button
+                type="button"
+                className={styles.editBtn}
+                onClick={() =>
+                  navigate('/book/sender-details', {
+                    state: { draft: tripDraft, returnTo: 'vehicles' } satisfies BookingFlowState,
+                  })
+                }
+              >
+                Edit
+              </button>
             </div>
             <div className={styles.tripRow}>
               <span className={`${styles.tripDot} ${styles.tripDotDrop}`} />
@@ -167,6 +179,17 @@ export function VehicleSelectPage() {
                 <div className={styles.tripHead}>{dropFmt.head}</div>
                 <div className={styles.tripSub}>{dropFmt.sub}</div>
               </div>
+              <button
+                type="button"
+                className={styles.editBtn}
+                onClick={() =>
+                  navigate('/book/drop-details', {
+                    state: { draft: tripDraft, returnTo: 'vehicles', dropIndex: 0 } satisfies BookingFlowState,
+                  })
+                }
+              >
+                Edit
+              </button>
             </div>
           </div>
           <button type="button" className={styles.swapBtn} onClick={swapLocations} aria-label="Switch pickup and drop">
@@ -174,10 +197,11 @@ export function VehicleSelectPage() {
           </button>
         </div>
         <div className={styles.tripActions}>
-          <button type="button" className={styles.tripAction} onClick={() => navigate('/book', { state: { serviceId: tripDraft.serviceId } })}>
-            + Add stop
-          </button>
-          <button type="button" className={styles.tripAction} onClick={() => navigate('/book', { state: { serviceId: tripDraft.serviceId } })}>
+          <button
+            type="button"
+            className={styles.tripAction}
+            onClick={() => navigate('/book', { state: { serviceId: tripDraft.serviceId, draft: tripDraft } })}
+          >
             Edit locations
           </button>
         </div>
