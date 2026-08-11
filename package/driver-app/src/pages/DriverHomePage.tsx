@@ -17,12 +17,14 @@ import {
   getDriverProfile,
   ApiError,
   getErrorMessage,
+  isDemoSession,
 } from '../api';
-import { LiveMap } from '../components/LiveMap';
+import { SafeLiveMap } from '../components/SafeLiveMap';
 import { useDriverRealtime } from '../hooks/useDriverRealtime';
 import styles from './DriverHomePage.module.css';
 
 const POLL_INTERVAL_MS = 3000;
+const BOOT_TIMEOUT_MS = 5000;
 const FALLBACK_LOCATION = { lat: 12.951, lng: 77.601 };
 
 export function DriverHomePage() {
@@ -41,6 +43,7 @@ export function DriverHomePage() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const checkKycThenLoad = useCallback(async () => {
+    const demo = isDemoSession();
     try {
       const kyc = await getKycStatus();
       if (kyc.overall_status !== 'approved') {
@@ -55,18 +58,34 @@ export function DriverHomePage() {
       const profile = await getDriverProfile();
       setHasVehicle(!!profile.vehicle);
       setOnline(!!profile.online_status);
-      if (!profile.vehicle) {
+      if (!profile.vehicle && !demo) {
         navigate('/vehicle');
         return;
       }
       setCheckingKyc(false);
-    } catch {
+    } catch (err) {
+      if (demo) {
+        // Demo mode must never white-screen when the backend is unreachable on a physical phone.
+        setHasVehicle(true);
+        setOnline(false);
+        setCheckingKyc(false);
+        return;
+      }
+      setError(getErrorMessage(err, 'Could not load your partner profile.'));
       navigate('/kyc');
     }
   }, [navigate]);
 
   useEffect(() => {
-    void checkKycThenLoad();
+    let cancelled = false;
+    const bootTimer = setTimeout(() => {
+      if (!cancelled) setCheckingKyc(false);
+    }, BOOT_TIMEOUT_MS);
+
+    void checkKycThenLoad().finally(() => {
+      if (!cancelled) clearTimeout(bootTimer);
+    });
+
     getDriverDashboard()
       .then((d) => {
         setTodayEarnings(d.wallet_credits_today || d.gross_earnings_today);
@@ -79,6 +98,11 @@ export function DriverHomePage() {
         if (first && !first.completed) setIncentiveRemaining(first.remaining);
       })
       .catch(() => undefined);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(bootTimer);
+    };
   }, [checkKycThenLoad]);
 
   const pollForWork = useCallback(async () => {
@@ -99,6 +123,7 @@ export function DriverHomePage() {
   }, [navigate]);
 
   useDriverRealtime({
+    enabled: !isDemoSession(),
     onNewOffer: (payload) => {
       void notify('New job offer', 'A new delivery job is available — respond quickly.');
       void getPendingOffer().then((offer) => {
@@ -182,6 +207,15 @@ export function DriverHomePage() {
         <PortMyStuffHeader />
         <div className={styles.body}>
           <Skeleton width="60%" height={14} />
+          <div style={{ marginTop: 16 }}>
+            <Skeleton width="100%" height={220} radius={16} />
+          </div>
+          <div style={{ marginTop: 16 }}>
+            <Skeleton width="100%" height={120} radius={16} />
+          </div>
+          <p style={{ color: 'var(--text-muted)', fontSize: 13, textAlign: 'center', marginTop: 16 }}>
+            Loading your partner dashboard…
+          </p>
         </div>
       </div>
     );
@@ -192,7 +226,7 @@ export function DriverHomePage() {
       <PortMyStuffHeader />
       <div className={styles.body}>
         <div className={styles.mapWrap}>
-          <LiveMap pickup={driverLoc} drops={[]} driver={online ? driverLoc : null} />
+          <SafeLiveMap pickup={driverLoc} drops={[]} driver={online ? driverLoc : null} />
         </div>
         <div className={styles.statsCard}>
           <div className={styles.statsGrid}>
