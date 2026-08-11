@@ -3,7 +3,10 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { LiveMap } from '../components/LiveMap';
-import { getProfile, createAddress } from '../api';
+import { LocationPicker } from '../components/LocationPicker';
+import { MapPicker } from '../components/MapPicker';
+import { getProfile, createAddress, listAddresses } from '../api';
+import type { SavedAddress } from '../api/profile';
 import type { BookingDraft } from '../api/vehicles';
 import type { AddressSaveAs, LocationPoint } from '../lib/locations';
 import type { BookingFlowState } from '../lib/bookingFlow';
@@ -43,6 +46,9 @@ export function DropDetailsPage() {
 
   const [draft, setDraft] = useState<BookingDraft | null>(flow?.draft ?? null);
   const [dropIndex, setDropIndex] = useState(flow?.dropIndex ?? 0);
+  const [dropLoc, setDropLoc] = useState<LocationPoint | null>(null);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [showMapPicker, setShowMapPicker] = useState(false);
   const [unitDetail, setUnitDetail] = useState('');
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
@@ -62,6 +68,12 @@ export function DropDetailsPage() {
   }, [flow, navigate]);
 
   useEffect(() => {
+    listAddresses()
+      .then(setSavedAddresses)
+      .catch(() => undefined);
+  }, []);
+
+  useEffect(() => {
     getProfile()
       .then((p) => setMyPhone(p.phone))
       .catch(() => undefined);
@@ -71,6 +83,7 @@ export function DropDetailsPage() {
 
   useEffect(() => {
     if (!drop) return;
+    setDropLoc(drop);
     setUnitDetail(drop.unitDetail ?? '');
     setContactName(drop.contactName ?? '');
     setContactPhone(drop.contactPhone ?? '');
@@ -78,7 +91,7 @@ export function DropDetailsPage() {
     setUseMyPhone(false);
   }, [drop?.lat, drop?.lng, dropIndex]);
 
-  if (!draft?.pickup || !drop || !flow) return null;
+  if (!draft?.pickup || !drop || !flow || !dropLoc) return null;
 
   function patchDrop(fields: Partial<LocationPoint>): BookingDraft {
     const drops = draft!.drops.map((d, i) => (i === dropIndex ? { ...d, ...fields } : d));
@@ -99,6 +112,7 @@ export function DropDetailsPage() {
     }
 
     const updated = patchDrop({
+      ...dropLoc!,
       unitDetail: unitDetail.trim() || undefined,
       contactName: contactName.trim(),
       contactPhone: phone,
@@ -111,15 +125,13 @@ export function DropDetailsPage() {
       return;
     }
 
-    const activeDrop = drop!;
-
     setSaving(true);
     try {
       await createAddress({
-        label: activeDrop.label,
-        address_line: activeDrop.addressLine ?? activeDrop.label,
-        lat: activeDrop.lat,
-        lng: activeDrop.lng,
+        label: dropLoc!.label,
+        address_line: dropLoc!.addressLine ?? dropLoc!.label,
+        lat: dropLoc!.lat,
+        lng: dropLoc!.lng,
         landmark: unitDetail.trim() || null,
         contact_name: contactName.trim(),
         contact_phone: phone,
@@ -168,21 +180,28 @@ export function DropDetailsPage() {
         </>
       }
     >
-      <LiveMap pickup={draft.pickup} drops={[drop]} driver={null} />
+      <LiveMap pickup={draft.pickup} drops={[dropLoc]} driver={null} />
 
       <div className={styles.addressCard}>
         <span className={styles.dropDot} aria-hidden />
         <div className={styles.addressCopy}>
-          <div className={styles.placeName}>{drop.label}</div>
-          <div className={styles.placeSub}>{drop.addressLine ?? drop.label}</div>
+          <LocationPicker
+            value={dropLoc}
+            onChange={(loc) => {
+              setDropLoc(loc);
+              if (loc.contactName) setContactName(loc.contactName);
+              if (loc.contactPhone) {
+                setContactPhone(loc.contactPhone);
+                setUseMyPhone(false);
+              }
+              if (loc.unitDetail) setUnitDetail(loc.unitDetail);
+            }}
+            savedAddresses={savedAddresses}
+            onPickOnMap={() => setShowMapPicker(true)}
+            placeholder="Search drop address"
+            searchBias={{ lat: draft.pickup.lat, lng: draft.pickup.lng }}
+          />
         </div>
-        <button
-          type="button"
-          className={styles.changeBtn}
-          onClick={() => navigate('/book', { state: { serviceId: draft.serviceId, draft } })}
-        >
-          Change
-        </button>
       </div>
 
       <label className={styles.field}>
@@ -239,6 +258,26 @@ export function DropDetailsPage() {
           ))}
         </div>
       </div>
+
+      {showMapPicker && (
+        <MapPicker
+          initial={dropLoc}
+          onConfirm={(loc) => {
+            setDropLoc((prev) => {
+              if (!prev) return loc;
+              return {
+                ...loc,
+                contactName: prev.contactName,
+                contactPhone: prev.contactPhone,
+                unitDetail: prev.unitDetail,
+                saveAs: prev.saveAs,
+              };
+            });
+            setShowMapPicker(false);
+          }}
+          onClose={() => setShowMapPicker(false)}
+        />
+      )}
     </Screen>
   );
 }

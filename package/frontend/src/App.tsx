@@ -31,9 +31,12 @@ import { SafetyPage } from './pages/SafetyPage';
 import { CorporatePage } from './pages/CorporatePage';
 import { AddressesPage } from './pages/AddressesPage';
 import { EditProfilePage } from './pages/EditProfilePage';
+import { SharedLocationRolePage } from './pages/SharedLocationRolePage';
+import { SharedLocationDetailsPage } from './pages/SharedLocationDetailsPage';
 import { OfflineBanner } from './components/OfflineBanner';
 import { usePushRegistration } from './hooks/usePushRegistration';
 import { useSessionKeepAlive } from './hooks/useSessionKeepAlive';
+import { useDeepLink } from './hooks/useDeepLink';
 
 function PushRegistration() {
   usePushRegistration();
@@ -42,6 +45,11 @@ function PushRegistration() {
 
 function SessionKeepAlive() {
   useSessionKeepAlive();
+  return null;
+}
+
+function DeepLinkHandler() {
+  useDeepLink();
   return null;
 }
 
@@ -68,6 +76,8 @@ function AppRoutes() {
       <Route path="/onboarding" element={<RequireAuth><OnboardingPage /></RequireAuth>} />
       <Route path="/home" element={<AuthenticatedLayout><HomePage /></AuthenticatedLayout>} />
       <Route path="/book" element={<RequireAuth><BookingLocationPage /></RequireAuth>} />
+      <Route path="/book/from-link" element={<RequireAuth><SharedLocationRolePage /></RequireAuth>} />
+      <Route path="/book/shared-details" element={<RequireAuth><SharedLocationDetailsPage /></RequireAuth>} />
       <Route path="/book/sender-details" element={<RequireAuth><SenderDetailsPage /></RequireAuth>} />
       <Route path="/book/drop-details" element={<RequireAuth><DropDetailsPage /></RequireAuth>} />
       <Route path="/announcements" element={<AuthenticatedLayout><AnnouncementsPage /></AuthenticatedLayout>} />
@@ -105,6 +115,7 @@ export default function App() {
         <OfflineBanner />
         <PushRegistration />
         <SessionKeepAlive />
+        <DeepLinkHandler />
         <AppRoutes />
       </BrowserRouter>
     </AuthProvider>

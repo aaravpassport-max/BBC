@@ -15,6 +15,13 @@ export interface BookingFlowState {
 export interface BookingLocationNavState {
   serviceId: ServiceId;
   draft?: BookingDraft;
+  /** Which end was filled from a shared WhatsApp / maps link. */
+  deepLinkFilled?: 'pickup' | 'drop';
+}
+
+export interface SharedLocationNavState {
+  point: LocationPoint;
+  role?: 'pickup' | 'drop';
 }
 
 export interface ConfirmNavState {

@@ -45,11 +45,15 @@ export function LocationPicker({
   }, [query, editing, searchBias?.lat, searchBias?.lng]);
 
   function selectPlace(place: PlaceResult) {
+    const saved = savedAddresses.find((a) => a.id === place.id);
     onChange({
       label: place.label,
       lat: place.lat,
       lng: place.lng,
       addressLine: place.addressLine,
+      contactName: saved?.contact_name ?? undefined,
+      contactPhone: saved?.contact_phone ?? undefined,
+      unitDetail: saved?.landmark ?? undefined,
     });
     setEditing(false);
     setQuery('');

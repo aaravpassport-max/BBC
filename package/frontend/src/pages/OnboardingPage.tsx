@@ -4,6 +4,7 @@ import { PortMyStuffHeader } from '../components/PortMyStuffHeader';
 import { Button } from '../components/Button';
 import { Input } from '../components/Input';
 import { updateProfile } from '../api';
+import { resumePendingLocationLink } from '../hooks/useDeepLink';
 import { BRAND, STORAGE_KEYS } from '../constants/brand';
 import styles from './LoginPage.module.css';
 
@@ -30,10 +31,12 @@ export function OnboardingPage() {
       await updateProfile(payload);
       localStorage.setItem(STORAGE_KEYS.displayName, trimmed);
       localStorage.setItem(STORAGE_KEYS.onboarded, 'true');
+      if (resumePendingLocationLink(navigate)) return;
       navigate('/home', { replace: true });
     } catch {
       localStorage.setItem(STORAGE_KEYS.displayName, trimmed);
       localStorage.setItem(STORAGE_KEYS.onboarded, 'true');
+      if (resumePendingLocationLink(navigate)) return;
       navigate('/home', { replace: true });
     } finally {
       setLoading(false);

@@ -3,7 +3,10 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Screen } from '../components/Screen';
 import { Button } from '../components/Button';
 import { LiveMap } from '../components/LiveMap';
-import { getProfile, createAddress } from '../api';
+import { LocationPicker } from '../components/LocationPicker';
+import { MapPicker } from '../components/MapPicker';
+import { getProfile, createAddress, listAddresses } from '../api';
+import type { SavedAddress } from '../api/profile';
 import type { BookingDraft } from '../api/vehicles';
 import type { AddressSaveAs, LocationPoint } from '../lib/locations';
 import type { BookingFlowState } from '../lib/bookingFlow';
@@ -39,6 +42,9 @@ export function SenderDetailsPage() {
   const flow = location.state as BookingFlowState | undefined;
   const draft = flow?.draft;
 
+  const [pickupLoc, setPickupLoc] = useState<LocationPoint | null>(draft?.pickup ?? null);
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
+  const [showMapPicker, setShowMapPicker] = useState(false);
   const [unitDetail, setUnitDetail] = useState('');
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
@@ -46,10 +52,9 @@ export function SenderDetailsPage() {
   const [useMyPhone, setUseMyPhone] = useState(false);
   const [myPhone, setMyPhone] = useState('');
   const [profileName, setProfileName] = useState('');
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-
-  const pickup = draft?.pickup;
 
   useEffect(() => {
     if (!draft?.pickup || !draft.drops?.length) {
@@ -58,27 +63,57 @@ export function SenderDetailsPage() {
   }, [draft, navigate]);
 
   useEffect(() => {
-    getProfile()
-      .then((p) => {
-        setMyPhone(p.phone);
-        if (p.name) setProfileName(p.name);
-      })
+    listAddresses()
+      .then(setSavedAddresses)
       .catch(() => undefined);
   }, []);
 
   useEffect(() => {
-    if (!pickup) return;
-    setUnitDetail(pickup.unitDetail ?? '');
-    setContactName(pickup.contactName ?? profileName);
-    setContactPhone(pickup.contactPhone ?? '');
-    setSaveAs(pickup.saveAs ?? 'other');
-    setUseMyPhone(false);
-  }, [pickup?.lat, pickup?.lng, profileName]);
+    getProfile()
+      .then((p) => {
+        setMyPhone(p.phone);
+        if (p.name) setProfileName(p.name);
+        setProfileLoaded(true);
+        if (!draft?.pickup?.contactPhone) setUseMyPhone(!!p.phone);
+      })
+      .catch(() => setProfileLoaded(true));
+  }, [draft?.pickup?.contactPhone]);
 
-  if (!draft?.pickup || !flow) return null;
+  useEffect(() => {
+    if (!draft?.pickup) return;
+    setPickupLoc(draft.pickup);
+    setUnitDetail(draft.pickup.unitDetail ?? '');
+    setContactName(draft.pickup.contactName ?? '');
+    setContactPhone(draft.pickup.contactPhone ?? '');
+    setSaveAs(draft.pickup.saveAs ?? 'other');
+  }, [draft?.pickup?.lat, draft?.pickup?.lng]);
 
-  function patchPickup(fields: Partial<LocationPoint>): BookingDraft {
-    return { ...draft!, pickup: { ...draft!.pickup, ...fields } };
+  useEffect(() => {
+    if (!profileLoaded || !pickupLoc) return;
+    setContactName((prev) => prev || pickupLoc.contactName || profileName);
+    if (!pickupLoc.contactPhone && !contactPhone && myPhone) {
+      setUseMyPhone(true);
+    }
+  }, [profileLoaded, profileName, pickupLoc?.lat, myPhone]);
+
+  if (!draft?.pickup || !flow || !pickupLoc) return null;
+
+  function buildUpdatedDraft(): BookingDraft {
+    const phone = useMyPhone ? myPhone : contactPhone.trim();
+    const activePickup = pickupLoc!;
+    return {
+      ...draft!,
+      pickup: {
+        ...activePickup,
+        label: activePickup.label,
+        lat: activePickup.lat,
+        lng: activePickup.lng,
+        unitDetail: unitDetail.trim() || undefined,
+        contactName: contactName.trim(),
+        contactPhone: phone,
+        saveAs,
+      },
+    };
   }
 
   async function handleConfirm() {
@@ -93,21 +128,15 @@ export function SenderDetailsPage() {
       return;
     }
 
-    const updated = patchPickup({
-      unitDetail: unitDetail.trim() || undefined,
-      contactName: contactName.trim(),
-      contactPhone: phone,
-      saveAs,
-    });
+    const updated = buildUpdatedDraft();
 
     setSaving(true);
     try {
-      const activeDraft = draft!;
       await createAddress({
-        label: activeDraft.pickup.label,
-        address_line: activeDraft.pickup.addressLine ?? activeDraft.pickup.label,
-        lat: activeDraft.pickup.lat,
-        lng: activeDraft.pickup.lng,
+        label: updated.pickup.label,
+        address_line: updated.pickup.addressLine ?? updated.pickup.label,
+        lat: updated.pickup.lat,
+        lng: updated.pickup.lng,
         landmark: unitDetail.trim() || null,
         contact_name: contactName.trim(),
         contact_phone: phone,
@@ -143,21 +172,27 @@ export function SenderDetailsPage() {
         </>
       }
     >
-      <LiveMap pickup={draft.pickup} drops={draft.drops} driver={null} />
+      <LiveMap pickup={pickupLoc} drops={draft.drops} driver={null} />
 
       <div className={styles.addressCard}>
         <span className={styles.pickupDot} aria-hidden />
         <div className={styles.addressCopy}>
-          <div className={styles.placeName}>{draft.pickup.label}</div>
-          <div className={styles.placeSub}>{draft.pickup.addressLine ?? draft.pickup.label}</div>
+          <LocationPicker
+            value={pickupLoc}
+            onChange={(loc) => {
+              setPickupLoc(loc);
+              if (loc.contactName) setContactName(loc.contactName);
+              if (loc.contactPhone) {
+                setContactPhone(loc.contactPhone);
+                setUseMyPhone(false);
+              }
+              if (loc.unitDetail) setUnitDetail(loc.unitDetail);
+            }}
+            savedAddresses={savedAddresses}
+            onPickOnMap={() => setShowMapPicker(true)}
+            placeholder="Search pickup address"
+          />
         </div>
-        <button
-          type="button"
-          className={styles.changeBtn}
-          onClick={() => navigate('/book', { state: { serviceId: draft.serviceId, draft } })}
-        >
-          Change
-        </button>
       </div>
 
       <label className={styles.field}>
@@ -214,6 +249,26 @@ export function SenderDetailsPage() {
           ))}
         </div>
       </div>
+
+      {showMapPicker && (
+        <MapPicker
+          initial={pickupLoc}
+          onConfirm={(loc) => {
+            setPickupLoc((prev) => {
+              if (!prev) return loc;
+              return {
+                ...loc,
+                contactName: prev.contactName,
+                contactPhone: prev.contactPhone,
+                unitDetail: prev.unitDetail,
+                saveAs: prev.saveAs,
+              };
+            });
+            setShowMapPicker(false);
+          }}
+          onClose={() => setShowMapPicker(false)}
+        />
+      )}
     </Screen>
   );
 }

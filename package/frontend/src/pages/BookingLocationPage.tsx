@@ -6,7 +6,7 @@ import { Button } from '../components/Button';
 import { LocationPicker } from '../components/LocationPicker';
 import { MapPicker } from '../components/MapPicker';
 import { LiveMap } from '../components/LiveMap';
-import { listAddresses } from '../api';
+import { listAddresses, getProfile } from '../api';
 import { checkServiceability } from '../api/features';
 import { PRESET_LOCATIONS, sameLocation, type LocationPoint } from '../lib/locations';
 import type { SavedAddress } from '../api/profile';
@@ -37,6 +37,7 @@ export function BookingLocationPage() {
   const nav = location.state as BookingLocationNavState | undefined;
   const serviceId = nav?.serviceId;
   const resumeDraft = nav?.draft;
+  const deepLinkFilled = nav?.deepLinkFilled;
   const defaults = serviceId ? serviceDefaults(serviceId) : serviceDefaults('two_wheeler');
 
   const [pickup, setPickup] = useState<LocationPoint | null>(resumeDraft?.pickup ?? PRESET_LOCATIONS[0]);
@@ -69,7 +70,7 @@ export function BookingLocationPage() {
   }, []);
 
   useEffect(() => {
-    if (resumeDraft?.pickup) return;
+    if (resumeDraft?.pickup || deepLinkFilled === 'pickup') return;
     void Geolocation.requestPermissions().catch(() => undefined);
     void Geolocation.getCurrentPosition({ enableHighAccuracy: true, timeout: 10000 })
       .then((pos) => {
@@ -78,10 +79,26 @@ export function BookingLocationPage() {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
         };
-        setPickup(loc);
+        setPickup((prev) => prev ?? loc);
       })
       .catch(() => undefined);
-  }, [resumeDraft?.pickup]);
+  }, [resumeDraft?.pickup, deepLinkFilled]);
+
+  useEffect(() => {
+    if (deepLinkFilled === 'pickup') return;
+    getProfile()
+      .then((p) => {
+        setPickup((prev) => {
+          if (!prev || prev.contactName) return prev;
+          return {
+            ...prev,
+            contactName: p.name ?? undefined,
+            contactPhone: p.phone ?? undefined,
+          };
+        });
+      })
+      .catch(() => undefined);
+  }, [deepLinkFilled]);
 
   useEffect(() => {
     if (!pickup) return;
@@ -121,6 +138,15 @@ export function BookingLocationPage() {
       helperNeeded,
       scheduledFor: scheduledFor ? new Date(scheduledFor).toISOString() : undefined,
     };
+
+    if (deepLinkFilled === 'pickup') {
+      navigate('/book/drop-details', { state: { draft } });
+      return;
+    }
+    if (deepLinkFilled === 'drop') {
+      navigate('/book/sender-details', { state: { draft } });
+      return;
+    }
     navigate('/book/sender-details', { state: { draft } });
   }
 
@@ -149,6 +175,12 @@ export function BookingLocationPage() {
         </>
       }
     >
+      {deepLinkFilled === 'pickup' && (
+        <p className={styles.success}>Pickup from shared location is set — choose where to drop.</p>
+      )}
+      {deepLinkFilled === 'drop' && (
+        <p className={styles.success}>Drop from shared location is set — choose where to pick up.</p>
+      )}
       {serviceable === false && (
         <p className={styles.warning}>This pickup location is outside our service area.</p>
       )}

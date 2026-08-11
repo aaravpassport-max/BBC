@@ -5,6 +5,7 @@ import { isOnboarded } from '../constants/brand';
 import { Button } from '../components/Button';
 import { verifyOtp, requestOtp, ApiError } from '../api';
 import { useAuth, getDeviceId } from '../context/AuthContext';
+import { resumePendingLocationLink } from '../hooks/useDeepLink';
 import { DEMO_OTP, SHOW_TEST_CREDENTIALS } from '../config/testCredentials';
 import styles from './LoginPage.module.css';
 import { BRAND } from '../constants/brand';
@@ -66,9 +67,10 @@ export function VerifyOtpPage() {
       const onboarded = isOnboarded();
       if (res.is_new_user && !onboarded) {
         navigate('/onboarding', { replace: true });
-      } else {
-        navigate('/home', { replace: true });
+        return;
       }
+      if (resumePendingLocationLink(navigate)) return;
+      navigate('/home', { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {
         setError(err.message);
