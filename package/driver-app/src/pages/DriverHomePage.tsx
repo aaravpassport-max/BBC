@@ -20,7 +20,7 @@ import {
 } from '../api';
 import { LiveMap } from '../components/LiveMap';
 import { useDriverRealtime } from '../hooks/useDriverRealtime';
-import styles from '../pages/LoginPage.module.css';
+import styles from './DriverHomePage.module.css';
 
 const POLL_INTERVAL_MS = 3000;
 const FALLBACK_LOCATION = { lat: 12.951, lng: 77.601 };
@@ -182,7 +182,7 @@ export function DriverHomePage() {
     return (
       <div className={styles.page}>
         <PortMyStuffHeader />
-        <div style={{ padding: 20 }}>
+        <div className={styles.body}>
           <Skeleton width="60%" height={14} />
         </div>
       </div>
@@ -192,73 +192,36 @@ export function DriverHomePage() {
   return (
     <div className={styles.page}>
       <PortMyStuffHeader />
-      <div style={{ padding: '0 16px 16px' }}>
-        <LiveMap pickup={driverLoc} drops={[]} driver={online ? driverLoc : null} />
-        <div
-          style={{
-            border: '1px solid var(--border)',
-            borderRadius: 16,
-            background: 'var(--surface)',
-            padding: 24,
-            textAlign: 'center',
-            marginBottom: 12,
-            boxShadow: 'var(--shadow-sm)',
-          }}
-        >
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div className={styles.body}>
+        <div className={styles.mapWrap}>
+          <LiveMap pickup={driverLoc} drops={[]} driver={online ? driverLoc : null} />
+        </div>
+        <div className={styles.statsCard}>
+          <div className={styles.statsGrid}>
             <div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Today&apos;s earnings</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-strong)' }}>₹{todayEarnings.toFixed(0)}</div>
+              <div className={styles.statLabel}>Today&apos;s earnings</div>
+              <div className={styles.statValueAccent}>₹{todayEarnings.toFixed(0)}</div>
             </div>
             <div>
-              <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Trips today</div>
-              <div style={{ fontSize: 24, fontWeight: 700 }}>{tripsToday}</div>
+              <div className={styles.statLabel}>Trips today</div>
+              <div className={styles.statValue}>{tripsToday}</div>
             </div>
           </div>
           {incentiveRemaining != null && incentiveRemaining > 0 && (
             <button
               type="button"
               onClick={() => navigate('/incentives')}
-              style={{
-                marginTop: 14,
-                width: '100%',
-                padding: '10px 12px',
-                borderRadius: 10,
-                border: '1px solid var(--accent)',
-                background: 'var(--accent-soft)',
-                color: 'var(--accent-strong)',
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
+              className={styles.incentiveBtn}
             >
               🎯 {incentiveRemaining} more trip{incentiveRemaining === 1 ? '' : 's'} for today&apos;s bonus
             </button>
           )}
         </div>
 
-        <div
-          style={{
-            border: '1px solid var(--border)',
-            borderRadius: 16,
-            background: 'var(--surface)',
-            padding: 28,
-            textAlign: 'center',
-            boxShadow: 'var(--shadow-sm)',
-          }}
-        >
-          <div
-            style={{
-              width: 14,
-              height: 14,
-              borderRadius: '50%',
-              margin: '0 auto 14px',
-              background: online ? 'var(--success)' : 'var(--text-muted)',
-              boxShadow: online ? '0 0 16px var(--success)' : 'none',
-            }}
-          />
-          <h2 style={{ fontSize: 20, marginBottom: 8 }}>{online ? "You're online" : "You're offline"}</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: 14, marginBottom: 18 }}>
+        <div className={styles.statusCard}>
+          <div className={online ? styles.statusDotOnline : styles.statusDotOffline} />
+          <h2 className={styles.statusTitle}>{online ? "You're online" : "You're offline"}</h2>
+          <p className={styles.statusHint}>
             {online ? 'Looking for nearby jobs…' : 'Go online to start receiving job offers.'}
           </p>
           <Button onClick={handleToggle} loading={toggling} variant={online ? 'danger' : 'primary'}>
@@ -267,12 +230,12 @@ export function DriverHomePage() {
         </div>
 
         {showOfflineReason && (
-          <div style={{ border: '1px solid var(--border)', borderRadius: 12, padding: 16, background: 'var(--surface)', marginTop: 12 }}>
-            <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 8 }}>Why are you going offline?</div>
+          <div className={styles.offlinePanel}>
+            <div className={styles.offlineTitle}>Why are you going offline?</div>
             <select
               value={offlineReason}
               onChange={(e) => setOfflineReason(e.target.value)}
-              style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid var(--border)', marginBottom: 12 }}
+              className={styles.offlineSelect}
             >
               <option value="break">Taking a break</option>
               <option value="fuel">Refuelling</option>
@@ -280,7 +243,7 @@ export function DriverHomePage() {
               <option value="end_of_shift">End of shift</option>
               <option value="other">Other</option>
             </select>
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div className={styles.offlineActions}>
               <Button variant="ghost" onClick={() => setShowOfflineReason(false)}>Cancel</Button>
               <Button variant="danger" loading={toggling} onClick={() => void confirmGoOffline()}>Confirm offline</Button>
             </div>
@@ -288,28 +251,14 @@ export function DriverHomePage() {
         )}
 
         {online && (
-          <button
-            type="button"
-            onClick={() => navigate('/heatmap')}
-            style={{
-              marginTop: 12,
-              width: '100%',
-              padding: '10px 12px',
-              borderRadius: 10,
-              border: '1px solid var(--border)',
-              background: 'var(--surface)',
-              fontSize: 13,
-              fontWeight: 600,
-              cursor: 'pointer',
-            }}
-          >
+          <button type="button" onClick={() => navigate('/heatmap')} className={styles.heatmapBtn}>
             🗺️ View demand heatmap
           </button>
         )}
 
-        {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginTop: 12 }}>{error}</p>}
+        {error && <p className={styles.error}>{error}</p>}
         {!hasVehicle && (
-          <Button variant="ghost" onClick={() => navigate('/vehicle')} style={{ marginTop: 12 }}>
+          <Button variant="ghost" onClick={() => navigate('/vehicle')} className={styles.vehicleBtn}>
             Register your vehicle
           </Button>
         )}

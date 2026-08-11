@@ -6,8 +6,9 @@
 }
 
 .body {
-  padding: 0 16px 16px;
-  margin-top: -16px;
+  padding: 16px 16px 16px;
+  position: relative;
+  z-index: 1;
 }
 
 .activeTrip {

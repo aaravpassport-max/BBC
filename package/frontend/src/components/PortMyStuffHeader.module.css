@@ -1,9 +1,10 @@
 .header {
   background: linear-gradient(135deg, #2b6ce6 0%, #1d5fd4 100%);
   color: white;
-  padding: 20px 16px 28px;
+  padding: calc(20px + env(safe-area-inset-top, 0px)) 16px 28px;
   border-radius: 0 0 24px 24px;
   box-shadow: var(--shadow-md);
+  flex-shrink: 0;
 }
 
 .topRow {
