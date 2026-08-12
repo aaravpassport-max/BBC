@@ -19,7 +19,7 @@ class Portmystuff_Autoloader {
 		}
 
 		$relative = strtolower( str_replace( '_', '-', substr( $class, strlen( 'Portmystuff_' ) ) ) );
-		$file     = PORTMYSTUFF_PLUGIN_DIR . 'includes/class-' . $relative . '.php';
+		$file     = PORTMYSTUFF_PLUGIN_DIR . 'includes/class-portmystuff-' . $relative . '.php';
 
 		if ( file_exists( $file ) ) {
 			require_once $file;
