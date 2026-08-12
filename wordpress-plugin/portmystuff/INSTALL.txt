@@ -1,0 +1,33 @@
+PORTMYSTUFF WordPress Plugin — Quick Start
+==========================================
+
+REQUIREMENTS
+- WordPress 6.0+
+- PHP 8.0+
+- MySQL 5.7+ or MariaDB 10.3+
+
+INSTALL
+1. WordPress Admin → Plugins → Add New → Upload Plugin
+2. Choose portmystuff.zip → Install Now → Activate
+
+FIRST RUN
+- Plugin creates database tables and demo data automatically on activation.
+- Go to PORTMYSTUFF → Dashboard in the left admin menu.
+
+EMBED APPS (create two pages)
+- Customer page: add shortcode [portmystuff_customer]
+- Driver page:   add shortcode [portmystuff_driver]
+
+DEMO LOGIN
+- Customer: phone 9000000001, OTP 111111
+- Driver:   phone 9000000002, OTP 222222
+
+ADMIN DASHBOARDS
+PORTMYSTUFF menu includes: Bookings, Drivers, Rate Cards, Analytics,
+KYC, Support, Marketing, Settlement, SOS Queue, Dispatch Monitor, Live Map.
+
+REST API BASE
+https://YOUR-SITE.com/wp-json/portmystuff/v1/
+
+SUPPORT
+See README.md inside the plugin folder for full documentation.
