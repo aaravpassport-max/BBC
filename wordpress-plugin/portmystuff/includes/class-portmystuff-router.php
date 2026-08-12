@@ -108,9 +108,11 @@ class Portmystuff_Router {
 			return sanitize_text_field( wp_unslash( $_GET['pms_app'] ) );
 		}
 
-		$page_id = (int) get_option( 'portmystuff_page_id' );
-		if ( $page_id && function_exists( 'is_page' ) && is_page( $page_id ) ) {
-			return 'launcher';
+		if ( did_action( 'wp' ) ) {
+			$page_id = (int) get_option( 'portmystuff_page_id' );
+			if ( $page_id && is_page( $page_id ) ) {
+				return 'launcher';
+			}
 		}
 
 		$path = $this->get_request_path();
