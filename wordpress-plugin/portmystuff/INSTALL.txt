@@ -1,0 +1,33 @@
+PORTMYSTUFF WordPress Plugin — Quick Start
+==========================================
+
+REQUIREMENTS
+- WordPress 6.0+
+- PHP 8.0+
+- MySQL 5.7+ or MariaDB 10.3+
+
+INSTALL
+1. WordPress Admin → Plugins → Add New → Upload Plugin
+2. Choose portmystuff-1.2.0.zip → Install Now → Activate
+3. Go to Settings → Permalinks → click Save (refreshes app routes)
+
+STANDALONE APPS (open in browser — NOT wp-admin)
+Your site URL + /portmystuff/
+
+  Launcher:  https://YOUR-SITE.com/portmystuff/
+  Customer:  https://YOUR-SITE.com/portmystuff/customer
+  Driver:    https://YOUR-SITE.com/portmystuff/driver
+  Admin:     https://YOUR-SITE.com/portmystuff/admin  (WP login required)
+  Ops:       https://YOUR-SITE.com/portmystuff/ops      (WP login required)
+
+DEMO LOGIN (customer & driver apps)
+- Customer: phone 9000000001, OTP 111111
+- Driver:   phone 9000000002, OTP 222222
+
+WP ADMIN
+Only shows quick links to open the standalone apps.
+All dashboards run as React + TypeScript full-screen apps.
+
+TECH
+- React + TypeScript SPA (built into assets/dist/)
+- REST API: /wp-json/portmystuff/v1/

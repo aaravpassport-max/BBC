@@ -1,0 +1,74 @@
+.page {
+  min-height: 100vh;
+  padding: 32px 20px;
+  background: radial-gradient(circle at top, #dcfce7, #f8fafc 45%);
+}
+
+.hero {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.logo {
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: #0d9f4f;
+  font-size: 13px;
+}
+
+.hero h1 {
+  margin: 8px 0;
+  font-size: 32px;
+}
+
+.hero p {
+  color: #64748b;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 20px;
+  text-decoration: none;
+  color: inherit;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  transition: transform 0.15s ease;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+}
+
+.card strong {
+  font-size: 18px;
+}
+
+.card span {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.emoji {
+  font-size: 28px;
+}
+
+.locked {
+  opacity: 0.75;
+}
+
+.locked em {
+  font-size: 12px;
+  color: #b45309;
+  font-style: normal;
+}
