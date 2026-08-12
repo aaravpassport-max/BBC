@@ -14,6 +14,7 @@ class Portmystuff_Activator {
 		Portmystuff_Roles::install();
 		Portmystuff_Seed::run();
 		Portmystuff_Cron::schedule_events();
+		Portmystuff_Router::register_rewrites();
 		flush_rewrite_rules();
 		update_option( 'portmystuff_version', PORTMYSTUFF_VERSION );
 	}

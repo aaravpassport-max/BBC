@@ -8,26 +8,26 @@ REQUIREMENTS
 
 INSTALL
 1. WordPress Admin → Plugins → Add New → Upload Plugin
-2. Choose portmystuff.zip → Install Now → Activate
+2. Choose portmystuff-1.2.0.zip → Install Now → Activate
+3. Go to Settings → Permalinks → click Save (refreshes app routes)
 
-FIRST RUN
-- Plugin creates database tables and demo data automatically on activation.
-- Go to PORTMYSTUFF → Dashboard in the left admin menu.
+STANDALONE APPS (open in browser — NOT wp-admin)
+Your site URL + /portmystuff/
 
-EMBED APPS (create two pages)
-- Customer page: add shortcode [portmystuff_customer]
-- Driver page:   add shortcode [portmystuff_driver]
+  Launcher:  https://YOUR-SITE.com/portmystuff/
+  Customer:  https://YOUR-SITE.com/portmystuff/customer
+  Driver:    https://YOUR-SITE.com/portmystuff/driver
+  Admin:     https://YOUR-SITE.com/portmystuff/admin  (WP login required)
+  Ops:       https://YOUR-SITE.com/portmystuff/ops      (WP login required)
 
-DEMO LOGIN
+DEMO LOGIN (customer & driver apps)
 - Customer: phone 9000000001, OTP 111111
 - Driver:   phone 9000000002, OTP 222222
 
-ADMIN DASHBOARDS
-PORTMYSTUFF menu includes: Bookings, Drivers, Rate Cards, Analytics,
-KYC, Support, Marketing, Settlement, SOS Queue, Dispatch Monitor, Live Map.
+WP ADMIN
+Only shows quick links to open the standalone apps.
+All dashboards run as React + TypeScript full-screen apps.
 
-REST API BASE
-https://YOUR-SITE.com/wp-json/portmystuff/v1/
-
-SUPPORT
-See README.md inside the plugin folder for full documentation.
+TECH
+- React + TypeScript SPA (built into assets/dist/)
+- REST API: /wp-json/portmystuff/v1/

@@ -1,6 +1,6 @@
 <?php
 /**
- * WordPress admin menus and dashboard pages.
+ * Minimal WP admin entry — links to standalone apps only.
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -11,124 +11,54 @@ class Portmystuff_Admin {
 
 	public function __construct() {
 		add_action( 'admin_menu', array( $this, 'register_menus' ) );
-		add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_assets' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
 	}
 
 	public function register_settings() {
 		register_setting( 'portmystuff_settings', 'portmystuff_default_city' );
-		register_setting( 'portmystuff_settings', 'portmystuff_demo_otp' );
 	}
 
 	public function register_menus() {
 		add_menu_page(
+			__( 'PORTMYSTUFF Apps', 'portmystuff' ),
 			__( 'PORTMYSTUFF', 'portmystuff' ),
-			__( 'PORTMYSTUFF', 'portmystuff' ),
-			'pms_analytics_view',
+			'read',
 			'portmystuff',
-			array( $this, 'render_dashboard' ),
+			array( $this, 'render_launcher' ),
 			'dashicons-car',
-			3
-		);
-
-		$pages = array(
-			'portmystuff'           => array( __( 'Dashboard', 'portmystuff' ), 'render_dashboard' ),
-			'portmystuff-bookings'  => array( __( 'Bookings', 'portmystuff' ), 'render_bookings' ),
-			'portmystuff-drivers'   => array( __( 'Drivers', 'portmystuff' ), 'render_drivers' ),
-			'portmystuff-rate-cards'=> array( __( 'Rate Cards', 'portmystuff' ), 'render_rate_cards' ),
-			'portmystuff-analytics' => array( __( 'Analytics', 'portmystuff' ), 'render_analytics' ),
-			'portmystuff-kyc'       => array( __( 'KYC Review', 'portmystuff' ), 'render_kyc' ),
-			'portmystuff-support'   => array( __( 'Support', 'portmystuff' ), 'render_support' ),
-			'portmystuff-marketing' => array( __( 'Marketing', 'portmystuff' ), 'render_marketing' ),
-			'portmystuff-settlement'=> array( __( 'Settlement', 'portmystuff' ), 'render_settlement' ),
-			'portmystuff-ops-sos'   => array( __( 'SOS Queue', 'portmystuff' ), 'render_sos' ),
-			'portmystuff-ops-dispatch' => array( __( 'Dispatch Monitor', 'portmystuff' ), 'render_dispatch' ),
-			'portmystuff-ops-map'   => array( __( 'Live Map', 'portmystuff' ), 'render_live_map' ),
-			'portmystuff-settings'  => array( __( 'Settings', 'portmystuff' ), 'render_settings' ),
-		);
-
-		foreach ( $pages as $slug => $meta ) {
-			if ( 'portmystuff' === $slug ) {
-				continue;
-			}
-			$cap = strpos( $slug, 'ops-' ) !== false ? 'pms_ops_sos_respond' : 'pms_analytics_view';
-			add_submenu_page( 'portmystuff', $meta[0], $meta[0], $cap, $slug, array( $this, $meta[1] ) );
-		}
-	}
-
-	public function enqueue_assets( $hook ) {
-		if ( strpos( $hook, 'portmystuff' ) === false ) {
-			return;
-		}
-		wp_enqueue_style( 'portmystuff-admin', PORTMYSTUFF_PLUGIN_URL . 'assets/css/admin.css', array(), PORTMYSTUFF_VERSION );
-		wp_enqueue_script( 'portmystuff-admin', PORTMYSTUFF_PLUGIN_URL . 'assets/js/admin.js', array(), PORTMYSTUFF_VERSION, true );
-		wp_localize_script(
-			'portmystuff-admin',
-			'PORTMYSTUFF_ADMIN',
-			array(
-				'restUrl'   => esc_url_raw( rest_url( 'portmystuff/' ) ),
-				'nonce'     => wp_create_nonce( 'wp_rest' ),
-				'pluginUrl' => PORTMYSTUFF_PLUGIN_URL,
-			)
+			58
 		);
 	}
 
-	private function wrap( $title, $template ) {
-		echo '<div class="wrap portmystuff-admin">';
-		echo '<h1>' . esc_html( $title ) . '</h1>';
-		include PORTMYSTUFF_PLUGIN_DIR . 'admin/views/' . $template;
+	public function render_launcher() {
+		$apps = array(
+			array( 'label' => __( 'App Launcher', 'portmystuff' ), 'url' => Portmystuff_Router::app_url(), 'desc' => __( 'Choose customer, driver, admin, or ops app', 'portmystuff' ) ),
+			array( 'label' => __( 'Customer App', 'portmystuff' ), 'url' => Portmystuff_Router::app_url( 'customer' ), 'desc' => __( 'Book rides & parcels', 'portmystuff' ) ),
+			array( 'label' => __( 'Driver App', 'portmystuff' ), 'url' => Portmystuff_Router::app_url( 'driver' ), 'desc' => __( 'Partner dashboard', 'portmystuff' ) ),
+		);
+
+		if ( Portmystuff_Roles::user_can( 'pms_analytics_view' ) ) {
+			$apps[] = array( 'label' => __( 'Admin Console', 'portmystuff' ), 'url' => Portmystuff_Router::app_url( 'admin' ), 'desc' => __( 'Business dashboards', 'portmystuff' ) );
+		}
+		if ( Portmystuff_Roles::user_can( 'pms_ops_sos_respond' ) ) {
+			$apps[] = array( 'label' => __( 'Control Room', 'portmystuff' ), 'url' => Portmystuff_Router::app_url( 'ops' ), 'desc' => __( 'SOS & live map', 'portmystuff' ) );
+		}
+
+		echo '<div class="wrap"><h1>' . esc_html__( 'PORTMYSTUFF Standalone Apps', 'portmystuff' ) . '</h1>';
+		echo '<p>' . esc_html__( 'All apps open as independent full-screen experiences — not inside wp-admin.', 'portmystuff' ) . '</p>';
+		echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'App', 'portmystuff' ) . '</th><th>' . esc_html__( 'Description', 'portmystuff' ) . '</th><th></th></tr></thead><tbody>';
+		foreach ( $apps as $app ) {
+			printf(
+				'<tr><td><strong>%s</strong></td><td>%s</td><td><a class="button button-primary" href="%s" target="_blank" rel="noopener">%s</a></td></tr>',
+				esc_html( $app['label'] ),
+				esc_html( $app['desc'] ),
+				esc_url( $app['url'] ),
+				esc_html__( 'Open app', 'portmystuff' )
+			);
+		}
+		echo '</tbody></table>';
+		echo '<p><code>' . esc_html( Portmystuff_Router::app_url() ) . '</code></p>';
+		echo '<p class="description">' . esc_html__( 'After install, visit Permalinks → Save to refresh routes if apps 404.', 'portmystuff' ) . '</p>';
 		echo '</div>';
-	}
-
-	public function render_dashboard() {
-		$this->wrap( __( 'PORTMYSTUFF Dashboard', 'portmystuff' ), 'dashboard.php' );
-	}
-
-	public function render_bookings() {
-		$this->wrap( __( 'Bookings', 'portmystuff' ), 'bookings.php' );
-	}
-
-	public function render_drivers() {
-		$this->wrap( __( 'Drivers', 'portmystuff' ), 'drivers.php' );
-	}
-
-	public function render_rate_cards() {
-		$this->wrap( __( 'Rate Cards', 'portmystuff' ), 'rate-cards.php' );
-	}
-
-	public function render_analytics() {
-		$this->wrap( __( 'Analytics', 'portmystuff' ), 'analytics.php' );
-	}
-
-	public function render_kyc() {
-		$this->wrap( __( 'KYC Review', 'portmystuff' ), 'kyc.php' );
-	}
-
-	public function render_support() {
-		$this->wrap( __( 'Support Queue', 'portmystuff' ), 'support.php' );
-	}
-
-	public function render_marketing() {
-		$this->wrap( __( 'Marketing Banners', 'portmystuff' ), 'marketing.php' );
-	}
-
-	public function render_settlement() {
-		$this->wrap( __( 'Settlement & Payouts', 'portmystuff' ), 'settlement.php' );
-	}
-
-	public function render_sos() {
-		$this->wrap( __( 'SOS Queue', 'portmystuff' ), 'sos.php' );
-	}
-
-	public function render_dispatch() {
-		$this->wrap( __( 'Dispatch Monitor', 'portmystuff' ), 'dispatch.php' );
-	}
-
-	public function render_live_map() {
-		$this->wrap( __( 'Live Driver Map', 'portmystuff' ), 'live-map.php' );
-	}
-
-	public function render_settings() {
-		$this->wrap( __( 'Plugin Settings', 'portmystuff' ), 'settings.php' );
 	}
 }
