@@ -24,7 +24,7 @@ class Portmystuff {
 	}
 
 	private function load_dependencies() {
-		new Portmystuff_Router();
+		Portmystuff_Router::instance();
 		new Portmystuff_Cron();
 		new Portmystuff_Admin();
 		new Portmystuff_Public();

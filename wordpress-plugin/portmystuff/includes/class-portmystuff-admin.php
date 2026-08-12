@@ -12,6 +12,19 @@ class Portmystuff_Admin {
 	public function __construct() {
 		add_action( 'admin_menu', array( $this, 'register_menus' ) );
 		add_action( 'admin_init', array( $this, 'register_settings' ) );
+		add_action( 'admin_init', array( $this, 'handle_flush' ) );
+	}
+
+	public function handle_flush() {
+		if ( empty( $_GET['pms_flush'] ) || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+		check_admin_referer( 'pms_flush_rewrites' );
+		Portmystuff_Router::register_rewrites();
+		Portmystuff_Router::ensure_app_page();
+		flush_rewrite_rules( false );
+		wp_safe_redirect( admin_url( 'admin.php?page=portmystuff&flushed=1' ) );
+		exit;
 	}
 
 	public function register_settings() {
@@ -58,7 +71,11 @@ class Portmystuff_Admin {
 		}
 		echo '</tbody></table>';
 		echo '<p><code>' . esc_html( Portmystuff_Router::app_url() ) . '</code></p>';
-		echo '<p class="description">' . esc_html__( 'After install, visit Permalinks → Save to refresh routes if apps 404.', 'portmystuff' ) . '</p>';
+		echo '<p class="description">' . esc_html__( 'If apps show your theme, go to Settings → Permalinks → Save, then reload.', 'portmystuff' ) . '</p>';
+		if ( current_user_can( 'manage_options' ) ) {
+			$flush_url = wp_nonce_url( admin_url( 'admin.php?page=portmystuff&pms_flush=1' ), 'pms_flush_rewrites' );
+			echo '<p><a class="button" href="' . esc_url( $flush_url ) . '">' . esc_html__( 'Flush app routes', 'portmystuff' ) . '</a></p>';
+		}
 		echo '</div>';
 	}
 }

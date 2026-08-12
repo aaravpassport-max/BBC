@@ -3,7 +3,7 @@
  * Plugin Name:       PORTMYSTUFF Logistics Platform
  * Plugin URI:        https://portmystuff.com
  * Description:       Standalone ride + parcel logistics platform — customer booking, driver partner app, admin console, and ops control room. No external backend required.
- * Version:           1.2.0
+ * Version:           1.2.1
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            PORTMYSTUFF
@@ -15,7 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'PORTMYSTUFF_VERSION', '1.2.0' );
+define( 'PORTMYSTUFF_VERSION', '1.2.1' );
 define( 'PORTMYSTUFF_PLUGIN_FILE', __FILE__ );
 define( 'PORTMYSTUFF_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'PORTMYSTUFF_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
