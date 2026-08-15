@@ -4,9 +4,9 @@ Business OS installs like any other Windows app — one download, one click, rea
 
 ## Step 1 — Download
 
-Download **`BusinessOS-Setup-1.0.5.exe`** from the [latest release](https://github.com/aaravpassport-max/BBC/releases/latest):
+Download **`BusinessOS-Setup-1.0.6.exe`** from the [latest release](https://github.com/aaravpassport-max/BBC/releases/latest):
 
-**Direct link:** https://github.com/aaravpassport-max/BBC/releases/download/v1.0.5/BusinessOS-Setup-1.0.5.exe (~150 MB)
+**Direct link:** https://github.com/aaravpassport-max/BBC/releases/download/v1.0.6/BusinessOS-Setup-1.0.6.exe (~150 MB)
 
 > No internet is required after download. PHP, MariaDB, and the full app are bundled inside the installer.
 
@@ -16,7 +16,7 @@ Download **`BusinessOS-Setup-1.0.5.exe`** from the [latest release](https://gith
 
 1. Open **Task Manager** (Ctrl+Shift+Esc) and end any **Business OS** or **business-os-desktop** processes
 2. Uninstall old version: **Settings → Apps → Business OS → Uninstall**
-3. Double-click **`BusinessOS-Setup-1.0.5.exe`**
+3. Double-click **`BusinessOS-Setup-1.0.6.exe`**
 2. Windows may show a SmartScreen prompt — click **More info** → **Run anyway** (the app is not yet code-signed)
 3. The installer runs automatically — no setup wizard, no admin rights needed
 4. A desktop shortcut and Start Menu entry are created
@@ -26,16 +26,14 @@ Installation typically takes **1–3 minutes** depending on your PC.
 
 ## Step 3 — Log in
 
-On first launch, Business OS sets up your local database automatically (about 30 seconds).
-
-**Default login:**
+**Default login (works until you complete the setup wizard):**
 
 | Field | Value |
 |-------|-------|
 | Email | `admin@businessos.local` |
 | Password | `changeme123` |
 
-Change this password after your first login.
+Use the email exactly as shown — not your personal email address.
 
 ## What gets installed
 

@@ -18,7 +18,8 @@ class BOS_Installer {
 
         $current = BOS_DB::get_setting('schema_version', '0');
         if ($current === self::SCHEMA_VERSION) {
-            BOS_Auth::cleanup_expired(); // Lightweight maintenance every request
+            BOS_Auth::cleanup_expired();
+            self::ensure_admin_user();
             return;
         }
 
@@ -776,16 +777,23 @@ class BOS_Installer {
         BOS_DB::query("ALTER TABLE `{$p}invoice_payments` ADD COLUMN IF NOT EXISTS uuid VARCHAR(36) NULL AFTER id");
     }
 
-    private static function seed_defaults(): void {
+    private static function ensure_admin_user(): void {
         $p = BOS_DB::$prefix;
+        $table = "{$p}users";
 
-        // ── Default admin user ────────────────────────────────────────────────
-        $existing = BOS_DB::get_row(
-            "SELECT id FROM `{$p}users` WHERE role='Admin' AND deleted_at IS NULL ORDER BY id ASC LIMIT 1"
-        );
+        try {
+            BOS_DB::get_var("SELECT COUNT(*) FROM `{$table}`");
+        } catch (Throwable $e) {
+            return;
+        }
+
         $default_hash = password_hash('changeme123', PASSWORD_BCRYPT, ['cost' => 12]);
+        $existing = BOS_DB::get_row(
+            "SELECT id, email FROM `{$table}` WHERE role='Admin' AND deleted_at IS NULL ORDER BY id ASC LIMIT 1"
+        );
+
         if (!$existing) {
-            BOS_DB::insert("{$p}users", [
+            BOS_DB::insert($table, [
                 'uuid'          => BOS_Helpers::uuid(),
                 'name'          => 'Admin',
                 'email'         => 'admin@businessos.local',
@@ -794,13 +802,24 @@ class BOS_Installer {
                 'status'        => 'Active',
                 'created_by'    => 0,
             ]);
-        } else {
-            BOS_DB::update("{$p}users",
-                ['password_hash' => $default_hash, 'failed_attempts' => 0, 'locked_until' => null, 'status' => 'Active'],
-                ['id' => $existing->id]
-            );
+            return;
         }
 
+        // Until setup is complete, keep the default admin login recoverable
+        if (BOS_DB::get_setting('setup_complete', '0') !== '1') {
+            BOS_DB::update($table, [
+                'password_hash'   => $default_hash,
+                'failed_attempts' => 0,
+                'locked_until'    => null,
+                'status'          => 'Active',
+            ], ['id' => $existing->id]);
+        }
+    }
+
+    private static function seed_defaults(): void {
+        $p = BOS_DB::$prefix;
+
+        self::ensure_admin_user();
         // ── Default brand ─────────────────────────────────────────────────────
         $existing_brand = BOS_DB::get_var("SELECT id FROM `{$p}brands` WHERE is_primary=1 LIMIT 1");
         if (!$existing_brand) {
