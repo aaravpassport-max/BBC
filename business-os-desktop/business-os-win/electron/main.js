@@ -14,7 +14,7 @@ const path = require('path');
 const fs = require('fs');
 const net = require('net');
 const crypto = require('crypto');
-const { spawn, execSync } = require('child_process');
+const { spawn, spawnSync, execSync } = require('child_process');
 
 // ── Platform helpers (inlined to ensure packaging) ────────────────────────
 const IS_WIN = process.platform === 'win32';
@@ -87,9 +87,34 @@ function getMariaBasedir(mariaDir, mysqld) {
   return '/usr';
 }
 
-function initMariaDataDir(mysqld, basedir, dbDataDir) {
-  const mysqlSystemDir = path.join(dbDataDir, 'mysql');
-  if (fs.existsSync(mysqlSystemDir)) return;
+function hasMariaSystemTables(dbDataDir) {
+  const mysqlDir = path.join(dbDataDir, 'mysql');
+  if (!fs.existsSync(mysqlDir)) return false;
+  const markers = [
+    'global_priv.MAD', 'global_priv.frm',
+    'db.frm', 'db.MAD',
+    'plugin.frm', 'plugin.MAD',
+    'user.frm',
+  ];
+  return markers.some((name) => fs.existsSync(path.join(mysqlDir, name)));
+}
+
+function isDatadirReady(dbDataDir) {
+  return hasMariaSystemTables(dbDataDir);
+}
+
+function wipeDatadir(dbDataDir) {
+  if (fs.existsSync(dbDataDir)) {
+    fs.rmSync(dbDataDir, { recursive: true, force: true });
+  }
+  fs.mkdirSync(dbDataDir, { recursive: true });
+}
+
+function initMariaDataDir(mysqld, basedir, dbDataDir, logDir) {
+  if (isDatadirReady(dbDataDir)) return;
+
+  wipeDatadir(dbDataDir);
+  appendLog(path.join(logDir, 'init.log'), 'Initializing fresh MariaDB data directory…\n');
 
   const installDb = resolveBinary([
     path.join(basedir, 'bin', IS_WIN ? 'mariadb-install-db.exe' : 'mariadb-install-db'),
@@ -100,30 +125,49 @@ function initMariaDataDir(mysqld, basedir, dbDataDir) {
   ]);
 
   if (installDb) {
-    const args = IS_WIN
-      ? [`--datadir=${dbDataDir}`, `--basedir=${basedir}`, '--default-user']
-      : [`--datadir="${dbDataDir}"`, `--basedir="${basedir}"`, '--auth-root-authentication-method=normal'];
-    execSync(`"${installDb}" ${args.join(' ')}`, { timeout: 180000, stdio: 'pipe' });
+    const args = ['--datadir', dbDataDir, '--basedir', basedir];
+    if (IS_WIN) {
+      args.push('--password=');
+    } else {
+      args.push('--auth-root-authentication-method=normal');
+    }
+    const result = spawnSync(installDb, args, {
+      timeout: 180000,
+      encoding: 'utf8',
+      windowsHide: true,
+      cwd: basedir,
+    });
+    const output = `${result.stdout || ''}\n${result.stderr || ''}`.trim();
+    if (output) appendLog(path.join(logDir, 'init.log'), output + '\n');
+    if (result.status !== 0) {
+      throw new Error(`mariadb-install-db failed (code ${result.status})`);
+    }
+    if (!isDatadirReady(dbDataDir)) {
+      throw new Error('MariaDB system tables were not created');
+    }
     return;
   }
 
-  execSync(`"${mysqld}" --initialize-insecure --datadir="${dbDataDir}" --basedir="${basedir}"`, {
-    timeout: 180000,
-    stdio: 'pipe',
-  });
-}
-
-function isDatadirReady(dbDataDir) {
-  return fs.existsSync(path.join(dbDataDir, 'mysql'));
+  const result = spawnSync(mysqld, [
+    '--initialize-insecure',
+    `--datadir=${dbDataDir}`,
+    `--basedir=${basedir}`,
+  ], { timeout: 180000, encoding: 'utf8', windowsHide: true, cwd: basedir });
+  if (result.status !== 0) {
+    throw new Error(`mysqld --initialize-insecure failed (code ${result.status})`);
+  }
+  if (!isDatadirReady(dbDataDir)) {
+    throw new Error('MariaDB system tables were not created after initialize');
+  }
 }
 
 function resetDatadirIfCorrupt(dbDataDir, logDir) {
   if (!fs.existsSync(dbDataDir)) return;
   const entries = fs.readdirSync(dbDataDir).filter((e) => e !== '.' && e !== '..');
-  if (entries.length > 0 && !isDatadirReady(dbDataDir)) {
-    fs.rmSync(dbDataDir, { recursive: true, force: true });
-    fs.mkdirSync(dbDataDir, { recursive: true });
-    appendLog(path.join(logDir, 'init.log'), 'Removed corrupt database folder and will reinitialize.\n');
+  if (entries.length === 0) return;
+  if (!isDatadirReady(dbDataDir)) {
+    appendLog(path.join(logDir, 'init.log'), 'Detected incomplete database — wiping and reinitializing.\n');
+    wipeDatadir(dbDataDir);
   }
 }
 
@@ -315,7 +359,7 @@ async function initMariaDbIfNeeded(mysqld, mysql, basedir, port, dbPass) {
   writeMariaConfig(DATA_DIR, port, LOG_DIR, DB_DATA_DIR, basedir);
 
   try {
-    initMariaDataDir(mysqld, basedir, DB_DATA_DIR);
+    initMariaDataDir(mysqld, basedir, DB_DATA_DIR, LOG_DIR);
   } catch (e) {
     appendLog(path.join(LOG_DIR, 'init.log'), 'Init error: ' + e.message + '\n');
     if (!isDatadirReady(DB_DATA_DIR)) throw e;
