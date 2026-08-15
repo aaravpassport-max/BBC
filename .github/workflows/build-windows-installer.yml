@@ -33,11 +33,11 @@ jobs:
         run: npm ci
 
       - name: Download PHP and MariaDB runtimes
-        run: node ../../scripts/download-windows-runtime.js
+        run: node scripts/download-windows-runtime.js
         working-directory: business-os-desktop
 
       - name: Build NSIS installer
-        run: npm run build:installer
+        run: npm run build
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
