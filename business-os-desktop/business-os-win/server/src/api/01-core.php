@@ -5,8 +5,10 @@
 class BOS_AuthController {
 
     public static function login(): void {
+        BOS_Installer::ensure_default_admin();
+
         $b = BOS_Helpers::body();
-        $raw   = trim($b['email'] ?? $b['username'] ?? '');
+        $raw   = strtolower(trim($b['email'] ?? $b['username'] ?? ''));
         $pass  = $b['password'] ?? '';
         $ip    = BOS_Helpers::client_ip();
 
@@ -14,11 +16,17 @@ class BOS_AuthController {
             BOS_Helpers::error('VALIDATION_ERROR', 'Email and password are required.', 422);
         }
 
-        $col  = BOS_Helpers::is_email($raw) ? 'email' : 'name';
-        $user = BOS_DB::get_row(
-            'SELECT * FROM `' . BOS_DB::t('users') . "` WHERE `$col`=? AND deleted_at IS NULL LIMIT 1",
-            [$raw]
-        );
+        if (str_contains($raw, '@')) {
+            $user = BOS_DB::get_row(
+                'SELECT * FROM `' . BOS_DB::t('users') . '` WHERE LOWER(email)=? AND deleted_at IS NULL LIMIT 1',
+                [$raw]
+            );
+        } else {
+            $user = BOS_DB::get_row(
+                'SELECT * FROM `' . BOS_DB::t('users') . '` WHERE name=? AND deleted_at IS NULL LIMIT 1',
+                [$raw]
+            );
+        }
 
         if ($user && $user->locked_until && strtotime($user->locked_until) > time()) {
             BOS_Helpers::error('FORBIDDEN', 'Account temporarily locked. Try again later.', 403);

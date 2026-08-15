@@ -80,7 +80,11 @@ class BOS_Helpers {
     }
 
     public static function is_email(string $val): bool {
-        return (bool) filter_var($val, FILTER_VALIDATE_EMAIL);
+        if (filter_var($val, FILTER_VALIDATE_EMAIL)) {
+            return true;
+        }
+        // Desktop/local accounts may use .local or other non-public TLDs
+        return (bool) preg_match('/^[^\s@]+@[^\s@]+\.[^\s@]+$/', $val);
     }
 
     // ── UUID generation ──────────────────────────────────────────────────────

@@ -777,6 +777,10 @@ class BOS_Installer {
         BOS_DB::query("ALTER TABLE `{$p}invoice_payments` ADD COLUMN IF NOT EXISTS uuid VARCHAR(36) NULL AFTER id");
     }
 
+    public static function ensure_default_admin(): void {
+        self::ensure_admin_user();
+    }
+
     private static function ensure_admin_user(): void {
         $p = BOS_DB::$prefix;
         $table = "{$p}users";
