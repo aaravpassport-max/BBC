@@ -1,0 +1,66 @@
+{
+  "name": "business-os-desktop",
+  "version": "1.0.0",
+  "description": "Business OS — Windows Desktop Application",
+  "author": "Business OS",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron . --no-sandbox",
+    "prebuild:installer": "node ../../scripts/download-windows-runtime.js",
+    "build": "electron-builder --win --x64",
+    "build:installer": "npm run prebuild:installer && electron-builder --win --x64",
+    "build:linux": "electron-builder --linux --x64",
+    "build:dev": "electron-builder --win --x64 --config.compression=store"
+  },
+  "build": {
+    "appId": "com.businessos.desktop",
+    "productName": "Business OS",
+    "copyright": "Copyright © 2024 Business OS",
+    "directories": {
+      "output": "../dist"
+    },
+    "artifactName": "BusinessOS-Setup-${version}.${ext}",
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "../app/favicon.ico",
+      "requestedExecutionLevel": "asInvoker",
+      "signAndEditExecutable": false
+    },
+    "linux": {
+      "target": [{ "target": "AppImage", "arch": ["x64"] }],
+      "icon": "../app/favicon.svg",
+      "category": "Office"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Business OS",
+      "installerIcon": "../app/favicon.ico",
+      "uninstallerIcon": "../app/favicon.ico",
+      "installerHeaderIcon": "../app/favicon.ico",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "displayLanguageSelector": false,
+      "installerLanguages": ["en_US"],
+      "language": "1033"
+    },
+    "extraResources": [
+      { "from": "../server", "to": "app/server" },
+      { "from": "../app",    "to": "app/app" },
+      { "from": "../php",    "to": "php", "filter": ["**/*"] },
+      { "from": "../mariadb","to": "mariadb", "filter": ["**/*"] }
+    ],
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json"
+    ]
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  }
+}

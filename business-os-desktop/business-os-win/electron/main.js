@@ -1,0 +1,392 @@
+/**
+ * Business OS Desktop — Electron Main Process
+ *
+ * Lifecycle:
+ *   1. Find free ports for PHP server and MariaDB
+ *   2. Start MariaDB (mysqld) — wait for it to accept connections
+ *   3. Start PHP built-in server pointing at server/public/
+ *   4. Open BrowserWindow at http://127.0.0.1:{phpPort}/business/
+ *   5. On quit: kill PHP → kill MariaDB → exit
+ */
+
+const { app, BrowserWindow, dialog, shell, Menu } = require('electron');
+const path = require('path');
+const fs = require('fs');
+const net = require('net');
+const crypto = require('crypto');
+const { spawn, execSync } = require('child_process');
+const {
+  IS_WIN,
+  getPhpBinary,
+  getMysqldBinary,
+  getMysqlBinary,
+  getMysqlAdminBinary,
+  getMariaBasedir,
+  initMariaDataDir,
+  sleep,
+  mariaConfigPath,
+  writeMariaConfig,
+} = require('./platform');
+
+// ── Paths ─────────────────────────────────────────────────────────────────
+const IS_DEV = !app.isPackaged;
+const APP_DIR = IS_DEV ? path.join(__dirname, '..') : path.join(process.resourcesPath, 'app');
+const PHP_DIR = IS_DEV
+  ? path.join(__dirname, '..', 'php')
+  : path.join(process.resourcesPath, 'php');
+const MARIADB_DIR = IS_DEV
+  ? path.join(__dirname, '..', 'mariadb')
+  : path.join(process.resourcesPath, 'mariadb');
+const DATA_DIR = path.join(app.getPath('userData'), 'BusinessOS');
+const DB_DATA_DIR = path.join(DATA_DIR, 'mysql');
+const LOG_DIR = path.join(DATA_DIR, 'logs');
+const DB_CFG_FILE = path.join(DATA_DIR, 'db.json');
+
+[DATA_DIR, DB_DATA_DIR, LOG_DIR].forEach((dir) => {
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+});
+
+// ── Process handles ───────────────────────────────────────────────────────
+let phpProcess = null;
+let mariaProcess = null;
+let mainWindow = null;
+let phpPort = 9753;
+let dbPort = 3307;
+let appReady = false;
+
+function findFreePort(preferred) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.listen(preferred, '127.0.0.1', () => {
+      const port = server.address().port;
+      server.close(() => resolve(port));
+    });
+    server.on('error', () => {
+      const fallback = net.createServer();
+      fallback.listen(0, '127.0.0.1', () => {
+        const port = fallback.address().port;
+        fallback.close(() => resolve(port));
+      });
+    });
+  });
+}
+
+function waitForPort(port, timeout = 30000) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now();
+    function attempt() {
+      const sock = new net.Socket();
+      sock.setTimeout(1000);
+      sock.connect(port, '127.0.0.1', () => {
+        sock.destroy();
+        resolve();
+      });
+      sock.on('error', () => {
+        sock.destroy();
+        if (Date.now() - start > timeout) {
+          reject(new Error(`Port ${port} did not open within ${timeout}ms`));
+        } else {
+          setTimeout(attempt, 500);
+        }
+      });
+      sock.on('timeout', () => {
+        sock.destroy();
+        setTimeout(attempt, 500);
+      });
+    }
+    attempt();
+  });
+}
+
+function writeDbConfig(port) {
+  const pass = readOrGenerateDbPassword();
+  fs.writeFileSync(DB_CFG_FILE, JSON.stringify({
+    host: '127.0.0.1',
+    port: String(port),
+    name: 'businessos',
+    user: 'bosuser',
+    pass,
+  }, null, 2));
+  return pass;
+}
+
+function readOrGenerateDbPassword() {
+  if (fs.existsSync(DB_CFG_FILE)) {
+    try {
+      const cfg = JSON.parse(fs.readFileSync(DB_CFG_FILE, 'utf8'));
+      if (cfg.pass && cfg.pass.length > 8) return cfg.pass;
+    } catch {}
+  }
+  return 'bos_' + crypto.randomBytes(16).toString('hex');
+}
+
+function initMariaDbIfNeeded(mysqld, mysql, basedir, port, dbPass) {
+  const mysqlFolder = path.join(DB_DATA_DIR, 'mysql');
+  if (fs.existsSync(mysqlFolder)) return;
+
+  const cfgFile = mariaConfigPath(DATA_DIR);
+  writeMariaConfig(DATA_DIR, port, LOG_DIR, DB_DATA_DIR);
+
+  try {
+    initMariaDataDir(mysqld, basedir, DB_DATA_DIR, LOG_DIR);
+  } catch (e) {
+    fs.appendFileSync(path.join(LOG_DIR, 'init.log'), 'Init error: ' + e.message + '\n');
+    if (!fs.existsSync(path.join(DB_DATA_DIR, 'mysql'))) {
+      throw e;
+    }
+  }
+
+  const tempProc = spawn(mysqld, [
+    `--defaults-file=${cfgFile}`,
+    `--basedir=${basedir}`,
+    `--datadir=${DB_DATA_DIR}`,
+  ], { stdio: 'ignore', detached: false });
+
+  return sleep(5).then(() => {
+    try {
+      const sql = [
+        'CREATE DATABASE IF NOT EXISTS businessos CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;',
+        `CREATE USER IF NOT EXISTS 'bosuser'@'127.0.0.1' IDENTIFIED BY '${dbPass}';`,
+        "GRANT ALL PRIVILEGES ON businessos.* TO 'bosuser'@'127.0.0.1';",
+        'FLUSH PRIVILEGES;',
+      ].join(' ');
+      execSync(`"${mysql}" -u root -P${port} -h127.0.0.1 -e "${sql.replace(/"/g, '\\"')}"`, {
+        timeout: 15000,
+        stdio: 'pipe',
+      });
+    } catch (e) {
+      fs.appendFileSync(path.join(LOG_DIR, 'init.log'), e.message + '\n');
+    }
+    try { tempProc.kill('SIGTERM'); } catch {}
+  });
+}
+
+async function startMariaDB(port) {
+  const mysqld = getMysqldBinary(MARIADB_DIR);
+  if (!mysqld) {
+    showFatalError('MariaDB not found', 'Install MariaDB/MySQL or bundle it in the mariadb/ folder.');
+    return false;
+  }
+
+  const basedir = getMariaBasedir(MARIADB_DIR, mysqld);
+  const mysql = getMysqlBinary(MARIADB_DIR);
+  writeMariaConfig(DATA_DIR, port, LOG_DIR, DB_DATA_DIR);
+  const dbPass = writeDbConfig(port);
+
+  try {
+    await initMariaDbIfNeeded(mysqld, mysql, basedir, port, dbPass);
+  } catch (e) {
+    fs.appendFileSync(path.join(LOG_DIR, 'init.log'), 'Init error: ' + e.message + '\n');
+  }
+
+  const cfgFile = mariaConfigPath(DATA_DIR);
+  mariaProcess = spawn(mysqld, [
+    `--defaults-file=${cfgFile}`,
+    `--basedir=${basedir}`,
+    `--datadir=${DB_DATA_DIR}`,
+  ], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    detached: false,
+  });
+
+  mariaProcess.stderr.on('data', (d) => {
+    fs.appendFileSync(path.join(LOG_DIR, 'mariadb.log'), d.toString());
+  });
+
+  try {
+    await waitForPort(port, 45000);
+    return true;
+  } catch (e) {
+    showFatalError(
+      'Database failed to start',
+      `MariaDB did not respond within 45 seconds.\n\nCheck: ${path.join(LOG_DIR, 'mariadb.log')}`,
+    );
+    return false;
+  }
+}
+
+async function startPhpServer(port) {
+  const php = getPhpBinary(PHP_DIR);
+  if (!php) {
+    showFatalError('PHP not found', 'Install PHP 8.1+ or bundle it in the php/ folder.');
+    return false;
+  }
+
+  const serverRoot = path.join(APP_DIR, 'server', 'public');
+  const appDir = path.join(APP_DIR, 'app');
+
+  phpProcess = spawn(php, [
+    '-S', `127.0.0.1:${port}`,
+    '-t', serverRoot,
+    path.join(serverRoot, 'index.php'),
+  ], {
+    env: {
+      ...process.env,
+      BOS_PORT: String(port),
+      BOS_DATA_DIR: DATA_DIR,
+      BOS_DB_PORT: String(dbPort),
+      BOS_DB_PASS: JSON.parse(fs.readFileSync(DB_CFG_FILE, 'utf8')).pass,
+      BOS_APP_DIR: appDir,
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    detached: false,
+  });
+
+  phpProcess.stderr.on('data', (d) => {
+    const msg = d.toString();
+    if (msg.includes('Fatal') || msg.includes('Parse error')) {
+      fs.appendFileSync(path.join(LOG_DIR, 'php.log'), msg);
+    }
+  });
+
+  phpProcess.on('exit', (code) => {
+    fs.appendFileSync(path.join(LOG_DIR, 'php.log'), `PHP exited with code ${code}\n`);
+  });
+
+  try {
+    await waitForPort(port, 15000);
+    return true;
+  } catch (e) {
+    showFatalError(
+      'Server failed to start',
+      `PHP did not respond within 15 seconds.\n\nCheck: ${path.join(LOG_DIR, 'php.log')}`,
+    );
+    return false;
+  }
+}
+
+function createWindow() {
+  const iconPath = path.join(APP_DIR, 'app', IS_WIN ? 'favicon.ico' : 'favicon.svg');
+  mainWindow = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    minWidth: 900,
+    minHeight: 600,
+    title: 'Business OS',
+    icon: fs.existsSync(iconPath) ? iconPath : undefined,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      webSecurity: true,
+    },
+    show: false,
+    backgroundColor: '#0f172a',
+  });
+
+  mainWindow.loadURL(`http://127.0.0.1:${phpPort}/business/`);
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+    appReady = true;
+  });
+
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('http://127.0.0.1')) return { action: 'allow' };
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
+  mainWindow.on('closed', () => { mainWindow = null; });
+
+  const menu = Menu.buildFromTemplate([
+    {
+      label: 'Business OS',
+      submenu: [
+        { label: 'Open Data Folder', click: () => shell.openPath(DATA_DIR) },
+        { label: 'Open Log Folder', click: () => shell.openPath(LOG_DIR) },
+        { type: 'separator' },
+        { label: 'Reload', accelerator: 'CmdOrCtrl+R', click: () => mainWindow?.reload() },
+        { type: 'separator' },
+        { label: 'Quit', accelerator: 'CmdOrCtrl+Q', role: 'quit' },
+      ],
+    },
+    {
+      label: 'View',
+      submenu: [
+        { label: 'Zoom In', accelerator: 'CmdOrCtrl+Plus', role: 'zoomIn' },
+        { label: 'Zoom Out', accelerator: 'CmdOrCtrl+-', role: 'zoomOut' },
+        { label: 'Reset Zoom', accelerator: 'CmdOrCtrl+0', role: 'resetZoom' },
+        { type: 'separator' },
+        ...(IS_DEV ? [{ label: 'DevTools', accelerator: 'F12', role: 'toggleDevTools' }] : []),
+      ],
+    },
+  ]);
+  Menu.setApplicationMenu(menu);
+}
+
+function showFatalError(title, detail) {
+  dialog.showErrorBox(`Business OS — ${title}`, detail);
+}
+
+function cleanup() {
+  if (phpProcess) {
+    try { phpProcess.kill('SIGTERM'); } catch {}
+    phpProcess = null;
+  }
+  if (mariaProcess) {
+    try {
+      const mysqladmin = getMysqlAdminBinary(MARIADB_DIR);
+      if (mysqladmin && fs.existsSync(DB_CFG_FILE)) {
+        const cfg = JSON.parse(fs.readFileSync(DB_CFG_FILE, 'utf8'));
+        execSync(
+          `"${mysqladmin}" -u bosuser -p${cfg.pass} -P${dbPort} -h127.0.0.1 shutdown`,
+          { timeout: 5000, stdio: 'ignore' },
+        );
+      }
+    } catch {}
+    try { mariaProcess.kill('SIGTERM'); } catch {}
+    mariaProcess = null;
+  }
+}
+
+app.on('ready', async () => {
+  if (!app.requestSingleInstanceLock()) {
+    app.quit();
+    return;
+  }
+
+  phpPort = await findFreePort(9753);
+  dbPort = await findFreePort(3307);
+
+  const splash = new BrowserWindow({
+    width: 400,
+    height: 220,
+    frame: false,
+    center: true,
+    resizable: false,
+    alwaysOnTop: true,
+    backgroundColor: '#0f172a',
+    webPreferences: { contextIsolation: true, nodeIntegration: false },
+  });
+  splash.loadURL(
+    'data:text/html,<body style="margin:0;background:#0f172a;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;font-family:sans-serif;color:#fff"><div style="font-size:22px;font-weight:700;margin-bottom:12px">Business OS</div><div style="color:#94a3b8;font-size:13px">Starting services…</div></body>',
+  );
+
+  const dbOk = await startMariaDB(dbPort);
+  if (!dbOk) { splash.close(); app.quit(); return; }
+
+  const phpOk = await startPhpServer(phpPort);
+  if (!phpOk) { splash.close(); app.quit(); return; }
+
+  splash.close();
+  createWindow();
+});
+
+app.on('second-instance', () => {
+  if (mainWindow) {
+    if (mainWindow.isMinimized()) mainWindow.restore();
+    mainWindow.focus();
+  }
+});
+
+app.on('window-all-closed', () => {
+  cleanup();
+  app.quit();
+});
+
+app.on('before-quit', cleanup);
+
+process.on('exit', cleanup);
+process.on('SIGINT', () => { cleanup(); process.exit(0); });
+process.on('SIGTERM', () => { cleanup(); process.exit(0); });

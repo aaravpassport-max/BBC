@@ -1,0 +1,23 @@
+node_modules/
+dist/
+*.log
+
+# User data (local dev)
+.mysql/
+
+# Bundled runtimes (download separately for Windows builds)
+php/
+mariadb/
+.build-cache/
+
+# Electron build artifacts
+*.AppImage
+*.exe
+*.dmg
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Installer output
+installer/output/
