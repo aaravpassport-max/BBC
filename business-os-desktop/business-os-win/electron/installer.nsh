@@ -31,17 +31,14 @@ Var un.DeleteDataDialog
 !macroend
 
 Function un.DeleteDataPageShow
-  !insertmacro MUI_HEADER_TEXT "Remove application data" "Choose whether to delete your Business OS files"
-  !insertmacro MUI_UNPAGE_INTERFACE
-
   nsDialogs::Create 1018
   Pop $un.DeleteDataDialog
   ${IfThen} $(^ec) != 0 ${|} Abort ${|}
 
-  ${NSD_CreateLabel} 0 0 100% 28u "Tick the box below to delete your local database, settings, and uploaded files.$\nRecommended when reinstalling or if login stops working."
+  ${NSD_CreateLabel} 0 0 100% 36u "Remove application data$\n$\nTick the box below to delete your local database, settings, and uploaded files.$\nRecommended when reinstalling or if login stops working."
   Pop $0
 
-  ${NSD_CreateCheckbox} 0 36u 100% 16u "Delete all application data from this computer"
+  ${NSD_CreateCheckbox} 0 42u 100% 16u "Delete all application data from this computer"
   Pop $un.DeleteDataCheckbox
 
   nsDialogs::Show
