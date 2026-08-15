@@ -6,7 +6,7 @@ A self-contained desktop application for Business OS — CRM, invoicing, finance
 
 ## For Windows users (plug and play)
 
-1. **Download** `BusinessOS-Setup-1.0.0.exe` from [GitHub Releases](https://github.com/aaravpassport-max/BBC/releases)
+1. **Download** `BusinessOS-Setup-1.0.0.exe` from [GitHub Releases](https://github.com/aaravpassport-max/BBC/releases/latest) (~150 MB)
 2. **Double-click** the installer — it installs automatically in 1–3 minutes
 3. **Log in** with `admin@businessos.local` / `changeme123`
 

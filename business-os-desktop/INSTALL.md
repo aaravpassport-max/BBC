@@ -4,7 +4,9 @@ Business OS installs like any other Windows app — one download, one click, rea
 
 ## Step 1 — Download
 
-Download **`BusinessOS-Setup-1.0.0.exe`** from the [Releases](https://github.com/aaravpassport-max/BBC/releases) page.
+Download **`BusinessOS-Setup-1.0.0.exe`** from the [latest release](https://github.com/aaravpassport-max/BBC/releases/latest):
+
+**Direct link:** https://github.com/aaravpassport-max/BBC/releases/download/v1.0.1/BusinessOS-Setup-1.0.0.exe (~150 MB)
 
 > No internet is required after download. PHP, MariaDB, and the full app are bundled inside the installer.
 
