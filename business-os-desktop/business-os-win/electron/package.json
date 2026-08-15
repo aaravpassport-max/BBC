@@ -1,6 +1,6 @@
 {
   "name": "business-os-desktop",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Business OS — Windows Desktop Application",
   "author": "Business OS",
   "main": "main.js",
@@ -23,6 +23,7 @@
     "win": {
       "target": [{ "target": "nsis", "arch": ["x64"] }],
       "icon": "../app/favicon.ico",
+      "executableName": "Business OS",
       "requestedExecutionLevel": "asInvoker",
       "signAndEditExecutable": false
     },
@@ -45,7 +46,8 @@
       "deleteAppDataOnUninstall": false,
       "displayLanguageSelector": false,
       "installerLanguages": ["en_US"],
-      "language": "1033"
+      "language": "1033",
+      "include": "installer.nsh"
     },
     "extraResources": [
       { "from": "../server", "to": "app/server" },
@@ -55,8 +57,8 @@
     ],
     "files": [
       "main.js",
-      "platform.js",
       "preload.js",
+      "installer.nsh",
       "package.json"
     ]
   },
