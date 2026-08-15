@@ -26,14 +26,14 @@ class BOS_AuthController {
             BOS_Helpers::error('FORBIDDEN', 'Account temporarily locked. Try again later.', 403);
         }
 
-        if (!$user || !password_verify($pass, $user->password_hash)) {
+        if (!$user || !BOS_Installer::verify_password($user, $pass, $raw)) {
             if (BOS_Installer::is_default_admin_login($raw, $pass)) {
                 BOS_Installer::recreate_default_admin();
                 $user = self::find_login_user(BOS_Installer::DEFAULT_ADMIN_EMAIL);
             }
         }
 
-        if (!$user || !password_verify($pass, $user->password_hash)) {
+        if (!$user || !BOS_Installer::verify_password($user, $pass, $raw)) {
             if ($user) {
                 $attempts  = (int)$user->failed_attempts + 1;
                 $lock_until = $attempts >= 5 ? gmdate('Y-m-d H:i:s', time() + 900) : null;
@@ -145,6 +145,39 @@ class BOS_AuthController {
             BOS_Helpers::error('UNAUTHORIZED', 'Invalid or expired reset token.', 401);
         }
         BOS_Helpers::ok([], 'Password reset. Please log in with your new password.');
+    }
+
+    /** Desktop diagnostics — no auth required. */
+    public static function health(): void {
+        $status = [
+            'db_connected'      => false,
+            'users_table'       => false,
+            'admin_exists'      => false,
+            'default_admin_email' => BOS_Installer::DEFAULT_ADMIN_EMAIL,
+            'schema_version'    => null,
+            'error'             => null,
+        ];
+
+        try {
+            BOS_DB::connect();
+            $status['db_connected'] = true;
+            $table = BOS_DB::t('users');
+            BOS_DB::get_var("SELECT COUNT(*) FROM `{$table}`");
+            $status['users_table'] = true;
+            $admin = BOS_DB::get_row(
+                "SELECT id, email, status FROM `{$table}` WHERE LOWER(email)=? AND deleted_at IS NULL LIMIT 1",
+                [BOS_Installer::DEFAULT_ADMIN_EMAIL]
+            );
+            $status['admin_exists'] = (bool)$admin;
+            if ($admin) {
+                $status['admin_status'] = $admin->status;
+            }
+            $status['schema_version'] = BOS_DB::get_setting('schema_version', '0');
+        } catch (Throwable $e) {
+            $status['error'] = $e->getMessage();
+        }
+
+        BOS_Helpers::ok($status);
     }
 
     private static function find_login_user(string $raw): ?object {

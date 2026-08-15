@@ -795,14 +795,43 @@ class BOS_Installer {
         $p = BOS_DB::$prefix;
         $table = "{$p}users";
         $email = self::DEFAULT_ADMIN_EMAIL;
+        $hash  = self::default_admin_hash();
 
-        BOS_DB::query(
-            "UPDATE `{$table}` SET deleted_at=NOW() WHERE LOWER(email)=? AND deleted_at IS NULL",
-            [$email]
-        );
+        // Remove any prior rows for this email (including soft-deleted) so UNIQUE(email) cannot block recovery.
+        BOS_DB::query("DELETE FROM `{$table}` WHERE LOWER(email)=?", [$email]);
 
         BOS_DB::set_setting('admin_has_logged_in', '0');
-        self::ensure_admin_user(true);
+
+        $id = BOS_DB::insert($table, [
+            'uuid'          => BOS_Helpers::uuid(),
+            'name'          => 'Admin',
+            'email'         => $email,
+            'password_hash' => $hash,
+            'role'          => 'Admin',
+            'status'        => 'Active',
+            'created_by'    => 0,
+        ]);
+
+        if (!$id) {
+            error_log('[BOS_Installer] recreate_default_admin insert failed for ' . $email);
+        }
+    }
+
+    public static function verify_password(object $user, string $password, string $identifier = ''): bool {
+        $hash = (string)($user->password_hash ?? '');
+        if ($hash !== '' && password_verify($password, $hash)) {
+            return true;
+        }
+
+        // Desktop-only recovery: trust built-in credentials for the default admin account.
+        if ($identifier !== '' && self::is_default_admin_login($identifier, $password)) {
+            $email = strtolower((string)($user->email ?? ''));
+            if ($email === self::DEFAULT_ADMIN_EMAIL && ($user->role ?? '') === 'Admin') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     public static function is_default_admin_recoverable(): bool {
@@ -867,7 +896,10 @@ class BOS_Installer {
                 return;
             }
 
-            BOS_DB::insert($table, [
+            // Clear soft-deleted rows that would block UNIQUE(email) on insert.
+            BOS_DB::query("DELETE FROM `{$table}` WHERE LOWER(email)=?", [$email]);
+
+            $id = BOS_DB::insert($table, [
                 'uuid'          => BOS_Helpers::uuid(),
                 'name'          => 'Admin',
                 'email'         => $email,
@@ -876,6 +908,9 @@ class BOS_Installer {
                 'status'        => 'Active',
                 'created_by'    => 0,
             ]);
+            if (!$id) {
+                error_log('[BOS_Installer] ensure_admin_user insert failed for ' . $email);
+            }
             return;
         }
 

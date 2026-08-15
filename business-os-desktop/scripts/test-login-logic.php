@@ -35,4 +35,14 @@ if (!password_verify('changeme123', $hash)) {
     exit(1);
 }
 
+$user = (object)[
+    'email' => BOS_Installer::DEFAULT_ADMIN_EMAIL,
+    'role' => 'Admin',
+    'password_hash' => 'invalid',
+];
+if (!BOS_Installer::verify_password($user, 'changeme123', 'admin@businessos.local')) {
+    fwrite(STDERR, "FAIL verify_password desktop fallback for default admin\n");
+    exit(1);
+}
+
 echo "OK login logic checks passed\n";

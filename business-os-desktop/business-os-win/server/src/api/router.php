@@ -34,6 +34,7 @@ function bos_route(string $m, string $pattern, callable $handler): void {
 
 // Auth routes
 bos_route('POST', '/auth/login',           fn() => BOS_AuthController::login());
+bos_route('GET',  '/auth/health',          fn() => BOS_AuthController::health());
 bos_route('POST', '/auth/logout',          fn() => BOS_AuthController::logout());
 bos_route('POST', '/auth/refresh',         fn() => BOS_AuthController::refresh());
 bos_route('GET',  '/auth/me',              fn() => BOS_AuthController::me());

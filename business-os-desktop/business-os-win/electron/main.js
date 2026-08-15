@@ -406,6 +406,29 @@ async function initMariaDbIfNeeded(mysqld, mysql, basedir, port, dbPass) {
   }
 }
 
+async function syncMariaDbCredentials(mysql, port, dbPass) {
+  if (!mysql) return;
+  try {
+    const esc = dbPass.replace(/'/g, "''");
+    const sql = [
+      `CREATE USER IF NOT EXISTS 'bosuser'@'127.0.0.1' IDENTIFIED BY '${esc}';`,
+      `CREATE USER IF NOT EXISTS 'bosuser'@'localhost' IDENTIFIED BY '${esc}';`,
+      `ALTER USER 'bosuser'@'127.0.0.1' IDENTIFIED BY '${esc}';`,
+      `ALTER USER 'bosuser'@'localhost' IDENTIFIED BY '${esc}';`,
+      "GRANT ALL PRIVILEGES ON businessos.* TO 'bosuser'@'127.0.0.1';",
+      "GRANT ALL PRIVILEGES ON businessos.* TO 'bosuser'@'localhost';",
+      'FLUSH PRIVILEGES;',
+    ].join(' ');
+    const proto = IS_WIN ? ' --protocol=TCP' : '';
+    execSync(`"${mysql}" -u root -P${port} -h127.0.0.1${proto} -e "${sql.replace(/"/g, '\\"')}"`, {
+      timeout: 15000,
+      stdio: 'pipe',
+    });
+  } catch (e) {
+    appendLog(path.join(LOG_DIR, 'init.log'), 'Credential sync: ' + e.message + '\n');
+  }
+}
+
 async function startMariaDB(port) {
   const mysqld = getMysqldBinary(MARIADB_DIR);
   if (!mysqld) {
@@ -443,6 +466,7 @@ async function startMariaDB(port) {
 
   try {
     await waitForPort(port, 120000);
+    await syncMariaDbCredentials(mysql, port, dbPass);
     return true;
   } catch (e) {
     const errLog = path.join(LOG_DIR, 'mariadb.err');
