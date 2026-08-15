@@ -1,0 +1,54 @@
+{
+  "name": "business-os-desktop",
+  "version": "1.0.0",
+  "description": "Business OS — Windows Desktop Application",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron . --no-sandbox",
+    "build": "electron-builder --win --x64",
+    "build:linux": "electron-builder --linux --x64",
+    "build:dev": "electron-builder --win --x64 --config.compression=store"
+  },
+  "build": {
+    "appId": "com.businessos.desktop",
+    "productName": "Business OS",
+    "copyright": "Copyright © 2024 Business OS",
+    "directories": {
+      "output": "../dist"
+    },
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "../app/favicon.ico",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "linux": {
+      "target": [{ "target": "AppImage", "arch": ["x64"] }],
+      "icon": "../app/favicon.svg",
+      "category": "Office"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "installerIcon": "../app/favicon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Business OS"
+    },
+    "extraResources": [
+      { "from": "../server", "to": "app/server" },
+      { "from": "../app",    "to": "app/app" },
+      { "from": "../php",    "to": "php", "filter": ["**/*"] },
+      { "from": "../mariadb","to": "mariadb", "filter": ["**/*"] }
+    ],
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json"
+    ]
+  },
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.0.0"
+  }
+}

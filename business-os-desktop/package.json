@@ -1,0 +1,11 @@
+{
+  "name": "business-os-desktop-root",
+  "private": true,
+  "description": "Business OS Desktop — CRM, invoicing, finance, and reporting",
+  "scripts": {
+    "start": "cd business-os-win/electron && npm start",
+    "install:all": "cd business-os-win/electron && npm install",
+    "build:linux": "cd business-os-win/electron && npm run build:linux",
+    "build:win": "cd business-os-win/electron && npm run build"
+  }
+}
