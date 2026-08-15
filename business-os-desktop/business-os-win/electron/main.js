@@ -110,42 +110,60 @@ function wipeDatadir(dbDataDir) {
   fs.mkdirSync(dbDataDir, { recursive: true });
 }
 
+function runInstallDbTool(tool, args, logDir) {
+  appendLog(path.join(logDir, 'init.log'), `Running: ${tool} ${args.join(' ')}\n`);
+  const result = spawnSync(tool, args, {
+    timeout: 180000,
+    encoding: 'utf8',
+    windowsHide: true,
+    cwd: path.dirname(tool),
+  });
+  const output = `${result.stdout || ''}\n${result.stderr || ''}`.trim();
+  if (output) appendLog(path.join(logDir, 'init.log'), output + '\n');
+  return result.status === 0;
+}
+
 function initMariaDataDir(mysqld, basedir, dbDataDir, logDir) {
   if (isDatadirReady(dbDataDir)) return;
 
   wipeDatadir(dbDataDir);
   appendLog(path.join(logDir, 'init.log'), 'Initializing fresh MariaDB data directory…\n');
 
+  if (IS_WIN) {
+    const tools = [
+      path.join(basedir, 'bin', 'mysql_install_db.exe'),
+      path.join(basedir, 'bin', 'mariadb-install-db.exe'),
+    ];
+    const argSets = [
+      ['--datadir', dbDataDir, '--basedir', basedir],
+      ['--datadir', dbDataDir],
+    ];
+
+    for (const tool of tools) {
+      if (!fs.existsSync(tool)) continue;
+      for (const args of argSets) {
+        if (runInstallDbTool(tool, args, logDir) && isDatadirReady(dbDataDir)) return;
+        wipeDatadir(dbDataDir);
+      }
+    }
+    throw new Error('Windows database initialization failed. Delete the BusinessOS folder and try again.');
+  }
+
   const installDb = resolveBinary([
-    path.join(basedir, 'bin', IS_WIN ? 'mariadb-install-db.exe' : 'mariadb-install-db'),
-    path.join(basedir, 'bin', IS_WIN ? 'mysql_install_db.exe' : 'mysql_install_db'),
-    path.join(basedir, 'scripts', IS_WIN ? 'mariadb-install-db.exe' : 'mariadb-install-db'),
-    which(IS_WIN ? 'mariadb-install-db.exe' : 'mariadb-install-db'),
-    which(IS_WIN ? 'mysql_install_db.exe' : 'mysql_install_db'),
+    path.join(basedir, 'bin', 'mariadb-install-db'),
+    path.join(basedir, 'scripts', 'mariadb-install-db'),
+    which('mariadb-install-db'),
+    which('mysql_install_db'),
   ]);
 
   if (installDb) {
-    const args = ['--datadir', dbDataDir, '--basedir', basedir];
-    if (IS_WIN) {
-      args.push('--password=');
-    } else {
-      args.push('--auth-root-authentication-method=normal');
-    }
-    const result = spawnSync(installDb, args, {
-      timeout: 180000,
-      encoding: 'utf8',
-      windowsHide: true,
-      cwd: basedir,
-    });
-    const output = `${result.stdout || ''}\n${result.stderr || ''}`.trim();
-    if (output) appendLog(path.join(logDir, 'init.log'), output + '\n');
-    if (result.status !== 0) {
-      throw new Error(`mariadb-install-db failed (code ${result.status})`);
-    }
-    if (!isDatadirReady(dbDataDir)) {
-      throw new Error('MariaDB system tables were not created');
-    }
-    return;
+    const ok = runInstallDbTool(installDb, [
+      '--datadir', dbDataDir,
+      '--basedir', basedir,
+      '--auth-root-authentication-method=normal',
+    ], logDir);
+    if (ok && isDatadirReady(dbDataDir)) return;
+    throw new Error('mariadb-install-db failed');
   }
 
   const result = spawnSync(mysqld, [
@@ -153,11 +171,9 @@ function initMariaDataDir(mysqld, basedir, dbDataDir, logDir) {
     `--datadir=${dbDataDir}`,
     `--basedir=${basedir}`,
   ], { timeout: 180000, encoding: 'utf8', windowsHide: true, cwd: basedir });
-  if (result.status !== 0) {
-    throw new Error(`mysqld --initialize-insecure failed (code ${result.status})`);
-  }
-  if (!isDatadirReady(dbDataDir)) {
-    throw new Error('MariaDB system tables were not created after initialize');
+
+  if (result.status !== 0 || !isDatadirReady(dbDataDir)) {
+    throw new Error('mysqld --initialize-insecure failed');
   }
 }
 
@@ -402,10 +418,24 @@ async function startMariaDB(port) {
   writeMariaConfig(DATA_DIR, port, LOG_DIR, DB_DATA_DIR, basedir);
   const dbPass = writeDbConfig(port);
 
+  resetDatadirIfCorrupt(DB_DATA_DIR, LOG_DIR);
+
   try {
     await initMariaDbIfNeeded(mysqld, mysql, basedir, port, dbPass);
   } catch (e) {
     appendLog(path.join(LOG_DIR, 'init.log'), 'Init error: ' + e.message + '\n');
+  }
+
+  if (!isDatadirReady(DB_DATA_DIR)) {
+    showFatalError(
+      'Database setup failed',
+      `MariaDB system tables are missing (mysql.db, mysql.plugin).\n\n` +
+      `1. Close Business OS\n` +
+      `2. Delete this folder:\n${DATA_DIR}\n` +
+      `3. Install the latest version and relaunch\n\n` +
+      `Log:\n${tailLog(path.join(LOG_DIR, 'init.log'), 12)}`,
+    );
+    return false;
   }
 
   const cfgFile = mariaConfigPath(DATA_DIR);
