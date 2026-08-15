@@ -4,9 +4,9 @@ Business OS installs like any other Windows app — one download, one click, rea
 
 ## Step 1 — Download
 
-Download **`BusinessOS-Setup-1.0.6.exe`** from the [latest release](https://github.com/aaravpassport-max/BBC/releases/latest):
+Download **`BusinessOS-Setup-1.0.9.exe`** from the [latest release](https://github.com/aaravpassport-max/BBC/releases/latest):
 
-**Direct link:** https://github.com/aaravpassport-max/BBC/releases/download/v1.0.6/BusinessOS-Setup-1.0.6.exe (~150 MB)
+**Direct link:** https://github.com/aaravpassport-max/BBC/releases/download/v1.0.9/BusinessOS-Setup-1.0.9.exe (~150 MB)
 
 > No internet is required after download. PHP, MariaDB, and the full app are bundled inside the installer.
 
@@ -30,10 +30,10 @@ Installation typically takes **1–3 minutes** depending on your PC.
 
 | Field | Value |
 |-------|-------|
-| Email | `admin@businessos.local` |
+| Email | `admin@businessos.local` (or username `Admin`) |
 | Password | `changeme123` |
 
-Use the email exactly as shown — not your personal email address.
+Use the email exactly as shown — not your personal email address. If login still fails after upgrading, delete `%APPDATA%\business-os-desktop\BusinessOS` and reinstall.
 
 ## What gets installed
 

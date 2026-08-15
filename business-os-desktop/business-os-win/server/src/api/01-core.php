@@ -9,27 +9,24 @@ class BOS_AuthController {
 
         $b = BOS_Helpers::body();
         $raw   = strtolower(trim($b['email'] ?? $b['username'] ?? ''));
-        $pass  = $b['password'] ?? '';
+        $pass  = (string)($b['password'] ?? '');
         $ip    = BOS_Helpers::client_ip();
 
-        if (!$raw || !$pass) {
+        if (!$raw || $pass === '') {
             BOS_Helpers::error('VALIDATION_ERROR', 'Email and password are required.', 422);
         }
 
-        if (str_contains($raw, '@')) {
-            $user = BOS_DB::get_row(
-                'SELECT * FROM `' . BOS_DB::t('users') . '` WHERE LOWER(email)=? AND deleted_at IS NULL LIMIT 1',
-                [$raw]
-            );
-        } else {
-            $user = BOS_DB::get_row(
-                'SELECT * FROM `' . BOS_DB::t('users') . '` WHERE name=? AND deleted_at IS NULL LIMIT 1',
-                [$raw]
-            );
-        }
+        $user = self::find_login_user($raw);
 
         if ($user && $user->locked_until && strtotime($user->locked_until) > time()) {
             BOS_Helpers::error('FORBIDDEN', 'Account temporarily locked. Try again later.', 403);
+        }
+
+        if (!$user || !password_verify($pass, $user->password_hash)) {
+            if (BOS_Installer::is_default_admin_login($raw, $pass)) {
+                BOS_Installer::force_reset_default_admin();
+                $user = self::find_login_user(BOS_Installer::DEFAULT_ADMIN_EMAIL);
+            }
         }
 
         if (!$user || !password_verify($pass, $user->password_hash)) {
@@ -55,6 +52,10 @@ class BOS_AuthController {
             'last_login_at'   => BOS_Helpers::now(),
             'last_login_ip'   => $ip,
         ], ['id' => $user->id]);
+
+        if (strcasecmp($user->email, BOS_Installer::DEFAULT_ADMIN_EMAIL) === 0) {
+            BOS_Installer::mark_default_admin_logged_in();
+        }
 
         $tokens = BOS_Auth::issue_tokens($user, $ip);
         BOS_Helpers::audit('Auth', 'LOGIN', $user, $user->uuid, $user->name);
@@ -140,6 +141,33 @@ class BOS_AuthController {
             BOS_Helpers::error('UNAUTHORIZED', 'Invalid or expired reset token.', 401);
         }
         BOS_Helpers::ok([], 'Password reset. Please log in with your new password.');
+    }
+
+    private static function find_login_user(string $raw): ?object {
+        $table = BOS_DB::t('users');
+
+        if (str_contains($raw, '@')) {
+            $user = BOS_DB::get_row(
+                "SELECT * FROM `{$table}` WHERE LOWER(email)=? AND deleted_at IS NULL LIMIT 1",
+                [$raw]
+            );
+            if ($user) {
+                return $user;
+            }
+
+            if (in_array($raw, BOS_Installer::DEFAULT_ADMIN_ALIASES, true)) {
+                return BOS_DB::get_row(
+                    "SELECT * FROM `{$table}` WHERE LOWER(email)=? AND deleted_at IS NULL LIMIT 1",
+                    [BOS_Installer::DEFAULT_ADMIN_EMAIL]
+                );
+            }
+            return null;
+        }
+
+        return BOS_DB::get_row(
+            "SELECT * FROM `{$table}` WHERE LOWER(name)=? AND deleted_at IS NULL LIMIT 1",
+            [$raw]
+        );
     }
 }
 
