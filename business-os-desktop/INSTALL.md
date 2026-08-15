@@ -48,12 +48,12 @@ Your business data stays on your computer. Nothing is sent to the cloud.
 
 Go to **Settings → Apps → Installed apps**, find **Business OS**, and click **Uninstall**.
 
-During uninstall you will see a checkbox:
+During uninstall you will be asked:
 
-**☐ Delete all application data from this computer**
+**"Do you want to delete all Business OS application data?"**
 
-- **Tick this box** if you want a completely clean removal (recommended before reinstalling, or if login stops working)
-- **Leave it unticked** if you want to keep your database and files for a future reinstall
+- Click **Yes** for a completely clean removal (recommended before reinstalling, or if login stops working)
+- Click **No** to keep your database and files for a future reinstall
 
 This deletes the folder `%APPDATA%\business-os-desktop\` (database, settings, uploads).
 

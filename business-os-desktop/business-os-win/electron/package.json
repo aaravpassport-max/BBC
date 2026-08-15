@@ -33,7 +33,7 @@
       "category": "Office"
     },
     "nsis": {
-      "oneClick": false,
+      "oneClick": true,
       "perMachine": false,
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
@@ -44,7 +44,6 @@
       "installerHeaderIcon": "../app/favicon.ico",
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false,
-      "removeDefaultUninstallWelcomePage": false,
       "displayLanguageSelector": false,
       "installerLanguages": ["en_US"],
       "language": "1033",
