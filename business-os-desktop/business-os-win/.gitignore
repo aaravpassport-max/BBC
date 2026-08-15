@@ -8,6 +8,7 @@ dist/
 # Bundled runtimes (download separately for Windows builds)
 php/
 mariadb/
+.build-cache/
 
 # Electron build artifacts
 *.AppImage
