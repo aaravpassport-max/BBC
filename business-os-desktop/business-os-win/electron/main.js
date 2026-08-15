@@ -92,24 +92,74 @@ function initMariaDataDir(mysqld, basedir, dbDataDir) {
   if (fs.existsSync(mysqlSystemDir)) return;
 
   const installDb = resolveBinary([
-    path.join(basedir, 'scripts', 'mariadb-install-db'),
-    path.join(basedir, 'bin', 'mariadb-install-db'),
-    which('mariadb-install-db'),
-    which('mysql_install_db'),
+    path.join(basedir, 'bin', IS_WIN ? 'mariadb-install-db.exe' : 'mariadb-install-db'),
+    path.join(basedir, 'bin', IS_WIN ? 'mysql_install_db.exe' : 'mysql_install_db'),
+    path.join(basedir, 'scripts', IS_WIN ? 'mariadb-install-db.exe' : 'mariadb-install-db'),
+    which(IS_WIN ? 'mariadb-install-db.exe' : 'mariadb-install-db'),
+    which(IS_WIN ? 'mysql_install_db.exe' : 'mysql_install_db'),
   ]);
 
   if (installDb) {
-    execSync(
-      `"${installDb}" --datadir="${dbDataDir}" --basedir="${basedir}" --auth-root-authentication-method=normal`,
-      { timeout: 120000, stdio: 'pipe' },
-    );
+    const args = IS_WIN
+      ? [`--datadir=${dbDataDir}`, `--basedir=${basedir}`, '--default-user']
+      : [`--datadir="${dbDataDir}"`, `--basedir="${basedir}"`, '--auth-root-authentication-method=normal'];
+    execSync(`"${installDb}" ${args.join(' ')}`, { timeout: 180000, stdio: 'pipe' });
     return;
   }
 
   execSync(`"${mysqld}" --initialize-insecure --datadir="${dbDataDir}" --basedir="${basedir}"`, {
-    timeout: 120000,
+    timeout: 180000,
     stdio: 'pipe',
   });
+}
+
+function isDatadirReady(dbDataDir) {
+  return fs.existsSync(path.join(dbDataDir, 'mysql'));
+}
+
+function resetDatadirIfCorrupt(dbDataDir, logDir) {
+  if (!fs.existsSync(dbDataDir)) return;
+  const entries = fs.readdirSync(dbDataDir).filter((e) => e !== '.' && e !== '..');
+  if (entries.length > 0 && !isDatadirReady(dbDataDir)) {
+    fs.rmSync(dbDataDir, { recursive: true, force: true });
+    fs.mkdirSync(dbDataDir, { recursive: true });
+    appendLog(path.join(logDir, 'init.log'), 'Removed corrupt database folder and will reinitialize.\n');
+  }
+}
+
+function appendLog(file, data) {
+  try { fs.appendFileSync(file, data); } catch {}
+}
+
+function tailLog(file, lines = 8) {
+  try {
+    if (!fs.existsSync(file)) return '';
+    return fs.readFileSync(file, 'utf8').split('\n').filter(Boolean).slice(-lines).join('\n');
+  } catch {
+    return '';
+  }
+}
+
+function spawnMysqld(mysqld, cfgFile, basedir, datadir, logDir) {
+  const args = [
+    `--defaults-file=${cfgFile}`,
+    `--basedir=${basedir}`,
+    `--datadir=${datadir}`,
+  ];
+  if (IS_WIN) args.push('--standalone', '--console');
+
+  const logFile = path.join(logDir, 'mariadb.log');
+  const proc = spawn(mysqld, args, {
+    stdio: ['ignore', 'pipe', 'pipe'],
+    detached: false,
+    windowsHide: true,
+    cwd: basedir,
+  });
+
+  proc.stdout.on('data', (d) => appendLog(logFile, d.toString()));
+  proc.stderr.on('data', (d) => appendLog(logFile, d.toString()));
+  proc.on('exit', (code) => appendLog(logFile, `mysqld exited with code ${code}\n`));
+  return proc;
 }
 
 function sleep(seconds) {
@@ -120,28 +170,31 @@ function mariaConfigPath(dataDir) {
   return path.join(dataDir, IS_WIN ? 'my.ini' : 'my.cnf');
 }
 
-function writeMariaConfig(dataDir, port, logDir, dbDataDir) {
+function writeMariaConfig(dataDir, port, logDir, dbDataDir, basedir) {
   const cfgPath = mariaConfigPath(dataDir);
   const datadir = dbDataDir.replace(/\\/g, '/');
+  const base = (basedir || '').replace(/\\/g, '/');
   const logError = path.join(logDir, 'mariadb.err').replace(/\\/g, '/');
 
   const content = IS_WIN
     ? `[mysqld]
 port=${port}
+basedir="${base}"
 datadir="${datadir}"
-socket=mysql.sock
 character-set-server=utf8mb4
 collation-server=utf8mb4_unicode_ci
-skip-networking=0
 bind-address=127.0.0.1
+skip-networking=0
+skip-name-resolve
 max_allowed_packet=64M
-innodb_buffer_pool_size=128M
+innodb_buffer_pool_size=64M
 log_error="${logError}"
 slow_query_log=0
 general_log=0
 [client]
 port=${port}
-character-set-server=utf8mb4`
+host=127.0.0.1
+protocol=TCP`
     : `[mysqld]
 port=${port}
 datadir=${datadir}
@@ -254,86 +307,75 @@ function readOrGenerateDbPassword() {
   return 'bos_' + crypto.randomBytes(16).toString('hex');
 }
 
-function initMariaDbIfNeeded(mysqld, mysql, basedir, port, dbPass) {
-  const mysqlFolder = path.join(DB_DATA_DIR, 'mysql');
-  if (fs.existsSync(mysqlFolder)) return;
+async function initMariaDbIfNeeded(mysqld, mysql, basedir, port, dbPass) {
+  resetDatadirIfCorrupt(DB_DATA_DIR, LOG_DIR);
+  if (isDatadirReady(DB_DATA_DIR)) return;
 
   const cfgFile = mariaConfigPath(DATA_DIR);
-  writeMariaConfig(DATA_DIR, port, LOG_DIR, DB_DATA_DIR);
+  writeMariaConfig(DATA_DIR, port, LOG_DIR, DB_DATA_DIR, basedir);
 
   try {
     initMariaDataDir(mysqld, basedir, DB_DATA_DIR);
   } catch (e) {
-    fs.appendFileSync(path.join(LOG_DIR, 'init.log'), 'Init error: ' + e.message + '\n');
-    if (!fs.existsSync(path.join(DB_DATA_DIR, 'mysql'))) {
-      throw e;
-    }
+    appendLog(path.join(LOG_DIR, 'init.log'), 'Init error: ' + e.message + '\n');
+    if (!isDatadirReady(DB_DATA_DIR)) throw e;
   }
 
-  const tempProc = spawn(mysqld, [
-    `--defaults-file=${cfgFile}`,
-    `--basedir=${basedir}`,
-    `--datadir=${DB_DATA_DIR}`,
-  ], { stdio: 'ignore', detached: false });
+  const tempProc = spawnMysqld(mysqld, cfgFile, basedir, DB_DATA_DIR, LOG_DIR);
 
-  return sleep(5).then(() => {
-    try {
-      const sql = [
-        'CREATE DATABASE IF NOT EXISTS businessos CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;',
-        `CREATE USER IF NOT EXISTS 'bosuser'@'127.0.0.1' IDENTIFIED BY '${dbPass}';`,
-        "GRANT ALL PRIVILEGES ON businessos.* TO 'bosuser'@'127.0.0.1';",
-        'FLUSH PRIVILEGES;',
-      ].join(' ');
-      execSync(`"${mysql}" -u root -P${port} -h127.0.0.1 -e "${sql.replace(/"/g, '\\"')}"`, {
-        timeout: 15000,
-        stdio: 'pipe',
-      });
-    } catch (e) {
-      fs.appendFileSync(path.join(LOG_DIR, 'init.log'), e.message + '\n');
-    }
+  try {
+    await waitForPort(port, 90000);
+    const sql = [
+      'CREATE DATABASE IF NOT EXISTS businessos CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;',
+      `CREATE USER IF NOT EXISTS 'bosuser'@'127.0.0.1' IDENTIFIED BY '${dbPass}';`,
+      `CREATE USER IF NOT EXISTS 'bosuser'@'localhost' IDENTIFIED BY '${dbPass}';`,
+      "GRANT ALL PRIVILEGES ON businessos.* TO 'bosuser'@'127.0.0.1';",
+      "GRANT ALL PRIVILEGES ON businessos.* TO 'bosuser'@'localhost';",
+      'FLUSH PRIVILEGES;',
+    ].join(' ');
+    const proto = IS_WIN ? ' --protocol=TCP' : '';
+    execSync(`"${mysql}" -u root -P${port} -h127.0.0.1${proto} -e "${sql.replace(/"/g, '\\"')}"`, {
+      timeout: 30000,
+      stdio: 'pipe',
+    });
+  } catch (e) {
+    appendLog(path.join(LOG_DIR, 'init.log'), 'User setup: ' + e.message + '\n');
+  } finally {
     try { tempProc.kill('SIGTERM'); } catch {}
-  });
+    await sleep(2);
+  }
 }
 
 async function startMariaDB(port) {
   const mysqld = getMysqldBinary(MARIADB_DIR);
   if (!mysqld) {
-    showFatalError('MariaDB not found', 'Install MariaDB/MySQL or bundle it in the mariadb/ folder.');
+    showFatalError('MariaDB not found', `Expected bundled MariaDB in:\n${MARIADB_DIR}`);
     return false;
   }
 
   const basedir = getMariaBasedir(MARIADB_DIR, mysqld);
   const mysql = getMysqlBinary(MARIADB_DIR);
-  writeMariaConfig(DATA_DIR, port, LOG_DIR, DB_DATA_DIR);
+  writeMariaConfig(DATA_DIR, port, LOG_DIR, DB_DATA_DIR, basedir);
   const dbPass = writeDbConfig(port);
 
   try {
     await initMariaDbIfNeeded(mysqld, mysql, basedir, port, dbPass);
   } catch (e) {
-    fs.appendFileSync(path.join(LOG_DIR, 'init.log'), 'Init error: ' + e.message + '\n');
+    appendLog(path.join(LOG_DIR, 'init.log'), 'Init error: ' + e.message + '\n');
   }
 
   const cfgFile = mariaConfigPath(DATA_DIR);
-  mariaProcess = spawn(mysqld, [
-    `--defaults-file=${cfgFile}`,
-    `--basedir=${basedir}`,
-    `--datadir=${DB_DATA_DIR}`,
-  ], {
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: false,
-  });
-
-  mariaProcess.stderr.on('data', (d) => {
-    fs.appendFileSync(path.join(LOG_DIR, 'mariadb.log'), d.toString());
-  });
+  mariaProcess = spawnMysqld(mysqld, cfgFile, basedir, DB_DATA_DIR, LOG_DIR);
 
   try {
-    await waitForPort(port, 45000);
+    await waitForPort(port, 120000);
     return true;
   } catch (e) {
+    const errLog = path.join(LOG_DIR, 'mariadb.err');
+    const logHint = tailLog(errLog) || tailLog(path.join(LOG_DIR, 'mariadb.log'));
     showFatalError(
       'Database failed to start',
-      `MariaDB did not respond within 45 seconds.\n\nCheck: ${path.join(LOG_DIR, 'mariadb.log')}`,
+      `MariaDB did not respond in time.\n\nTry: delete this folder and relaunch:\n${DATA_DIR}\n\nLog:\n${logHint}`,
     );
     return false;
   }
