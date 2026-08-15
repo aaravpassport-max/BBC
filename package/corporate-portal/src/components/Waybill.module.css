@@ -1,0 +1,89 @@
+.wrapper {
+  position: relative;
+  margin-top: 10px;
+}
+
+.perforation {
+  height: 20px;
+  background: repeating-radial-gradient(
+    circle at 12px 10px,
+    var(--bg) 0,
+    var(--bg) 5px,
+    var(--surface) 5px,
+    var(--surface) 6px
+  );
+  background-size: 24px 20px;
+  background-repeat: repeat-x;
+  border-radius: 14px 14px 0 0;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  margin-bottom: -1px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0 0 14px 14px;
+  padding: 20px 22px 22px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px dashed var(--border);
+}
+
+.label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.id {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 14px;
+  padding: 6px 0;
+  color: var(--text-muted);
+}
+
+.lineValue {
+  font-family: var(--font-mono);
+  color: var(--text);
+}
+
+.lineEmphasis {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 16px;
+  padding-top: 12px;
+}
+
+.lineEmphasis .lineValue {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--accent-strong);
+}
+
+.lineMuted .lineValue {
+  color: var(--success);
+}
+
+.divider {
+  border-top: 1px dashed var(--border);
+  margin: 8px 0;
+}
