@@ -1,6 +1,6 @@
 {
   "name": "business-os-desktop",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "Business OS — Windows Desktop Application",
   "author": "Business OS",
   "main": "main.js",
@@ -33,7 +33,7 @@
       "category": "Office"
     },
     "nsis": {
-      "oneClick": true,
+      "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
@@ -44,6 +44,7 @@
       "installerHeaderIcon": "../app/favicon.ico",
       "runAfterFinish": true,
       "deleteAppDataOnUninstall": false,
+      "removeDefaultUninstallWelcomePage": false,
       "displayLanguageSelector": false,
       "installerLanguages": ["en_US"],
       "language": "1033",

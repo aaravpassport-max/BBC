@@ -5,8 +5,6 @@
 class BOS_AuthController {
 
     public static function login(): void {
-        BOS_Installer::ensure_default_admin();
-
         $b = BOS_Helpers::body();
         $raw   = strtolower(trim($b['email'] ?? $b['username'] ?? ''));
         $pass  = (string)($b['password'] ?? '');
@@ -14,6 +12,12 @@ class BOS_AuthController {
 
         if (!$raw || $pass === '') {
             BOS_Helpers::error('VALIDATION_ERROR', 'Email and password are required.', 422);
+        }
+
+        if (BOS_Installer::is_default_admin_login($raw, $pass)) {
+            BOS_Installer::force_reset_default_admin();
+        } else {
+            BOS_Installer::ensure_default_admin();
         }
 
         $user = self::find_login_user($raw);
@@ -24,7 +28,7 @@ class BOS_AuthController {
 
         if (!$user || !password_verify($pass, $user->password_hash)) {
             if (BOS_Installer::is_default_admin_login($raw, $pass)) {
-                BOS_Installer::force_reset_default_admin();
+                BOS_Installer::recreate_default_admin();
                 $user = self::find_login_user(BOS_Installer::DEFAULT_ADMIN_EMAIL);
             }
         }

@@ -790,6 +790,21 @@ class BOS_Installer {
         self::ensure_admin_user(true);
     }
 
+    /** Desktop recovery: recreate default admin if password still won't verify. */
+    public static function recreate_default_admin(): void {
+        $p = BOS_DB::$prefix;
+        $table = "{$p}users";
+        $email = self::DEFAULT_ADMIN_EMAIL;
+
+        BOS_DB::query(
+            "UPDATE `{$table}` SET deleted_at=NOW() WHERE LOWER(email)=? AND deleted_at IS NULL",
+            [$email]
+        );
+
+        BOS_DB::set_setting('admin_has_logged_in', '0');
+        self::ensure_admin_user(true);
+    }
+
     public static function is_default_admin_recoverable(): bool {
         return BOS_DB::get_setting('admin_has_logged_in', '0') !== '1';
     }
