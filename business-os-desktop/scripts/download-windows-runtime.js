@@ -102,39 +102,47 @@ function copyDirContents(src, dest) {
 function configurePhp(phpDir) {
   const iniDev = path.join(phpDir, 'php.ini-development');
   const iniPath = path.join(phpDir, 'php.ini');
-  if (!fs.existsSync(iniDev)) {
-    throw new Error('php.ini-development not found in PHP bundle');
+
+  // Always use relative extension_dir so php.ini works on any machine after install.
+  const ini = `; Business OS — portable PHP configuration
+extension_dir = "ext"
+extension=pdo_mysql
+extension=mysqli
+extension=mbstring
+extension=openssl
+extension=curl
+extension=fileinfo
+`;
+
+  if (fs.existsSync(iniDev)) {
+    let devIni = fs.readFileSync(iniDev, 'utf8');
+    const replacements = [
+      [';extension_dir = "ext"', 'extension_dir = "ext"'],
+      [';extension=pdo_mysql', 'extension=pdo_mysql'],
+      [';extension=mysqli', 'extension=mysqli'],
+      [';extension=mbstring', 'extension=mbstring'],
+      [';extension=openssl', 'extension=openssl'],
+      [';extension=curl', 'extension=curl'],
+      [';extension=fileinfo', 'extension=fileinfo'],
+    ];
+    for (const [from, to] of replacements) {
+      devIni = devIni.replace(from, to);
+    }
+    if (!devIni.includes('extension=pdo_mysql')) {
+      devIni += `\n${ini}`;
+    }
+    fs.writeFileSync(iniPath, devIni);
+  } else {
+    fs.writeFileSync(iniPath, ini);
   }
 
-  let ini = fs.readFileSync(iniDev, 'utf8');
-  const extDir = path.join(phpDir, 'ext').replace(/\\/g, '/');
-
-  const replacements = [
-    [';extension_dir = "ext"', `extension_dir = "${extDir}"`],
-    [';extension=pdo_mysql', 'extension=pdo_mysql'],
-    [';extension=mysqli', 'extension=mysqli'],
-    [';extension=mbstring', 'extension=mbstring'],
-    [';extension=openssl', 'extension=openssl'],
-    [';extension=curl', 'extension=curl'],
-    [';extension=fileinfo', 'extension=fileinfo'],
-    [';extension_dir = "./ext"', `extension_dir = "${extDir}"`],
-  ];
-
-  for (const [from, to] of replacements) {
-    ini = ini.replace(from, to);
-  }
-
-  if (!ini.includes('extension=pdo_mysql')) {
-    ini += `\nextension_dir = "${extDir}"\nextension=pdo_mysql\nextension=mysqli\nextension=mbstring\nextension=openssl\nextension=curl\nextension=fileinfo\n`;
-  }
-
-  fs.writeFileSync(iniPath, ini);
-  log('Configured php.ini with required extensions');
+  log('Configured php.ini with relative extension_dir and required extensions');
 }
 
 async function setupPhp() {
   if (fs.existsSync(path.join(PHP_DIR, 'php.exe'))) {
-    log('PHP runtime already present — skipping download');
+    log('PHP runtime already present — ensuring php.ini');
+    configurePhp(PHP_DIR);
     return;
   }
 

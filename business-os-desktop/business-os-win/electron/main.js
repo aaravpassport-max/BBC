@@ -46,6 +46,36 @@ function getPhpBinary(phpDir) {
   ]);
 }
 
+/** Write php.ini beside bundled PHP using relative paths (works on any install location). */
+function ensurePhpIni(phpDir) {
+  const iniPath = path.join(phpDir, 'php.ini');
+  const extDir = path.join(phpDir, 'ext');
+  if (!fs.existsSync(extDir)) {
+    throw new Error(`PHP extensions folder not found: ${extDir}`);
+  }
+
+  const required = ['pdo_mysql', 'mysqli', 'mbstring', 'openssl', 'curl', 'fileinfo'];
+  const missing = required.filter((ext) => {
+    const dll = path.join(extDir, IS_WIN ? `php_${ext}.dll` : `${ext}.so`);
+    return !fs.existsSync(dll);
+  });
+  if (missing.length) {
+    throw new Error(`Missing PHP extensions in ${extDir}: ${missing.join(', ')}`);
+  }
+
+  const ini = `; Business OS — auto-generated for portable install
+extension_dir = "ext"
+extension=pdo_mysql
+extension=mysqli
+extension=mbstring
+extension=openssl
+extension=curl
+extension=fileinfo
+`;
+  fs.writeFileSync(iniPath, ini);
+  return iniPath;
+}
+
 function getMysqldBinary(mariaDir) {
   return resolveBinary([
     path.join(mariaDir, 'bin', IS_WIN ? 'mysqld.exe' : 'mysqld'),
@@ -486,16 +516,30 @@ async function startPhpServer(port) {
     return false;
   }
 
+  let phpIni;
+  try {
+    phpIni = ensurePhpIni(PHP_DIR);
+  } catch (e) {
+    showFatalError(
+      'PHP configuration failed',
+      `${e.message}\n\nReinstall Business OS from the latest installer.`,
+    );
+    return false;
+  }
+
   const serverRoot = path.join(APP_DIR, 'server', 'public');
   const appDir = path.join(APP_DIR, 'app');
 
   phpProcess = spawn(php, [
+    '-c', phpIni,
     '-S', `127.0.0.1:${port}`,
     '-t', serverRoot,
     path.join(serverRoot, 'index.php'),
   ], {
+    cwd: PHP_DIR,
     env: {
       ...process.env,
+      PHPRC: PHP_DIR,
       BOS_PORT: String(port),
       BOS_DATA_DIR: DATA_DIR,
       BOS_DB_PORT: String(dbPort),

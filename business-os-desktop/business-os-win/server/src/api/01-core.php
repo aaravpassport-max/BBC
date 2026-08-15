@@ -153,10 +153,17 @@ class BOS_AuthController {
             'db_connected'      => false,
             'users_table'       => false,
             'admin_exists'      => false,
+            'pdo_mysql'         => extension_loaded('pdo_mysql'),
             'default_admin_email' => BOS_Installer::DEFAULT_ADMIN_EMAIL,
             'schema_version'    => null,
             'error'             => null,
         ];
+
+        if (!$status['pdo_mysql']) {
+            $status['error'] = 'pdo_mysql extension not loaded — reinstall from latest Business OS installer';
+            BOS_Helpers::ok($status);
+            return;
+        }
 
         try {
             BOS_DB::connect();

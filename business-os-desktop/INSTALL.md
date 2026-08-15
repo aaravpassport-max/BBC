@@ -4,9 +4,9 @@ Business OS installs like any other Windows app — one download, one click, rea
 
 ## Step 1 — Download
 
-Download **`BusinessOS-Setup-1.0.11.exe`** from the [latest release](https://github.com/aaravpassport-max/BBC/releases/latest):
+Download **`BusinessOS-Setup-1.0.12.exe`** from the [latest release](https://github.com/aaravpassport-max/BBC/releases/latest):
 
-**Direct link:** https://github.com/aaravpassport-max/BBC/releases/download/v1.0.11/BusinessOS-Setup-1.0.11.exe (~150 MB)
+**Direct link:** https://github.com/aaravpassport-max/BBC/releases/download/v1.0.12/BusinessOS-Setup-1.0.12.exe (~150 MB)
 
 > No internet is required after download. PHP, MariaDB, and the full app are bundled inside the installer.
 
@@ -14,7 +14,7 @@ Download **`BusinessOS-Setup-1.0.11.exe`** from the [latest release](https://git
 
 1. Open **Task Manager** (Ctrl+Shift+Esc) and end any **Business OS** or **business-os-desktop** processes
 2. If reinstalling after login problems, uninstall the old version first (see **Uninstall** below — tick the data deletion box)
-3. Double-click **`BusinessOS-Setup-1.0.11.exe`**
+3. Double-click **`BusinessOS-Setup-1.0.12.exe`**
 4. Windows may show a SmartScreen prompt — click **More info** → **Run anyway** (the app is not yet code-signed)
 5. Click through the installer — no admin rights needed
 6. A desktop shortcut and Start Menu entry are created
@@ -69,7 +69,7 @@ Open the log folder: press `Win+R`, paste `%APPDATA%\business-os-desktop\Busines
 
 **Forgot password**
 
-Uninstall Business OS and click **Yes** when asked to delete application data, then reinstall **v1.0.11** and log in with the default credentials above.
+Uninstall Business OS and click **Yes** when asked to delete application data, then reinstall **v1.0.12** and log in with the default credentials above.
 
 **Need help building the installer yourself?**
 
