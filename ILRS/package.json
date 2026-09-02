@@ -1,0 +1,67 @@
+{
+  "name": "ilrs",
+  "version": "1.0.0",
+  "description": "ILRS — Intelligent Life Reminder System",
+  "main": "main.js",
+  "scripts": {
+    "start": "node scripts/generate-icons.js && electron . --no-sandbox",
+    "postinstall": "node scripts/generate-icons.js && electron-rebuild -f -w better-sqlite3",
+    "dev": "electron . --dev --no-sandbox",
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux",
+    "build": "electron-builder"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "electron-store": "^8.1.0",
+    "node-cron": "^3.0.3",
+    "node-notifier": "^10.0.1",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.2.0",
+    "electron": "^29.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.ilrs.app",
+    "productName": "ILRS - Life Reminder System",
+    "icon": "assets/icon",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "src/**/*",
+      "assets/**/*",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.ico"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/icon.icns"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
