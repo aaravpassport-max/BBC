@@ -2,15 +2,20 @@
   "name": "ilrs",
   "version": "1.0.0",
   "description": "ILRS — Intelligent Life Reminder System",
+  "author": {
+    "name": "Business OS",
+    "email": "admin@businessos.local"
+  },
+  "homepage": "https://github.com/aaravpassport-max/BBC",
   "main": "main.js",
   "scripts": {
     "start": "node scripts/generate-icons.js && electron . --no-sandbox",
     "postinstall": "node scripts/generate-icons.js && electron-rebuild -f -w better-sqlite3",
     "dev": "electron . --dev --no-sandbox",
-    "build:win": "electron-builder --win",
+    "build:win": "electron-builder --win --x64",
     "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux",
-    "build": "electron-builder"
+    "build:linux": "electron-builder --linux --x64",
+    "build": "electron-builder --win --linux --x64"
   },
   "dependencies": {
     "better-sqlite3": "^9.4.3",
@@ -26,42 +31,54 @@
   },
   "build": {
     "appId": "com.ilrs.app",
-    "productName": "ILRS - Life Reminder System",
-    "icon": "assets/icon",
+    "productName": "ILRS",
+    "artifactName": "ILRS-Setup-${version}.${ext}",
+    "icon": "assets/icon.png",
     "directories": {
       "output": "dist"
     },
     "files": [
       "main.js",
       "preload.js",
+      "notifications.js",
       "src/**/*",
       "assets/**/*",
       "node_modules/**/*"
     ],
     "win": {
       "target": [
-        "nsis"
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
       ],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.png",
+      "signAndEditExecutable": false
     },
     "mac": {
       "target": [
         "dmg"
       ],
-      "icon": "assets/icon.icns"
+      "icon": "assets/icon.png"
     },
     "linux": {
       "target": [
         "AppImage",
         "deb"
       ],
-      "icon": "assets/icon.png"
+      "icon": "assets/icon.png",
+      "category": "Office",
+      "maintainer": "Business OS <admin@businessos.local>"
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
       "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
+      "createStartMenuShortcut": true,
+      "shortcutName": "ILRS",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
     }
   }
 }
