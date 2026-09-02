@@ -8,23 +8,23 @@ Everything is bundled inside the installer.
 
 ## Windows (recommended)
 
-### Step 1 — Download
+### Option A — One-click installer (`.exe`)
 
-Download **`ILRS-Setup-1.0.0.exe`** from:
+Download **`ILRS-Setup-1.0.0.exe`** from [GitHub Releases](https://github.com/aaravpassport-max/BBC/releases/latest).
 
-- **GitHub Releases:** https://github.com/aaravpassport-max/BBC/releases/latest  
-- Or run **Actions → Build ILRS Installers → Run workflow**, then download the `ILRS-Windows-Setup` artifact.
+1. Double-click the `.exe`
+2. SmartScreen may appear — click **More info** → **Run anyway**
+3. Installation completes automatically and ILRS launches
 
-### Step 2 — Install
+### Option B — Portable (no installer, just unzip and run)
 
-1. Double-click **`ILRS-Setup-1.0.0.exe`**
-2. Windows SmartScreen may appear — click **More info** → **Run anyway**
-3. The installer runs automatically (one-click install)
-4. ILRS opens when installation finishes
+Download **`ILRS-Portable-1.0.0-Windows-x64.zip`** from [GitHub Releases](https://github.com/aaravpassport-max/BBC/releases/latest).
 
-A desktop shortcut and Start Menu entry are created automatically.
+1. Right-click the zip → **Extract All**
+2. Open the extracted `win-unpacked` folder
+3. Double-click **`ILRS.exe`**
 
-**No admin rights required.**
+No Node.js or other software required. Nothing is installed to Program Files — delete the folder to uninstall.
 
 ---
 
