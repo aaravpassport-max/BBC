@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('ilrs', {
   // Notifications
   sendNotification: (data) => ipcRenderer.send('send-notification', data),
   testNotification: () => ipcRenderer.invoke('test-notification'),
+  scheduleTestAlarm: () => ipcRenderer.invoke('schedule-test-alarm'),
 
   // Export
   exportData: (data) => ipcRenderer.invoke('export-data', data),

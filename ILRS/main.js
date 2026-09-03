@@ -2,12 +2,21 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, dialog, shell } = 
 const path = require('path');
 const fs = require('fs');
 const { showDesktopNotification, getSetting, TRAY_ICON_PATH } = require('./notifications');
+const { playAlertSound } = require('./sound-player');
+const {
+  toLocalISO,
+  localDateStr,
+  localTimeStr,
+  isDue,
+  planAfterFire,
+} = require('./alarm');
 
 let mainWindow;
 let tray;
 let db;
 let schedulerTimer;
 const firedKeys = new Set();
+const pendingDueEvents = [];
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -42,6 +51,8 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    flushPendingDueEvents();
+    runSchedulerTick();
   });
 
   mainWindow.on('close', (e) => {
@@ -93,20 +104,42 @@ function sendTestNotification() {
     priority: 'normal',
     is_private: 0,
   }, { onClick: focusMainWindow, type: 'reminder' });
+  const tone = getSetting(db, 'reminder_tone', 'loud-chime');
+  playAlertSound(tone, 2);
+  mainWindow?.webContents.send('play-alert-sound', tone);
 }
 
 function dispatchDueItem(item, type = 'reminder') {
-  const key = `${type}:${item.id}:${new Date().toISOString().slice(0, 16)}`;
-  if (firedKeys.has(key)) return;
-  firedKeys.add(key);
-  if (firedKeys.size > 500) {
-    firedKeys.clear();
+  const minuteKey = `${type}:${item.id}:${toLocalISO().slice(0, 16)}`;
+  if (firedKeys.has(minuteKey)) return;
+  firedKeys.add(minuteKey);
+  if (firedKeys.size > 500) firedKeys.clear();
+
+  const payload = { ...item, _type: type };
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+    mainWindow.webContents.send('reminder-due', payload);
+  } else {
+    pendingDueEvents.push(payload);
   }
 
-  mainWindow?.webContents.send('reminder-due', { ...item, _type: type });
+  const style = getSetting(db, 'notification_style', 'sound-popup');
   showDesktopNotification(db, item, { onClick: focusMainWindow, type });
-  const tone = getSetting(db, 'reminder_tone', 'loud-chime');
-  mainWindow?.webContents.send('play-alert-sound', tone);
+
+  if (style !== 'silent' && style !== 'popup-only') {
+    const tone = getSetting(db, 'reminder_tone', 'loud-chime');
+    const repeats = item.priority === 'critical' ? 3 : 2;
+    playAlertSound(tone, repeats);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('play-alert-sound', tone);
+    }
+  }
+}
+
+function flushPendingDueEvents() {
+  if (!mainWindow || mainWindow.isDestroyed() || pendingDueEvents.length === 0) return;
+  while (pendingDueEvents.length > 0) {
+    mainWindow.webContents.send('reminder-due', pendingDueEvents.shift());
+  }
 }
 
 function setupIPC() {
@@ -131,6 +164,25 @@ function setupIPC() {
   ipcMain.handle('test-notification', async () => {
     sendTestNotification();
     return { success: true };
+  });
+
+  ipcMain.handle('schedule-test-alarm', async () => {
+    try {
+      const id = require('crypto').randomUUID();
+      const fireAt = new Date(Date.now() + 60000);
+      const start = localDateStr(fireAt);
+      const time = `${String(fireAt.getHours()).padStart(2, '0')}:${String(fireAt.getMinutes()).padStart(2, '0')}`;
+      const nextFire = toLocalISO(fireAt);
+      db.prepare(`
+        INSERT INTO reminders (
+          id, title, task_type, category, why_it_matters, repeat_type, reminder_time,
+          start_date, priority, alert_style, status, next_fire, alarm_rings, created_at, updated_at
+        ) VALUES (?, ?, 'reminder', 'general', ?, 'once', ?, ?, 'important', 'sound-popup', 'active', ?, 0, datetime('now'), datetime('now'))
+      `).run(id, 'ILRS Test Alarm', 'This is a 1-minute test alarm. Mark done when you hear it.', time, start, nextFire);
+      return { success: true, fireAt: nextFire, id };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
   });
 
   ipcMain.on('open-backup-folder', (_event, folderPath) => {
@@ -337,6 +389,8 @@ function initDatabase() {
     CREATE INDEX IF NOT EXISTS idx_habit_logs_date ON habit_logs(log_date);
   `);
 
+  try { db.exec('ALTER TABLE reminders ADD COLUMN alarm_rings INTEGER DEFAULT 0'); } catch (_) { /* already exists */ }
+
   const defaultSettings = {
     user_name: 'Friend',
     notification_style: 'sound-popup',
@@ -369,69 +423,67 @@ function initDatabase() {
   return db;
 }
 
-function updateNextFire(reminder) {
+function repairReminderSchedules() {
+  if (!db) return;
   try {
+    const { computeNextFire } = require('./alarm');
     const now = new Date();
-    let nextFire = null;
+    const rows = db.prepare(`
+      SELECT id, start_date, reminder_time, repeat_type, next_fire
+      FROM reminders WHERE status = 'active' AND reminder_time != ''
+    `).all();
 
-    switch (reminder.repeat_type) {
-      case 'daily': {
-        nextFire = new Date(now);
-        if (reminder.reminder_time) {
-          const [h, m] = reminder.reminder_time.split(':').map(Number);
-          nextFire.setDate(nextFire.getDate() + 1);
-          nextFire.setHours(h, m, 0, 0);
-        } else {
-          nextFire.setDate(nextFire.getDate() + 1);
-        }
-        break;
-      }
-      case 'weekly':
-        nextFire = new Date(now);
-        nextFire.setDate(nextFire.getDate() + 7);
-        break;
-      case 'monthly':
-        nextFire = new Date(now);
-        nextFire.setMonth(nextFire.getMonth() + 1);
-        break;
-      case 'once':
-      default:
-        db.prepare("UPDATE reminders SET status = 'completed', updated_at = ? WHERE id = ?")
-          .run(now.toISOString(), reminder.id);
-        return;
-    }
-
-    if (nextFire) {
-      db.prepare('UPDATE reminders SET next_fire = ?, last_fired = ?, updated_at = ? WHERE id = ?')
-        .run(nextFire.toISOString(), now.toISOString(), now.toISOString(), reminder.id);
+    const fix = db.prepare('UPDATE reminders SET next_fire = ? WHERE id = ?');
+    for (const row of rows) {
+      const next = computeNextFire(row.start_date || localDateStr(now), row.reminder_time, row.repeat_type || 'once', now);
+      if (next) fix.run(next, row.id);
     }
   } catch (err) {
-    console.error('updateNextFire error:', err.message);
+    console.error('repairReminderSchedules error:', err.message);
   }
 }
 
-function checkDueReminders(now) {
-  const todayStr = now.toISOString().split('T')[0];
-  const dueReminders = db.prepare(`
+function afterReminderFired(reminder, now = new Date()) {
+  const plan = planAfterFire(reminder, now);
+  db.prepare(`
+    UPDATE reminders
+    SET next_fire = ?, alarm_rings = ?, status = ?, last_fired = ?, updated_at = ?
+    WHERE id = ?
+  `).run(plan.nextFire || reminder.next_fire, plan.alarmRings, plan.status, now.toISOString(), now.toISOString(), reminder.id);
+}
+
+function checkDueReminders(now = new Date()) {
+  const today = localDateStr(now);
+  const nowLocal = toLocalISO(now);
+  const timeNow = localTimeStr(now);
+
+  const candidates = db.prepare(`
     SELECT * FROM reminders
     WHERE status = 'active'
-    AND start_date <= ?
+    AND (start_date = '' OR start_date <= ?)
     AND (
       (next_fire != '' AND next_fire <= ?)
       OR (next_fire = '' AND reminder_time != '' AND reminder_time = ?)
     )
-    LIMIT 20
-  `).all(todayStr, now.toISOString(), now.toTimeString().slice(0, 5));
+    ORDER BY next_fire ASC
+    LIMIT 30
+  `).all(today, nowLocal, timeNow);
 
-  for (const reminder of dueReminders) {
+  for (const reminder of candidates) {
+    const due = reminder.next_fire
+      ? isDue(reminder.next_fire, now)
+      : reminder.reminder_time === timeNow;
+
+    if (!due) continue;
+
     dispatchDueItem(reminder, 'reminder');
-    updateNextFire(reminder);
+    afterReminderFired(reminder, now);
   }
 }
 
-function checkDueMedicines(now) {
-  const today = now.toISOString().split('T')[0];
-  const timeStr = now.toTimeString().slice(0, 5);
+function checkDueMedicines(now = new Date()) {
+  const today = localDateStr(now);
+  const timeStr = localTimeStr(now);
   const medicines = db.prepare("SELECT * FROM medicines WHERE status = 'active'").all();
 
   for (const med of medicines) {
@@ -470,7 +522,7 @@ function checkDueBills(now) {
 }
 
 function runSchedulerTick() {
-  if (!db || !mainWindow) return;
+  if (!db) return;
   try {
     const now = new Date();
     checkDueReminders(now);
@@ -482,8 +534,9 @@ function runSchedulerTick() {
 }
 
 function startScheduler() {
+  if (schedulerTimer) clearInterval(schedulerTimer);
   runSchedulerTick();
-  schedulerTimer = setInterval(runSchedulerTick, 30000);
+  schedulerTimer = setInterval(runSchedulerTick, 10000);
 }
 
 function scheduleBackup() {
@@ -522,6 +575,7 @@ app.whenReady().then(() => {
   createTray();
   setupIPC();
   if (db) {
+    repairReminderSchedules();
     startScheduler();
     scheduleBackup();
   }

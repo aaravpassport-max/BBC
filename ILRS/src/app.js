@@ -50,6 +50,37 @@ function nowTimeStr() {
   return new Date().toTimeString().slice(0, 5);
 }
 
+function toLocalFireISO(date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}:${String(date.getSeconds()).padStart(2, '0')}`;
+}
+
+function computeNextFireLocal(startDate, time, repeatType = 'once') {
+  if (!startDate || !time) return '';
+  const [h, m] = time.split(':').map(Number);
+  const [y, mo, d] = startDate.split('-').map(Number);
+  const now = new Date();
+  let fire = new Date(y, mo - 1, d, h, m || 0, 0, 0);
+
+  if (fire.getTime() <= now.getTime()) {
+    switch (repeatType) {
+      case 'daily': fire.setDate(fire.getDate() + 1); break;
+      case 'weekly': fire.setDate(fire.getDate() + 7); break;
+      case 'monthly': fire.setMonth(fire.getMonth() + 1); break;
+      default: fire = new Date(now.getTime() + 30000); break;
+    }
+  }
+  return toLocalFireISO(fire);
+}
+
+function isReminderOverdue(nextFire) {
+  if (!nextFire) return false;
+  const clean = String(nextFire).replace(' ', 'T');
+  const [datePart, timePart = '00:00:00'] = clean.split('T');
+  const [y, m, d] = datePart.split('-').map(Number);
+  const [hh, mm] = timePart.split(':').map(Number);
+  return new Date(y, m - 1, d, hh, mm || 0, 0, 0).getTime() < Date.now();
+}
+
 function daysUntil(dateStr) {
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const target = new Date(dateStr); target.setHours(0, 0, 0, 0);
@@ -222,7 +253,7 @@ async function renderDashboard(el) {
   const now = nowTimeStr();
 
   const todayReminders = App.reminders.filter(r => r.status === 'active' && (!r.start_date || r.start_date <= today));
-  const overdue = App.reminders.filter(r => r.status === 'active' && r.next_fire && r.next_fire < new Date().toISOString() && r.next_fire !== '');
+  const overdue = App.reminders.filter(r => r.status === 'active' && isReminderOverdue(r.next_fire));
   const critical = App.reminders.filter(r => r.priority === 'critical' && r.status === 'active');
   const completedToday = await db("SELECT COUNT(*) as c FROM reminder_logs WHERE action='completed' AND date(timestamp)=?", [today]);
   const cCount = completedToday?.[0]?.c || 0;
@@ -352,7 +383,7 @@ async function renderDashboard(el) {
 
 // ── Reminder Card ──────────────────────────────────────────────────
 function reminderCard(r) {
-  const isOverdue = r.next_fire && r.next_fire < new Date().toISOString() && r.next_fire !== '';
+  const isOverdue = isReminderOverdue(r.next_fire);
   const tags = JSON.parse(r.tags || '[]');
   return `
     <div class="reminder-card ${r.priority} ${isOverdue ? 'overdue' : ''}" id="rcard-${r.id}">
@@ -649,11 +680,8 @@ async function saveReminder(id, isEdit) {
   const startDate = document.getElementById('f-start').value || todayStr();
   const repeatType = document.getElementById('f-repeat').value;
 
-  // Compute next_fire
-  let nextFire = '';
-  if (time && startDate) {
-    nextFire = `${startDate}T${time}:00`;
-  }
+  // Compute next_fire in local time (matches main-process alarm scheduler)
+  const nextFire = computeNextFireLocal(startDate, time, repeatType);
 
   const params = [
     id,
@@ -691,7 +719,7 @@ async function saveReminder(id, isEdit) {
 }
 
 async function completeReminder(id) {
-  await db("UPDATE reminders SET status='completed', last_completed=?, updated_at=? WHERE id=?",
+  await db("UPDATE reminders SET status='completed', alarm_rings=0, last_completed=?, updated_at=? WHERE id=?",
     [new Date().toISOString(), new Date().toISOString(), id]);
   await db("INSERT INTO reminder_logs (id,reminder_id,action,timestamp) VALUES (?,?,'completed',datetime('now'))",
     [uuid(), id]);
@@ -704,8 +732,8 @@ async function completeReminder(id) {
 
 async function snoozeReminder(id) {
   const duration = parseInt(App.settings.snooze_duration) || 10;
-  const newFire = new Date(Date.now() + duration * 60000).toISOString();
-  await db("UPDATE reminders SET next_fire=?, snooze_count=snooze_count+1, updated_at=? WHERE id=?",
+  const newFire = toLocalFireISO(new Date(Date.now() + duration * 60000));
+  await db("UPDATE reminders SET next_fire=?, alarm_rings=0, snooze_count=snooze_count+1, updated_at=? WHERE id=?",
     [newFire, new Date().toISOString(), id]);
   await db("INSERT INTO reminder_logs (id,reminder_id,action,timestamp) VALUES (?,?,'snoozed',datetime('now'))", [uuid(), id]);
   toast(`💤 Snoozed for ${duration} minutes`);
@@ -880,7 +908,7 @@ async function saveMedicine() {
     const rid = uuid();
     if (!await dbRun(`INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,reminder_time,start_date,priority,alert_style,status,next_fire,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
       [rid, `Take ${name}`, 'reminder', 'medicine', document.getElementById('m-condition').value || 'Medication', 'daily', t,
-       startDate, 'important', 'sound-popup', 'active', `${startDate}T${t}:00`])) return;
+       startDate, 'important', 'sound-popup', 'active', computeNextFireLocal(startDate, t, 'daily')])) return;
   }
 
   document.getElementById('med-modal').remove();
@@ -980,7 +1008,7 @@ async function saveBill() {
      dueDay, parseInt(document.getElementById('b-warn').value) || 3, document.getElementById('b-notes').value, 'active'])) return;
 
   const rid = uuid();
-  const nextFire = `${todayStr()}T09:00:00`;
+  const nextFire = computeNextFireLocal(todayStr(), '09:00', 'monthly');
   if (!await dbRun(`INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,reminder_time,start_date,priority,alert_style,status,next_fire,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
     [rid, `Pay ${name}`, 'reminder', 'bills', 'Avoid late payment charges', 'monthly', '09:00', todayStr(), 'important', 'sound-popup', 'active', nextFire])) return;
 
@@ -1179,7 +1207,7 @@ async function saveHabit() {
     [id, name, freq, time])) return;
 
   const rid = uuid();
-  const nextFire = time ? `${todayStr()}T${time}:00` : '';
+  const nextFire = computeNextFireLocal(todayStr(), time, freq === 'daily' ? 'daily' : 'weekly');
   if (!await dbRun(`INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,reminder_time,start_date,priority,alert_style,status,next_fire,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
     [rid, name, 'habit', 'personal', 'Build a positive habit', freq === 'daily' ? 'daily' : 'weekly', time, todayStr(), 'normal', 'sound-popup', 'active', nextFire])) return;
 
@@ -1603,6 +1631,13 @@ async function renderSettings(el) {
             </div>
             <button class="btn btn-ghost btn-sm" onclick="testDesktopNotification()">Send Test</button>
           </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-label">Test Alarm (1 minute)</div>
+              <div class="setting-desc">Schedules a real reminder alarm in 60 seconds — keep ILRS running in the tray</div>
+            </div>
+            <button class="btn btn-primary btn-sm" onclick="scheduleTestAlarm()">⏰ Test Alarm</button>
+          </div>
         </div>
 
         <div class="card">
@@ -1719,6 +1754,16 @@ async function testDesktopNotification() {
   }
 }
 
+async function scheduleTestAlarm() {
+  const result = await api.scheduleTestAlarm();
+  if (result?.success) {
+    toast(`⏰ Test alarm scheduled for ${result.fireAt.slice(11, 16)} — keep ILRS running`);
+    navigate('reminders');
+  } else {
+    toast(`Could not schedule test alarm: ${result?.error || 'unknown error'}`, 'critical');
+  }
+}
+
 function previewSound(soundId) {
   window.ILRSSounds?.previewSound(soundId);
 }
@@ -1787,7 +1832,7 @@ async function handleQuickAdd() {
   }
 
   const id = uuid();
-  const nextFire = reminderTime ? `${todayStr()}T${reminderTime}:00` : '';
+  const nextFire = reminderTime ? computeNextFireLocal(todayStr(), reminderTime, repeatType) : computeNextFireLocal(todayStr(), nowTimeStr(), repeatType);
 
   if (!await dbRun(`INSERT INTO reminders (id,title,task_type,category,repeat_type,reminder_time,start_date,priority,alert_style,status,next_fire,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
     [id, title, 'reminder', category, repeatType, reminderTime, todayStr(), priority, 'sound-popup', 'active', nextFire])) return;
@@ -1810,7 +1855,7 @@ function toggleFocusMode() {
 
 // ── Badge Count ────────────────────────────────────────────────────
 async function updateBadges() {
-  const overdue = App.reminders.filter(r => r.status === 'active' && r.next_fire && r.next_fire < new Date().toISOString() && r.next_fire !== '');
+  const overdue = App.reminders.filter(r => r.status === 'active' && isReminderOverdue(r.next_fire));
   const badge = document.getElementById('alert-badge');
   if (badge) {
     badge.textContent = overdue.length;
@@ -1819,7 +1864,7 @@ async function updateBadges() {
 }
 
 function showAlertCount() {
-  const overdue = App.reminders.filter(r => r.status === 'active' && r.next_fire && r.next_fire < new Date().toISOString() && r.next_fire !== '');
+  const overdue = App.reminders.filter(r => r.status === 'active' && isReminderOverdue(r.next_fire));
   if (overdue.length === 0) { toast('✅ No pending alerts!'); return; }
   navigate('reminders');
 }
@@ -1872,7 +1917,7 @@ function processAlertQueue() {
 
   showInAppAlert(reminder);
   const tone = reminder.alert_tone || App.settings.reminder_tone || 'loud-chime';
-  const repeats = reminder.priority === 'critical' ? 2 : 1;
+  const repeats = reminder.priority === 'critical' ? 4 : 3;
   if (reminder.alert_style !== 'silent' && reminder.alert_style !== 'popup-only') {
     window.ILRSSounds?.playAlertSound(tone, { repeat: repeats });
   }
@@ -1885,15 +1930,17 @@ function showInAppAlert(reminder) {
   const isPrivate = Number(reminder.is_private) === 1;
   const title = isPrivate ? 'Private Reminder' : reminder.title;
   const body = isPrivate ? 'You have a scheduled reminder.' : (reminder.why_it_matters || 'Time for action!');
+  const isAlarm = reminder.priority === 'critical' || reminder._type === 'reminder';
 
   const overlay = document.createElement('div');
   overlay.className = reminder.priority === 'critical' ? 'alert-popup' : 'modal-overlay';
   overlay.id = 'alert-popup';
   overlay.innerHTML = `
-    <div class="alert-box">
-      <div class="alert-icon">${reminder.priority === 'critical' ? '🚨' : '🔔'}</div>
+    <div class="alert-box" style="${isAlarm ? 'border:2px solid var(--critical);box-shadow:0 0 30px rgba(255,80,80,0.35)' : ''}">
+      <div class="alert-icon">${reminder.priority === 'critical' ? '🚨' : '⏰'}</div>
       <h2>${title}</h2>
       <p>${body}</p>
+      <p style="font-size:12px;color:var(--text-muted);margin-top:8px">${isAlarm ? 'Alarm active — mark done or snooze to stop alerts.' : ''}</p>
       <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:16px">
         <span class="tag ${reminder.category}">${categoryIcon(reminder.category)} ${reminder.category}</span>
         <span class="tag ${reminder.priority}">${priorityLabel(reminder.priority)}</span>

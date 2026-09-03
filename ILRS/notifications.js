@@ -92,7 +92,7 @@ function showDesktopNotification(db, item, { onClick, type = 'reminder' } = {}) 
       urgency: content.urgency,
       silent,
       icon,
-      timeoutType: content.urgency === 'critical' ? 'never' : 'default',
+      timeoutType: type === 'reminder' || content.urgency === 'critical' ? 'never' : 'default',
     });
     notification.on('click', () => onClick?.());
     notification.on('action', () => onClick?.());
