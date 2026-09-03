@@ -105,8 +105,7 @@ function sendTestNotification() {
     is_private: 0,
   }, { onClick: focusMainWindow, type: 'reminder' });
   const tone = getSetting(db, 'reminder_tone', 'loud-chime');
-  playAlertSound(tone, 2);
-  mainWindow?.webContents.send('play-alert-sound', tone);
+  playAlertSound(tone, 2, mainWindow);
 }
 
 function dispatchDueItem(item, type = 'reminder') {
@@ -128,10 +127,7 @@ function dispatchDueItem(item, type = 'reminder') {
   if (style !== 'silent' && style !== 'popup-only') {
     const tone = getSetting(db, 'reminder_tone', 'loud-chime');
     const repeats = item.priority === 'critical' ? 3 : 2;
-    playAlertSound(tone, repeats);
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('play-alert-sound', tone);
-    }
+    playAlertSound(tone, repeats, mainWindow);
   }
 }
 

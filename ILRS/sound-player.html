@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"></head><body>
+<script>
+  const { ipcRenderer } = require('electron');
+  let current = null;
+  ipcRenderer.on('play-sound', async (_, payload) => {
+    const { url, repeat, requestId } = payload;
+    const finish = (ok, err) => ipcRenderer.send('sound-playback-result', { requestId, ok, err: err || null, method: 'electron-file' });
+    try {
+      if (current) { current.pause(); current = null; }
+      const audio = new Audio(url);
+      audio.volume = 1;
+      let plays = 0;
+      audio.addEventListener('playing', () => ipcRenderer.send('sound-playback-playing', { requestId }));
+      audio.addEventListener('ended', () => {
+        plays += 1;
+        if (plays < repeat) {
+          audio.currentTime = 0;
+          audio.play().catch((e) => finish(false, e.message));
+        } else {
+          finish(true);
+        }
+      });
+      audio.addEventListener('error', () => finish(false, 'audio element error'));
+      current = audio;
+      await audio.play();
+    } catch (e) {
+      finish(false, e.message);
+    }
+  });
+</script>
+</body></html>
