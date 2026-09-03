@@ -23,6 +23,7 @@ contextBridge.exposeInMainWorld('ilrs', {
   onNavigate: (callback) => ipcRenderer.on('navigate', (_, page) => callback(page)),
   onReminderDue: (callback) => ipcRenderer.on('reminder-due', (_, reminder) => callback(reminder)),
   onPauseAlerts: (callback) => ipcRenderer.on('pause-alerts', (_, minutes) => callback(minutes)),
+  onPlaySound: (callback) => ipcRenderer.on('play-alert-sound', (_, soundId) => callback(soundId)),
 
   // Remove listeners
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel)

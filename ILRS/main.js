@@ -105,6 +105,8 @@ function dispatchDueItem(item, type = 'reminder') {
 
   mainWindow?.webContents.send('reminder-due', { ...item, _type: type });
   showDesktopNotification(db, item, { onClick: focusMainWindow, type });
+  const tone = getSetting(db, 'reminder_tone', 'loud-chime');
+  mainWindow?.webContents.send('play-alert-sound', tone);
 }
 
 function setupIPC() {
@@ -344,7 +346,7 @@ function initDatabase() {
     quiet_hours_end: '06:00',
     quiet_hours_enabled: '1',
     critical_override: '1',
-    reminder_tone: 'friendly',
+    reminder_tone: 'loud-chime',
     appearance: 'dark',
     layout_density: 'comfortable',
     language: 'en',

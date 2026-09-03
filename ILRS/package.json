@@ -1,6 +1,6 @@
 {
   "name": "ilrs",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "ILRS — Intelligent Life Reminder System",
   "author": {
     "name": "Business OS",
@@ -10,7 +10,9 @@
   "main": "main.js",
   "scripts": {
     "start": "node scripts/generate-icons.js && electron . --no-sandbox",
-    "postinstall": "node scripts/generate-icons.js && electron-rebuild -f -w better-sqlite3",
+    "postinstall": "node scripts/generate-icons.js && node scripts/generate-sounds.js && electron-rebuild -f -w better-sqlite3",
+    "test:db": "node scripts/test-db-ops.js",
+    "test:e2e": "electron scripts/e2e-ipc-test.js --no-sandbox",
     "dev": "electron . --dev --no-sandbox",
     "build:win": "electron-builder --win --x64",
     "build:mac": "electron-builder --mac",
@@ -41,6 +43,7 @@
       "main.js",
       "preload.js",
       "notifications.js",
+      "assets/sounds/**/*",
       "src/**/*",
       "assets/**/*",
       "node_modules/**/*"

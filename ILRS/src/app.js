@@ -67,8 +67,21 @@ function toast(msg, type = 'success', duration = 3000) {
 
 async function db(sql, params = []) {
   const result = await api.query(sql, params);
-  if (!result.success) { console.error('DB Error:', result.error, sql); return null; }
+  if (!result.success) {
+    console.error('DB Error:', result.error, sql);
+    return null;
+  }
   return result.data;
+}
+
+async function dbRun(sql, params = []) {
+  const result = await api.query(sql, params);
+  if (!result.success) {
+    console.error('DB Error:', result.error, sql);
+    toast(`Save failed: ${result.error || 'database error'}`, 'critical');
+    return false;
+  }
+  return true;
 }
 
 // ── Settings ───────────────────────────────────────────────────────
@@ -208,7 +221,7 @@ async function renderDashboard(el) {
   const today = todayStr();
   const now = nowTimeStr();
 
-  const todayReminders = App.reminders.filter(r => r.start_date <= today && (r.status === 'active'));
+  const todayReminders = App.reminders.filter(r => r.status === 'active' && (!r.start_date || r.start_date <= today));
   const overdue = App.reminders.filter(r => r.status === 'active' && r.next_fire && r.next_fire < new Date().toISOString() && r.next_fire !== '');
   const critical = App.reminders.filter(r => r.priority === 'critical' && r.status === 'active');
   const completedToday = await db("SELECT COUNT(*) as c FROM reminder_logs WHERE action='completed' AND date(timestamp)=?", [today]);
@@ -657,20 +670,22 @@ async function saveReminder(id, isEdit) {
     document.getElementById('f-alert').value,
     parseInt(document.getElementById('f-snooze').value) || 10,
     document.getElementById('f-assigned').value,
-    parseInt(document.getElementById('f-private').value),
+    parseInt(document.getElementById('f-private').value) || 0,
     document.getElementById('f-notes').value,
     JSON.stringify(tags),
     nextFire,
-    new Date().toISOString(),
   ];
 
+  let ok;
   if (isEdit) {
-    await db(`UPDATE reminders SET title=?,task_type=?,category=?,why_it_matters=?,repeat_type=?,reminder_time=?,start_date=?,end_date=?,priority=?,urgency_quadrant=?,alert_style=?,snooze_duration=?,assigned_to=?,is_private=?,notes=?,tags=?,next_fire=?,updated_at=? WHERE id=?`,
-      [params[1],params[2],params[3],params[4],params[5],params[6],params[7],params[8],params[9],params[10],params[11],params[12],params[13],params[14],params[15],params[16],params[17],params[18],id]);
+    ok = await dbRun(`UPDATE reminders SET title=?,task_type=?,category=?,why_it_matters=?,repeat_type=?,reminder_time=?,start_date=?,end_date=?,priority=?,urgency_quadrant=?,alert_style=?,snooze_duration=?,assigned_to=?,is_private=?,notes=?,tags=?,next_fire=?,updated_at=? WHERE id=?`,
+      [...params.slice(1), new Date().toISOString(), id]);
   } else {
-    await db(`INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,reminder_time,start_date,end_date,priority,urgency_quadrant,alert_style,snooze_duration,assigned_to,is_private,notes,tags,next_fire,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'active',datetime('now'),datetime('now'))`, params);
+    ok = await dbRun(`INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,reminder_time,start_date,end_date,priority,urgency_quadrant,alert_style,snooze_duration,assigned_to,is_private,notes,tags,next_fire,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'active',datetime('now'),datetime('now'))`,
+      params);
   }
 
+  if (!ok) return;
   toast(isEdit ? 'Reminder updated!' : 'Reminder saved!');
   navigate('reminders');
 }
@@ -855,17 +870,17 @@ async function saveMedicine() {
     if (t) times.push(t.value);
   }
   const id = uuid();
-  await db(`INSERT INTO medicines (id,name,condition,doses_per_day,dose_times,food_timing,start_date,end_date,notes,status) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+  if (!await dbRun(`INSERT INTO medicines (id,name,condition,doses_per_day,dose_times,food_timing,start_date,end_date,notes,status) VALUES (?,?,?,?,?,?,?,?,?,?)`,
     [id, name, document.getElementById('m-condition').value, doses, JSON.stringify(times),
      document.getElementById('m-food').value, document.getElementById('m-start').value,
-     document.getElementById('m-end').value, document.getElementById('m-notes').value, 'active']);
+     document.getElementById('m-end').value, '', 'active'])) return;
 
-  // Also create a reminder for this medicine
+  const startDate = document.getElementById('m-start').value || todayStr();
   for (const t of times) {
     const rid = uuid();
-    await db(`INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,reminder_time,start_date,priority,alert_style,status,next_fire,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
-      [rid, `Take ${name}`, 'reminder', 'medicine', `${document.getElementById('m-condition').value || 'Medication'}`, 'daily', t,
-       document.getElementById('m-start').value, 'important', 'sound-popup', 'active', `${document.getElementById('m-start').value}T${t}:00`]);
+    if (!await dbRun(`INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,reminder_time,start_date,priority,alert_style,status,next_fire,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
+      [rid, `Take ${name}`, 'reminder', 'medicine', document.getElementById('m-condition').value || 'Medication', 'daily', t,
+       startDate, 'important', 'sound-popup', 'active', `${startDate}T${t}:00`])) return;
   }
 
   document.getElementById('med-modal').remove();
@@ -960,15 +975,14 @@ async function saveBill() {
   if (!name) { toast('Enter bill name', 'warning'); return; }
   const dueDay = parseInt(document.getElementById('b-due').value) || 1;
   const id = uuid();
-  await db(`INSERT INTO bills (id,name,bill_type,amount,due_day,warning_days,account_info,status) VALUES (?,?,?,?,?,?,?,?)`,
+  if (!await dbRun(`INSERT INTO bills (id,name,bill_type,amount,due_day,warning_days,account_info,status) VALUES (?,?,?,?,?,?,?,?)`,
     [id, name, document.getElementById('b-type').value, parseFloat(document.getElementById('b-amount').value) || 0,
-     dueDay, parseInt(document.getElementById('b-warn').value) || 3, document.getElementById('b-notes').value, 'active']);
+     dueDay, parseInt(document.getElementById('b-warn').value) || 3, document.getElementById('b-notes').value, 'active'])) return;
 
-  // Create a reminder
   const rid = uuid();
-  const warnDay = Math.max(1, dueDay - (parseInt(document.getElementById('b-warn').value) || 3));
-  await db(`INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,reminder_time,start_date,priority,alert_style,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
-    [rid, `Pay ${name}`, 'reminder', 'bills', 'Avoid late payment charges', 'monthly', '09:00', todayStr(), 'important', 'sound-popup', 'active']);
+  const nextFire = `${todayStr()}T09:00:00`;
+  if (!await dbRun(`INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,reminder_time,start_date,priority,alert_style,status,next_fire,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
+    [rid, `Pay ${name}`, 'reminder', 'bills', 'Avoid late payment charges', 'monthly', '09:00', todayStr(), 'important', 'sound-popup', 'active', nextFire])) return;
 
   document.getElementById('bill-modal').remove();
   toast(`💸 ${name} added!`);
@@ -1064,9 +1078,9 @@ async function saveFamily() {
   const name = document.getElementById('fam-name').value.trim();
   if (!name) { toast('Enter a name', 'warning'); return; }
   const id = uuid();
-  await db(`INSERT INTO family_members (id,name,role,phone,email,is_emergency_contact) VALUES (?,?,?,?,?,?)`,
+  if (!await dbRun(`INSERT INTO family_members (id,name,role,phone,email,is_emergency_contact) VALUES (?,?,?,?,?,?)`,
     [id, name, document.getElementById('fam-role').value, document.getElementById('fam-phone').value,
-     document.getElementById('fam-email').value, document.getElementById('t-emergency').classList.contains('on') ? 1 : 0]);
+     document.getElementById('fam-email').value, document.getElementById('t-emergency').classList.contains('on') ? 1 : 0])) return;
   document.getElementById('fam-modal').remove();
   toast(`👨‍👩‍👧 ${name} added!`);
   navigate('family');
@@ -1161,13 +1175,13 @@ async function saveHabit() {
   const time = document.getElementById('h-time').value;
   const freq = document.getElementById('h-freq').value;
 
-  await db(`INSERT INTO habits (id,name,frequency,target_time,streak,best_streak,completion_rate,status) VALUES (?,?,?,?,0,0,0,'active')`,
-    [id, name, freq, time]);
+  if (!await dbRun(`INSERT INTO habits (id,name,frequency,target_time,streak,best_streak,completion_rate,status) VALUES (?,?,?,?,0,0,0,'active')`,
+    [id, name, freq, time])) return;
 
-  // Create reminder for habit
   const rid = uuid();
-  await db(`INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,reminder_time,start_date,priority,alert_style,status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
-    [rid, name, 'habit', 'personal', 'Build a positive habit', freq === 'daily' ? 'daily' : 'weekly', time, todayStr(), 'normal', 'sound-popup', 'active']);
+  const nextFire = time ? `${todayStr()}T${time}:00` : '';
+  if (!await dbRun(`INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,reminder_time,start_date,priority,alert_style,status,next_fire,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
+    [rid, name, 'habit', 'personal', 'Build a positive habit', freq === 'daily' ? 'daily' : 'weekly', time, todayStr(), 'normal', 'sound-popup', 'active', nextFire])) return;
 
   document.getElementById('hab-modal').remove();
   toast(`🔁 Habit started!`);
@@ -1340,7 +1354,7 @@ function showAddChecklist() {
 async function saveChecklist() {
   const name = document.getElementById('cl-name').value.trim();
   if (!name) { toast('Enter list name', 'warning'); return; }
-  await db(`INSERT INTO checklists (id,name,progress,total,status,created_at) VALUES (?,?,0,0,'active',datetime('now'))`, [uuid(), name]);
+  if (!await dbRun(`INSERT INTO checklists (id,name,progress,total,status,created_at) VALUES (?,?,0,0,'active',datetime('now'))`, [uuid(), name])) return;
   document.getElementById('cl-modal').remove();
   toast('✅ Checklist created!');
   navigate('checklists');
@@ -1545,6 +1559,31 @@ async function renderSettings(el) {
           </div>
           <div class="setting-row">
             <div class="setting-info">
+              <div class="setting-label">Notification Sound</div>
+              <div class="setting-desc">Loud alert tone for reminders</div>
+            </div>
+            <select class="form-select" style="width:auto" id="s-tone" onchange="previewSound(this.value)">
+              <option value="air-horn" ${s.reminder_tone==='air-horn'?'selected':''}>📢 Air Horn</option>
+              <option value="siren" ${s.reminder_tone==='siren'?'selected':''}>🚨 Siren</option>
+              <option value="alarm-clock" ${s.reminder_tone==='alarm-clock'?'selected':''}>⏰ Alarm Clock</option>
+              <option value="digital-beep" ${s.reminder_tone==='digital-beep'?'selected':''}>🔊 Digital Beep</option>
+              <option value="buzzer" ${s.reminder_tone==='buzzer'?'selected':''}>🔔 Buzzer</option>
+              <option value="emergency-alert" ${s.reminder_tone==='emergency-alert'?'selected':''}>🆘 Emergency Alert</option>
+              <option value="doorbell" ${s.reminder_tone==='doorbell'?'selected':''}>🚪 Doorbell</option>
+              <option value="loud-chime" ${(s.reminder_tone==='loud-chime'||s.reminder_tone==='friendly'||!s.reminder_tone)?'selected':''}>🎵 Loud Chime</option>
+              <option value="train-whistle" ${s.reminder_tone==='train-whistle'?'selected':''}>🚂 Train Whistle</option>
+              <option value="foghorn" ${s.reminder_tone==='foghorn'?'selected':''}>🌫️ Foghorn</option>
+              <option value="old-telephone-ring" ${s.reminder_tone==='old-telephone-ring'?'selected':''}>☎️ Old Telephone Ring</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-label">Preview Sound</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="previewSound(document.getElementById('s-tone').value)">▶ Play</button>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
               <div class="setting-label">Snooze Duration</div>
               <div class="setting-desc">Default snooze time in minutes</div>
             </div>
@@ -1648,6 +1687,7 @@ async function saveSettings() {
     user_name: document.getElementById('s-name')?.value || '',
     language: document.getElementById('s-lang')?.value || 'en',
     notification_style: document.getElementById('s-notif')?.value || 'sound-popup',
+    reminder_tone: document.getElementById('s-tone')?.value || 'loud-chime',
     snooze_duration: document.getElementById('s-snooze')?.value || '10',
     snooze_limit: document.getElementById('s-slimit')?.value || '3',
     quiet_hours_enabled: document.getElementById('t-quiet')?.classList.contains('on') ? '1' : '0',
@@ -1671,11 +1711,16 @@ async function saveSettings() {
 
 async function testDesktopNotification() {
   const result = await api.testNotification();
+  previewSound(App.settings.reminder_tone || 'loud-chime');
   if (result?.success) {
     toast('Test notification sent — check your system tray');
   } else {
     toast('Could not send test notification', 'warning');
   }
+}
+
+function previewSound(soundId) {
+  window.ILRSSounds?.previewSound(soundId);
 }
 
 async function performManualBackup() {
@@ -1744,11 +1789,12 @@ async function handleQuickAdd() {
   const id = uuid();
   const nextFire = reminderTime ? `${todayStr()}T${reminderTime}:00` : '';
 
-  await db(`INSERT INTO reminders (id,title,task_type,category,repeat_type,reminder_time,start_date,priority,alert_style,status,next_fire,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
-    [id, title, 'reminder', category, repeatType, reminderTime, todayStr(), priority, 'sound-popup', 'active', nextFire]);
+  if (!await dbRun(`INSERT INTO reminders (id,title,task_type,category,repeat_type,reminder_time,start_date,priority,alert_style,status,next_fire,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
+    [id, title, 'reminder', category, repeatType, reminderTime, todayStr(), priority, 'sound-popup', 'active', nextFire])) return;
 
   input.value = '';
   toast(`✅ Added: "${title}"`);
+  await loadAllData();
   updateBadges();
   if (App.currentPage === 'dashboard' || App.currentPage === 'reminders') navigate(App.currentPage);
 }
@@ -1807,6 +1853,11 @@ function setupListeners() {
     App.pausedUntil = Date.now() + minutes * 60000;
     toast(`🔕 Alerts paused for ${minutes} minutes`);
   });
+
+  api.onPlaySound(soundId => {
+    const repeats = 2;
+    window.ILRSSounds?.playAlertSound(soundId || App.settings.reminder_tone || 'loud-chime', { repeat: repeats });
+  });
 }
 
 function processAlertQueue() {
@@ -1820,6 +1871,11 @@ function processAlertQueue() {
   }
 
   showInAppAlert(reminder);
+  const tone = reminder.alert_tone || App.settings.reminder_tone || 'loud-chime';
+  const repeats = reminder.priority === 'critical' ? 2 : 1;
+  if (reminder.alert_style !== 'silent' && reminder.alert_style !== 'popup-only') {
+    window.ILRSSounds?.playAlertSound(tone, { repeat: repeats });
+  }
 }
 
 function showInAppAlert(reminder) {
