@@ -1,0 +1,98 @@
+{
+  "name": "ilrs",
+  "version": "1.0.4",
+  "description": "ILRS — Intelligent Life Reminder System",
+  "author": {
+    "name": "Business OS",
+    "email": "admin@businessos.local"
+  },
+  "homepage": "https://github.com/aaravpassport-max/BBC",
+  "main": "main.js",
+  "scripts": {
+    "start": "node scripts/generate-icons.js && electron . --no-sandbox",
+    "postinstall": "node scripts/generate-icons.js && node scripts/generate-sounds.js && electron-rebuild -f -w better-sqlite3",
+    "test:timezone": "node scripts/test-timezone.js",
+    "test:alarm": "node scripts/test-alarm.js",
+    "test:verify-alarms": "electron scripts/verify-alarm-system.js --no-sandbox",
+    "test:live-alarm": "node scripts/verify-live-alarm.js",
+    "test:db": "node scripts/test-db-ops.js",
+    "test:e2e": "electron scripts/e2e-ipc-test.js --no-sandbox",
+    "dev": "electron . --dev --no-sandbox",
+    "build:win": "electron-builder --win --x64",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux --x64",
+    "build": "electron-builder --win --linux --x64"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "electron-store": "^8.1.0",
+    "node-cron": "^3.0.3",
+    "node-notifier": "^10.0.1",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.2.0",
+    "electron": "^29.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.ilrs.app",
+    "productName": "ILRS",
+    "artifactName": "ILRS-Setup-${version}.${ext}",
+    "icon": "assets/icon.png",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "notifications.js",
+      "alarm.js",
+      "sound-player.js",
+      "sound-player.html",
+      "assets/sounds/**/*",
+      "src/**/*",
+      "assets/**/*",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        },
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "signAndEditExecutable": false
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/icon.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "assets/icon.png",
+      "category": "Office",
+      "maintainer": "Business OS <admin@businessos.local>"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ILRS",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}
