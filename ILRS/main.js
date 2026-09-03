@@ -9,6 +9,11 @@ const {
   localTimeStr,
   isDue,
   planAfterFire,
+  computeNextFire,
+  computeNextFireFromReminder,
+  normalizeNextFire,
+  isSnoozedFire,
+  parseLocalDateTime,
 } = require('./alarm');
 
 let mainWindow;
@@ -422,21 +427,49 @@ function initDatabase() {
 function repairReminderSchedules() {
   if (!db) return;
   try {
-    const { computeNextFire } = require('./alarm');
-    const now = new Date();
-    const rows = db.prepare(`
-      SELECT id, start_date, reminder_time, repeat_type, next_fire
-      FROM reminders WHERE status = 'active' AND reminder_time != ''
-    `).all();
-
-    const fix = db.prepare('UPDATE reminders SET next_fire = ? WHERE id = ?');
-    for (const row of rows) {
-      const next = computeNextFire(row.start_date || localDateStr(now), row.reminder_time, row.repeat_type || 'once', now);
-      if (next) fix.run(next, row.id);
+    const version = getSetting(db, 'schema_version', '0');
+    if (Number(version) < 5) {
+      runTimezoneMigrationV5();
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '5')").run();
     }
   } catch (err) {
     console.error('repairReminderSchedules error:', err.message);
   }
+}
+
+function runTimezoneMigrationV5() {
+  const now = new Date();
+  const rows = db.prepare(`
+    SELECT id, start_date, reminder_time, repeat_type, next_fire
+    FROM reminders WHERE status = 'active'
+  `).all();
+
+  const fix = db.prepare('UPDATE reminders SET next_fire = ?, start_date = ? WHERE id = ?');
+  let fixed = 0;
+
+  for (const row of rows) {
+    if (!row.reminder_time) continue;
+
+    let startDate = row.start_date;
+    if (!startDate || String(startDate).includes('Z')) {
+      startDate = localDateStr(now);
+    }
+
+    const normalized = normalizeNextFire(row.next_fire);
+    if (normalized && isSnoozedFire(normalized, row.reminder_time, now)) {
+      fix.run(normalized, startDate, row.id);
+      fixed += 1;
+      continue;
+    }
+
+    const correct = computeNextFireFromReminder({ ...row, start_date: startDate }, now);
+    if (correct) {
+      fix.run(correct, startDate, row.id);
+      fixed += 1;
+    }
+  }
+
+  console.log(`Timezone migration v5: recalculated ${fixed} reminder schedule(s) using local time`);
 }
 
 function afterReminderFired(reminder, now = new Date()) {
@@ -450,28 +483,45 @@ function afterReminderFired(reminder, now = new Date()) {
 
 function checkDueReminders(now = new Date()) {
   const today = localDateStr(now);
-  const nowLocal = toLocalISO(now);
   const timeNow = localTimeStr(now);
 
+  // Use JS isDue() for all comparisons — never compare next_fire to UTC strings in SQL.
   const candidates = db.prepare(`
     SELECT * FROM reminders
     WHERE status = 'active'
     AND (start_date = '' OR start_date <= ?)
-    AND (
-      (next_fire != '' AND next_fire <= ?)
-      OR (next_fire = '' AND reminder_time != '' AND reminder_time = ?)
-    )
+    AND (next_fire != '' OR reminder_time != '')
     ORDER BY next_fire ASC
-    LIMIT 30
-  `).all(today, nowLocal, timeNow);
+    LIMIT 50
+  `).all(today);
 
   for (const reminder of candidates) {
-    const due = reminder.next_fire
-      ? isDue(reminder.next_fire, now)
-      : reminder.reminder_time === timeNow;
-
+    let due = false;
+    if (reminder.next_fire) {
+      due = isDue(reminder.next_fire, now);
+    } else if (reminder.reminder_time) {
+      due = reminder.reminder_time === timeNow;
+    }
     if (!due) continue;
 
+    dispatchDueItem(reminder, 'reminder');
+    afterReminderFired(reminder, now);
+  }
+}
+
+function catchUpOverdueReminders() {
+  if (!db) return;
+  const now = new Date();
+  const rows = db.prepare(`
+    SELECT * FROM reminders
+    WHERE status = 'active' AND next_fire != ''
+    ORDER BY next_fire ASC
+    LIMIT 20
+  `).all();
+
+  for (const reminder of rows) {
+    if (!isDue(reminder.next_fire, now)) continue;
+    if ((reminder.start_date || '') > localDateStr(now)) continue;
     dispatchDueItem(reminder, 'reminder');
     afterReminderFired(reminder, now);
   }
@@ -574,6 +624,7 @@ app.whenReady().then(() => {
     repairReminderSchedules();
     startScheduler();
     scheduleBackup();
+    setTimeout(catchUpOverdueReminders, 1500);
   }
 });
 

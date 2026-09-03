@@ -43,7 +43,8 @@ function formatDate(dateStr) {
 }
 
 function todayStr() {
-  return new Date().toISOString().split('T')[0];
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}-${String(n.getDate()).padStart(2, '0')}`;
 }
 
 function nowTimeStr() {
@@ -74,11 +75,16 @@ function computeNextFireLocal(startDate, time, repeatType = 'once') {
 
 function isReminderOverdue(nextFire) {
   if (!nextFire) return false;
-  const clean = String(nextFire).replace(' ', 'T');
+  const clean = String(nextFire).trim().replace(' ', 'T');
+  if (clean.includes('Z')) return new Date(clean).getTime() < Date.now();
   const [datePart, timePart = '00:00:00'] = clean.split('T');
   const [y, m, d] = datePart.split('-').map(Number);
   const [hh, mm] = timePart.split(':').map(Number);
   return new Date(y, m - 1, d, hh, mm || 0, 0, 0).getTime() < Date.now();
+}
+
+function localNowISO() {
+  return toLocalFireISO(new Date());
 }
 
 function daysUntil(dateStr) {
@@ -1424,13 +1430,15 @@ async function deleteChecklist(id) {
 // ── Reports ────────────────────────────────────────────────────────
 async function renderReports(el) {
   const today = todayStr();
-  const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+  const weekAgoDate = new Date();
+  weekAgoDate.setDate(weekAgoDate.getDate() - 7);
+  const weekAgo = `${weekAgoDate.getFullYear()}-${String(weekAgoDate.getMonth() + 1).padStart(2, '0')}-${String(weekAgoDate.getDate()).padStart(2, '0')}`;
 
   const [totalR, completedR, snoozedR, missedR, habitLogs, medLogs] = await Promise.all([
     db("SELECT COUNT(*) as c FROM reminders WHERE status != 'deleted'"),
     db("SELECT COUNT(*) as c FROM reminder_logs WHERE action='completed' AND date(timestamp) >= ?", [weekAgo]),
     db("SELECT COUNT(*) as c FROM reminder_logs WHERE action='snoozed' AND date(timestamp) >= ?", [weekAgo]),
-    db("SELECT COUNT(*) as c FROM reminders WHERE status='active' AND next_fire < ? AND next_fire != ''", [new Date().toISOString()]),
+    db("SELECT COUNT(*) as c FROM reminders WHERE status='active' AND next_fire != '' AND next_fire <= ?", [localNowISO()]),
     db('SELECT COUNT(*) as c FROM habit_logs WHERE log_date >= ?', [weekAgo]),
     db("SELECT COUNT(*) as c FROM medicine_logs WHERE status='taken' AND log_date >= ?", [weekAgo]),
   ]);

@@ -1,6 +1,6 @@
 {
   "name": "ilrs",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "ILRS — Intelligent Life Reminder System",
   "author": {
     "name": "Business OS",
@@ -11,6 +11,7 @@
   "scripts": {
     "start": "node scripts/generate-icons.js && electron . --no-sandbox",
     "postinstall": "node scripts/generate-icons.js && node scripts/generate-sounds.js && electron-rebuild -f -w better-sqlite3",
+    "test:timezone": "node scripts/test-timezone.js",
     "test:alarm": "node scripts/test-alarm.js",
     "test:verify-alarms": "electron scripts/verify-alarm-system.js --no-sandbox",
     "test:live-alarm": "node scripts/verify-live-alarm.js",

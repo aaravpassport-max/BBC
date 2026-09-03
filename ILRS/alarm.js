@@ -21,6 +21,36 @@ function localTimeStr(date = new Date()) {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 
+function localMinuteISO(date = new Date()) {
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function normalizeNextFire(value) {
+  if (!value) return '';
+  const raw = String(value).trim();
+  if (raw.includes('Z') || /[+-]\d{2}:\d{2}$/.test(raw)) {
+    const d = new Date(raw);
+    if (!Number.isNaN(d.getTime())) return toLocalISO(d);
+  }
+  if (raw.includes('.')) return raw.split('.')[0].replace(' ', 'T');
+  return raw.replace(' ', 'T');
+}
+
+function computeNextFireFromReminder(row, now = new Date()) {
+  const startDate = row.start_date && !String(row.start_date).includes('Z')
+    ? row.start_date
+    : localDateStr(now);
+  return computeNextFire(startDate, row.reminder_time, row.repeat_type || 'once', now);
+}
+
+function isSnoozedFire(nextFire, reminderTime, now = new Date()) {
+  const parsed = parseLocalDateTime(nextFire);
+  if (!parsed || parsed.getTime() <= now.getTime()) return false;
+  const [rh, rm] = String(reminderTime || '').split(':').map(Number);
+  if (Number.isNaN(rh)) return false;
+  return parsed.getHours() !== rh || parsed.getMinutes() !== rm;
+}
+
 function parseLocalDateTime(value) {
   if (!value) return null;
   const clean = String(value).trim().replace(' ', 'T');
@@ -35,7 +65,7 @@ function parseLocalDateTime(value) {
 }
 
 function isDue(nextFire, now = new Date()) {
-  const target = parseLocalDateTime(nextFire);
+  const target = parseLocalDateTime(normalizeNextFire(nextFire));
   if (!target) return false;
   return target.getTime() <= now.getTime();
 }
@@ -145,9 +175,13 @@ module.exports = {
   toLocalISO,
   localDateStr,
   localTimeStr,
+  localMinuteISO,
+  normalizeNextFire,
   parseLocalDateTime,
   isDue,
   computeNextFire,
+  computeNextFireFromReminder,
+  isSnoozedFire,
   advanceRecurring,
   planAfterFire,
   resolveSoundId,
