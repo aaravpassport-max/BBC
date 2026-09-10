@@ -49,6 +49,9 @@ $is_logged_in = is_user_logged_in();
   --card-bg:#ffffff; --card-subtitle:#475569; --input-bg:#f1f5f9; --input-border:#94a3b8; --input-text:#0f172a;
 }
 body{font-family:Inter,system-ui,-apple-system;background:var(--bg);color:var(--text);min-height:100vh}
+@keyframes fnoTradeAlertPulse{0%{transform:translateX(-50%) scale(0.92);opacity:0.4}100%{transform:translateX(-50%) scale(1);opacity:1}}
+#fnoTradeAlertOverlay{display:none;position:fixed;top:18px;left:50%;transform:translateX(-50%);z-index:10050;min-width:min(420px,92vw);max-width:520px;pointer-events:none}
+#fnoTradeAlertCard{background:#0f172a;border:2px solid #22c55e;border-radius:14px;padding:14px 18px;box-shadow:0 12px 40px rgba(0,0,0,0.55),0 0 0 1px rgba(255,255,255,0.06)}
 #fno-root{max-width:1600px;margin:0 auto;padding:16px}
 .header{position:sticky;top:0;z-index:100;background:var(--header-bg);backdrop-filter:blur(10px);border-bottom:1px solid var(--border);padding:12px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px}
 .logo{font-size:20px;font-weight:900;background:linear-gradient(90deg,#22c55e,#3b82f6);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
@@ -137,6 +140,10 @@ body.fno-nse-disabled .nse-only-section{display:none}
   </div>
 </div>
 
+<div id="fnoTradeAlertOverlay" aria-live="assertive" aria-atomic="true">
+  <div id="fnoTradeAlertCard"></div>
+</div>
+
 <div id="settingsModalOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;align-items:center;justify-content:center">
   <div style="background:#0e152a;border:1px solid #334155;border-radius:14px;padding:24px;max-width:520px;width:90%;max-height:85vh;overflow-y:auto">
     <h2 style="margin:0 0 4px 0;font-size:18px">⚙️ Trading Controls</h2>
@@ -200,13 +207,31 @@ body.fno-nse-disabled .nse-only-section{display:none}
     </div>
 
     <div style="margin-bottom:18px">
-      <div style="font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:8px">Notifications</div>
-      <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingSoundEntry"> 🔔 Trade Entry Sound</label>
-      <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingSoundExit"> 🔔 Trade Exit Sound</label>
-      <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px">
-        <span>☎️ Sound: Old Telephone Ring (default, only option)</span>
-        <button id="testSoundBtn" class="btn" style="margin-left:auto;padding:4px 10px;font-size:11px">▶ Test</button>
+      <div style="font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:8px">🔊 Trade Alert System <span style="font-weight:400;color:#64748b">— real execution only</span></div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingTradeAlertSystem"> Enable trade alerts <span id="tradeAlertSystemStatusLabel" style="margin-left:auto;color:#64748b">ON</span></label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingSoundEntry"> 🟢 Alert on ENTRY (paper trade opened)</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingSoundExit"> 🔴 Alert on EXIT (target / SL / square-off / manual)</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingTradeAlertSound"> 🔊 Alert sound (plays first) <span id="tradeAlertSoundStatusLabel" style="margin-left:auto;color:#64748b">ON</span></label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingTradeAlertVoice"> 🎙️ AI voice announcement (after alert) <span id="tradeAlertVoiceStatusLabel" style="margin-left:auto;color:#64748b">ON</span></label>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:11px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px">
+        <label>Alert volume: <span id="tradeAlertSoundVolLabel">90%</span><input type="range" id="settingTradeAlertSoundVolume" min="0" max="100" step="5" value="90" style="width:100%"></label>
+        <label>Voice volume: <span id="tradeAlertVoiceVolLabel">100%</span><input type="range" id="settingTradeAlertVoiceVolume" min="0" max="100" step="5" value="100" style="width:100%"></label>
       </div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;flex-wrap:wrap">
+        <span>Alert sound:</span>
+        <select id="settingTradeAlertSoundPreset" class="input" style="flex:1;min-width:140px">
+          <option value="trading_desk">Trading desk (loud)</option>
+          <option value="siren_pulse">Siren pulse</option>
+          <option value="urgent_chime">Urgent chime</option>
+          <option value="telephone">Telephone ring</option>
+        </select>
+        <button id="testTradeAlertSoundBtn" class="btn" style="padding:4px 10px;font-size:11px">▶ Test sound</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;flex-wrap:wrap">
+        <button id="testTradeAlertVoiceEntryBtn" class="btn" style="padding:4px 10px;font-size:11px;background:#166534">▶ Test entry voice</button>
+        <button id="testTradeAlertVoiceExitBtn" class="btn" style="padding:4px 10px;font-size:11px;background:#7f1d1d">▶ Test exit voice</button>
+      </div>
+      <div style="font-size:10px;color:#64748b;margin-top:6px">Fires only when a real paper trade is opened or closed — not on BUY_READY/WAIT signals. Sequence: loud alert → immediate AI voice with symbol, strike, CE/PE, prices, qty, P&amp;L, and exit reason. Requires browser permission for audio; voice uses your device&apos;s speech engine (Chrome/Edge recommended).</div>
     </div>
 
     <button id="closeSettingsBtn" class="btn" style="width:100%">Close</button>

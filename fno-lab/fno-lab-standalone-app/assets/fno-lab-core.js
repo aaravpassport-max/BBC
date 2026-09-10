@@ -106,6 +106,15 @@ const FNO_SETTINGS_DEFAULTS = {
   // score safety rails (never disables realistic execution or FM blocks).
   scalpingProfitProfileEnabled: false,
   scalpingFmSafetyProfile: 'strict', // 'strict' (default, +1 FM escalation) | 'balanced' (no escalation bump)
+  // Enterprise trade alert system — fires ONLY on real paper-trade entry/exit execution.
+  tradeAlertSystemEnabled: true,
+  tradeAlertSoundEnabled: true,
+  tradeAlertVoiceEnabled: true,
+  tradeAlertSoundVolume: 90, // 0–100 UI scale
+  tradeAlertVoiceVolume: 100,
+  tradeAlertSoundPreset: 'trading_desk', // trading_desk | telephone | urgent_chime | siren_pulse
+  tradeAlertVoiceRate: 0.92,
+  tradeAlertVoicePitch: 1.0,
 };
 const fnoSettings = {
   get() {
@@ -4312,6 +4321,226 @@ function applyCoverageToConfidence(rawConfidence, coveragePct) {
  * Postconditions: plays a real, short, recognizable "ding-ding-ding"
  * ring - once for entry, twice in quick succession for exit.
  */
+
+// ====================================================================
+// ENTERPRISE TRADE ALERT SYSTEM
+// Real paper-trade execution only (entry / exit / partial exit) —
+// alert sound FIRST, AI-style voice announcement IMMEDIATELY after.
+// ====================================================================
+let _fnoTradeAlertQueue = Promise.resolve();
+
+function formatInrForTradeSpeech(n) {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return 'unknown price';
+  return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+function formatStrikeForTradeSpeech(strike) {
+  if (typeof strike !== 'number' || !Number.isFinite(strike)) return String(strike != null ? strike : '');
+  return strike.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+}
+function mapExitReasonForTradeSpeech(exitReason, actionLabel) {
+  const byReason = { target: 'target hit', square_off: 'square off', manual_force_exit: 'manual exit', invalidated: 'signal invalidated', sl: 'stop loss', trailing: 'trailing stop' };
+  if (exitReason && byReason[exitReason]) return byReason[exitReason];
+  const a = String(actionLabel || '');
+  if (a.includes('TARGET')) return 'target hit';
+  if (a.includes('SQUARE')) return 'square off';
+  if (a.includes('INVALID')) return 'signal invalidated';
+  if (a.includes('SL') || a.includes('STOP')) return 'stop loss';
+  return 'exit';
+}
+function buildTradeAlertSpeech(event) {
+  const sym = event.symbol || 'NIFTY';
+  const strike = formatStrikeForTradeSpeech(event.strike);
+  const opt = event.optionType || 'CE';
+  if (event.kind === 'entry') {
+    let s = `Trade alert. ${sym} ${strike} ${opt} bought at ${formatInrForTradeSpeech(event.entryPrice)}.`;
+    if (typeof event.qty === 'number') s += ` Quantity ${event.qty}.`;
+    if (event.tradingType) s += ` ${event.tradingType} trade.`;
+    return s;
+  }
+  if (event.kind === 'partial_exit') {
+    let s = `Trade alert. Partial exit. ${sym} ${strike} ${opt} exited at ${formatInrForTradeSpeech(event.exitPrice)}. Entry price ${formatInrForTradeSpeech(event.entryPrice)}.`;
+    if (typeof event.qty === 'number' && typeof event.totalQty === 'number') s += ` ${event.qty} of ${event.totalQty} quantity closed.`;
+    return s;
+  }
+  let s = `Trade alert. ${sym} ${strike} ${opt} exited at ${formatInrForTradeSpeech(event.exitPrice)}. Entry price ${formatInrForTradeSpeech(event.entryPrice)}.`;
+  if (typeof event.qty === 'number') s += ` Quantity ${event.qty}.`;
+  if (typeof event.netPnl === 'number') {
+    s += event.netPnl >= 0
+      ? ` Net profit ${formatInrForTradeSpeech(event.netPnl)}.`
+      : ` Net loss ${formatInrForTradeSpeech(Math.abs(event.netPnl))}.`;
+  }
+  s += ` Reason ${mapExitReasonForTradeSpeech(event.exitReason, event.actionLabel)}.`;
+  return s;
+}
+function showTradeAlertVisual(event, speechText) {
+  if (typeof document === 'undefined') return;
+  const overlay = document.getElementById('fnoTradeAlertOverlay');
+  const card = document.getElementById('fnoTradeAlertCard');
+  if (!overlay || !card) return;
+  const isEntry = event.kind === 'entry';
+  const isPartial = event.kind === 'partial_exit';
+  const accent = isEntry ? '#22c55e' : (isPartial ? '#f59e0b' : '#ef4444');
+  const title = isEntry ? '🟢 TRADE ENTRY' : (isPartial ? '🟡 PARTIAL EXIT' : '🔴 TRADE EXIT');
+  const detailLines = [];
+  detailLines.push(`${event.symbol || 'NIFTY'} · ${formatStrikeForTradeSpeech(event.strike)} ${event.optionType || 'CE'}`);
+  if (isEntry) {
+    detailLines.push(`Bought @ ${formatInrForTradeSpeech(event.entryPrice)} · Qty ${event.qty != null ? event.qty : '—'}`);
+    if (event.tradingType) detailLines.push(`Style: ${event.tradingType}`);
+  } else {
+    detailLines.push(`Exit @ ${formatInrForTradeSpeech(event.exitPrice)} · Entry @ ${formatInrForTradeSpeech(event.entryPrice)}`);
+    if (typeof event.netPnl === 'number') detailLines.push(`Net P&L: ${formatInrForTradeSpeech(event.netPnl)}`);
+    if (event.exitReason || event.actionLabel) detailLines.push(`Reason: ${mapExitReasonForTradeSpeech(event.exitReason, event.actionLabel)}`);
+  }
+  card.innerHTML = `<div style="font-size:13px;font-weight:800;color:${accent};margin-bottom:6px">${title}</div>`
+    + detailLines.map(l => `<div style="font-size:12px;color:#e2e8f0;padding:2px 0">${escapeHtml(l)}</div>`).join('')
+    + `<div style="margin-top:8px;font-size:11px;color:#94a3b8;font-style:italic">${escapeHtml(speechText)}</div>`;
+  overlay.style.display = 'block';
+  overlay.style.animation = 'none';
+  void overlay.offsetWidth;
+  overlay.style.animation = 'fnoTradeAlertPulse 0.45s ease-out';
+  clearTimeout(showTradeAlertVisual._hideTimer);
+  showTradeAlertVisual._hideTimer = setTimeout(() => { overlay.style.display = 'none'; }, 12000);
+}
+function speakTradeAlert(text, volume, rate, pitch) {
+  return new Promise((resolve) => {
+    try {
+      if (!window.speechSynthesis || !text) { resolve(); return; }
+      window.speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(text);
+      u.volume = Math.min(1, Math.max(0, volume));
+      u.rate = Math.min(1.4, Math.max(0.6, rate || 0.92));
+      u.pitch = Math.min(1.4, Math.max(0.7, pitch || 1));
+      u.lang = 'en-IN';
+      const voices = window.speechSynthesis.getVoices() || [];
+      const preferred = voices.find(v => /en-IN|en-GB|en-US/i.test(v.lang) && /Google|Microsoft|Natural|Neural|Samantha|Daniel/i.test(v.name))
+        || voices.find(v => /en-IN|en-GB|en-US/i.test(v.lang));
+      if (preferred) u.voice = preferred;
+      u.onend = () => resolve();
+      u.onerror = () => resolve();
+      window.speechSynthesis.speak(u);
+    } catch (e) { resolve(); }
+  });
+}
+function playUrgentChimeAlert(ctx, startAt, volume, pulses) {
+  const pulseDur = 0.22;
+  const gap = 0.12;
+  for (let p = 0; p < pulses; p++) {
+    const t = startAt + p * (pulseDur + gap);
+    [523.25, 659.25, 783.99].forEach((freq, i) => {
+      const at = t + i * 0.07;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.value = freq;
+      const peak = Math.min(0.9, volume * 0.75);
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(peak, at + 0.006);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.14);
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start(at); osc.stop(at + 0.16);
+    });
+  }
+  return pulses * (pulseDur + gap) + 0.35;
+}
+function playSirenPulseAlert(ctx, startAt, volume, pulses) {
+  const pulseDur = 0.35;
+  const gap = 0.15;
+  for (let p = 0; p < pulses; p++) {
+    const t = startAt + p * (pulseDur + gap);
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(620, t);
+    osc.frequency.exponentialRampToValueAtTime(980, t + pulseDur * 0.5);
+    osc.frequency.exponentialRampToValueAtTime(620, t + pulseDur);
+    const peak = Math.min(0.85, volume * 0.8);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(peak, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + pulseDur);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(t); osc.stop(t + pulseDur + 0.02);
+  }
+  return pulses * (pulseDur + gap) + 0.2;
+}
+function playTradingDeskAlert(ctx, startAt, volume, pulses) {
+  const toneDur = 0.16;
+  const gap = 0.06;
+  const freqs = [880, 1175, 880, 1175];
+  const count = pulses === 2 ? 6 : 4;
+  for (let i = 0; i < count; i++) {
+    const t = startAt + i * (toneDur + gap);
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'square';
+    osc.frequency.value = freqs[i % freqs.length];
+    const peak = Math.min(0.95, volume * 0.88);
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(peak, t + 0.005);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + toneDur);
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.start(t); osc.stop(t + toneDur + 0.02);
+  }
+  return count * (toneDur + gap) + 0.15;
+}
+function playTradeAlertSoundPreset(preset, volume, pulseCount, onComplete) {
+  pulseCount = pulseCount || 1;
+  onComplete = onComplete || function () {};
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) { onComplete(); return; }
+    const ctx = new AudioCtx();
+    const vol = Math.min(1, Math.max(0, volume));
+    const start = ctx.currentTime + 0.02;
+    let durationSec = 0.8;
+    if (preset === 'telephone') {
+      for (let r = 0; r < pulseCount; r++) {
+        playSingleTelephoneRingBurst(ctx, start + r * 0.65, 0.45);
+      }
+      durationSec = pulseCount * 0.65 + 0.5;
+    } else if (preset === 'urgent_chime') {
+      durationSec = playUrgentChimeAlert(ctx, start, vol, pulseCount);
+    } else if (preset === 'siren_pulse') {
+      durationSec = playSirenPulseAlert(ctx, start, vol, pulseCount);
+    } else {
+      durationSec = playTradingDeskAlert(ctx, start, vol, pulseCount);
+    }
+    setTimeout(() => { try { ctx.close(); } catch (e) {} onComplete(); }, Math.max(200, durationSec * 1000));
+  } catch (e) { onComplete(); }
+}
+function notifyTradeExecution(event) {
+  const settings = fnoSettings.get();
+  if (!settings.tradeAlertSystemEnabled) return;
+  if (event.kind === 'entry' && !settings.soundEntryEnabled) return;
+  if ((event.kind === 'exit' || event.kind === 'partial_exit') && !settings.soundExitEnabled) return;
+  const speech = buildTradeAlertSpeech(event);
+  showTradeAlertVisual(event, speech);
+  const soundVol = Math.min(1, Math.max(0, (settings.tradeAlertSoundVolume != null ? settings.tradeAlertSoundVolume : 90) / 100));
+  const voiceVol = Math.min(1, Math.max(0, (settings.tradeAlertVoiceVolume != null ? settings.tradeAlertVoiceVolume : 100) / 100));
+  const preset = settings.tradeAlertSoundPreset || 'trading_desk';
+  const pulses = (event.kind === 'exit' || event.kind === 'partial_exit') ? 2 : 1;
+  _fnoTradeAlertQueue = _fnoTradeAlertQueue.then(() => new Promise((resolve) => {
+    const speak = () => {
+      if (!settings.tradeAlertVoiceEnabled) { resolve(); return; }
+      speakTradeAlert(speech, voiceVol, settings.tradeAlertVoiceRate, settings.tradeAlertVoicePitch).then(resolve);
+    };
+    if (settings.tradeAlertSoundEnabled) {
+      playTradeAlertSoundPreset(preset, soundVol, pulses, speak);
+    } else {
+      speak();
+    }
+  })).catch(() => {});
+}
+function testTradeAlertSoundPreview() {
+  const s = fnoSettings.get();
+  playTradeAlertSoundPreset(s.tradeAlertSoundPreset || 'trading_desk', Math.min(1, (s.tradeAlertSoundVolume || 90) / 100), 1, () => {});
+}
+function testTradeAlertVoicePreview(kind) {
+  const sample = kind === 'exit'
+    ? { kind: 'exit', symbol: 'NIFTY', strike: 25000, optionType: 'CE', entryPrice: 185.5, exitPrice: 212.3, qty: 50, netPnl: 1339.5, exitReason: 'target', actionLabel: 'AUTO_TARGET_EXIT', tradingType: 'scalping' }
+    : { kind: 'entry', symbol: 'NIFTY', strike: 25000, optionType: 'CE', entryPrice: 185.5, qty: 50, tradingType: 'scalping' };
+  notifyTradeExecution(sample);
+}
+
 function playSingleTelephoneRingBurst(ctx, startAt, burstDurationSec) {
   // Real, individual bell strikes within one real ring - a genuine,
   // classic phone bell strikes roughly 10 real times per second while
@@ -4352,10 +4581,10 @@ function playOldTelephoneRing(ringCount) {
   } catch (e) { /* real, honest, silent skip - a real notification-sound failure must never interrupt real trade logic */ }
 }
 function playTradeEntrySound() {
-  if (fnoSettings.get().soundEntryEnabled) playOldTelephoneRing(1);
+  /* Legacy — real entry alerts fire via notifyTradeExecution() at the paper-trade open site. */
 }
 function playTradeExitSound() {
-  if (fnoSettings.get().soundExitEnabled) playOldTelephoneRing(2); // real, deliberate 2-ring pattern - audibly distinct from entry's single ring, so a user can tell which happened without looking at the screen
+  /* Legacy — real exit alerts fire via notifyTradeExecution() at closeAutoTrade/closePartial. */
 }
 
 function computeTradeCosts(entryPrice, exitPrice, qty) {
@@ -14164,6 +14393,28 @@ function render(){
     document.getElementById('settingAppearanceLight').checked = s.appearance === 'light';
     document.getElementById('settingSoundEntry').checked = s.soundEntryEnabled;
     document.getElementById('settingSoundExit').checked = s.soundExitEnabled;
+    const taSys = document.getElementById('settingTradeAlertSystem');
+    if (taSys) taSys.checked = s.tradeAlertSystemEnabled !== false;
+    const taSysLbl = document.getElementById('tradeAlertSystemStatusLabel');
+    if (taSysLbl) taSysLbl.textContent = (s.tradeAlertSystemEnabled !== false) ? 'ON' : 'OFF';
+    const taSound = document.getElementById('settingTradeAlertSound');
+    if (taSound) taSound.checked = s.tradeAlertSoundEnabled !== false;
+    const taSoundLbl = document.getElementById('tradeAlertSoundStatusLabel');
+    if (taSoundLbl) taSoundLbl.textContent = s.tradeAlertSoundEnabled !== false ? 'ON' : 'OFF';
+    const taVoice = document.getElementById('settingTradeAlertVoice');
+    if (taVoice) taVoice.checked = s.tradeAlertVoiceEnabled !== false;
+    const taVoiceLbl = document.getElementById('tradeAlertVoiceStatusLabel');
+    if (taVoiceLbl) taVoiceLbl.textContent = s.tradeAlertVoiceEnabled !== false ? 'ON' : 'OFF';
+    const taSoundVol = document.getElementById('settingTradeAlertSoundVolume');
+    if (taSoundVol) taSoundVol.value = (s.tradeAlertSoundVolume != null ? s.tradeAlertSoundVolume : 90);
+    const taVoiceVol = document.getElementById('settingTradeAlertVoiceVolume');
+    if (taVoiceVol) taVoiceVol.value = (s.tradeAlertVoiceVolume != null ? s.tradeAlertVoiceVolume : 100);
+    const taSoundVolLbl = document.getElementById('tradeAlertSoundVolLabel');
+    if (taSoundVolLbl) taSoundVolLbl.textContent = (s.tradeAlertSoundVolume != null ? s.tradeAlertSoundVolume : 90) + '%';
+    const taVoiceVolLbl = document.getElementById('tradeAlertVoiceVolLabel');
+    if (taVoiceVolLbl) taVoiceVolLbl.textContent = (s.tradeAlertVoiceVolume != null ? s.tradeAlertVoiceVolume : 100) + '%';
+    const taPreset = document.getElementById('settingTradeAlertSoundPreset');
+    if (taPreset) taPreset.value = s.tradeAlertSoundPreset || 'trading_desk';
   }
   document.getElementById('openSettingsBtn').addEventListener('click', () => {
     loadSettingsIntoModal();
@@ -14231,7 +14482,48 @@ function render(){
   });
   document.getElementById('settingSoundEntry').addEventListener('change', (e) => fnoSettings.set({ soundEntryEnabled: e.target.checked }));
   document.getElementById('settingSoundExit').addEventListener('change', (e) => fnoSettings.set({ soundExitEnabled: e.target.checked }));
-  document.getElementById('testSoundBtn').addEventListener('click', () => playOldTelephoneRing(1));
+  const bindTradeAlertToggle = (id, key, labelId) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', (e) => {
+      fnoSettings.set({ [key]: e.target.checked });
+      const lbl = document.getElementById(labelId);
+      if (lbl) lbl.textContent = e.target.checked ? 'ON' : 'OFF';
+    });
+  };
+  bindTradeAlertToggle('settingTradeAlertSystem', 'tradeAlertSystemEnabled', 'tradeAlertSystemStatusLabel');
+  bindTradeAlertToggle('settingTradeAlertSound', 'tradeAlertSoundEnabled', 'tradeAlertSoundStatusLabel');
+  bindTradeAlertToggle('settingTradeAlertVoice', 'tradeAlertVoiceEnabled', 'tradeAlertVoiceStatusLabel');
+  const soundVolEl = document.getElementById('settingTradeAlertSoundVolume');
+  if (soundVolEl) {
+    soundVolEl.addEventListener('input', (e) => {
+      const v = parseInt(e.target.value, 10);
+      if (Number.isFinite(v)) {
+        fnoSettings.set({ tradeAlertSoundVolume: v });
+        const lbl = document.getElementById('tradeAlertSoundVolLabel');
+        if (lbl) lbl.textContent = v + '%';
+      }
+    });
+  }
+  const voiceVolEl = document.getElementById('settingTradeAlertVoiceVolume');
+  if (voiceVolEl) {
+    voiceVolEl.addEventListener('input', (e) => {
+      const v = parseInt(e.target.value, 10);
+      if (Number.isFinite(v)) {
+        fnoSettings.set({ tradeAlertVoiceVolume: v });
+        const lbl = document.getElementById('tradeAlertVoiceVolLabel');
+        if (lbl) lbl.textContent = v + '%';
+      }
+    });
+  }
+  const presetEl = document.getElementById('settingTradeAlertSoundPreset');
+  if (presetEl) presetEl.addEventListener('change', (e) => fnoSettings.set({ tradeAlertSoundPreset: e.target.value }));
+  const testAlertSoundBtn = document.getElementById('testTradeAlertSoundBtn');
+  if (testAlertSoundBtn) testAlertSoundBtn.addEventListener('click', () => testTradeAlertSoundPreview());
+  const testVoiceEntryBtn = document.getElementById('testTradeAlertVoiceEntryBtn');
+  if (testVoiceEntryBtn) testVoiceEntryBtn.addEventListener('click', () => testTradeAlertVoicePreview('entry'));
+  const testVoiceExitBtn = document.getElementById('testTradeAlertVoiceExitBtn');
+  if (testVoiceExitBtn) testVoiceExitBtn.addEventListener('click', () => testTradeAlertVoicePreview('exit'));
 
   // Personal category (Master Prompt §14) - all 20 catalogued items,
   // grouped for usability rather than one long flat list (UI/UX
@@ -16139,7 +16431,17 @@ function render(){
       exitCandleTs: (curCtx && Array.isArray(curCtx.candles) && curCtx.candles.length) ? curCtx.candles[curCtx.candles.length - 1].t : null,
     };
     await journalAdd(entry);
-    playTradeExitSound(); // real, user's own direct request - a partial exit is a genuine, real exit event too ("any other condition that causes the position to be closed")
+    notifyTradeExecution({
+      kind: 'partial_exit',
+      symbol: sym,
+      strike: open.strike,
+      optionType: open.optionType,
+      entryPrice: open.entryPrice,
+      exitPrice,
+      qty: partialQty,
+      totalQty: open.qty,
+      tradingType: open.tradingType || 'intraday',
+    });
     const history = load(STORAGE.autoTrades + '_history');
     history.push(entry);
     save(STORAGE.autoTrades + '_history', history);
@@ -16230,7 +16532,19 @@ function render(){
       tradingType: open.tradingType || 'intraday', // real, honestly read back from the exact real position being closed, the same real, deliberate design as the partial-exit path above
     };
     await journalAdd(entry);
-    playTradeExitSound(); // real, user's own direct request - fires for EVERY real exit reason (target/SL/trailing/manual/square-off), since closeAutoTrade is the one, real, unified function all of them funnel through
+    notifyTradeExecution({
+      kind: 'exit',
+      symbol: sym,
+      strike: open.strike,
+      optionType: open.optionType,
+      entryPrice: open.entryPrice,
+      exitPrice,
+      qty: open.qty,
+      netPnl: costs.netPnl,
+      exitReason,
+      actionLabel,
+      tradingType: open.tradingType || 'intraday',
+    });
 
     // Real, additive, server-side close - the exact real counterpart
     // to the open-side persistence above, now for EVERY trading style
@@ -16781,7 +17095,18 @@ function render(){
       }).catch(()=>{}); // real, honest, silent best-effort - a real network hiccup here must never undo the real, already-opened local position above
     }
     document.getElementById('brainLog').textContent += `\n✅ Auto Trade opened (${execMode==='theoretical'?'Mode 1 theoretical':'Mode 2 realistic'}): ${strike}${optionType} at Rs${fill.price.toFixed(2)}${fill.isRealistic?' (real ask price, spread simulated)':execMode==='theoretical'?' (theoretical last price, no spread modeled - by design in Mode 1)':' (fallback: last traded price - no real bid/ask this refresh, spread NOT simulated)'}${latencyInfo.latencyCostRs>0?` + Rs${latencyInfo.latencyCostRs.toFixed(2)} simulated latency cost (Enterprise Plan #29)`:''}, target Rs${target}, SL Rs${sl}. Projected net P&L at target after real costs: Rs${hypotheticalCosts.netPnl.toFixed(0)}. Polling every refresh for target/SL hit.${fmResult.triggered.length>0?` Failure-Mode Library: ${fmResult.triggered.length} real condition(s) noted (none severe enough to block) - ${fmResult.triggered.map(t=>t.id).join(', ')}.`:' Failure-Mode Library: no real conditions triggered.'}`;
-    playTradeEntrySound(); // real, user's own direct request - an audible notification the exact moment a real trade genuinely opens
+    notifyTradeExecution({
+      kind: 'entry',
+      symbol: sym,
+      strike,
+      optionType,
+      entryPrice: fill.price,
+      qty: filledLotSize,
+      tradingType: effectiveTradingType,
+      target,
+      sl,
+      execMode,
+    });
     const fmBox = document.getElementById('failureModeLibraryBox');
     if (fmBox) {
       fmBox.innerHTML = fmResult.triggered.length === 0
@@ -18387,6 +18712,10 @@ function updateEffectiveTradingTypeBadge() {
   badge.textContent = `Next trade: ${labels[type] || type}${profileSuffix}`;
 }
 updateEffectiveTradingTypeBadge();
+if (typeof window !== 'undefined' && window.speechSynthesis) {
+  window.speechSynthesis.getVoices();
+  window.speechSynthesis.onvoiceschanged = function () { window.speechSynthesis.getVoices(); };
+}
 
 document.addEventListener('fnoSettingsChanged', (e) => {
   document.documentElement.setAttribute('data-theme', e.detail.appearance);
