@@ -160,7 +160,15 @@ body.fno-nse-disabled .nse-only-section{display:none}
 
     <div style="margin-bottom:18px;padding:12px;background:#422006;border:1px solid #92400e;border-radius:10px">
       <div style="font-size:12px;font-weight:700;color:#fde68a;margin-bottom:8px">⚡ Scalping Profit Profile <span id="scalpingProfitProfileStatusLabel" style="margin-left:8px;color:#94a3b8;font-weight:400">OFF</span></div>
-      <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingScalpingProfitProfile"> Enable profile — more scalp entries with safety rails (spread block, weighted-score gate, tight target/SL, 70% auto-cal)</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingScalpingProfitProfile"> Enable profile — more scalp entries with safety rails (spread block, weighted-score gate, tight target/SL, 65% auto-cal)</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingScalpingCapitalPreservation"> 🛡️ Capital preservation mode <span id="scalpingCapitalPreservationStatusLabel" style="margin-left:auto;color:#64748b">ON</span></label>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px 8px 8px;flex-wrap:wrap">
+        <span>Max losing trades/day:</span>
+        <input type="number" id="settingMaxLosingTradesPerDay" min="0" max="10" step="1" value="1" style="width:50px;background:#020617;border:1px solid #1e293b;border-radius:6px;color:#e2e8f0;padding:4px 6px">
+        <span>Daily loss cap:</span>
+        <input type="number" id="settingMaxDailyLossPctPreservation" min="0.5" max="10" step="0.5" value="1.5" style="width:50px;background:#020617;border:1px solid #1e293b;border-radius:6px;color:#e2e8f0;padding:4px 6px">
+        <span>% of capital</span>
+      </div>
       <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px 8px 8px;flex-wrap:wrap">
         <span>FM safety mode:</span>
         <select id="settingScalpingFmSafety" class="input" style="width:160px">
@@ -168,7 +176,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
           <option value="balanced">Balanced</option>
         </select>
       </div>
-      <div style="font-size:10px;color:#64748b;margin-top:4px">Turning this ON also enables Scalping, disables Intraday, turns on trade-type target/SL, sets auto-calibration to 70% win-rate target, and uses thresholds BUY ≥8 / SELL ≤−13. Realistic execution stays ON — wide spreads still block. Strict FM mode keeps scalping-relevant failure checks escalated; Balanced skips the +1 severity bump only.</div>
+      <div style="font-size:10px;color:#64748b;margin-top:4px">Turning this ON also enables Scalping, disables Intraday, turns on trade-type target/SL, sets auto-calibration to 65% win-rate target, default 2 exchange lots, and uses thresholds BUY ≥8 / SELL ≤−13. Realistic execution stays ON — wide spreads still block. Capital preservation (ON by default) requires High confidence, blocks operator/trap warnings, stops after configurable daily losses — fewer trades, tighter filters; cannot eliminate all market risk. Strict FM mode keeps scalping-relevant failure checks escalated; Balanced skips the +1 severity bump only.</div>
     </div>
 
     <div style="margin-bottom:18px">
@@ -182,7 +190,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
     <div style="margin-bottom:18px">
       <div style="font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:8px">Position Sizing</div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingTradeTypeSizing"> ⚖️ Trade-type-aware sizing <span id="tradeTypeSizingStatusLabel" style="margin-left:auto;color:#64748b">OFF</span></label>
-      <div style="font-size:10px;color:#64748b;margin-top:4px;margin-bottom:10px">OFF (default): every trade type uses your Lot Size field below, unchanged. ON: equal-risk-per-trade sizing — Scalping (tighter 0.5x stop) sizes up to ~2x your Lot Size, Swing (wider 1.5x stop) sizes down to ~0.67x, Intraday stays at 1x, each rounded to a whole lot (minimum one lot). This only ever offers a computed size for auto-opened trades — it never overrides what you type into the Lot Size field itself.</div>
+      <div style="font-size:10px;color:#64748b;margin-top:4px;margin-bottom:10px">OFF (default): every trade type uses your Lots (exchange) field below, unchanged. ON: equal-risk-per-trade sizing — Scalping (tighter 0.5x stop) sizes up to ~2x your lot count, Swing (wider 1.5x stop) sizes down to ~0.67x, Intraday stays at 1x, each rounded to whole exchange lots (minimum one lot). This only ever offers a computed size for auto-opened trades — it never overrides what you type into the Lots field itself.</div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;cursor:pointer"><input type="checkbox" id="settingTradeTypeTargetSl"> 🎯 Trade-type-aware default target/SL <span id="tradeTypeTargetSlStatusLabel" style="margin-left:auto;color:#64748b">OFF</span></label>
       <div style="font-size:10px;color:#64748b;margin-top:4px">OFF (default): Autonomous Mode's fallback target/SL (used only when you haven't typed your own into the Target/SL fields) stays the original +30%/-15%, same for every trade type. ON: that fallback scales by the same real stop multiplier as trailing — Scalping tighter, Swing wider — while holding the same 2:1 reward:risk ratio. Never overrides a target/SL you've actually typed in yourself.</div>
     </div>
@@ -518,8 +526,9 @@ body.fno-nse-disabled .nse-only-section{display:none}
           <label>Price <input id="optPrice" type="number" value="100" class="input" style="width:80px"></label>
           <label>IV <input id="iv" type="number" value="18" class="input" style="width:60px">%</label>
           <label>Days Exp <input id="daysExp" type="number" value="2" class="input" style="width:60px"></label>
-          <label>Lot <input id="lotSize" type="number" value="2" min="1" class="input" style="width:60px"></label>
-          <button id="saveLotSizeBtn" class="btn" style="padding:6px 10px;font-size:11px;background:#334155" title="Saves this real lot size as your default - genuinely remembered across page reloads, unlike the plain field alone, which previously always reset to 50.">💾 Save as default</button>
+          <label>Lots (exchange) <input id="lotCount" type="number" value="2" min="1" step="1" class="input" style="width:60px" title="Number of exchange lots — not raw qty"></label>
+          <span id="lotQtyHint" style="font-size:10px;color:#64748b;display:block;margin-top:2px">2 lots = 150 qty (75/lot)</span>
+          <button id="saveLotSizeBtn" class="btn" style="padding:6px 10px;font-size:11px;background:#334155" title="Saves default exchange lots — remembered across reloads">💾 Save as default</button>
           <span id="lotSizeSavedNote" style="font-size:10px;color:#4ade80;display:none">Saved!</span>
         </div>
       </div>

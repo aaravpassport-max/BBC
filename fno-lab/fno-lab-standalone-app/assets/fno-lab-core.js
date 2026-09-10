@@ -64,15 +64,13 @@ let fnoAutoTradeCloseInProgress = false;
  */
 const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
-const FNO_SETTINGS_SCHEMA_VERSION = 4; // v4 (16.25.1): default lot size 2 for realistic scalping paper size
+const FNO_SETTINGS_SCHEMA_VERSION = 5; // v5 (16.26.0): exchange lots (not raw qty) + capital preservation mode
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
   appearance: 'dark', // 'dark' | 'light'
   soundEntryEnabled: true,
   soundExitEnabled: true,
-  // v16.25.1: 2 lots default — realistic scalping paper size (was 50/25).
-  defaultLotSize: 2,
   // Real, NEW this session: opt-in, trade-type-aware position sizing
   // (KB §7 "Position sizing" row / SESSION_HANDOFF.md item 3). Off by
   // default, matching this app's own established conservative-default
@@ -112,7 +110,129 @@ const FNO_SETTINGS_DEFAULTS = {
   tradeAlertSoundPreset: 'trading_desk', // trading_desk | telephone | urgent_chime | siren_pulse
   tradeAlertVoiceRate: 0.92,
   tradeAlertVoicePitch: 1.0,
+  // Number of exchange lots (not raw qty). 2 NIFTY lots = 150 qty at 75/lot.
+  defaultLots: 2,
+  // Scalping capital preservation — stricter entry gates to minimize losses (never removes all risk).
+  scalpingCapitalPreservationEnabled: true,
+  maxLosingTradesPerDay: 1,
+  maxDailyLossPctPreservation: 1.5,
 };
+
+/** SEBI/NSE index F&O contract lot sizes (qty units per 1 exchange lot). Update when exchange revises. */
+const FNO_EXCHANGE_LOT_SIZES = {
+  NIFTY: 75,
+  BANKNIFTY: 15,
+  FINNIFTY: 40,
+};
+
+function normalizeUnderlyingSymbol(sym) {
+  const s = String(sym || 'NIFTY').trim().toUpperCase();
+  if (s.includes('BANK')) return 'BANKNIFTY';
+  if (s.includes('FIN')) return 'FINNIFTY';
+  return 'NIFTY';
+}
+
+function getExchangeLotSize(symbol) {
+  return FNO_EXCHANGE_LOT_SIZES[normalizeUnderlyingSymbol(symbol)] || 75;
+}
+
+function lotsToQty(symbol, lots) {
+  const lotCount = Math.max(1, Math.round(Number(lots) || 1));
+  return lotCount * getExchangeLotSize(symbol);
+}
+
+function qtyToLots(symbol, qty) {
+  const unit = getExchangeLotSize(symbol);
+  const q = Number(qty);
+  if (!Number.isFinite(q) || q <= 0) return 1;
+  return Math.max(1, Math.round(q / unit));
+}
+
+function isValidExchangeQty(symbol, qty) {
+  const unit = getExchangeLotSize(symbol);
+  const q = Number(qty);
+  return Number.isFinite(q) && q > 0 && q % unit === 0;
+}
+
+function snapQtyToExchangeLots(symbol, qty) {
+  const unit = getExchangeLotSize(symbol);
+  const q = Number(qty);
+  if (!Number.isFinite(q) || q <= 0) return unit;
+  return Math.max(unit, Math.round(q / unit) * unit);
+}
+
+function getLotCountFromUi() {
+  const el = document.getElementById('lotCount') || document.getElementById('lotSize');
+  if (el && el.value) {
+    const v = parseFloat(el.value);
+    if (Number.isFinite(v) && v > 0) return Math.max(1, Math.round(v));
+  }
+  const s = fnoSettings.get();
+  return Math.max(1, Math.round(s.defaultLots != null ? s.defaultLots : 2));
+}
+
+function resolveOrderQuantity(symbol, lotsOverride) {
+  const lots = lotsOverride != null ? lotsOverride : getLotCountFromUi();
+  return lotsToQty(symbol, lots);
+}
+
+function formatLotQtyLabel(symbol, lots) {
+  const lotCount = Math.max(1, Math.round(Number(lots) || 1));
+  const qty = lotsToQty(symbol, lotCount);
+  return `${lotCount} lot${lotCount === 1 ? '' : 's'} = ${qty} qty (${getExchangeLotSize(symbol)}/lot)`;
+}
+
+function updateLotQtyHint(symbol) {
+  if (typeof document === 'undefined') return;
+  const hint = document.getElementById('lotQtyHint');
+  if (!hint) return;
+  const sym = symbol || (document.getElementById('sym') && document.getElementById('sym').value) || 'NIFTY';
+  hint.textContent = formatLotQtyLabel(sym, getLotCountFromUi());
+}
+
+/**
+ * Scalping capital preservation — extra entry gates (measurement-safe, hard blocks only
+ * when enabled). Goal: fewer but higher-quality entries; cannot eliminate losses entirely.
+ */
+function checkScalpingCapitalPreservation(brain, ctx, opts) {
+  opts = opts || {};
+  if (!isScalpingProfitProfileActive()) return { allowed: true };
+  const s = fnoSettings.get();
+  if (s.scalpingCapitalPreservationEnabled === false) return { allowed: true };
+  const reasons = [];
+  if (brain.confidence !== 'High') {
+    reasons.push(`Requires High confidence (current: ${brain.confidence || 'Low'})`);
+  }
+  if (brain.tradeTypeWeightingAdjustment) {
+    reasons.push('Weighted-score safety active — setup downgraded from raw signal');
+  }
+  if (brain.pretradeGateCheck) {
+    const fa = brain.pretradeGateCheck.finalAction;
+    const ids = (brain.pretradeGateCheck.triggered || []).map(t => t.id);
+    if (fa === 'block' || fa === 'reject') {
+      reasons.push(`Pre-trade gate would block (${ids.join(', ') || fa})`);
+    } else if (fa === 'require_confirmation' && ids.some(id => id === 'FM077' || id === 'FM032' || id === 'FM031')) {
+      reasons.push(`Operator/trap warning (${ids.filter(id => id === 'FM077' || id === 'FM032' || id === 'FM031').join(', ')})`);
+    }
+  }
+  const journalToday = opts.journalToday || [];
+  const lossCount = journalToday.filter(t => typeof t.pnl === 'number' && t.pnl < 0).length;
+  const maxLosses = (typeof s.maxLosingTradesPerDay === 'number') ? s.maxLosingTradesPerDay : 1;
+  if (lossCount >= maxLosses) {
+    reasons.push(`${lossCount} losing trade(s) today (cap ${maxLosses}) — no new entries until tomorrow`);
+  }
+  const todayPnL = ctx && ctx.todayPnL;
+  const capital = (ctx && Number.isFinite(ctx.accountCurrentBalance)) ? ctx.accountCurrentBalance
+    : ((ctx && Number.isFinite(ctx.accountAvailableCapital)) ? ctx.accountAvailableCapital : 100000);
+  const maxLossPct = (typeof s.maxDailyLossPctPreservation === 'number') ? s.maxDailyLossPctPreservation : 1.5;
+  if (Number.isFinite(todayPnL) && todayPnL <= -(capital * maxLossPct / 100)) {
+    reasons.push(`Daily loss Rs${todayPnL.toFixed(0)} reached ${maxLossPct}% preservation limit`);
+  }
+  if (reasons.length) {
+    return { allowed: false, reason: `Capital preservation: ${reasons.join('; ')}`, reasons };
+  }
+  return { allowed: true };
+}
 /** One-time schema migrations so upgrades get scalping-ready controls without manual reset. */
 function migrateTradingControlsSchema(stored) {
   const base = stored && typeof stored === 'object' ? stored : {};
@@ -145,6 +265,22 @@ function migrateTradingControlsSchema(stored) {
       defaultLotSize: (merged.defaultLotSize === 50 || merged.defaultLotSize === 25 || merged.defaultLotSize == null) ? 2 : merged.defaultLotSize,
     };
   }
+  if (schema < 5) {
+    let defaultLots = 2;
+    if (merged.defaultLots != null && Number.isFinite(Number(merged.defaultLots))) {
+      defaultLots = Math.max(1, Math.round(Number(merged.defaultLots)));
+    } else if (merged.defaultLotSize != null && Number.isFinite(Number(merged.defaultLotSize))) {
+      const legacy = Number(merged.defaultLotSize);
+      defaultLots = legacy <= 10 ? Math.max(1, Math.round(legacy)) : Math.max(1, Math.round(legacy / 75));
+    }
+    merged = {
+      ...merged,
+      defaultLots,
+      scalpingCapitalPreservationEnabled: merged.scalpingCapitalPreservationEnabled !== false,
+      maxLosingTradesPerDay: merged.maxLosingTradesPerDay != null ? merged.maxLosingTradesPerDay : 1,
+      maxDailyLossPctPreservation: merged.maxDailyLossPctPreservation != null ? merged.maxDailyLossPctPreservation : 1.5,
+    };
+  }
   try {
     localStorage.setItem(FNO_SETTINGS_SCHEMA_KEY, String(FNO_SETTINGS_SCHEMA_VERSION));
     localStorage.setItem(FNO_SETTINGS_KEY, JSON.stringify(merged));
@@ -166,6 +302,7 @@ const fnoSettings = {
         ...FNO_SETTINGS_DEFAULTS, ...stored,
         tradingTypes: { ...FNO_SETTINGS_DEFAULTS.tradingTypes, ...(stored.tradingTypes || {}) },
         scalpingFmSafetyProfile: stored.scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'strict',
+        defaultLots: Math.max(1, Math.round(stored.defaultLots != null ? stored.defaultLots : FNO_SETTINGS_DEFAULTS.defaultLots)),
       };
     } catch (e) { return { ...FNO_SETTINGS_DEFAULTS }; } // real, honest fallback - a genuinely corrupted stored value must never crash the whole app, just fall back to real, safe defaults
   },
@@ -280,11 +417,15 @@ function applyScalpingProfitProfilePreset() {
     autoCalibrateThresholdEnabled: true,
     autoCalibrateTargetWinRatePct: FNO_SCALPING_PROFIT_PROFILE.autoCalibrateTargetWinRatePct,
     scalpingFmSafetyProfile: cur.scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'strict',
-    defaultLotSize: (cur.defaultLotSize === 50 || cur.defaultLotSize === 25 || cur.defaultLotSize == null) ? 2 : cur.defaultLotSize,
+    defaultLots: 2,
     scalpingTrailingEnabled: true,
     scalpingPartialExitEnabled: true,
+    scalpingCapitalPreservationEnabled: true,
+    maxLosingTradesPerDay: 1,
+    maxDailyLossPctPreservation: 1.5,
   });
   applyScalpingExecutionControlsFromSettings();
+  updateLotQtyHint();
 }
 
 function applyScalpingExecutionControlsFromSettings() {
@@ -339,6 +480,11 @@ function renderScalpingSessionReadiness(brain, ctx) {
   const bracketTxt = fnoSettings.get().tradeTypeTargetSlEnabled
     ? `Auto bracket: ~${(FNO_SCALPING_PROFIT_PROFILE.targetFraction * 100).toFixed(0)}% target / ~${(FNO_SCALPING_PROFIT_PROFILE.slFraction * 100).toFixed(0)}% SL`
     : 'Manual target/SL from form';
+  const sym = (ctx && ctx.sym) || (document.getElementById('sym') && document.getElementById('sym').value) || 'NIFTY';
+  const lotTxt = formatLotQtyLabel(sym, getLotCountFromUi());
+  const preserveTxt = fnoSettings.get().scalpingCapitalPreservationEnabled !== false
+    ? '🛡️ Capital preservation ON (High confidence, operator/trap blocks, 1 loss/day cap)'
+    : 'Capital preservation OFF';
   box.innerHTML = [
     `<b style="color:#fde68a">⚡ Scalping Profit Profile</b> <span style="color:#94a3b8">(FM ${fmMode}, realistic fills, ${bracketTxt})</span>`,
     `Live thresholds: BUY ≥ ${thresholds.buyThreshold}, SELL ≤ ${thresholds.sellThreshold}`,
@@ -350,6 +496,8 @@ function renderScalpingSessionReadiness(brain, ctx) {
     `Session time: ${timeTxt}`,
     `Pre-trade gate: ${gateTxt}`,
     microTxt,
+    `Size: ${lotTxt}`,
+    preserveTxt,
   ].map(line => `<div style="padding:3px 0;font-size:11px">${line}</div>`).join('');
 }
 
@@ -374,6 +522,7 @@ function classifyExecutionRejection(decision, blockReason, extra) {
   const r = (blockReason || '').toLowerCase();
   if (!blockReason) return { category: FNO_EXEC_REJECTION.NO_SIGNAL, subcategory: 'unspecified', detail: blockReason };
   if (r.includes('autonomous mode is not enabled')) return { category: FNO_EXEC_REJECTION.STRATEGY_RULE, subcategory: 'autonomous_off', detail: blockReason };
+  if (r.includes('capital preservation')) return { category: FNO_EXEC_REJECTION.STRATEGY_RULE, subcategory: 'capital_preservation', detail: blockReason };
   if (r.includes('scalping profit profile safety') || r.includes('trade-type-aware category weighting') || r.includes('weighted score') || r.includes('weighted directional')) return { category: FNO_EXEC_REJECTION.STRATEGY_RULE, subcategory: 'weighted_score', detail: blockReason };
   if (r.includes('failure-mode library') || r.includes('fm0') || extra.failureModeResult) return { category: FNO_EXEC_REJECTION.RISK_VALIDATION, subcategory: 'failure_mode', detail: blockReason };
   if (r.includes('rejection risk') || r.includes('simulated order rejection') || r.includes('spread') || r.includes('latency') || r.includes('transaction costs') || r.includes('cost-aware')) return { category: FNO_EXEC_REJECTION.EXECUTION_FAILED, subcategory: 'realistic_execution', detail: blockReason };
@@ -392,6 +541,7 @@ function classifyExecutionRejection(decision, blockReason, extra) {
 function funnelBlockLabel(meta) {
   if (!meta) return 'Other gate';
   if (meta.subcategory === 'autonomous_off') return 'Autonomous Mode OFF';
+  if (meta.subcategory === 'capital_preservation') return 'Capital preservation';
   if (meta.subcategory === 'weighted_score') return 'Weighted-score safety';
   if (meta.subcategory === 'failure_mode') return 'Failure-mode block';
   if (meta.subcategory === 'realistic_execution') return 'Spread / execution';
@@ -8146,6 +8296,12 @@ function evaluatePreTradeFailureModes(evalCtx) {
     const trapCheckFM = computeBreakoutTrapCheck(breakoutCondition, trapSignal || null);
     check('FM028', 'Real breakout is active but the concurrent OI signature suggests a possible trap', 'high', 'require_confirmation', trapCheckFM.reason, trapCheckFM.applies === true && trapCheckFM.verdict === 'possible_trap');
   }
+  if (ctx && Number.isFinite(ctx.lotSize) && ctx.lotSize > 0 && ctx.sym) {
+    const contractLot = getExchangeLotSize(ctx.sym);
+    check('FM149', 'Real lot size requested is genuinely not a valid multiple of the real, documented contract lot size', 'critical', 'block',
+      `Order qty ${ctx.lotSize} is not a multiple of ${normalizeUnderlyingSymbol(ctx.sym)} contract lot (${contractLot} qty/lot). Use whole exchange lots.`,
+      ctx.lotSize % contractLot !== 0);
+  }
   if (rejectionCheck) {
     // FIXED: was mistagged 'FM018' (doc FM018 = IV percentile extreme
     // high, >=90th); this check's real condition (combined thin-depth +
@@ -14570,15 +14726,22 @@ function render(){
   // than-expected trade sizes (and real, correspondingly larger
   // simulated fees). Pre-fills from the real, saved default here, and
   // the Save button below genuinely persists a new one.
-  const lotSizeInput = document.getElementById('lotSize');
-  if (lotSizeInput) lotSizeInput.value = fnoSettings.get().defaultLotSize;
+  const lotSizeInput = document.getElementById('lotCount') || document.getElementById('lotSize');
+  if (lotSizeInput) lotSizeInput.value = fnoSettings.get().defaultLots;
   applyScalpingExecutionControlsFromSettings();
+  updateLotQtyHint(document.getElementById('sym') && document.getElementById('sym').value);
+  if (lotSizeInput) {
+    lotSizeInput.addEventListener('input', () => updateLotQtyHint(document.getElementById('sym') && document.getElementById('sym').value));
+    lotSizeInput.addEventListener('change', () => updateLotQtyHint(document.getElementById('sym') && document.getElementById('sym').value));
+  }
+  const symSelect = document.getElementById('sym');
+  if (symSelect) symSelect.addEventListener('change', () => updateLotQtyHint(symSelect.value));
   const saveLotSizeBtn = document.getElementById('saveLotSizeBtn');
   if (saveLotSizeBtn) {
     saveLotSizeBtn.addEventListener('click', () => {
       const val = parseInt(lotSizeInput.value, 10);
-      if (!val || val <= 0) { alert('Enter a real, valid lot size greater than 0 before saving.'); return; }
-      fnoSettings.set({ defaultLotSize: val });
+      if (!val || val <= 0) { alert('Enter a valid number of exchange lots (1, 2, 3…).'); return; }
+      fnoSettings.set({ defaultLots: val });
       const note = document.getElementById('lotSizeSavedNote');
       note.style.display = 'inline';
       setTimeout(() => { note.style.display = 'none'; }, 2000);
@@ -14614,6 +14777,14 @@ function render(){
     if (profileStatus) profileStatus.textContent = s.scalpingProfitProfileEnabled ? 'ON' : 'OFF';
     const fmSafetyEl = document.getElementById('settingScalpingFmSafety');
     if (fmSafetyEl) fmSafetyEl.value = s.scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'strict';
+    const preserveEl = document.getElementById('settingScalpingCapitalPreservation');
+    if (preserveEl) preserveEl.checked = s.scalpingCapitalPreservationEnabled !== false;
+    const preserveLbl = document.getElementById('scalpingCapitalPreservationStatusLabel');
+    if (preserveLbl) preserveLbl.textContent = s.scalpingCapitalPreservationEnabled !== false ? 'ON' : 'OFF';
+    const maxLossEl = document.getElementById('settingMaxLosingTradesPerDay');
+    if (maxLossEl) maxLossEl.value = (typeof s.maxLosingTradesPerDay === 'number') ? s.maxLosingTradesPerDay : 1;
+    const maxLossPctEl = document.getElementById('settingMaxDailyLossPctPreservation');
+    if (maxLossPctEl) maxLossPctEl.value = (typeof s.maxDailyLossPctPreservation === 'number') ? s.maxDailyLossPctPreservation : 1.5;
     document.getElementById('settingAppearanceDark').checked = s.appearance === 'dark';
     document.getElementById('settingAppearanceLight').checked = s.appearance === 'light';
     document.getElementById('settingSoundEntry').checked = s.soundEntryEnabled;
@@ -14698,6 +14869,30 @@ function render(){
   if (fmSafetySelect) {
     fmSafetySelect.addEventListener('change', (e) => {
       fnoSettings.set({ scalpingFmSafetyProfile: e.target.value === 'balanced' ? 'balanced' : 'strict' });
+    });
+  }
+  const preserveCheckbox = document.getElementById('settingScalpingCapitalPreservation');
+  if (preserveCheckbox) {
+    preserveCheckbox.addEventListener('change', (e) => {
+      fnoSettings.set({ scalpingCapitalPreservationEnabled: e.target.checked });
+      const lbl = document.getElementById('scalpingCapitalPreservationStatusLabel');
+      if (lbl) lbl.textContent = e.target.checked ? 'ON' : 'OFF';
+    });
+  }
+  const maxLossInput = document.getElementById('settingMaxLosingTradesPerDay');
+  if (maxLossInput) {
+    maxLossInput.addEventListener('change', (e) => {
+      const v = parseInt(e.target.value, 10);
+      if (Number.isFinite(v) && v >= 0 && v <= 10) fnoSettings.set({ maxLosingTradesPerDay: v });
+      else e.target.value = fnoSettings.get().maxLosingTradesPerDay;
+    });
+  }
+  const maxLossPctInput = document.getElementById('settingMaxDailyLossPctPreservation');
+  if (maxLossPctInput) {
+    maxLossPctInput.addEventListener('change', (e) => {
+      const v = parseFloat(e.target.value);
+      if (Number.isFinite(v) && v >= 0.5 && v <= 10) fnoSettings.set({ maxDailyLossPctPreservation: v });
+      else e.target.value = fnoSettings.get().maxDailyLossPctPreservation;
     });
   }
   ['Dark', 'Light'].forEach(mode => {
@@ -15150,7 +15345,11 @@ function render(){
         iv = parseFloat(document.getElementById('iv').value)||18;
       }
 
-      const lotSize=parseFloat(document.getElementById('lotSize').value)||fnoSettings.get().defaultLotSize;
+      const lotCount = getLotCountFromUi();
+      const lotSize = resolveOrderQuantity(sym, lotCount);
+      ctx.lotCount = lotCount;
+      ctx.exchangeLotSize = getExchangeLotSize(sym);
+      updateLotQtyHint(sym);
 
       // Real Kite /margins/orders "what-if" figure for the SAME selected
       // strike/optionType/lotSize this refresh already resolved above -
@@ -15527,8 +15726,12 @@ function render(){
             const autoTrailing = !!(document.getElementById('trailingEnabled') && document.getElementById('trailingEnabled').checked);
             const autoPartial = !!(document.getElementById('partialExitEnabled') && document.getElementById('partialExitEnabled').checked);
             if (autoStrike) {
+              const preservation = checkScalpingCapitalPreservation(brain, ctx, { journalToday: todayTrades });
+              if (!preservation.allowed) {
+                decisionLogBlockReason = preservation.reason;
+              } else {
               const autoResult = tryOpenAutoTradePosition(
-                { strike: autoStrike, optionType: autoOptionType, target: autoTarget, sl: autoSl, lotSize, execMode: autoExecMode, trailingEnabled: autoTrailing, partialExitEnabled: autoPartial },
+                { strike: autoStrike, optionType: autoOptionType, target: autoTarget, sl: autoSl, lotSize, lotCount, execMode: autoExecMode, trailingEnabled: autoTrailing, partialExitEnabled: autoPartial },
                 (msg) => { document.getElementById('brainLog').textContent += `\n⚠️ Autonomous Mode did not open a trade this cycle: ${msg}`; }
               );
               // Real, minor UI-consistency fix found alongside the
@@ -15542,6 +15745,7 @@ function render(){
               if (!autoResult.opened) {
                 decisionLogBlockReason = autoResult.reason || (autoResult.failureModeResult && autoResult.failureModeResult.summary) || 'Blocked by tryOpenAutoTradePosition (see Brain Log above for the exact reason this refresh).';
                 decisionLogFailureModeResult = autoResult.failureModeResult || null;
+              }
               }
             } else {
               decisionLogBlockReason = 'No strike selected/resolvable this refresh.';
@@ -15604,6 +15808,9 @@ function render(){
           .slice(0, 8)
           .map(r => ({ factor: r.factor, pass: r.pass, score: r.score, cat: r.cat || null })),
         signalEntryPremium: (ctx.ocRow && typeof ctx.ocRow.lastPrice === 'number') ? ctx.ocRow.lastPrice : null,
+        lotCount: ctx.lotCount != null ? ctx.lotCount : getLotCountFromUi(),
+        exchangeLotSize: ctx.exchangeLotSize != null ? ctx.exchangeLotSize : getExchangeLotSize(sym),
+        orderQty: lotSize,
         indicatorSettings: {
           buyThreshold: brain.buyThreshold,
           sellThreshold: brain.sellThreshold,
@@ -16895,7 +17102,24 @@ function render(){
    */
   function tryOpenAutoTradePosition(params, reportFn) {
     const { strike, optionType, target, sl, execMode, trailingEnabled, partialExitEnabled } = params;
-    let lotSize = params.lotSize; // real, mutable - may be resized below by the real, opt-in trade-type sizing rule
+    let lotSize = params.lotSize;
+    const lotCount = params.lotCount != null ? params.lotCount : qtyToLots(sym, lotSize);
+    const symForLot = sym;
+    const contractLot = getExchangeLotSize(symForLot);
+    if (!isValidExchangeQty(symForLot, lotSize)) {
+      reportFn(`Blocked: order quantity ${lotSize} is not a valid multiple of ${normalizeUnderlyingSymbol(symForLot)} contract lot (${contractLot} qty/lot). Set whole lots in the Lots field (currently ${lotCount} lot(s) = ${lotsToQty(symForLot, lotCount)} qty).`);
+      return { opened: false, reason: `Invalid quantity — must be a multiple of ${contractLot}`, rejectionCategory: FNO_EXEC_REJECTION.RISK_VALIDATION };
+    }
+    if (typeof brain !== 'undefined' && brain && (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY')) {
+      const hist = load(STORAGE.autoTrades + '_history') || [];
+      const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
+      const journalToday = hist.filter(t => t.ts >= dayStart.getTime());
+      const preservation = checkScalpingCapitalPreservation(brain, curCtx || {}, { journalToday });
+      if (!preservation.allowed) {
+        reportFn(preservation.reason);
+        return { opened: false, reason: preservation.reason, rejectionCategory: FNO_EXEC_REJECTION.STRATEGY_RULE, rejectionSubcategory: 'capital_preservation' };
+      }
+    }
     // FOUND via a real, direct, serious user report: real trades had
     // genuinely opened outside real NSE session hours (9:15am-3:30pm
     // IST, Mon-Fri). Traced this precisely: isRealMarketHours() was
@@ -17374,11 +17598,13 @@ function render(){
     const target=parseFloat(document.getElementById('target').value)||null;
     const sl=parseFloat(document.getElementById('sl').value)||null;
     const strike=parseFloat(document.getElementById('strike').value);
-    const lotSize=parseFloat(document.getElementById('lotSize').value)||fnoSettings.get().defaultLotSize;
+    const symVal = (document.getElementById('sym') && document.getElementById('sym').value) || sym;
+    const lotCount = getLotCountFromUi();
+    const lotSize = resolveOrderQuantity(symVal, lotCount);
     const execMode = (document.getElementById('executionMode') && document.getElementById('executionMode').value) || 'realistic';
     const trailingEnabled = !!(document.getElementById('trailingEnabled') && document.getElementById('trailingEnabled').checked);
     const partialExitEnabled = !!(document.getElementById('partialExitEnabled') && document.getElementById('partialExitEnabled').checked);
-    const result = tryOpenAutoTradePosition({ strike, optionType, target, sl, lotSize, execMode, trailingEnabled, partialExitEnabled }, (msg) => alert(msg));
+    const result = tryOpenAutoTradePosition({ strike, optionType, target, sl, lotSize, lotCount, execMode, trailingEnabled, partialExitEnabled }, (msg) => alert(msg));
     if (!result.opened && result.reason === 'Position already open') {
       // Real, exact preservation of the original manual-path behavior:
       // alert the user AND keep the checkbox checked (true, not false),
@@ -17451,8 +17677,8 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
     }
     const strike=document.getElementById('strike').value;
     const optionType=(document.getElementById('optType')&&document.getElementById('optType').value)||'CE';
-    const qty=document.getElementById('lotSize').value;
     const sym=document.getElementById('sym').value;
+    const qty=resolveOrderQuantity(sym, getLotCountFromUi());
     resEl.textContent = 'Placing order...';
     try {
       const body = `tradingsymbol=${encodeURIComponent(sym+strike+optionType)}&transaction_type=BUY&quantity=${encodeURIComponent(qty)}&order_type=MARKET&product=MIS&exchange=NFO&nonce=${window.FNO_AJAX.nonce}`;
@@ -17470,7 +17696,7 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
   });
 
   document.getElementById('refresh').onclick=()=>refreshBrain();
-  ['strike','optPrice','iv','daysExp','lotSize'].forEach(id=>{
+  ['strike','optPrice','iv','daysExp','lotCount','lotSize'].forEach(id=>{
     const el=document.getElementById(id);
     if(el) el.addEventListener('input', refreshBrain);
   });

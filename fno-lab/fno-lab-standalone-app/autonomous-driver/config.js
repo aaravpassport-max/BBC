@@ -36,9 +36,42 @@
  *    companion-daemon's own computeTickRule) instead of failing fast
  *    at startup with a clear, actionable message. Fixed here the same
  *    way companion-daemon validates its OPTIONAL_NUMBER_FIELDS.
+ *
+ * v16.26.0: FNO_LOT_SIZE is the number of exchange lots (default 2).
+ * Values > 10 are treated as legacy raw qty (pre-v16.26 installs using
+ * FNO_LOT_SIZE=50 or 75). lotSize in CONFIG is always order qty.
  */
 
-const NUMBER_FIELDS = ['strikeOffset', 'lotSize', 'pollIntervalMs', 'strikeStep'];
+const EXCHANGE_LOT_SIZES = { NIFTY: 75, BANKNIFTY: 15, FINNIFTY: 40 };
+
+function normalizeUnderlyingSymbol(sym) {
+  const s = String(sym || 'NIFTY').trim().toUpperCase();
+  if (s.includes('BANK')) return 'BANKNIFTY';
+  if (s.includes('FIN')) return 'FINNIFTY';
+  return 'NIFTY';
+}
+
+function getExchangeLotSize(symbol) {
+  return EXCHANGE_LOT_SIZES[normalizeUnderlyingSymbol(symbol)] || 75;
+}
+
+/**
+ * Resolves FNO_LOT_SIZE to order qty. <=10 means exchange lots; >10 legacy raw qty.
+ */
+function resolveOrderQty(symbol, env) {
+  const raw = parseInt(env.FNO_LOT_SIZE || '2', 10);
+  if (raw > 10) return raw;
+  const lots = Math.max(1, raw);
+  return lots * getExchangeLotSize(symbol);
+}
+
+function resolveExchangeLots(symbol, env) {
+  const raw = parseInt(env.FNO_LOT_SIZE || '2', 10);
+  if (raw > 10) return Math.max(1, Math.round(raw / getExchangeLotSize(symbol)));
+  return Math.max(1, raw);
+}
+
+const NUMBER_FIELDS = ['strikeOffset', 'lotSize', 'exchangeLots', 'pollIntervalMs', 'strikeStep'];
 
 /**
  * Builds the real CONFIG object from an env-like source (defaults to
@@ -48,16 +81,19 @@ const NUMBER_FIELDS = ['strikeOffset', 'lotSize', 'pollIntervalMs', 'strikeStep'
  */
 function buildConfig(env) {
   env = env || process.env;
+  const symbol = env.FNO_SYMBOL || 'NIFTY';
+  const exchangeLots = resolveExchangeLots(symbol, env);
   return {
     siteUrl: env.FNO_SITE_URL,
     driverSecret: env.FNO_DRIVER_SECRET,
-    symbol: env.FNO_SYMBOL || 'NIFTY',
+    symbol,
     strikeOffset: parseInt(env.FNO_STRIKE_OFFSET || '0', 10),
     optionType: (env.FNO_OPTION_TYPE || 'CE').toUpperCase(),
     // Fallback when brain has not yet produced a direction this cycle;
     // live entries use BUY_READY→CE / SELL_READY→PE (browser parity).
     tradingType: (env.FNO_TRADING_TYPE || 'intraday').toLowerCase(),
-    lotSize: parseInt(env.FNO_LOT_SIZE || '2', 10),
+    exchangeLots,
+    lotSize: resolveOrderQty(symbol, env),
     pollIntervalMs: parseInt(env.FNO_POLL_INTERVAL_MS || '60000', 10),
     strikeStep: parseInt(env.FNO_STRIKE_STEP || '50', 10),
     nseEnabled: env.FNO_NSE_ENABLED === '1',
@@ -108,4 +144,4 @@ function validateConfig(config, exitFn) {
   return config;
 }
 
-module.exports = { buildConfig, validateConfig, NUMBER_FIELDS };
+module.exports = { buildConfig, validateConfig, NUMBER_FIELDS, getExchangeLotSize, resolveOrderQty, resolveExchangeLots };
