@@ -535,17 +535,19 @@ function syncTargetSlUiFromPreset(optPrice) {
   const id = getScalpingBracketPresetId();
   if (presetSelect && presetSelect.value !== id) presetSelect.value = id;
   if (settingSelect && settingSelect.value !== id) settingSelect.value = id;
+  highlightScalpingBracketPresetButtons(id);
   const cfg = getScalpingBracketConfig();
   const targetEl = document.getElementById('target');
   const slEl = document.getElementById('sl');
   const hint = document.getElementById('scalpingBracketHint');
+  const settingHint = document.getElementById('settingScalpingBracketHint');
   const saveBtn = document.getElementById('saveManualBracketBtn');
   const savedNote = document.getElementById('manualBracketSavedNote');
-  if (hint) {
-    hint.textContent = cfg.autoAdjusted
-      ? `${cfg.label}: ${formatScalpingBracketLabel(cfg)} — ${cfg.hint}`
-      : `${cfg.label}: ${formatScalpingBracketLabel(cfg)} saved — ${cfg.hint}`;
-  }
+  const hintText = cfg.autoAdjusted
+    ? `${cfg.label}: ${formatScalpingBracketLabel(cfg)} — ${cfg.hint}`
+    : `${cfg.label}: ${formatScalpingBracketLabel(cfg)} saved — ${cfg.hint}`;
+  if (hint) hint.textContent = hintText;
+  if (settingHint) settingHint.textContent = hintText;
   if (saveBtn) saveBtn.style.display = cfg.autoAdjusted ? 'none' : 'inline-block';
   if (targetEl) targetEl.readOnly = !!cfg.autoAdjusted;
   if (slEl) slEl.readOnly = !!cfg.autoAdjusted;
@@ -559,6 +561,35 @@ function syncTargetSlUiFromPreset(optPrice) {
   if (trail) trail.checked = cfg.trailingEnabled;
   if (partial) partial.checked = cfg.partialExitEnabled;
   if (savedNote && cfg.autoAdjusted) savedNote.style.display = 'none';
+}
+
+function highlightScalpingBracketPresetButtons(activeId) {
+  if (typeof document === 'undefined') return;
+  ['settingScalpingBracketButtons', 'mainScalpingBracketButtons'].forEach(containerId => {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.querySelectorAll('.bracket-preset-btn[data-preset]').forEach(btn => {
+      const active = btn.getAttribute('data-preset') === activeId;
+      btn.style.background = active ? '#166534' : '#020617';
+      btn.style.borderColor = active ? '#4ade80' : '#334155';
+      btn.style.color = active ? '#ecfdf5' : '#e2e8f0';
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  });
+}
+
+function wireScalpingBracketPresetButtons(containerId, selectId) {
+  const container = document.getElementById(containerId);
+  const select = document.getElementById(selectId);
+  if (!container || !select) return;
+  container.querySelectorAll('.bracket-preset-btn[data-preset]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const preset = btn.getAttribute('data-preset');
+      if (!preset || !FNO_SCALPING_BRACKET_PRESETS[preset]) return;
+      select.value = preset;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  });
 }
 
 function saveManualScalpingBracketFromUi(optPrice) {
@@ -14971,6 +15002,9 @@ function render(){
   }
   bindScalpingBracketPresetSelect(document.getElementById('scalpingBracketPreset'));
   bindScalpingBracketPresetSelect(document.getElementById('settingScalpingBracketPreset'));
+  wireScalpingBracketPresetButtons('mainScalpingBracketButtons', 'scalpingBracketPreset');
+  wireScalpingBracketPresetButtons('settingScalpingBracketButtons', 'settingScalpingBracketPreset');
+  highlightScalpingBracketPresetButtons(getScalpingBracketPresetId());
   const saveManualBracketBtn = document.getElementById('saveManualBracketBtn');
   if (saveManualBracketBtn) {
     saveManualBracketBtn.addEventListener('click', () => {
@@ -15029,6 +15063,7 @@ function render(){
     if (maxLossPctEl) maxLossPctEl.value = (typeof s.maxDailyLossPctPreservation === 'number') ? s.maxDailyLossPctPreservation : 1.5;
     const bracketPresetEl = document.getElementById('settingScalpingBracketPreset');
     if (bracketPresetEl) bracketPresetEl.value = getScalpingBracketPresetId();
+    highlightScalpingBracketPresetButtons(getScalpingBracketPresetId());
     document.getElementById('settingAppearanceDark').checked = s.appearance === 'dark';
     document.getElementById('settingAppearanceLight').checked = s.appearance === 'light';
     document.getElementById('settingSoundEntry').checked = s.soundEntryEnabled;

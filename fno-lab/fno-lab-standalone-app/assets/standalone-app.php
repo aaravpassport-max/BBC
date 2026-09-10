@@ -170,17 +170,6 @@ body.fno-nse-disabled .nse-only-section{display:none}
         <span>% of capital</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px 8px 8px;flex-wrap:wrap">
-        <span>Bracket setup:</span>
-        <select id="settingScalpingBracketPreset" class="input" style="width:180px">
-          <option value="micro10">Auto 10%</option>
-          <option value="fast15">Auto 15%</option>
-          <option value="standard">Auto 20% (default)</option>
-          <option value="balanced">Auto 25%</option>
-          <option value="manual">Manual 30% (save your own)</option>
-        </select>
-      </div>
-      <div style="font-size:10px;color:#64748b;margin-top:4px;margin-bottom:6px">Five setups: <b>10%</b> / <b>15%</b> fast exits, <b>20%</b> default, <b>25%</b> balanced, <b>Manual</b> save-your-own (starts 30%/15% SL). All auto modes adjust from live premium; trailing + partial exit ON (2:1 R:R).</div>
-      <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px 8px 8px;flex-wrap:wrap">
         <span>FM safety mode:</span>
         <select id="settingScalpingFmSafety" class="input" style="width:160px">
           <option value="strict">Strict (recommended)</option>
@@ -188,6 +177,26 @@ body.fno-nse-disabled .nse-only-section{display:none}
         </select>
       </div>
       <div style="font-size:10px;color:#64748b;margin-top:4px">Turning this ON also enables Scalping, disables Intraday, turns on trade-type target/SL, sets auto-calibration to 65% win-rate target, default 2 exchange lots, and uses thresholds BUY ≥8 / SELL ≤−13. Realistic execution stays ON — wide spreads still block. Capital preservation (ON by default) requires High confidence, blocks operator/trap warnings, stops after configurable daily losses — fewer trades, tighter filters; cannot eliminate all market risk. Strict FM mode keeps scalping-relevant failure checks escalated; Balanced skips the +1 severity bump only.</div>
+    </div>
+
+    <div style="margin-bottom:18px;padding:12px;background:#0f172a;border:1px solid #475569;border-radius:10px">
+      <div style="font-size:12px;font-weight:700;color:#fde68a;margin-bottom:6px">🎯 Target / SL Bracket Setup <span style="font-weight:400;color:#64748b;font-size:10px">(v16.29+ — 5 presets)</span></div>
+      <div id="settingScalpingBracketButtons" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+        <button type="button" class="btn bracket-preset-btn" data-preset="micro10" style="padding:6px 10px;font-size:11px;min-width:72px">Auto 10%</button>
+        <button type="button" class="btn bracket-preset-btn" data-preset="fast15" style="padding:6px 10px;font-size:11px;min-width:72px">Auto 15%</button>
+        <button type="button" class="btn bracket-preset-btn" data-preset="standard" style="padding:6px 10px;font-size:11px;min-width:72px">Auto 20%</button>
+        <button type="button" class="btn bracket-preset-btn" data-preset="balanced" style="padding:6px 10px;font-size:11px;min-width:72px">Auto 25%</button>
+        <button type="button" class="btn bracket-preset-btn" data-preset="manual" style="padding:6px 10px;font-size:11px;min-width:88px">Manual 30%</button>
+      </div>
+      <select id="settingScalpingBracketPreset" class="input" style="width:100%;max-width:280px;margin-bottom:6px">
+        <option value="micro10">Auto 10% — +10% target / −5% SL</option>
+        <option value="fast15">Auto 15% — +15% target / −7.5% SL</option>
+        <option value="standard">Auto 20% (default) — +20% target / −10% SL</option>
+        <option value="balanced">Auto 25% — +25% target / −12.5% SL</option>
+        <option value="manual">Manual 30% — save your own target/SL %</option>
+      </select>
+      <div id="settingScalpingBracketHint" style="font-size:10px;color:#64748b">Pick 10% or 15% for fastest exits; 20% is default. Manual lets you save custom % on the Auto Trades panel. Trailing + partial exit ON (2:1 R:R).</div>
+    </div>
     </div>
 
     <div style="margin-bottom:18px">
@@ -588,20 +597,28 @@ body.fno-nse-disabled .nse-only-section{display:none}
 
       <div class="card">
         <h3>🎯 Auto Trades - <span id="tradesModeLabel">PAPER</span></h3>
-        <div style="display:flex;gap:8px;margin-bottom:6px;font-size:11px;align-items:center;flex-wrap:wrap">
-          <label>Bracket:
-            <select id="scalpingBracketPreset" class="input" style="width:150px">
-              <option value="micro10">Auto 10%</option>
-              <option value="fast15">Auto 15%</option>
-              <option value="standard">Auto 20% (default)</option>
-              <option value="balanced">Auto 25%</option>
-              <option value="manual">Manual 30%</option>
-            </select>
-          </label>
+        <div style="margin-bottom:8px">
+          <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">Target / SL bracket (tap to select):</div>
+          <div id="mainScalpingBracketButtons" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">
+            <button type="button" class="btn bracket-preset-btn" data-preset="micro10" style="padding:4px 8px;font-size:10px">10%</button>
+            <button type="button" class="btn bracket-preset-btn" data-preset="fast15" style="padding:4px 8px;font-size:10px">15%</button>
+            <button type="button" class="btn bracket-preset-btn" data-preset="standard" style="padding:4px 8px;font-size:10px">20%</button>
+            <button type="button" class="btn bracket-preset-btn" data-preset="balanced" style="padding:4px 8px;font-size:10px">25%</button>
+            <button type="button" class="btn bracket-preset-btn" data-preset="manual" style="padding:4px 8px;font-size:10px">Manual</button>
+          </div>
+          <select id="scalpingBracketPreset" class="input" style="width:100%;max-width:260px;font-size:11px">
+            <option value="micro10">Auto 10% — +10% / −5% SL</option>
+            <option value="fast15">Auto 15% — +15% / −7.5% SL</option>
+            <option value="standard">Auto 20% (default) — +20% / −10% SL</option>
+            <option value="balanced">Auto 25% — +25% / −12.5% SL</option>
+            <option value="manual">Manual 30% — save your own</option>
+          </select>
+        </div>
+        <div id="scalpingBracketHint" style="font-size:10px;color:#64748b;margin-bottom:6px">Auto 20%: +20% target / −10% SL — auto-adjusts from live premium each refresh</div>
+        <div style="display:flex;gap:8px;margin-bottom:6px;align-items:center;flex-wrap:wrap">
           <button id="saveManualBracketBtn" class="btn" style="padding:4px 10px;font-size:11px;background:#334155;display:none" title="Save your custom target/SL % for every future entry">💾 Save manual setup</button>
           <span id="manualBracketSavedNote" style="font-size:10px;color:#4ade80;display:none"></span>
         </div>
-        <div id="scalpingBracketHint" style="font-size:10px;color:#64748b;margin-bottom:6px">Auto 20%: +20% target / −10% SL — auto-adjusts from live premium each refresh</div>
         <div style="display:flex;gap:6px;margin-bottom:4px;font-size:10px;color:#94a3b8"><span>Target</span><span>Stop-loss</span></div>
         <div style="display:flex;gap:6px;margin-bottom:8px"><input id="target" class="input" type="number" value="200" style="width:70px" title="Take-profit price"><input id="sl" class="input" type="number" value="100" style="width:70px" title="Stop-loss price"><label style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="autoMode"> Auto</label><button id="forceExit" class="btn" style="background:#ef4444" aria-label="Force exit the currently open Auto Trade position immediately, at the current live price">Exit</button></div>
         <div style="display:flex;gap:12px;margin-bottom:8px;font-size:11px">

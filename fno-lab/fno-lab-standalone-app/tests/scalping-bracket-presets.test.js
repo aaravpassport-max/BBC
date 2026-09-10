@@ -80,6 +80,8 @@ assert.ok(/syncTargetSlUiFromPreset/.test(coreSrc));
 assert.ok(/resolveTradeBracketForEntry/.test(coreSrc));
 assert.ok(/id="scalpingBracketPreset"/.test(phpSrc));
 assert.ok(/saveManualBracketBtn/.test(phpSrc));
-assert.ok(/settingScalpingBracketPreset/.test(phpSrc));
+assert.ok(/settingScalpingBracketButtons/.test(phpSrc));
+assert.ok(/mainScalpingBracketButtons/.test(phpSrc));
+assert.ok(/data-preset="micro10"/.test(phpSrc));
 
 console.log('All scalping-bracket-presets tests passed.');
