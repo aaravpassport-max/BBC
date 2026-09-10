@@ -197,7 +197,6 @@ body.fno-nse-disabled .nse-only-section{display:none}
       </select>
       <div id="settingScalpingBracketHint" style="font-size:10px;color:#64748b">Pick 10% or 15% for fastest exits; 20% is default. Manual lets you save custom % on the Auto Trades panel. Trailing + partial exit ON (2:1 R:R).</div>
     </div>
-    </div>
 
     <div style="margin-bottom:18px">
       <div style="font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:8px">Trading Types <span style="font-weight:400;color:#64748b">— independent, any combination</span></div>
