@@ -63,9 +63,11 @@ let fnoAutoTradeCloseInProgress = false;
  * current real setting.
  */
 const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
+const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
+const FNO_SETTINGS_SCHEMA_VERSION = 2; // v2 (16.23.0): scalping-ready defaults for profit-first paper trading
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
-  tradingTypes: { intraday: true, swing: false, scalping: false }, // real, independent per-type flags - intraday true by default, matching this app's own original, most-tested, most-proven behavior
+  tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
   appearance: 'dark', // 'dark' | 'light'
   soundEntryEnabled: true,
   soundExitEnabled: true,
@@ -91,7 +93,7 @@ const FNO_SETTINGS_DEFAULTS = {
   // target/SL in the form - never overrides a real, manual value). Off
   // by default, same convention as tradeTypeSizingEnabled above. See
   // computeTradeTypeTargetSl's own TRACE for the full rationale.
-  tradeTypeTargetSlEnabled: false,
+  tradeTypeTargetSlEnabled: true, // ON with scalping profile — tight auto target/SL for fast exits
   // Real, NEW this session - user's own direct, explicit request: "i
   // wanted everything automatic with system decesion so i dont have to
   // think much about anything". Off by default, same conservative-
@@ -99,12 +101,12 @@ const FNO_SETTINGS_DEFAULTS = {
   // this one changes the LIVE decision thresholds on its own, so it
   // gets an extra-deliberate opt-in rather than defaulting on. See
   // maybeAutoCalibrateThreshold()'s own TRACE for the full mechanism.
-  autoCalibrateThresholdEnabled: false,
-  autoCalibrateTargetWinRatePct: 80, // real, matches the user's own explicit "80:20" request as the default target
+  autoCalibrateThresholdEnabled: true, // ON with scalping profile — daily threshold walk within audit trail
+  autoCalibrateTargetWinRatePct: 70, // scalping profile target (was 80 for general intraday)
   // Real, NEW this session — user's scalping-first request: one opt-in
   // bundle tuned for more scalp entries while keeping spread/FM/weighted-
   // score safety rails (never disables realistic execution or FM blocks).
-  scalpingProfitProfileEnabled: false,
+  scalpingProfitProfileEnabled: true,
   scalpingFmSafetyProfile: 'strict', // 'strict' (default, +1 FM escalation) | 'balanced' (no escalation bump)
   // Enterprise trade alert system — fires ONLY on real paper-trade entry/exit execution.
   tradeAlertSystemEnabled: true,
@@ -116,11 +118,32 @@ const FNO_SETTINGS_DEFAULTS = {
   tradeAlertVoiceRate: 0.92,
   tradeAlertVoicePitch: 1.0,
 };
+/** One-time schema migrations so upgrades get scalping-ready controls without manual reset. */
+function migrateTradingControlsSchema(stored) {
+  const base = stored && typeof stored === 'object' ? stored : {};
+  let schema = 1;
+  try { schema = parseInt(localStorage.getItem(FNO_SETTINGS_SCHEMA_KEY) || '1', 10); } catch (e) { schema = 1; }
+  if (schema >= FNO_SETTINGS_SCHEMA_VERSION) return base;
+  const patch = {
+    scalpingProfitProfileEnabled: true,
+    tradingTypes: { ...(base.tradingTypes || {}), intraday: false, scalping: true },
+    tradeTypeTargetSlEnabled: true,
+    autoCalibrateThresholdEnabled: true,
+    autoCalibrateTargetWinRatePct: 70,
+  };
+  const merged = { ...base, ...patch, tradingTypes: { ...FNO_SETTINGS_DEFAULTS.tradingTypes, ...(base.tradingTypes || {}), intraday: false, scalping: true } };
+  try {
+    localStorage.setItem(FNO_SETTINGS_SCHEMA_KEY, String(FNO_SETTINGS_SCHEMA_VERSION));
+    localStorage.setItem(FNO_SETTINGS_KEY, JSON.stringify(merged));
+  } catch (e) { /* quota — in-memory merge still applies this session */ }
+  return merged;
+}
+
 const fnoSettings = {
   get() {
     try {
       const raw = localStorage.getItem(FNO_SETTINGS_KEY);
-      const stored = raw ? JSON.parse(raw) : {};
+      const stored = migrateTradingControlsSchema(raw ? JSON.parse(raw) : {});
       // Real, deliberate deep-merge with defaults - so a real,
       // future new setting added to FNO_SETTINGS_DEFAULTS always has
       // a real, sane value even for a user whose real, existing
@@ -309,11 +332,163 @@ function classifyExecutionRejection(decision, blockReason, extra) {
   const r = (blockReason || '').toLowerCase();
   if (!blockReason) return { category: FNO_EXEC_REJECTION.NO_SIGNAL, subcategory: 'unspecified', detail: blockReason };
   if (r.includes('autonomous mode is not enabled')) return { category: FNO_EXEC_REJECTION.STRATEGY_RULE, subcategory: 'autonomous_off', detail: blockReason };
+  if (r.includes('scalping profit profile safety') || r.includes('trade-type-aware category weighting') || r.includes('weighted score') || r.includes('weighted directional')) return { category: FNO_EXEC_REJECTION.STRATEGY_RULE, subcategory: 'weighted_score', detail: blockReason };
   if (r.includes('failure-mode library') || r.includes('fm0') || extra.failureModeResult) return { category: FNO_EXEC_REJECTION.RISK_VALIDATION, subcategory: 'failure_mode', detail: blockReason };
   if (r.includes('rejection risk') || r.includes('simulated order rejection') || r.includes('spread') || r.includes('latency') || r.includes('transaction costs') || r.includes('cost-aware')) return { category: FNO_EXEC_REJECTION.EXECUTION_FAILED, subcategory: 'realistic_execution', detail: blockReason };
   if (r.includes('insufficient time') || r.includes('cooldown') || r.includes('market hours') || r.includes('neither intraday') || r.includes('no trading type')) return { category: FNO_EXEC_REJECTION.STRATEGY_RULE, subcategory: 'timing_or_type', detail: blockReason };
   if (r.includes('no live') || r.includes('no data') || r.includes('no strike') || r.includes('position already open')) return { category: FNO_EXEC_REJECTION.TECHNICAL, subcategory: 'data_or_state', detail: blockReason };
   return { category: FNO_EXEC_REJECTION.RISK_VALIDATION, subcategory: 'other_gate', detail: blockReason };
+}
+
+/**
+ * TRACE: Session eligibility funnel — answers "where are trades dying?"
+ * without adding new gates. Aggregates the real decision log (one row
+ * per refresh) into a transparent filter funnel: signal rate, open rate,
+ * and top block reasons. Flags unusually low eligibility so restrictive
+ * rules can be reviewed before they silently produce zero trades.
+ */
+function funnelBlockLabel(meta) {
+  if (!meta) return 'Other gate';
+  if (meta.subcategory === 'autonomous_off') return 'Autonomous Mode OFF';
+  if (meta.subcategory === 'weighted_score') return 'Weighted-score safety';
+  if (meta.subcategory === 'failure_mode') return 'Failure-mode block';
+  if (meta.subcategory === 'realistic_execution') return 'Spread / execution';
+  if (meta.subcategory === 'timing_or_type') return 'Timing / session rule';
+  if (meta.subcategory === 'data_or_state') return 'Data / position state';
+  if (meta.subcategory === 'critical_fail') return 'Critical fail';
+  if (meta.category === FNO_EXEC_REJECTION.NO_SIGNAL) return 'No signal';
+  if (meta.category === FNO_EXEC_REJECTION.STRATEGY_RULE) return 'Strategy rule';
+  if (meta.category === FNO_EXEC_REJECTION.RISK_VALIDATION) return 'Risk gate';
+  if (meta.category === FNO_EXEC_REJECTION.EXECUTION_FAILED) return 'Spread / execution';
+  if (meta.category === FNO_EXEC_REJECTION.TECHNICAL) return 'Data / state';
+  return meta.subcategory || meta.category || 'Other gate';
+}
+
+function computeEligibilityFunnel(decisionLog, opts) {
+  opts = opts || {};
+  const limit = (typeof opts.limit === 'number' && opts.limit > 0) ? opts.limit : 100;
+  const sym = opts.symbol || null;
+  let entries = Array.isArray(decisionLog) ? decisionLog.slice(-limit) : [];
+  if (sym) entries = entries.filter(e => e.sym === sym);
+
+  const funnel = {
+    windowSize: limit,
+    sampleCount: entries.length,
+    totalRefreshes: entries.length,
+    noSignalWait: 0,
+    noSignalNoTrade: 0,
+    weightedScoreWait: 0,
+    potentialSetups: 0,
+    buyReady: 0,
+    sellReady: 0,
+    opened: 0,
+    setupBlocked: 0,
+    breakdown: {},
+    topBlockReasonsList: [],
+    eligibilityRatePct: null,
+    executionRatePct: null,
+    alert: null,
+  };
+
+  const topBlockReasons = {};
+  entries.forEach(e => {
+    const isSetup = e.decision === 'BUY_READY' || e.decision === 'SELL_READY';
+    if (e.decision === 'NO_TRADE') funnel.noSignalNoTrade++;
+    else if (!isSetup) {
+      funnel.noSignalWait++;
+      if (e.tradeTypeWeightingAdjustment) funnel.weightedScoreWait++;
+    }
+    if (e.decision === 'BUY_READY') { funnel.buyReady++; funnel.potentialSetups++; }
+    else if (e.decision === 'SELL_READY') { funnel.sellReady++; funnel.potentialSetups++; }
+    if (e.tradeOpened) funnel.opened++;
+    if (isSetup && !e.tradeOpened) {
+      funnel.setupBlocked++;
+      const meta = classifyExecutionRejection(e.decision, e.blockReason, {});
+      const label = funnelBlockLabel(meta);
+      funnel.breakdown[label] = (funnel.breakdown[label] || 0) + 1;
+      const reasonKey = (e.blockReason || 'No specific block reason recorded').slice(0, 140);
+      topBlockReasons[reasonKey] = (topBlockReasons[reasonKey] || 0) + 1;
+    }
+  });
+
+  if (funnel.totalRefreshes > 0) {
+    funnel.eligibilityRatePct = +(funnel.potentialSetups / funnel.totalRefreshes * 100).toFixed(1);
+  }
+  if (funnel.potentialSetups > 0) {
+    funnel.executionRatePct = +(funnel.opened / funnel.potentialSetups * 100).toFixed(1);
+  }
+
+  funnel.topBlockReasonsList = Object.entries(topBlockReasons)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([reason, count]) => ({ reason, count }));
+
+  if (funnel.totalRefreshes >= 30 && funnel.eligibilityRatePct !== null && funnel.eligibilityRatePct < 5) {
+    funnel.alert = {
+      level: 'warning',
+      message: `Trade eligibility rate unusually low (${funnel.eligibilityRatePct}% of last ${funnel.sampleCount} refreshes reached BUY/SELL) — review thresholds or whether the market had real setups.`,
+    };
+  } else if (funnel.potentialSetups >= 15 && funnel.executionRatePct !== null && funnel.executionRatePct < 5) {
+    funnel.alert = {
+      level: 'warning',
+      message: `${funnel.potentialSetups} BUY/SELL setups but only ${funnel.opened} opened (${funnel.executionRatePct}% execution rate) — check Autonomous Mode, spread blocks, and failure-mode gates below.`,
+    };
+  } else if (funnel.potentialSetups >= 10 && funnel.opened === 0) {
+    funnel.alert = {
+      level: 'critical',
+      message: `${funnel.potentialSetups} BUY/SELL-ready setups in the last ${funnel.sampleCount} refreshes, zero executed — start Autonomous Mode and review top blockers below.`,
+    };
+  }
+
+  return funnel;
+}
+
+function renderEligibilityFunnel(sym) {
+  if (typeof document === 'undefined') return null;
+  const box = document.getElementById('eligibilityFunnelBox');
+  if (!box) return null;
+  const funnel = computeEligibilityFunnel(getDecisionLog(), { limit: 100, symbol: sym || null });
+  if (!funnel.sampleCount) {
+    box.innerHTML = '<span style="color:#64748b">Funnel builds automatically — one row per refresh. After a few Brain refreshes you will see exactly where trades are filtered (score, gates, execution).</span>';
+    return funnel;
+  }
+
+  const bar = (label, count, color, detail) => {
+    const pct = funnel.totalRefreshes ? Math.max(2, Math.round(count / funnel.totalRefreshes * 100)) : 0;
+    return `<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>${escapeHtml(label)}</span><span style="color:#94a3b8">${count} (${pct}%)</span></div><div style="height:6px;background:#1e293b;border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${color}"></div></div>${detail ? `<div style="font-size:10px;color:#64748b;margin-top:2px">${detail}</div>` : ''}</div>`;
+  };
+
+  const breakdownRows = Object.entries(funnel.breakdown)
+    .sort((a, b) => b[1] - a[1])
+    .map(([label, count]) => `<div style="padding:2px 0">${escapeHtml(label)}: <b>${count}</b></div>`)
+    .join('') || '<span style="color:#64748b">No blocked setups in this window yet.</span>';
+
+  const topReasonRows = funnel.topBlockReasonsList.map(r =>
+    `<div style="padding:3px 0;border-bottom:1px solid #111827"><span style="color:#fde68a">${r.count}×</span> ${escapeHtml(r.reason)}</div>`
+  ).join('') || '<span style="color:#64748b">No specific block reasons recorded for setups yet.</span>';
+
+  const alertHtml = funnel.alert
+    ? `<div style="padding:8px;margin-bottom:10px;border-radius:8px;background:${funnel.alert.level === 'critical' ? '#450a0a' : '#422006'};border:1px solid ${funnel.alert.level === 'critical' ? '#991b1b' : '#92400e'};color:${funnel.alert.level === 'critical' ? '#fca5a5' : '#fde68a'};font-size:11px"><b>⚠️ ${funnel.alert.level === 'critical' ? 'Action needed' : 'Review suggested'}:</b> ${escapeHtml(funnel.alert.message)}</div>`
+    : '';
+
+  box.innerHTML = `
+    ${alertHtml}
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;font-size:11px">
+      <div style="background:#020617;padding:8px;border-radius:8px;text-align:center"><div style="color:#94a3b8">Refreshes</div><div style="font-weight:800;font-size:16px">${funnel.sampleCount}</div></div>
+      <div style="background:#020617;padding:8px;border-radius:8px;text-align:center"><div style="color:#94a3b8">BUY/SELL setups</div><div style="font-weight:800;font-size:16px;color:#93c5fd">${funnel.potentialSetups}</div><div style="font-size:10px;color:#64748b">${funnel.eligibilityRatePct != null ? funnel.eligibilityRatePct + '% eligibility' : '—'}</div></div>
+      <div style="background:#020617;padding:8px;border-radius:8px;text-align:center"><div style="color:#94a3b8">Opened</div><div style="font-weight:800;font-size:16px;color:#4ade80">${funnel.opened}</div><div style="font-size:10px;color:#64748b">${funnel.executionRatePct != null ? funnel.executionRatePct + '% of setups' : '—'}</div></div>
+    </div>
+    ${bar('No signal (WAIT — score below threshold)', funnel.noSignalWait, '#475569', funnel.weightedScoreWait ? `${funnel.weightedScoreWait} blocked by weighted-score safety` : '')}
+    ${bar('Critical fail (NO_TRADE)', funnel.noSignalNoTrade, '#7f1d1d', '')}
+    ${bar('BUY/SELL ready (potential setups)', funnel.potentialSetups, '#2563eb', `BUY ${funnel.buyReady} · SELL ${funnel.sellReady}`)}
+    ${bar('Actually opened', funnel.opened, '#16a34a', funnel.setupBlocked ? `${funnel.setupBlocked} setups blocked at open attempt` : '')}
+    <div style="margin-top:10px;font-weight:700;font-size:11px">Why setups did not open</div>
+    <div style="font-size:11px;margin-top:4px">${breakdownRows}</div>
+    <div style="margin-top:10px;font-weight:700;font-size:11px">Top exact block reasons</div>
+    <div style="font-size:11px;margin-top:4px;max-height:120px;overflow:auto">${topReasonRows}</div>
+    <div style="font-size:10px;color:#64748b;margin-top:8px">Window: last ${funnel.sampleCount} refresh(es)${sym ? ` · ${escapeHtml(sym)} only` : ''}. Does not force trades — shows where filters remove eligibility.</div>
+  `;
+  return funnel;
 }
 
 /**
@@ -15367,6 +15542,7 @@ function render(){
         rejectionCategory: decisionRejectionMeta ? decisionRejectionMeta.category : null,
         rejectionSubcategory: decisionRejectionMeta ? decisionRejectionMeta.subcategory : null,
       });
+      renderEligibilityFunnel(sym);
       renderDecisionIntelligence(); // real, local analysis over the log just updated above - see its own TRACE
 
       // Real, user's own direct, explicit request this session ("i
@@ -18618,6 +18794,7 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
   // not just from the last few minutes.
   renderBlockedAttemptsHistory();
   renderDecisionIntelligence(); // same real "show history on page load, not just after the next refresh" fix, for the Decision Intelligence log
+  renderEligibilityFunnel(document.getElementById('sym') ? document.getElementById('sym').value : null);
 
   Promise.all([
     reconcileOpenPositionOnLoad(),
