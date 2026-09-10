@@ -2,7 +2,7 @@
 /**
  * Plugin Name: F&O Lab - Standalone App - No Theme Needed
  * Description: Standalone F&O options research/paper-trading app for Indian index derivatives (NIFTY/BANKNIFTY/FINNIFTY). Activate plugin and yoursite.com/ IS the app - no theme, no shortcode needed for the app itself. Real 193-factor decision engine (never fabricates unavailable data), realistic paper trading (spread/slippage/costs/rejection simulation), a trained probability model, post-trade failure/correlation/regime analysis, an IV surface engine, and paper/live Kite Connect trading with explicit permission. A real Participant Payoff Hypothesis Engine (structured, falsifiable hypotheses tested against later price action, with a real historical track record feeding back into live confidence), real Dealer Gamma Exposure and Futures-Options/Multi-Instrument consistency checks, regime-conditional live confidence adjustment, a Six-Month Learning Objective progress dashboard, and a real, standalone Autonomous Driver (autonomous-driver/ folder) for genuinely unattended, browser-closed operation. Optional wp-admin settings page (Settings > F&O Lab Providers) for premium data providers, TrueData credentials, the companion tick daemon, the Autonomous Driver's secret/user attribution, and the raw observation store. Educational/research tool, not financial advice.
- * Version: 16.23.0
+ * Version: 16.24.0
  */
 
 if (!defined('ABSPATH')) exit;
@@ -59,7 +59,7 @@ register_activation_hook(__FILE__, function () {
 // string that will inevitably drift out of sync again, a real,
 // single, canonical constant is defined here and referenced by the
 // UI directly - one real source of truth.
-define('FNO_PLUGIN_VERSION', '16.23.0');
+define('FNO_PLUGIN_VERSION', '16.24.0');
 define('FNO_JOURNAL_SCHEMA_VERSION', '2.10.0'); // bumped: added the new wp_fno_microstructure_instruments table (real per-option-strike microstructure snapshots - see fno_create_journal_table()'s own TRACE for this table for why it's a new, separate table rather than an in-place PRIMARY KEY change to the existing wp_fno_microstructure table). Previous bump added wp_fno_open_positions.open_symbol_lock (generated column) + a UNIQUE KEY on it - real fix from the "does fno_open_position_fn have the same dual-writer gap as trailing_sl-ratchet/close?" audit pass (2026-08-30): the browser and the headless driver each only ever check "do I THINK I have a position open" from their own local/stale state before deciding to open a NEW position for a symbol (see recoverOpenPositionOnStartup/checkAndMonitorSwingPositions TRACE comments - this app's whole design assumes "the" open position, singular, per symbol+tradingStyle+user), but fno_open_position_fn itself had zero DB-level or atomic-check enforcement of that invariant - the only existing UNIQUE KEY (user_idempotency) only ever prevented a RETRY of the SAME logical request (same idempotency key), not two genuinely DIFFERENT open requests for the same symbol racing each other. This is the exact same race shape already fixed for the trailing-stop ratchet and for close - fixed here the same rigorous way: a real DB-level constraint (a MySQL "partial unique index" via a generated column that is NULL - and therefore exempt from uniqueness - whenever status != 'open', so only ever at most one 'open' row per user_id+symbol+trading_style can exist at the database engine level, not just in application logic).
 
 /**

@@ -15522,6 +15522,12 @@ function render(){
         critFailIds: (brain.criticalFails || []).map(f => f.factor),
         pretradeGateFinalAction: brain.pretradeGateCheck ? brain.pretradeGateCheck.finalAction : null,
         pretradeGateTriggeredIds: brain.pretradeGateCheck ? (brain.pretradeGateCheck.triggered || []).map(t => t.id) : [],
+        operatorIntelBias: brain.operatorIntel ? brain.operatorIntel.bias : null,
+        operatorIntelScore: brain.operatorIntel ? brain.operatorIntel.score : null,
+        operatorIntelConfidence: brain.operatorIntel ? brain.operatorIntel.confidence : null,
+        regimeLabel: brain.regime ? brain.regime.label : null,
+        strategyVersion: typeof FNO_STRATEGY_VERSION !== 'undefined' ? FNO_STRATEGY_VERSION : null,
+        signalOptionType: brain.decision === 'BUY_READY' ? 'CE' : (brain.decision === 'SELL_READY' ? 'PE' : null),
         spot: (typeof ctx.spot === 'number') ? ctx.spot : null,
         atmStrike: (ctx.ocRow && typeof ctx.ocRow.strikePrice === 'number') ? ctx.ocRow.strikePrice : null,
         confidenceTierFactorCoverage: (brain.categoriesNotEvaluated || []).length,
@@ -15541,8 +15547,26 @@ function render(){
         blockReason: decisionLogTradeOpened ? null : decisionLogBlockReason,
         rejectionCategory: decisionRejectionMeta ? decisionRejectionMeta.category : null,
         rejectionSubcategory: decisionRejectionMeta ? decisionRejectionMeta.subcategory : null,
+        reason: brain.reason || null,
+        topFactors: (brain.results || [])
+          .filter(r => r.pass !== null)
+          .sort((a, b) => Math.abs(b.score || 0) - Math.abs(a.score || 0))
+          .slice(0, 8)
+          .map(r => ({ factor: r.factor, pass: r.pass, score: r.score, cat: r.cat || null })),
+        signalEntryPremium: (ctx.ocRow && typeof ctx.ocRow.lastPrice === 'number') ? ctx.ocRow.lastPrice : null,
+        indicatorSettings: {
+          buyThreshold: brain.buyThreshold,
+          sellThreshold: brain.sellThreshold,
+          scalpingProfile: isScalpingProfitProfileActive(),
+          tradeTypeTargetSlEnabled: fnoSettings.get().tradeTypeTargetSlEnabled,
+        },
       });
       renderEligibilityFunnel(sym);
+      if (typeof renderStrategyDiagnosticPreview === 'function') {
+        renderStrategyDiagnosticPreview(typeof getStrategyReportUiOptions === 'function'
+          ? getStrategyReportUiOptions()
+          : { symbol: sym, pluginVersion: FNO_PLUGIN_VERSION });
+      }
       renderDecisionIntelligence(); // real, local analysis over the log just updated above - see its own TRACE
 
       // Real, user's own direct, explicit request this session ("i

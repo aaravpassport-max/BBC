@@ -298,9 +298,34 @@ body.fno-nse-disabled .nse-only-section{display:none}
         <h3>🩺 Diagnostic Report <span class="card-subtitle">System health, factor reliability, detected failures - downloadable</span></h3>
         <div style="font-size:11px;color:#94a3b8;margin-bottom:8px">Every number in this report comes directly from your own real, stored data - closed trades, logged failure events, and checked hypotheses. Sections with no real data yet honestly say so, rather than showing a fabricated number.</div>
         <div id="diagnosticReportPreview" style="font-size:11px;margin-bottom:10px">Loading...</div>
-        <div style="display:flex;gap:8px">
-          <a id="downloadReportCsv" class="btn" style="background:#22c55e;color:#000;text-decoration:none" download>⬇️ Download CSV</a>
-          <a id="downloadReportPdf" class="btn" style="background:#3b82f6;color:#fff;text-decoration:none" download>⬇️ Download PDF</a>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <a id="downloadReportCsv" class="btn" style="background:#22c55e;color:#000;text-decoration:none" download>⬇️ System CSV</a>
+          <a id="downloadReportPdf" class="btn" style="background:#3b82f6;color:#fff;text-decoration:none" download>⬇️ System PDF</a>
+        </div>
+      </div>
+      <div class="card card-accent-primary">
+        <h3>📊 Strategy Performance &amp; Diagnostic Report <span class="card-subtitle">Long-term evidence for profitability tuning — does not change rules</span></h3>
+        <div style="font-size:10px;color:#64748b;margin-bottom:8px">Full historical diagnostic: signals, blocks, trades, missed opportunities, Operator Intel, entry/exit quality, over-restriction detection, and strategy assumption review. Export JSON for future AI analysis or Markdown/CSV for human review. Bump <code>FNO_STRATEGY_VERSION</code> when changing rules so Version A vs B comparisons stay meaningful.</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;font-size:11px">
+          <label>Period:
+            <select id="strategyReportPeriod" class="input" style="width:140px">
+              <option value="all">All logged history</option>
+              <option value="today">Today</option>
+              <option value="7d">Last 7 days</option>
+              <option value="21d">Last 21 days</option>
+            </select>
+          </label>
+          <label>Compare version (optional):
+            <input id="strategyReportCompareA" class="input" placeholder="e.g. v1.0-baseline" style="width:120px">
+            vs
+            <input id="strategyReportCompareB" class="input" placeholder="e.g. v1.1" style="width:100px">
+          </label>
+        </div>
+        <div id="strategyDiagnosticPreview" style="font-size:11px;margin-bottom:10px;padding:8px;background:#020617;border-radius:8px">Loading preview...</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button type="button" id="downloadStrategyReportJson" class="btn" style="background:#0891b2;color:#fff">⬇️ Full JSON (for AI / archive)</button>
+          <button type="button" id="downloadStrategyReportMd" class="btn" style="background:#6366f1;color:#fff">⬇️ Markdown report</button>
+          <button type="button" id="downloadStrategyReportCsv" class="btn" style="background:#22c55e;color:#000">⬇️ Summary CSV</button>
         </div>
       </div>
       <div class="card card-accent-info">
@@ -689,6 +714,7 @@ window.FNO_FACTORS_CATALOG = <?php echo $json ? wp_json_encode($json) : '[]'; ?>
 </script>
 <script type="module">
 <?php include __DIR__ . '/fno-lab-core.js'; ?>
+<?php include __DIR__ . '/strategy-diagnostic-report.js'; ?>
 </script>
 <?php endif; ?>
 </body>
