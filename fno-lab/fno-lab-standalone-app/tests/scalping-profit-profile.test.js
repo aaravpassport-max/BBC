@@ -28,6 +28,9 @@ const bootSrc = [
 
 const api = new Function(bootSrc)();
 
+assert.strictEqual(api.getEffectiveDecisionThresholds().buyThreshold, 8);
+assert.strictEqual(api.getEffectiveDecisionThresholds().source, 'scalping_profit_profile');
+api.fnoSettings.set({ scalpingProfitProfileEnabled: false });
 assert.strictEqual(api.getEffectiveDecisionThresholds().buyThreshold, 11);
 api.fnoSettings.set({ scalpingProfitProfileEnabled: true, tradingTypes: { intraday: false, scalping: true, swing: false } });
 assert.strictEqual(api.isScalpingProfitProfileActive(), true);
@@ -42,7 +45,7 @@ assert.strictEqual(s.tradingTypes.scalping, true);
 assert.strictEqual(s.tradingTypes.intraday, false);
 assert.strictEqual(s.tradeTypeTargetSlEnabled, true);
 assert.strictEqual(s.tradeTypeSizingEnabled, false);
-assert.strictEqual(s.autoCalibrateTargetWinRatePct, 70);
+assert.strictEqual(s.autoCalibrateTargetWinRatePct, 65);
 
 const thinOnly = api.simulateOrderRejection({ askQty: 10, bidQty: 500, bidprice: 100, askPrice: 101 }, 50, 'buy', { scalpingProfitProfile: true });
 assert.strictEqual(thinOnly.rejected, false, 'depth-only should not reject under scalping profile');

@@ -64,22 +64,16 @@ let fnoAutoTradeCloseInProgress = false;
  */
 const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
-const FNO_SETTINGS_SCHEMA_VERSION = 2; // v2 (16.23.0): scalping-ready defaults for profit-first paper trading
+const FNO_SETTINGS_SCHEMA_VERSION = 3; // v3 (16.25.0): scalping execution defaults — smaller lot, trailing/partial ON, calmer auto-calibrate
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
   appearance: 'dark', // 'dark' | 'light'
   soundEntryEnabled: true,
   soundExitEnabled: true,
-  // FOUND via a real, direct user report: real trades were opening at
-  // a real, always-50 lot size with no way to save a genuinely
-  // smaller preference - the input field had no persistence at all,
-  // silently reverting to its hardcoded HTML default on every real
-  // page reload, regardless of what the user had actually set.
-  // Real, deliberate default (50, this app's own original, most-
-  // tested value) preserved exactly, but now genuinely saved and
-  // reloaded via the same, real, centralized settings system.
-  defaultLotSize: 50,
+  // v16.25.0: 25 lots default under scalping profile — reduces FM025
+  // depth/rejection blocks vs 50 while still meaningful size on NIFTY.
+  defaultLotSize: 25,
   // Real, NEW this session: opt-in, trade-type-aware position sizing
   // (KB §7 "Position sizing" row / SESSION_HANDOFF.md item 3). Off by
   // default, matching this app's own established conservative-default
@@ -102,12 +96,14 @@ const FNO_SETTINGS_DEFAULTS = {
   // gets an extra-deliberate opt-in rather than defaulting on. See
   // maybeAutoCalibrateThreshold()'s own TRACE for the full mechanism.
   autoCalibrateThresholdEnabled: true, // ON with scalping profile — daily threshold walk within audit trail
-  autoCalibrateTargetWinRatePct: 70, // scalping profile target (was 80 for general intraday)
+  autoCalibrateTargetWinRatePct: 65, // v16.25.0: 65% scalping target — less aggressive tightening than 70% on small samples
   // Real, NEW this session — user's scalping-first request: one opt-in
   // bundle tuned for more scalp entries while keeping spread/FM/weighted-
   // score safety rails (never disables realistic execution or FM blocks).
   scalpingProfitProfileEnabled: true,
   scalpingFmSafetyProfile: 'strict', // 'strict' (default, +1 FM escalation) | 'balanced' (no escalation bump)
+  scalpingTrailingEnabled: true, // default ON with scalping profile — lock gains on fast moves
+  scalpingPartialExitEnabled: true, // default ON — scale half at target, trail remainder
   // Enterprise trade alert system — fires ONLY on real paper-trade entry/exit execution.
   tradeAlertSystemEnabled: true,
   tradeAlertSoundEnabled: true,
@@ -124,14 +120,26 @@ function migrateTradingControlsSchema(stored) {
   let schema = 1;
   try { schema = parseInt(localStorage.getItem(FNO_SETTINGS_SCHEMA_KEY) || '1', 10); } catch (e) { schema = 1; }
   if (schema >= FNO_SETTINGS_SCHEMA_VERSION) return base;
-  const patch = {
-    scalpingProfitProfileEnabled: true,
-    tradingTypes: { ...(base.tradingTypes || {}), intraday: false, scalping: true },
-    tradeTypeTargetSlEnabled: true,
-    autoCalibrateThresholdEnabled: true,
-    autoCalibrateTargetWinRatePct: 70,
-  };
-  const merged = { ...base, ...patch, tradingTypes: { ...FNO_SETTINGS_DEFAULTS.tradingTypes, ...(base.tradingTypes || {}), intraday: false, scalping: true } };
+  let merged = { ...base };
+  if (schema < 2) {
+    merged = {
+      ...merged,
+      scalpingProfitProfileEnabled: true,
+      tradeTypeTargetSlEnabled: true,
+      autoCalibrateThresholdEnabled: true,
+      autoCalibrateTargetWinRatePct: merged.autoCalibrateTargetWinRatePct != null ? merged.autoCalibrateTargetWinRatePct : 70,
+      tradingTypes: { ...FNO_SETTINGS_DEFAULTS.tradingTypes, ...(merged.tradingTypes || {}), intraday: false, scalping: true },
+    };
+  }
+  if (schema < 3) {
+    merged = {
+      ...merged,
+      defaultLotSize: (merged.defaultLotSize === 50 || merged.defaultLotSize == null) ? 25 : merged.defaultLotSize,
+      autoCalibrateTargetWinRatePct: (merged.autoCalibrateTargetWinRatePct === 70 || merged.autoCalibrateTargetWinRatePct == null) ? 65 : merged.autoCalibrateTargetWinRatePct,
+      scalpingTrailingEnabled: merged.scalpingTrailingEnabled !== false,
+      scalpingPartialExitEnabled: merged.scalpingPartialExitEnabled !== false,
+    };
+  }
   try {
     localStorage.setItem(FNO_SETTINGS_SCHEMA_KEY, String(FNO_SETTINGS_SCHEMA_VERSION));
     localStorage.setItem(FNO_SETTINGS_KEY, JSON.stringify(merged));
@@ -232,8 +240,11 @@ function isAnyTradingTypeEnabled() {
 const FNO_SCALPING_PROFIT_PROFILE = {
   buyThreshold: 8,
   sellThreshold: -13,
-  autoCalibrateTargetWinRatePct: 70,
+  autoCalibrateTargetWinRatePct: 65,
+  autoCalibrateMinSampleSize: 20, // higher bar than general 10 — avoids over-tightening on tiny samples
   spreadHardBlockPct: 12,
+  slFraction: 0.10, // 10% SL — option premium noise often exceeds 7.5% on 1–5 min holds
+  targetFraction: 0.20, // 2:1 reward:risk preserved vs SL
 };
 
 function isScalpingProfitProfileActive() {
@@ -264,7 +275,25 @@ function applyScalpingProfitProfilePreset() {
     autoCalibrateThresholdEnabled: true,
     autoCalibrateTargetWinRatePct: FNO_SCALPING_PROFIT_PROFILE.autoCalibrateTargetWinRatePct,
     scalpingFmSafetyProfile: cur.scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'strict',
+    defaultLotSize: (cur.defaultLotSize === 50 || cur.defaultLotSize == null) ? 25 : cur.defaultLotSize,
+    scalpingTrailingEnabled: true,
+    scalpingPartialExitEnabled: true,
   });
+  applyScalpingExecutionControlsFromSettings();
+}
+
+function applyScalpingExecutionControlsFromSettings() {
+  if (typeof document === 'undefined' || typeof document.getElementById !== 'function' || !isScalpingProfitProfileActive()) return;
+  const s = fnoSettings.get();
+  const trail = document.getElementById('trailingEnabled');
+  const partial = document.getElementById('partialExitEnabled');
+  if (trail) trail.checked = s.scalpingTrailingEnabled !== false;
+  if (partial) partial.checked = s.scalpingPartialExitEnabled !== false;
+}
+
+function isMicrostructureDaemonOnline(ctx) {
+  const m = ctx && ctx.microstructure;
+  return !!(m && typeof m.ticksPerMinute === 'number' && Number.isFinite(m.ticksPerMinute) && m.ticksPerMinute > 0);
 }
 
 function renderScalpingSessionReadiness(brain, ctx) {
@@ -298,8 +327,15 @@ function renderScalpingSessionReadiness(brain, ctx) {
   const weightSafety = brain && brain.tradeTypeWeightingAdjustment
     ? '⚠ weighted score failed — trade blocked for safety'
     : (wds !== null ? `weighted ${wds.toFixed(1)} OK` : 'weighted n/a');
+  const daemonOnline = isMicrostructureDaemonOnline(ctx);
+  const microTxt = daemonOnline
+    ? `✓ Companion daemon live (${ctx.microstructure.ticksPerMinute.toFixed(0)} ticks/min) — 7 tick factors active`
+    : '⚠ Microstructure daemon offline — scalping weights Microstructure 1.6× but 7 tick factors are unavailable (Flow/Tech/Vol still active)';
+  const bracketTxt = fnoSettings.get().tradeTypeTargetSlEnabled
+    ? `Auto bracket: ~${(FNO_SCALPING_PROFIT_PROFILE.targetFraction * 100).toFixed(0)}% target / ~${(FNO_SCALPING_PROFIT_PROFILE.slFraction * 100).toFixed(0)}% SL`
+    : 'Manual target/SL from form';
   box.innerHTML = [
-    `<b style="color:#fde68a">⚡ Scalping Profit Profile</b> <span style="color:#94a3b8">(FM ${fmMode}, realistic fills, tight auto target/SL)</span>`,
+    `<b style="color:#fde68a">⚡ Scalping Profit Profile</b> <span style="color:#94a3b8">(FM ${fmMode}, realistic fills, ${bracketTxt})</span>`,
     `Live thresholds: BUY ≥ ${thresholds.buyThreshold}, SELL ≤ ${thresholds.sellThreshold}`,
     ds !== null
       ? `Directional ${ds.toFixed(1)} — ${buyGap > 0 ? `${buyGap.toFixed(1)} pts to BUY` : '✓ BUY zone'} · ${sellGap > 0 ? `${sellGap.toFixed(1)} pts to SELL` : '✓ SELL zone'}`
@@ -308,6 +344,7 @@ function renderScalpingSessionReadiness(brain, ctx) {
     `Spread: ${spreadTxt}`,
     `Session time: ${timeTxt}`,
     `Pre-trade gate: ${gateTxt}`,
+    microTxt,
   ].map(line => `<div style="padding:3px 0;font-size:11px">${line}</div>`).join('');
 }
 
@@ -3364,6 +3401,7 @@ function maybeAutoCalibrateThreshold(decisionLog) {
   const profileActive = isScalpingProfitProfileActive();
   const calib = computeThresholdCalibrationForWinRate(decisionLog, {
     targetWinRatePct,
+    minSampleSize: profileActive ? FNO_SCALPING_PROFIT_PROFILE.autoCalibrateMinSampleSize : undefined,
     baseBuyThreshold: profileActive ? FNO_SCALPING_PROFIT_PROFILE.buyThreshold : 11,
     baseSellThreshold: profileActive ? FNO_SCALPING_PROFIT_PROFILE.sellThreshold : -17,
   });
@@ -7110,9 +7148,15 @@ function computeTradeTypeSize(baseLotSize, tradingType) {
  */
 function computeTradeTypeTargetSl(optPrice, tradingType) {
   if (typeof optPrice !== 'number' || !isFinite(optPrice) || optPrice <= 0) return { target: null, sl: null };
-  const multiplier = FNO_TRAILING_DISTANCE_MULTIPLIER[tradingType] || 1.0;
-  const slFraction = 0.15 * multiplier;   // base 15% risk distance, scaled by the same real, established stop multiplier
-  const targetFraction = 0.30 * multiplier; // base 30% reward distance - holds the existing, proven 2:1 reward:risk ratio constant
+  let slFraction, targetFraction;
+  if (tradingType === 'scalping' && isScalpingProfitProfileActive()) {
+    slFraction = FNO_SCALPING_PROFIT_PROFILE.slFraction;
+    targetFraction = FNO_SCALPING_PROFIT_PROFILE.targetFraction;
+  } else {
+    const multiplier = FNO_TRAILING_DISTANCE_MULTIPLIER[tradingType] || 1.0;
+    slFraction = 0.15 * multiplier;
+    targetFraction = 0.30 * multiplier;
+  }
   return {
     target: +(optPrice * (1 + targetFraction)).toFixed(2),
     sl: +(optPrice * (1 - slFraction)).toFixed(2),
@@ -14523,6 +14567,7 @@ function render(){
   // the Save button below genuinely persists a new one.
   const lotSizeInput = document.getElementById('lotSize');
   if (lotSizeInput) lotSizeInput.value = fnoSettings.get().defaultLotSize;
+  applyScalpingExecutionControlsFromSettings();
   const saveLotSizeBtn = document.getElementById('saveLotSizeBtn');
   if (saveLotSizeBtn) {
     saveLotSizeBtn.addEventListener('click', () => {
@@ -15680,11 +15725,13 @@ function render(){
       // TRACE) - never a generic/fabricated warning.
       let gateWarningHtml = '';
       if (brain.pretradeGateCheck && (brain.pretradeGateCheck.finalAction === 'block' || brain.pretradeGateCheck.finalAction === 'reject')) {
-        const gateIds = brain.pretradeGateCheck.triggered.map(t => t.id).join(', ');
-        gateWarningHtml = `<div style="margin-top:6px;padding:6px;background:#450a0a;border-radius:6px;color:#fca5a5;font-size:12px"><b>⚠️ Would be BLOCKED if opened right now:</b> ${escapeHtml(gateIds)} - see the Failure-Mode Library panel below for the real, specific reasons.</div>`;
+        const top = brain.pretradeGateCheck.triggered[0];
+        const gateDetail = top ? `${top.id}: ${top.reason || top.condition || top.adjustedAction || 'see Failure-Mode Library'}` : brain.pretradeGateCheck.triggered.map(t => t.id).join(', ');
+        gateWarningHtml = `<div style="margin-top:6px;padding:6px;background:#450a0a;border-radius:6px;color:#fca5a5;font-size:12px"><b>⚠️ Would be BLOCKED if opened right now:</b> ${escapeHtml(gateDetail)}</div>`;
       } else if (brain.pretradeGateCheck && brain.pretradeGateCheck.finalAction === 'require_confirmation') {
-        const gateIds = brain.pretradeGateCheck.triggered.map(t => t.id).join(', ');
-        gateWarningHtml = `<div style="margin-top:6px;padding:6px;background:#422006;border-radius:6px;color:#fde68a;font-size:12px"><b>⚠️ Would need confirmation if opened right now:</b> ${escapeHtml(gateIds)}</div>`;
+        const top = brain.pretradeGateCheck.triggered[0];
+        const gateDetail = top ? `${top.id}: ${top.reason || top.condition || 'confirmation advised'}` : brain.pretradeGateCheck.triggered.map(t => t.id).join(', ');
+        gateWarningHtml = `<div style="margin-top:6px;padding:6px;background:#422006;border-radius:6px;color:#fde68a;font-size:12px"><b>⚠️ Would need confirmation if opened right now:</b> ${escapeHtml(gateDetail)}</div>`;
       }
 
       if(brain.decision==='BUY_READY'){

@@ -518,7 +518,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
           <label>Price <input id="optPrice" type="number" value="100" class="input" style="width:80px"></label>
           <label>IV <input id="iv" type="number" value="18" class="input" style="width:60px">%</label>
           <label>Days Exp <input id="daysExp" type="number" value="2" class="input" style="width:60px"></label>
-          <label>Lot <input id="lotSize" type="number" value="50" class="input" style="width:60px"></label>
+          <label>Lot <input id="lotSize" type="number" value="25" class="input" style="width:60px"></label>
           <button id="saveLotSizeBtn" class="btn" style="padding:6px 10px;font-size:11px;background:#334155" title="Saves this real lot size as your default - genuinely remembered across page reloads, unlike the plain field alone, which previously always reset to 50.">💾 Save as default</button>
           <span id="lotSizeSavedNote" style="font-size:10px;color:#4ade80;display:none">Saved!</span>
         </div>
@@ -570,8 +570,8 @@ body.fno-nse-disabled .nse-only-section{display:none}
         <h3>🎯 Auto Trades - <span id="tradesModeLabel">PAPER</span></h3>
         <div style="display:flex;gap:6px;margin-bottom:8px"><input id="target" class="input" type="number" value="200" style="width:70px"><input id="sl" class="input" type="number" value="100" style="width:70px"><label style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="autoMode"> Auto</label><button id="forceExit" class="btn" style="background:#ef4444" aria-label="Force exit the currently open Auto Trade position immediately, at the current live price">Exit</button></div>
         <div style="display:flex;gap:12px;margin-bottom:8px;font-size:11px">
-          <label style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="trailingEnabled"> Trailing Stop (§27)</label>
-          <label style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="partialExitEnabled"> Partial Exit at Target (§27)</label>
+          <label style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="trailingEnabled" checked> Trailing Stop (§27)</label>
+          <label style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="partialExitEnabled" checked> Partial Exit at Target (§27)</label>
         </div>
         <div style="display:flex;gap:8px;margin-bottom:8px;font-size:11px;align-items:center">
           <label>Execution Mode (Enterprise Plan #30):
