@@ -64,16 +64,15 @@ let fnoAutoTradeCloseInProgress = false;
  */
 const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
-const FNO_SETTINGS_SCHEMA_VERSION = 3; // v3 (16.25.0): scalping execution defaults — smaller lot, trailing/partial ON, calmer auto-calibrate
+const FNO_SETTINGS_SCHEMA_VERSION = 4; // v4 (16.25.1): default lot size 2 for realistic scalping paper size
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
   appearance: 'dark', // 'dark' | 'light'
   soundEntryEnabled: true,
   soundExitEnabled: true,
-  // v16.25.0: 25 lots default under scalping profile — reduces FM025
-  // depth/rejection blocks vs 50 while still meaningful size on NIFTY.
-  defaultLotSize: 25,
+  // v16.25.1: 2 lots default — realistic scalping paper size (was 50/25).
+  defaultLotSize: 2,
   // Real, NEW this session: opt-in, trade-type-aware position sizing
   // (KB §7 "Position sizing" row / SESSION_HANDOFF.md item 3). Off by
   // default, matching this app's own established conservative-default
@@ -138,6 +137,12 @@ function migrateTradingControlsSchema(stored) {
       autoCalibrateTargetWinRatePct: (merged.autoCalibrateTargetWinRatePct === 70 || merged.autoCalibrateTargetWinRatePct == null) ? 65 : merged.autoCalibrateTargetWinRatePct,
       scalpingTrailingEnabled: merged.scalpingTrailingEnabled !== false,
       scalpingPartialExitEnabled: merged.scalpingPartialExitEnabled !== false,
+    };
+  }
+  if (schema < 4) {
+    merged = {
+      ...merged,
+      defaultLotSize: (merged.defaultLotSize === 50 || merged.defaultLotSize === 25 || merged.defaultLotSize == null) ? 2 : merged.defaultLotSize,
     };
   }
   try {
@@ -275,7 +280,7 @@ function applyScalpingProfitProfilePreset() {
     autoCalibrateThresholdEnabled: true,
     autoCalibrateTargetWinRatePct: FNO_SCALPING_PROFIT_PROFILE.autoCalibrateTargetWinRatePct,
     scalpingFmSafetyProfile: cur.scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'strict',
-    defaultLotSize: (cur.defaultLotSize === 50 || cur.defaultLotSize == null) ? 25 : cur.defaultLotSize,
+    defaultLotSize: (cur.defaultLotSize === 50 || cur.defaultLotSize === 25 || cur.defaultLotSize == null) ? 2 : cur.defaultLotSize,
     scalpingTrailingEnabled: true,
     scalpingPartialExitEnabled: true,
   });
@@ -15145,7 +15150,7 @@ function render(){
         iv = parseFloat(document.getElementById('iv').value)||18;
       }
 
-      const lotSize=parseFloat(document.getElementById('lotSize').value)||50;
+      const lotSize=parseFloat(document.getElementById('lotSize').value)||fnoSettings.get().defaultLotSize;
 
       // Real Kite /margins/orders "what-if" figure for the SAME selected
       // strike/optionType/lotSize this refresh already resolved above -
@@ -17369,7 +17374,7 @@ function render(){
     const target=parseFloat(document.getElementById('target').value)||null;
     const sl=parseFloat(document.getElementById('sl').value)||null;
     const strike=parseFloat(document.getElementById('strike').value);
-    const lotSize=parseFloat(document.getElementById('lotSize').value)||50;
+    const lotSize=parseFloat(document.getElementById('lotSize').value)||fnoSettings.get().defaultLotSize;
     const execMode = (document.getElementById('executionMode') && document.getElementById('executionMode').value) || 'realistic';
     const trailingEnabled = !!(document.getElementById('trailingEnabled') && document.getElementById('trailingEnabled').checked);
     const partialExitEnabled = !!(document.getElementById('partialExitEnabled') && document.getElementById('partialExitEnabled').checked);

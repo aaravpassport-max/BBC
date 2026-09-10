@@ -518,7 +518,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
           <label>Price <input id="optPrice" type="number" value="100" class="input" style="width:80px"></label>
           <label>IV <input id="iv" type="number" value="18" class="input" style="width:60px">%</label>
           <label>Days Exp <input id="daysExp" type="number" value="2" class="input" style="width:60px"></label>
-          <label>Lot <input id="lotSize" type="number" value="25" class="input" style="width:60px"></label>
+          <label>Lot <input id="lotSize" type="number" value="2" min="1" class="input" style="width:60px"></label>
           <button id="saveLotSizeBtn" class="btn" style="padding:6px 10px;font-size:11px;background:#334155" title="Saves this real lot size as your default - genuinely remembered across page reloads, unlike the plain field alone, which previously always reset to 50.">💾 Save as default</button>
           <span id="lotSizeSavedNote" style="font-size:10px;color:#4ade80;display:none">Saved!</span>
         </div>
