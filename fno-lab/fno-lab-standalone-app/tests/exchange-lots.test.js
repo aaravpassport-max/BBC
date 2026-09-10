@@ -46,7 +46,7 @@ const afterLoss = api.checkScalpingCapitalPreservation(
 assert.ok(!afterLoss.allowed);
 assert.ok(/losing trade/i.test(afterLoss.reason));
 
-assert.ok(/FNO_SETTINGS_SCHEMA_VERSION = 6/.test(coreSrc));
+assert.ok(/FNO_SETTINGS_SCHEMA_VERSION = 7/.test(coreSrc));
 assert.ok(/defaultLots: 2/.test(coreSrc));
 assert.ok(/scalpingCapitalPreservationEnabled: true/.test(coreSrc));
 assert.ok(/function getLotCountFromUi/.test(coreSrc));

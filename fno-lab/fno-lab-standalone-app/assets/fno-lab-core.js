@@ -64,7 +64,7 @@ let fnoAutoTradeCloseInProgress = false;
  */
 const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
-const FNO_SETTINGS_SCHEMA_VERSION = 6; // v6 (16.27.0): three scalping bracket presets (20/25/manual-30%)
+const FNO_SETTINGS_SCHEMA_VERSION = 7; // v7 (16.28.0): add 10% and 15% auto bracket presets
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -300,6 +300,14 @@ function migrateTradingControlsSchema(stored) {
       savedManualPartialExitEnabled: merged.savedManualPartialExitEnabled !== false,
     };
   }
+  if (schema < 7) {
+    const validPresets = ['micro10', 'fast15', 'standard', 'balanced', 'manual'];
+    merged = {
+      ...merged,
+      scalpingBracketPreset: validPresets.includes(merged.scalpingBracketPreset)
+        ? merged.scalpingBracketPreset : 'standard',
+    };
+  }
   try {
     localStorage.setItem(FNO_SETTINGS_SCHEMA_KEY, String(FNO_SETTINGS_SCHEMA_VERSION));
     localStorage.setItem(FNO_SETTINGS_KEY, JSON.stringify(merged));
@@ -407,12 +415,34 @@ const FNO_SCALPING_PROFIT_PROFILE = {
 };
 
 /**
- * Three predefined scalping bracket setups — target/SL/trailing/partial defined per preset.
- * standard (default): 20% target / 10% SL — highest hit rate for fast scalps.
- * balanced: 25% target / 12.5% SL — middle ground, same 2:1 R:R.
- * manual: starts at 30% / 15%; user saves custom % and it applies to every future entry.
+ * Five scalping bracket setups — target/SL/trailing/partial defined per preset.
+ * micro10: 10% / 5% SL — fastest exits, highest hit rate.
+ * fast15: 15% / 7.5% SL — tight scalp with a bit more room.
+ * standard (default): 20% / 10% SL.
+ * balanced: 25% / 12.5% SL.
+ * manual: starts at 30% / 15%; user saves custom % for every future entry.
  */
 const FNO_SCALPING_BRACKET_PRESETS = {
+  micro10: {
+    id: 'micro10',
+    label: 'Auto 10%',
+    targetFraction: 0.10,
+    slFraction: 0.05,
+    trailingEnabled: true,
+    partialExitEnabled: true,
+    autoAdjusted: true,
+    hint: 'Fastest exits — auto-adjusts +10% target / −5% SL from live premium',
+  },
+  fast15: {
+    id: 'fast15',
+    label: 'Auto 15%',
+    targetFraction: 0.15,
+    slFraction: 0.075,
+    trailingEnabled: true,
+    partialExitEnabled: true,
+    autoAdjusted: true,
+    hint: 'Tight scalp — auto-adjusts +15% target / −7.5% SL (2:1) from live premium',
+  },
   standard: {
     id: 'standard',
     label: 'Auto 20%',
@@ -421,7 +451,7 @@ const FNO_SCALPING_BRACKET_PRESETS = {
     trailingEnabled: true,
     partialExitEnabled: true,
     autoAdjusted: true,
-    hint: 'Quick exits — auto-adjusts target/SL from live premium each refresh',
+    hint: 'Default — auto-adjusts +20% target / −10% SL from live premium each refresh',
   },
   balanced: {
     id: 'balanced',
@@ -468,9 +498,11 @@ function getScalpingBracketConfig() {
 }
 
 function formatScalpingBracketLabel(cfg) {
-  const t = (cfg.targetFraction * 100).toFixed(cfg.targetFraction === 0.125 ? 1 : 0);
-  const sl = (cfg.slFraction * 100).toFixed(cfg.slFraction === 0.125 ? 1 : 0);
-  return `+${t}% target / −${sl}% SL`;
+  const fmt = (f) => {
+    const pct = f * 100;
+    return Math.abs(pct - Math.round(pct)) < 0.01 ? String(Math.round(pct)) : pct.toFixed(1);
+  };
+  return `+${fmt(cfg.targetFraction)}% target / −${fmt(cfg.slFraction)}% SL`;
 }
 
 function computeBracketPrices(optPrice, cfg) {

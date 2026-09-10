@@ -172,12 +172,14 @@ body.fno-nse-disabled .nse-only-section{display:none}
       <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px 8px 8px;flex-wrap:wrap">
         <span>Bracket setup:</span>
         <select id="settingScalpingBracketPreset" class="input" style="width:180px">
+          <option value="micro10">Auto 10%</option>
+          <option value="fast15">Auto 15%</option>
           <option value="standard">Auto 20% (default)</option>
           <option value="balanced">Auto 25%</option>
           <option value="manual">Manual 30% (save your own)</option>
         </select>
       </div>
-      <div style="font-size:10px;color:#64748b;margin-top:4px;margin-bottom:6px">Three predefined setups: <b>20%</b> quick exits (default), <b>25%</b> balanced, <b>Manual</b> starts at 30%/15% SL — edit target/SL on the Auto Trades panel and Save to reuse on every entry. Trailing + partial exit ON for all presets (2:1 reward:risk).</div>
+      <div style="font-size:10px;color:#64748b;margin-top:4px;margin-bottom:6px">Five setups: <b>10%</b> / <b>15%</b> fast exits, <b>20%</b> default, <b>25%</b> balanced, <b>Manual</b> save-your-own (starts 30%/15% SL). All auto modes adjust from live premium; trailing + partial exit ON (2:1 R:R).</div>
       <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px 8px 8px;flex-wrap:wrap">
         <span>FM safety mode:</span>
         <select id="settingScalpingFmSafety" class="input" style="width:160px">
@@ -589,6 +591,8 @@ body.fno-nse-disabled .nse-only-section{display:none}
         <div style="display:flex;gap:8px;margin-bottom:6px;font-size:11px;align-items:center;flex-wrap:wrap">
           <label>Bracket:
             <select id="scalpingBracketPreset" class="input" style="width:150px">
+              <option value="micro10">Auto 10%</option>
+              <option value="fast15">Auto 15%</option>
               <option value="standard">Auto 20% (default)</option>
               <option value="balanced">Auto 25%</option>
               <option value="manual">Manual 30%</option>

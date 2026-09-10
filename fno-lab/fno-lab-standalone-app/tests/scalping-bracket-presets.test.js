@@ -34,13 +34,24 @@ const bootSrc = [
 
 const api = new Function(bootSrc)();
 
+assert.ok(api.FNO_SCALPING_BRACKET_PRESETS.micro10.targetFraction === 0.10);
+assert.ok(api.FNO_SCALPING_BRACKET_PRESETS.micro10.slFraction === 0.05);
+assert.ok(api.FNO_SCALPING_BRACKET_PRESETS.fast15.targetFraction === 0.15);
+assert.ok(api.FNO_SCALPING_BRACKET_PRESETS.fast15.slFraction === 0.075);
 assert.ok(api.FNO_SCALPING_BRACKET_PRESETS.standard.targetFraction === 0.20);
-assert.ok(api.FNO_SCALPING_BRACKET_PRESETS.standard.slFraction === 0.10);
 assert.ok(api.FNO_SCALPING_BRACKET_PRESETS.balanced.targetFraction === 0.25);
 assert.ok(api.FNO_SCALPING_BRACKET_PRESETS.balanced.slFraction === 0.125);
 assert.ok(api.FNO_SCALPING_BRACKET_PRESETS.manual.targetFraction === 0.30);
 assert.ok(api.FNO_SCALPING_BRACKET_PRESETS.manual.slFraction === 0.15);
 assert.strictEqual(api.getScalpingBracketPresetId(), 'standard');
+
+const micro = api.computeBracketPrices(100, api.FNO_SCALPING_BRACKET_PRESETS.micro10);
+assert.strictEqual(micro.target, 110);
+assert.strictEqual(micro.sl, 95);
+
+const fast = api.computeBracketPrices(100, api.FNO_SCALPING_BRACKET_PRESETS.fast15);
+assert.strictEqual(fast.target, 115);
+assert.strictEqual(fast.sl, 92.5);
 
 const std = api.computeBracketPrices(100, api.getScalpingBracketConfig());
 assert.strictEqual(std.target, 120);
@@ -60,7 +71,9 @@ const resolved = api.resolveTradeBracketForEntry(100, 'scalping');
 assert.strictEqual(resolved.target, 135);
 assert.ok(/scalping_bracket_manual/.test(resolved.source));
 
-assert.ok(/FNO_SETTINGS_SCHEMA_VERSION = 6/.test(coreSrc));
+assert.ok(/FNO_SETTINGS_SCHEMA_VERSION = 7/.test(coreSrc));
+assert.ok(/micro10:/.test(coreSrc));
+assert.ok(/fast15:/.test(coreSrc));
 assert.ok(/scalpingBracketPreset: 'standard'/.test(coreSrc));
 assert.ok(/saveManualScalpingBracketFromUi/.test(coreSrc));
 assert.ok(/syncTargetSlUiFromPreset/.test(coreSrc));
