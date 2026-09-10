@@ -64,7 +64,7 @@ let fnoAutoTradeCloseInProgress = false;
  */
 const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
-const FNO_SETTINGS_SCHEMA_VERSION = 5; // v5 (16.26.0): exchange lots (not raw qty) + capital preservation mode
+const FNO_SETTINGS_SCHEMA_VERSION = 6; // v6 (16.27.0): three scalping bracket presets (20/25/manual-30%)
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -116,6 +116,12 @@ const FNO_SETTINGS_DEFAULTS = {
   scalpingCapitalPreservationEnabled: true,
   maxLosingTradesPerDay: 1,
   maxDailyLossPctPreservation: 1.5,
+  // Scalping bracket preset: standard 20% (default) | balanced 25% | manual (save your own %)
+  scalpingBracketPreset: 'standard',
+  savedManualTargetPct: 30,
+  savedManualSlPct: 15,
+  savedManualTrailingEnabled: true,
+  savedManualPartialExitEnabled: true,
 };
 
 /** SEBI/NSE index F&O contract lot sizes (qty units per 1 exchange lot). Update when exchange revises. */
@@ -281,6 +287,19 @@ function migrateTradingControlsSchema(stored) {
       maxDailyLossPctPreservation: merged.maxDailyLossPctPreservation != null ? merged.maxDailyLossPctPreservation : 1.5,
     };
   }
+  if (schema < 6) {
+    merged = {
+      ...merged,
+      scalpingBracketPreset: (merged.scalpingBracketPreset === 'balanced' || merged.scalpingBracketPreset === 'manual')
+        ? merged.scalpingBracketPreset : 'standard',
+      savedManualTargetPct: (typeof merged.savedManualTargetPct === 'number' && merged.savedManualTargetPct > 0)
+        ? merged.savedManualTargetPct : 30,
+      savedManualSlPct: (typeof merged.savedManualSlPct === 'number' && merged.savedManualSlPct > 0)
+        ? merged.savedManualSlPct : 15,
+      savedManualTrailingEnabled: merged.savedManualTrailingEnabled !== false,
+      savedManualPartialExitEnabled: merged.savedManualPartialExitEnabled !== false,
+    };
+  }
   try {
     localStorage.setItem(FNO_SETTINGS_SCHEMA_KEY, String(FNO_SETTINGS_SCHEMA_VERSION));
     localStorage.setItem(FNO_SETTINGS_KEY, JSON.stringify(merged));
@@ -385,9 +404,163 @@ const FNO_SCALPING_PROFIT_PROFILE = {
   autoCalibrateTargetWinRatePct: 65,
   autoCalibrateMinSampleSize: 20, // higher bar than general 10 — avoids over-tightening on tiny samples
   spreadHardBlockPct: 12,
-  slFraction: 0.10, // 10% SL — option premium noise often exceeds 7.5% on 1–5 min holds
-  targetFraction: 0.20, // 2:1 reward:risk preserved vs SL
 };
+
+/**
+ * Three predefined scalping bracket setups — target/SL/trailing/partial defined per preset.
+ * standard (default): 20% target / 10% SL — highest hit rate for fast scalps.
+ * balanced: 25% target / 12.5% SL — middle ground, same 2:1 R:R.
+ * manual: starts at 30% / 15%; user saves custom % and it applies to every future entry.
+ */
+const FNO_SCALPING_BRACKET_PRESETS = {
+  standard: {
+    id: 'standard',
+    label: 'Auto 20%',
+    targetFraction: 0.20,
+    slFraction: 0.10,
+    trailingEnabled: true,
+    partialExitEnabled: true,
+    autoAdjusted: true,
+    hint: 'Quick exits — auto-adjusts target/SL from live premium each refresh',
+  },
+  balanced: {
+    id: 'balanced',
+    label: 'Auto 25%',
+    targetFraction: 0.25,
+    slFraction: 0.125,
+    trailingEnabled: true,
+    partialExitEnabled: true,
+    autoAdjusted: true,
+    hint: 'Balanced — auto-adjusts +25% target / −12.5% SL (2:1) from live premium',
+  },
+  manual: {
+    id: 'manual',
+    label: 'Manual 30%',
+    targetFraction: 0.30,
+    slFraction: 0.15,
+    trailingEnabled: true,
+    partialExitEnabled: true,
+    autoAdjusted: false,
+    hint: 'Edit target/SL below, then Save — your % is reused on every setup',
+  },
+};
+
+function getScalpingBracketPresetId() {
+  const id = fnoSettings.get().scalpingBracketPreset || 'standard';
+  return FNO_SCALPING_BRACKET_PRESETS[id] ? id : 'standard';
+}
+
+function getScalpingBracketConfig() {
+  const id = getScalpingBracketPresetId();
+  const preset = { ...FNO_SCALPING_BRACKET_PRESETS[id] };
+  if (id === 'manual') {
+    const s = fnoSettings.get();
+    if (typeof s.savedManualTargetPct === 'number' && s.savedManualTargetPct > 0) {
+      preset.targetFraction = s.savedManualTargetPct / 100;
+    }
+    if (typeof s.savedManualSlPct === 'number' && s.savedManualSlPct > 0) {
+      preset.slFraction = s.savedManualSlPct / 100;
+    }
+    preset.trailingEnabled = s.savedManualTrailingEnabled !== false;
+    preset.partialExitEnabled = s.savedManualPartialExitEnabled !== false;
+  }
+  return preset;
+}
+
+function formatScalpingBracketLabel(cfg) {
+  const t = (cfg.targetFraction * 100).toFixed(cfg.targetFraction === 0.125 ? 1 : 0);
+  const sl = (cfg.slFraction * 100).toFixed(cfg.slFraction === 0.125 ? 1 : 0);
+  return `+${t}% target / −${sl}% SL`;
+}
+
+function computeBracketPrices(optPrice, cfg) {
+  if (typeof optPrice !== 'number' || !Number.isFinite(optPrice) || optPrice <= 0) {
+    return { target: null, sl: null };
+  }
+  return {
+    target: +(optPrice * (1 + cfg.targetFraction)).toFixed(2),
+    sl: +(optPrice * (1 - cfg.slFraction)).toFixed(2),
+  };
+}
+
+function resolveTradeBracketForEntry(optPrice, tradingType) {
+  if (typeof optPrice !== 'number' || !Number.isFinite(optPrice) || optPrice <= 0) {
+    return { target: null, sl: null, source: 'invalid_price' };
+  }
+  if (tradingType === 'scalping' && isScalpingProfitProfileActive() && fnoSettings.get().tradeTypeTargetSlEnabled) {
+    const cfg = getScalpingBracketConfig();
+    const prices = computeBracketPrices(optPrice, cfg);
+    return { ...prices, source: 'scalping_bracket_' + cfg.id, config: cfg };
+  }
+  const legacy = computeTradeTypeTargetSl(optPrice, tradingType);
+  return { ...legacy, source: 'trade_type_default' };
+}
+
+function syncTargetSlUiFromPreset(optPrice) {
+  if (typeof document === 'undefined') return;
+  const presetSelect = document.getElementById('scalpingBracketPreset');
+  const settingSelect = document.getElementById('settingScalpingBracketPreset');
+  const id = getScalpingBracketPresetId();
+  if (presetSelect && presetSelect.value !== id) presetSelect.value = id;
+  if (settingSelect && settingSelect.value !== id) settingSelect.value = id;
+  const cfg = getScalpingBracketConfig();
+  const targetEl = document.getElementById('target');
+  const slEl = document.getElementById('sl');
+  const hint = document.getElementById('scalpingBracketHint');
+  const saveBtn = document.getElementById('saveManualBracketBtn');
+  const savedNote = document.getElementById('manualBracketSavedNote');
+  if (hint) {
+    hint.textContent = cfg.autoAdjusted
+      ? `${cfg.label}: ${formatScalpingBracketLabel(cfg)} — ${cfg.hint}`
+      : `${cfg.label}: ${formatScalpingBracketLabel(cfg)} saved — ${cfg.hint}`;
+  }
+  if (saveBtn) saveBtn.style.display = cfg.autoAdjusted ? 'none' : 'inline-block';
+  if (targetEl) targetEl.readOnly = !!cfg.autoAdjusted;
+  if (slEl) slEl.readOnly = !!cfg.autoAdjusted;
+  if (targetEl && slEl && typeof optPrice === 'number' && optPrice > 0) {
+    const prices = computeBracketPrices(optPrice, cfg);
+    if (prices.target != null) targetEl.value = prices.target;
+    if (prices.sl != null) slEl.value = prices.sl;
+  }
+  const trail = document.getElementById('trailingEnabled');
+  const partial = document.getElementById('partialExitEnabled');
+  if (trail) trail.checked = cfg.trailingEnabled;
+  if (partial) partial.checked = cfg.partialExitEnabled;
+  if (savedNote && cfg.autoAdjusted) savedNote.style.display = 'none';
+}
+
+function saveManualScalpingBracketFromUi(optPrice) {
+  const price = Number(optPrice);
+  const targetEl = document.getElementById('target');
+  const slEl = document.getElementById('sl');
+  const trail = document.getElementById('trailingEnabled');
+  const partial = document.getElementById('partialExitEnabled');
+  if (!targetEl || !slEl || !Number.isFinite(price) || price <= 0) {
+    return { ok: false, message: 'Enter a valid live premium before saving your manual bracket.' };
+  }
+  const target = parseFloat(targetEl.value);
+  const sl = parseFloat(slEl.value);
+  if (!Number.isFinite(target) || target <= price) {
+    return { ok: false, message: 'Target must be above the current premium.' };
+  }
+  if (!Number.isFinite(sl) || sl >= price) {
+    return { ok: false, message: 'Stop-loss must be below the current premium.' };
+  }
+  const targetPct = +(((target - price) / price) * 100).toFixed(2);
+  const slPct = +(((price - sl) / price) * 100).toFixed(2);
+  if (targetPct < 5 || slPct < 3) {
+    return { ok: false, message: 'Bracket too tight — target needs ≥5% above premium, SL ≥3% below.' };
+  }
+  fnoSettings.set({
+    scalpingBracketPreset: 'manual',
+    savedManualTargetPct: targetPct,
+    savedManualSlPct: slPct,
+    savedManualTrailingEnabled: !!(trail && trail.checked),
+    savedManualPartialExitEnabled: !!(partial && partial.checked),
+  });
+  syncTargetSlUiFromPreset(price);
+  return { ok: true, message: `Saved manual setup: +${targetPct}% target / −${slPct}% SL (applied to every future entry).` };
+}
 
 function isScalpingProfitProfileActive() {
   const s = fnoSettings.get();
@@ -423,18 +596,20 @@ function applyScalpingProfitProfilePreset() {
     scalpingCapitalPreservationEnabled: true,
     maxLosingTradesPerDay: 1,
     maxDailyLossPctPreservation: 1.5,
+    scalpingBracketPreset: 'standard',
   });
   applyScalpingExecutionControlsFromSettings();
+  syncTargetSlUiFromPreset();
   updateLotQtyHint();
 }
 
 function applyScalpingExecutionControlsFromSettings() {
   if (typeof document === 'undefined' || typeof document.getElementById !== 'function' || !isScalpingProfitProfileActive()) return;
-  const s = fnoSettings.get();
+  const cfg = getScalpingBracketConfig();
   const trail = document.getElementById('trailingEnabled');
   const partial = document.getElementById('partialExitEnabled');
-  if (trail) trail.checked = s.scalpingTrailingEnabled !== false;
-  if (partial) partial.checked = s.scalpingPartialExitEnabled !== false;
+  if (trail) trail.checked = cfg.trailingEnabled;
+  if (partial) partial.checked = cfg.partialExitEnabled;
 }
 
 function isMicrostructureDaemonOnline(ctx) {
@@ -478,7 +653,7 @@ function renderScalpingSessionReadiness(brain, ctx) {
     ? `✓ Companion daemon live (${ctx.microstructure.ticksPerMinute.toFixed(0)} ticks/min) — 7 tick factors active`
     : '⚠ Microstructure daemon offline — scalping weights Microstructure 1.6× but 7 tick factors are unavailable (Flow/Tech/Vol still active)';
   const bracketTxt = fnoSettings.get().tradeTypeTargetSlEnabled
-    ? `Auto bracket: ~${(FNO_SCALPING_PROFIT_PROFILE.targetFraction * 100).toFixed(0)}% target / ~${(FNO_SCALPING_PROFIT_PROFILE.slFraction * 100).toFixed(0)}% SL`
+    ? `${getScalpingBracketConfig().label}: ${formatScalpingBracketLabel(getScalpingBracketConfig())}`
     : 'Manual target/SL from form';
   const sym = (ctx && ctx.sym) || (document.getElementById('sym') && document.getElementById('sym').value) || 'NIFTY';
   const lotTxt = formatLotQtyLabel(sym, getLotCountFromUi());
@@ -7303,15 +7478,13 @@ function computeTradeTypeSize(baseLotSize, tradingType) {
  */
 function computeTradeTypeTargetSl(optPrice, tradingType) {
   if (typeof optPrice !== 'number' || !isFinite(optPrice) || optPrice <= 0) return { target: null, sl: null };
-  let slFraction, targetFraction;
   if (tradingType === 'scalping' && isScalpingProfitProfileActive()) {
-    slFraction = FNO_SCALPING_PROFIT_PROFILE.slFraction;
-    targetFraction = FNO_SCALPING_PROFIT_PROFILE.targetFraction;
-  } else {
-    const multiplier = FNO_TRAILING_DISTANCE_MULTIPLIER[tradingType] || 1.0;
-    slFraction = 0.15 * multiplier;
-    targetFraction = 0.30 * multiplier;
+    const cfg = getScalpingBracketConfig();
+    return computeBracketPrices(optPrice, cfg);
   }
+  const multiplier = FNO_TRAILING_DISTANCE_MULTIPLIER[tradingType] || 1.0;
+  const slFraction = 0.15 * multiplier;
+  const targetFraction = 0.30 * multiplier;
   return {
     target: +(optPrice * (1 + targetFraction)).toFixed(2),
     sl: +(optPrice * (1 - slFraction)).toFixed(2),
@@ -14748,6 +14921,43 @@ function render(){
     });
   }
 
+  function bindScalpingBracketPresetSelect(el) {
+    if (!el) return;
+    el.value = getScalpingBracketPresetId();
+    el.addEventListener('change', (e) => {
+      const preset = e.target.value;
+      if (!FNO_SCALPING_BRACKET_PRESETS[preset]) return;
+      fnoSettings.set({ scalpingBracketPreset: preset });
+      const optPrice = parseFloat(document.getElementById('optPrice') && document.getElementById('optPrice').value);
+      syncTargetSlUiFromPreset(optPrice);
+      applyScalpingExecutionControlsFromSettings();
+      const settingSelect = document.getElementById('settingScalpingBracketPreset');
+      const mainSelect = document.getElementById('scalpingBracketPreset');
+      if (settingSelect && settingSelect !== el) settingSelect.value = preset;
+      if (mainSelect && mainSelect !== el) mainSelect.value = preset;
+    });
+  }
+  bindScalpingBracketPresetSelect(document.getElementById('scalpingBracketPreset'));
+  bindScalpingBracketPresetSelect(document.getElementById('settingScalpingBracketPreset'));
+  const saveManualBracketBtn = document.getElementById('saveManualBracketBtn');
+  if (saveManualBracketBtn) {
+    saveManualBracketBtn.addEventListener('click', () => {
+      const optPrice = parseFloat(document.getElementById('optPrice') && document.getElementById('optPrice').value);
+      const result = saveManualScalpingBracketFromUi(optPrice);
+      if (!result.ok) { alert(result.message); return; }
+      const note = document.getElementById('manualBracketSavedNote');
+      if (note) {
+        note.textContent = result.message;
+        note.style.display = 'inline';
+        setTimeout(() => { note.style.display = 'none'; }, 3500);
+      }
+    });
+  }
+  document.addEventListener('fnoSettingsChanged', () => {
+    const optPrice = parseFloat(document.getElementById('optPrice') && document.getElementById('optPrice').value);
+    if (isScalpingProfitProfileActive()) syncTargetSlUiFromPreset(optPrice);
+  });
+
   // Real, comprehensive Settings/Trading Controls panel - user's own
   // direct, explicit request for a centralized settings section with
   // independent, dynamically-applied controls. Replaces last round's
@@ -14785,6 +14995,8 @@ function render(){
     if (maxLossEl) maxLossEl.value = (typeof s.maxLosingTradesPerDay === 'number') ? s.maxLosingTradesPerDay : 1;
     const maxLossPctEl = document.getElementById('settingMaxDailyLossPctPreservation');
     if (maxLossPctEl) maxLossPctEl.value = (typeof s.maxDailyLossPctPreservation === 'number') ? s.maxDailyLossPctPreservation : 1.5;
+    const bracketPresetEl = document.getElementById('settingScalpingBracketPreset');
+    if (bracketPresetEl) bracketPresetEl.value = getScalpingBracketPresetId();
     document.getElementById('settingAppearanceDark').checked = s.appearance === 'dark';
     document.getElementById('settingAppearanceLight').checked = s.appearance === 'light';
     document.getElementById('settingSoundEntry').checked = s.soundEntryEnabled;
@@ -15305,6 +15517,7 @@ function render(){
       } else {
         optPrice = parseFloat(document.getElementById('optPrice').value)||100;
       }
+      if (isScalpingProfitProfileActive()) syncTargetSlUiFromPreset(optPrice);
       // Real days-to-expiry from the option chain row's own expiryDate
       // (NSE format "DD-Mon-YYYY"), instead of a manually-typed guess -
       // only falls back to the manual input if expiryDate can't be parsed.
@@ -15709,18 +15922,19 @@ function render(){
           const autoLeg = autoOptionType === 'PE' ? (ctx.ocRow && ctx.ocRow.PE) : (ctx.ocRow && ctx.ocRow.CE);
           if (!autoLeg || typeof autoLeg.lastPrice !== 'number') { decisionLogBlockReason = 'No live premium available for the signaled leg this refresh.'; }
           if (autoLeg && typeof autoLeg.lastPrice === 'number') {
-            const formTarget = parseFloat(document.getElementById('target') && document.getElementById('target').value);
-            const formSl = parseFloat(document.getElementById('sl') && document.getElementById('sl').value);
-            // KB §7 "Target/SL inputs remain the same manual inputs for
-            // all types" - real, opt-in, trade-type-aware DEFAULT
-            // (never overrides a real, manual formTarget/formSl above -
-            // see computeTradeTypeTargetSl's own TRACE).
             const useTradeTypeDefaults = fnoSettings.get().tradeTypeTargetSlEnabled;
-            const defaultBracket = useTradeTypeDefaults
-              ? computeTradeTypeTargetSl(autoLeg.lastPrice, resolveDecisionTradingType())
-              : { target: +(autoLeg.lastPrice * 1.3).toFixed(2), sl: +(autoLeg.lastPrice * 0.85).toFixed(2) };
-            const autoTarget = (formTarget && formTarget > autoLeg.lastPrice) ? formTarget : (defaultBracket.target !== null ? defaultBracket.target : +(autoLeg.lastPrice * 1.3).toFixed(2));
-            const autoSl = (formSl && formSl < autoLeg.lastPrice) ? formSl : (defaultBracket.sl !== null ? defaultBracket.sl : +(autoLeg.lastPrice * 0.85).toFixed(2));
+            let autoTarget;
+            let autoSl;
+            if (useTradeTypeDefaults) {
+              const bracket = resolveTradeBracketForEntry(autoLeg.lastPrice, resolveDecisionTradingType());
+              autoTarget = bracket.target != null ? bracket.target : +(autoLeg.lastPrice * 1.3).toFixed(2);
+              autoSl = bracket.sl != null ? bracket.sl : +(autoLeg.lastPrice * 0.85).toFixed(2);
+            } else {
+              const formTarget = parseFloat(document.getElementById('target') && document.getElementById('target').value);
+              const formSl = parseFloat(document.getElementById('sl') && document.getElementById('sl').value);
+              autoTarget = (formTarget && formTarget > autoLeg.lastPrice) ? formTarget : +(autoLeg.lastPrice * 1.3).toFixed(2);
+              autoSl = (formSl && formSl < autoLeg.lastPrice) ? formSl : +(autoLeg.lastPrice * 0.85).toFixed(2);
+            }
             const autoStrike = parseFloat(document.getElementById('strike') && document.getElementById('strike').value) || (ctx.ocRow && ctx.ocRow.strikePrice);
             const autoExecMode = (document.getElementById('executionMode') && document.getElementById('executionMode').value) || 'realistic';
             const autoTrailing = !!(document.getElementById('trailingEnabled') && document.getElementById('trailingEnabled').checked);
@@ -17595,12 +17809,22 @@ function render(){
   document.getElementById('autoMode').addEventListener('change', (e)=>{
     if (!e.target.checked) return;
     const optionType=(document.getElementById('optType')&&document.getElementById('optType').value)||'CE';
-    const target=parseFloat(document.getElementById('target').value)||null;
-    const sl=parseFloat(document.getElementById('sl').value)||null;
     const strike=parseFloat(document.getElementById('strike').value);
     const symVal = (document.getElementById('sym') && document.getElementById('sym').value) || sym;
     const lotCount = getLotCountFromUi();
     const lotSize = resolveOrderQuantity(symVal, lotCount);
+    const liveLeg = (curCtx && curCtx.ocRow) ? (optionType === 'PE' ? curCtx.ocRow.PE : curCtx.ocRow.CE) : null;
+    const entryPrice = (liveLeg && typeof liveLeg.lastPrice === 'number') ? liveLeg.lastPrice : (parseFloat(document.getElementById('optPrice').value) || null);
+    let target = null;
+    let sl = null;
+    if (entryPrice && fnoSettings.get().tradeTypeTargetSlEnabled) {
+      const bracket = resolveTradeBracketForEntry(entryPrice, resolveDecisionTradingType());
+      target = bracket.target;
+      sl = bracket.sl;
+    } else {
+      target = parseFloat(document.getElementById('target').value) || null;
+      sl = parseFloat(document.getElementById('sl').value) || null;
+    }
     const execMode = (document.getElementById('executionMode') && document.getElementById('executionMode').value) || 'realistic';
     const trailingEnabled = !!(document.getElementById('trailingEnabled') && document.getElementById('trailingEnabled').checked);
     const partialExitEnabled = !!(document.getElementById('partialExitEnabled') && document.getElementById('partialExitEnabled').checked);

@@ -170,6 +170,15 @@ body.fno-nse-disabled .nse-only-section{display:none}
         <span>% of capital</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px 8px 8px;flex-wrap:wrap">
+        <span>Bracket setup:</span>
+        <select id="settingScalpingBracketPreset" class="input" style="width:180px">
+          <option value="standard">Auto 20% (default)</option>
+          <option value="balanced">Auto 25%</option>
+          <option value="manual">Manual 30% (save your own)</option>
+        </select>
+      </div>
+      <div style="font-size:10px;color:#64748b;margin-top:4px;margin-bottom:6px">Three predefined setups: <b>20%</b> quick exits (default), <b>25%</b> balanced, <b>Manual</b> starts at 30%/15% SL — edit target/SL on the Auto Trades panel and Save to reuse on every entry. Trailing + partial exit ON for all presets (2:1 reward:risk).</div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px 8px 8px;flex-wrap:wrap">
         <span>FM safety mode:</span>
         <select id="settingScalpingFmSafety" class="input" style="width:160px">
           <option value="strict">Strict (recommended)</option>
@@ -577,7 +586,20 @@ body.fno-nse-disabled .nse-only-section{display:none}
 
       <div class="card">
         <h3>🎯 Auto Trades - <span id="tradesModeLabel">PAPER</span></h3>
-        <div style="display:flex;gap:6px;margin-bottom:8px"><input id="target" class="input" type="number" value="200" style="width:70px"><input id="sl" class="input" type="number" value="100" style="width:70px"><label style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="autoMode"> Auto</label><button id="forceExit" class="btn" style="background:#ef4444" aria-label="Force exit the currently open Auto Trade position immediately, at the current live price">Exit</button></div>
+        <div style="display:flex;gap:8px;margin-bottom:6px;font-size:11px;align-items:center;flex-wrap:wrap">
+          <label>Bracket:
+            <select id="scalpingBracketPreset" class="input" style="width:150px">
+              <option value="standard">Auto 20% (default)</option>
+              <option value="balanced">Auto 25%</option>
+              <option value="manual">Manual 30%</option>
+            </select>
+          </label>
+          <button id="saveManualBracketBtn" class="btn" style="padding:4px 10px;font-size:11px;background:#334155;display:none" title="Save your custom target/SL % for every future entry">💾 Save manual setup</button>
+          <span id="manualBracketSavedNote" style="font-size:10px;color:#4ade80;display:none"></span>
+        </div>
+        <div id="scalpingBracketHint" style="font-size:10px;color:#64748b;margin-bottom:6px">Auto 20%: +20% target / −10% SL — auto-adjusts from live premium each refresh</div>
+        <div style="display:flex;gap:6px;margin-bottom:4px;font-size:10px;color:#94a3b8"><span>Target</span><span>Stop-loss</span></div>
+        <div style="display:flex;gap:6px;margin-bottom:8px"><input id="target" class="input" type="number" value="200" style="width:70px" title="Take-profit price"><input id="sl" class="input" type="number" value="100" style="width:70px" title="Stop-loss price"><label style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="autoMode"> Auto</label><button id="forceExit" class="btn" style="background:#ef4444" aria-label="Force exit the currently open Auto Trade position immediately, at the current live price">Exit</button></div>
         <div style="display:flex;gap:12px;margin-bottom:8px;font-size:11px">
           <label style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="trailingEnabled" checked> Trailing Stop (§27)</label>
           <label style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="partialExitEnabled" checked> Partial Exit at Target (§27)</label>

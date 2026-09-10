@@ -90,7 +90,7 @@ assert.ok(/function renderEligibilityFunnel\(/.test(coreSrc));
 assert.ok(/renderEligibilityFunnel\(sym\)/.test(coreSrc));
 assert.ok(/scalpingProfitProfileEnabled: true/.test(coreSrc));
 assert.ok(/tradingTypes: \{ intraday: false, scalping: true/.test(coreSrc));
-assert.ok(/FNO_SETTINGS_SCHEMA_VERSION = 5/.test(coreSrc));
+assert.ok(/FNO_SETTINGS_SCHEMA_VERSION = 6/.test(coreSrc));
 assert.ok(/defaultLots: 2/.test(coreSrc));
 assert.ok(/scalpingCapitalPreservationEnabled: true/.test(coreSrc));
 
