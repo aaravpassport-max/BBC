@@ -16693,16 +16693,8 @@ function render(){
     // JSON column - genuine, real server-side persistence reusing
     // existing infrastructure, no new schema migration needed.
     const entrySnapshotWithFailureCheck = Object.assign({}, buildEntrySnapshot(lastBrain, curCtx, sym), { failureModeCheck: fmResult });
-    // Real, foundational trade-type determination (user's own direct
-    // request) - reuses the exact same real, single `currentEffectiveType`
-    // already computed above (before the Failure-Mode Library check),
-    // rather than a second, separate, potentially-divergent call -
-    // the SAME real, single value is used consistently for the
-    // failure-library adjustment, local storage, AND the real,
-    // server-side open-position call below (now sent for every trading
-    // style, not just swing - see that call's own comment for the
-    // real fix this session).
-    const effectiveTradingType = currentEffectiveType;
+    // Real, foundational trade-type determination — reuses `effectiveTradingType`
+    // already resolved above (same value as currentEffectiveType for FM/storage).
     // Real, NEW field this pass (user's own direct request - "show
     // entry/exit signals on a live candle chart"): the real underlying
     // spot price and candle timestamp AT THIS ACTUAL ENTRY, read
