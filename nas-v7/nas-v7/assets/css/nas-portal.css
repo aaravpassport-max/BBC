@@ -399,9 +399,11 @@
 }
 
 .nas-contact-info > p {
-  opacity: 0.85;
+  opacity: 0.95;
   font-size: 0.9375rem;
   margin: 0 0 28px;
+  color: #f8fafc;
+  line-height: 1.65;
 }
 
 .nas-ci-row {
@@ -427,16 +429,49 @@
 .nas-ci-text strong {
   display: block;
   font-size: 0.75rem;
-  opacity: 0.7;
-  margin-bottom: 3px;
+  opacity: 0.92;
+  margin-bottom: 4px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  color: #fde68a;
+  font-weight: 700;
 }
 
 .nas-ci-text span,
 .nas-ci-text a {
   font-size: 0.9375rem;
   color: #fff;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.nas-ci-text a:hover {
+  color: #fde68a;
+}
+
+.nas-contact-info .nas-btn-secondary {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  color: #fff;
+}
+
+.nas-contact-info .nas-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.24);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.nas-contact-form-card .nas-form-subtitle {
+  color: #475569;
+  font-size: 0.875rem;
+  margin: -8px 0 20px;
+  line-height: 1.55;
+}
+
+.nas-field input::placeholder,
+.nas-field textarea::placeholder {
+  color: #94a3b8;
+  opacity: 1;
 }
 
 .nas-social-links {
@@ -962,11 +997,14 @@
 }
 
 .nas-portal-np-card {
+  display: flex;
+  flex-direction: column;
   background: #fff;
   border: 1.5px solid var(--nas-border);
   border-radius: 16px;
-  padding: 20px;
+  padding: 18px 18px 20px;
   transition: box-shadow 0.2s ease;
+  min-height: 100%;
 }
 
 .nas-portal-np-card:hover {
@@ -1043,13 +1081,19 @@
 .nas-np-card__rates {
   font-size: 0.8125rem;
   color: var(--nas-text-muted);
-  margin-bottom: 14px;
+  margin: 0 0 14px;
+  line-height: 1.5;
+}
+
+.nas-np-card__rates strong {
+  color: var(--nas-text);
 }
 
 .nas-np-card__btn {
   width: 100%;
   justify-content: center;
   font-size: 0.8125rem;
+  margin-top: auto;
 }
 
 .nas-portal-city-grid {

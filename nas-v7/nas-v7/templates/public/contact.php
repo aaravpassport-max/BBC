@@ -33,21 +33,21 @@ $track_url   = nas_portal_track_url();
           <?php if ( $phone ) : ?>
           <div class="nas-ci-row">
             <div class="nas-ci-icon"><i class="fa-solid fa-phone"></i></div>
-            <div class="nas-ci-text"><strong>Phone</strong><span><a href="tel:<?php echo esc_attr( preg_replace( '/[^0-9+]/', '', $phone ) ); ?>" style="color:#fff"><?php echo esc_html( $phone ); ?></a></span></div>
+            <div class="nas-ci-text"><strong>Phone</strong><span><a href="tel:<?php echo esc_attr( preg_replace( '/[^0-9+]/', '', $phone ) ); ?>"><?php echo esc_html( $phone ); ?></a></span></div>
           </div>
           <?php endif; ?>
 
           <?php if ( $walink ) : ?>
           <div class="nas-ci-row">
             <div class="nas-ci-icon"><i class="fa-brands fa-whatsapp"></i></div>
-            <div class="nas-ci-text"><strong>WhatsApp</strong><span><a href="<?php echo esc_url( $walink ); ?>" target="_blank" rel="noopener" style="color:#fff"><?php echo esc_html( $wa ); ?></a></span></div>
+            <div class="nas-ci-text"><strong>WhatsApp</strong><span><a href="<?php echo esc_url( $walink ); ?>" target="_blank" rel="noopener"><?php echo esc_html( $wa ); ?></a></span></div>
           </div>
           <?php endif; ?>
 
           <?php if ( $email ) : ?>
           <div class="nas-ci-row">
             <div class="nas-ci-icon"><i class="fa-solid fa-envelope"></i></div>
-            <div class="nas-ci-text"><strong>Email</strong><span><a href="mailto:<?php echo esc_attr( $email ); ?>" style="color:#fff"><?php echo esc_html( $email ); ?></a></span></div>
+            <div class="nas-ci-text"><strong>Email</strong><span><a href="mailto:<?php echo esc_attr( $email ); ?>"><?php echo esc_html( $email ); ?></a></span></div>
           </div>
           <?php endif; ?>
 
@@ -86,7 +86,7 @@ $track_url   = nas_portal_track_url();
 
         <div class="nas-contact-form-card">
           <h3>Send Us a Message</h3>
-          <p style="color:var(--nas-text-muted);font-size:0.875rem;margin:-8px 0 20px">Fill in the form and our team will respond within 4 business hours.</p>
+          <p class="nas-form-subtitle">Fill in the form and our team will respond within 4 business hours.</p>
           <div id="nas-contact-error" class="nas-form-error"></div>
 
           <div class="nas-form-row">

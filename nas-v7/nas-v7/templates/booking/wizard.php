@@ -886,8 +886,6 @@ $steps = [
 </div><!-- /.nas-wrap -->
 </div><!-- /.nas-portal-page -->
 
-<?php nas_portal_bottom_nav(); ?>
-
 <!-- Hidden data for JS -->
 <script id="nas-wizard-config" type="application/json">
 {

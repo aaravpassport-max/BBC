@@ -100,6 +100,8 @@ echo $nas_content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEsca
 if ( $nas_use_shell ) {
     echo '</main>';
     nas_portal_shell_close();
+} elseif ( $nas_portal_slug === 'book-newspaper-ad' && function_exists( 'nas_portal_bottom_nav' ) ) {
+    add_action( 'wp_footer', 'nas_portal_bottom_nav', 99 );
 }
 ?>
 <?php wp_footer(); ?>

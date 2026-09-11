@@ -34,7 +34,7 @@ body.nas-app-shell {
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 9990;
+    z-index: 10050;
     background: rgba(255, 255, 255, 0.94);
     backdrop-filter: blur(16px) saturate(180%);
     -webkit-backdrop-filter: blur(16px) saturate(180%);
@@ -166,6 +166,10 @@ body.nas-page-book-newspaper-ad.nas-app-shell {
 
 @media (max-width: 1023px) {
   body.nas-page-book-newspaper-ad .nas-wrap {
-    padding-bottom: 24px;
+    padding-bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  }
+
+  body.nas-page-book-newspaper-ad .nas-help-fab {
+    bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   }
 }

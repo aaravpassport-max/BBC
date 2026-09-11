@@ -282,6 +282,41 @@ textarea.cd-form-control{resize:vertical;min-height:70px}
   .cd-toast-wrap{left:16px;right:16px;max-width:none;bottom:80px}
   .cd-wallet-amount{font-size:36px}
 }
+
+/* ── Mobile bottom navigation ─ */
+.cd-bottom-nav{display:none}
+@media(max-width:1023px){
+  #nas-client-dashboard{padding-bottom:calc(68px + env(safe-area-inset-bottom,0px))}
+  .cd-nav{display:none}
+  .cd-topnav-inner{padding:0 14px;height:56px}
+  .cd-body{padding:20px 14px 24px}
+  .cd-bottom-nav{
+    display:block;position:fixed;left:0;right:0;bottom:0;z-index:10050;
+    background:rgba(255,255,255,.96);backdrop-filter:blur(16px);
+    border-top:1px solid #e2e8f0;box-shadow:0 -8px 32px rgba(15,23,42,.08);
+    padding-bottom:env(safe-area-inset-bottom,0px)
+  }
+  .cd-bottom-nav__inner{display:grid;grid-template-columns:repeat(4,1fr);max-width:560px;margin:0 auto;min-height:60px}
+  .cd-bottom-btn{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+    padding:8px 4px 10px;border:none;background:none;color:#64748b;
+    font-size:.625rem;font-weight:600;font-family:inherit;cursor:pointer
+  }
+  .cd-bottom-btn i{font-size:1.05rem}
+  .cd-bottom-btn.active{color:#2A8AFA}
+  .cd-bottom-btn.active i{color:#2A8AFA}
+  .cd-booking{flex-direction:column;align-items:stretch;gap:10px;padding:14px}
+  .cd-booking-right{width:100%;justify-content:space-between}
+  .cd-filter-bar{flex-direction:column;align-items:stretch}
+  .cd-filter-bar input{max-width:none;width:100%}
+  .cd-filter-bar .cd-btn-primary{margin-left:0!important;width:100%;justify-content:center}
+  .cd-detail-header{flex-wrap:wrap;padding:14px 16px}
+  .cd-detail-tabs{padding:0 12px}
+  .cd-dtab-panel{padding:16px}
+  .cd-data-row{flex-direction:column;gap:4px}
+  .cd-data-row span{width:auto}
+  .cd-chat-msgs{min-height:220px;max-height:50vh}
+}
 </style>
 
 <div id="nas-client-dashboard">
@@ -303,10 +338,10 @@ textarea.cd-form-control{resize:vertical;min-height:70px}
       <?php else: ?><span class="cd-logo-icon"><i class="fa-solid fa-newspaper"></i></span> <?php echo esc_html($brand); ?><?php endif; ?>
     </a>
     <div class="cd-nav">
-      <button class="cd-nav-btn active" onclick="cdShowPanel('bookings',this)"><i class="fa-solid fa-list-check"></i> My Bookings</button>
-      <button class="cd-nav-btn" onclick="cdShowPanel('profile',this)"><i class="fa-solid fa-user"></i> My Profile</button>
-      <button class="cd-nav-btn" onclick="cdShowPanel('wallet',this)"><i class="fa-solid fa-wallet"></i> My Wallet</button>
-      <button class="cd-nav-btn" onclick="cdShowPanel('tickets',this)"><i class="fa-solid fa-headset"></i> Support</button>
+      <button class="cd-nav-btn active" data-panel="bookings" onclick="cdShowPanel('bookings',this)"><i class="fa-solid fa-list-check"></i> My Bookings</button>
+      <button class="cd-nav-btn" data-panel="profile" onclick="cdShowPanel('profile',this)"><i class="fa-solid fa-user"></i> My Profile</button>
+      <button class="cd-nav-btn" data-panel="wallet" onclick="cdShowPanel('wallet',this)"><i class="fa-solid fa-wallet"></i> My Wallet</button>
+      <button class="cd-nav-btn" data-panel="tickets" onclick="cdShowPanel('tickets',this)"><i class="fa-solid fa-headset"></i> Support</button>
 
     </div>
     <div class="cd-topnav-right">
@@ -528,6 +563,16 @@ textarea.cd-form-control{resize:vertical;min-height:70px}
   </div>
 
 </div><!-- /.cd-body -->
+
+<nav class="cd-bottom-nav" id="cd-bottom-nav" aria-label="Dashboard navigation">
+  <div class="cd-bottom-nav__inner">
+    <button type="button" class="cd-bottom-btn active" data-panel="bookings" onclick="cdShowPanel('bookings',this)"><i class="fa-solid fa-list-check"></i><span>Bookings</span></button>
+    <button type="button" class="cd-bottom-btn" data-panel="profile" onclick="cdShowPanel('profile',this)"><i class="fa-solid fa-user"></i><span>Profile</span></button>
+    <button type="button" class="cd-bottom-btn" data-panel="wallet" onclick="cdShowPanel('wallet',this)"><i class="fa-solid fa-wallet"></i><span>Wallet</span></button>
+    <button type="button" class="cd-bottom-btn" data-panel="tickets" onclick="cdShowPanel('tickets',this)"><i class="fa-solid fa-headset"></i><span>Support</span></button>
+  </div>
+</nav>
+
 <!-- Toast container (non-blocking small toasts) -->
 <div class="cd-toast-wrap" id="cd-toasts" aria-live="polite" aria-atomic="false"></div>
 
@@ -710,9 +755,9 @@ function pill(status){var c=STATUS_COLORS[status]||'#94a3b8';return'<span class=
 
 /* ── Panel switching ─────────────────────────────────────────────────── */
 window.cdShowPanel=function(name,btn){
-  document.querySelectorAll('.cd-nav-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.cd-nav-btn,.cd-bottom-btn').forEach(function(b){b.classList.remove('active');});
   document.querySelectorAll('.cd-panel').forEach(function(p){p.classList.remove('show');});
-  if(btn)btn.classList.add('active');
+  document.querySelectorAll('[data-panel="'+name+'"]').forEach(function(b){b.classList.add('active');});
   var panel=document.getElementById('cd-panel-'+name);
   if(panel)panel.classList.add('show');
   if(name==='profile')cdLoadProfile();

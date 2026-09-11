@@ -917,6 +917,7 @@
   background: #fff;
   border-radius: 20px;
   padding: 0;
+  min-height: 100%;
   box-shadow: 0 4px 24px rgba(12, 18, 34, 0.07);
   border: none;
   transition: transform 0.25s ease, box-shadow 0.25s ease;
@@ -949,11 +950,26 @@
 
 .nhp-paper-card__top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 16px;
   margin-bottom: 0;
-  padding: 20px 22px 16px;
+  padding: 20px 22px 18px;
   background: linear-gradient(180deg, var(--nhp-paper-bg, #f8fafc) 0%, #fff 100%);
+}
+
+.nhp-paper-card__head {
+  flex: 1;
+  min-width: 0;
+}
+
+.nhp-paper-card__footer {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: auto;
+  padding: 16px 22px 22px;
+  background: #fff;
+  border-top: 1px dashed var(--nhp-border-subtle, #e2e8f0);
 }
 
 .nhp-paper-card__logo {
@@ -1019,10 +1035,55 @@
 .nhp-paper-card__price {
   font-size: var(--nhp-text-sm);
   color: var(--nhp-ink-muted);
-  margin-bottom: 0;
-  padding: 14px 22px;
-  border-top: 1px dashed var(--nhp-border-subtle);
-  background: #fff;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+.nhp-paper-card__rates {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--nhp-ink-muted, #64748b);
+}
+
+.nhp-paper-card__rates strong {
+  color: var(--nhp-ink, #0f172a);
+  font-weight: 700;
+}
+
+.nhp-paper-card__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 13px 18px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--nhp-primary, #1A3A5C) 0%, #1e4a72 100%);
+  color: #fff !important;
+  font-size: 0.875rem;
+  font-weight: 700;
+  text-decoration: none;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 14px rgba(26, 58, 92, 0.18);
+}
+
+.nhp-paper-card__cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(26, 58, 92, 0.24);
+  color: #fff !important;
+}
+
+.nhp-paper-card__cta i {
+  font-size: 0.75rem;
+  transition: transform 0.2s ease;
+}
+
+.nhp-paper-card__cta:hover i {
+  transform: translateX(3px);
 }
 
 .nhp-paper-card__price strong {
@@ -1036,7 +1097,9 @@
   display: flex;
   gap: 10px;
   margin-top: auto;
-  padding: 0 22px 22px;
+  padding: 16px 22px 22px;
+  background: #fff;
+  border-top: 1px dashed var(--nhp-border-subtle, #e2e8f0);
 }
 
 .nhp-paper-card__actions .nhp-btn--secondary {
@@ -1440,6 +1503,13 @@
 }
 
 /* Paper card — single CTA */
+.nhp-paper-card__footer--home .nhp-paper-card__actions {
+  border-top: none;
+  padding: 0;
+  margin-top: 0;
+  background: transparent;
+}
+
 .nhp-paper-card__actions--single {
   flex-direction: column;
   gap: 8px;

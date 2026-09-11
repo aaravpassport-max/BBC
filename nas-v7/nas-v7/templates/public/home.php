@@ -370,7 +370,7 @@ include NAS_DIR . 'templates/partials/portal-header.php';
         $edition_label = nhp_edition_label( $np['editions'] ?? '', 'Multiple editions' );
         $from_price    = max( (float) ( $np['min_charge'] ?? 0 ), (float) ( $np['base_rate_classified'] ?? 0 ) );
         $detail_url    = ! empty( $np['slug'] )
-            ? home_url( '/newspaper/' . $np['slug'] . '/' )
+            ? home_url( '/newspapers/' . $np['slug'] . '/' )
             : $booking_url . '?newspaper=' . urlencode( $np['id'] );
       ?>
       <article class="nhp-paper-card nhp-paper-card--a<?php echo (int) ( $i % 6 ); ?>"
@@ -392,12 +392,14 @@ include NAS_DIR . 'templates/partials/portal-header.php';
             <?php endif; ?>
           </div>
         </div>
-        <?php if ( $from_price > 0 ) : ?>
-        <p class="nhp-paper-card__price">From <strong>₹<?php echo number_format( $from_price, 0 ); ?></strong> <span>classified ads</span></p>
-        <?php endif; ?>
-        <div class="nhp-paper-card__actions nhp-paper-card__actions--single">
-          <a href="<?php echo esc_url( $booking_url . '?newspaper=' . urlencode( $np['id'] ) ); ?>" class="nhp-btn nhp-btn--secondary">Book Now — Check Rates</a>
-          <a href="<?php echo esc_url( $detail_url ); ?>" class="nhp-paper-card__link-alt">View editions &amp; pricing details</a>
+        <div class="nhp-paper-card__footer nhp-paper-card__footer--home">
+          <?php if ( $from_price > 0 ) : ?>
+          <p class="nhp-paper-card__price">From <strong>₹<?php echo number_format( $from_price, 0 ); ?></strong> <span>classified ads</span></p>
+          <?php endif; ?>
+          <div class="nhp-paper-card__actions nhp-paper-card__actions--single">
+            <a href="<?php echo esc_url( $booking_url . '?newspaper=' . urlencode( $np['id'] ) ); ?>" class="nhp-btn nhp-btn--secondary">Book Now — Check Rates</a>
+            <a href="<?php echo esc_url( $detail_url ); ?>" class="nhp-paper-card__link-alt">View editions &amp; pricing details</a>
+          </div>
         </div>
       </article>
       <?php endforeach; ?>
