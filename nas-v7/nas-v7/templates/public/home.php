@@ -305,7 +305,7 @@ if ( $nhp_embed ) {
               <?php endforeach; ?>
             </select>
           </div>
-          <button type="submit" class="nhp-btn nhp-btn--secondary nhp-btn--lg nhp-btn--block">
+          <button type="submit" class="nhp-btn nhp-btn--primary nhp-btn--lg nhp-btn--block">
             Check Rates &amp; Availability <i class="fa-solid fa-arrow-right"></i>
           </button>
         </form>
@@ -316,6 +316,11 @@ if ( $nhp_embed ) {
         </div>
       </div>
     </div>
+  </div>
+  <div class="nhp-hero__wave" aria-hidden="true">
+    <svg viewBox="0 0 1440 80" preserveAspectRatio="none" fill="#ffffff">
+      <path d="M0,40 C360,80 720,0 1080,40 C1260,60 1380,50 1440,40 L1440,80 L0,80 Z"/>
+    </svg>
   </div>
 </section>
 
@@ -356,11 +361,11 @@ if ( $nhp_embed ) {
 </section>
 
 <!-- Ad format showcase -->
-<section class="nhp-section nhp-section--muted">
+<section class="nhp-section nhp-section--warm">
   <div class="nhp-container">
     <div class="nhp-section__header nhp-section__header--center">
       <span class="nhp-section__eyebrow">Ad Formats</span>
-      <h2 class="nhp-section__title">Every Type of Newspaper Advertisement</h2>
+      <h2 class="nhp-section__title nhp-section__title--accent">Every Type of <span>Newspaper Advertisement</span></h2>
       <p class="nhp-section__subtitle">Classified text, display, and full-page ads — choose the format that fits your message and budget.</p>
     </div>
     <div class="nhp-formats">
@@ -385,11 +390,11 @@ if ( $nhp_embed ) {
 
 <!-- Popular Newspapers (Marketplace) -->
 <?php if ( $newspapers ) : ?>
-<section class="nhp-section" id="newspapers">
+<section class="nhp-section nhp-section--marketplace" id="newspapers">
   <div class="nhp-container">
     <div class="nhp-section__header">
       <span class="nhp-section__eyebrow">Popular Newspapers</span>
-      <h2 class="nhp-section__title">Book India's Leading Publications</h2>
+      <h2 class="nhp-section__title nhp-section__title--accent">Book India's <span>Leading Publications</span></h2>
       <p class="nhp-section__subtitle">Search and compare newspapers by language, edition, and starting rates — then book in minutes.</p>
     </div>
 
@@ -452,12 +457,12 @@ if ( $nhp_embed ) {
 <?php endif; ?>
 
 <!-- Ad Categories -->
-<section class="nhp-section nhp-section--muted" id="categories">
+<section class="nhp-section nhp-section--showcase" id="categories">
   <div class="nhp-container">
     <div class="nhp-section__header nhp-section__header--center">
       <span class="nhp-section__eyebrow">Advertisement Categories</span>
-      <h2 class="nhp-section__title">Every Type of Newspaper Ad</h2>
-      <p class="nhp-section__subtitle">From classified text to full-page display — select your ad type and start booking.</p>
+      <h2 class="nhp-section__title nhp-section__title--accent">Every Type of <span>Newspaper Ad</span></h2>
+      <p class="nhp-section__subtitle">Pick a category — book classified, matrimonial, property, recruitment &amp; more in minutes.</p>
     </div>
     <div class="nhp-categories-scroll">
       <?php if ( $categories ) :
@@ -465,27 +470,30 @@ if ( $nhp_embed ) {
           $icon = $cat['icon'] ?: ( $cat_icons[ $i ] ?? '📢' );
       ?>
       <a href="<?php echo esc_url( $booking_url . '?category=' . urlencode( $cat['id'] ) ); ?>" class="nhp-category-tile nhp-category-tile--c<?php echo (int) ( $i % 6 ); ?>">
-        <span class="nhp-category-tile__icon"><?php echo esc_html( $icon ); ?></span>
+        <div class="nhp-category-tile__icon-wrap"><span class="nhp-category-tile__icon"><?php echo esc_html( $icon ); ?></span></div>
         <span class="nhp-category-tile__name"><?php echo esc_html( $cat['name'] ); ?></span>
         <span class="nhp-category-tile__desc"><?php echo esc_html( $cat['description'] ?: 'Book ' . $cat['name'] . ' ads online' ); ?></span>
-        <i class="fa-solid fa-arrow-right nhp-category-tile__arrow"></i>
+        <span class="nhp-category-tile__cta">Book Now →</span>
       </a>
       <?php endforeach; else :
         $default_cats = [
-          [ '📢', 'Classified Text', 'Name change, lost & found, personal' ],
-          [ '🖼️', 'Display Ads', 'Image + text, column based pricing' ],
-          [ '💍', 'Matrimonial', 'Bride & groom wanted ads' ],
-          [ '🏠', 'Property', 'Buy, sell & rent property' ],
-          [ '💼', 'Recruitment', 'Job vacancies & career ads' ],
-          [ '⚖️', 'Public Notice', 'Legal & government notices' ],
+          [ '🕯️', 'Remembrance' ],
+          [ '🏠', 'Property' ],
+          [ '💍', 'Matrimonial' ],
+          [ '💼', 'Business' ],
+          [ '📚', 'Education' ],
+          [ '✏️', 'Name Change' ],
+          [ '📋', 'Public Notice' ],
+          [ '💰', 'Financial' ],
+          [ '🚗', 'Vehicle' ],
+          [ '🏥', 'Medical' ],
         ];
         foreach ( $default_cats as $di => $c ) :
       ?>
       <a href="<?php echo esc_url( $booking_url ); ?>" class="nhp-category-tile nhp-category-tile--c<?php echo (int) ( $di % 6 ); ?>">
-        <span class="nhp-category-tile__icon"><?php echo $c[0]; ?></span>
+        <div class="nhp-category-tile__icon-wrap"><span class="nhp-category-tile__icon"><?php echo $c[0]; ?></span></div>
         <span class="nhp-category-tile__name"><?php echo esc_html( $c[1] ); ?></span>
-        <span class="nhp-category-tile__desc"><?php echo esc_html( $c[2] ); ?></span>
-        <i class="fa-solid fa-arrow-right nhp-category-tile__arrow"></i>
+        <span class="nhp-category-tile__cta">Book Now →</span>
       </a>
       <?php endforeach; endif; ?>
     </div>
