@@ -1201,6 +1201,64 @@
   font-size: 0.9375rem;
 }
 
+/* ── Track order timeline ───────────────────────────────────────────── */
+.nas-timeline-item {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.nas-timeline-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 4px;
+  border: 2px solid var(--nas-primary);
+  background: #fff;
+}
+
+.nas-timeline-dot.done,
+.nas-timeline-dot.current {
+  background: var(--nas-primary);
+}
+
+.nas-timeline-dot.current {
+  box-shadow: 0 0 0 4px rgba(26, 58, 92, .15);
+}
+
+.nas-timeline-content h4 {
+  margin: 0 0 2px;
+  font-size: 0.875rem;
+  color: var(--nas-text);
+}
+
+.nas-timeline-content p {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--nas-text-muted);
+}
+
+.nas-bi {
+  font-size: 0.8125rem;
+  color: var(--nas-text);
+}
+
+.nas-bi strong {
+  display: block;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  color: var(--nas-text-muted);
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+@media (max-width: 600px) {
+  .nas-booking-info {
+    grid-template-columns: 1fr !important;
+  }
+}
+
 /* ── Login split layout ─────────────────────────────────────────────── */
 .nas-login-page {
   background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);

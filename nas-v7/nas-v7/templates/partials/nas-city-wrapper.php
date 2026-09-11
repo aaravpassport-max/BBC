@@ -33,7 +33,7 @@ nas_portal_shell_open( 'newspaper-ads' );
 echo '<main id="nas-main-content" class="nas-main-content" tabindex="-1">';
 include NAS_PATH . 'templates/city-pages/city-landing.php';
 echo '</main>';
-nas_portal_shell_close();
+nas_portal_shell_close(); // includes footer + bottom nav
 ?>
 <?php wp_footer(); ?>
 </body>
