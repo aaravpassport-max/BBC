@@ -1,5 +1,6 @@
 <?php
-namespace NAS\Core;
+namespace NAS\Core {
+
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 /**
@@ -180,6 +181,8 @@ class Helpers {
         }
     }
 }
+
+} // NAS\Core
 
 // Global helpers — must live in the global namespace so templates/partials can call them.
 namespace {
