@@ -8,6 +8,7 @@
   var EXCLUDED = (window.NAS_PORTAL_APP && NAS_PORTAL_APP.excludedPaths) || [
     '/book-newspaper-ad',
     '/payment',
+    '/newspaper-ad-login',
     '/client-dashboard',
     '/admin-dashboard',
     '/staff-dashboard',

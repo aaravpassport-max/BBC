@@ -268,6 +268,7 @@ class Enqueue {
         wp_enqueue_script( 'nas-core', $a . 'js/nas-core.js', [ 'jquery' ], self::asset_ver( 'js/nas-core.js' ), true );
         wp_enqueue_script( 'nas-homepage', $a . 'js/nas-homepage.js', [ 'nas-core' ], self::asset_ver( 'js/nas-homepage.js' ), true );
         wp_enqueue_script( 'nas-portal-app', $a . 'js/nas-portal-app.js', [ 'nas-core', 'nas-homepage' ], self::asset_ver( 'js/nas-portal-app.js' ), true );
+        wp_enqueue_script( 'nas-portal-pages', $a . 'js/nas-portal-pages.js', [ 'nas-core', 'nas-portal-app' ], self::asset_ver( 'js/nas-portal-pages.js' ), true );
 
         wp_localize_script( 'nas-core', 'NAS', self::js_vars() );
     }
@@ -315,6 +316,7 @@ class Enqueue {
         wp_enqueue_script( 'nas-core', $a . 'js/nas-core.js', [ 'jquery' ], self::asset_ver( 'js/nas-core.js' ), true );
         wp_enqueue_script( 'nas-homepage', $a . 'js/nas-homepage.js', [ 'nas-core' ], self::asset_ver( 'js/nas-homepage.js' ), true );
         wp_enqueue_script( 'nas-portal-app', $a . 'js/nas-portal-app.js', [ 'nas-core', 'nas-homepage' ], self::asset_ver( 'js/nas-portal-app.js' ), true );
+        wp_enqueue_script( 'nas-portal-pages', $a . 'js/nas-portal-pages.js', [ 'nas-core', 'nas-portal-app' ], self::asset_ver( 'js/nas-portal-pages.js' ), true );
         if ( file_exists( NAS_DIR . 'templates/partials/portal-nav-config.php' ) ) {
             require_once NAS_DIR . 'templates/partials/portal-nav-config.php';
         }

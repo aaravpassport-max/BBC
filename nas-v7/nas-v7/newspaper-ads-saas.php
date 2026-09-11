@@ -3,7 +3,7 @@
  * Plugin Name: NewspaperAds SaaS — Professional Booking Platform
  * Plugin URI:  https://your-domain.com/newspaper-ads-saas
  * Description: Enterprise-grade newspaper ad booking SaaS platform with custom dashboards, workflow tracking, AI content, real-time chat, WhatsApp integration, and 300 city landing pages.
- * Version:     4.1.0
+ * Version:     4.1.1
  * Author:      Your Agency
  * Author URI:  https://your-domain.com
  * License:     GPL-2.0+
@@ -20,7 +20,7 @@ if ( ! function_exists('NAS_get_config') ) {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-define( 'NAS_VERSION',    '4.1.0' );
+define( 'NAS_VERSION',    '4.1.1' );
 define( 'NAS_FILE',       __FILE__ );
 define( 'NAS_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'NAS_PATH',       NAS_DIR );        // alias used throughout codebase
@@ -211,6 +211,9 @@ add_action( 'init', function () {
         'nas_support'              => 'templates/pages/support.php',
         'nas_cities_index'         => 'templates/pages/cities-index.php',
         'nas_newspapers_index'     => 'templates/pages/newspapers-index.php',
+        'nas_privacy'              => 'templates/pages/privacy.php',
+        'nas_terms'                => 'templates/pages/terms.php',
+        'nas_refund'               => 'templates/pages/refund.php',
     ];
     foreach ( $shortcodes as $tag => $tpl ) {
         if ( ! shortcode_exists( $tag ) ) {
@@ -288,10 +291,10 @@ function nas_create_pages() {
         [ 'slug' => 'contact-us',           'title' => 'Contact Us',            'content' => '[nas_contact]',          'opt' => 'nas_page_contact' ],
         [ 'slug' => 'blog',                 'title' => 'Blog & News',           'content' => '[nas_blog]',             'opt' => 'nas_page_blog' ],
         [ 'slug' => 'payment',              'title' => 'Complete Payment',      'content' => '[nas_payment]',          'opt' => 'nas_page_payment' ],
-        [ 'slug' => 'about-us',             'title' => 'About Us',              'content' => '',                       'opt' => 'nas_page_about' ],
-        [ 'slug' => 'privacy-policy',       'title' => 'Privacy Policy',        'content' => '',                       'opt' => 'nas_page_privacy' ],
-        [ 'slug' => 'terms-conditions',     'title' => 'Terms & Conditions',    'content' => '',                       'opt' => 'nas_page_terms' ],
-        [ 'slug' => 'refund-policy',        'title' => 'Refund Policy',         'content' => '',                       'opt' => 'nas_page_refund' ],
+        [ 'slug' => 'about-us',             'title' => 'About Us',              'content' => '[nas_about]',            'opt' => 'nas_page_about' ],
+        [ 'slug' => 'privacy-policy',       'title' => 'Privacy Policy',        'content' => '[nas_privacy]',          'opt' => 'nas_page_privacy' ],
+        [ 'slug' => 'terms-conditions',     'title' => 'Terms & Conditions',    'content' => '[nas_terms]',            'opt' => 'nas_page_terms' ],
+        [ 'slug' => 'refund-policy',        'title' => 'Refund Policy',         'content' => '[nas_refund]',           'opt' => 'nas_page_refund' ],
         [ 'slug' => 'careers',              'title' => 'Careers',               'content' => '',                       'opt' => 'nas_page_careers' ],
         [ 'slug' => 'advertise-with-us',    'title' => 'Advertise With Us',     'content' => '',                       'opt' => 'nas_page_advertise' ],
         // v3 Super Combo new pages

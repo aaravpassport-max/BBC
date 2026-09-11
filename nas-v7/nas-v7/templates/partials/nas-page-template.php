@@ -39,9 +39,13 @@ if ( trim( $nas_content ) === '' ) {
         // v3 Super Combo pages
         'pricing'              => '[nas_pricing]',
         'about'                => '[nas_about]',
+        'about-us'             => '[nas_about]',
         'support'              => '[nas_support]',
         'cities'               => '[nas_cities_index]',
         'newspapers'           => '[nas_newspapers_index]',
+        'privacy-policy'       => '[nas_privacy]',
+        'terms-conditions'     => '[nas_terms]',
+        'refund-policy'        => '[nas_refund]',
     ];
     if ( isset( $sc_map[$slug] ) ) {
         $nas_content = do_shortcode( $sc_map[$slug] );

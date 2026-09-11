@@ -171,9 +171,6 @@ function nas_portal_spa_excluded_paths(): array {
     return [
         '/book-newspaper-ad',
         '/payment',
-        '/faq',
-        '/contact-us',
-        '/track-order',
         '/newspaper-ad-login',
         '/client-dashboard',
         '/admin-dashboard',
