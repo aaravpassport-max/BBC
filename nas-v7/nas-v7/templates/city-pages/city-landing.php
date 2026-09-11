@@ -98,24 +98,14 @@ if ( empty( $faq_pairs ) ) {
       <div class="nhp-container">
         <?php if ( ! empty( $newspapers ) ) : ?>
         <div class="nhp-papers-grid">
-          <?php foreach ( $newspapers as $i => $np ) : ?>
-          <article class="nhp-paper-card nhp-paper-card--a<?php echo (int) ( $i % 6 ); ?>">
-            <div class="nhp-paper-card__top">
-              <div class="nhp-paper-card__logo">
-                <?php if ( ! empty( $np['logo_url'] ) ) : ?>
-                <img src="<?php echo esc_url( $np['logo_url'] ); ?>" alt="<?php echo esc_attr( $np['name'] ); ?>" loading="lazy">
-                <?php else : ?>
-                <span class="nhp-paper-card__logo-fallback"><?php echo esc_html( strtoupper( substr( $np['name'], 0, 2 ) ) ); ?></span>
-                <?php endif; ?>
-              </div>
-              <div>
-                <h3 class="nhp-paper-card__name"><?php echo esc_html( $np['name'] ); ?></h3>
-                <p class="nhp-paper-card__meta"><?php echo esc_html( $np['language'] ?? 'English' ); ?> · <?php echo $city_name; ?> edition</p>
-              </div>
-            </div>
-            <a href="<?php echo esc_url( $booking_url . '&newspaper=' . urlencode( $np['slug'] ?? $np['id'] ) ); ?>" class="nhp-paper-card__cta">Book in <?php echo $city_name; ?> <i class="fa-solid fa-arrow-right"></i></a>
-          </article>
-          <?php endforeach; ?>
+          <?php foreach ( $newspapers as $i => $np ) :
+              $card_index  = $i;
+              $card_mode   = 'city';
+              $show_badge  = false;
+              $show_price  = false;
+              $show_rates  = true;
+              include NAS_DIR . 'templates/partials/newspaper-card.php';
+          endforeach; ?>
         </div>
         <?php else : ?>
         <div style="text-align:center;padding:48px;color:var(--nas-text-muted)">

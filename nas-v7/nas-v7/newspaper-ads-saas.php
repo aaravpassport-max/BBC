@@ -3,7 +3,7 @@
  * Plugin Name: NewspaperAds SaaS — Professional Booking Platform
  * Plugin URI:  https://your-domain.com/newspaper-ads-saas
  * Description: Enterprise-grade newspaper ad booking SaaS platform with custom dashboards, workflow tracking, AI content, real-time chat, WhatsApp integration, and 300 city landing pages.
- * Version:     4.0.4
+ * Version:     4.1.6
  * Author:      Your Agency
  * Author URI:  https://your-domain.com
  * License:     GPL-2.0+
@@ -20,7 +20,7 @@ if ( ! function_exists('NAS_get_config') ) {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-define( 'NAS_VERSION',    '4.0.4' );
+define( 'NAS_VERSION',    '4.1.6' );
 define( 'NAS_FILE',       __FILE__ );
 define( 'NAS_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'NAS_PATH',       NAS_DIR );        // alias used throughout codebase
@@ -211,6 +211,9 @@ add_action( 'init', function () {
         'nas_support'              => 'templates/pages/support.php',
         'nas_cities_index'         => 'templates/pages/cities-index.php',
         'nas_newspapers_index'     => 'templates/pages/newspapers-index.php',
+        'nas_privacy'              => 'templates/pages/privacy.php',
+        'nas_terms'                => 'templates/pages/terms.php',
+        'nas_refund'               => 'templates/pages/refund.php',
     ];
     foreach ( $shortcodes as $tag => $tpl ) {
         if ( ! shortcode_exists( $tag ) ) {
@@ -288,10 +291,10 @@ function nas_create_pages() {
         [ 'slug' => 'contact-us',           'title' => 'Contact Us',            'content' => '[nas_contact]',          'opt' => 'nas_page_contact' ],
         [ 'slug' => 'blog',                 'title' => 'Blog & News',           'content' => '[nas_blog]',             'opt' => 'nas_page_blog' ],
         [ 'slug' => 'payment',              'title' => 'Complete Payment',      'content' => '[nas_payment]',          'opt' => 'nas_page_payment' ],
-        [ 'slug' => 'about-us',             'title' => 'About Us',              'content' => '',                       'opt' => 'nas_page_about' ],
-        [ 'slug' => 'privacy-policy',       'title' => 'Privacy Policy',        'content' => '',                       'opt' => 'nas_page_privacy' ],
-        [ 'slug' => 'terms-conditions',     'title' => 'Terms & Conditions',    'content' => '',                       'opt' => 'nas_page_terms' ],
-        [ 'slug' => 'refund-policy',        'title' => 'Refund Policy',         'content' => '',                       'opt' => 'nas_page_refund' ],
+        [ 'slug' => 'about-us',             'title' => 'About Us',              'content' => '[nas_about]',            'opt' => 'nas_page_about' ],
+        [ 'slug' => 'privacy-policy',       'title' => 'Privacy Policy',        'content' => '[nas_privacy]',          'opt' => 'nas_page_privacy' ],
+        [ 'slug' => 'terms-conditions',     'title' => 'Terms & Conditions',    'content' => '[nas_terms]',            'opt' => 'nas_page_terms' ],
+        [ 'slug' => 'refund-policy',        'title' => 'Refund Policy',         'content' => '[nas_refund]',           'opt' => 'nas_page_refund' ],
         [ 'slug' => 'careers',              'title' => 'Careers',               'content' => '',                       'opt' => 'nas_page_careers' ],
         [ 'slug' => 'advertise-with-us',    'title' => 'Advertise With Us',     'content' => '',                       'opt' => 'nas_page_advertise' ],
         // v3 Super Combo new pages
@@ -729,6 +732,16 @@ function nas_portal_shell_close(): void {
     }
     define( 'NAS_PORTAL_SHELL_CLOSED', true );
     include NAS_DIR . 'templates/partials/portal-footer.php';
+    include NAS_DIR . 'templates/partials/portal-bottom-nav.php';
+}
+
+/** Bottom nav for pages without full portal shell (booking wizard, etc.). */
+function nas_portal_bottom_nav(): void {
+    if ( defined( 'NAS_BOTTOM_NAV_RENDERED' ) ) {
+        return;
+    }
+    define( 'NAS_BOTTOM_NAV_RENDERED', true );
+    include NAS_DIR . 'templates/partials/portal-bottom-nav.php';
 }
 
 /**
@@ -750,7 +763,7 @@ function nas_portal_render_route( string $template_file, string $slug, string $t
 
     $cfg   = class_exists( '\NAS\Core\Config' ) ? \NAS\Core\Config::instance() : null;
     $brand = $cfg ? $cfg->get( 'brand_name', get_bloginfo( 'name' ) ) : get_bloginfo( 'name' );
-    $body  = 'nas-fullpage nas-public-portal nas-page-' . sanitize_html_class( $slug );
+    $body  = 'nas-fullpage nas-public-portal nas-app-shell nas-page-' . sanitize_html_class( $slug );
     ?>
 <!DOCTYPE html>
 <html <?php language_attributes(); ?>>
@@ -797,6 +810,70 @@ function nas_get_page_url( string $option_key, string $fallback_slug = '' ): str
     }
     return home_url( $fallback_slug );
 }
+
+/**
+ * CDN-safe AJAX URL — POST to the current portal page (same origin, never blocked).
+ * Falls back to nas-ajax.php then admin-ajax.php.
+ */
+function nas_get_ajax_url( ?int $page_id = null ): string {
+    if ( $page_id ) {
+        $url = get_permalink( $page_id );
+        if ( $url ) {
+            return $url;
+        }
+    }
+    if ( is_singular() ) {
+        $url = get_permalink();
+        if ( $url ) {
+            return $url;
+        }
+    }
+    return NAS_URL . 'nas-ajax.php';
+}
+
+/**
+ * Dispatch NAS AJAX when POSTed to a portal page URL (CDN blocks wp-admin/admin-ajax.php).
+ * Client dashboard, vendor dashboard, and other templates send nas_action=1 + action=...
+ */
+add_action( 'init', function () {
+    if ( ( $_SERVER['REQUEST_METHOD'] ?? '' ) !== 'POST' ) {
+        return;
+    }
+    if ( empty( $_POST['nas_action'] ) || empty( $_POST['action'] ) ) {
+        return;
+    }
+
+    $action = sanitize_key( wp_unslash( $_POST['action'] ) );
+    if ( ! $action || strpos( $action, 'nas_' ) !== 0 ) {
+        return;
+    }
+
+    if ( ! defined( 'DOING_AJAX' ) ) {
+        define( 'DOING_AJAX', true );
+    }
+
+    while ( ob_get_level() > 0 ) {
+        ob_end_clean();
+    }
+    nocache_headers();
+    header( 'Content-Type: application/json; charset=utf-8' );
+
+    if ( is_user_logged_in() ) {
+        $hook = 'wp_ajax_' . $action;
+        if ( has_action( $hook ) ) {
+            do_action( $hook );
+            exit;
+        }
+    }
+
+    $hook_nopriv = 'wp_ajax_nopriv_' . $action;
+    if ( has_action( $hook_nopriv ) ) {
+        do_action( $hook_nopriv );
+        exit;
+    }
+
+    wp_send_json_error( [ 'message' => 'No handler for: ' . $action ], 404 );
+}, 0 );
 
 // ── WP Toolbar (top bar) shortcut ────────────────────────────────────────────
 add_action( 'admin_bar_menu', function ( \WP_Admin_Bar $bar ) {
@@ -913,15 +990,24 @@ add_filter( 'template_include', function ( $template ) {
     return $use_nas_home ? $hp : $template;
 }, 1000 );
 
-// ── Blog single post page ────────────────────────────────────────────────────
-add_filter( 'template_include', function( $template ) {
-    $slug = get_query_var('nas_blog_slug');
-    if ( $slug && get_option('nas_page_blog') ) {
-        $tpl = NAS_DIR . 'templates/public/blog-post.php';
-        if ( file_exists($tpl) ) return $tpl;
+// ── Blog single post page — full portal shell ────────────────────────────────
+add_action( 'template_redirect', function () {
+    $slug = get_query_var( 'nas_blog_slug' );
+    if ( ! $slug || ! get_option( 'nas_page_blog' ) ) {
+        return;
     }
-    return $template;
-} );
+    $file = NAS_DIR . 'templates/public/blog-post.php';
+    if ( ! file_exists( $file ) ) {
+        return;
+    }
+    $post = null;
+    if ( class_exists( '\NAS\Core\Database' ) ) {
+        $db   = \NAS\Core\Database::instance();
+        $post = $db->row( "SELECT title FROM {$db->t('blog_posts')} WHERE slug=%s AND status='published'", $slug );
+    }
+    $title = $post['title'] ?? 'Blog Post';
+    nas_portal_render_route( $file, 'blog', $title );
+}, 5 );
 
 // ── Admin settings page: option to set homepage ─────────────────────────────
 add_action('admin_menu', function() {

@@ -4,6 +4,8 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
+require_once NAS_DIR . 'templates/partials/portal-nav-config.php';
+
 $cfg         = \NAS\Core\Config::instance();
 $brand       = $cfg->get( 'brand_name', get_bloginfo( 'name' ) );
 $phone       = $cfg->get( 'brand_phone', '' );
@@ -12,48 +14,12 @@ $logo        = $cfg->get( 'logo_url', get_option( 'nas_logo_url', '' ) );
 $walink      = $cfg->get( 'brand_whatsapp', '' )
     ? 'https://wa.me/' . preg_replace( '/[^0-9]/', '', $cfg->get( 'brand_whatsapp', '' ) )
     : '';
-$booking_url = nas_get_page_url( 'nas_page_booking', '/book-newspaper-ad/' );
-$contact_url = nas_get_page_url( 'nas_page_contact', '/contact-us/' );
-$faq_url     = nas_get_page_url( 'nas_page_faq', '/faq/' );
-$track_url   = nas_get_page_url( 'nas_page_track_order', '/track-order/' );
-$papers_url  = home_url( '/newspapers/' );
-$cities_url  = home_url( '/cities/' );
-$login_url   = nas_get_page_url( 'nas_page_login', '/newspaper-ad-login/' );
+$registry    = nas_portal_nav_registry();
+$primary_nav = nas_portal_primary_nav_keys();
+$track_url   = $registry['track']['url'] ?? nas_get_page_url( 'nas_page_track_order', '/track-order/' );
+$booking_url = $registry['book']['url'] ?? nas_get_page_url( 'nas_page_booking', '/book-newspaper-ad/' );
+$login_url   = $registry['account']['url'] ?? nas_get_page_url( 'nas_page_login', '/newspaper-ad-login/' );
 $dash_url    = nas_get_page_url( 'nas_page_client_dashboard', '/client-dashboard/' );
-
-$active = isset( $portal_active_nav ) ? (string) $portal_active_nav : '';
-if ( ! $active && function_exists( 'nas_portal_current_slug' ) ) {
-    $active = nas_portal_current_slug();
-}
-
-$nav_items = [
-    'home'        => [ 'label' => 'Home',        'url' => home_url( '/' ) ],
-    'newspapers'  => [ 'label' => 'Newspapers',  'url' => $papers_url ],
-    'cities'      => [ 'label' => 'Cities',      'url' => $cities_url ],
-    'faq'         => [ 'label' => 'FAQ',         'url' => $faq_url ],
-    'contact-us'  => [ 'label' => 'Contact',     'url' => $contact_url ],
-    'contact'     => [ 'label' => 'Contact',     'url' => $contact_url ],
-    'about'       => [ 'label' => 'About',       'url' => home_url( '/about/' ) ],
-    'pricing'     => [ 'label' => 'Pricing',     'url' => home_url( '/pricing/' ) ],
-    'support'     => [ 'label' => 'Support',     'url' => home_url( '/support/' ) ],
-    'blog'        => [ 'label' => 'Blog',        'url' => nas_get_page_url( 'nas_page_blog', '/blog/' ) ],
-    'track-order' => [ 'label' => 'Track Order', 'url' => $track_url ],
-];
-
-$primary_nav = [ 'home', 'newspapers', 'cities', 'faq', 'contact-us' ];
-
-$is_active = function ( string $key ) use ( $active, $nav_items ): bool {
-    if ( $active === $key ) {
-        return true;
-    }
-    if ( $key === 'home' && ( $active === '' || $active === 'index' ) ) {
-        return true;
-    }
-    if ( $key === 'contact-us' && in_array( $active, [ 'contact', 'contact-us' ], true ) ) {
-        return true;
-    }
-    return false;
-};
 ?>
 <a href="#nas-main-content" class="nas-skip-link">Skip to main content</a>
 <div class="nhp-topbar">
@@ -91,10 +57,10 @@ $is_active = function ( string $key ) use ( $active, $nav_items ): bool {
     </a>
     <nav class="nhp-header__nav" aria-label="Main navigation">
       <?php foreach ( $primary_nav as $key ) :
-          if ( ! isset( $nav_items[ $key ] ) ) continue;
-          $item = $nav_items[ $key ];
+          if ( ! isset( $registry[ $key ] ) ) continue;
+          $item = $registry[ $key ];
       ?>
-      <a class="nhp-header__link<?php echo $is_active( $key ) ? ' is-active' : ''; ?>" href="<?php echo esc_url( $item['url'] ); ?>"><?php echo esc_html( $item['label'] ); ?></a>
+      <a class="nhp-header__link<?php echo nas_portal_nav_match_slug( $key ) ? ' is-active' : ''; ?>" href="<?php echo esc_url( $item['url'] ); ?>"><?php echo esc_html( $item['label'] ); ?></a>
       <?php endforeach; ?>
     </nav>
     <div class="nhp-header__actions">
@@ -111,10 +77,9 @@ $is_active = function ( string $key ) use ( $active, $nav_items ): bool {
 <div class="nhp-mobile-nav" id="nhp-mobile-nav" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Mobile navigation">
   <div class="nhp-mobile-nav__panel">
     <button class="nhp-mobile-nav__close" id="nhp-mobile-close" type="button" aria-label="Close menu"><i class="fa-solid fa-xmark"></i></button>
-    <?php
-    foreach ( $primary_nav as $key ) :
-        if ( ! isset( $nav_items[ $key ] ) ) continue;
-        $item = $nav_items[ $key ];
+    <?php foreach ( $primary_nav as $key ) :
+        if ( ! isset( $registry[ $key ] ) ) continue;
+        $item = $registry[ $key ];
     ?>
     <a href="<?php echo esc_url( $item['url'] ); ?>" class="nhp-mobile-nav__link"><?php echo esc_html( $item['label'] ); ?></a>
     <?php endforeach; ?>

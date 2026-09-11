@@ -305,6 +305,13 @@ class PWAController {
     private static function db(): Database { return Database::instance(); }
     private static function cfg(): Config  { return Config::instance(); }
 
+    /** Newspaper columns — schema uses base_rate_classified, not base_rate; no city_id column. */
+    private static function np_list_sql( string $extra = '' ): string {
+        return "SELECT id, name, slug, language, circulation, logo_url, sort_order,
+                base_rate_classified AS base_rate $extra
+                FROM `" . self::db()->t('newspapers') . "` WHERE is_active=1";
+    }
+
     // TRACE: home() — Trigger: wp_ajax[_nopriv]_nas_pwa_home.
     //        Steps: verifies nonce → queries categories, top newspapers, top cities, social proof counts.
     //        Output: JSON {categories, newspapers, cities, stats, featured}.
@@ -331,9 +338,9 @@ class PWAController {
                     'rating'    => '4.8',
                 ],
                 'categories'  => $db->select("SELECT id, name, slug, icon, description FROM `{$db->t('categories')}` WHERE is_active=1 ORDER BY sort_order ASC, name ASC LIMIT 12"),
-                'newspapers'  => $db->select("SELECT id, name, slug, city_id, language, circulation, logo_url, base_rate FROM `{$db->t('newspapers')}` WHERE is_active=1 ORDER BY sort_order ASC LIMIT 10"),
+                'newspapers'  => $db->select( self::np_list_sql() . ' ORDER BY sort_order ASC, name ASC LIMIT 10' ),
                 'cities'      => $db->select("SELECT id, name, slug, state FROM `{$db->t('cities')}` WHERE is_active=1 ORDER BY tier ASC, name ASC LIMIT 20"),
-                'featured'    => $db->select("SELECT n.id, n.name, n.logo_url, n.base_rate, c.name as city_name FROM `{$db->t('newspapers')}` n LEFT JOIN `{$db->t('cities')}` c ON c.id=n.city_id WHERE n.is_active=1 AND n.is_featured=1 LIMIT 6"),
+                'featured'    => $db->select( self::np_list_sql() . ' ORDER BY sort_order ASC, name ASC LIMIT 6' ),
             ];
         });
 
@@ -353,16 +360,29 @@ class PWAController {
         $per    = 12;
         $offset = ($page-1)*$per;
 
-        $where = ['1=1'];
+        $where  = ['n.is_active=1'];
         $params = [];
-        if ($cat_id) { $where[] = "n.id IN (SELECT newspaper_id FROM `{$db->t('newspaper_categories')}` WHERE category_id=%d)"; $params[] = $cat_id; }
-        if ($city_id){ $where[] = 'n.city_id=%d'; $params[] = $city_id; }
-        if ($search) { $where[] = '(n.name LIKE %s OR ci.name LIKE %s)'; $params[] = "%$search%"; $params[] = "%$search%"; }
-        $w = implode(' AND ', $where);
+        if ( $search ) {
+            $where[]  = 'n.name LIKE %s';
+            $params[] = "%$search%";
+        }
+        if ( $city_id ) {
+            $city = $db->row( "SELECT name FROM `{$db->t('cities')}` WHERE id=%d", $city_id );
+            if ( $city ) {
+                $where[]  = 'n.cities_supported LIKE %s';
+                $params[] = '%' . $db->esc_like( $city['name'] ) . '%';
+            }
+        }
+        $w = implode( ' AND ', $where );
 
-        $sql_base = "FROM `{$db->t('newspapers')}` n LEFT JOIN `{$db->t('cities')}` ci ON ci.id=n.city_id WHERE n.is_active=1 AND $w";
-        $total = (int) ($db->scalar("SELECT COUNT(*) $sql_base", ...$params) ?? 0);
-        $items = $db->select("SELECT n.id,n.name,n.slug,n.logo_url,n.base_rate,n.language,n.circulation,ci.name as city_name,ci.state $sql_base ORDER BY n.sort_order ASC, n.name ASC LIMIT $per OFFSET $offset", ...$params);
+        $sql_base = "FROM `{$db->t('newspapers')}` n WHERE $w";
+        $total = (int) ( $db->scalar( "SELECT COUNT(*) $sql_base", ...$params ) ?? 0 );
+        $items = $db->select(
+            "SELECT n.id, n.name, n.slug, n.logo_url, n.base_rate_classified AS base_rate,
+                    n.language, n.circulation $sql_base
+             ORDER BY n.sort_order ASC, n.name ASC LIMIT $per OFFSET $offset",
+            ...$params
+        );
         $cats  = $db->select("SELECT id,name,slug,icon FROM `{$db->t('categories')}` WHERE is_active=1 ORDER BY sort_order ASC LIMIT 16");
         $cities= $db->select("SELECT id,name,state FROM `{$db->t('cities')}` WHERE is_active=1 ORDER BY tier ASC, name ASC LIMIT 30");
 
@@ -377,10 +397,10 @@ class PWAController {
         $id  = (int)( Security::post('id') ?: Security::get('id') );
         $slug= sanitize_title( Security::post('slug') ?: Security::get('slug') );
         $np  = $id
-            ? $db->row("SELECT n.*,ci.name as city_name,ci.state FROM `{$db->t('newspapers')}` n LEFT JOIN `{$db->t('cities')}` ci ON ci.id=n.city_id WHERE n.id=%d AND n.is_active=1", $id)
-            : $db->row("SELECT n.*,ci.name as city_name,ci.state FROM `{$db->t('newspapers')}` n LEFT JOIN `{$db->t('cities')}` ci ON ci.id=n.city_id WHERE n.slug=%s AND n.is_active=1", $slug);
+            ? $db->row( "SELECT *, base_rate_classified AS base_rate FROM `{$db->t('newspapers')}` WHERE id=%d AND is_active=1", $id )
+            : $db->row( "SELECT *, base_rate_classified AS base_rate FROM `{$db->t('newspapers')}` WHERE slug=%s AND is_active=1", $slug );
         if (!$np) { wp_send_json_error(['message'=>'Newspaper not found'],404); return; }
-        $rates = $db->select("SELECT * FROM `{$db->t('rates')}` WHERE newspaper_id=%d ORDER BY category_id ASC, ad_type ASC", (int)$np['id']);
+        $rates = $db->select( "SELECT *, base_rate AS rate_per_unit FROM `{$db->t('rate_cards')}` WHERE newspaper_id=%d AND is_active=1 ORDER BY category_id ASC, ad_type ASC", (int) $np['id'] );
         wp_send_json_success(['newspaper'=>$np,'rates'=>$rates,'booking_url'=>nas_get_page_url('nas_page_booking','/book-newspaper-ad/').'?np='.$np['id']]);
     }
 
@@ -393,7 +413,7 @@ class PWAController {
         if ( strlen($q) < 2 ) { wp_send_json_success(['results'=>[]]); return; }
         $db = self::db();
         $like = "%$q%";
-        $newspapers = $db->select("SELECT id,name,slug,logo_url,base_rate,'newspaper' as type FROM `{$db->t('newspapers')}` WHERE is_active=1 AND name LIKE %s LIMIT 5", $like);
+        $newspapers = $db->select( "SELECT id, name, slug, logo_url, base_rate_classified AS base_rate, 'newspaper' AS type FROM `{$db->t('newspapers')}` WHERE is_active=1 AND name LIKE %s LIMIT 5", $like );
         $categories = $db->select("SELECT id,name,slug,icon,'category' as type FROM `{$db->t('categories')}` WHERE is_active=1 AND name LIKE %s LIMIT 4", $like);
         $cities     = $db->select("SELECT id,name,slug,state,'city' as type FROM `{$db->t('cities')}` WHERE is_active=1 AND name LIKE %s LIMIT 4", $like);
         wp_send_json_success(['results'=>array_merge($newspapers,$categories,$cities)]);
@@ -785,11 +805,20 @@ class PWAPhase3Controller {
         $search = sanitize_text_field( \NAS\Core\Security::post('search') );
         $where  = ['n.is_active=1'];
         $params = [];
-        if ($cat_id) { $where[]='n.id IN (SELECT newspaper_id FROM `'.$db->t('newspaper_categories').'` WHERE category_id=%d)'; $params[]=$cat_id; }
-        if ($city_id){ $where[]='n.city_id=%d'; $params[]=$city_id; }
-        if ($search) { $where[]='n.name LIKE %s'; $params[]="%$search%"; }
-        $w = implode(' AND ',$where);
-        $papers = $db->select("SELECT n.id,n.name,n.logo_url,n.base_rate,n.language,n.circulation,ci.name as city_name FROM `{$db->t('newspapers')}` n LEFT JOIN `{$db->t('cities')}` ci ON ci.id=n.city_id WHERE $w ORDER BY n.sort_order ASC LIMIT 30", ...$params);
+        if ( $city_id ) {
+            $city = $db->row( "SELECT name FROM `{$db->t('cities')}` WHERE id=%d", $city_id );
+            if ( $city ) {
+                $where[]  = 'n.cities_supported LIKE %s';
+                $params[] = '%' . $db->esc_like( $city['name'] ) . '%';
+            }
+        }
+        if ( $search ) { $where[] = 'n.name LIKE %s'; $params[] = "%$search%"; }
+        $w = implode( ' AND ', $where );
+        $papers = $db->select(
+            "SELECT n.id, n.name, n.logo_url, n.base_rate_classified AS base_rate, n.language, n.circulation
+             FROM `{$db->t('newspapers')}` n WHERE $w ORDER BY n.sort_order ASC LIMIT 30",
+            ...$params
+        );
         wp_send_json_success(['newspapers'=>$papers?:[]]);
     }
 
@@ -801,7 +830,7 @@ class PWAPhase3Controller {
         $npid= (int)\NAS\Core\Security::post('newspaper_id');
         if (!$npid) { wp_send_json_error(['message'=>'Newspaper ID required']); return; }
         $np    = $db->row("SELECT * FROM `{$db->t('newspapers')}` WHERE id=%d AND is_active=1", $npid);
-        $rates = $db->select("SELECT * FROM `{$db->t('rates')}` WHERE newspaper_id=%d ORDER BY category_id ASC,ad_type ASC", $npid);
+        $rates = $db->select( "SELECT *, base_rate AS rate_per_unit FROM `{$db->t('rate_cards')}` WHERE newspaper_id=%d AND is_active=1 ORDER BY category_id ASC, ad_type ASC", $npid );
         wp_send_json_success(['newspaper'=>$np,'rates'=>$rates?:[]]);
     }
 
@@ -818,13 +847,12 @@ class PWAPhase3Controller {
         $width   = (float)\NAS\Core\Security::post('width_cm');
         $height  = (float)\NAS\Core\Security::post('height_cm');
 
-        $rate = $db->row("SELECT * FROM `{$db->t('rates')}` WHERE newspaper_id=%d AND category_id=%d AND ad_type=%s LIMIT 1", $np_id, $cat_id, $ad_type);
+        $rate = $db->row( "SELECT *, base_rate AS rate_per_unit FROM `{$db->t('rate_cards')}` WHERE newspaper_id=%d AND category_id=%d AND ad_type=%s AND is_active=1 LIMIT 1", $np_id, $cat_id, $ad_type );
         if (!$rate) {
-            // Fallback to newspaper base rate
-            $np = $db->row("SELECT base_rate FROM `{$db->t('newspapers')}` WHERE id=%d", $np_id);
-            $base = $np ? (float)$np['base_rate'] : 0;
+            $np = $db->row( "SELECT base_rate_classified FROM `{$db->t('newspapers')}` WHERE id=%d", $np_id );
+            $base = $np ? (float) $np['base_rate_classified'] : 0;
         } else {
-            $unit_rate = (float)$rate['rate_per_unit'];
+            $unit_rate = (float) ( $rate['rate_per_unit'] ?? $rate['base_rate'] ?? 0 );
             if (in_array($ad_type,['classified_word','matrimonial_word'])) {
                 $base = $unit_rate * max(1,$words);
             } elseif (in_array($ad_type,['display_cm','classified_display'])) {
