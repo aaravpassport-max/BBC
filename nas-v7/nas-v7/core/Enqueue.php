@@ -199,9 +199,17 @@ class Enqueue {
         ] );
     }
 
-    /** Public marketing pages (not home, not dashboard) */
+    /** Booking wizard — needs nas-booking.css, not homepage marketing stack */
+    public static function is_nas_booking_wizard_page(): bool {
+        return is_page( [
+            'book-newspaper-ad',
+            get_option( 'nas_page_booking' ),
+        ] );
+    }
+
+    /** Public marketing pages (not home, not dashboard, not booking wizard) */
     public static function is_nas_public_portal_page(): bool {
-        if ( self::is_nas_homepage() || self::is_nas_dashboard_page() ) {
+        if ( self::is_nas_homepage() || self::is_nas_dashboard_page() || self::is_nas_booking_wizard_page() ) {
             return false;
         }
         return self::is_nas_page();
@@ -262,6 +270,26 @@ class Enqueue {
         wp_localize_script( 'nas-core', 'NAS', self::js_vars() );
     }
 
+    /** Booking wizard stack — standalone masthead + 11-step funnel */
+    public static function enqueue_booking_wizard_assets(): void {
+        $a = NAS_ASSETS;
+
+        wp_enqueue_style( 'nas-fonts',
+            'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap',
+            [], null );
+        wp_enqueue_style( 'nas-core', $a . 'css/nas-core.css', [ 'nas-fonts' ], self::asset_ver( 'css/nas-core.css' ) );
+        wp_enqueue_style( 'nas-booking', $a . 'css/nas-booking.css', [ 'nas-core' ], self::asset_ver( 'css/nas-booking.css' ) );
+        wp_enqueue_style( 'font-awesome',
+            'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css',
+            [], '6.5.0' );
+
+        wp_enqueue_script( 'jquery' );
+        wp_enqueue_script( 'nas-core', $a . 'js/nas-core.js', [ 'jquery' ], self::asset_ver( 'js/nas-core.js' ), true );
+        wp_enqueue_script( 'nas-booking',
+            $a . 'js/nas-booking.js', [ 'nas-core' ], self::asset_ver( 'js/nas-booking.js' ), true );
+        wp_localize_script( 'nas-core', 'NAS', self::js_vars() );
+    }
+
     /** Public marketing portal stack — used by WP pages and Router routes. */
     public static function enqueue_public_portal_assets( bool $city_css = false ): void {
         $a = NAS_ASSETS;
@@ -296,6 +324,18 @@ class Enqueue {
             return;
         }
 
+        // Booking wizard: dedicated stack (no portal/homepage CSS conflicts)
+        if ( self::is_nas_booking_wizard_page() ) {
+            self::enqueue_booking_wizard_assets();
+            return;
+        }
+
+        // Public marketing pages: homepage header/footer styles only — no dashboard CSS war
+        if ( self::is_nas_public_portal_page() ) {
+            self::enqueue_public_portal_assets( self::needs_city_pages_css() );
+            return;
+        }
+
         $a = NAS_ASSETS;
 
         wp_enqueue_style( 'nas-fonts',
@@ -307,13 +347,7 @@ class Enqueue {
         wp_enqueue_script( 'jquery' );
         wp_enqueue_script( 'nas-core', $a . 'js/nas-core.js', [ 'jquery' ], self::asset_ver( 'js/nas-core.js' ), true );
 
-        // Public marketing pages: homepage header/footer styles only — no dashboard CSS war
-        if ( self::is_nas_public_portal_page() ) {
-            self::enqueue_public_portal_assets( self::needs_city_pages_css() );
-            return;
-        }
-
-        // Booking funnel + dashboards: full app stack
+        // Dashboards: full app stack
         wp_enqueue_style( 'nas-dashboard', $a . 'css/nas-dashboard.css', [ 'nas-core', 'nas-portal' ], self::asset_ver( 'css/nas-dashboard.css' ) );
         wp_enqueue_style( 'nas-enterprise', $a . 'css/nas-enterprise.css', [ 'nas-core', 'nas-dashboard' ], self::asset_ver( 'css/nas-enterprise.css' ) );
         wp_enqueue_style( 'nas-booking', $a . 'css/nas-booking.css', [ 'nas-core' ], self::asset_ver( 'css/nas-booking.css' ) );
