@@ -55,7 +55,10 @@ if ( ! $title ) $title = $brand;
 
 $nas_portal_slug  = function_exists( 'nas_portal_current_slug' ) ? nas_portal_current_slug() : '';
 $nas_use_shell    = function_exists( 'nas_portal_should_wrap_shell' ) && nas_portal_should_wrap_shell();
-$nas_body_classes = 'nas-fullpage' . ( $nas_use_shell ? ' nas-public-portal' : '' );
+$nas_body_classes = 'nas-fullpage' . ( $nas_use_shell ? ' nas-public-portal nas-app-shell' : '' );
+if ( ! $nas_use_shell && $nas_portal_slug === 'book-newspaper-ad' ) {
+    $nas_body_classes .= ' nas-app-shell';
+}
 if ( $nas_portal_slug && function_exists( 'nas_portal_dashboard_slugs' ) && in_array( $nas_portal_slug, nas_portal_dashboard_slugs(), true ) ) {
     $nas_body_classes .= ' nas-dash-app';
 }
