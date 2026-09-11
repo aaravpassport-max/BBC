@@ -218,6 +218,8 @@ if ( $nhp_embed ) {
 <!-- Hero + Booking -->
 <section class="nhp-hero" id="book">
   <div class="nhp-hero__bg" aria-hidden="true"></div>
+  <div class="nhp-hero__orb nhp-hero__orb--1" aria-hidden="true"></div>
+  <div class="nhp-hero__orb nhp-hero__orb--2" aria-hidden="true"></div>
   <svg class="nhp-hero__paper-stack" viewBox="0 0 200 260" fill="none" aria-hidden="true">
     <rect x="20" y="30" width="160" height="200" rx="4" fill="white" opacity="0.9"/>
     <rect x="30" y="20" width="160" height="200" rx="4" fill="white" opacity="0.7"/>
@@ -346,6 +348,16 @@ if ( $nhp_embed ) {
 </section>
 <?php endif; ?>
 
+<!-- Trust ribbon -->
+<section class="nhp-trust-ribbon" aria-label="Platform guarantees">
+  <div class="nhp-container nhp-trust-ribbon__inner">
+    <div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-badge-check"></i></span> Authorized Publisher Network</div>
+    <div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-indian-rupee-sign"></i></span> Lowest Rates Guaranteed</div>
+    <div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-receipt"></i></span> GST Invoice Included</div>
+    <div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-headset"></i></span> Dedicated Booking Support</div>
+  </div>
+</section>
+
 <!-- Quick proceed bar -->
 <section class="nhp-quickbar">
   <div class="nhp-container nhp-quickbar__inner">
@@ -361,27 +373,29 @@ if ( $nhp_embed ) {
 </section>
 
 <!-- Ad format showcase -->
-<section class="nhp-section nhp-section--warm">
+<section class="nhp-section nhp-section--warm nhp-reveal">
   <div class="nhp-container">
     <div class="nhp-section__header nhp-section__header--center">
       <span class="nhp-section__eyebrow">Ad Formats</span>
       <h2 class="nhp-section__title nhp-section__title--accent">Every Type of <span>Newspaper Advertisement</span></h2>
       <p class="nhp-section__subtitle">Classified text, display, and full-page ads — choose the format that fits your message and budget.</p>
     </div>
-    <div class="nhp-formats">
+    <div class="nhp-format-strip">
       <?php
       $formats = [
-        [ 'fa-align-left', 'Classified Text Ad', 'Name change, matrimonial, recruitment & personal notices priced per word.', 'classified' ],
-        [ 'fa-image', 'Classified Display', 'Text with borders, logos or small images — ideal for standout classifieds.', 'display-classified' ],
-        [ 'fa-newspaper', 'Display Ad', 'Full image + copy ads sized by sq. cm — for brands and large announcements.', 'display' ],
+        [ 'fa-align-left', 'Classified Text Ad', 'Per-word pricing for personal & legal notices' ],
+        [ 'fa-image', 'Classified Display', 'Borders, logos & small images in classifieds' ],
+        [ 'fa-newspaper', 'Display Ad', 'Full image ads sized by sq. cm for brands' ],
       ];
       foreach ( $formats as $fi => $f ) :
       ?>
-      <a href="<?php echo esc_url( $booking_url ); ?>" class="nhp-format-card nhp-format-card--f<?php echo (int) $fi; ?>">
-        <div class="nhp-format-card__icon"><i class="fa-solid <?php echo esc_attr( $f[0] ); ?>"></i></div>
-        <h3 class="nhp-format-card__title"><?php echo esc_html( $f[1] ); ?></h3>
-        <p class="nhp-format-card__desc"><?php echo esc_html( $f[2] ); ?></p>
-        <span class="nhp-format-card__link">Book this format <i class="fa-solid fa-arrow-right"></i></span>
+      <a href="<?php echo esc_url( $booking_url ); ?>" class="nhp-format-strip__item nhp-format-strip__item--f<?php echo (int) $fi; ?>">
+        <span class="nhp-format-strip__icon"><i class="fa-solid <?php echo esc_attr( $f[0] ); ?>"></i></span>
+        <span class="nhp-format-strip__body">
+          <span class="nhp-format-strip__title"><?php echo esc_html( $f[1] ); ?></span>
+          <span class="nhp-format-strip__desc"><?php echo esc_html( $f[2] ); ?></span>
+        </span>
+        <i class="fa-solid fa-arrow-right nhp-format-strip__arrow"></i>
       </a>
       <?php endforeach; ?>
     </div>
@@ -391,13 +405,17 @@ if ( $nhp_embed ) {
 <!-- Popular Newspapers (Marketplace) -->
 <?php if ( $newspapers ) : ?>
 <section class="nhp-section nhp-section--marketplace" id="newspapers">
-  <div class="nhp-container">
-    <div class="nhp-section__header">
-      <span class="nhp-section__eyebrow">Popular Newspapers</span>
-      <h2 class="nhp-section__title nhp-section__title--accent">Book India's <span>Leading Publications</span></h2>
-      <p class="nhp-section__subtitle">Search and compare newspapers by language, edition, and starting rates — then book in minutes.</p>
+  <div class="nhp-marketplace-intro">
+    <div class="nhp-container">
+      <div class="nhp-section__header nhp-section__header--center">
+        <span class="nhp-section__eyebrow">Popular Newspapers</span>
+        <h2 class="nhp-section__title">Book India's Leading Publications</h2>
+        <p class="nhp-section__subtitle">Search and compare newspapers by language, edition, and starting rates — then book in minutes.</p>
+      </div>
     </div>
-
+  </div>
+  <div class="nhp-marketplace-body nhp-reveal">
+    <div class="nhp-container">
     <div class="nhp-toolbar">
       <div class="nhp-search">
         <i class="fa-solid fa-search nhp-search__icon"></i>
@@ -441,23 +459,24 @@ if ( $nhp_embed ) {
         <?php if ( $from_price > 0 ) : ?>
         <p class="nhp-paper-card__price">From <strong>₹<?php echo number_format( $from_price, 0 ); ?></strong> <span>classified ads</span></p>
         <?php endif; ?>
-        <div class="nhp-paper-card__actions">
-          <a href="<?php echo esc_url( $detail_url ); ?>" class="nhp-btn nhp-btn--outline-dark">View Editions</a>
-          <a href="<?php echo esc_url( $booking_url . '?newspaper=' . urlencode( $np['id'] ) ); ?>" class="nhp-btn nhp-btn--secondary">Check Rates</a>
+        <div class="nhp-paper-card__actions nhp-paper-card__actions--single">
+          <a href="<?php echo esc_url( $booking_url . '?newspaper=' . urlencode( $np['id'] ) ); ?>" class="nhp-btn nhp-btn--secondary">Book Now — Check Rates</a>
+          <a href="<?php echo esc_url( $detail_url ); ?>" class="nhp-paper-card__link-alt">View editions &amp; pricing details</a>
         </div>
       </article>
       <?php endforeach; ?>
     </div>
     <p class="nhp-papers-empty" id="nhp-papers-empty" style="display:none">No newspapers match your search. Try a different term or language.</p>
     <div style="text-align:center;margin-top:40px">
-      <a href="<?php echo esc_url( $papers_url ); ?>" class="nhp-btn nhp-btn--secondary nhp-btn--lg">Browse All Newspapers <i class="fa-solid fa-arrow-right"></i></a>
+      <a href="<?php echo esc_url( $papers_url ); ?>" class="nhp-btn nhp-btn--primary nhp-btn--lg">Browse All Newspapers <i class="fa-solid fa-arrow-right"></i></a>
+    </div>
     </div>
   </div>
 </section>
 <?php endif; ?>
 
 <!-- Ad Categories -->
-<section class="nhp-section nhp-section--showcase" id="categories">
+<section class="nhp-section nhp-section--showcase nhp-reveal" id="categories">
   <div class="nhp-container">
     <div class="nhp-section__header nhp-section__header--center">
       <span class="nhp-section__eyebrow">Advertisement Categories</span>
@@ -508,7 +527,7 @@ if ( $nhp_embed ) {
       <h2 class="nhp-section__title">From Selection to Publication</h2>
       <p class="nhp-section__subtitle">A clear, guided workflow — configure your ad, preview pricing, pay securely, and track until publication.</p>
     </div>
-    <div class="nhp-process">
+    <div class="nhp-process nhp-process--cards nhp-reveal">
       <?php
       $steps = [
         [ 'fa-map-location-dot', 'Select', 'Choose city, newspaper & ad category', '' ],
@@ -520,6 +539,7 @@ if ( $nhp_embed ) {
       foreach ( $steps as $si => $s ) :
       ?>
       <div class="nhp-process__step nhp-process__step--s<?php echo (int) $si; ?>">
+        <span class="nhp-process__num"><?php echo str_pad( (string) ( $si + 1 ), 2, '0', STR_PAD_LEFT ); ?></span>
         <div class="nhp-process__dot"><i class="fa-solid <?php echo esc_attr( $s[0] ); ?>"></i></div>
         <h3 class="nhp-process__title"><?php echo esc_html( $s[1] ); ?></h3>
         <p class="nhp-process__desc"><?php echo esc_html( $s[2] ); ?></p>
