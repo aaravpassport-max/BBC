@@ -241,25 +241,25 @@ if ( $nhp_embed ) {
         <?php endif; ?>
       </p>
       <div class="nhp-hero__trust-row">
-        <span class="nhp-hero__trust-item"><i class="fa-solid fa-lock"></i> Secure Payments</span>
-        <span class="nhp-hero__trust-item"><i class="fa-solid fa-circle-check"></i> Verified Publishers</span>
-        <span class="nhp-hero__trust-item"><i class="fa-solid fa-bolt"></i> Instant Quotes</span>
-        <span class="nhp-hero__trust-item"><i class="fa-solid fa-location-dot"></i> Pan-India Coverage</span>
+        <span class="nhp-hero__trust-item nhp-hero__trust-item--c0"><i class="fa-solid fa-lock"></i> Secure Payments</span>
+        <span class="nhp-hero__trust-item nhp-hero__trust-item--c1"><i class="fa-solid fa-circle-check"></i> Verified Publishers</span>
+        <span class="nhp-hero__trust-item nhp-hero__trust-item--c2"><i class="fa-solid fa-bolt"></i> Instant Quotes</span>
+        <span class="nhp-hero__trust-item nhp-hero__trust-item--c3"><i class="fa-solid fa-location-dot"></i> Pan-India Coverage</span>
       </div>
       <div class="nhp-hero__stats">
-        <div>
+        <div class="nhp-hero__stat nhp-hero__stat--c0">
           <div class="nhp-hero__stat-value"><?php echo $total_papers > 0 ? (int) $total_papers . '+' : '94+'; ?></div>
           <div class="nhp-hero__stat-label">Newspapers</div>
         </div>
-        <div>
+        <div class="nhp-hero__stat nhp-hero__stat--c1">
           <div class="nhp-hero__stat-value"><?php echo $total_cities > 0 ? (int) $total_cities . '+' : '299+'; ?></div>
           <div class="nhp-hero__stat-label">Cities</div>
         </div>
-        <div>
+        <div class="nhp-hero__stat nhp-hero__stat--c2">
           <div class="nhp-hero__stat-value"><?php echo $total_bookings > 0 ? number_format( $total_bookings ) : '9k+'; ?></div>
           <div class="nhp-hero__stat-label">Ads Placed</div>
         </div>
-        <div>
+        <div class="nhp-hero__stat nhp-hero__stat--c3">
           <div class="nhp-hero__stat-value">24<span style="font-size:0.6em">hrs</span></div>
           <div class="nhp-hero__stat-label">Avg. Processing</div>
         </div>
@@ -370,9 +370,9 @@ if ( $nhp_embed ) {
         [ 'fa-image', 'Classified Display', 'Text with borders, logos or small images — ideal for standout classifieds.', 'display-classified' ],
         [ 'fa-newspaper', 'Display Ad', 'Full image + copy ads sized by sq. cm — for brands and large announcements.', 'display' ],
       ];
-      foreach ( $formats as $f ) :
+      foreach ( $formats as $fi => $f ) :
       ?>
-      <a href="<?php echo esc_url( $booking_url ); ?>" class="nhp-format-card">
+      <a href="<?php echo esc_url( $booking_url ); ?>" class="nhp-format-card nhp-format-card--f<?php echo (int) $fi; ?>">
         <div class="nhp-format-card__icon"><i class="fa-solid <?php echo esc_attr( $f[0] ); ?>"></i></div>
         <h3 class="nhp-format-card__title"><?php echo esc_html( $f[1] ); ?></h3>
         <p class="nhp-format-card__desc"><?php echo esc_html( $f[2] ); ?></p>
@@ -414,7 +414,7 @@ if ( $nhp_embed ) {
             ? home_url( '/newspaper/' . $np['slug'] . '/' )
             : $booking_url . '?newspaper=' . urlencode( $np['id'] );
       ?>
-      <article class="nhp-paper-card"
+      <article class="nhp-paper-card nhp-paper-card--a<?php echo (int) ( $i % 6 ); ?>"
                data-name="<?php echo esc_attr( strtolower( $np['name'] ) ); ?>"
                data-lang="<?php echo esc_attr( strtolower( $np['language'] ?: 'english' ) ); ?>">
         <div class="nhp-paper-card__top">
@@ -464,7 +464,7 @@ if ( $nhp_embed ) {
         foreach ( $categories as $i => $cat ) :
           $icon = $cat['icon'] ?: ( $cat_icons[ $i ] ?? '📢' );
       ?>
-      <a href="<?php echo esc_url( $booking_url . '?category=' . urlencode( $cat['id'] ) ); ?>" class="nhp-category-tile">
+      <a href="<?php echo esc_url( $booking_url . '?category=' . urlencode( $cat['id'] ) ); ?>" class="nhp-category-tile nhp-category-tile--c<?php echo (int) ( $i % 6 ); ?>">
         <span class="nhp-category-tile__icon"><?php echo esc_html( $icon ); ?></span>
         <span class="nhp-category-tile__name"><?php echo esc_html( $cat['name'] ); ?></span>
         <span class="nhp-category-tile__desc"><?php echo esc_html( $cat['description'] ?: 'Book ' . $cat['name'] . ' ads online' ); ?></span>
@@ -479,9 +479,9 @@ if ( $nhp_embed ) {
           [ '💼', 'Recruitment', 'Job vacancies & career ads' ],
           [ '⚖️', 'Public Notice', 'Legal & government notices' ],
         ];
-        foreach ( $default_cats as $c ) :
+        foreach ( $default_cats as $di => $c ) :
       ?>
-      <a href="<?php echo esc_url( $booking_url ); ?>" class="nhp-category-tile">
+      <a href="<?php echo esc_url( $booking_url ); ?>" class="nhp-category-tile nhp-category-tile--c<?php echo (int) ( $di % 6 ); ?>">
         <span class="nhp-category-tile__icon"><?php echo $c[0]; ?></span>
         <span class="nhp-category-tile__name"><?php echo esc_html( $c[1] ); ?></span>
         <span class="nhp-category-tile__desc"><?php echo esc_html( $c[2] ); ?></span>
@@ -509,9 +509,9 @@ if ( $nhp_embed ) {
         [ 'fa-credit-card', 'Pay Securely', 'UPI, cards & net banking via Razorpay', '' ],
         [ 'fa-circle-check', 'Track & Confirm', 'Monitor status until publication proof', '24–48 hrs' ],
       ];
-      foreach ( $steps as $s ) :
+      foreach ( $steps as $si => $s ) :
       ?>
-      <div class="nhp-process__step">
+      <div class="nhp-process__step nhp-process__step--s<?php echo (int) $si; ?>">
         <div class="nhp-process__dot"><i class="fa-solid <?php echo esc_attr( $s[0] ); ?>"></i></div>
         <h3 class="nhp-process__title"><?php echo esc_html( $s[1] ); ?></h3>
         <p class="nhp-process__desc"><?php echo esc_html( $s[2] ); ?></p>
@@ -582,9 +582,9 @@ if ( $nhp_embed ) {
         [ 'fa-clock', 'Book 24/7 Online', 'Complete your booking anytime without phone calls or office visits.' ],
         [ 'fa-headset', 'Dedicated Support', 'Track your ad status and get help from booking through publication.' ],
       ];
-      foreach ( $advantages as $adv ) :
+      foreach ( $advantages as $ai => $adv ) :
       ?>
-      <div class="nhp-advantage">
+      <div class="nhp-advantage nhp-advantage--a<?php echo (int) $ai; ?>">
         <div class="nhp-advantage__icon"><i class="fa-solid <?php echo esc_attr( $adv[0] ); ?>"></i></div>
         <h3 class="nhp-advantage__title"><?php echo esc_html( $adv[1] ); ?></h3>
         <p class="nhp-advantage__desc"><?php echo esc_html( $adv[2] ); ?></p>
