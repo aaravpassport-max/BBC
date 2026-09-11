@@ -15627,8 +15627,6 @@ function render(){
 
       const lotCount = getLotCountFromUi();
       const lotSize = resolveOrderQuantity(sym, lotCount);
-      ctx.lotCount = lotCount;
-      ctx.exchangeLotSize = getExchangeLotSize(sym);
       updateLotQtyHint(sym);
 
       // Real Kite /margins/orders "what-if" figure for the SAME selected
@@ -15819,7 +15817,7 @@ function render(){
         daily: dailyState,
         decay: {...decay, days:daysExp},
         operatorIntel,
-        status, optPrice, lotSize, ocRow, candles,
+        status, optPrice, lotSize, lotCount, exchangeLotSize: getExchangeLotSize(sym), sym, ocRow, candles,
         // REAL FIX (user reports this session: "chart shows timing 00:00",
         // then "i want timing for every 15 mins interval"): candlesForChart
         // is the real series renderPriceChart actually draws - it's the
@@ -16678,7 +16676,14 @@ function render(){
       renderOpenTrades(ocRow, optionType, strike, sym);
 
     }catch(e){
-      document.getElementById('brainLog').textContent+='\n❌ '+e.message;
+      const brainLogEl = document.getElementById('brainLog');
+      const decEl = document.getElementById('brainDecision');
+      if (brainLogEl) brainLogEl.textContent += '\n❌ ' + e.message;
+      if (decEl && /Loading brain/i.test(decEl.textContent)) {
+        decEl.innerHTML = '❌ Brain refresh failed — ' + escapeHtml(e.message);
+        decEl.style.background = '#450a0a';
+        decEl.style.color = '#fca5a5';
+      }
     }
   }
 
@@ -17918,7 +17923,7 @@ function render(){
     // actively accept, and even then the real server-side endpoint
     // re-verifies everything independently rather than trusting this
     // client-side offer at all.
-    offerRealTradeMirror(sym, strike, optionType, lotSize);
+    offerRealTradeMirror(symVal, strike, optionType, lotSize);
   });
 
 async function offerRealTradeMirror(sym, strike, optionType, qty) {

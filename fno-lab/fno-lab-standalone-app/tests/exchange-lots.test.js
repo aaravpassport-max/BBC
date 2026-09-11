@@ -54,5 +54,7 @@ assert.ok(/function resolveOrderQuantity/.test(coreSrc));
 assert.ok(/FM149/.test(coreSrc));
 assert.ok(/getLotCountFromUi\(\)/.test(coreSrc));
 assert.ok(/resolveOrderQuantity\(symVal, lotCount\)/.test(coreSrc));
+assert.ok(!/ctx\.lotCount = lotCount/.test(coreSrc), 'lotCount must be set inside const ctx={}, not before ctx is declared (TDZ bug)');
+assert.ok(/lotCount, exchangeLotSize: getExchangeLotSize\(sym\)/.test(coreSrc));
 
 console.log('All exchange-lots tests passed.');
