@@ -19,6 +19,12 @@ const FNO_LIQUIDITY_TRAP_STATES = {
 
 const FNO_LIQUIDITY_TRAP_LOG_KEY = 'fno_liquidity_trap_log_v1';
 const FNO_LIQUIDITY_TRAP_STATE_KEY = 'fno_liquidity_trap_state_v1';
+const FNO_LIQUIDITY_TRAP_OUTCOME_HORIZONS_MS = {
+  m5: 5 * 60 * 1000,
+  m10: 10 * 60 * 1000,
+  m15: 15 * 60 * 1000,
+  m30: 30 * 60 * 1000,
+};
 
 function computeLiquidityMap(ctx) {
   const spot = ctx && Number.isFinite(ctx.spot) ? ctx.spot : null;
@@ -246,16 +252,42 @@ function advanceLiquidityTrapState(prevState, signals) {
   return FNO_LIQUIDITY_TRAP_STATES.NORMAL;
 }
 
+function computeMicrostructureAbsorptionBoost(ctx) {
+  const m = ctx && ctx.microstructure;
+  if (!m) return { boost: 0, detected: false, reason: null };
+  let boost = 0;
+  const reasons = [];
+  if (Number.isFinite(m.flowImbalancePct) && Math.abs(m.flowImbalancePct - 50) >= 20) {
+    boost += 0.12;
+    reasons.push(`Executed flow imbalance ${m.flowImbalancePct.toFixed(1)}%`);
+  }
+  if (Number.isFinite(m.cumulativeDelta) && Math.abs(m.cumulativeDelta) >= 5000) {
+    boost += 0.1;
+    reasons.push(`Cumulative delta ${m.cumulativeDelta >= 0 ? '+' : ''}${Math.round(m.cumulativeDelta).toLocaleString()}`);
+  }
+  if (m.domSpoofDetected) {
+    boost += 0.08;
+    reasons.push(`${m.domSpoofDetected} probable spoof event(s) this session`);
+  }
+  return {
+    boost: Math.min(0.35, boost),
+    detected: boost > 0,
+    reason: reasons.length ? reasons.join('; ') : null,
+  };
+}
+
 function computeLiquidityTrapScore(components) {
   let score = 0;
   const weights = {
     crowded: 12, sweep: 18, failedBreak: 15, absorption: 10,
     oiTrap: 12, stageProgress: 15, reversal: 10, wrongSide: 8, disproof: -15,
+    microstructure: 10,
   };
   if (components.crowded) score += weights.crowded;
   if (components.sweep) score += weights.sweep * (components.sweepStrength || 0.5);
   if (components.failedBreak) score += weights.failedBreak;
   if (components.absorption) score += weights.absorption;
+  if (components.microstructureAbsorption) score += weights.microstructure * (components.microstructureBoost || 0.5);
   if (components.oiTrap) score += weights.oiTrap;
   if (components.stageProgress) score += weights.stageProgress * Math.min(1, components.stageCount / 6);
   if (components.reversal) score += weights.reversal;
@@ -284,6 +316,8 @@ function computeLiquidityTrapEngine(ctx, brain, inputs) {
     ? computeReversalSignal(ctx.candles) : null);
   const trapSignal = inputs.trapSignal || null;
   const absorption = computeAbsorptionProxy(ctx.candles);
+  const microAbsorption = computeMicrostructureAbsorptionBoost(ctx);
+  const absorptionDetected = absorption.detected || microAbsorption.detected;
   const sweep = computeLiquiditySweepSignal(ctx.candles, liquidityMap, breakoutCondition, reversalSignal, trapSignal);
   const stages = computeCEPETrapStages(ctx, { ...inputs, breakoutCondition, trapSignal, reversalSignal, liquidityMap });
 
@@ -312,7 +346,9 @@ function computeLiquidityTrapEngine(ctx, brain, inputs) {
     sweep: sweep.detected,
     sweepStrength: sweep.confidence / 100,
     failedBreak: rejected,
-    absorption: absorption.detected,
+    absorption: absorptionDetected,
+    microstructureAbsorption: microAbsorption.detected,
+    microstructureBoost: microAbsorption.boost,
     oiTrap: trapSignal && trapSignal.isTrapSignature === true,
     stageProgress: stageCount >= 3,
     stageCount,
@@ -356,6 +392,7 @@ function computeLiquidityTrapEngine(ctx, brain, inputs) {
     pathBetweenLevels: path,
     sweep,
     absorption,
+    microAbsorption,
     stages,
     trapScore,
     trapScoreLabel: liquidityTrapScoreLabel(trapScore),
@@ -415,28 +452,107 @@ function applyLiquidityTrapInfluence(brain, trapEngine, optionType) {
   return brain;
 }
 
+function inferLiquidityTrapExpectedDirection(trapEngine) {
+  if (!trapEngine) return null;
+  if (trapEngine.sweep && trapEngine.sweep.detected) {
+    if (trapEngine.sweep.direction === 'bearish_trap') return 'bearish';
+    if (trapEngine.sweep.direction === 'bullish_trap') return 'bullish';
+  }
+  if (trapEngine.stages && trapEngine.stages.activePattern === 'ce_trap_sequence') return 'bearish';
+  if (trapEngine.stages && trapEngine.stages.activePattern === 'pe_trap_sequence') return 'bullish';
+  if (trapEngine.probabilities && trapEngine.probabilities.reversal >= 0.55) {
+    if ((trapEngine.probabilities.bearTrap || 0) > (trapEngine.probabilities.bullTrap || 0)) return 'bearish';
+    if ((trapEngine.probabilities.bullTrap || 0) > (trapEngine.probabilities.bearTrap || 0)) return 'bullish';
+  }
+  return null;
+}
+
+function evaluateLiquidityTrapOutcomes(currentSpot, sym) {
+  if (!Number.isFinite(currentSpot) || !sym) return null;
+  try {
+    const log = JSON.parse(localStorage.getItem(FNO_LIQUIDITY_TRAP_LOG_KEY) || '[]');
+    const now = Date.now();
+    let updated = false;
+    log.forEach(entry => {
+      if (!entry || entry.sym !== sym || !Number.isFinite(entry.spotAtLog)) return;
+      if (!entry.outcomes) entry.outcomes = {};
+      Object.entries(FNO_LIQUIDITY_TRAP_OUTCOME_HORIZONS_MS).forEach(([key, ms]) => {
+        if (entry.outcomes[key] || now - entry.ts < ms) return;
+        const movePct = ((currentSpot - entry.spotAtLog) / entry.spotAtLog) * 100;
+        const expected = entry.expectedDirection;
+        let favorableMovePct = movePct;
+        if (expected === 'bearish') favorableMovePct = -movePct;
+        else if (expected === 'bullish') favorableMovePct = movePct;
+        else favorableMovePct = Math.abs(movePct);
+        entry.outcomes[key] = {
+          spot: currentSpot,
+          movePct: Math.round(movePct * 100) / 100,
+          mfePct: Math.round(Math.max(0, favorableMovePct) * 100) / 100,
+          maePct: Math.round(Math.max(0, -favorableMovePct) * 100) / 100,
+          evaluatedAt: now,
+          confirmed: expected ? favorableMovePct >= 0.2 : null,
+        };
+        updated = true;
+      });
+      if (entry.outcomes.m30) entry.outcomesComplete = true;
+    });
+    if (updated) localStorage.setItem(FNO_LIQUIDITY_TRAP_LOG_KEY, JSON.stringify(log));
+    return computeLiquidityTrapValidationStats(log, sym);
+  } catch (e) { return null; }
+}
+
+function computeLiquidityTrapValidationStats(log, sym) {
+  const rows = (log || []).filter(r => r && (!sym || r.sym === sym) && r.outcomes && r.outcomes.m30);
+  const decisive = rows.filter(r => r.expectedDirection && typeof r.outcomes.m30.confirmed === 'boolean');
+  const confirmed = decisive.filter(r => r.outcomes.m30.confirmed === true).length;
+  const falsePositives = decisive.filter(r => r.outcomes.m30.confirmed === false).length;
+  const avg = (arr, pick) => {
+    const vals = arr.map(pick).filter(Number.isFinite);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  };
+  return {
+    sampleSize: rows.length,
+    decisiveTotal: decisive.length,
+    confirmedCount: confirmed,
+    falsePositiveCount: falsePositives,
+    confirmedRatePct: decisive.length ? Math.round((confirmed / decisive.length) * 100) : null,
+    falsePositiveRatePct: decisive.length ? Math.round((falsePositives / decisive.length) * 100) : null,
+    avgMfeM5Pct: avg(rows, r => r.outcomes.m5 && r.outcomes.m5.mfePct),
+    avgMaeM5Pct: avg(rows, r => r.outcomes.m5 && r.outcomes.m5.maePct),
+    avgMfeM30Pct: avg(rows, r => r.outcomes.m30 && r.outcomes.m30.mfePct),
+    avgMaeM30Pct: avg(rows, r => r.outcomes.m30 && r.outcomes.m30.maePct),
+    pendingCount: (log || []).filter(r => r && (!sym || r.sym === sym) && !r.outcomesComplete).length,
+  };
+}
+
 function logLiquidityTrapObservation(trapEngine, sym, spot, brain) {
   if (!trapEngine || trapEngine.trapScore < 31) return;
   try {
     const log = JSON.parse(localStorage.getItem(FNO_LIQUIDITY_TRAP_LOG_KEY) || '[]');
+    const last = log.length ? log[log.length - 1] : null;
+    if (last && last.sym === sym && Date.now() - last.ts < 5 * 60 * 1000 && last.trapScore === trapEngine.trapScore && last.state === trapEngine.state) return;
     log.push({
       ts: Date.now(),
       sym,
       spot,
+      spotAtLog: spot,
       trapScore: trapEngine.trapScore,
       state: trapEngine.state,
       sweep: trapEngine.sweep.detected ? trapEngine.sweep.type : null,
       pattern: trapEngine.stages.activePattern,
+      expectedDirection: inferLiquidityTrapExpectedDirection(trapEngine),
       decision: brain ? brain.decision : null,
       probabilities: trapEngine.probabilities,
       path: trapEngine.pathBetweenLevels.available ? trapEngine.pathBetweenLevels.summary : null,
+      outcomes: {},
+      outcomesComplete: false,
     });
     while (log.length > 500) log.shift();
     localStorage.setItem(FNO_LIQUIDITY_TRAP_LOG_KEY, JSON.stringify(log));
   } catch (e) { /* ignore */ }
 }
 
-function renderLiquidityBehaviourPanel(trapEngine) {
+function renderLiquidityBehaviourPanel(trapEngine, validationStats) {
   const box = document.getElementById('liquidityBehaviourBox');
   if (!box) return;
   if (!trapEngine) { box.innerHTML = '<span style="color:#64748b">Loading liquidity behaviour analysis...</span>'; return; }
@@ -466,7 +582,16 @@ function renderLiquidityBehaviourPanel(trapEngine) {
     ${trapEngine.sweep.detected ? `<div style="padding:6px;border-radius:6px;background:${tp.panel};border:1px solid ${tp.line};font-size:10px;margin-bottom:6px;color:${tp.warn}">${escapeHtml(trapEngine.sweep.reason)}</div>` : ''}
     ${stageHtml(trapEngine.stages.ce, 'CE trap stages')}
     ${stageHtml(trapEngine.stages.pe, 'PE trap stages')}
+    ${trapEngine.microAbsorption && trapEngine.microAbsorption.detected ? `<div style="font-size:10px;color:${tp.warn};margin-bottom:6px"><b>Microstructure absorption:</b> ${escapeHtml(trapEngine.microAbsorption.reason || 'Live daemon flow supports absorption/trap read')}</div>` : ''}
     ${trapEngine.disproofs.length ? `<div style="margin-top:6px;font-size:10px;color:${tp.muted}"><b>Disproof checks:</b> ${trapEngine.disproofs.map(d => escapeHtml(d.text)).join(' · ')}</div>` : ''}
     ${trapEngine.psychology.length ? `<div style="margin-top:6px;font-size:10px;color:${tp.muted}"><b>Psychology:</b> ${trapEngine.psychology.map(p => escapeHtml(p)).join(' · ')}</div>` : ''}
+    ${validationStats && validationStats.decisiveTotal > 0 ? `<div style="margin-top:8px;padding:6px;border-radius:6px;background:${tp.panel};border:1px solid ${tp.line};font-size:10px">
+      <b>Historical validation (30m outcomes)</b>
+      <div style="margin-top:4px;color:${validationStats.confirmedRatePct >= 55 ? tp.pass : validationStats.confirmedRatePct <= 45 ? tp.fail : tp.muted}">
+        Confirmed ${validationStats.confirmedRatePct}% · False-positive ${validationStats.falsePositiveRatePct}% · ${validationStats.decisiveTotal} decisive / ${validationStats.sampleSize} logged
+      </div>
+      <div style="color:${tp.muted};margin-top:2px">Avg MFE/MAE @30m: ${validationStats.avgMfeM30Pct != null ? validationStats.avgMfeM30Pct.toFixed(2) : 'n/a'}% / ${validationStats.avgMaeM30Pct != null ? validationStats.avgMaeM30Pct.toFixed(2) : 'n/a'}%</div>
+      ${validationStats.pendingCount ? `<div style="color:${tp.muted};margin-top:2px">${validationStats.pendingCount} setup(s) awaiting 5/10/15/30m outcome checks</div>` : ''}
+    </div>` : ''}
   `;
 }

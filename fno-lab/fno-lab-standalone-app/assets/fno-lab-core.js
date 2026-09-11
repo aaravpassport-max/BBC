@@ -1645,15 +1645,14 @@ async function generateAiNarrativeIfDue(brain, sym, isStaleRefresh) {
   }
 }
 
-async function generateAndLogHypothesisIfDue(operatorIntel, rows, spot, sym) {
+async function generateAndLogHypothesisIfDue(operatorIntel, rows, spot, sym, trapCheck, strikeShift) {
   if (!window.FNO_AJAX.isLoggedIn || !spot) return;
   const throttleKey = `fno_last_hypothesis_log_${sym}`;
   const lastLogged = parseInt(localStorage.getItem(throttleKey) || '0', 10);
   if (Date.now() - lastLogged < 30*60*1000) return; // real, deliberately longer throttle than rejections - a real hypothesis needs real time to actually resolve, logging one every 10 minutes would just accumulate noise
   try {
     const maxPainInfo = computeMaxPainInfo(rows, spot);
-    const trapCheck = null; // real trap signal needs real netOIChange/priceChangePct already computed inside evaluateBrain's own scope, not duplicated here - a real, stated, bounded limitation of this specific call site, not a fabricated input
-    const h = computeParticipantPayoffHypothesis(operatorIntel, maxPainInfo, trapCheck, null, spot);
+    const h = computeParticipantPayoffHypothesis(operatorIntel, maxPainInfo, trapCheck || null, strikeShift || null, spot);
     if (h.direction === 'neutral') { localStorage.setItem(throttleKey, String(Date.now())); return; } // honest no-op, still throttled so this check doesn't re-run every refresh
     localStorage.setItem(throttleKey, String(Date.now()));
     const body = `symbol=${sym}&spotAtGeneration=${spot}&direction=${h.direction}&confidence=${h.confidence}`
@@ -7994,7 +7993,7 @@ function classifyFailureModeEvent(category, context) {
  * real, traceable reason).
  */
 function evaluatePreTradeFailureModes(evalCtx) {
-  const { brain, ctx, trapSignal, breakoutCondition, rejectionCheck, ivPercentile, execMode, latencyCheck, maxPainCheck, spreadLevelCheck, spreadWideningCheck, gapFillCheck, optionType, hypothesisDirectionStats, strategyVersionsCache, requestedStrike, portfolioPositions, portfolioPerPositionGreeks } = evalCtx || {};
+  const { brain, ctx, trapSignal, strikeShift, breakoutCondition, rejectionCheck, ivPercentile, execMode, latencyCheck, maxPainCheck, spreadLevelCheck, spreadWideningCheck, gapFillCheck, optionType, hypothesisDirectionStats, strategyVersionsCache, requestedStrike, portfolioPositions, portfolioPerPositionGreeks } = evalCtx || {};
   const triggered = [];
   const check = (id, condition, severity, action, reason, fires) => {
     if (fires) triggered.push({ id, condition, severity, action, reason });
@@ -9131,11 +9130,15 @@ function evaluatePreTradeFailureModes(evalCtx) {
   // that function) - never a second, redundant threshold re-derived
   // here.
   if (ctx && typeof ctx.spot === 'number') {
-    const hypothesisFM = computeParticipantPayoffHypothesis(ctx.operatorIntel || null, maxPainCheck || null, trapSignal || null, null, ctx.spot);
+    const hypothesisFM = computeParticipantPayoffHypothesis(ctx.operatorIntel || null, maxPainCheck || null, trapSignal || null, strikeShift || null, ctx.spot);
     check('FM084', "Real participant payoff hypothesis for this setup is genuinely low-confidence", 'low', 'reduce_confidence', hypothesisFM.hypothesis, hypothesisFM.confidence === 'low');
 
     const trackRecordFM = applyHistoricalDirectionTrackRecord(hypothesisFM, hypothesisDirectionStats);
     check('FM083', "Real historical direction track record for this exact bias is genuinely poor", 'high', 'reduce_confidence', trackRecordFM.reason, trackRecordFM.wasDowngraded === true);
+
+    check('FM088', 'Real strike-shift pattern shows positioning genuinely moving away from this strike', 'low', 'reduce_confidence',
+      strikeShift && strikeShift.reason ? strikeShift.reason : 'No real multi-day strike-shift away from this strike detected this refresh.',
+      !!(strikeShift && strikeShift.awayFromTradeStrike === true));
   }
 
   // FM069/FM106: real, NEW wiring this pass. A prior session concluded
@@ -13225,6 +13228,73 @@ function computeStrikeShiftPattern(strikeAHistory, strikeBHistory) {
   return { isShift, strikeAPattern: patternA.pattern, strikeBPattern: patternB.pattern, reason };
 }
 
+const FNO_STRIKE_SHIFT_CACHE_KEY = 'fno_strike_shift_cache_v1';
+const FNO_STRIKE_SHIFT_FETCH_THROTTLE_MS = 30 * 60 * 1000;
+
+function getCachedStrikeShift(sym, tradeStrike, optionType) {
+  try {
+    const raw = sessionStorage.getItem(FNO_STRIKE_SHIFT_CACHE_KEY);
+    if (!raw) return null;
+    const cache = JSON.parse(raw);
+    const entry = cache[`${sym}_${tradeStrike}_${optionType}`];
+    if (!entry || Date.now() - entry.ts > FNO_STRIKE_SHIFT_FETCH_THROTTLE_MS) return null;
+    return entry.shift || null;
+  } catch (e) { return null; }
+}
+
+function setCachedStrikeShift(sym, tradeStrike, optionType, shift) {
+  try {
+    const cache = JSON.parse(sessionStorage.getItem(FNO_STRIKE_SHIFT_CACHE_KEY) || '{}');
+    cache[`${sym}_${tradeStrike}_${optionType}`] = { ts: Date.now(), shift };
+    sessionStorage.setItem(FNO_STRIKE_SHIFT_CACHE_KEY, JSON.stringify(cache));
+  } catch (e) { /* ignore */ }
+}
+
+async function fetchOIAccumulationHistory(sym, strike, optionType) {
+  if (!window.FNO_AJAX || !window.FNO_AJAX.isLoggedIn || !strike || !optionType) return [];
+  try {
+    const url = `${window.FNO_AJAX.url}?action=fno_get_oi_accumulation_history&symbol=${encodeURIComponent(sym)}&strike=${encodeURIComponent(strike)}&optionType=${encodeURIComponent(optionType)}&nonce=${window.FNO_AJAX.nonce}`;
+    const r = await fetch(url);
+    const j = await r.json();
+    return (j.success && j.data && Array.isArray(j.data.history)) ? j.data.history : [];
+  } catch (e) { return []; }
+}
+
+async function fetchStrikeShiftForContext(ctx, tradeStrike, optionType) {
+  if (!ctx || !Array.isArray(ctx.ocRows) || !tradeStrike || !optionType) return null;
+  const sym = ctx.sym;
+  const cached = getCachedStrikeShift(sym, tradeStrike, optionType);
+  if (cached) return cached;
+
+  const strikes = ctx.ocRows.map(r => r.strikePrice).filter(Number.isFinite).sort((a, b) => a - b);
+  const idx = strikes.indexOf(tradeStrike);
+  if (idx < 0) return null;
+  const neighborStrike = idx < strikes.length - 1 ? strikes[idx + 1] : strikes[idx - 1];
+  if (!Number.isFinite(neighborStrike) || neighborStrike === tradeStrike) return null;
+
+  const [tradeHistory, neighborHistory] = await Promise.all([
+    fetchOIAccumulationHistory(sym, tradeStrike, optionType),
+    fetchOIAccumulationHistory(sym, neighborStrike, optionType),
+  ]);
+  if (!tradeHistory.length || !neighborHistory.length) return null;
+
+  const shift = computeStrikeShiftPattern(tradeHistory, neighborHistory);
+  const tradePattern = computeOIAccumulationPattern(tradeHistory).pattern;
+  const awayFromTradeStrike = shift.isShift && tradePattern === 'gradual_unwinding';
+  const enriched = {
+    ...shift,
+    tradeStrike,
+    neighborStrike,
+    optionType,
+    awayFromTradeStrike,
+    reason: awayFromTradeStrike
+      ? `${shift.reason} — positioning appears to be migrating away from strike ${tradeStrike} toward ${neighborStrike}.`
+      : shift.reason,
+  };
+  setCachedStrikeShift(sym, tradeStrike, optionType, enriched);
+  return enriched;
+}
+
 // ====================================================================
 // PARTICIPANT PAYOFF HYPOTHESIS ENGINE (user's own founding vision
 // document - the central, repeated ask this session had not yet built
@@ -15700,25 +15770,20 @@ function render(){
       const priceChangePct = (closes.length > 1 && closes[0] > 0) ? ((spot - closes[0]) / closes[0] * 100) : null;
       const operatorIntel = computeOperatorIntel(rec, spot, pcr, status.fii_long_short || null, priceChangePct, daysExp);
 
-      // User's own founding vision document - real, throttled
-      // Participant Payoff Hypothesis generation + real, throttled
-      // evaluation of hypotheses old enough to check. Uses the SAME
-      // real operatorIntel/rec.data/spot already computed this
-      // refresh - no new fetch.
-      generateAndLogHypothesisIfDue(operatorIntel, rec && rec.data, spot, sym);
+      ctx.strikeShift = getCachedStrikeShift(sym, strike, optionType);
+      fetchStrikeShiftForContext(ctx, strike, optionType).then(shift => {
+        if (shift) ctx.strikeShift = shift;
+      }).catch(() => { /* non-critical */ });
+
       evaluateHypothesesIfDue(spot, sym).then(() => loadHypothesisStats()); // real, throttled refresh of the stats display whenever real evaluation actually runs, not just on page load
       // Real, live display of the CURRENT hypothesis, even one this
       // exact refresh isn't logging (throttle applies to STORAGE, not
       // to showing the real, freshly-computed hypothesis to the user).
       const currentHypothesisBox = document.getElementById('currentHypothesisBox');
-      if (currentHypothesisBox) {
+      const renderCurrentHypothesisBox = (trapForHypothesis, shiftForHypothesis) => {
+        if (!currentHypothesisBox) return;
         const liveMaxPain = computeMaxPainInfo(rec && rec.data, spot);
-        const liveHypothesis = computeParticipantPayoffHypothesis(operatorIntel, liveMaxPain, null, null, spot);
-        // User's own founding vision document - real "when similar
-        // positioning occurred historically, what happened next?"
-        // check, using the real, already-cached per-direction track
-        // record (populated by loadHypothesisStats(), no new fetch
-        // here).
+        const liveHypothesis = computeParticipantPayoffHypothesis(operatorIntel, liveMaxPain, trapForHypothesis || null, shiftForHypothesis || null, spot);
         const trackRecord = applyHistoricalDirectionTrackRecord(liveHypothesis, window.FNO_HYPOTHESIS_DIRECTION_STATS_CACHE);
         const displayConfidence = trackRecord.adjustedConfidence;
         const dirColor = liveHypothesis.direction === 'bullish' ? '#4ade80' : liveHypothesis.direction === 'bearish' ? '#f87171' : '#94a3b8';
@@ -15731,7 +15796,8 @@ function render(){
           <div style="color:#64748b;font-size:10px;margin-top:4px">Falsifiable prediction: ${liveHypothesis.falsifiablePrediction}</div>
           <div style="color:#64748b;font-size:10px;margin-top:2px">${escapeHtml(trackRecord.reason)}</div>
         `;
-      }
+      };
+      renderCurrentHypothesisBox(null, ctx.strikeShift);
 
 
       // Real Option Chain ladder - ATM ± 8 strikes, real live CE/PE data
@@ -15981,8 +16047,15 @@ function render(){
         const liqOpt = brain.decision === 'BUY_READY' ? 'CE' : brain.decision === 'SELL_READY' ? 'PE' : null;
         applyLiquidityTrapInfluence(brain, liqEngine, liqOpt);
         logLiquidityTrapObservation(liqEngine, sym, spot, brain);
-        renderLiquidityBehaviourPanel(liqEngine);
+        const trapValidationStats = typeof evaluateLiquidityTrapOutcomes === 'function'
+          ? evaluateLiquidityTrapOutcomes(spot, sym) : null;
+        renderLiquidityBehaviourPanel(liqEngine, trapValidationStats);
         ctx.liquidityBehaviour = liqEngine;
+        generateAndLogHypothesisIfDue(operatorIntel, rec && rec.data, spot, sym, ctx.liquidityInputs.trapSignal, ctx.strikeShift);
+        renderCurrentHypothesisBox(ctx.liquidityInputs.trapSignal, ctx.strikeShift);
+      } else {
+        generateAndLogHypothesisIfDue(operatorIntel, rec && rec.data, spot, sym, ctx.liquidityInputs ? ctx.liquidityInputs.trapSignal : null, ctx.strikeShift);
+        renderCurrentHypothesisBox(ctx.liquidityInputs ? ctx.liquidityInputs.trapSignal : null, ctx.strikeShift);
       }
       // Real, NEW this pass (Advanced Trading Intelligence spec §3/§16) -
       // cached to a window global, same real pattern as
@@ -17599,6 +17672,7 @@ function render(){
         (curCtx.ocRows||[]).reduce((s,d)=>s+((d.CE&&d.CE.changeinOpenInterest)||0)+((d.PE&&d.PE.changeinOpenInterest)||0),0),
         (curCtx.candles && curCtx.candles.length>1 && curCtx.candles[0].c>0) ? ((curCtx.spot-curCtx.candles[0].c)/curCtx.candles[0].c*100) : 0
       ) : null,
+      strikeShift: (curCtx && curCtx.strikeShift) ? curCtx.strikeShift : null,
       breakoutCondition: (curCtx && curCtx.candles) ? computeBreakoutReversalCondition(curCtx.candles, 20) : null,
       ivPercentile: (curCtx && curCtx.decay && typeof curCtx.decay.iv === 'number') ? computeIVPercentileRank(curCtx.decay.iv, getSnapshotHistory().filter(s=>typeof s.iv==='number')).percentile : null,
       execMode, // real, NEW this session - wires FM068 (Mode 1/theoretical honesty reminder)

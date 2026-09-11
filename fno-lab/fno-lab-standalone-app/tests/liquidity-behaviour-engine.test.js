@@ -16,7 +16,15 @@ assert.ok(/function computePathBetweenLevels/.test(engineSrc));
 assert.ok(/FNO_LIQUIDITY_TRAP_STATES/.test(engineSrc));
 assert.ok(/trapScoreLabel/.test(engineSrc));
 assert.ok(/probabilities/.test(engineSrc));
-assert.ok(/logLiquidityTrapObservation/.test(engineSrc));
+assert.ok(/evaluateLiquidityTrapOutcomes/.test(engineSrc));
+assert.ok(/computeLiquidityTrapValidationStats/.test(engineSrc));
+assert.ok(/computeMicrostructureAbsorptionBoost/.test(engineSrc));
+assert.ok(/inferLiquidityTrapExpectedDirection/.test(engineSrc));
+
+assert.ok(/fetchStrikeShiftForContext/.test(coreSrc));
+assert.ok(/fetchOIAccumulationHistory/.test(coreSrc));
+assert.ok(/check\('FM088'/.test(coreSrc));
+assert.ok(/evaluateLiquidityTrapOutcomes\(spot, sym\)/.test(coreSrc));
 assert.ok(/disproofs/.test(engineSrc));
 
 assert.ok(/computeLiquidityTrapEngine\(ctx, brain/.test(coreSrc));

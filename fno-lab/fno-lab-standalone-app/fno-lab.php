@@ -2,14 +2,14 @@
 /**
  * Plugin Name: F&O Lab - Standalone App - No Theme Needed
  * Description: Standalone F&O options research/paper-trading app for Indian index derivatives (NIFTY/BANKNIFTY/FINNIFTY). Activate plugin and yoursite.com/ IS the app - no theme, no shortcode needed for the app itself. Real 193-factor decision engine (never fabricates unavailable data), realistic paper trading (spread/slippage/costs/rejection simulation), a trained probability model, post-trade failure/correlation/regime analysis, an IV surface engine, and paper/live Kite Connect trading with explicit permission. A real Participant Payoff Hypothesis Engine (structured, falsifiable hypotheses tested against later price action, with a real historical track record feeding back into live confidence), real Dealer Gamma Exposure and Futures-Options/Multi-Instrument consistency checks, regime-conditional live confidence adjustment, a Six-Month Learning Objective progress dashboard, and a real, standalone Autonomous Driver (autonomous-driver/ folder) for genuinely unattended, browser-closed operation. Optional wp-admin settings page (Settings > F&O Lab Providers) for premium data providers, TrueData credentials, the companion tick daemon, the Autonomous Driver's secret/user attribution, and the raw observation store. Educational/research tool, not financial advice.
- * Version: 16.30.0
+ * Version: 16.30.1
  */
 
 if (!defined('ABSPATH')) exit;
 
 // WordPress reads * Version above for Plugins list; the app UI reads FNO_PLUGIN_VERSION.
 // Keep both identical — enforced by tests/plugin-version-sync.test.js
-define('FNO_PLUGIN_VERSION', '16.30.0');
+define('FNO_PLUGIN_VERSION', '16.30.1');
 
 // Only one plugin folder may be active — e.g. both fno-lab-standalone-app
 // AND fno-lab-standalone-app-v16.21.0 causes fatal "Cannot redeclare" errors.
@@ -6965,16 +6965,15 @@ add_action('wp_ajax_fno_get_oi_accumulation_history', 'fno_get_oi_accumulation_h
  * day, rather than averaging (which would blur a real intraday trend)
  * or taking the first tick (which wouldn't reflect the day's real
  * accumulated position).
- * Preconditions: admin only (same real gate as the sibling raw-ticks
- * summary endpoint); $_GET has real symbol/strike/optionType.
+ * Preconditions: logged-in user (read-only OI history from companion tick store); $_GET has real symbol/strike/optionType.
  * Postconditions: returns {history: [{date, oi}, ...]} sorted real
  * oldest-to-newest, or an honestly empty array if the companion
  * daemon has never captured real ticks for this exact strike (never
  * fabricated).
  */
 function fno_get_oi_accumulation_history_fn() {
-    if (!current_user_can('manage_options')) wp_send_json_error(['message' => 'Admin only'], 403);
-    check_ajax_referer('fno_standalone_nonce', 'nonce');
+    fno_verify_app_nonce();
+    if (!is_user_logged_in()) wp_send_json_error(['message' => 'Login required'], 401);
     // Real fix (server-side symbol-enum sweep): same fallback-on-
     // invalid-value treatment as this app's other index-only endpoints.
     $symbol = fno_validate_symbol($_GET['symbol'] ?? 'NIFTY') ?? 'NIFTY';
@@ -7036,8 +7035,8 @@ add_action('wp_ajax_fno_get_intraday_oi_history', 'fno_get_intraday_oi_history_f
  * each entry represents a day or a 15-minute bucket.
  */
 function fno_get_intraday_oi_history_fn() {
-    if (!current_user_can('manage_options')) wp_send_json_error(['message' => 'Admin only'], 403);
-    check_ajax_referer('fno_standalone_nonce', 'nonce');
+    fno_verify_app_nonce();
+    if (!is_user_logged_in()) wp_send_json_error(['message' => 'Login required'], 401);
     // Real fix (server-side symbol-enum sweep): same fallback-on-
     // invalid-value treatment as this app's other index-only endpoints.
     $symbol = fno_validate_symbol($_GET['symbol'] ?? 'NIFTY') ?? 'NIFTY';
