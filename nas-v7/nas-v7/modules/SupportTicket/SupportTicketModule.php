@@ -148,9 +148,11 @@ class TicketController {
         $args  = [$client_id];
         if ($status) { $where .= " AND status = %s"; $args[] = $status; }
 
-        $total   = (int) $db->row("SELECT COUNT(*) as c FROM {$db->t('support_tickets')} WHERE $where", $args)['c'];
-        $args[]  = $limit; $args[] = $offset;
-        $tickets = $db->select("SELECT * FROM {$db->t('support_tickets')} WHERE $where ORDER BY created_at DESC LIMIT %d OFFSET %d", $args);
+        $count_row = $db->row( "SELECT COUNT(*) as c FROM {$db->t('support_tickets')} WHERE $where", $args );
+        $total     = (int) ( $count_row['c'] ?? 0 );
+        $args[]    = $limit;
+        $args[]    = $offset;
+        $tickets   = $db->select( "SELECT * FROM {$db->t('support_tickets')} WHERE $where ORDER BY created_at DESC LIMIT %d OFFSET %d", $args );
 
         wp_send_json_success(['tickets' => $tickets, 'total' => $total, 'page' => $page]);
     }
