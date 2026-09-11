@@ -64,7 +64,7 @@ let fnoAutoTradeCloseInProgress = false;
  */
 const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
-const FNO_SETTINGS_SCHEMA_VERSION = 8; // v8 (16.30.4): clear stale threshold override when upgrading scalping users
+const FNO_SETTINGS_SCHEMA_VERSION = 9; // v9 (16.31.0): unified scalpingTradingMode ladder (6 entry modes)
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -98,7 +98,8 @@ const FNO_SETTINGS_DEFAULTS = {
   // bundle tuned for more scalp entries while keeping spread/FM/weighted-
   // score safety rails (never disables realistic execution or FM blocks).
   scalpingProfitProfileEnabled: true,
-  scalpingFmSafetyProfile: 'strict', // 'strict' (default, +1 FM escalation) | 'balanced' (no escalation bump)
+  scalpingFmSafetyProfile: 'strict', // legacy sync — use scalpingTradingMode for full profile
+  scalpingTradingMode: 'conservative', // conservative | balanced | relaxed | opportunity | aggressive_controlled | maximum_opportunity
   scalpingTrailingEnabled: true, // default ON with scalping profile — lock gains on fast moves
   scalpingPartialExitEnabled: true, // default ON — scale half at target, trail remainder
   // Enterprise trade alert system — fires ONLY on real paper-trade entry/exit execution.
@@ -224,16 +225,23 @@ function fnoThemePalette() {
 function checkScalpingCapitalPreservation(brain, ctx, opts) {
   opts = opts || {};
   if (!isScalpingProfitProfileActive()) return { allowed: true };
+  const mode = typeof getActiveTradingModeProfile === 'function' ? getActiveTradingModeProfile() : null;
+  const cp = mode && mode.capitalPreservation ? mode.capitalPreservation : null;
   const s = fnoSettings.get();
-  if (s.scalpingCapitalPreservationEnabled === false) return { allowed: true };
+  if (cp && cp.enabled === false) return { allowed: true };
+  if (!cp && s.scalpingCapitalPreservationEnabled === false) return { allowed: true };
   const reasons = [];
-  if (brain.confidence !== 'High') {
-    reasons.push(`Requires High confidence (current: ${brain.confidence || 'Low'})`);
+  const minConf = cp ? cp.minConfidence : 'High';
+  const confRank = c => c === 'High' ? 3 : (c === 'Medium' ? 2 : 1);
+  if (confRank(brain.confidence || 'Low') < confRank(minConf)) {
+    reasons.push(`Requires ${minConf} confidence (current: ${brain.confidence || 'Low'})`);
   }
-  if (brain.tradeTypeWeightingAdjustment) {
+  const blockWeighted = cp ? cp.blockWeightedScoreWait : true;
+  if (blockWeighted && brain.tradeTypeWeightingAdjustment) {
     reasons.push('Weighted-score safety active — setup downgraded from raw signal');
   }
-  if (brain.pretradeGateCheck) {
+  const blockTraps = cp ? cp.blockTrapWarnings !== false : true;
+  if (blockTraps && brain.pretradeGateCheck) {
     const fa = brain.pretradeGateCheck.finalAction;
     const ids = (brain.pretradeGateCheck.triggered || []).map(t => t.id);
     if (fa === 'block' || fa === 'reject') {
@@ -244,14 +252,18 @@ function checkScalpingCapitalPreservation(brain, ctx, opts) {
   }
   const journalToday = opts.journalToday || [];
   const lossCount = journalToday.filter(t => typeof t.pnl === 'number' && t.pnl < 0).length;
-  const maxLosses = (typeof s.maxLosingTradesPerDay === 'number') ? s.maxLosingTradesPerDay : 1;
+  const maxLosses = cp && typeof cp.maxLosingTradesPerDay === 'number'
+    ? cp.maxLosingTradesPerDay
+    : ((typeof s.maxLosingTradesPerDay === 'number') ? s.maxLosingTradesPerDay : 1);
   if (lossCount >= maxLosses) {
     reasons.push(`${lossCount} losing trade(s) today (cap ${maxLosses}) — no new entries until tomorrow`);
   }
   const todayPnL = ctx && ctx.todayPnL;
   const capital = (ctx && Number.isFinite(ctx.accountCurrentBalance)) ? ctx.accountCurrentBalance
     : ((ctx && Number.isFinite(ctx.accountAvailableCapital)) ? ctx.accountAvailableCapital : 100000);
-  const maxLossPct = (typeof s.maxDailyLossPctPreservation === 'number') ? s.maxDailyLossPctPreservation : 1.5;
+  const maxLossPct = cp && typeof cp.maxDailyLossPctPreservation === 'number'
+    ? cp.maxDailyLossPctPreservation
+    : ((typeof s.maxDailyLossPctPreservation === 'number') ? s.maxDailyLossPctPreservation : 1.5);
   if (Number.isFinite(todayPnL) && todayPnL <= -(capital * maxLossPct / 100)) {
     reasons.push(`Daily loss Rs${todayPnL.toFixed(0)} reached ${maxLossPct}% preservation limit`);
   }
@@ -332,6 +344,12 @@ function migrateTradingControlsSchema(stored) {
   if (schema < 8) {
     try { localStorage.removeItem('fno_threshold_override_v1'); } catch (e) { /* honest no-op */ }
   }
+  if (schema < 9) {
+    merged = {
+      ...merged,
+      scalpingTradingMode: merged.scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'conservative',
+    };
+  }
   try {
     localStorage.setItem(FNO_SETTINGS_SCHEMA_KEY, String(FNO_SETTINGS_SCHEMA_VERSION));
     localStorage.setItem(FNO_SETTINGS_KEY, JSON.stringify(merged));
@@ -353,6 +371,8 @@ const fnoSettings = {
         ...FNO_SETTINGS_DEFAULTS, ...stored,
         tradingTypes: { ...FNO_SETTINGS_DEFAULTS.tradingTypes, ...(stored.tradingTypes || {}) },
         scalpingFmSafetyProfile: stored.scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'strict',
+        scalpingTradingMode: (stored.scalpingTradingMode && typeof stored.scalpingTradingMode === 'string')
+          ? stored.scalpingTradingMode : (stored.scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'conservative'),
         defaultLots: Math.max(1, Math.round(stored.defaultLots != null ? stored.defaultLots : FNO_SETTINGS_DEFAULTS.defaultLots)),
       };
     } catch (e) { return { ...FNO_SETTINGS_DEFAULTS }; } // real, honest fallback - a genuinely corrupted stored value must never crash the whole app, just fall back to real, safe defaults
@@ -688,8 +708,8 @@ function isScalpingProfitProfileActive() {
 }
 
 function getEffectiveDecisionThresholds() {
-  if (isScalpingProfitProfileActive()) {
-    return { buyThreshold: FNO_SCALPING_PROFIT_PROFILE.buyThreshold, sellThreshold: FNO_SCALPING_PROFIT_PROFILE.sellThreshold, source: 'scalping_profit_profile' };
+  if (isScalpingProfitProfileActive() && typeof getModeEffectiveThresholds === 'function') {
+    return getModeEffectiveThresholds();
   }
   const override = getThresholdOverride();
   if (override) return { buyThreshold: override.buyThreshold, sellThreshold: override.sellThreshold, source: 'strategy_override' };
@@ -697,10 +717,17 @@ function getEffectiveDecisionThresholds() {
 }
 
 function getSimulateOrderRejectionOpts() {
-  return isScalpingProfitProfileActive() ? { scalpingProfitProfile: true } : null;
+  if (!isScalpingProfitProfileActive()) return null;
+  return {
+    scalpingProfitProfile: true,
+    spreadHardBlockPct: typeof getModeSpreadHardBlockPct === 'function' ? getModeSpreadHardBlockPct() : FNO_SCALPING_PROFIT_PROFILE.spreadHardBlockPct,
+  };
 }
 
 function applyScalpingProfitProfilePreset() {
+  if (typeof applyScalpingTradingModePreset === 'function') {
+    return applyScalpingTradingModePreset(resolveScalpingTradingMode());
+  }
   const cur = fnoSettings.get();
   try { localStorage.removeItem('fno_threshold_override_v1'); } catch (e) { /* honest no-op */ }
   fnoSettings.set({
@@ -755,8 +782,9 @@ function renderScalpingSessionReadiness(brain, ctx) {
   const sellGap = ds !== null ? ds - thresholds.sellThreshold : null;
   const leg = (ctx && ctx.ocRow) ? ((brain && brain.decision === 'SELL_READY') ? ctx.ocRow.PE : ctx.ocRow.CE) : null;
   const spread = leg ? checkSpreadLevel(leg) : { spreadPct: null };
+  const spreadBlockPct = typeof getModeSpreadHardBlockPct === 'function' ? getModeSpreadHardBlockPct() : FNO_SCALPING_PROFIT_PROFILE.spreadHardBlockPct;
   const spreadTxt = spread.spreadPct !== null
-    ? `${spread.spreadPct.toFixed(1)}% (blocks above ${FNO_SCALPING_PROFIT_PROFILE.spreadHardBlockPct}%)`
+    ? `${spread.spreadPct.toFixed(1)}% (blocks above ${spreadBlockPct}%)`
     : 'bid/ask unavailable';
   const timeCheck = checkSufficientTimeRemaining(ctx || {}, 'scalping');
   const timeTxt = timeCheck.sufficient
@@ -769,7 +797,9 @@ function renderScalpingSessionReadiness(brain, ctx) {
   } else if (brain && (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY') && brain.pretradeGateCheck) {
     gateTxt = brain.pretradeGateCheck.finalAction || 'none';
   }
-  const fmMode = fnoSettings.get().scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'strict';
+  const fmMode = typeof getActiveTradingModeProfile === 'function'
+    ? getActiveTradingModeProfile().shortLabel
+    : (fnoSettings.get().scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'strict');
   const weightSafety = brain && brain.tradeTypeWeightingAdjustment
     ? '⚠ weighted score failed — trade blocked for safety'
     : (wds !== null ? `weighted ${wds.toFixed(1)} OK` : 'weighted n/a');
@@ -782,15 +812,20 @@ function renderScalpingSessionReadiness(brain, ctx) {
     : 'Manual target/SL from form';
   const sym = (ctx && ctx.sym) || (document.getElementById('sym') && document.getElementById('sym').value) || 'NIFTY';
   const lotTxt = formatLotQtyLabel(sym, getLotCountFromUi());
-  const preserveTxt = fnoSettings.get().scalpingCapitalPreservationEnabled !== false
-    ? '🛡️ Capital preservation ON (High confidence, operator/trap blocks, 1 loss/day cap)'
-    : 'Capital preservation OFF';
+  const modeProfile = typeof getActiveTradingModeProfile === 'function' ? getActiveTradingModeProfile() : null;
+  const preserveTxt = modeProfile && modeProfile.capitalPreservation
+    ? `🛡️ Capital preservation ON (${modeProfile.capitalPreservation.minConfidence}+ confidence, trap blocks, ${modeProfile.capitalPreservation.maxLosingTradesPerDay} loss/day cap)`
+    : (fnoSettings.get().scalpingCapitalPreservationEnabled !== false
+      ? '🛡️ Capital preservation ON (High confidence, operator/trap blocks, 1 loss/day cap)'
+      : 'Capital preservation OFF');
+  const sizeMult = modeProfile && brain ? resolveModePositionSizeMultiplier(brain.confidence, modeProfile) : 1;
+  const sizeTxt = sizeMult < 1 ? `${lotTxt} (mode size ×${sizeMult})` : lotTxt;
   const decayPct = computeValueDecayCriticalPct(ctx || {});
   const decayPolicyTxt = decayPct !== null
     ? `Value Decay: ${decayPct.toFixed(1)}%/day of premium — hard NO_TRADE only if DTE ≤ ${FNO_SCALPING_PROFIT_PROFILE.valueDecayHardBlockMaxDays} or ≥ ${FNO_SCALPING_PROFIT_PROFILE.valueDecayExtremePct}% (scalping policy)`
     : 'Value Decay: premium unavailable — hard block skipped (decay still scored when data exists)';
   box.innerHTML = [
-    `<b style="color:${tp.warn}">⚡ Scalping Profit Profile</b> <span style="color:${tp.muted}">(FM ${fmMode}, realistic fills, ${bracketTxt})</span>`,
+    `<b style="color:${tp.warn}">⚡ Scalping Profit Profile</b> <span style="color:${tp.muted}">(Entry mode: ${escapeHtml(fmMode)}, realistic fills, ${bracketTxt})</span>`,
     `Live thresholds: BUY ≥ ${thresholds.buyThreshold}, SELL ≤ ${thresholds.sellThreshold}`,
     ds !== null
       ? `Directional ${ds.toFixed(1)} — ${buyGap > 0 ? `${buyGap.toFixed(1)} pts to BUY` : '✓ BUY zone'} · ${sellGap > 0 ? `${sellGap.toFixed(1)} pts to SELL` : '✓ SELL zone'}`
@@ -800,7 +835,7 @@ function renderScalpingSessionReadiness(brain, ctx) {
     `Session time: ${timeTxt}`,
     `Pre-trade gate: ${gateTxt}`,
     microTxt,
-    `Size: ${lotTxt}`,
+    `Size: ${sizeTxt}`,
     decayPolicyTxt,
     preserveTxt,
   ].map(line => `<div style="padding:3px 0;font-size:11px;color:${tp.text}">${line}</div>`).join('');
@@ -1177,8 +1212,13 @@ function applyTradeTypeWeightingAdjustmentToDecision(decision, confidence, reaso
     return { decision, confidence, reason, tradeTypeWeightingAdjustment: null };
   }
   const adjustmentReason = `Under ${tradingType}'s own real, documented category weighting, the directional score (${weightedDirectionalScore}) no longer crosses the ${decision === 'BUY_READY' ? `BUY threshold (${buyThreshold})` : `SELL threshold (${sellThreshold})`} that the unweighted score (${directionalScore}) crossed - the categories this trade type's own reasoning weights down are carrying more of the raw signal than the ones it weights up.`;
-  if (isScalpingProfitProfileActive() && tradingType === 'scalping') {
+  const modePolicy = (isScalpingProfitProfileActive() && tradingType === 'scalping' && typeof getActiveTradingModeProfile === 'function')
+    ? getActiveTradingModeProfile().weightedScorePolicy : 'block';
+  if (modePolicy === 'block' && isScalpingProfitProfileActive() && tradingType === 'scalping') {
     return { decision: 'WAIT', confidence, reason: `Scalping Profit Profile safety — ${adjustmentReason}`, tradeTypeWeightingAdjustment: adjustmentReason };
+  }
+  if (modePolicy === 'off') {
+    return { decision, confidence, reason, tradeTypeWeightingAdjustment: null };
   }
   let newDecision = decision, newConfidence = confidence, newReason = reason;
   if (confidence !== 'High') {
@@ -5507,7 +5547,8 @@ function simulateOrderRejection(leg, qty, side, opts) {
   if (!leg) return { rejected: false, reason: null, riskFactors: [] };
   const riskFactors = [];
   const restingQty = side === 'buy' ? leg.askQty : leg.bidQty;
-  const hardSpreadPct = opts.scalpingProfitProfile ? FNO_SCALPING_PROFIT_PROFILE.spreadHardBlockPct : 15;
+  const hardSpreadPct = opts.spreadHardBlockPct != null ? opts.spreadHardBlockPct
+    : (opts.scalpingProfitProfile ? FNO_SCALPING_PROFIT_PROFILE.spreadHardBlockPct : 15);
   // FIXED (critical/block NaN-safety audit): the old guards here were
   // `typeof x === 'number'`, which is TRUE for NaN. A corrupt/garbled
   // live quote (NaN bidprice/askPrice/restingQty/qty) would silently
@@ -10073,6 +10114,8 @@ function buildEntrySnapshot(brain, ctx, sym) {
     // refresh actually has." null symbol (sym not passed by an older
     // call site) honestly produces a null link, not a fabricated one.
     rawTickLink: sym ? { symbol: sym, rangeStartTs: snapshotTs - 5*60*1000, rangeEndTs: snapshotTs } : null,
+    modeAttribution: (typeof buildModeTradeAttribution === 'function') ? buildModeTradeAttribution(brain, ctx, {}) : null,
+    tradingMode: typeof resolveScalpingTradingMode === 'function' ? resolveScalpingTradingMode() : null,
   };
 }
 const FNO_STRATEGY_VERSION = 'v1.0-baseline'; // Master Prompt §34: every strategy change must create a new version and be stored on every trade this version influenced - bump this string (and log the change in PROJECT_STATUS.md) whenever evaluateBrain's decision logic, thresholds, or factor weights actually change
@@ -15233,8 +15276,14 @@ function render(){
     if (profileEl) profileEl.checked = !!s.scalpingProfitProfileEnabled;
     const profileStatus = document.getElementById('scalpingProfitProfileStatusLabel');
     if (profileStatus) profileStatus.textContent = s.scalpingProfitProfileEnabled ? 'ON' : 'OFF';
-    const fmSafetyEl = document.getElementById('settingScalpingFmSafety');
-    if (fmSafetyEl) fmSafetyEl.value = s.scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'strict';
+    const fmSafetyEl = document.getElementById('settingScalpingTradingMode');
+    if (fmSafetyEl) fmSafetyEl.value = (s.scalpingTradingMode && typeof s.scalpingTradingMode === 'string')
+      ? s.scalpingTradingMode : (s.scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'conservative');
+    const modeHint = document.getElementById('settingScalpingTradingModeHint');
+    if (modeHint && typeof getActiveTradingModeProfile === 'function') {
+      const mp = getActiveTradingModeProfile();
+      modeHint.textContent = mp ? mp.description + ' Hard stop-loss, daily-loss, spread, trap and liquidity protections never removed.' : modeHint.textContent;
+    }
     const preserveEl = document.getElementById('settingScalpingCapitalPreservation');
     if (preserveEl) preserveEl.checked = s.scalpingCapitalPreservationEnabled !== false;
     const preserveLbl = document.getElementById('scalpingCapitalPreservationStatusLabel');
@@ -15326,10 +15375,19 @@ function render(){
       }
     });
   }
-  const fmSafetySelect = document.getElementById('settingScalpingFmSafety');
-  if (fmSafetySelect) {
-    fmSafetySelect.addEventListener('change', (e) => {
-      fnoSettings.set({ scalpingFmSafetyProfile: e.target.value === 'balanced' ? 'balanced' : 'strict' });
+  const tradingModeSelect = document.getElementById('settingScalpingTradingMode');
+  if (tradingModeSelect) {
+    tradingModeSelect.addEventListener('change', (e) => {
+      if (typeof applyScalpingTradingModePreset === 'function') {
+        applyScalpingTradingModePreset(e.target.value);
+      } else {
+        fnoSettings.set({ scalpingTradingMode: e.target.value, scalpingFmSafetyProfile: e.target.value === 'balanced' ? 'balanced' : 'strict' });
+      }
+      loadSettingsIntoModal();
+      updateEffectiveTradingTypeBadge();
+      if (localStorage.getItem('fno_autonomous_mode_enabled') === 'true' && typeof stopAutonomousMode === 'function' && typeof startAutonomousMode === 'function') {
+        stopAutonomousMode(); startAutonomousMode();
+      }
     });
   }
   const preserveCheckbox = document.getElementById('settingScalpingCapitalPreservation');
@@ -16310,10 +16368,14 @@ function render(){
           buyThreshold: brain.buyThreshold,
           sellThreshold: brain.sellThreshold,
           scalpingProfile: isScalpingProfitProfileActive(),
+          tradingMode: typeof resolveScalpingTradingMode === 'function' ? resolveScalpingTradingMode() : null,
           tradeTypeTargetSlEnabled: fnoSettings.get().tradeTypeTargetSlEnabled,
         },
+        tradingMode: typeof resolveScalpingTradingMode === 'function' ? resolveScalpingTradingMode() : null,
+        modeAttribution: typeof buildModeTradeAttribution === 'function' ? buildModeTradeAttribution(brain, refreshCtx, {}) : null,
       });
       renderEligibilityFunnel(sym);
+      if (typeof renderModeComparisonDashboard === 'function') renderModeComparisonDashboard(sym);
       if (typeof renderStrategyDiagnosticPreview === 'function') {
         renderStrategyDiagnosticPreview(typeof getStrategyReportUiOptions === 'function'
           ? getStrategyReportUiOptions()
@@ -17501,6 +17563,22 @@ function render(){
       tradingType: open.tradingType || 'intraday', // real, honestly read back from the exact real position being closed, the same real, deliberate design as the partial-exit path above
     };
     await journalAdd(entry);
+    if (typeof logModeTradeClose === 'function') {
+      logModeTradeClose(open.id, open, {
+        ts: entry.ts,
+        sym,
+        exitPrice,
+        exitReason,
+        exitReasonLabel: actionLabel,
+        pnl: costs.netPnl,
+        entryPrice: open.entryPrice,
+        sl: open.sl,
+        target: open.target,
+        qty: open.qty,
+        failureModeCheck: open.failureModeCheck,
+        mfe: open.mfe,
+      });
+    }
     notifyTradeExecution({
       kind: 'exit',
       symbol: sym,
@@ -17708,6 +17786,13 @@ function render(){
     // exactly this function's pre-existing behavior.
     if (fnoSettings.get().tradeTypeSizingEnabled) {
       lotSize = computeTradeTypeSize(lotSize, timeSufficiencyType);
+    }
+    if (isScalpingProfitProfileActive() && timeSufficiencyType === 'scalping' && typeof resolveModeAdjustedLotCount === 'function' && lastBrain) {
+      const baseCount = qtyToLots(symForLot, lotSize);
+      const modeCount = resolveModeAdjustedLotCount(baseCount, lastBrain);
+      if (modeCount !== baseCount) {
+        lotSize = lotsToQty(symForLot, modeCount);
+      }
     }
     if (!curCtx || !curCtx.ocRow) { reportFn('No live option-chain data this refresh - cannot open an Auto Trade position without a real live premium.'); return { opened: false }; }
     const leg = optionType==='PE' ? curCtx.ocRow.PE : curCtx.ocRow.CE;
@@ -18009,7 +18094,16 @@ function render(){
     // refresh, never fabricated.
     const entrySpot = (curCtx && typeof curCtx.spot === 'number') ? curCtx.spot : null;
     const entryCandleTs = (curCtx && Array.isArray(curCtx.candles) && curCtx.candles.length) ? curCtx.candles[curCtx.candles.length - 1].t : null;
-    save(STORAGE.autoTrades, {id:Date.now(), strike, optionType, entryPrice:fill.price, fillIsRealistic:fill.isRealistic, executionMode:execMode, qty:filledLotSize, requestedQty: lotSize, fillIsPartial: partialFillInfo.isPartial, decisionTimePrice, entrySlippagePct: slippageCheck.slippagePct, target, sl, openedAt:Date.now(), entrySnapshot: entrySnapshotWithFailureCheck, trailingEnabled, trailingSl: sl, partialExitEnabled, partialTaken:false, mfe:fill.price, mae:fill.price, entryIV: (curCtx && curCtx.decay && curCtx.decay.snapshot && typeof curCtx.decay.snapshot.iv === 'number') ? curCtx.decay.snapshot.iv : null, failureModeCheck: fmResult, tradingType: effectiveTradingType, entrySpot, entryCandleTs});
+    const openTradeId = Date.now();
+    save(STORAGE.autoTrades, {id:openTradeId, strike, optionType, entryPrice:fill.price, fillIsRealistic:fill.isRealistic, executionMode:execMode, qty:filledLotSize, requestedQty: lotSize, fillIsPartial: partialFillInfo.isPartial, decisionTimePrice, entrySlippagePct: slippageCheck.slippagePct, target, sl, openedAt:Date.now(), entrySnapshot: entrySnapshotWithFailureCheck, trailingEnabled, trailingSl: sl, partialExitEnabled, partialTaken:false, mfe:fill.price, mae:fill.price, entryIV: (curCtx && curCtx.decay && curCtx.decay.snapshot && typeof curCtx.decay.snapshot.iv === 'number') ? curCtx.decay.snapshot.iv : null, failureModeCheck: fmResult, tradingType: effectiveTradingType, entrySpot, entryCandleTs});
+    if (typeof logModeTradeOpen === 'function' && lastBrain) {
+      logModeTradeOpen(openTradeId, lastBrain, curCtx, {
+        sym,
+        entry: { price: fill.price, qty: filledLotSize, strike, optionType, target, sl },
+        invalidation: sl,
+        risk: { sl, target, qty: filledLotSize },
+      });
+    }
 
     // Real, additive, server-side persistence for swing trades - the
     // user's own direct request. Deliberately does NOT change or

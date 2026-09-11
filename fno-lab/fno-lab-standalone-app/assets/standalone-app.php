@@ -226,6 +226,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
 [data-theme="light"] #ivSurfaceBox,
 [data-theme="light"] #aiNarrativeBox,
 [data-theme="light"] #eligibilityFunnelBox,
+[data-theme="light"] #modeComparisonDashboard,
 [data-theme="light"] #tradeTypeWeightingBox,
 [data-theme="light"] #currentHypothesisBox,
 [data-theme="light"] #dealerGammaBox,
@@ -324,13 +325,17 @@ body.fno-nse-disabled .nse-only-section{display:none}
         <span>% of capital</span>
       </div>
       <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px 8px 8px;flex-wrap:wrap">
-        <span>FM safety mode:</span>
-        <select id="settingScalpingFmSafety" class="input" style="width:160px">
-          <option value="strict">Strict (recommended)</option>
-          <option value="balanced">Balanced</option>
+        <span>Entry mode:</span>
+        <select id="settingScalpingTradingMode" class="input" style="width:100%;max-width:320px">
+          <option value="conservative">Mode 1 — Conservative / Current</option>
+          <option value="balanced">Mode 2 — Balanced</option>
+          <option value="relaxed">Mode 3 — Relaxed</option>
+          <option value="opportunity">Mode 4 — Opportunity</option>
+          <option value="aggressive_controlled">Mode 5 — Aggressive Controlled</option>
+          <option value="maximum_opportunity">Mode 6 — Maximum Opportunity (Experimental)</option>
         </select>
       </div>
-      <div style="font-size:10px;color:#64748b;margin-top:4px">Turning this ON also enables Scalping, disables Intraday, turns on trade-type target/SL, sets auto-calibration to 65% win-rate target, default 2 exchange lots, and uses thresholds BUY ≥8 / SELL ≤−13. Realistic execution stays ON — wide spreads still block. Capital preservation (ON by default) requires High confidence, blocks operator/trap warnings, stops after configurable daily losses — fewer trades, tighter filters; cannot eliminate all market risk. Strict FM mode keeps scalping-relevant failure checks escalated; Balanced skips the +1 severity bump only.</div>
+      <div id="settingScalpingTradingModeHint" style="font-size:10px;color:#64748b;margin-top:4px">Progression relaxes ENTRY willingness and uses confidence-based sizing — not bigger blind risk. Conservative and Balanced are unchanged from prior behavior. Hard stop-loss, daily-loss, spread, trap and liquidity protections never removed.</div>
     </div>
 
     <div style="margin-bottom:18px;padding:12px;background:#0f172a;border:1px solid #475569;border-radius:10px">
@@ -522,6 +527,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
         <div style="font-size:10px;color:#64748b;margin-bottom:8px">While ON, this tab automatically re-runs the full observe-analyse-decide-monitor-exit cycle every 15 seconds (Scalping) or 60 seconds (Intraday) during real NSE market hours (9:15am-3:30pm IST, Mon-Fri) - no manual clicking needed. Honest limit: this only runs while this browser tab stays open; closing it pauses everything until you return.</div>
         <div id="scalpingSessionReadinessBox" style="display:none;margin-bottom:10px;padding:10px;background:#422006;border:1px solid #92400e;border-radius:10px"></div>
         <div id="eligibilityFunnelBox" style="margin-bottom:10px;padding:10px;background:#0c1a2e;border:1px solid #1e3a5f;border-radius:10px;font-size:11px;color:#94a3b8">Loading eligibility funnel...</div>
+        <div id="modeComparisonDashboard" style="display:none;margin-bottom:10px;padding:10px;background:#0f172a;border:1px solid #334155;border-radius:10px;font-size:11px;color:#94a3b8">Mode comparison dashboard loads when Scalping Profit Profile is ON.</div>
         <div id="brainDecision" style="font-size:18px;font-weight:800;padding:12px;border-radius:12px;background:#020617;text-align:center">Loading brain...</div>
         <div id="decisionTierBadge" style="font-size:14px;font-weight:700;padding:8px;border-radius:8px;background:#020617;text-align:center;margin-top:6px"></div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px">
@@ -923,6 +929,9 @@ window.FNO_FACTORS_CATALOG = <?php echo $json ? wp_json_encode($json) : '[]'; ?>
 
 <script>
 <?php include __DIR__ . '/greeks-engine.js'; ?>
+</script>
+<script>
+<?php include __DIR__ . '/trading-modes-engine.js'; ?>
 </script>
 <script type="module">
 <?php include __DIR__ . '/fno-lab-core.js'; ?>
