@@ -55,6 +55,7 @@ $is_active = function ( string $key ) use ( $active, $nav_items ): bool {
     return false;
 };
 ?>
+<a href="#nas-main-content" class="nas-skip-link">Skip to main content</a>
 <div class="nhp-topbar">
   <div class="nhp-container nhp-topbar__inner">
     <div class="nhp-topbar__contacts">
@@ -80,7 +81,7 @@ $is_active = function ( string $key ) use ( $active, $nav_items ): bool {
 
 <header class="nhp-header nhp-header--light" id="nhp-header">
   <div class="nhp-container nhp-header__inner">
-    <button class="nhp-header__menu-btn" id="nhp-menu-btn" type="button" aria-label="Open menu"><i class="fa-solid fa-bars"></i></button>
+    <button class="nhp-header__menu-btn" id="nhp-menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nhp-mobile-nav"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
     <a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="nhp-header__brand">
       <?php if ( $logo ) : ?>
         <img src="<?php echo esc_url( $logo ); ?>" alt="<?php echo esc_attr( $brand ); ?>" class="nhp-header__logo-img">
@@ -107,7 +108,7 @@ $is_active = function ( string $key ) use ( $active, $nav_items ): bool {
   </div>
 </header>
 
-<div class="nhp-mobile-nav" id="nhp-mobile-nav" aria-hidden="true">
+<div class="nhp-mobile-nav" id="nhp-mobile-nav" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Mobile navigation">
   <div class="nhp-mobile-nav__panel">
     <button class="nhp-mobile-nav__close" id="nhp-mobile-close" type="button" aria-label="Close menu"><i class="fa-solid fa-xmark"></i></button>
     <?php

@@ -225,6 +225,7 @@ $invoice_url  = $booking ? get_permalink() ?: home_url('/') . '?action=nas_downl
   </div>
 
   <?php
+  nas_portal_block_testimonials( 'Join Thousands of Satisfied Advertisers', 'See why businesses and families trust us for newspaper advertising across India.', 3 );
   nas_portal_block_advantages();
   nas_portal_block_quick_links();
   nas_portal_block_cta( 'Need Help With Your Booking?', 'Our support team is available to assist with ad formatting, payment queries, and publication tracking.' );

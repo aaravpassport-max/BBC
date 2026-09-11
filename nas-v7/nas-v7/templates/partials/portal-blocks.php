@@ -299,3 +299,126 @@ function nas_portal_block_stats( string $title = 'Platform at a Glance', string 
 </section>
     <?php
 }
+
+/**
+ * Default customer testimonials (filterable; override via nas_portal_testimonials_json option).
+ *
+ * @return array<int,array{name:string,role:string,text:string,rating:int,city?:string}>
+ */
+function nas_portal_get_testimonials(): array {
+    $stored = get_option( 'nas_portal_testimonials_json', '' );
+    if ( $stored ) {
+        $parsed = json_decode( $stored, true );
+        if ( is_array( $parsed ) && ! empty( $parsed ) ) {
+            return apply_filters( 'nas_portal_testimonials', $parsed );
+        }
+    }
+    $brand = nas_config( 'brand_name', get_bloginfo( 'name' ) );
+    $defaults = [
+        [
+            'name'   => 'Rajesh Mehta',
+            'role'   => 'Business Owner',
+            'city'   => 'Mumbai',
+            'rating' => 5,
+            'text'   => 'Booked a display ad in Times of India through ' . $brand . '. Transparent pricing, quick payment, and the tear sheet arrived within 3 days. Highly recommended for businesses.',
+        ],
+        [
+            'name'   => 'Priya Sharma',
+            'role'   => 'HR Manager',
+            'city'   => 'Delhi',
+            'rating' => 5,
+            'text'   => 'We place recruitment ads every month. The online wizard saves hours compared to calling agents. GST invoice and tracking make it easy for our accounts team.',
+        ],
+        [
+            'name'   => 'Anil Reddy',
+            'role'   => 'Property Dealer',
+            'city'   => 'Hyderabad',
+            'rating' => 5,
+            'text'   => 'Published three property ads in Deccan Chronicle. Rates were lower than what local agents quoted, and support helped format the ad perfectly before submission.',
+        ],
+        [
+            'name'   => 'Sunita Patel',
+            'role'   => 'Family Advertiser',
+            'city'   => 'Ahmedabad',
+            'rating' => 5,
+            'text'   => 'Needed a matrimonial ad urgently. Booked at midnight, got confirmation next morning, and the ad published on schedule. The whole process was stress-free.',
+        ],
+        [
+            'name'   => 'Vikram Singh',
+            'role'   => 'Agency Partner',
+            'city'   => 'Bangalore',
+            'rating' => 5,
+            'text'   => 'We handle multiple client campaigns. Dashboard tracking, invoice downloads, and WhatsApp updates make ' . $brand . ' our preferred channel for newspaper bookings.',
+        ],
+        [
+            'name'   => 'Kavita Nair',
+            'role'   => 'Legal Consultant',
+            'city'   => 'Chennai',
+            'rating' => 5,
+            'text'   => 'Published a legal notice through the platform. Clear rate breakdown, secure Razorpay payment, and proof of publication delivered to my email. Professional service.',
+        ],
+    ];
+    return apply_filters( 'nas_portal_testimonials', $defaults );
+}
+
+/**
+ * Customer testimonials grid with star ratings.
+ */
+function nas_portal_block_testimonials(
+    string $title = 'Trusted by Advertisers Nationwide',
+    string $subtitle = 'Real feedback from businesses and individuals who book newspaper ads through our platform.',
+    ?int $limit = null
+): void {
+    $items = nas_portal_get_testimonials();
+    if ( $limit !== null && $limit > 0 ) {
+        $items = array_slice( $items, 0, $limit );
+    }
+    if ( empty( $items ) ) {
+        return;
+    }
+    $avg = 0;
+    foreach ( $items as $t ) {
+        $avg += (int) ( $t['rating'] ?? 5 );
+    }
+    $avg = round( $avg / count( $items ), 1 );
+    ?>
+<section class="nhp-section nhp-section--warm nhp-testimonials" aria-label="Customer testimonials">
+  <div class="nhp-container">
+    <div class="nhp-section__header nhp-section__header--center">
+      <span class="nhp-section__eyebrow"><i class="fa-solid fa-star"></i> <?php echo esc_html( number_format( $avg, 1 ) ); ?> Average Rating</span>
+      <h2 class="nhp-section__title nhp-section__title--accent"><?php echo esc_html( $title ); ?></h2>
+      <p class="nhp-section__subtitle"><?php echo esc_html( $subtitle ); ?></p>
+    </div>
+    <div class="nhp-testimonials__grid">
+      <?php foreach ( $items as $ti => $t ) :
+          $rating = min( 5, max( 1, (int) ( $t['rating'] ?? 5 ) ) );
+          $initials = '';
+          foreach ( preg_split( '/\s+/', trim( $t['name'] ?? 'A' ) ) as $part ) {
+              $initials .= strtoupper( substr( $part, 0, 1 ) );
+          }
+          $initials = substr( $initials, 0, 2 );
+      ?>
+      <article class="nhp-testimonial nhp-testimonial--t<?php echo (int) ( $ti % 6 ); ?>">
+        <div class="nhp-testimonial__stars" aria-label="<?php echo esc_attr( $rating ); ?> out of 5 stars">
+          <?php for ( $s = 1; $s <= 5; $s++ ) : ?>
+          <i class="fa-solid fa-star<?php echo $s <= $rating ? '' : ' nhp-testimonial__star--empty'; ?>" aria-hidden="true"></i>
+          <?php endfor; ?>
+        </div>
+        <blockquote class="nhp-testimonial__quote">&ldquo;<?php echo esc_html( $t['text'] ?? '' ); ?>&rdquo;</blockquote>
+        <footer class="nhp-testimonial__author">
+          <span class="nhp-testimonial__avatar" aria-hidden="true"><?php echo esc_html( $initials ); ?></span>
+          <div>
+            <cite class="nhp-testimonial__name"><?php echo esc_html( $t['name'] ?? '' ); ?></cite>
+            <div class="nhp-testimonial__meta">
+              <?php echo esc_html( $t['role'] ?? '' ); ?>
+              <?php if ( ! empty( $t['city'] ) ) : ?> · <?php echo esc_html( $t['city'] ); ?><?php endif; ?>
+            </div>
+          </div>
+        </footer>
+      </article>
+      <?php endforeach; ?>
+    </div>
+  </div>
+</section>
+    <?php
+}

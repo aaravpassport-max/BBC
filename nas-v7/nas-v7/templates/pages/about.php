@@ -72,6 +72,8 @@ $tagline     = nas_config( 'brand_tagline', 'Book Newspaper Ads Online — Fast,
 
   <?php nas_portal_block_advantages(); ?>
 
+  <?php nas_portal_block_testimonials( 'Trusted by Advertisers Like You', 'Hear from businesses and families who book newspaper ads through our platform every day.' ); ?>
+
   <?php
   nas_portal_block_faq( [
       [ 'Who is ' . $brand . '?', esc_html( $brand ) . ' is an online newspaper ad booking platform that connects advertisers with verified publications across India. We handle rate quotes, payment, submission to newspapers, and tracking until your ad is published.' ],

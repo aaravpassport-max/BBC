@@ -91,8 +91,10 @@ $top_cities = $db->select(
         <h4>Support</h4>
         <ul>
           <li><a href="<?php echo esc_url( $booking_url ); ?>">Book an Ad</a></li>
+          <li><a href="<?php echo esc_url( home_url( '/pricing/' ) ); ?>">Pricing</a></li>
           <li><a href="<?php echo esc_url( $track_url ); ?>">Track Order</a></li>
           <li><a href="<?php echo esc_url( $faq_url ); ?>">FAQ</a></li>
+          <li><a href="<?php echo esc_url( home_url( '/support/' ) ); ?>">Support</a></li>
           <li><a href="<?php echo esc_url( $contact_url ); ?>">Contact Us</a></li>
           <li><a href="<?php echo esc_url( home_url( '/about/' ) ); ?>">About Us</a></li>
         </ul>

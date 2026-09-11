@@ -17,11 +17,28 @@
   var mobileNav = qs('#nhp-mobile-nav');
   var closeBtn = qs('#nhp-mobile-close');
 
+  function openMobileNav() {
+    if (!mobileNav || !menuBtn) return;
+    mobileNav.classList.add('is-open');
+    mobileNav.setAttribute('aria-hidden', 'false');
+    menuBtn.setAttribute('aria-expanded', 'true');
+    document.body.style.overflow = 'hidden';
+    if (closeBtn) closeBtn.focus();
+  }
+
+  function closeMobileNav() {
+    if (!mobileNav) return;
+    mobileNav.classList.remove('is-open');
+    mobileNav.setAttribute('aria-hidden', 'true');
+    if (menuBtn) {
+      menuBtn.setAttribute('aria-expanded', 'false');
+      menuBtn.focus();
+    }
+    document.body.style.overflow = '';
+  }
+
   if (menuBtn && mobileNav) {
-    menuBtn.addEventListener('click', function () {
-      mobileNav.classList.add('is-open');
-      document.body.style.overflow = 'hidden';
-    });
+    menuBtn.addEventListener('click', openMobileNav);
   }
 
   if (closeBtn && mobileNav) {
@@ -29,13 +46,20 @@
     mobileNav.addEventListener('click', function (e) {
       if (e.target === mobileNav) closeMobileNav();
     });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && mobileNav.classList.contains('is-open')) closeMobileNav();
+    });
   }
 
-  function closeMobileNav() {
-    if (mobileNav) {
-      mobileNav.classList.remove('is-open');
-      document.body.style.overflow = '';
-    }
+  /* Skip link — move focus to main content */
+  var skipLink = qs('.nas-skip-link');
+  var mainEl = qs('#nas-main-content');
+  if (skipLink && mainEl) {
+    skipLink.addEventListener('click', function (e) {
+      e.preventDefault();
+      mainEl.focus({ preventScroll: false });
+      mainEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
   }
 
   /* Quick book form */

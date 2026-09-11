@@ -141,6 +141,7 @@ if ( $nhp_embed ) {
 }
 ?>
 
+<a href="#nas-main-content" class="nas-skip-link">Skip to main content</a>
 <!-- Top utility bar (trust + contact — inspired by leading ad-booking portals) -->
 <div class="nhp-topbar">
   <div class="nhp-container nhp-topbar__inner">
@@ -168,7 +169,7 @@ if ( $nhp_embed ) {
 <!-- Main header -->
 <header class="nhp-header nhp-header--light">
   <div class="nhp-container nhp-header__inner">
-    <button class="nhp-header__menu-btn" id="nhp-menu-btn" aria-label="Open menu"><i class="fa-solid fa-bars"></i></button>
+    <button class="nhp-header__menu-btn" id="nhp-menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="nhp-mobile-nav"><i class="fa-solid fa-bars" aria-hidden="true"></i></button>
     <a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="nhp-header__brand">
       <?php if ( $logo ) : ?>
         <img src="<?php echo esc_url( $logo ); ?>" alt="<?php echo esc_attr( $brand ); ?>" class="nhp-header__logo-img">
@@ -195,7 +196,7 @@ if ( $nhp_embed ) {
 </header>
 
 <!-- Mobile nav -->
-<div class="nhp-mobile-nav" id="nhp-mobile-nav">
+<div class="nhp-mobile-nav" id="nhp-mobile-nav" aria-hidden="true" role="dialog" aria-modal="true" aria-label="Mobile navigation">
   <div class="nhp-mobile-nav__panel">
     <button class="nhp-mobile-nav__close" id="nhp-mobile-close" aria-label="Close menu"><i class="fa-solid fa-xmark"></i></button>
     <?php
@@ -214,6 +215,8 @@ if ( $nhp_embed ) {
     <a href="<?php echo esc_url( $booking_url ); ?>" class="nhp-btn nhp-btn--primary nhp-btn--block" style="margin-top:16px">Check Ad Rates</a>
   </div>
 </div>
+
+<main id="nas-main-content" class="nas-main-content" tabindex="-1">
 
 <!-- Hero + Booking -->
 <section class="nhp-hero" id="book">
@@ -718,6 +721,10 @@ if ( $nhp_embed ) {
   </div>
 </section>
 
+<?php if ( function_exists( 'nas_portal_block_testimonials' ) ) : ?>
+<?php nas_portal_block_testimonials( 'What Our Customers Say', 'Businesses and families across India trust us for reliable, transparent newspaper advertising.' ); ?>
+<?php endif; ?>
+
 <!-- FAQ -->
 <?php if ( $faqs ) : ?>
 <section class="nhp-section nhp-section--faq" id="faq">
@@ -778,6 +785,8 @@ if ( $nhp_embed ) {
     </div>
   </div>
 </section>
+
+</main>
 
 <!-- Payment & security trust -->
 <section class="nhp-payments">

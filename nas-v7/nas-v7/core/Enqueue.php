@@ -207,6 +207,15 @@ class Enqueue {
         return self::is_nas_page();
     }
 
+    /** City listing pages that need legacy nas-city-pages.css */
+    public static function needs_city_pages_css(): bool {
+        if ( get_query_var( 'nas_city_page' ) || get_query_var( 'nas_city_slug' ) ) {
+            return true;
+        }
+        $slug = function_exists( 'nas_portal_current_slug' ) ? nas_portal_current_slug() : '';
+        return in_array( $slug, [ 'newspaper-ads', 'cities' ], true );
+    }
+
     // Cache-busts a specific asset by file modified time, falling back to
     // NAS_VERSION if the file can't be read (e.g. path issue) so enqueuing
     // never breaks — just won't auto-bust in that edge case.
@@ -276,9 +285,12 @@ class Enqueue {
         wp_enqueue_script( 'nas-core', $a . 'js/nas-core.js', [ 'jquery' ], self::asset_ver( 'js/nas-core.js' ), true );
 
         // Public marketing pages: homepage header/footer styles only — no dashboard CSS war
+        // CSS budget target: nas-core + nas-portal + nas-homepage ≈ 150KB uncompressed (< 200KB)
         if ( self::is_nas_public_portal_page() ) {
             wp_enqueue_style( 'nas-homepage', $a . 'css/nas-homepage.css', [ 'nas-core', 'nas-portal' ], self::asset_ver( 'css/nas-homepage.css' ) );
-            wp_enqueue_style( 'nas-city-pages', $a . 'css/nas-city-pages.css', [ 'nas-core' ], self::asset_ver( 'css/nas-city-pages.css' ) );
+            if ( self::needs_city_pages_css() ) {
+                wp_enqueue_style( 'nas-city-pages', $a . 'css/nas-city-pages.css', [ 'nas-core' ], self::asset_ver( 'css/nas-city-pages.css' ) );
+            }
             wp_enqueue_script( 'nas-homepage', $a . 'js/nas-homepage.js', [ 'nas-core' ], self::asset_ver( 'js/nas-homepage.js' ), true );
             wp_localize_script( 'nas-core', 'NAS', self::js_vars() );
             return;

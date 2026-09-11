@@ -128,6 +128,8 @@ $categories  = $db->select( "SELECT name, icon, description FROM `{$db->t('categ
 
   <?php nas_portal_block_advantages(); ?>
 
+  <?php nas_portal_block_testimonials( 'Why Advertisers Choose Us', 'Transparent rates and reliable publication — see what customers say about booking with us.', 3 ); ?>
+
   <?php
   nas_portal_block_faq( [
       [ 'Are the prices on this page final?', 'These are base rates. Final price depends on the specific newspaper, city, edition, ad size, and word count. Use our <a href="' . esc_url( $booking_url ) . '">booking wizard</a> for an exact quote.' ],

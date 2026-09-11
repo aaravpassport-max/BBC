@@ -87,9 +87,11 @@ body.nas-public-portal{background:#fff;}
 <?php
 if ( $nas_use_shell ) {
     nas_portal_shell_open( $nas_portal_slug );
+    echo '<main id="nas-main-content" class="nas-main-content" tabindex="-1">';
 }
 echo $nas_content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
 if ( $nas_use_shell ) {
+    echo '</main>';
     nas_portal_shell_close();
 }
 ?>
