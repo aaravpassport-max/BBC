@@ -43,10 +43,12 @@ $is_logged_in = is_user_logged_in();
 :root{
   --bg:#020617; --text:#e2e8f0; --header-bg:rgba(2,6,23,0.95); --border:#1e293b;
   --card-bg:#0e152a; --card-subtitle:#94a3b8; --input-bg:#020617; --input-border:#334155; --input-text:#fff;
+  --panel-bg:#020617; --panel-bg-elevated:#0e152a; --panel-bg-info:#0c1a2e; --muted-text:#94a3b8; --muted-text-2:#64748b; --line-subtle:#1e293b;
 }
 [data-theme="light"]{
   --bg:#f8fafc; --text:#0f172a; --header-bg:rgba(255,255,255,0.95); --border:#cbd5e1;
   --card-bg:#ffffff; --card-subtitle:#475569; --input-bg:#f1f5f9; --input-border:#94a3b8; --input-text:#0f172a;
+  --panel-bg:#f1f5f9; --panel-bg-elevated:#e2e8f0; --panel-bg-info:#eff6ff; --muted-text:#475569; --muted-text-2:#64748b; --line-subtle:#cbd5e1;
 }
 body{font-family:Inter,system-ui,-apple-system;background:var(--bg);color:var(--text);min-height:100vh}
 @keyframes fnoTradeAlertPulse{0%{transform:translateX(-50%) scale(0.92);opacity:0.4}100%{transform:translateX(-50%) scale(1);opacity:1}}
@@ -112,6 +114,93 @@ input:checked + .slider:before{transform:translateX(24px)}
    already, which is the more accurate, honest treatment for a partial
    dependency. */
 body.fno-nse-disabled .nse-only-section{display:none}
+/* Light mode readability — most panels/factors are rendered with dark-theme inline
+   hex colors from JS. Remap neutral dark surfaces + muted text here so inherited
+   body text and hardcoded #94a3b8/#64748b/#e2e8f0 labels stay readable. Semantic
+   pass/fail/warning colors (green/red/amber badges, BUY/SELL decision states) are
+   left untouched. */
+[data-theme="light"] #settingsModalOverlay > div{
+  background:var(--card-bg)!important;border-color:var(--border)!important;color:var(--text)!important;
+}
+[data-theme="light"] #fno-root [style*="background:#020617"],
+[data-theme="light"] #fno-root [style*="background: #020617"],
+[data-theme="light"] #settingsModalOverlay [style*="background:#020617"],
+[data-theme="light"] #settingsModalOverlay [style*="background: #020617"],
+[data-theme="light"] #fno-root [style*="background:#0e152a"],
+[data-theme="light"] #fno-root [style*="background: #0e152a"],
+[data-theme="light"] #settingsModalOverlay [style*="background:#0e152a"],
+[data-theme="light"] #settingsModalOverlay [style*="background: #0e152a"],
+[data-theme="light"] #fno-root [style*="background:#0f172a"],
+[data-theme="light"] #fno-root [style*="background: #0f172a"]{
+  background:var(--panel-bg)!important;border-color:var(--line-subtle)!important;color:var(--text)!important;
+}
+[data-theme="light"] #fno-root [style*="background:#0c1a2e"],
+[data-theme="light"] #fno-root [style*="background: #0c1a2e"],
+[data-theme="light"] #settingsModalOverlay [style*="background:#0c1a2e"]{
+  background:var(--panel-bg-info)!important;border-color:#93c5fd!important;color:var(--text)!important;
+}
+[data-theme="light"] #fno-root [style*="color:#94a3b8"],
+[data-theme="light"] #fno-root [style*="color: #94a3b8"],
+[data-theme="light"] #settingsModalOverlay [style*="color:#94a3b8"],
+[data-theme="light"] #settingsModalOverlay [style*="color: #94a3b8"],
+[data-theme="light"] #fno-root [style*="color:#64748b"],
+[data-theme="light"] #fno-root [style*="color: #64748b"],
+[data-theme="light"] #settingsModalOverlay [style*="color:#64748b"],
+[data-theme="light"] #settingsModalOverlay [style*="color: #64748b"],
+[data-theme="light"] .header [style*="color:#94a3b8"],
+[data-theme="light"] .header [style*="color: #94a3b8"]{
+  color:var(--muted-text)!important;
+}
+[data-theme="light"] #fno-root [style*="color:#e2e8f0"],
+[data-theme="light"] #fno-root [style*="color: #e2e8f0"],
+[data-theme="light"] #settingsModalOverlay [style*="color:#e2e8f0"],
+[data-theme="light"] #settingsModalOverlay [style*="color: #e2e8f0"]{
+  color:var(--text)!important;
+}
+[data-theme="light"] .header [style*="background:#0e152a"],
+[data-theme="light"] .header [style*="background: #0e152a"],
+[data-theme="light"] #dataSourceBadge[style*="background:#0e152a"]{
+  background:var(--panel-bg)!important;border-color:var(--border)!important;
+}
+[data-theme="light"] #fno-root [style*="border:1px solid #1e293b"],
+[data-theme="light"] #fno-root [style*="border:1px solid #111827"],
+[data-theme="light"] #fno-root [style*="border-bottom:1px solid #111827"],
+[data-theme="light"] #fno-root [style*="border-bottom:1px solid #1e293b"],
+[data-theme="light"] #settingsModalOverlay [style*="border:1px solid #1e293b"],
+[data-theme="light"] #factorsList[style*="border:1px solid #1e293b"]{
+  border-color:var(--line-subtle)!important;
+}
+[data-theme="light"] #fno-root [style*="background:#1e293b"][style*="border-radius:4px"],
+[data-theme="light"] #fno-root [style*="background:#1e293b"][style*="height:6px"]{
+  background:var(--panel-bg-elevated)!important;
+}
+[data-theme="light"] #settingsModalOverlay input[style*="background:#020617"],
+[data-theme="light"] #settingsModalOverlay select[style*="background:#020617"],
+[data-theme="light"] #fno-root input[style*="background:#020617"],
+[data-theme="light"] #fno-root select[style*="background:#020617"]{
+  background:var(--input-bg)!important;border-color:var(--input-border)!important;color:var(--input-text)!important;
+}
+[data-theme="light"] .bracket-preset-btn[style*="background:#020617"]{
+  background:var(--panel-bg)!important;color:var(--text)!important;border-color:var(--input-border)!important;
+}
+[data-theme="light"] .badge[style*="background:#334155"]{
+  background:var(--panel-bg-elevated)!important;color:var(--muted-text)!important;border:1px solid var(--line-subtle)!important;
+}
+[data-theme="light"] .green{background:#dcfce7;color:#166534;border-color:#86efac}
+[data-theme="light"] .red{background:#fee2e2;color:#991b1b;border-color:#fca5a5}
+[data-theme="light"] .yellow{background:#fef3c7;color:#92400e;border-color:#fcd34d}
+[data-theme="light"] .blue{background:#dbeafe;color:#1e40af;border-color:#93c5fd}
+[data-theme="light"] #fnoTradeAlertCard{background:#fff!important;color:var(--text)!important;box-shadow:0 12px 40px rgba(15,23,42,0.18)!important}
+[data-theme="light"] #brainDecision[style*="background:#020617"],
+[data-theme="light"] #decisionTierBadge[style*="background:#020617"]{
+  background:var(--panel-bg)!important;color:var(--text)!important;
+}
+[data-theme="light"] #fno-root b,
+[data-theme="light"] #settingsModalOverlay b,
+[data-theme="light"] #fno-root strong,
+[data-theme="light"] #settingsModalOverlay strong{
+  color:var(--text);
+}
 </style>
 </head>
 <body>
