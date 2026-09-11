@@ -43,6 +43,9 @@ $newspapers = $db->select(
     "SELECT id, name, slug, language, logo_url, base_rate_classified, min_charge, editions, circulation, sort_order
      FROM {$db->t('newspapers')} WHERE is_active=1 ORDER BY sort_order ASC, name ASC LIMIT 12"
 );
+$logo_strip = $db->select(
+    "SELECT id, name, logo_url, slug FROM {$db->t('newspapers')} WHERE is_active=1 ORDER BY sort_order ASC, name ASC LIMIT 18"
+);
 $faqs = $db->select( "SELECT question, answer FROM {$db->t('faqs')} WHERE is_active=1 ORDER BY sort_order ASC LIMIT 10" );
 
 $booking_url = nas_get_page_url( 'nas_page_booking', '/book-newspaper-ad/' );
@@ -138,31 +141,55 @@ if ( $nhp_embed ) {
 }
 ?>
 
-<!-- Header -->
-<header class="nhp-header">
+<!-- Top utility bar (trust + contact — inspired by leading ad-booking portals) -->
+<div class="nhp-topbar">
+  <div class="nhp-container nhp-topbar__inner">
+    <div class="nhp-topbar__contacts">
+      <?php if ( $phone ) : ?>
+      <a href="tel:<?php echo esc_attr( preg_replace( '/[^0-9+]/', '', $phone ) ); ?>" class="nhp-topbar__item">
+        <i class="fa-solid fa-phone"></i> <?php echo esc_html( $phone ); ?>
+      </a>
+      <?php endif; ?>
+      <?php if ( $email ) : ?>
+      <a href="mailto:<?php echo esc_attr( $email ); ?>" class="nhp-topbar__item">
+        <i class="fa-solid fa-envelope"></i> <?php echo esc_html( $email ); ?>
+      </a>
+      <?php endif; ?>
+    </div>
+    <div class="nhp-topbar__actions">
+      <a href="<?php echo esc_url( $track_url ); ?>" class="nhp-topbar__item"><i class="fa-solid fa-location-crosshairs"></i> Track Order</a>
+      <?php if ( $walink ) : ?>
+      <a href="<?php echo esc_url( $walink ); ?>" class="nhp-topbar__item nhp-topbar__wa" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> WhatsApp</a>
+      <?php endif; ?>
+    </div>
+  </div>
+</div>
+
+<!-- Main header -->
+<header class="nhp-header nhp-header--light">
   <div class="nhp-container nhp-header__inner">
+    <button class="nhp-header__menu-btn" id="nhp-menu-btn" aria-label="Open menu"><i class="fa-solid fa-bars"></i></button>
     <a href="<?php echo esc_url( home_url( '/' ) ); ?>" class="nhp-header__brand">
       <?php if ( $logo ) : ?>
         <img src="<?php echo esc_url( $logo ); ?>" alt="<?php echo esc_attr( $brand ); ?>" class="nhp-header__logo-img">
       <?php else : ?>
-        <span class="nhp-header__logo-text"><i class="fa-solid fa-newspaper"></i> <?php echo esc_html( $brand ); ?></span>
+        <span class="nhp-header__logo-text"><?php echo esc_html( $brand ); ?></span>
       <?php endif; ?>
     </a>
     <nav class="nhp-header__nav" aria-label="Main navigation">
       <a class="nhp-header__link is-active" href="<?php echo esc_url( home_url( '/' ) ); ?>">Home</a>
       <a class="nhp-header__link" href="<?php echo esc_url( $papers_url ); ?>">Newspapers</a>
+      <a class="nhp-header__link" href="<?php echo esc_url( home_url( '/cities/' ) ); ?>">Cities</a>
       <a class="nhp-header__link" href="<?php echo esc_url( $faq_url ); ?>">FAQ</a>
       <a class="nhp-header__link" href="<?php echo esc_url( $contact_url ); ?>">Contact</a>
-      <a class="nhp-header__link" href="<?php echo esc_url( $track_url ); ?>">Track Order</a>
     </nav>
     <div class="nhp-header__actions">
       <?php if ( is_user_logged_in() ) : ?>
-        <a href="<?php echo esc_url( nas_get_page_url( 'nas_page_client_dashboard', '/client-dashboard/' ) ); ?>" class="nhp-header__login">My Dashboard</a>
+        <a href="<?php echo esc_url( nas_get_page_url( 'nas_page_client_dashboard', '/client-dashboard/' ) ); ?>" class="nhp-header__login">Dashboard</a>
       <?php else : ?>
         <a href="<?php echo esc_url( home_url( '/newspaper-ad-login/' ) ); ?>" class="nhp-header__login">Login</a>
       <?php endif; ?>
-      <a href="<?php echo esc_url( $booking_url ); ?>" class="nhp-btn nhp-btn--primary nhp-btn--lg">Check Ad Rates</a>
-      <button class="nhp-header__menu-btn" id="nhp-menu-btn" aria-label="Open menu"><i class="fa-solid fa-bars"></i></button>
+      <a href="<?php echo esc_url( $booking_url ); ?>" class="nhp-btn nhp-btn--primary">Check Rates</a>
     </div>
   </div>
 </header>
@@ -288,6 +315,70 @@ if ( $nhp_embed ) {
           <span><i class="fa-solid fa-circle-check"></i> Verified Publishers</span>
         </div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- Publisher logo credibility strip -->
+<?php if ( $logo_strip ) : ?>
+<section class="nhp-logostrip" aria-label="Partner publications">
+  <div class="nhp-container">
+    <p class="nhp-logostrip__label">Trusted publications across India</p>
+  </div>
+  <div class="nhp-logostrip__track">
+    <div class="nhp-logostrip__scroll">
+      <?php foreach ( array_merge( $logo_strip, $logo_strip ) as $np ) : ?>
+      <a href="<?php echo esc_url( $booking_url . '?newspaper=' . urlencode( $np['id'] ) ); ?>" class="nhp-logostrip__item" title="<?php echo esc_attr( $np['name'] ); ?>">
+        <?php if ( ! empty( $np['logo_url'] ) ) : ?>
+          <img src="<?php echo esc_url( $np['logo_url'] ); ?>" alt="<?php echo esc_attr( $np['name'] ); ?>" loading="lazy">
+        <?php else : ?>
+          <span class="nhp-logostrip__fallback"><?php echo esc_html( $np['name'] ); ?></span>
+        <?php endif; ?>
+      </a>
+      <?php endforeach; ?>
+    </div>
+  </div>
+</section>
+<?php endif; ?>
+
+<!-- Quick proceed bar -->
+<section class="nhp-quickbar">
+  <div class="nhp-container nhp-quickbar__inner">
+    <span class="nhp-quickbar__text"><i class="fa-solid fa-newspaper"></i> Choose a newspaper to begin booking</span>
+    <select class="nhp-quickbar__select" id="nhp-quickbar-paper" aria-label="Select newspaper">
+      <option value="">Select Newspaper</option>
+      <?php foreach ( $newspapers as $np ) : ?>
+      <option value="<?php echo esc_attr( $np['id'] ); ?>"><?php echo esc_html( $np['name'] ); ?></option>
+      <?php endforeach; ?>
+    </select>
+    <button type="button" class="nhp-btn nhp-btn--secondary" id="nhp-quickbar-go">Proceed <i class="fa-solid fa-arrow-right"></i></button>
+  </div>
+</section>
+
+<!-- Ad format showcase -->
+<section class="nhp-section nhp-section--muted">
+  <div class="nhp-container">
+    <div class="nhp-section__header nhp-section__header--center">
+      <span class="nhp-section__eyebrow">Ad Formats</span>
+      <h2 class="nhp-section__title">Every Type of Newspaper Advertisement</h2>
+      <p class="nhp-section__subtitle">Classified text, display, and full-page ads — choose the format that fits your message and budget.</p>
+    </div>
+    <div class="nhp-formats">
+      <?php
+      $formats = [
+        [ 'fa-align-left', 'Classified Text Ad', 'Name change, matrimonial, recruitment & personal notices priced per word.', 'classified' ],
+        [ 'fa-image', 'Classified Display', 'Text with borders, logos or small images — ideal for standout classifieds.', 'display-classified' ],
+        [ 'fa-newspaper', 'Display Ad', 'Full image + copy ads sized by sq. cm — for brands and large announcements.', 'display' ],
+      ];
+      foreach ( $formats as $f ) :
+      ?>
+      <a href="<?php echo esc_url( $booking_url ); ?>" class="nhp-format-card">
+        <div class="nhp-format-card__icon"><i class="fa-solid <?php echo esc_attr( $f[0] ); ?>"></i></div>
+        <h3 class="nhp-format-card__title"><?php echo esc_html( $f[1] ); ?></h3>
+        <p class="nhp-format-card__desc"><?php echo esc_html( $f[2] ); ?></p>
+        <span class="nhp-format-card__link">Book this format <i class="fa-solid fa-arrow-right"></i></span>
+      </a>
+      <?php endforeach; ?>
     </div>
   </div>
 </section>
@@ -480,6 +571,47 @@ if ( $nhp_embed ) {
 </section>
 <?php endif; ?>
 
+<!-- Platform advantages (4-column trust row) -->
+<section class="nhp-advantages">
+  <div class="nhp-container">
+    <div class="nhp-advantages__grid">
+      <?php
+      $advantages = [
+        [ 'fa-certificate', 'Verified Publishers', 'Book only through authorized newspaper channels with publication proof.' ],
+        [ 'fa-tags', 'Transparent Rates', 'See newspaper rates upfront — no hidden charges, GST invoice included.' ],
+        [ 'fa-clock', 'Book 24/7 Online', 'Complete your booking anytime without phone calls or office visits.' ],
+        [ 'fa-headset', 'Dedicated Support', 'Track your ad status and get help from booking through publication.' ],
+      ];
+      foreach ( $advantages as $adv ) :
+      ?>
+      <div class="nhp-advantage">
+        <div class="nhp-advantage__icon"><i class="fa-solid <?php echo esc_attr( $adv[0] ); ?>"></i></div>
+        <h3 class="nhp-advantage__title"><?php echo esc_html( $adv[1] ); ?></h3>
+        <p class="nhp-advantage__desc"><?php echo esc_html( $adv[2] ); ?></p>
+      </div>
+      <?php endforeach; ?>
+    </div>
+  </div>
+</section>
+
+<!-- Accent CTA band -->
+<section class="nhp-accent-band">
+  <div class="nhp-container nhp-accent-band__inner">
+    <div>
+      <h2 class="nhp-accent-band__title">Publish Your Newspaper Ad with Confidence</h2>
+      <p class="nhp-accent-band__text">Instant rates · Secure payment · Online tracking · Publication proof</p>
+    </div>
+    <div class="nhp-accent-band__actions">
+      <a href="<?php echo esc_url( $booking_url ); ?>" class="nhp-btn nhp-btn--white nhp-btn--lg">Book an Ad Now</a>
+      <?php if ( $walink ) : ?>
+      <a href="<?php echo esc_url( $walink ); ?>" class="nhp-btn nhp-btn--ghost nhp-btn--lg" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> WhatsApp Us</a>
+      <?php elseif ( $phone ) : ?>
+      <a href="tel:<?php echo esc_attr( preg_replace( '/[^0-9+]/', '', $phone ) ); ?>" class="nhp-btn nhp-btn--ghost nhp-btn--lg"><i class="fa-solid fa-phone"></i> Call Us</a>
+      <?php endif; ?>
+    </div>
+  </div>
+</section>
+
 <!-- Why Platform -->
 <section class="nhp-section" id="why-us">
   <div class="nhp-container">
@@ -609,6 +741,28 @@ if ( $nhp_embed ) {
     </div>
   </div>
 </section>
+
+<!-- Payment & security trust -->
+<section class="nhp-payments">
+  <div class="nhp-container nhp-payments__inner">
+    <div class="nhp-payments__label">
+      <i class="fa-solid fa-shield-halved"></i>
+      <span>Secure payments powered by Razorpay</span>
+    </div>
+    <div class="nhp-payments__icons" aria-hidden="true">
+      <span class="nhp-pay-icon"><i class="fa-brands fa-cc-visa"></i></span>
+      <span class="nhp-pay-icon"><i class="fa-brands fa-cc-mastercard"></i></span>
+      <span class="nhp-pay-icon"><i class="fa-solid fa-mobile-screen"></i> UPI</span>
+      <span class="nhp-pay-icon"><i class="fa-solid fa-building-columns"></i> Net Banking</span>
+      <span class="nhp-pay-icon"><i class="fa-solid fa-file-invoice"></i> GST Invoice</span>
+    </div>
+  </div>
+</section>
+
+<!-- Sticky mobile CTA -->
+<div class="nhp-sticky-cta" id="nhp-sticky-cta">
+  <a href="<?php echo esc_url( $booking_url ); ?>" class="nhp-btn nhp-btn--primary nhp-btn--block">Check Ad Rates <i class="fa-solid fa-arrow-right"></i></a>
+</div>
 
 <!-- Footer -->
 <footer class="nhp-footer">

@@ -153,4 +153,15 @@
       });
     });
   });
+
+  /* Quick proceed bar */
+  var quickbarGo = qs('#nhp-quickbar-go');
+  var quickbarPaper = qs('#nhp-quickbar-paper');
+  if (quickbarGo && quickbarPaper) {
+    quickbarGo.addEventListener('click', function () {
+      var base = (window.NAS && NAS.booking_url) || '/book-newspaper-ad/';
+      var id = quickbarPaper.value;
+      window.location.href = id ? base + '?newspaper=' + encodeURIComponent(id) : base;
+    });
+  }
 })();
