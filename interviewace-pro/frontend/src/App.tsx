@@ -24,7 +24,8 @@ export default function App() {
   return (
     <BrowserRouter basename="/app">
       <AuthProvider>
-        <Routes>
+        <div className="ia-app-shell">
+          <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/verify-otp" element={<VerifyOtp />} />
@@ -46,7 +47,8 @@ export default function App() {
           <Route path="/library/review" element={<ProtectedRoute><Review /></ProtectedRoute>} />
 
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
-        </Routes>
+          </Routes>
+        </div>
       </AuthProvider>
     </BrowserRouter>
   );

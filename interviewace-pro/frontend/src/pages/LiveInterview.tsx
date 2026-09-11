@@ -35,6 +35,13 @@ function streamIsLive(stream: MediaStream | null): boolean {
   return Boolean(stream && stream.getAudioTracks().some((t) => t.readyState === 'live'));
 }
 
+function base64ToBlob(base64: string, mime: string): Blob {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
 function photoWrapClass(voiceState: VoiceState, submitting: boolean): string {
   if (submitting || voiceState === 'thinking') return 'ia-photo-wrap--thinking';
   if (voiceState === 'speaking') return 'ia-photo-wrap--speaking';
@@ -149,7 +156,6 @@ export default function LiveInterview() {
 
   const aiTurns = turns.filter((t) => t.role === 'ai');
   const currentAiLine = aiTurns.length ? aiTurns[aiTurns.length - 1].text : '';
-  const historyTurns = turns.slice(0, -1);
 
   useEffect(() => {
     interviewsApi.start(interviewId).catch(() => {});
@@ -157,25 +163,39 @@ export default function LiveInterview() {
 
   const speak = useCallback(async (text: string): Promise<void> => {
     if (!voiceModeRef.current) return;
+    // Mic must stay OFF while Priya speaks — an open capture stream ducks or
+    // routes speaker output away on many browsers/devices.
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+    }
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current = null;
+    }
     setVoiceState('speaking');
     let url: string | null = null;
     try {
       const r = await speechApi.synthesize(text, interviewId);
-      const blob = await (await fetch(`data:${r.mime};base64,${r.audio_base64}`)).blob();
+      const blob = base64ToBlob(r.audio_base64, r.mime);
       url = URL.createObjectURL(blob);
       const audio = primedAudioRef.current ?? new Audio();
       audioRef.current = audio;
-      const playUrl = url;
-      await new Promise<void>((resolve) => {
-        audio.onended = () => resolve();
-        audio.onerror = () => resolve();
-        audio.src = playUrl;
+      audio.volume = 1;
+      audio.muted = false;
+      await new Promise<void>((resolve, reject) => {
+        const onEnd = () => { cleanup(); resolve(); };
+        const onErr = () => { cleanup(); reject(new Error('audio playback failed')); };
+        const cleanup = () => {
+          audio.removeEventListener('ended', onEnd);
+          audio.removeEventListener('error', onErr);
+        };
+        audio.addEventListener('ended', onEnd);
+        audio.addEventListener('error', onErr);
+        audio.src = url!;
         audio.currentTime = 0;
-        void audio.play().catch(() => {
-          setVoiceUnavailable("Your browser blocked Priya's voice from playing automatically — continuing with text. You can still use the mic manually below.");
-          setVoiceMode(false);
-          resolve();
-        });
+        audio.load();
+        void audio.play().catch(reject);
       });
     } catch (err) {
       const apiErr = err as ApiError;
@@ -228,6 +248,20 @@ export default function LiveInterview() {
     streamRef.current = stream;
     return stream;
   }, []);
+
+  /** Grant mic permission during a click, then release the stream so TTS can play. */
+  const preauthorizeMic = useCallback(async (): Promise<boolean> => {
+    try {
+      const stream = await acquireMicStream();
+      stream.getTracks().forEach((t) => t.stop());
+      streamRef.current = null;
+      return true;
+    } catch (err) {
+      setVoiceUnavailable(micErrorMessage(err));
+      setVoiceMode(false);
+      return false;
+    }
+  }, [acquireMicStream]);
 
   const startBasicRecording = useCallback((stream: MediaStream) => {
     streamingRef.current = false;
@@ -486,19 +520,12 @@ export default function LiveInterview() {
   async function onBeginVoice() {
     const primed = new Audio(SILENT_AUDIO_DATA_URI);
     primedAudioRef.current = primed;
+    // Prime audio synchronously inside the click — required for autoplay policy.
     const primePlay = primed.play();
 
-    // Request mic permission NOW, inside the click handler, before any long async
-    // work (TTS playback). Browsers tie getUserMedia to the user gesture — calling
-    // it later after Priya finishes speaking often fails even when mic isn't blocked.
-    let micReady = false;
-    try {
-      await acquireMicStream();
-      micReady = true;
-    } catch (err) {
-      setVoiceUnavailable(micErrorMessage(err));
-      setVoiceMode(false);
-    }
+    // Pre-authorize mic during the click, then release it so Priya's voice
+    // is not ducked/muted by an active capture stream.
+    const micReady = await preauthorizeMic();
 
     setStarted(true);
     try {
@@ -520,21 +547,14 @@ export default function LiveInterview() {
 
   if (!started) {
     return (
-      <div className="ia-page ia-before-begin">
+      <div className="ia-page ia-before-begin ia-live-fit">
         <PriyaVideoPanel voiceState="idle" submitting={false} voiceMode={true} />
-        <h1>Before you begin</h1>
-        <p style={{ color: 'var(--ia-text-secondary)', marginBottom: 'var(--ia-space-5)' }}>
-          Find a quiet spot with a good microphone
-        </p>
-        <p style={{ color: 'var(--ia-text-secondary)', marginBottom: 'var(--ia-space-5)' }}>
-          Priya will greet you, then mic activates
-        </p>
-        <button className="ia-btn ia-btn-primary ia-btn-block" onClick={() => void onBeginVoice()} style={{ marginBottom: 'var(--ia-space-3)' }}>
+        <h1 className="ia-live-fit-title">Before you begin</h1>
+        <p className="ia-live-fit-copy">Find a quiet spot with a good microphone. Priya will greet you, then the mic activates.</p>
+        <button className="ia-btn ia-btn-primary ia-btn-block" onClick={() => void onBeginVoice()}>
           Hear Priya &amp; Start
         </button>
-        <p className="ia-state-hint" style={{ marginBottom: 'var(--ia-space-4)' }}>
-          Click to activate microphone &amp; begin
-        </p>
+        <p className="ia-state-hint">Click to activate microphone &amp; begin</p>
         <button className="ia-btn ia-btn-ghost ia-btn-block" onClick={onBeginTextOnly}>
           Skip voice — type my answers instead
         </button>
@@ -549,8 +569,8 @@ export default function LiveInterview() {
       : 'Your answer will appear here when you start speaking.';
 
   return (
-    <div className="ia-page-wide ia-live-shell">
-      <header className="ia-topbar">
+    <div className="ia-page-wide ia-live-shell ia-live-fit">
+      <header className="ia-topbar ia-live-topbar">
         <strong>Live interview</strong>
         <div style={{ display: 'flex', gap: 'var(--ia-space-3)', alignItems: 'center' }}>
           <span className="ia-badge ia-badge-info">Up to {maxMinutes} min</span>
@@ -606,17 +626,6 @@ export default function LiveInterview() {
             ) : (
               <p className="ia-state-hint">{voiceState === 'idle' ? 'Click the mic button below to start' : 'Start Speaking'}</p>
             )}
-          </div>
-        )}
-
-        {historyTurns.length > 0 && (
-          <div className="ia-live-history" aria-label="Earlier conversation">
-            {historyTurns.map((t) => (
-              <div key={`${t.turnNumber}-${t.role}`} className={`ia-live-history-item ia-live-history-item--${t.role}`}>
-                <div className="ia-live-history-item-label">{t.role === 'ai' ? 'Priya' : 'You'}</div>
-                {t.text}
-              </div>
-            ))}
           </div>
         )}
 
