@@ -178,9 +178,8 @@ class Router {
     //        Output: success/error JSON response.
     //        Edge cases: invalid input → error returned.
     private function serve_login(): void {
-        // login.php is a complete standalone HTML file - include it directly
-        include NAS_PATH . 'templates/public/login.php';
-        exit;
+        $file = NAS_PLUGIN_DIR . 'templates/public/login.php';
+        nas_portal_render_route( $file, 'newspaper-ad-login', 'Login' );
     }
 
     // TRACE: serve_vendor() — Called internally or via AJAX action.

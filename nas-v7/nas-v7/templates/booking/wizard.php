@@ -7,6 +7,7 @@
  *        Client Details → Review & Submit
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
+$GLOBALS['portal_active_nav'] = 'book-newspaper-ad';
 
 // Suppress WP theme chrome
 add_action('wp_head', function() { ?><style id="nas-ts">

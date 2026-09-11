@@ -11,7 +11,9 @@ if (!is_user_logged_in()) {
 $user  = wp_get_current_user();
 $av    = strtoupper(substr($user->display_name, 0, 1) ?: 'S');
 $nonce = wp_create_nonce('nas_action');
-$ajax  = admin_url('admin-ajax.php');
+$ajax  = function_exists('nas_get_ajax_url')
+    ? nas_get_ajax_url( (int) get_option( 'nas_page_staff_dashboard' ) ?: null )
+    : admin_url('admin-ajax.php');
 
 $db    = \NAS\Core\Database::instance();
 $uid   = get_current_user_id();
@@ -42,12 +44,14 @@ include NAS_PLUGIN_DIR . 'templates/partials/top-nav.php';
 <link rel="stylesheet" href="<?= NAS_ASSETS ?>css/nas-dashboard.css">
 <link rel="stylesheet" href="<?= NAS_ASSETS ?>css/nas-chat.css">
 <link rel="stylesheet" href="<?= NAS_ASSETS ?>css/nas-enterprise.css">
+<link rel="stylesheet" href="<?= NAS_ASSETS ?>css/nas-portal-app.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 <style>
 /* ── Staff dashboard ── */
 /* 16-G-5: Scoped to #nas-staff-dashboard to prevent bleed into WP theme */
 #nas-staff-dashboard *{box-sizing:border-box}
 #nas-staff-dashboard{font-family:'Inter','Segoe UI',system-ui,sans-serif;background:#f1f5f9;color:#0f172a;min-height:100vh}
+@media(max-width:1023px){#nas-staff-dashboard{padding-bottom:calc(64px + env(safe-area-inset-bottom,0px))}}
 .sp-wrap{max-width:1200px;margin:0 auto;padding:0 20px 60px}
 
 /* Top hero */
@@ -635,5 +639,14 @@ function spLoadActions(id) {
 document.addEventListener('DOMContentLoaded', function(){ spLoadBookings(1); });
 })();
 </script>
+
+<?php
+$GLOBALS['portal_active_nav'] = 'staff-dashboard';
+if ( function_exists( 'nas_portal_bottom_nav' ) ) {
+    nas_portal_bottom_nav();
+} elseif ( file_exists( NAS_DIR . 'templates/partials/portal-bottom-nav.php' ) ) {
+    include NAS_DIR . 'templates/partials/portal-bottom-nav.php';
+}
+?>
 
 </div><!-- /#nas-staff-dashboard -->

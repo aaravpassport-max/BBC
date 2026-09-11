@@ -65,7 +65,7 @@ $pdf_nonce    = wp_create_nonce('nas_pdf');
 <!-- Config injected into <head> so all inline page scripts can access it synchronously -->
 <script id="nas-admin-config" type="application/json">
 {
-  "ajaxUrl": "<?php echo esc_js(admin_url('admin-ajax.php')); ?>",
+  "ajaxUrl": "<?php echo esc_js( function_exists('nas_get_ajax_url') ? nas_get_ajax_url( (int) get_option('nas_page_admin_dashboard') ?: null ) : admin_url('admin-ajax.php') ); ?>",
   "nonce": "<?php echo esc_js($admin_nonce); ?>",
   "pdfNonce": "<?php echo esc_js($pdf_nonce); ?>",
   "adminUrl": "<?php echo esc_js(nas_get_page_url('nas_page_admin_dashboard', '/admin-dashboard/')); ?>",
@@ -490,7 +490,7 @@ body.nas-admin-body .nas-modal-lg {
 }
 </style>
 </head>
-<body class="nas-admin-body">
+<body class="nas-admin-body nas-app-shell nas-page-admin-dashboard">
 
 <!-- ══ ADMIN SHELL ══════════════════════════════════════════════════════════ -->
 <div class="nas-admin-shell" id="nas-admin-shell">
@@ -601,7 +601,15 @@ if (file_exists($page_path)) {
 <div id="nas-admin-toast" class="nas-admin-toast" aria-live="polite"></div>
 
 
-<?php wp_footer(); ?>
+<?php
+$GLOBALS['portal_active_nav'] = 'admin-dashboard';
+if ( function_exists( 'nas_portal_bottom_nav' ) ) {
+    nas_portal_bottom_nav();
+} elseif ( file_exists( NAS_DIR . 'templates/partials/portal-bottom-nav.php' ) ) {
+    include NAS_DIR . 'templates/partials/portal-bottom-nav.php';
+}
+wp_footer();
+?>
 <script>
 // Init sidebar toggle
 // Sidebar toggle handled by nas-admin.js v3.1

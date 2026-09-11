@@ -41,30 +41,10 @@ $booking_url = nas_portal_booking_url();
       </div>
       <div class="nhp-papers-grid">
         <?php foreach ( $featured as $i => $np ) :
-            $from_price = max( (float) ( $np['base_rate_classified'] ?? 0 ), 0 );
-            $detail_url = $np['slug'] ? home_url( '/newspapers/' . $np['slug'] . '/' ) : $booking_url . '?newspaper=' . urlencode( $np['id'] );
-        ?>
-        <article class="nhp-paper-card nhp-paper-card--a<?php echo (int) ( $i % 6 ); ?>">
-          <div class="nhp-paper-card__top">
-            <div class="nhp-paper-card__logo">
-              <?php if ( $np['logo_url'] ) : ?>
-              <img src="<?php echo esc_url( $np['logo_url'] ); ?>" alt="<?php echo esc_attr( $np['name'] ); ?>" loading="lazy">
-              <?php else : ?>
-              <span class="nhp-paper-card__logo-fallback"><?php echo esc_html( strtoupper( substr( $np['name'], 0, 2 ) ) ); ?></span>
-              <?php endif; ?>
-            </div>
-            <div>
-              <h3 class="nhp-paper-card__name"><?php echo esc_html( $np['name'] ); ?></h3>
-              <p class="nhp-paper-card__meta"><?php echo esc_html( $np['language'] ?: 'English' ); ?></p>
-              <?php if ( $i < 3 ) : ?><span class="nhp-paper-card__badge"><i class="fa-solid fa-star"></i> Popular</span><?php endif; ?>
-            </div>
-          </div>
-          <?php if ( $from_price > 0 ) : ?>
-          <p class="nhp-paper-card__price">From <strong>₹<?php echo number_format( $from_price, 0 ); ?></strong>/word</p>
-          <?php endif; ?>
-          <a href="<?php echo esc_url( $detail_url ); ?>" class="nhp-paper-card__cta">Book This Newspaper <i class="fa-solid fa-arrow-right"></i></a>
-        </article>
-        <?php endforeach; ?>
+            $card_index = $i;
+            $card_mode  = 'featured';
+            include NAS_DIR . 'templates/partials/newspaper-card.php';
+        endforeach; ?>
       </div>
     </div>
   </section>

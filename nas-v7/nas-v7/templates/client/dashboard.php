@@ -15,8 +15,8 @@ $brand       = $cfg->get( 'brand_name', get_bloginfo('name') );
 $logo        = $cfg->get( 'logo_url', '' );
 $nonce       = wp_create_nonce( 'nas_action' );
 $rest_nonce  = wp_create_nonce( 'wp_rest' );
-// Use frontend proxy endpoint — CDN blocks POST to /wp-admin/admin-ajax.php
-$ajax        = admin_url('admin-ajax.php');
+// CDN blocks POST to /wp-admin/admin-ajax.php — POST to this page instead
+$ajax        = nas_get_ajax_url( (int) get_option( 'nas_page_client_dashboard' ) ?: null );
 $booking_url = nas_get_page_url( 'nas_page_booking', '/book-newspaper-ad/' );
 ?>
 <style>
@@ -282,18 +282,44 @@ textarea.cd-form-control{resize:vertical;min-height:70px}
   .cd-toast-wrap{left:16px;right:16px;max-width:none;bottom:80px}
   .cd-wallet-amount{font-size:36px}
 }
+
+/* ── Mobile bottom navigation ─ */
+.cd-bottom-nav{display:none}
+@media(max-width:1023px){
+  #nas-client-dashboard{padding-bottom:calc(68px + env(safe-area-inset-bottom,0px))}
+  .cd-nav{display:none}
+  .cd-topnav-inner{padding:0 14px;height:56px}
+  .cd-body{padding:20px 14px 24px}
+  .cd-bottom-nav{
+    display:block !important;position:fixed;left:0;right:0;bottom:0;z-index:10050;
+    background:rgba(255,255,255,.96);backdrop-filter:blur(16px);
+    border-top:1px solid #e2e8f0;box-shadow:0 -8px 32px rgba(15,23,42,.08);
+    padding-bottom:env(safe-area-inset-bottom,0px)
+  }
+  .cd-bottom-nav__inner{display:grid;grid-template-columns:repeat(4,1fr);max-width:560px;margin:0 auto;min-height:60px}
+  .cd-bottom-btn{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+    padding:8px 4px 10px;border:none;background:none;color:#64748b;
+    font-size:.625rem;font-weight:600;font-family:inherit;cursor:pointer
+  }
+  .cd-bottom-btn i{font-size:1.05rem}
+  .cd-bottom-btn.active{color:#2A8AFA}
+  .cd-bottom-btn.active i{color:#2A8AFA}
+  .cd-booking{flex-direction:column;align-items:stretch;gap:10px;padding:14px}
+  .cd-booking-right{width:100%;justify-content:space-between}
+  .cd-filter-bar{flex-direction:column;align-items:stretch}
+  .cd-filter-bar input{max-width:none;width:100%}
+  .cd-filter-bar .cd-btn-primary{margin-left:0!important;width:100%;justify-content:center}
+  .cd-detail-header{flex-wrap:wrap;padding:14px 16px}
+  .cd-detail-tabs{padding:0 12px}
+  .cd-dtab-panel{padding:16px}
+  .cd-data-row{flex-direction:column;gap:4px}
+  .cd-data-row span{width:auto}
+  .cd-chat-msgs{min-height:220px;max-height:50vh}
+}
 </style>
 
 <div id="nas-client-dashboard">
-<?php if ( current_user_can('manage_options') ): ?>
-<div style="background:#0f172a;color:#94a3b8;font-size:11px;font-family:monospace;padding:5px 16px;display:flex;gap:16px;flex-wrap:wrap;border-bottom:1px solid #1e293b">
-  <span style="color:#6366f1">NAS DEBUG</span>
-  <span>AJAX=<strong style="color:#22c55e"><?php echo esc_html($ajax); ?></strong></span>
-  <span>UID=<strong style="color:#22c55e"><?php echo get_current_user_id(); ?></strong></span>
-  <span>LOGGEDIN=<strong style="color:#22c55e"><?php echo is_user_logged_in()?'YES':'NO'; ?></strong></span>
-  <span>NONCE=<strong style="color:#22c55e"><?php echo esc_html(substr($nonce,0,8)); ?>...</strong></span>
-</div>
-<?php endif; ?>
 
 <!-- TOPNAV -->
 <nav class="cd-topnav">
@@ -303,10 +329,10 @@ textarea.cd-form-control{resize:vertical;min-height:70px}
       <?php else: ?><span class="cd-logo-icon"><i class="fa-solid fa-newspaper"></i></span> <?php echo esc_html($brand); ?><?php endif; ?>
     </a>
     <div class="cd-nav">
-      <button class="cd-nav-btn active" onclick="cdShowPanel('bookings',this)"><i class="fa-solid fa-list-check"></i> My Bookings</button>
-      <button class="cd-nav-btn" onclick="cdShowPanel('profile',this)"><i class="fa-solid fa-user"></i> My Profile</button>
-      <button class="cd-nav-btn" onclick="cdShowPanel('wallet',this)"><i class="fa-solid fa-wallet"></i> My Wallet</button>
-      <button class="cd-nav-btn" onclick="cdShowPanel('tickets',this)"><i class="fa-solid fa-headset"></i> Support</button>
+      <button class="cd-nav-btn active" data-panel="bookings" onclick="cdShowPanel('bookings',this)"><i class="fa-solid fa-list-check"></i> My Bookings</button>
+      <button class="cd-nav-btn" data-panel="profile" onclick="cdShowPanel('profile',this)"><i class="fa-solid fa-user"></i> My Profile</button>
+      <button class="cd-nav-btn" data-panel="wallet" onclick="cdShowPanel('wallet',this)"><i class="fa-solid fa-wallet"></i> My Wallet</button>
+      <button class="cd-nav-btn" data-panel="tickets" onclick="cdShowPanel('tickets',this)"><i class="fa-solid fa-headset"></i> Support</button>
 
     </div>
     <div class="cd-topnav-right">
@@ -383,7 +409,20 @@ textarea.cd-form-control{resize:vertical;min-height:70px}
       <h2 style="font-size:18px;font-weight:800;margin:0 0 22px;color:#1e293b">My Profile</h2>
       <div class="cd-profile-grid">
         <div class="cd-form-group"><label class="cd-form-label">Full Name</label><input id="pf-name" class="cd-form-control" type="text" value="<?php echo esc_attr($user->display_name); ?>"></div>
-  <!-- ── Wallet Panel ── -->
+        <div class="cd-form-group"><label class="cd-form-label">Email</label><input id="pf-email" class="cd-form-control" type="email" value="<?php echo esc_attr($user->user_email); ?>"></div>
+        <div class="cd-form-group"><label class="cd-form-label">Phone</label><input id="pf-phone" class="cd-form-control" type="tel" placeholder="Your phone number"></div>
+        <div class="cd-form-group"><label class="cd-form-label">City</label><input id="pf-city" class="cd-form-control" type="text" placeholder="Your city"></div>
+        <div class="cd-form-group" style="grid-column:1/-1"><label class="cd-form-label">Address</label><textarea id="pf-address" class="cd-form-control" rows="2" placeholder="Your address"></textarea></div>
+        <div class="cd-form-group"><label class="cd-form-label">New Password <small style="color:#94a3b8;font-weight:400;text-transform:none">(leave blank to keep)</small></label><input id="pf-pass" class="cd-form-control" type="password" placeholder="••••••••"></div>
+        <div class="cd-form-group"><label class="cd-form-label">GST Number <small style="color:#94a3b8;font-weight:400;text-transform:none">(optional)</small></label><input id="pf-gst" class="cd-form-control" type="text" placeholder="22AAAAA0000A1Z5"></div>
+      </div>
+      <div style="margin-top:20px;display:flex;gap:10px">
+        <button class="cd-btn cd-btn-primary" id="pf-save-btn" onclick="cdSaveProfile(this)">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: WALLET -->
   <div class="cd-panel" id="cd-panel-wallet">
     <div class="cd-wallet-panel">
 
@@ -444,7 +483,7 @@ textarea.cd-form-control{resize:vertical;min-height:70px}
     </div>
   </div>
 
-  <!-- ── Support Tickets Panel ── -->
+  <!-- PANEL: SUPPORT TICKETS -->
   <div class="cd-panel" id="cd-panel-tickets">
     <div class="cd-ticket-panel">
 
@@ -514,20 +553,17 @@ textarea.cd-form-control{resize:vertical;min-height:70px}
     </div>
   </div>
 
-        <div class="cd-form-group"><label class="cd-form-label">Email</label><input id="pf-email" class="cd-form-control" type="email" value="<?php echo esc_attr($user->user_email); ?>"></div>
-        <div class="cd-form-group"><label class="cd-form-label">Phone</label><input id="pf-phone" class="cd-form-control" type="tel" placeholder="Your phone number"></div>
-        <div class="cd-form-group"><label class="cd-form-label">City</label><input id="pf-city" class="cd-form-control" type="text" placeholder="Your city"></div>
-        <div class="cd-form-group" style="grid-column:1/-1"><label class="cd-form-label">Address</label><textarea id="pf-address" class="cd-form-control" rows="2" placeholder="Your address"></textarea></div>
-        <div class="cd-form-group"><label class="cd-form-label">New Password <small style="color:#94a3b8;font-weight:400;text-transform:none">(leave blank to keep)</small></label><input id="pf-pass" class="cd-form-control" type="password" placeholder="••••••••"></div>
-        <div class="cd-form-group"><label class="cd-form-label">GST Number <small style="color:#94a3b8;font-weight:400;text-transform:none">(optional)</small></label><input id="pf-gst" class="cd-form-control" type="text" placeholder="22AAAAA0000A1Z5"></div>
-      </div>
-      <div style="margin-top:20px;display:flex;gap:10px">
-        <button class="cd-btn cd-btn-primary" id="pf-save-btn" onclick="cdSaveProfile(this)">Save Changes</button>
-      </div>
-    </div>
-  </div>
-
 </div><!-- /.cd-body -->
+
+<nav class="cd-bottom-nav" id="cd-bottom-nav" aria-label="Dashboard navigation">
+  <div class="cd-bottom-nav__inner">
+    <button type="button" class="cd-bottom-btn active" data-panel="bookings" onclick="cdShowPanel('bookings',this)"><i class="fa-solid fa-list-check"></i><span>Bookings</span></button>
+    <button type="button" class="cd-bottom-btn" data-panel="profile" onclick="cdShowPanel('profile',this)"><i class="fa-solid fa-user"></i><span>Profile</span></button>
+    <button type="button" class="cd-bottom-btn" data-panel="wallet" onclick="cdShowPanel('wallet',this)"><i class="fa-solid fa-wallet"></i><span>Wallet</span></button>
+    <button type="button" class="cd-bottom-btn" data-panel="tickets" onclick="cdShowPanel('tickets',this)"><i class="fa-solid fa-headset"></i><span>Support</span></button>
+  </div>
+</nav>
+
 <!-- Toast container (non-blocking small toasts) -->
 <div class="cd-toast-wrap" id="cd-toasts" aria-live="polite" aria-atomic="false"></div>
 
@@ -556,6 +592,7 @@ var NONCE='<?php echo esc_js($nonce); ?>';
 var BOOKING_URL='<?php echo esc_js(nas_get_page_url("nas_page_booking","/book-newspaper-ad/")); ?>';
 var INITIAL_STATS=<?php echo isset($initial_stats) ? $initial_stats : 'null'; ?>;
 var INITIAL_BOOKINGS=<?php echo isset($initial_bookings) ? $initial_bookings : 'null'; ?>;
+var INITIAL_TICKETS=<?php echo isset($initial_tickets) ? $initial_tickets : 'null'; ?>;
 var REST_NONCE='<?php echo esc_js($rest_nonce); ?>';
 var AJAX='<?php echo esc_js($ajax); ?>';
 var MY_ID=<?php echo $my_id; ?>;
@@ -710,9 +747,9 @@ function pill(status){var c=STATUS_COLORS[status]||'#94a3b8';return'<span class=
 
 /* ── Panel switching ─────────────────────────────────────────────────── */
 window.cdShowPanel=function(name,btn){
-  document.querySelectorAll('.cd-nav-btn').forEach(function(b){b.classList.remove('active');});
+  document.querySelectorAll('.cd-nav-btn,.cd-bottom-btn').forEach(function(b){b.classList.remove('active');});
   document.querySelectorAll('.cd-panel').forEach(function(p){p.classList.remove('show');});
-  if(btn)btn.classList.add('active');
+  document.querySelectorAll('[data-panel="'+name+'"]').forEach(function(b){b.classList.add('active');});
   var panel=document.getElementById('cd-panel-'+name);
   if(panel)panel.classList.add('show');
   if(name==='profile')cdLoadProfile();
@@ -727,15 +764,6 @@ document.addEventListener('click',function(e){if(!e.target.closest('.cd-avatar')
 
 /* ── Stats ───────────────────────────────────────────────────────────── */
 function cdLoadStats(){
-  // Show which URL is being used before the call
-  var statsEl2=document.querySelector('.cd-stats');
-  if(statsEl2&&!statsEl2.dataset.tracing){
-    statsEl2.dataset.tracing='1';
-    var dbgDiv=document.createElement('div');
-    dbgDiv.style.cssText='font-size:10px;color:#94a3b8;padding:4px 0;grid-column:1/-1';
-    dbgDiv.textContent='AJAX: '+AJAX;
-    statsEl2.appendChild(dbgDiv);
-  }
   ajax('nas_get_dashboard_stats',{}).then(function(d){
     var set=function(id,v){var el=document.getElementById(id);if(el)el.textContent=v;};
     set('cd-s-total',d.total_bookings??'0');
@@ -1170,12 +1198,9 @@ window.cdFilterWallet = function() {
 /* ── Support Tickets — full implementation ── */
 var cdOpenTicketId = null;
 
-function cdLoadTickets() {
+function cdRenderTickets(d) {
   var listEl = document.getElementById('cd-tickets-list');
   if (!listEl) return;
-  listEl.innerHTML = '<div style="padding:40px;text-align:center"><span class="cd-spinner"></span></div>';
-
-  ajax('nas_get_my_tickets', {}).then(function(d) {
     var tickets = d.tickets || [];
     if (!tickets.length) {
       listEl.innerHTML =
@@ -1228,9 +1253,28 @@ function cdLoadTickets() {
         '</div>' +
         '</div>';
     }).join('');
+}
 
-  }).catch(function() {
-    listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#dc2626;font-size:13px"><i class="fa-solid fa-triangle-exclamation"></i> Failed to load tickets. Please refresh.</div>';
+function cdLoadTickets(forceRefresh) {
+  var listEl = document.getElementById('cd-tickets-list');
+  if (!listEl) return;
+
+  if (!forceRefresh && typeof INITIAL_TICKETS !== 'undefined' && INITIAL_TICKETS) {
+    cdRenderTickets(INITIAL_TICKETS);
+    INITIAL_TICKETS = null;
+    return;
+  }
+
+  listEl.innerHTML = '<div style="padding:40px;text-align:center"><span class="cd-spinner"></span></div>';
+
+  ajax('nas_get_my_tickets', {}).then(function(d) {
+    cdRenderTickets(d);
+  }).catch(function(e) {
+    listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#dc2626;font-size:13px">'
+      + '<i class="fa-solid fa-triangle-exclamation"></i> Failed to load tickets.'
+      + '<div style="font-size:12px;color:#94a3b8;margin-top:8px">' + esc(e.message || 'Please refresh.') + '</div>'
+      + '<button class="cd-btn cd-btn-primary" style="margin-top:12px" onclick="cdLoadTickets(true)">Retry</button>'
+      + '</div>';
   });
 }
 
@@ -1371,7 +1415,7 @@ window.cdSubmitTicket = function() {
       ]
     });
 
-    cdLoadTickets();
+    cdLoadTickets(true);
   }).catch(function(e) {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit Ticket'; }
     toast(e.message || 'Submission failed', 'error', 'Error');

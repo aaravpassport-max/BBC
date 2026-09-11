@@ -39,9 +39,13 @@ if ( trim( $nas_content ) === '' ) {
         // v3 Super Combo pages
         'pricing'              => '[nas_pricing]',
         'about'                => '[nas_about]',
+        'about-us'             => '[nas_about]',
         'support'              => '[nas_support]',
         'cities'               => '[nas_cities_index]',
         'newspapers'           => '[nas_newspapers_index]',
+        'privacy-policy'       => '[nas_privacy]',
+        'terms-conditions'     => '[nas_terms]',
+        'refund-policy'        => '[nas_refund]',
     ];
     if ( isset( $sc_map[$slug] ) ) {
         $nas_content = do_shortcode( $sc_map[$slug] );
@@ -55,7 +59,10 @@ if ( ! $title ) $title = $brand;
 
 $nas_portal_slug  = function_exists( 'nas_portal_current_slug' ) ? nas_portal_current_slug() : '';
 $nas_use_shell    = function_exists( 'nas_portal_should_wrap_shell' ) && nas_portal_should_wrap_shell();
-$nas_body_classes = 'nas-fullpage' . ( $nas_use_shell ? ' nas-public-portal' : '' );
+$nas_body_classes = 'nas-fullpage' . ( $nas_use_shell ? ' nas-public-portal nas-app-shell' : '' );
+if ( ! $nas_use_shell && in_array( $nas_portal_slug, [ 'book-newspaper-ad', 'client-dashboard' ], true ) ) {
+    $nas_body_classes .= ' nas-app-shell';
+}
 if ( $nas_portal_slug && function_exists( 'nas_portal_dashboard_slugs' ) && in_array( $nas_portal_slug, nas_portal_dashboard_slugs(), true ) ) {
     $nas_body_classes .= ' nas-dash-app';
 }
@@ -93,6 +100,9 @@ echo $nas_content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEsca
 if ( $nas_use_shell ) {
     echo '</main>';
     nas_portal_shell_close();
+}
+if ( in_array( $nas_portal_slug, [ 'book-newspaper-ad' ], true ) && function_exists( 'nas_portal_bottom_nav' ) ) {
+    nas_portal_bottom_nav();
 }
 ?>
 <?php wp_footer(); ?>
