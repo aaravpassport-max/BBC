@@ -216,7 +216,8 @@ class Enqueue {
             'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap',
             [], null );
         wp_enqueue_style( 'nas-core', $a . 'css/nas-core.css', [ 'nas-fonts' ], self::asset_ver( 'css/nas-core.css' ) );
-        wp_enqueue_style( 'nas-homepage', $a . 'css/nas-homepage.css', [ 'nas-core' ], self::asset_ver( 'css/nas-homepage.css' ) );
+        wp_enqueue_style( 'nas-portal', $a . 'css/nas-portal.css', [ 'nas-core' ], self::asset_ver( 'css/nas-portal.css' ) );
+        wp_enqueue_style( 'nas-homepage', $a . 'css/nas-homepage.css', [ 'nas-core', 'nas-portal' ], self::asset_ver( 'css/nas-homepage.css' ) );
         wp_enqueue_style( 'font-awesome',
             'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css',
             [], '6.5.0' );
@@ -248,7 +249,8 @@ class Enqueue {
         // Font Awesome: loaded as non-blocking preload via preconnect_hints()
         // This removes it from the render-blocking chain
         wp_enqueue_style( 'nas-core',       $a . 'css/nas-core.css',       ['nas-fonts'], self::asset_ver('css/nas-core.css') );
-        wp_enqueue_style( 'nas-dashboard',  $a . 'css/nas-dashboard.css',  ['nas-core'],  self::asset_ver('css/nas-dashboard.css') );
+        wp_enqueue_style( 'nas-portal',     $a . 'css/nas-portal.css',     ['nas-core'],  self::asset_ver('css/nas-portal.css') );
+        wp_enqueue_style( 'nas-dashboard',  $a . 'css/nas-dashboard.css',  ['nas-core', 'nas-portal'],  self::asset_ver('css/nas-dashboard.css') );
         wp_enqueue_style( 'nas-enterprise', NAS_ASSETS . 'css/nas-enterprise.css', ['nas-core', 'nas-dashboard'], self::asset_ver('css/nas-enterprise.css') );
         wp_enqueue_style( 'nas-booking',    $a . 'css/nas-booking.css',    ['nas-core'],  self::asset_ver('css/nas-booking.css') );
         wp_enqueue_style( 'nas-chat',       $a . 'css/nas-chat.css',       ['nas-core'],  self::asset_ver('css/nas-chat.css') );

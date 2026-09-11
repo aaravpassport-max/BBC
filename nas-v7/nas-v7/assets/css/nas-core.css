@@ -4,12 +4,12 @@
 
 /* ---- CSS Variables ---- */
 :root {
-  --nas-primary:        #2A8AFA;
-  --nas-primary-dark:   #1B6FD8;
-  --nas-primary-light:  #D7DBFF;
-  --nas-accent:         #EFA414;
-  --nas-accent-hover:   #D68F0A;
-  --nas-accent-light:   #FFF3DC;
+  --nas-primary:        #1A3A5C;
+  --nas-primary-dark:   #0f2744;
+  --nas-primary-light:  #e8eef4;
+  --nas-accent:         #F59E0B;
+  --nas-accent-hover:   #D97706;
+  --nas-accent-light:   #FEF3C7;
   --nas-success:        #2F5258;
   --nas-success-light:  #E7EFF0;
   --nas-warning:        #EFA414;

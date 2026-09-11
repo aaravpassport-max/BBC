@@ -14,37 +14,16 @@ $_nas_nav_links = [
 $nav_links = $_nas_nav_links;
 include NAS_PLUGIN_DIR . 'templates/partials/top-nav.php';
 ?>
-<style>
-.nas-contact-wrap{max-width:1000px;margin:40px auto;padding:0 16px;font-family:'Inter','Segoe UI',sans-serif}
-.nas-contact-grid{display:grid;grid-template-columns:1fr 1.4fr;gap:32px}
-@media(max-width:768px){.nas-contact-grid{grid-template-columns:1fr}}
-.nas-contact-info{background:<?php echo esc_js($color); ?>;border-radius:16px;padding:32px;color:#fff}
-.nas-contact-info h2{margin:0 0 8px;font-size:22px}
-.nas-contact-info p{margin:0 0 28px;opacity:.8;font-size:14px}
-.nas-ci-row{display:flex;gap:14px;align-items:flex-start;margin-bottom:20px}
-.nas-ci-icon{width:40px;height:40px;border-radius:10px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
-.nas-ci-text strong{display:block;font-size:13px;opacity:.7;margin-bottom:3px}
-.nas-ci-text span{font-size:14px}
-.nas-social-links{display:flex;gap:10px;margin-top:28px}
-.nas-social-links a{width:38px;height:38px;border-radius:8px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;color:#fff;text-decoration:none;font-size:16px;transition:background .2s}
-.nas-social-links a:hover{background:rgba(255,255,255,.3)}
-.nas-contact-form-card{background:#fff;border:1px solid #e2e8f0;border-radius:16px;padding:32px;box-shadow:0 4px 20px rgba(0,0,0,.06)}
-.nas-contact-form-card h3{margin:0 0 20px;color:<?php echo esc_js($color); ?>;font-size:18px;font-weight:700}
-.nas-form-row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-@media(max-width:500px){.nas-form-row{grid-template-columns:1fr}}
-.nas-field{margin-bottom:14px}
-.nas-field label{display:block;font-size:13px;font-weight:600;color:#374151;margin-bottom:5px}
-.nas-field input,.nas-field textarea,.nas-field select{width:100%;padding:10px 14px;border:1.5px solid #d0d7de;border-radius:8px;font-size:14px;font-family:inherit;transition:border .2s;box-sizing:border-box;color:#1e293b}
-.nas-field input:focus,.nas-field textarea:focus,.nas-field select:focus{outline:none;border-color:<?php echo esc_js($color); ?>;box-shadow:0 0 0 3px <?php echo esc_js($color); ?>18}
-.nas-field textarea{resize:vertical;min-height:110px}
-.nas-submit-btn{width:100%;padding:14px;background:<?php echo esc_js($color); ?>;color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;transition:opacity .2s}
-.nas-submit-btn:hover{opacity:.9}
-.nas-submit-btn:disabled{opacity:.5;cursor:not-allowed}
-.nas-form-success{display:none;background:#dcfce7;border-radius:10px;padding:16px 20px;color:#16a34a;font-weight:600;font-size:14px;margin-top:14px;text-align:center}
-.nas-form-error{display:none;background:#fef2f2;border-radius:10px;padding:12px 16px;color:#dc2626;font-size:13px;margin-bottom:14px}
-</style>
 
-<div class="nas-contact-wrap">
+<div class="nas-portal-page">
+<div class="nas-portal-wrap">
+  <div class="nas-portal-hero">
+    <span class="nas-portal-hero__eyebrow">Get in Touch</span>
+    <h1>Contact <span>Our Team</span></h1>
+    <p>Questions about rates, publications, or your booking? We're here to help.</p>
+  </div>
+
+<div class="nas-contact-wrap" style="max-width:none;padding:0;margin:0">
   <div class="nas-contact-grid">
 
     <!-- Contact Info Panel -->

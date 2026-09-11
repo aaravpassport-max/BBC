@@ -664,22 +664,22 @@ if ( $nhp_embed ) {
           </div>
         </div>
       </div>
-      <div class="nhp-benefit">
+      <div class="nhp-benefit nhp-benefit--c0">
         <div class="nhp-benefit__icon" style="background:rgba(239,164,20,.14);color:#D68F0A"><i class="fa-solid fa-sack-dollar"></i></div>
         <h3 class="nhp-benefit__title">Transparent Rates</h3>
         <p class="nhp-benefit__desc">Direct newspaper rates with no hidden charges. See pricing before you pay, with GST invoice included.</p>
       </div>
-      <div class="nhp-benefit">
+      <div class="nhp-benefit nhp-benefit--c1">
         <div class="nhp-benefit__icon" style="background:rgba(47,82,88,.12);color:#2F5258"><i class="fa-solid fa-shield-halved"></i></div>
         <h3 class="nhp-benefit__title">Secure Payments</h3>
         <p class="nhp-benefit__desc">All transactions via Razorpay — UPI, cards, and net banking with industry-standard encryption.</p>
       </div>
-      <div class="nhp-benefit">
+      <div class="nhp-benefit nhp-benefit--c2">
         <div class="nhp-benefit__icon" style="background:rgba(42,138,250,.12);color:#2A8AFA"><i class="fa-solid fa-file-invoice"></i></div>
         <h3 class="nhp-benefit__title">Instant Invoice</h3>
         <p class="nhp-benefit__desc">Auto-generated GST invoice after payment. Download anytime from your client dashboard.</p>
       </div>
-      <div class="nhp-benefit">
+      <div class="nhp-benefit nhp-benefit--c3">
         <div class="nhp-benefit__icon" style="background:rgba(239,164,20,.14);color:#D68F0A"><i class="fa-solid fa-bolt"></i></div>
         <h3 class="nhp-benefit__title">Book in Minutes</h3>
         <p class="nhp-benefit__desc">No phone calls or emails required. Complete your booking online 24/7 in under three minutes.</p>
@@ -718,30 +718,39 @@ if ( $nhp_embed ) {
   </div>
 </section>
 
-<!-- FAQ (single list — no column duplication) -->
+<!-- FAQ -->
 <?php if ( $faqs ) : ?>
-<section class="nhp-section" id="faq">
+<section class="nhp-section nhp-section--faq" id="faq">
   <div class="nhp-container">
-    <div class="nhp-section__header">
+    <div class="nhp-section__header nhp-section__header--center">
       <span class="nhp-section__eyebrow">Common Questions</span>
-      <h2 class="nhp-section__title">Frequently Asked Questions</h2>
-      <p class="nhp-section__subtitle">Answers to the most important questions about booking newspaper ads online.</p>
+      <h2 class="nhp-section__title nhp-section__title--accent">Frequently Asked <span>Questions</span></h2>
+      <p class="nhp-section__subtitle">Everything you need to know about booking, paying, and tracking your newspaper advertisement.</p>
     </div>
     <div class="nhp-faq-layout">
       <aside class="nhp-faq-sidebar">
-        <div class="nhp-faq-search nhp-search">
-          <i class="fa-solid fa-search nhp-search__icon"></i>
-          <input type="search" class="nhp-search__input" id="nhp-faq-search" placeholder="Search questions…" autocomplete="off">
+        <div class="nhp-faq-help-card">
+          <div class="nhp-faq-help-card__icon"><i class="fa-solid fa-headset"></i></div>
+          <h3>Still need help?</h3>
+          <p>Our team can guide you through newspaper selection, ad copy, pricing, and publication timelines.</p>
+          <a href="<?php echo esc_url( $contact_url ); ?>" class="nhp-btn nhp-btn--white nhp-btn--block">Contact Support</a>
+          <?php if ( $walink ) : ?>
+          <a href="<?php echo esc_url( $walink ); ?>" class="nhp-btn nhp-btn--ghost nhp-btn--block" style="margin-top:10px" target="_blank" rel="noopener"><i class="fa-brands fa-whatsapp"></i> WhatsApp Us</a>
+          <?php endif; ?>
         </div>
-        <p style="font-size:var(--nhp-text-sm);color:var(--nhp-ink-muted);line-height:1.6">Can't find your answer? <a href="<?php echo esc_url( $contact_url ); ?>" style="color:var(--nhp-primary);font-weight:600">Contact our team</a> or browse the full FAQ.</p>
-        <a href="<?php echo esc_url( $faq_url ); ?>" class="nhp-btn nhp-btn--outline-dark" style="margin-top:16px;width:100%">View All FAQs</a>
+        <div class="nhp-faq-search-wrap">
+          <i class="fa-solid fa-search"></i>
+          <input type="search" id="nhp-faq-search" placeholder="Search questions…" autocomplete="off">
+        </div>
+        <a href="<?php echo esc_url( $faq_url ); ?>" class="nhp-btn nhp-btn--outline-dark nhp-btn--block">View All FAQs <i class="fa-solid fa-arrow-right"></i></a>
       </aside>
       <div class="nhp-faq-list">
-        <?php foreach ( $faqs as $faq ) : ?>
-        <div class="nhp-faq-item">
+        <?php foreach ( $faqs as $fi => $faq ) : ?>
+        <div class="nhp-faq-item nhp-faq-item--c<?php echo (int) ( $fi % 6 ); ?>">
           <button type="button" class="nhp-faq-question" aria-expanded="false">
-            <?php echo esc_html( $faq['question'] ); ?>
-            <i class="fa-solid fa-chevron-down"></i>
+            <span class="nhp-faq-q__num"><?php echo str_pad( (string) ( $fi + 1 ), 2, '0', STR_PAD_LEFT ); ?></span>
+            <span class="nhp-faq-q__text"><?php echo esc_html( $faq['question'] ); ?></span>
+            <i class="fa-solid fa-chevron-down nhp-faq-q__chevron"></i>
           </button>
           <div class="nhp-faq-answer"><?php echo wp_kses_post( $faq['answer'] ); ?></div>
         </div>

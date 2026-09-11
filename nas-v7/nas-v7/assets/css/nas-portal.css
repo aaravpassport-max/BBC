@@ -1,0 +1,631 @@
+/**
+ * NAS Portal — shared public-page design (FAQ, Contact, Track, Login, etc.)
+ * Aligns with homepage marketplace tokens (navy + gold + teal).
+ */
+
+/* ── Portal page shell ───────────────────────────────────────────────────── */
+.nas-portal-page {
+  --nas-teal: #0D9488;
+  --nas-coral: #F97316;
+  --nas-violet: #7C3AED;
+  --nas-gold-grad: linear-gradient(135deg, #F59E0B 0%, #F97316 100%);
+  font-family: var(--nas-font);
+  color: var(--nas-text);
+  background: linear-gradient(180deg, #f8fafc 0%, #fff 40%, #fff 100%);
+  min-height: 60vh;
+}
+
+.nas-portal-wrap {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: clamp(32px, 5vw, 56px) clamp(16px, 4vw, 24px) clamp(64px, 8vw, 96px);
+}
+
+.nas-portal-hero {
+  text-align: center;
+  margin-bottom: clamp(32px, 5vw, 48px);
+}
+
+.nas-portal-hero__eyebrow {
+  display: inline-block;
+  padding: 6px 14px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--nas-primary);
+  background: linear-gradient(135deg, rgba(26, 58, 92, 0.08), rgba(245, 158, 11, 0.1));
+  border-radius: 999px;
+  border: 1px solid rgba(26, 58, 92, 0.1);
+  margin-bottom: 14px;
+}
+
+.nas-portal-hero h1,
+.nas-portal-hero h2 {
+  font-family: var(--nas-font-display);
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 800;
+  color: var(--nas-text);
+  letter-spacing: -0.03em;
+  margin: 0 0 10px;
+  line-height: 1.15;
+}
+
+.nas-portal-hero h1 span,
+.nas-portal-hero h2 span {
+  background: var(--nas-gold-grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.nas-portal-hero p {
+  font-size: 1.0625rem;
+  color: var(--nas-text-muted);
+  max-width: 560px;
+  margin: 0 auto;
+  line-height: 1.65;
+}
+
+.nas-portal-hero::after {
+  content: '';
+  display: block;
+  width: 64px;
+  height: 4px;
+  margin: 20px auto 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #F59E0B, var(--nas-teal), var(--nas-violet));
+}
+
+/* ── FAQ layout (portal + reusable) ────────────────────────────────────── */
+.nas-faq-layout {
+  display: grid;
+  grid-template-columns: 300px 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.nas-faq-sidebar {
+  position: sticky;
+  top: 88px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.nas-faq-help-card {
+  background: linear-gradient(145deg, var(--nas-primary) 0%, #1e3a6e 55%, var(--nas-teal) 100%);
+  border-radius: 20px;
+  padding: 28px 24px;
+  color: #fff;
+  box-shadow: 0 16px 40px rgba(13, 148, 136, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.nas-faq-help-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #F59E0B, #F97316);
+}
+
+.nas-faq-help-card__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.375rem;
+  color: #FCD34D;
+  margin-bottom: 16px;
+}
+
+.nas-faq-help-card h3 {
+  font-family: var(--nas-font-display);
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #fff !important;
+  margin: 0 0 8px;
+}
+
+.nas-faq-help-card p {
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.8);
+  line-height: 1.6;
+  margin: 0 0 16px;
+}
+
+.nas-faq-help-card a.nas-btn {
+  width: 100%;
+  justify-content: center;
+  border-radius: 999px;
+}
+
+.nas-faq-search-wrap {
+  position: relative;
+}
+
+.nas-faq-search-wrap i {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--nas-text-light);
+  pointer-events: none;
+}
+
+.nas-faq-search-wrap input {
+  width: 100%;
+  padding: 14px 16px 14px 44px;
+  font-family: var(--nas-font);
+  font-size: 0.9375rem;
+  border: 1.5px solid var(--nas-border);
+  border-radius: 14px;
+  background: #fff;
+  transition: var(--nas-transition);
+}
+
+.nas-faq-search-wrap input:focus {
+  outline: none;
+  border-color: var(--nas-teal);
+  box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.12);
+}
+
+.nas-faq-cats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.nas-faq-cat {
+  padding: 8px 16px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1.5px solid var(--nas-border);
+  background: #fff;
+  color: var(--nas-text-muted);
+  cursor: pointer;
+  transition: var(--nas-transition);
+}
+
+.nas-faq-cat:hover,
+.nas-faq-cat.active {
+  background: linear-gradient(135deg, var(--nas-primary), var(--nas-teal));
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(13, 148, 136, 0.25);
+}
+
+.nas-faq-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.nas-faq-item {
+  background: #fff;
+  border: 1px solid var(--nas-border);
+  border-radius: 16px;
+  overflow: hidden;
+  transition: var(--nas-transition);
+  box-shadow: 0 2px 12px rgba(12, 18, 34, 0.04);
+}
+
+.nas-faq-item:hover {
+  box-shadow: 0 8px 24px rgba(12, 18, 34, 0.08);
+}
+
+.nas-faq-item.is-open,
+.nas-faq-item.open {
+  border-color: rgba(13, 148, 136, 0.35);
+  background: linear-gradient(180deg, #f0fdfa 0%, #fff 100%);
+  box-shadow: 0 8px 28px rgba(13, 148, 136, 0.12);
+}
+
+.nas-faq-item--c0 { --nas-faq-accent: #F59E0B; }
+.nas-faq-item--c1 { --nas-faq-accent: #0D9488; }
+.nas-faq-item--c2 { --nas-faq-accent: #7C3AED; }
+.nas-faq-item--c3 { --nas-faq-accent: #0284C7; }
+.nas-faq-item--c4 { --nas-faq-accent: #E11D48; }
+.nas-faq-item--c5 { --nas-faq-accent: #059669; }
+
+.nas-faq-q,
+.nas-acc-q {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 22px;
+  font-family: var(--nas-font);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--nas-text);
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: var(--nas-transition);
+}
+
+.nas-faq-q:hover,
+.nas-acc-q:hover {
+  background: rgba(248, 250, 252, 0.8);
+}
+
+.nas-faq-item.is-open .nas-faq-q,
+.nas-faq-item.open .nas-acc-q.open {
+  color: var(--nas-faq-accent, var(--nas-teal));
+}
+
+.nas-faq-q__num {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--nas-faq-accent, var(--nas-primary));
+  background: color-mix(in srgb, var(--nas-faq-accent, var(--nas-primary)) 12%, #fff);
+  border: 1px solid color-mix(in srgb, var(--nas-faq-accent, var(--nas-primary)) 25%, transparent);
+}
+
+.nas-faq-q__text {
+  flex: 1;
+  min-width: 0;
+}
+
+.nas-faq-q__chevron,
+.nas-acc-q .arrow {
+  flex-shrink: 0;
+  color: var(--nas-text-light);
+  font-size: 0.875rem;
+  transition: transform 0.25s ease, color 0.2s ease;
+}
+
+.nas-faq-item.is-open .nas-faq-q__chevron,
+.nas-acc-q.open .arrow {
+  transform: rotate(180deg);
+  color: var(--nas-faq-accent, var(--nas-teal));
+}
+
+.nas-faq-a,
+.nas-acc-a {
+  display: none;
+  padding: 0 22px 20px 68px;
+  font-size: 0.9375rem;
+  color: var(--nas-text-muted);
+  line-height: 1.75;
+}
+
+.nas-faq-item.is-open .nas-faq-a,
+.nas-acc-q.open + .nas-acc-a {
+  display: block;
+}
+
+.nas-faq-cta-bar {
+  margin-top: 32px;
+  padding: 24px;
+  text-align: center;
+  background: linear-gradient(135deg, #FEF3C7 0%, #F0FDFA 100%);
+  border-radius: 16px;
+  border: 1px solid #FDE68A;
+  font-size: 0.9375rem;
+  color: var(--nas-text-muted);
+}
+
+.nas-faq-cta-bar a {
+  color: var(--nas-primary);
+  font-weight: 700;
+}
+
+/* Legacy accordion wrapper */
+.nas-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.nas-acc-item {
+  background: #fff;
+  border: 1px solid var(--nas-border);
+  border-radius: 16px;
+  overflow: hidden;
+  border-bottom: 1px solid var(--nas-border);
+}
+
+.nas-acc-item:last-child {
+  border-bottom: 1px solid var(--nas-border);
+}
+
+/* ── Contact page ──────────────────────────────────────────────────────── */
+.nas-contact-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.35fr;
+  gap: 28px;
+  align-items: start;
+}
+
+.nas-contact-info {
+  background: linear-gradient(145deg, var(--nas-primary) 0%, #1e3a6e 50%, var(--nas-teal) 100%);
+  border-radius: 20px;
+  padding: 32px;
+  color: #fff;
+  box-shadow: 0 16px 48px rgba(13, 148, 136, 0.2);
+  position: relative;
+  overflow: hidden;
+}
+
+.nas-contact-info::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: linear-gradient(90deg, #F59E0B, #F97316);
+}
+
+.nas-contact-info h2 {
+  color: #fff !important;
+  font-size: 1.5rem;
+  margin: 0 0 8px;
+}
+
+.nas-contact-info > p {
+  opacity: 0.85;
+  font-size: 0.9375rem;
+  margin: 0 0 28px;
+}
+
+.nas-ci-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  margin-bottom: 20px;
+}
+
+.nas-ci-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.125rem;
+  flex-shrink: 0;
+  color: #FCD34D;
+}
+
+.nas-ci-text strong {
+  display: block;
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.nas-ci-text span,
+.nas-ci-text a {
+  font-size: 0.9375rem;
+  color: #fff;
+}
+
+.nas-social-links {
+  display: flex;
+  gap: 10px;
+  margin-top: 28px;
+}
+
+.nas-social-links a {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 1rem;
+  transition: var(--nas-transition);
+}
+
+.nas-social-links a:hover {
+  background: rgba(255, 255, 255, 0.28);
+  transform: translateY(-2px);
+}
+
+.nas-contact-form-card {
+  background: #fff;
+  border: 1px solid var(--nas-border);
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 8px 32px rgba(12, 18, 34, 0.06);
+}
+
+.nas-contact-form-card h3 {
+  font-family: var(--nas-font-display);
+  margin: 0 0 20px;
+  color: var(--nas-primary) !important;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.nas-form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.nas-field {
+  margin-bottom: 14px;
+}
+
+.nas-field label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--nas-text);
+  margin-bottom: 6px;
+}
+
+.nas-field input,
+.nas-field textarea,
+.nas-field select {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1.5px solid var(--nas-border);
+  border-radius: 12px;
+  font-size: 0.9375rem;
+  font-family: var(--nas-font);
+  transition: var(--nas-transition);
+  box-sizing: border-box;
+  color: var(--nas-text);
+}
+
+.nas-field input:focus,
+.nas-field textarea:focus,
+.nas-field select:focus {
+  outline: none;
+  border-color: var(--nas-teal);
+  box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.12);
+}
+
+.nas-field textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.nas-submit-btn {
+  width: 100%;
+  padding: 14px;
+  background: var(--nas-gold-grad);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: var(--nas-transition);
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+}
+
+.nas-submit-btn:hover {
+  filter: brightness(1.05);
+  transform: translateY(-1px);
+}
+
+.nas-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.nas-form-success {
+  display: none;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 12px;
+  padding: 16px;
+  color: #059669;
+  font-weight: 600;
+  margin-top: 14px;
+  text-align: center;
+}
+
+.nas-form-error {
+  display: none;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: #dc2626;
+  font-size: 0.875rem;
+  margin-bottom: 14px;
+}
+
+/* ── Top nav premium alignment ─────────────────────────────────────────── */
+.nas-top-nav {
+  background: rgba(255, 255, 255, 0.96) !important;
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--nas-border) !important;
+  box-shadow: none;
+  transition: box-shadow 0.3s ease;
+}
+
+.nas-top-nav.is-scrolled {
+  box-shadow: 0 8px 32px rgba(12, 18, 34, 0.1);
+}
+
+.nas-top-nav::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #F59E0B, var(--nas-teal), var(--nas-violet));
+  opacity: 0.75;
+}
+
+.nas-top-nav__links a {
+  color: var(--nas-text-muted) !important;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 8px 14px !important;
+}
+
+.nas-top-nav__links a.active,
+.nas-top-nav__links a:hover {
+  color: var(--nas-primary) !important;
+  background: rgba(245, 158, 11, 0.1);
+}
+
+.nas-logo-text {
+  font-family: var(--nas-font-display);
+  font-weight: 800;
+  color: var(--nas-primary) !important;
+}
+
+.nas-btn-primary {
+  background: var(--nas-gold-grad) !important;
+  border-radius: 999px !important;
+  box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3);
+  color: #fff !important;
+}
+
+@media (max-width: 900px) {
+  .nas-faq-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .nas-faq-sidebar {
+    position: static;
+  }
+
+  .nas-contact-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .nas-form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .nas-faq-a,
+  .nas-acc-a {
+    padding-left: 22px;
+  }
+}

@@ -9,17 +9,17 @@
    design system instead of re-defining colors ad hoc.
    ─────────────────────────────────────────────────────────────── */
 :root {
-  /* Primary — signature blue */
-  --nas-primary:       #2A8AFA;
-  --nas-primary-dark:  #1B6FD8;
-  --nas-primary-light: #D7DBFF;
-  --nas-primary-grad:  linear-gradient(135deg, #2A8AFA 0%, #202C39 100%);
+  /* Primary — navy (aligned with homepage) */
+  --nas-primary:       #1A3A5C;
+  --nas-primary-dark:  #0f2744;
+  --nas-primary-light: #e8eef4;
+  --nas-primary-grad:  linear-gradient(135deg, #1A3A5C 0%, #0d9488 100%);
 
-  /* Accent — signature yellow, for CTAs & highlights */
-  --nas-accent:        #EFA414;
-  --nas-accent-dark:   #D68F0A;
-  --nas-accent-light:  #FFF3DC;
-  --nas-accent-grad:   linear-gradient(135deg, #EFA414 0%, #FFC94D 100%);
+  /* Accent — gold CTAs */
+  --nas-accent:        #F59E0B;
+  --nas-accent-dark:   #D97706;
+  --nas-accent-light:  #FEF3C7;
+  --nas-accent-grad:   linear-gradient(135deg, #F59E0B 0%, #F97316 100%);
 
   /* Secondary accent — deep teal, for positive/secondary emphasis */
   --nas-lime:           #2F5258;

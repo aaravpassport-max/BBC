@@ -175,24 +175,30 @@
     onScroll();
   }
 
-  /* Scroll reveal */
-  if ('IntersectionObserver' in window) {
-    var revealEls = qsa('.nhp-reveal');
-    if (revealEls.length) {
-      var observer = new IntersectionObserver(
-        function (entries) {
-          entries.forEach(function (entry) {
-            if (entry.isIntersecting) {
-              entry.target.classList.add('is-visible');
-              observer.unobserve(entry.target);
-            }
-          });
-        },
-        { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
-      );
-      revealEls.forEach(function (el) { observer.observe(el); });
-    }
+  /* Scroll reveal — progressive enhancement only; content visible without JS */
+  var revealEls = qsa('.nhp-reveal');
+  if (revealEls.length && 'IntersectionObserver' in window) {
+    document.documentElement.classList.add('nhp-reveal-on');
+    var revealObserver = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('is-visible');
+            revealObserver.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.08, rootMargin: '0px 0px 0px 0px' }
+    );
+    revealEls.forEach(function (el) {
+      var rect = el.getBoundingClientRect();
+      if (rect.top < window.innerHeight * 0.92) {
+        el.classList.add('is-visible');
+      } else {
+        revealObserver.observe(el);
+      }
+    });
   } else {
-    qsa('.nhp-reveal').forEach(function (el) { el.classList.add('is-visible'); });
+    revealEls.forEach(function (el) { el.classList.add('is-visible'); });
   }
 })();
