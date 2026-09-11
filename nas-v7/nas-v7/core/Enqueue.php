@@ -291,6 +291,9 @@ class Enqueue {
         wp_enqueue_script( 'nas-core', $a . 'js/nas-core.js', [ 'jquery' ], self::asset_ver( 'js/nas-core.js' ), true );
         wp_enqueue_script( 'nas-booking',
             $a . 'js/nas-booking.js', [ 'nas-core' ], self::asset_ver( 'js/nas-booking.js' ), true );
+        if ( file_exists( NAS_DIR . 'templates/partials/portal-nav-config.php' ) ) {
+            require_once NAS_DIR . 'templates/partials/portal-nav-config.php';
+        }
         wp_localize_script( 'nas-core', 'NAS', self::js_vars() );
     }
 
@@ -356,6 +359,10 @@ class Enqueue {
             [], null );
         wp_enqueue_style( 'nas-core', $a . 'css/nas-core.css', [ 'nas-fonts' ], self::asset_ver( 'css/nas-core.css' ) );
         wp_enqueue_style( 'nas-portal', $a . 'css/nas-portal.css', [ 'nas-core' ], self::asset_ver( 'css/nas-portal.css' ) );
+        wp_enqueue_style( 'nas-portal-app', $a . 'css/nas-portal-app.css', [ 'nas-portal' ], self::asset_ver( 'css/nas-portal-app.css' ) );
+        wp_enqueue_style( 'font-awesome',
+            'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css',
+            [], '6.5.0' );
 
         wp_enqueue_script( 'jquery' );
         wp_enqueue_script( 'nas-core', $a . 'js/nas-core.js', [ 'jquery' ], self::asset_ver( 'js/nas-core.js' ), true );

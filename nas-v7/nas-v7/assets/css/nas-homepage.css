@@ -905,6 +905,24 @@
   gap: 20px;
 }
 
+@media (max-width: 640px) {
+  .nhp-papers-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .nhp-paper-card__top {
+    padding: 18px 18px 16px;
+  }
+
+  .nhp-paper-card__footer,
+  .nhp-paper-card__actions {
+    padding-left: 18px;
+    padding-right: 18px;
+    padding-bottom: 18px;
+  }
+}
+
 .nhp-section--marketplace {
   background: #fff;
   padding-top: 0;

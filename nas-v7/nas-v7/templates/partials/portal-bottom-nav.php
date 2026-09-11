@@ -4,11 +4,11 @@
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
+require_once NAS_DIR . 'templates/partials/portal-nav-config.php';
+
 if ( ! function_exists( 'nas_portal_should_show_bottom_nav' ) || ! nas_portal_should_show_bottom_nav() ) {
     return;
 }
-
-require_once NAS_DIR . 'templates/partials/portal-nav-config.php';
 
 $registry = nas_portal_nav_registry();
 $keys     = nas_portal_bottom_nav_keys();

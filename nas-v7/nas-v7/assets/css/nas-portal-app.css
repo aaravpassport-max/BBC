@@ -172,4 +172,8 @@ body.nas-page-book-newspaper-ad.nas-app-shell {
   body.nas-page-book-newspaper-ad .nas-help-fab {
     bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   }
+
+  body.nas-page-client-dashboard.nas-app-shell {
+    padding-bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+  }
 }

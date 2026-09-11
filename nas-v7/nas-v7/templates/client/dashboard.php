@@ -291,7 +291,7 @@ textarea.cd-form-control{resize:vertical;min-height:70px}
   .cd-topnav-inner{padding:0 14px;height:56px}
   .cd-body{padding:20px 14px 24px}
   .cd-bottom-nav{
-    display:block;position:fixed;left:0;right:0;bottom:0;z-index:10050;
+    display:block !important;position:fixed;left:0;right:0;bottom:0;z-index:10050;
     background:rgba(255,255,255,.96);backdrop-filter:blur(16px);
     border-top:1px solid #e2e8f0;box-shadow:0 -8px 32px rgba(15,23,42,.08);
     padding-bottom:env(safe-area-inset-bottom,0px)
