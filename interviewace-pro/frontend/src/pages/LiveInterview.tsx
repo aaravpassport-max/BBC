@@ -13,13 +13,20 @@ type VoiceState = 'idle' | 'speaking' | 'listening' | 'transcribing' | 'thinking
 
 const SILENT_AUDIO_DATA_URI = 'data:audio/wav;base64,UklGRiwAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQgAAAAAAAAAAAAAAA==';
 
+function base64ToBlob(base64: string, mime: string): Blob {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
 function micErrorMessage(err: unknown): string {
   const e = err as DOMException;
   if (e?.name === 'NotAllowedError' || e?.name === 'PermissionDeniedError') {
-    return 'Microphone access denied. Allow it in browser settings and refresh.';
+    return 'Microphone access denied. Allow it in your browser settings, then tap the mic button below.';
   }
   if (e?.name === 'NotFoundError' || e?.name === 'DevicesNotFoundError') {
-    return 'No microphone found. Connect a microphone and try again.';
+    return 'No microphone detected. Connect a microphone or use "Type answer instead" below.';
   }
   if (!window.isSecureContext) {
     return 'Microphone requires HTTPS. Open this site with https:// and try again.';
@@ -31,17 +38,6 @@ function micErrorMessage(err: unknown): string {
   return `Could not start the microphone${detail}. Tap the mic button below to try again.`;
 }
 
-function streamIsLive(stream: MediaStream | null): boolean {
-  return Boolean(stream && stream.getAudioTracks().some((t) => t.readyState === 'live'));
-}
-
-function base64ToBlob(base64: string, mime: string): Blob {
-  const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return new Blob([bytes], { type: mime });
-}
-
 function photoWrapClass(voiceState: VoiceState, submitting: boolean): string {
   if (submitting || voiceState === 'thinking') return 'ia-photo-wrap--thinking';
   if (voiceState === 'speaking') return 'ia-photo-wrap--speaking';
@@ -50,34 +46,16 @@ function photoWrapClass(voiceState: VoiceState, submitting: boolean): string {
   return '';
 }
 
-function statusLabel(voiceState: VoiceState, submitting: boolean, voiceMode: boolean): string {
-  if (!voiceMode) return '';
-  if (submitting) return 'Thinking…';
-  if (voiceState === 'speaking') return 'Speaking';
-  if (voiceState === 'listening') return 'Listening…';
-  if (voiceState === 'transcribing') return 'Processing your response…';
-  if (voiceState === 'thinking') return 'Thinking…';
-  return 'Click the mic button below to start';
-}
-
-function statusClass(voiceState: VoiceState, submitting: boolean): string {
-  if (submitting || voiceState === 'thinking' || voiceState === 'transcribing') return 'ia-photo-status--thinking';
-  if (voiceState === 'speaking') return 'ia-photo-status--speaking';
-  if (voiceState === 'listening') return 'ia-photo-status--listening';
-  return '';
-}
-
 function PriyaVideoPanel({
   voiceState,
   submitting,
-  voiceMode,
+  showVoiceUi,
 }: {
   voiceState: VoiceState;
   submitting: boolean;
-  voiceMode: boolean;
+  showVoiceUi: boolean;
 }) {
   const wrapMod = photoWrapClass(voiceState, submitting);
-  const label = statusLabel(voiceState, submitting, voiceMode);
 
   return (
     <div className="ia-live-video-panel">
@@ -88,15 +66,15 @@ function PriyaVideoPanel({
           src={config.priyaAvatarUrl}
           alt="Priya, AI HR Recruiter"
         />
-        {voiceMode && voiceState === 'speaking' && (
+        {showVoiceUi && voiceState === 'speaking' && (
           <div className="ia-photo-eq ia-priya-eq" aria-hidden="true">
             <span /><span /><span /><span /><span />
           </div>
         )}
-        {voiceMode && voiceState === 'listening' && (
+        {showVoiceUi && voiceState === 'listening' && (
           <div className="ia-photo-listen-overlay" aria-hidden="true" />
         )}
-        {voiceMode && (voiceState === 'transcribing' || submitting || voiceState === 'thinking') && (
+        {showVoiceUi && (voiceState === 'transcribing' || submitting || voiceState === 'thinking') && (
           <div className="ia-photo-think-overlay" aria-hidden="true" />
         )}
         <div className="ia-photo-nameplate">
@@ -104,13 +82,13 @@ function PriyaVideoPanel({
           <span className="ia-photo-title">AI HR Recruiter</span>
         </div>
       </div>
-      {voiceMode && label && (
-        <p className={`ia-photo-status ${statusClass(voiceState, submitting)}`} role="status" aria-live="polite">
+      {showVoiceUi && (
+        <p className={`ia-photo-status ia-photo-status--${voiceState === 'speaking' ? 'speaking' : voiceState === 'listening' ? 'listening' : 'thinking'}`} role="status" aria-live="polite">
           {voiceState === 'speaking' ? 'Priya is speaking…' :
            voiceState === 'listening' ? 'Listening… speak your answer' :
            voiceState === 'transcribing' ? 'Processing your response…' :
            submitting ? 'Priya is thinking…' :
-           label}
+           voiceState === 'idle' ? 'Click the mic button below to start' : ''}
         </p>
       )}
     </div>
@@ -139,50 +117,77 @@ export default function LiveInterview() {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
-  const dgSocketRef = useRef<WebSocket | null>(null);
-  const streamingRef = useRef(false);
 
   const maxMinutes = state.maxMinutes ?? 60;
 
   const [started, setStarted] = useState(false);
-  const [voiceMode, setVoiceMode] = useState(true);
+  const [textOnly, setTextOnly] = useState(false);
+  const [ttsEnabled, setTtsEnabled] = useState(true);
   const [voiceState, setVoiceState] = useState<VoiceState>('idle');
-  const [voiceUnavailable, setVoiceUnavailable] = useState<string | null>(null);
+  const [ttsNotice, setTtsNotice] = useState<string | null>(null);
+  const [micNotice, setMicNotice] = useState<string | null>(null);
   const [showTextFallback, setShowTextFallback] = useState(false);
+
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const primedAudioRef = useRef<HTMLAudioElement | null>(null);
-  const voiceModeRef = useRef(true);
-  useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
+  const textOnlyRef = useRef(false);
+  const ttsEnabledRef = useRef(true);
+
+  useEffect(() => { textOnlyRef.current = textOnly; }, [textOnly]);
+  useEffect(() => { ttsEnabledRef.current = ttsEnabled; }, [ttsEnabled]);
 
   const aiTurns = turns.filter((t) => t.role === 'ai');
   const currentAiLine = aiTurns.length ? aiTurns[aiTurns.length - 1].text : '';
+  const showVoiceUi = !textOnly && ttsEnabled;
 
   useEffect(() => {
     interviewsApi.start(interviewId).catch(() => {});
   }, [interviewId]);
 
-  const speak = useCallback(async (text: string): Promise<void> => {
-    if (!voiceModeRef.current) return;
-    // Mic must stay OFF while Priya speaks — an open capture stream ducks or
-    // routes speaker output away on many browsers/devices.
+  const releaseMicStream = useCallback(() => {
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    mediaRecorderRef.current = null;
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
-    if (mediaRecorderRef.current?.state === 'recording') {
-      mediaRecorderRef.current.stop();
-      mediaRecorderRef.current = null;
+  }, []);
+
+  const getAudioElement = useCallback((): HTMLAudioElement => {
+    if (!primedAudioRef.current) {
+      const el = document.createElement('audio');
+      el.setAttribute('playsinline', 'true');
+      el.setAttribute('webkit-playsinline', 'true');
+      el.preload = 'auto';
+      el.style.display = 'none';
+      document.body.appendChild(el);
+      primedAudioRef.current = el;
     }
+    return primedAudioRef.current;
+  }, []);
+
+  /**
+   * Plays Priya's voice. Intentionally independent of microphone state —
+   * a mic failure must never prevent TTS from running.
+   */
+  const speak = useCallback(async (text: string): Promise<void> => {
+    if (textOnlyRef.current || !ttsEnabledRef.current || !text.trim()) return;
+
+    releaseMicStream();
     setVoiceState('speaking');
     let url: string | null = null;
+
     try {
       const r = await speechApi.synthesize(text, interviewId);
       const blob = base64ToBlob(r.audio_base64, r.mime);
       url = URL.createObjectURL(blob);
-      const audio = primedAudioRef.current ?? new Audio();
+      const audio = getAudioElement();
       audioRef.current = audio;
       audio.volume = 1;
       audio.muted = false;
+
       await new Promise<void>((resolve, reject) => {
         const onEnd = () => { cleanup(); resolve(); };
         const onErr = () => { cleanup(); reject(new Error('audio playback failed')); };
@@ -194,159 +199,74 @@ export default function LiveInterview() {
         audio.addEventListener('error', onErr);
         audio.src = url!;
         audio.currentTime = 0;
-        audio.load();
         void audio.play().catch(reject);
       });
     } catch (err) {
       const apiErr = err as ApiError;
       if (apiErr?.code === 'ia_cfg') {
-        setVoiceMode(false);
-        setVoiceUnavailable('Voice is not set up on this site yet — continuing with text. (Missing ElevenLabs/Deepgram API key in admin settings.)');
+        setTtsEnabled(false);
+        setTtsNotice('Voice is not set up on this site yet — continuing with text. (Missing ElevenLabs API key in admin settings.)');
       } else {
-        setVoiceUnavailable("Couldn't play Priya's voice — continuing with text. " + (apiErr?.message || ''));
-        setVoiceMode(false);
+        setTtsNotice("Couldn't play Priya's voice — you can still read her questions and type your answers. " + (apiErr?.message || ''));
       }
     } finally {
       if (url) URL.revokeObjectURL(url);
       setVoiceState('idle');
     }
-  }, [interviewId]);
-
-  const closeDeepgramSocket = useCallback(() => {
-    streamingRef.current = false;
-    if (!dgSocketRef.current) return;
-    try {
-      if (dgSocketRef.current.readyState === WebSocket.OPEN) {
-        dgSocketRef.current.send(JSON.stringify({ type: 'CloseStream' }));
-      }
-      dgSocketRef.current.close();
-    } catch { /* ignore */ }
-    dgSocketRef.current = null;
-  }, []);
-
-  const releaseMicStream = useCallback(() => {
-    closeDeepgramSocket();
-    if (mediaRecorderRef.current?.state === 'recording') {
-      mediaRecorderRef.current.stop();
-    }
-    mediaRecorderRef.current = null;
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-    }
-  }, [closeDeepgramSocket]);
+  }, [interviewId, getAudioElement, releaseMicStream]);
 
   const acquireMicStream = useCallback(async (): Promise<MediaStream> => {
-    if (streamIsLive(streamRef.current)) return streamRef.current!;
+    if (streamRef.current?.getAudioTracks().some((t) => t.readyState === 'live')) {
+      return streamRef.current;
+    }
     if (!window.isSecureContext) {
       throw new DOMException('Microphone requires HTTPS', 'SecurityError');
     }
-    if (!navigator.mediaDevices?.getUserMedia) {
+    const gum = navigator.mediaDevices?.getUserMedia?.bind(navigator.mediaDevices);
+    if (!gum) {
       throw new DOMException('Microphone API unavailable', 'NotSupportedError');
     }
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    streamRef.current = stream;
-    return stream;
+    try {
+      const stream = await gum({ audio: true });
+      streamRef.current = stream;
+      return stream;
+    } catch (firstErr) {
+      try {
+        const stream = await gum({
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
+        });
+        streamRef.current = stream;
+        return stream;
+      } catch {
+        throw firstErr;
+      }
+    }
   }, []);
 
-  /** Grant mic permission during a click, then release the stream so TTS can play. */
-  const preauthorizeMic = useCallback(async (): Promise<boolean> => {
-    try {
-      const stream = await acquireMicStream();
-      stream.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-      return true;
-    } catch (err) {
-      setVoiceUnavailable(micErrorMessage(err));
-      setVoiceMode(false);
-      return false;
-    }
-  }, [acquireMicStream]);
-
-  const startBasicRecording = useCallback((stream: MediaStream) => {
-    streamingRef.current = false;
-    closeDeepgramSocket();
-    if (mediaRecorderRef.current?.state === 'recording') {
-      mediaRecorderRef.current.stop();
-    }
-    const mr = new MediaRecorder(stream);
-    chunksRef.current = [];
-    mr.ondataavailable = (e) => chunksRef.current.push(e.data);
-    mr.start();
-    mediaRecorderRef.current = mr;
-    setRecording(true);
-    setVoiceState('listening');
-  }, [closeDeepgramSocket]);
-
   const startListening = useCallback(async () => {
-    if (!voiceModeRef.current) return;
+    if (textOnlyRef.current) return;
     setDraft('');
     setError(null);
+    setMicNotice(null);
+
     try {
       const stream = await acquireMicStream();
-
-      // Attempt live streaming transcription via short-lived Deepgram token.
-      // Falls back to record-then-transcribe if token/stream setup fails.
-      try {
-        const tokenRes = await speechApi.streamToken(interviewId);
-        const wsUrl = `wss://api.deepgram.com/v1/listen?model=nova-2&smart_format=true&language=en&interim_results=true&punctuate=true`;
-        const ws = new WebSocket(wsUrl, ['token', tokenRes.token]);
-        dgSocketRef.current = ws;
-        streamingRef.current = true;
-
-        await new Promise<void>((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('stream timeout')), 8000);
-          ws.onopen = () => { clearTimeout(timeout); resolve(); };
-          ws.onerror = () => { clearTimeout(timeout); reject(new Error('ws error')); };
-        });
-
-        ws.onmessage = (ev) => {
-          try {
-            const data = JSON.parse(ev.data as string);
-            const alt = data?.channel?.alternatives?.[0];
-            const text = alt?.transcript as string | undefined;
-            if (!text) return;
-            if (data.is_final) {
-              setDraft((prev) => (prev ? `${prev} ${text}` : text).trim());
-            } else {
-              setDraft((prev) => {
-                const base = prev.replace(/\s*\[…\]$/, '');
-                return text ? `${base} ${text} […]`.trim() : prev;
-              });
-            }
-          } catch { /* ignore malformed frames */ }
-        };
-
-        if (mediaRecorderRef.current?.state === 'recording') {
-          mediaRecorderRef.current.stop();
-        }
-        const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
-        const mr = new MediaRecorder(stream, { mimeType: mime });
-        chunksRef.current = [];
-        mr.ondataavailable = (e) => {
-          if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
-            ws.send(e.data);
-          }
-          chunksRef.current.push(e.data);
-        };
-        mr.start(250);
-        mediaRecorderRef.current = mr;
-        setRecording(true);
-        setVoiceState('listening');
-        return;
-      } catch {
-        // Streaming unavailable — secure fallback: record clip, transcribe server-side.
-        // IMPORTANT: only close the WebSocket here, NOT the mic stream — killing the
-        // stream then trying MediaRecorder was the root cause of the false
-        // "Microphone access denied" error users saw when streaming setup failed.
-        closeDeepgramSocket();
-        startBasicRecording(stream);
-      }
+      const mr = new MediaRecorder(stream);
+      chunksRef.current = [];
+      mr.ondataavailable = (e) => chunksRef.current.push(e.data);
+      mr.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      };
+      mr.start();
+      mediaRecorderRef.current = mr;
+      setRecording(true);
+      setVoiceState('listening');
     } catch (err) {
-      setVoiceUnavailable(micErrorMessage(err));
+      setMicNotice(micErrorMessage(err));
       setVoiceState('idle');
     }
-  }, [interviewId, acquireMicStream, closeDeepgramSocket, startBasicRecording]);
+  }, [acquireMicStream]);
 
   const stopListeningAndTranscribe = useCallback(async () => {
     const mr = mediaRecorderRef.current;
@@ -354,31 +274,12 @@ export default function LiveInterview() {
     setVoiceState('transcribing');
     setTranscribing(true);
 
-    if (streamingRef.current) {
-      closeDeepgramSocket();
-      if (mediaRecorderRef.current?.state === 'recording') {
-        mediaRecorderRef.current.stop();
-      }
-      mediaRecorderRef.current = null;
-      setRecording(false);
-      const transcript = draft.replace(/\s*\[…\]$/, '').trim();
-      setTranscribing(false);
-      setVoiceState('idle');
-      if (transcript) {
-        const turnNumber = pendingTurnNumber ?? nextTurnNumber.current;
-        setPendingTurnNumber(turnNumber);
-        await submitTurnRef.current(transcript, turnNumber);
-      } else {
-        setError({ code: 'ia_no_speech', message: "Didn't catch that — please try speaking again, or type your answer below.", status: 0, retryable: false });
-      }
-      return;
-    }
-
     await new Promise<void>((resolve) => {
       mr.addEventListener('stop', () => resolve(), { once: true });
       mr.stop();
     });
     setRecording(false);
+
     try {
       const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
       const r = await speechApi.transcribe(blob, interviewId);
@@ -393,8 +294,7 @@ export default function LiveInterview() {
     } catch (err) {
       const apiErr = err as ApiError;
       if (apiErr?.code === 'ia_cfg') {
-        setVoiceMode(false);
-        setVoiceUnavailable('Voice connection issue — check Deepgram API key in admin settings.');
+        setMicNotice('Voice connection issue — check Deepgram API key in admin settings.');
       } else {
         setError(apiErr);
       }
@@ -403,7 +303,7 @@ export default function LiveInterview() {
       setVoiceState('idle');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [interviewId, pendingTurnNumber, draft, closeDeepgramSocket]);
+  }, [interviewId, pendingTurnNumber]);
 
   const submitTurn = useCallback(
     async (transcript: string, turnNumber: number) => {
@@ -428,9 +328,9 @@ export default function LiveInterview() {
           }
           return;
         }
-        if (voiceModeRef.current) {
+        if (!textOnlyRef.current) {
           await speak(r.ai_response);
-          if (voiceModeRef.current) void startListening();
+          if (!textOnlyRef.current) void startListening();
         }
       } catch (err) {
         setError(err as ApiError);
@@ -444,7 +344,6 @@ export default function LiveInterview() {
 
   const submitTurnRef = useRef(submitTurn);
   useEffect(() => { submitTurnRef.current = submitTurn; }, [submitTurn]);
-
   useEffect(() => () => releaseMicStream(), [releaseMicStream]);
 
   function onSend() {
@@ -479,8 +378,8 @@ export default function LiveInterview() {
       await stopListeningAndTranscribe();
       return;
     }
-    if (voiceMode && !submitting && voiceState !== 'speaking') {
-      setVoiceUnavailable(null);
+    if (!textOnly && !submitting && voiceState !== 'speaking') {
+      setMicNotice(null);
       setError(null);
       void startListening();
     }
@@ -497,6 +396,8 @@ export default function LiveInterview() {
       chunksRef.current = [];
       mr.ondataavailable = (e) => chunksRef.current.push(e.data);
       mr.onstop = async () => {
+        stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
         setTranscribing(true);
         try {
@@ -517,38 +418,49 @@ export default function LiveInterview() {
     }
   }
 
+  /**
+   * Proven flow from the original working build:
+   * 1) prime audio synchronously inside the click (autoplay policy)
+   * 2) transition to live screen
+   * 3) play Priya's opening line (mic stays OFF)
+   * 4) only then arm the microphone
+   */
   async function onBeginVoice() {
-    const primed = new Audio(SILENT_AUDIO_DATA_URI);
-    primedAudioRef.current = primed;
-    // Prime audio synchronously inside the click — required for autoplay policy.
-    const primePlay = primed.play();
-
-    // Pre-authorize mic during the click, then release it so Priya's voice
-    // is not ducked/muted by an active capture stream.
-    const micReady = await preauthorizeMic();
+    const audio = getAudioElement();
+    primedAudioRef.current = audio;
+    audio.src = SILENT_AUDIO_DATA_URI;
+    const primePlay = audio.play();
 
     setStarted(true);
+    setTextOnly(false);
+    setTtsNotice(null);
+    setMicNotice(null);
+
     try {
       await primePlay;
-      primed.pause();
-    } catch { /* fall through to text mode */ }
+      audio.pause();
+      audio.currentTime = 0;
+    } catch {
+      setTtsNotice("Your browser blocked audio autoplay — Priya's voice may not play. You can still read her questions below.");
+    }
+
     if (state.openingLine) {
       await speak(state.openingLine);
-      if (voiceModeRef.current && micReady) void startListening();
+      if (!textOnlyRef.current) void startListening();
     }
   }
 
   function onBeginTextOnly() {
     setStarted(true);
-    setVoiceMode(false);
+    setTextOnly(true);
   }
 
   if (!interviewId) return <ErrorBlock error={{ code: 'ia_bad_route', message: 'Invalid interview.', status: 400, retryable: false }} />;
 
   if (!started) {
     return (
-      <div className="ia-page ia-before-begin ia-live-fit">
-        <PriyaVideoPanel voiceState="idle" submitting={false} voiceMode={true} />
+      <div className="ia-live-screen ia-live-screen--gate">
+        <PriyaVideoPanel voiceState="idle" submitting={false} showVoiceUi={true} />
         <h1 className="ia-live-fit-title">Before you begin</h1>
         <p className="ia-live-fit-copy">Find a quiet spot with a good microphone. Priya will greet you, then the mic activates.</p>
         <button className="ia-btn ia-btn-primary ia-btn-block" onClick={() => void onBeginVoice()}>
@@ -569,25 +481,26 @@ export default function LiveInterview() {
       : 'Your answer will appear here when you start speaking.';
 
   return (
-    <div className="ia-page-wide ia-live-shell ia-live-fit">
-      <header className="ia-topbar ia-live-topbar">
+    <div className="ia-live-screen">
+      <header className="ia-live-topbar">
         <strong>Live interview</strong>
-        <div style={{ display: 'flex', gap: 'var(--ia-space-3)', alignItems: 'center' }}>
-          <span className="ia-badge ia-badge-info">Up to {maxMinutes} min</span>
-          <button className="ia-btn ia-btn-ghost" onClick={() => void onEndEarly()} disabled={ending || complete}>
-            {ending ? 'Ending…' : 'End interview'}
+        <div className="ia-live-topbar-actions">
+          <span className="ia-badge ia-badge-info">{maxMinutes} min</span>
+          <button className="ia-btn ia-btn-ghost ia-btn-compact" onClick={() => void onEndEarly()} disabled={ending || complete}>
+            {ending ? 'Ending…' : 'End'}
           </button>
         </div>
       </header>
 
-      {voiceUnavailable && (
-        <div className="ia-state ia-state-error" style={{ margin: 'var(--ia-space-3) 0', padding: 'var(--ia-space-3)' }}>
-          <p style={{ margin: 0 }}>{voiceUnavailable}</p>
+      {(ttsNotice || micNotice) && (
+        <div className="ia-live-notice" role="status">
+          {ttsNotice && <p>{ttsNotice}</p>}
+          {micNotice && <p>{micNotice}</p>}
         </div>
       )}
 
-      <div className="ia-live-main">
-        <PriyaVideoPanel voiceState={voiceState} submitting={submitting} voiceMode={voiceMode} />
+      <div className="ia-live-body">
+        <PriyaVideoPanel voiceState={voiceState} submitting={submitting} showVoiceUi={showVoiceUi} />
 
         {currentAiLine && (
           <div className="ia-live-question">
@@ -596,87 +509,89 @@ export default function LiveInterview() {
           </div>
         )}
 
-        {voiceMode && (
-          <div
-            className={`ia-live-transcript ${recording || draft ? 'ia-live-transcript--active' : ''}`}
-            role="log"
-            aria-live="polite"
-            aria-label="Your spoken answer"
-          >
+        {!textOnly && (
+          <div className={`ia-live-transcript ${recording || draft ? 'ia-live-transcript--active' : ''}`} role="log" aria-live="polite">
             {transcriptPlaceholder}
           </div>
         )}
 
-        {voiceMode && !complete && (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--ia-space-3)' }}>
+        {!textOnly && !complete && (
+          <div className="ia-live-mic-row">
             <button
               type="button"
               className={`ia-mic-btn ${recording ? 'ia-mic-btn--recording' : ''}`}
               onClick={() => void onMicClick()}
               disabled={submitting || transcribing || voiceState === 'speaking'}
               aria-label={recording ? 'Done speaking' : 'Start Speaking'}
-              title={recording ? 'Done speaking' : 'Start Speaking'}
             >
               {recording ? '■' : '🎤'}
             </button>
             {recording ? (
-              <button className="ia-btn ia-btn-danger" onClick={() => void stopListeningAndTranscribe()} disabled={transcribing}>
+              <button className="ia-btn ia-btn-danger ia-btn-compact" onClick={() => void stopListeningAndTranscribe()} disabled={transcribing}>
                 {transcribing ? 'Processing…' : 'Done speaking'}
               </button>
             ) : (
-              <p className="ia-state-hint">{voiceState === 'idle' ? 'Click the mic button below to start' : 'Start Speaking'}</p>
+              <p className="ia-state-hint ia-live-mic-hint">
+                {micNotice ? 'Tap the mic button to try again' : 'Start Speaking'}
+              </p>
             )}
           </div>
         )}
 
         {error && (
-          <div style={{ width: '100%', maxWidth: 560 }}>
+          <div className="ia-live-error">
             <ErrorBlock error={error} onRetry={pendingTurnNumber != null ? onRetry : undefined} />
           </div>
         )}
+      </div>
 
-        {!complete && (
-          <div className="ia-live-fallback">
-            <button
-              type="button"
-              className="ia-btn ia-btn-ghost"
-              style={{ marginBottom: 'var(--ia-space-3)' }}
-              onClick={() => setShowTextFallback((v) => !v)}
-            >
+      {!complete && (
+        <div className="ia-live-footer">
+          {textOnly && (
+            <div className="ia-field ia-live-type-field">
+              <textarea
+                className="ia-input"
+                rows={2}
+                placeholder="Type your answer…"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                disabled={submitting}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
+                }}
+              />
+              <button className="ia-btn ia-btn-primary ia-btn-block" onClick={onSend} disabled={submitting || !draft.trim()}>
+                {submitting ? 'Sending…' : 'Send answer'}
+              </button>
+            </div>
+          )}
+          {!textOnly && (
+            <button type="button" className="ia-btn ia-btn-ghost ia-btn-compact" onClick={() => setShowTextFallback((v) => !v)}>
               {showTextFallback ? 'Hide typed answer' : 'Type answer instead'}
             </button>
-            {showTextFallback && (
-              <>
-                <div className="ia-field">
-                  <textarea
-                    className="ia-input"
-                    rows={3}
-                    placeholder="Type your answer…"
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                    disabled={submitting}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); onSend(); }
-                    }}
-                  />
-                </div>
-                <div style={{ display: 'flex', gap: 'var(--ia-space-3)' }}>
-                  <button
-                    className={`ia-btn ${recording ? 'ia-btn-danger' : 'ia-btn-secondary'}`}
-                    onClick={() => void toggleRecording()}
-                    disabled={submitting || transcribing}
-                  >
-                    {transcribing ? 'Transcribing…' : recording ? '● Stop' : '🎤 Record'}
-                  </button>
-                  <button className="ia-btn ia-btn-primary" style={{ flex: 1 }} onClick={onSend} disabled={submitting || !draft.trim()}>
-                    {submitting ? 'Sending…' : 'Send answer'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        )}
-      </div>
+          )}
+          {!textOnly && showTextFallback && (
+            <div className="ia-field ia-live-type-field">
+              <textarea
+                className="ia-input"
+                rows={2}
+                placeholder="Type your answer…"
+                value={draft}
+                onChange={(e) => setDraft(e.target.value)}
+                disabled={submitting}
+              />
+              <div className="ia-live-type-actions">
+                <button className="ia-btn ia-btn-secondary ia-btn-compact" onClick={() => void toggleRecording()} disabled={submitting || transcribing}>
+                  {transcribing ? '…' : recording ? 'Stop' : 'Record'}
+                </button>
+                <button className="ia-btn ia-btn-primary ia-btn-compact" style={{ flex: 1 }} onClick={onSend} disabled={submitting || !draft.trim()}>
+                  Send
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
