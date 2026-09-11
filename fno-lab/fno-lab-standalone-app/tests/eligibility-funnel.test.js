@@ -90,7 +90,16 @@ assert.ok(/function renderEligibilityFunnel\(/.test(coreSrc));
 assert.ok(/renderEligibilityFunnel\(sym\)/.test(coreSrc));
 assert.ok(/scalpingProfitProfileEnabled: true/.test(coreSrc));
 assert.ok(/tradingTypes: \{ intraday: false, scalping: true/.test(coreSrc));
-assert.ok(/FNO_SETTINGS_SCHEMA_VERSION = 7/.test(coreSrc));
+assert.ok(/FNO_SETTINGS_SCHEMA_VERSION = 8/.test(coreSrc));
+assert.ok(/topCritFailReasonsList/.test(coreSrc));
+
+const critLog = [];
+for (let i = 0; i < 10; i++) {
+  critLog.push({ ts: t0 + 80000 + i, sym: 'NIFTY', decision: 'NO_TRADE', critFailIds: ['Value Decay'], tradeOpened: false });
+}
+const critFunnel = api.computeEligibilityFunnel(critLog, { limit: 100 });
+assert.strictEqual(critFunnel.noSignalNoTrade, 10);
+assert.ok(critFunnel.topCritFailReasonsList.some(r => r.reason === 'Value Decay' && r.count === 10));
 assert.ok(/defaultLots: 2/.test(coreSrc));
 assert.ok(/scalpingCapitalPreservationEnabled: true/.test(coreSrc));
 

@@ -64,7 +64,7 @@ let fnoAutoTradeCloseInProgress = false;
  */
 const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
-const FNO_SETTINGS_SCHEMA_VERSION = 7; // v7 (16.28.0): add 10% and 15% auto bracket presets
+const FNO_SETTINGS_SCHEMA_VERSION = 8; // v8 (16.30.4): clear stale threshold override when upgrading scalping users
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -329,6 +329,9 @@ function migrateTradingControlsSchema(stored) {
         ? merged.scalpingBracketPreset : 'standard',
     };
   }
+  if (schema < 8) {
+    try { localStorage.removeItem('fno_threshold_override_v1'); } catch (e) { /* honest no-op */ }
+  }
   try {
     localStorage.setItem(FNO_SETTINGS_SCHEMA_KEY, String(FNO_SETTINGS_SCHEMA_VERSION));
     localStorage.setItem(FNO_SETTINGS_KEY, JSON.stringify(merged));
@@ -433,7 +436,39 @@ const FNO_SCALPING_PROFIT_PROFILE = {
   autoCalibrateTargetWinRatePct: 65,
   autoCalibrateMinSampleSize: 20, // higher bar than general 10 — avoids over-tightening on tiny samples
   spreadHardBlockPct: 12,
+  // Value Decay hard NO_TRADE: on weekly/monthly options theta often exceeds 5% of
+  // premium — blocking there made scalping show 0% eligibility all session (v16.30.4).
+  valueDecayHardBlockMaxDays: 1, // hard block only on last expiry day (pairs with Expiry critFail)
+  valueDecayCriticalPctNearExpiry: 5,
+  valueDecayExtremePct: 35, // still hard-block absurd decay even with DTE > 1
 };
+
+/**
+ * Theta as % of live premium — null when inputs are missing (never guess with optPrice||1).
+ */
+function computeValueDecayCriticalPct(ctx) {
+  if (!ctx || !ctx.decay || !ctx.decay.snapshot || !ctx.decay.snapshot.now) return null;
+  const theta = ctx.decay.snapshot.now.thetaPerDay;
+  const optPrice = ctx.optPrice;
+  if (!Number.isFinite(theta) || !Number.isFinite(optPrice) || optPrice <= 0) return null;
+  return Math.abs(theta) / optPrice * 100;
+}
+
+/**
+ * Whether Value Decay becomes a hard NO_TRADE (critFail). Scalping waives the 5% rule
+ * when DTE > 1 — decay still scores via computeDecayFactors + FM022.
+ */
+function shouldPushValueDecayCriticalFail(ctx, decayCritPct) {
+  if (decayCritPct === null) return false;
+  if (isScalpingProfitProfileActive()) {
+    const days = ctx.decay && typeof ctx.decay.days === 'number' ? ctx.decay.days : null;
+    if (days !== null && days <= FNO_SCALPING_PROFIT_PROFILE.valueDecayHardBlockMaxDays) {
+      return decayCritPct > FNO_SCALPING_PROFIT_PROFILE.valueDecayCriticalPctNearExpiry;
+    }
+    return decayCritPct >= FNO_SCALPING_PROFIT_PROFILE.valueDecayExtremePct;
+  }
+  return decayCritPct > 5;
+}
 
 /**
  * Five scalping bracket setups — target/SL/trailing/partial defined per preset.
@@ -653,11 +688,11 @@ function isScalpingProfitProfileActive() {
 }
 
 function getEffectiveDecisionThresholds() {
-  const override = getThresholdOverride();
-  if (override) return { buyThreshold: override.buyThreshold, sellThreshold: override.sellThreshold, source: 'strategy_override' };
   if (isScalpingProfitProfileActive()) {
     return { buyThreshold: FNO_SCALPING_PROFIT_PROFILE.buyThreshold, sellThreshold: FNO_SCALPING_PROFIT_PROFILE.sellThreshold, source: 'scalping_profit_profile' };
   }
+  const override = getThresholdOverride();
+  if (override) return { buyThreshold: override.buyThreshold, sellThreshold: override.sellThreshold, source: 'strategy_override' };
   return { buyThreshold: 11, sellThreshold: -17, source: 'default' };
 }
 
@@ -667,6 +702,7 @@ function getSimulateOrderRejectionOpts() {
 
 function applyScalpingProfitProfilePreset() {
   const cur = fnoSettings.get();
+  try { localStorage.removeItem('fno_threshold_override_v1'); } catch (e) { /* honest no-op */ }
   fnoSettings.set({
     scalpingProfitProfileEnabled: true,
     tradingTypes: { intraday: false, scalping: true, swing: !!(cur.tradingTypes && cur.tradingTypes.swing) },
@@ -749,6 +785,10 @@ function renderScalpingSessionReadiness(brain, ctx) {
   const preserveTxt = fnoSettings.get().scalpingCapitalPreservationEnabled !== false
     ? '🛡️ Capital preservation ON (High confidence, operator/trap blocks, 1 loss/day cap)'
     : 'Capital preservation OFF';
+  const decayPct = computeValueDecayCriticalPct(ctx || {});
+  const decayPolicyTxt = decayPct !== null
+    ? `Value Decay: ${decayPct.toFixed(1)}%/day of premium — hard NO_TRADE only if DTE ≤ ${FNO_SCALPING_PROFIT_PROFILE.valueDecayHardBlockMaxDays} or ≥ ${FNO_SCALPING_PROFIT_PROFILE.valueDecayExtremePct}% (scalping policy)`
+    : 'Value Decay: premium unavailable — hard block skipped (decay still scored when data exists)';
   box.innerHTML = [
     `<b style="color:${tp.warn}">⚡ Scalping Profit Profile</b> <span style="color:${tp.muted}">(FM ${fmMode}, realistic fills, ${bracketTxt})</span>`,
     `Live thresholds: BUY ≥ ${thresholds.buyThreshold}, SELL ≤ ${thresholds.sellThreshold}`,
@@ -761,6 +801,7 @@ function renderScalpingSessionReadiness(brain, ctx) {
     `Pre-trade gate: ${gateTxt}`,
     microTxt,
     `Size: ${lotTxt}`,
+    decayPolicyTxt,
     preserveTxt,
   ].map(line => `<div style="padding:3px 0;font-size:11px;color:${tp.text}">${line}</div>`).join('');
 }
@@ -841,16 +882,25 @@ function computeEligibilityFunnel(decisionLog, opts) {
     setupBlocked: 0,
     breakdown: {},
     topBlockReasonsList: [],
+    topCritFailReasonsList: [],
     eligibilityRatePct: null,
     executionRatePct: null,
     alert: null,
   };
 
   const topBlockReasons = {};
+  const topCritFailReasons = {};
   entries.forEach(e => {
     const isSetup = e.decision === 'BUY_READY' || e.decision === 'SELL_READY';
-    if (e.decision === 'NO_TRADE') funnel.noSignalNoTrade++;
-    else if (!isSetup) {
+    if (e.decision === 'NO_TRADE') {
+      funnel.noSignalNoTrade++;
+      (e.critFailIds || []).forEach(id => {
+        topCritFailReasons[id] = (topCritFailReasons[id] || 0) + 1;
+      });
+      if (!(e.critFailIds && e.critFailIds.length)) {
+        topCritFailReasons['Unspecified critical'] = (topCritFailReasons['Unspecified critical'] || 0) + 1;
+      }
+    } else if (!isSetup) {
       funnel.noSignalWait++;
       if (e.tradeTypeWeightingAdjustment) funnel.weightedScoreWait++;
     }
@@ -875,6 +925,11 @@ function computeEligibilityFunnel(decisionLog, opts) {
   }
 
   funnel.topBlockReasonsList = Object.entries(topBlockReasons)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([reason, count]) => ({ reason, count }));
+
+  funnel.topCritFailReasonsList = Object.entries(topCritFailReasons)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5)
     .map(([reason, count]) => ({ reason, count }));
@@ -924,6 +979,15 @@ function renderEligibilityFunnel(sym) {
     `<div style="padding:3px 0;border-bottom:1px solid #111827"><span style="color:#fde68a">${r.count}×</span> ${escapeHtml(r.reason)}</div>`
   ).join('') || '<span style="color:#64748b">No specific block reasons recorded for setups yet.</span>';
 
+  const critFailDetail = funnel.topCritFailReasonsList.length
+    ? funnel.topCritFailReasonsList.map(r => `${r.reason} (${r.count}×)`).join(' · ')
+    : '';
+  const critFailBarDetail = critFailDetail || 'No critical-fail breakdown logged yet.';
+
+  const topCritFailRows = funnel.topCritFailReasonsList.map(r =>
+    `<div style="padding:3px 0;border-bottom:1px solid #111827"><span style="color:#fca5a5">${r.count}×</span> ${escapeHtml(r.reason)}</div>`
+  ).join('') || '<span style="color:#64748b">No critical fail reasons in this window.</span>';
+
   const alertHtml = funnel.alert
     ? `<div style="padding:8px;margin-bottom:10px;border-radius:8px;background:${funnel.alert.level === 'critical' ? tp.failBg : tp.warnBg};border:1px solid ${funnel.alert.level === 'critical' ? tp.failBorder : tp.warnBorder};color:${funnel.alert.level === 'critical' ? tp.fail : tp.warn};font-size:11px"><b>⚠️ ${funnel.alert.level === 'critical' ? 'Action needed' : 'Review suggested'}:</b> ${escapeHtml(funnel.alert.message)}</div>`
     : '';
@@ -936,9 +1000,11 @@ function renderEligibilityFunnel(sym) {
       <div style="background:${tp.panel};padding:8px;border-radius:8px;text-align:center"><div style="color:${tp.muted}">Opened</div><div style="font-weight:800;font-size:16px;color:${tp.pass}">${funnel.opened}</div><div style="font-size:10px;color:${tp.muted2}">${funnel.executionRatePct != null ? funnel.executionRatePct + '% of setups' : '—'}</div></div>
     </div>
     ${bar('No signal (WAIT — score below threshold)', funnel.noSignalWait, '#475569', funnel.weightedScoreWait ? `${funnel.weightedScoreWait} blocked by weighted-score safety` : '')}
-    ${bar('Critical fail (NO_TRADE)', funnel.noSignalNoTrade, '#7f1d1d', '')}
+    ${bar('Critical fail (NO_TRADE)', funnel.noSignalNoTrade, '#7f1d1d', critFailBarDetail)}
     ${bar('BUY/SELL ready (potential setups)', funnel.potentialSetups, '#2563eb', `BUY ${funnel.buyReady} · SELL ${funnel.sellReady}`)}
     ${bar('Actually opened', funnel.opened, '#16a34a', funnel.setupBlocked ? `${funnel.setupBlocked} setups blocked at open attempt` : '')}
+    <div style="margin-top:10px;font-weight:700;font-size:11px">Top critical fail reasons (NO_TRADE)</div>
+    <div style="font-size:11px;margin-top:4px;max-height:80px;overflow:auto">${topCritFailRows}</div>
     <div style="margin-top:10px;font-weight:700;font-size:11px">Why setups did not open</div>
     <div style="font-size:11px;margin-top:4px">${breakdownRows}</div>
     <div style="margin-top:10px;font-weight:700;font-size:11px">Top exact block reasons</div>
@@ -14439,8 +14505,8 @@ function evaluateBrain(ctx){
   // computeDecayFactors() below, off the real BSM snapshot instead of the
   // linear approximation. Keeping both would have double-counted these two
   // factors in totalScore.
-  const decayCritPct = ctx.decay && ctx.decay.snapshot ? Math.abs(ctx.decay.snapshot.now.thetaPerDay)/(ctx.optPrice||1)*100 : 0;
-  if (decayCritPct > 5) critFails.push({factor:'Value Decay'});
+  const decayCritPct = computeValueDecayCriticalPct(ctx);
+  if (shouldPushValueDecayCriticalFail(ctx, decayCritPct)) critFails.push({factor:'Value Decay'});
   if (ctx.decay && ctx.decay.days <= 1) critFails.push({factor:'Expiry'});
 
   if(ctx.banListSource === 'unavailable'){ results.push({cat:'Regulatory',factor:'F&O Ban List - Stock in Ban?',pass:null,score:0,reason:'NSE ban-list CSV unreachable this refresh (circuit breaker or network) - empty array is NOT confirmation of "not banned", it means unverified. Never treat this as a pass.'}); }
