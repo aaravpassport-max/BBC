@@ -265,6 +265,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
   background:var(--input-bg);color:var(--input-text);
 }
 </style>
+<meta name="fno-plugin-version" content="<?php echo esc_attr(FNO_PLUGIN_VERSION); ?>">
 </head>
 <body>
 <?php if (!$is_logged_in): ?>

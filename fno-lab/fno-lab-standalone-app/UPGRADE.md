@@ -22,4 +22,9 @@ Every release uses the **same zip name** and **same folder name** so updates rep
 - Extracting a zip whose **filename** includes a version (for example `fno-lab-standalone-app-v16.22.0.zip`) into a **new** folder each time.
 - WordPress then lists multiple F&O Lab plugins, which can cause fatal PHP errors (`Cannot redeclare …`).
 
-Always use **`fno-lab-standalone-app.zip`** and keep a **single** folder: **`fno-lab-standalone-app`**.
+Always use **`fno-lab-standalone-app.zip`** at the **repository root** (not a copy under `fno-lab/`) and keep a **single** folder: **`fno-lab-standalone-app`**.
+
+Download (feature branch):  
+`https://github.com/aaravpassport-max/BBC/raw/cursor/scalping-ready-eligibility-funnel-439c/fno-lab-standalone-app.zip`
+
+After install, WordPress **Plugins** and the app header must show the **same** version (e.g. **16.29.7**). If they differ, you installed an old zip — delete all `fno-lab-standalone-app*` folders and reinstall from the link above.
