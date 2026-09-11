@@ -1,123 +1,146 @@
-<?php if ( ! defined( 'ABSPATH' ) ) exit;
+<?php
+if ( ! defined( 'ABSPATH' ) ) exit;
 /**
- * City landing page — serves /newspaper-ads/{city-slug}/
- * Data injected via Router: $GLOBALS['nas_route_data']['city_slug']
+ * City landing page — /newspaper-ads/{city-slug}/
  */
 use NAS\Core\Database;
 
 $db        = Database::instance();
-$city_slug = $GLOBALS['nas_route_data']['city_slug'] ?? get_query_var('nas_city_slug','');
+$city_slug = $GLOBALS['nas_route_data']['city_slug'] ?? get_query_var( 'nas_city_slug', '' );
 
-// Load city record
 $city = $db->row( "SELECT * FROM `{$db->t('cities')}` WHERE slug = %s AND is_active = 1 LIMIT 1", [ $city_slug ] );
 if ( ! $city ) {
-    $city = $db->row( "SELECT * FROM `{$db->t('cities')}` WHERE LOWER(name) = LOWER(%s) AND is_active = 1 LIMIT 1", [ str_replace('-',' ',$city_slug) ] );
+    $city = $db->row( "SELECT * FROM `{$db->t('cities')}` WHERE LOWER(name) = LOWER(%s) AND is_active = 1 LIMIT 1", [ str_replace( '-', ' ', $city_slug ) ] );
 }
-if ( ! $city ) { global $wp_query; $wp_query->set_404(); status_header(404); include(get_query_template('404')); exit; }
+if ( ! $city ) {
+    global $wp_query;
+    $wp_query->set_404();
+    status_header( 404 );
+    include get_query_template( '404' );
+    exit;
+}
 
-$city_name   = esc_html( $city['name'] );
-$state       = esc_html( $city['state'] );
-$booking_url = home_url( '/book-newspaper-ad/?city=' . urlencode( $city['name'] ) );
-$seo_title   = $city['seo_title'] ?: "Book Newspaper Ads in {$city['name']} | Best Rates";
-$seo_desc    = $city['seo_desc']  ?: "Book classified & display newspaper ads in {$city['name']}, {$city['state']}. Fast processing, verified publishers, best rates guaranteed.";
+$city_name   = $city['name'];
+$state       = $city['state'];
+$tier        = (int) ( $city['tier'] ?? 2 );
+$booking_url = home_url( '/book-newspaper-ad/?city=' . urlencode( $city['id'] ) );
 
-// Load newspapers for this city
-$all_papers  = $db->select("SELECT id, name, slug, logo_url, language, base_rate_classified, base_rate_display, description FROM `{$db->t('newspapers')}` WHERE is_active=1 ORDER BY sort_order ASC, name ASC");
-$newspapers  = array_filter( $all_papers, function($p) use ($city_name) {
-    $cities = json_decode($p['cities_supported'] ?? '[]', true) ?: [];
-    return empty($cities) || in_array($city_name, $cities) || count(array_filter($cities, fn($c)=>stripos($c,$city_name)!==false));
-});
-$newspapers = array_values($newspapers);
+$all_papers  = $db->select( "SELECT id, name, slug, logo_url, language, base_rate_classified, base_rate_display, description, editions, min_charge FROM `{$db->t('newspapers')}` WHERE is_active=1 ORDER BY sort_order ASC, name ASC" );
+$newspapers  = array_values( array_filter( $all_papers, function ( $p ) use ( $city_name ) {
+    $cities = json_decode( $p['cities_supported'] ?? '[]', true ) ?: [];
+    return empty( $cities ) || in_array( $city_name, $cities, true ) || count( array_filter( $cities, fn( $c ) => stripos( $c, $city_name ) !== false ) );
+} ) );
 
-// Load categories
-$categories = $db->select("SELECT id, name, slug, icon, description FROM `{$db->t('categories')}` WHERE is_active=1 ORDER BY sort_order ASC, name ASC LIMIT 12");
+$categories = $db->select( "SELECT id, name, slug, icon, description FROM `{$db->t('categories')}` WHERE is_active=1 ORDER BY sort_order ASC, name ASC LIMIT 12" ) ?: [];
 
+$cat_icons = [ 'fa-bullhorn', 'fa-ring', 'fa-house', 'fa-briefcase', 'fa-graduation-cap', 'fa-scale-balanced', 'fa-building', 'fa-car', 'fa-coins', 'fa-trophy', 'fa-star', 'fa-party-horn' ];
 ?>
 <div class="nas-portal-page">
-<!-- Hero -->
-<section class="nas-city-hero" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);padding:80px 20px 60px;text-align:center;color:#fff">
-  <div style="max-width:860px;margin:0 auto">
-    <div style="margin-bottom:16px">
-      <span style="background:rgba(255,255,255,.15);padding:4px 14px;border-radius:20px;font-size:13px"><?php echo $state; ?></span>
-    </div>
-    <h1 style="font-size:clamp(28px,5vw,48px);font-weight:800;margin:0 0 18px;line-height:1.15">
-      Book Newspaper Ads in <?php echo $city_name; ?>
-    </h1>
-    <p style="font-size:18px;opacity:.85;margin:0 0 32px;max-width:640px;margin-inline:auto">
-      Classified &amp; display ads in <?php echo $city_name; ?>'s top newspapers — quick, simple, at the best rates.
-    </p>
-    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:24px">
-      <span style="background:rgba(255,255,255,.12);padding:6px 16px;border-radius:20px;font-size:14px"><i class="fa-solid fa-bolt"></i> Same-day Processing</span>
-      <span style="background:rgba(255,255,255,.12);padding:6px 16px;border-radius:20px;font-size:14px"><i class="fa-solid fa-shield-check"></i> Verified Publishers</span>
-      <span style="background:rgba(255,255,255,.12);padding:6px 16px;border-radius:20px;font-size:14px"><i class="fa-solid fa-headset"></i> Dedicated Support</span>
-    </div>
-    <a href="<?php echo esc_url($booking_url); ?>" class="nas-btn nas-btn-primary nas-btn-xl" style="display:inline-block;background:#f59e0b;color:#0f172a;padding:16px 36px;border-radius:10px;font-weight:700;font-size:17px;text-decoration:none">
-      <i class="fa-solid fa-pen-nib"></i> Book an Ad in <?php echo $city_name; ?>
-    </a>
-  </div>
-</section>
-
-<!-- Categories -->
-<?php if ($categories): ?>
-<section style="padding:60px 20px;background:#f8fafc">
-  <div style="max-width:1100px;margin:0 auto">
-    <h2 style="text-align:center;font-size:28px;font-weight:700;margin:0 0 36px;color:#0f172a">Ad Categories in <?php echo $city_name; ?></h2>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:16px">
-      <?php foreach ($categories as $cat): ?>
-      <a href="<?php echo esc_url($booking_url.'&category='.urlencode($cat['name'])); ?>" style="background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;padding:20px 12px;text-align:center;text-decoration:none;color:#334155;transition:all .2s;display:block">
-        <div style="font-size:32px;margin-bottom:8px"><?php echo esc_html($cat['icon'] ?? '📰'); ?></div>
-        <div style="font-weight:600;font-size:14px"><?php echo esc_html($cat['name']); ?></div>
-      </a>
-      <?php endforeach; ?>
-    </div>
-  </div>
-</section>
-<?php endif; ?>
-
-<!-- Newspapers in City -->
-<section id="newspapers" style="padding:60px 20px;background:#fff">
-  <div style="max-width:1100px;margin:0 auto">
-    <h2 style="text-align:center;font-size:28px;font-weight:700;margin:0 0 12px;color:#0f172a">Newspapers in <?php echo $city_name; ?></h2>
-    <p style="text-align:center;color:#64748b;margin:0 0 36px"><?php echo count($newspapers); ?> active publications available</p>
-    <?php if ($newspapers): ?>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px">
-      <?php foreach ($newspapers as $np): ?>
-      <div style="border:1.5px solid #e2e8f0;border-radius:14px;padding:24px;background:#fff">
-        <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
-          <?php if ($np['logo_url']): ?>
-          <img src="<?php echo esc_url($np['logo_url']); ?>" alt="<?php echo esc_attr($np['name']); ?>" style="width:48px;height:48px;object-fit:contain;border-radius:8px">
-          <?php else: ?>
-          <div style="width:48px;height:48px;background:#e2e8f0;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;color:#64748b"><?php echo esc_html(substr($np['name'],0,2)); ?></div>
-          <?php endif; ?>
-          <div>
-            <div style="font-weight:700;font-size:16px;color:#0f172a"><?php echo esc_html($np['name']); ?></div>
-            <div style="font-size:13px;color:#64748b"><?php echo esc_html($np['language']); ?></div>
-          </div>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:16px;font-size:13px;color:#64748b">
-          <span>Classified from <strong style="color:#0f172a">₹<?php echo number_format($np['base_rate_classified'],0); ?>/word</strong></span>
-          <span>Display from <strong style="color:#0f172a">₹<?php echo number_format($np['base_rate_display'],0); ?>/sq.cm</strong></span>
-        </div>
-        <a href="<?php echo esc_url($booking_url.'&newspaper='.urlencode($np['name'])); ?>" style="display:block;text-align:center;background:#0f172a;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">Book This Newspaper</a>
+  <section class="nhp-hero" style="min-height:auto;padding:clamp(64px,10vw,100px) 0 48px">
+    <div class="nhp-hero__bg" aria-hidden="true"></div>
+    <div class="nhp-container" style="position:relative;z-index:2;text-align:center">
+      <div style="margin-bottom:16px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <span class="nhp-hero__eyebrow" style="margin:0"><i class="fa-solid fa-location-dot"></i> <?php echo esc_html( $state ); ?></span>
+        <?php if ( $tier === 1 ) : ?><span class="nhp-hero__trust-item nhp-hero__trust-item--c0">Tier 1 City</span><?php endif; ?>
       </div>
-      <?php endforeach; ?>
+      <h1 class="nhp-hero__title" style="max-width:800px;margin:0 auto 16px">Book Newspaper Ads in <em><?php echo esc_html( $city_name ); ?></em></h1>
+      <p class="nhp-hero__subtitle" style="max-width:640px;margin:0 auto 28px">Classified &amp; display ads in <?php echo esc_html( $city_name ); ?>'s top newspapers — instant rates, verified publishers, online tracking.</p>
+      <div class="nhp-hero__trust-row" style="justify-content:center;margin-bottom:28px">
+        <span class="nhp-hero__trust-item nhp-hero__trust-item--c0"><i class="fa-solid fa-bolt"></i> Same-day Processing</span>
+        <span class="nhp-hero__trust-item nhp-hero__trust-item--c1"><i class="fa-solid fa-shield-check"></i> Verified Publishers</span>
+        <span class="nhp-hero__trust-item nhp-hero__trust-item--c2"><i class="fa-solid fa-receipt"></i> GST Invoice</span>
+      </div>
+      <a href="<?php echo esc_url( $booking_url ); ?>" class="nhp-btn nhp-btn--primary nhp-btn--xl">Book an Ad in <?php echo esc_html( $city_name ); ?> <i class="fa-solid fa-arrow-right"></i></a>
     </div>
-    <?php else: ?>
-    <div style="text-align:center;padding:48px;color:#64748b">
-      <i class="fa-solid fa-newspaper" style="font-size:48px;margin-bottom:16px;display:block;opacity:.3"></i>
-      <p>Newspaper listings for <?php echo $city_name; ?> are being updated. <a href="<?php echo esc_url($booking_url); ?>">Book directly</a> and our team will assist you.</p>
+  </section>
+
+  <?php nas_portal_block_trust_ribbon(); ?>
+
+  <?php if ( $categories ) : ?>
+  <section class="nhp-section nhp-section--warm">
+    <div class="nhp-container">
+      <div class="nhp-section__header nhp-section__header--center">
+        <span class="nhp-section__eyebrow">Ad Categories</span>
+        <h2 class="nhp-section__title">Popular Ad Types in <?php echo esc_html( $city_name ); ?></h2>
+        <p class="nhp-section__subtitle">Matrimonial, property, jobs, business, legal notices, and more — book any category online.</p>
+      </div>
+      <div class="nhp-cat-grid">
+        <?php foreach ( $categories as $ci => $cat ) : ?>
+        <a href="<?php echo esc_url( $booking_url . '&category=' . urlencode( $cat['name'] ) ); ?>" class="nhp-cat-card nhp-cat-card--c<?php echo (int) ( $ci % 6 ); ?>">
+          <span class="nhp-cat-card__icon"><i class="fa-solid <?php echo esc_attr( $cat_icons[ $ci % count( $cat_icons ) ] ); ?>"></i></span>
+          <span class="nhp-cat-card__name"><?php echo esc_html( $cat['name'] ); ?></span>
+        </a>
+        <?php endforeach; ?>
+      </div>
     </div>
-    <?php endif; ?>
-  </div>
-</section>
+  </section>
+  <?php endif; ?>
 
-<!-- CTA -->
-<section style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:60px 20px;text-align:center;color:#fff">
-  <div style="max-width:640px;margin:0 auto">
-    <h2 style="font-size:32px;font-weight:800;margin:0 0 16px">Ready to book your ad in <?php echo $city_name; ?>?</h2>
-    <p style="opacity:.85;margin:0 0 28px;font-size:17px">Join thousands of businesses who trust us for newspaper advertising.</p>
-    <a href="<?php echo esc_url($booking_url); ?>" style="display:inline-block;background:#f59e0b;color:#0f172a;padding:16px 40px;border-radius:10px;font-weight:700;font-size:17px;text-decoration:none">Get Started →</a>
-  </div>
-</section>
+  <section class="nhp-section nhp-section--marketplace" id="newspapers">
+    <div class="nhp-marketplace-intro">
+      <div class="nhp-container">
+        <div class="nhp-section__header nhp-section__header--center">
+          <span class="nhp-section__eyebrow"><?php echo count( $newspapers ); ?> Publications</span>
+          <h2 class="nhp-section__title">Newspapers in <?php echo esc_html( $city_name ); ?></h2>
+          <p class="nhp-section__subtitle">Compare rates and book directly — all publications verified and authorized.</p>
+        </div>
+      </div>
+    </div>
+    <div class="nhp-marketplace-body">
+      <div class="nhp-container">
+        <?php if ( $newspapers ) : ?>
+        <div class="nhp-papers-grid">
+          <?php foreach ( $newspapers as $i => $np ) :
+              $from_price = max( (float) ( $np['min_charge'] ?? 0 ), (float) ( $np['base_rate_classified'] ?? 0 ) );
+          ?>
+          <article class="nhp-paper-card nhp-paper-card--a<?php echo (int) ( $i % 6 ); ?>">
+            <div class="nhp-paper-card__top">
+              <div class="nhp-paper-card__logo">
+                <?php if ( $np['logo_url'] ) : ?>
+                <img src="<?php echo esc_url( $np['logo_url'] ); ?>" alt="<?php echo esc_attr( $np['name'] ); ?>" loading="lazy">
+                <?php else : ?>
+                <span class="nhp-paper-card__logo-fallback"><?php echo esc_html( strtoupper( substr( $np['name'], 0, 2 ) ) ); ?></span>
+                <?php endif; ?>
+              </div>
+              <div>
+                <h3 class="nhp-paper-card__name"><?php echo esc_html( $np['name'] ); ?></h3>
+                <p class="nhp-paper-card__meta"><?php echo esc_html( $np['language'] ?: 'English' ); ?> · <?php echo esc_html( $city_name ); ?> edition</p>
+              </div>
+            </div>
+            <div style="font-size:0.8125rem;color:var(--nas-text-muted);margin-bottom:12px">
+              Classified <strong>₹<?php echo number_format( (float) $np['base_rate_classified'], 0 ); ?>/word</strong> · Display <strong>₹<?php echo number_format( (float) $np['base_rate_display'], 0 ); ?>/sq.cm</strong>
+            </div>
+            <a href="<?php echo esc_url( $booking_url . '&newspaper=' . urlencode( $np['id'] ) ); ?>" class="nhp-paper-card__cta">Book in <?php echo esc_html( $city_name ); ?> <i class="fa-solid fa-arrow-right"></i></a>
+          </article>
+          <?php endforeach; ?>
+        </div>
+        <?php else : ?>
+        <div style="text-align:center;padding:48px;color:var(--nas-text-muted)">
+          <i class="fa-solid fa-newspaper" style="font-size:3rem;margin-bottom:16px;display:block;opacity:.3"></i>
+          <p>Newspaper listings for <?php echo esc_html( $city_name ); ?> are being updated. <a href="<?php echo esc_url( $booking_url ); ?>">Book directly</a> and our team will assist you.</p>
+        </div>
+        <?php endif; ?>
+      </div>
+    </div>
+  </section>
 
+  <?php nas_portal_block_formats(); ?>
+
+  <?php nas_portal_block_process( 'How It Works', 'Book in ' . $city_name . ' in 5 Steps', 'From newspaper selection to published proof — fully online.' ); ?>
+
+  <?php nas_portal_block_advantages(); ?>
+
+  <?php
+  nas_portal_block_faq( [
+      [ 'Which newspapers are available in ' . $city_name . '?', 'We list ' . count( $newspapers ) . '+ publications available in ' . $city_name . '. Browse the directory above or use the booking wizard for the complete list with live rates.' ],
+      [ 'How long does it take to publish in ' . $city_name . '?', 'Classified ads typically publish within 1–3 working days. Display ads take 2–5 days depending on the newspaper and edition.' ],
+      [ 'Can I book a ' . $city_name . ' edition of a national newspaper?', 'Yes. Many national newspapers have city-specific editions. Select ' . $city_name . ' in the booking wizard to see available editions and rates.' ],
+  ], 'FAQ — ' . $city_name );
+  ?>
+
+  <?php nas_portal_block_cta(
+      'Ready to Book Your Ad in ' . $city_name . '?',
+      'Join thousands of businesses advertising in ' . $city_name . ' through our platform — instant rates, secure payment, publication proof.',
+      $booking_url
+  ); ?>
 </div>

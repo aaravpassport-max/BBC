@@ -31,26 +31,7 @@ $steps = [
     ['icon'=>'fa-circle-check', 'label'=>'Review'],
 ];
 ?>
-<!-- ══ TOP NAV ══════════════════════════════════════════════════════════════ -->
-<nav class="nas-topnav" role="navigation" aria-label="Main navigation">
-  <div class="nas-topnav-inner">
-    <a class="nas-topnav-brand" href="<?php echo home_url('/'); ?>">
-      <span class="nas-brand-dot"></span>
-      <span class="nas-brand-text"><?php echo esc_html(get_bloginfo('name')); ?></span>
-    </a>
-    <div class="nas-topnav-links">
-      <a href="<?php echo home_url('/'); ?>">Home</a>
-      <a href="#" class="active">Book an Ad</a>
-      <?php if ($user): ?>
-        <a href="<?php echo nas_get_page_url('nas_page_client_dashboard','/client-dashboard/'); ?>">My Bookings</a>
-        <a href="<?php echo wp_logout_url(home_url('/')); ?>" class="nas-btn nas-btn-outline-sm">Logout</a>
-      <?php else: ?>
-        <a href="<?php echo esc_url(nas_get_page_url('nas_page_login','/newspaper-ad-login/')); ?>" class="nas-btn nas-btn-outline-sm">Login</a>
-      <?php endif; ?>
-    </div>
-  </div>
-</nav>
-
+<div class="nas-portal-page nas-booking-wizard">
 <!-- ══ MASTHEAD — newspaper front-page motif ═════════════════════════════════ -->
 <header class="nas-masthead">
   <div class="nas-masthead-inner">
@@ -902,6 +883,7 @@ $steps = [
 </aside>
 </div><!-- /.nas-layout-grid -->
 </div><!-- /.nas-wrap -->
+</div><!-- /.nas-portal-page -->
 
 <!-- Hidden data for JS -->
 <script id="nas-wizard-config" type="application/json">

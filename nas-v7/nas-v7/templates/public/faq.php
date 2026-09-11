@@ -13,9 +13,13 @@ $walink = $cfg->get( 'brand_whatsapp', '' )
     <div class="nas-portal-hero">
       <span class="nas-portal-hero__eyebrow">Help Center</span>
       <h1>Frequently Asked <span>Questions</span></h1>
-      <p>Find answers about booking newspaper ads, payments, publication timelines, and tracking.</p>
+      <p>Find answers about booking newspaper ads, payments, publication timelines, material requirements, and order tracking.</p>
     </div>
+  </div>
 
+  <?php nas_portal_block_trust_ribbon(); ?>
+
+  <div class="nas-portal-wrap">
     <div class="nas-faq-layout">
       <aside class="nas-faq-sidebar">
         <div class="nas-faq-help-card">
@@ -44,6 +48,15 @@ $walink = $cfg->get( 'brand_whatsapp', '' )
       </div>
     </div>
   </div>
+
+  <?php nas_portal_block_quick_links(); ?>
+
+  <?php nas_portal_block_accent_band(
+      'Still Have Questions?',
+      'Our support team can help with newspaper selection, ad formatting, and rate quotes.',
+      $contact_url,
+      'Contact Support'
+  ); ?>
 </div>
 
 <script>

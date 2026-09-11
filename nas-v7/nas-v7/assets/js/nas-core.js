@@ -297,12 +297,25 @@
   /* =========================================================
      FAQ accordion (city pages)
   ========================================================= */
+  window.nasTogglePortalFaq = function(btn) {
+    const item = btn.closest('.nas-faq-item');
+    if (!item) return;
+    const wasOpen = item.classList.contains('is-open') || item.classList.contains('open');
+    document.querySelectorAll('.nas-faq-item.is-open, .nas-faq-item.open').forEach(e => {
+      e.classList.remove('is-open', 'open');
+      const b = e.querySelector('.nas-faq-q');
+      if (b) b.setAttribute('aria-expanded', 'false');
+    });
+    if (!wasOpen) {
+      item.classList.add('is-open');
+      btn.setAttribute('aria-expanded', 'true');
+    }
+  };
+
   function initFaq() {
     document.querySelectorAll('.nas-faq-q').forEach(q => {
-      q.addEventListener('click', () => {
-        const item = q.closest('.nas-faq-item');
-        item.classList.toggle('open');
-      });
+      if (q.getAttribute('onclick')) return;
+      q.addEventListener('click', () => nasTogglePortalFaq(q));
     });
   }
 

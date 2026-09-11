@@ -16,69 +16,18 @@ $categories_raw = $db->select("SELECT category, COUNT(*) as cnt FROM {$db->t('bl
 $popular_posts  = $db->select("SELECT id,title,slug,views,published_at FROM {$db->t('blog_posts')} WHERE status='published' ORDER BY views DESC LIMIT 5");
 
 ?>
-<style>
-.nas-blog-page{max-width:1200px;margin:0 auto;padding:48px 20px 80px;font-family:'Inter','Segoe UI',sans-serif}
-.nas-blog-hero{background:linear-gradient(135deg,#1e1b4b,#3730a3);color:#fff;padding:64px 20px;text-align:center;margin-bottom:48px}
-.nas-blog-hero h1{font-size:42px;font-weight:800;margin:0 0 12px;line-height:1.2}
-.nas-blog-hero p{font-size:17px;opacity:.85;margin:0 0 24px;max-width:520px;margin-left:auto;margin-right:auto}
-.nas-blog-search-bar{display:flex;max-width:480px;margin:0 auto;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.2)}
-.nas-blog-search-bar input{flex:1;border:none;padding:14px 18px;font-size:15px;outline:none;color:#0f172a}
-.nas-blog-search-bar button{background:#6c47ff;border:none;padding:14px 20px;color:#fff;cursor:pointer;font-size:15px}
-.nas-blog-layout{display:grid;grid-template-columns:1fr 320px;gap:36px}
-@media(max-width:900px){.nas-blog-layout{grid-template-columns:1fr}}
-.nas-blog-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:24px}
-.nas-blog-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:16px;overflow:hidden;transition:all .2s;cursor:pointer;display:flex;flex-direction:column}
-.nas-blog-card:hover{border-color:#6c47ff;box-shadow:0 8px 32px rgba(108,71,255,.12);transform:translateY(-2px)}
-.nas-blog-card-img{height:180px;background:linear-gradient(135deg,#f5f3ff,#ede9fe);display:flex;align-items:center;justify-content:center;font-size:48px;overflow:hidden;flex-shrink:0}
-.nas-blog-card-img img{width:100%;height:100%;object-fit:cover}
-.nas-blog-card-body{padding:20px;flex:1;display:flex;flex-direction:column}
-.nas-blog-card-cat{display:inline-block;background:#f5f3ff;color:#6c47ff;font-size:11px;font-weight:700;padding:3px 10px;border-radius:99px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
-.nas-blog-card-title{font-size:16px;font-weight:700;color:#0f172a;line-height:1.4;margin:0 0 8px;flex:1}
-.nas-blog-card-excerpt{font-size:13px;color:#64748b;line-height:1.6;margin:0 0 14px}
-.nas-blog-card-footer{display:flex;align-items:center;justify-content:space-between;font-size:12px;color:#94a3b8;border-top:1px solid #f1f5f9;padding-top:12px}
-.nas-blog-card-read{color:#6c47ff;font-weight:700;font-size:13px;text-decoration:none}
-/* Sidebar */
-.nas-blog-sidebar{display:flex;flex-direction:column;gap:20px}
-.nas-sidebar-widget{background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;overflow:hidden}
-.nas-sw-head{padding:14px 18px;border-bottom:1px solid #f1f5f9;font-size:13px;font-weight:700;color:#0f172a}
-.nas-sw-body{padding:16px 18px}
-.nas-cat-item{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f8fafc;cursor:pointer;font-size:13px;color:#374151;transition:color .15s}
-.nas-cat-item:last-child{border-bottom:none}
-.nas-cat-item:hover{color:#6c47ff}
-.nas-cat-count{background:#f1f5f9;color:#64748b;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px}
-.nas-popular-item{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #f8fafc;cursor:pointer}
-.nas-popular-item:last-child{border-bottom:none}
-.nas-popular-num{width:24px;height:24px;border-radius:6px;background:#f5f3ff;color:#6c47ff;font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.nas-popular-title{font-size:13px;font-weight:600;color:#0f172a;line-height:1.4;flex:1}
-.nas-popular-views{font-size:11px;color:#94a3b8;margin-top:2px}
-.nas-newsletter-widget{background:linear-gradient(135deg,#6c47ff,#8b5cf6);border-radius:14px;padding:20px;color:#fff}
-.nas-newsletter-widget h4{font-size:16px;font-weight:800;margin:0 0 6px}
-.nas-newsletter-widget p{font-size:13px;opacity:.85;margin:0 0 14px;line-height:1.5}
-.nas-newsletter-form{display:flex;flex-direction:column;gap:8px}
-.nas-newsletter-form input{border:none;border-radius:8px;padding:10px 12px;font-size:13px;outline:none;width:100%;box-sizing:border-box}
-.nas-newsletter-form button{background:rgba(255,255,255,.2);border:1.5px solid rgba(255,255,255,.5);color:#fff;padding:10px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;transition:background .15s}
-.nas-newsletter-form button:hover{background:rgba(255,255,255,.3)}
-/* Filters */
-.nas-blog-filters{display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap}
-.nas-cat-filter{padding:7px 16px;border-radius:99px;border:1.5px solid #e2e8f0;background:#fff;font-size:13px;font-weight:600;color:#64748b;cursor:pointer;transition:all .15s}
-.nas-cat-filter:hover{border-color:#6c47ff;color:#6c47ff}
-.nas-cat-filter.active{background:#6c47ff;border-color:#6c47ff;color:#fff}
-.nas-blog-load-more{display:block;width:100%;padding:14px;background:#fff;border:2px solid #6c47ff;color:#6c47ff;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;margin-top:24px;transition:all .15s}
-.nas-blog-load-more:hover{background:#6c47ff;color:#fff}
-.nas-blog-skeleton{animation:nasSkeleton 1.6s ease-in-out infinite;background:linear-gradient(90deg,#f0f4f8 25%,#e2e8f0 50%,#f0f4f8 75%);background-size:200% 100%;border-radius:8px}
-</style>
-
-<!-- Hero -->
-<div class="nas-blog-hero">
-  <div style="display:inline-block;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);border-radius:99px;padding:5px 14px;font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;margin-bottom:14px">📰 Resources & Insights</div>
-  <h1>Newspaper Advertising Blog</h1>
-  <p>Tips, guides, and industry insights to help you get the most from newspaper advertising in India.</p>
-  <!-- Search bar -->
-  <div class="nas-blog-search-bar">
-    <input type="text" id="blog-search-input" placeholder="Search articles…" onkeydown="if(event.key==='Enter')blogSearch()">
-    <button onclick="blogSearch()"><i class="fa-solid fa-magnifying-glass"></i></button>
+<div class="nas-portal-page">
+  <div class="nas-blog-hero">
+    <span class="nas-blog-hero__eyebrow"><i class="fa-solid fa-newspaper"></i> Resources &amp; Insights</span>
+    <h1>Newspaper Advertising Blog</h1>
+    <p>Tips, guides, and industry insights to help you get the most from newspaper advertising in India.</p>
+    <div class="nas-blog-search-bar">
+      <input type="text" id="blog-search-input" placeholder="Search articles…" onkeydown="if(event.key==='Enter')blogSearch()">
+      <button type="button" onclick="blogSearch()" aria-label="Search"><i class="fa-solid fa-magnifying-glass"></i></button>
+    </div>
   </div>
-</div>
+
+  <?php nas_portal_block_trust_ribbon(); ?>
 
 <div class="nas-blog-page">
   <div class="nas-blog-layout">
@@ -168,17 +117,20 @@ $popular_posts  = $db->select("SELECT id,title,slug,views,published_at FROM {$db
         </div>
       </div>
 
-      <!-- Book CTA -->
-      <div style="background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:20px;text-align:center">
-        <div style="font-size:32px;margin-bottom:10px">📰</div>
-        <div style="font-size:15px;font-weight:700;color:#0f172a;margin-bottom:6px">Ready to book your ad?</div>
-        <div style="font-size:13px;color:#64748b;margin-bottom:14px">Online booking in minutes. Expert support included.</div>
-        <a href="<?= esc_url($book_url) ?>" style="display:block;padding:12px;background:#6c47ff;color:#fff;border-radius:8px;text-decoration:none;font-size:14px;font-weight:700">
-          <i class="fa-solid fa-pen-nib"></i> Book Now
-        </a>
+      <div class="nas-blog-cta-card">
+        <div style="font-size:2rem;margin-bottom:10px"><i class="fa-solid fa-pen-nib" style="color:var(--nas-teal,#0D9488)"></i></div>
+        <div style="font-size:0.9375rem;font-weight:700;color:var(--nas-text);margin-bottom:6px">Ready to book your ad?</div>
+        <div style="font-size:0.8125rem;color:var(--nas-text-muted);margin-bottom:14px">Online booking in minutes. Expert support included.</div>
+        <a href="<?php echo esc_url( $book_url ); ?>" class="nhp-btn nhp-btn--primary">Book Now <i class="fa-solid fa-arrow-right"></i></a>
       </div>
     </aside>
   </div>
+</div>
+
+<?php
+nas_portal_block_accent_band( 'Ready to Advertise?', 'Stop reading about it — book your newspaper ad online in minutes with transparent pricing and expert support.' );
+nas_portal_block_quick_links();
+?>
 </div>
 
 <script>

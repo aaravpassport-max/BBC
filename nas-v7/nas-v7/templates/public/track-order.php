@@ -10,9 +10,13 @@ $dash_url    = nas_get_page_url( 'nas_page_client_dashboard', '/client-dashboard
     <div class="nas-portal-hero">
       <span class="nas-portal-hero__eyebrow">Order Tracking</span>
       <h1>Track Your <span>Newspaper Ad</span></h1>
-      <p>Enter your Order ID and email to see real-time status from submission to publication.</p>
+      <p>Enter your Order ID and email to see real-time status from submission to publication — every stage from review to print proof.</p>
     </div>
+  </div>
 
+  <?php nas_portal_block_trust_ribbon(); ?>
+
+  <div class="nas-portal-wrap">
     <div class="nas-faq-layout">
       <aside class="nas-faq-sidebar">
         <div class="nas-faq-help-card">
@@ -64,6 +68,10 @@ $dash_url    = nas_get_page_url( 'nas_page_client_dashboard', '/client-dashboard
       </div>
     </div>
   </div>
+
+  <?php nas_portal_block_process( 'Order Lifecycle', 'What Happens After You Book', 'Understand each stage from payment to published proof.' ); ?>
+
+  <?php nas_portal_block_quick_links(); ?>
 </div>
 
 <style>

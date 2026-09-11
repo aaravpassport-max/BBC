@@ -47,76 +47,17 @@ $fb_share    = 'https://www.facebook.com/sharer/sharer.php?u='.rawurlencode($pos
 $pub_date    = $post['published_at'] ? date('d F Y', strtotime($post['published_at'])) : '';
 
 ?>
-<!-- SEO meta for this post -->
+<div class="nas-portal-page">
 <?php if(!empty($post['seo_title'])): ?>
-<title><?= esc_html($post['seo_title']) ?> — <?= esc_html($brand) ?></title>
+<title><?php echo esc_html($post['seo_title']); ?> — <?php echo esc_html($brand); ?></title>
 <?php endif; ?>
-<meta property="og:title"       content="<?= esc_attr($post['seo_title']??$post['title']) ?>">
-<meta property="og:description" content="<?= esc_attr($post['seo_desc']??$post['excerpt']??'') ?>">
-<meta property="og:url"         content="<?= esc_url($post_url) ?>">
+<meta property="og:title"       content="<?php echo esc_attr($post['seo_title']??$post['title']); ?>">
+<meta property="og:description" content="<?php echo esc_attr($post['seo_desc']??$post['excerpt']??''); ?>">
+<meta property="og:url"         content="<?php echo esc_url($post_url); ?>">
 <?php if(!empty($post['featured_image'])): ?>
-<meta property="og:image" content="<?= esc_url($post['featured_image']) ?>">
+<meta property="og:image" content="<?php echo esc_url($post['featured_image']); ?>">
 <?php endif; ?>
 <meta name="twitter:card" content="summary_large_image">
-<style>
-.nas-post-wrap{max-width:780px;margin:0 auto;padding:40px 20px 80px;font-family:'Inter','Segoe UI',sans-serif}
-.nas-post-breadcrumb{display:flex;align-items:center;gap:6px;font-size:12px;color:#94a3b8;margin-bottom:20px;flex-wrap:wrap}
-.nas-post-breadcrumb a{color:#6c47ff;text-decoration:none}
-.nas-post-breadcrumb i{font-size:10px}
-.nas-post-header{margin-bottom:32px}
-.nas-post-cat-badge{display:inline-block;background:#f5f3ff;color:#6c47ff;font-size:11px;font-weight:700;padding:4px 12px;border-radius:99px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px}
-.nas-post-title{font-size:36px;font-weight:800;color:#0f172a;line-height:1.25;margin:0 0 16px}
-.nas-post-meta{display:flex;align-items:center;gap:16px;flex-wrap:wrap;font-size:13px;color:#64748b;margin-bottom:24px;padding-bottom:20px;border-bottom:1px solid #e2e8f0}
-.nas-post-meta-item{display:flex;align-items:center;gap:5px}
-.nas-post-featured-img{width:100%;max-height:440px;object-fit:cover;border-radius:14px;margin-bottom:28px}
-.nas-post-content{font-size:16px;line-height:1.8;color:#374151}
-.nas-post-content h2{font-size:24px;font-weight:800;color:#0f172a;margin:36px 0 14px}
-.nas-post-content h3{font-size:19px;font-weight:700;color:#0f172a;margin:28px 0 10px}
-.nas-post-content p{margin:0 0 20px}
-.nas-post-content ul,.nas-post-content ol{margin:0 0 20px;padding-left:24px}
-.nas-post-content li{margin-bottom:8px}
-.nas-post-content blockquote{border-left:4px solid #6c47ff;margin:24px 0;padding:16px 20px;background:#f5f3ff;border-radius:0 10px 10px 0;font-style:italic;color:#5b21b6}
-.nas-post-content a{color:#6c47ff;text-decoration:underline}
-.nas-post-content img{max-width:100%;border-radius:10px;margin:12px 0}
-.nas-post-content table{width:100%;border-collapse:collapse;margin:20px 0;font-size:14px}
-.nas-post-content th{background:#f5f3ff;padding:10px 14px;text-align:left;font-weight:700;border:1px solid #e2e8f0}
-.nas-post-content td{padding:10px 14px;border:1px solid #e2e8f0}
-/* Share bar */
-.nas-share-bar{background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:14px;padding:18px 24px;margin:36px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
-.nas-share-label{font-size:13px;font-weight:700;color:#374151}
-.nas-share-btns{display:flex;gap:8px;flex-wrap:wrap}
-.nas-share-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:700;text-decoration:none;transition:opacity .15s}
-.nas-share-btn:hover{opacity:.85}
-.nas-share-wa{background:#25D366;color:#fff}
-.nas-share-tw{background:#000;color:#fff}
-.nas-share-li{background:#0077B5;color:#fff}
-.nas-share-fb{background:#1877F2;color:#fff}
-.nas-share-copy{background:#f1f5f9;color:#374151;cursor:pointer;border:none;font-family:inherit;font-size:12px;font-weight:700}
-/* Author bio */
-.nas-author-bio{display:flex;align-items:flex-start;gap:16px;background:#fff;border:1.5px solid #e2e8f0;border-radius:14px;padding:20px;margin:36px 0}
-.nas-author-avatar{width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#6c47ff,#8b5cf6);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;flex-shrink:0}
-.nas-author-name{font-size:15px;font-weight:700;color:#0f172a;margin-bottom:4px}
-.nas-author-role{font-size:12px;color:#6c47ff;font-weight:600;margin-bottom:8px}
-.nas-author-desc{font-size:13px;color:#64748b;line-height:1.6}
-/* Tags */
-.nas-post-tags{display:flex;align-items:center;gap:8px;margin:20px 0;flex-wrap:wrap}
-.nas-post-tag{display:inline-block;background:#f1f5f9;color:#475569;font-size:12px;padding:4px 10px;border-radius:6px;cursor:pointer;transition:all .15s}
-.nas-post-tag:hover{background:#f5f3ff;color:#6c47ff}
-/* Related posts */
-.nas-related-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin-top:20px}
-.nas-related-card{background:#fff;border:1.5px solid #e2e8f0;border-radius:12px;overflow:hidden;cursor:pointer;transition:all .2s}
-.nas-related-card:hover{border-color:#6c47ff;box-shadow:0 4px 16px rgba(108,71,255,.1);transform:translateY(-1px)}
-.nas-related-img{height:120px;background:linear-gradient(135deg,#f5f3ff,#ede9fe);display:flex;align-items:center;justify-content:center;font-size:32px;overflow:hidden}
-.nas-related-img img{width:100%;height:100%;object-fit:cover}
-.nas-related-body{padding:14px}
-.nas-related-title{font-size:14px;font-weight:700;color:#0f172a;line-height:1.4;margin-bottom:6px}
-.nas-related-date{font-size:11px;color:#94a3b8}
-/* CTA in post */
-.nas-post-cta-box{background:linear-gradient(135deg,#1e1b4b,#3730a3);color:#fff;border-radius:14px;padding:28px;margin:36px 0;text-align:center}
-.nas-post-cta-box h3{font-size:20px;font-weight:800;margin:0 0 8px}
-.nas-post-cta-box p{font-size:14px;opacity:.85;margin:0 0 18px;line-height:1.6}
-@media(max-width:600px){.nas-post-title{font-size:26px!important}.nas-share-bar{flex-direction:column}}
-</style>
 
 <div class="nas-post-wrap">
   <!-- Breadcrumb -->
@@ -164,11 +105,10 @@ $pub_date    = $post['published_at'] ? date('d F Y', strtotime($post['published_
   </div>
   <?php endif; ?>
 
-  <!-- Mid-post CTA -->
   <div class="nas-post-cta-box">
     <h3>Ready to book a newspaper ad?</h3>
     <p>Stop reading about it — our platform makes newspaper advertising in India fast, easy, and affordable.</p>
-    <a href="<?= esc_url($book_url) ?>" style="display:inline-flex;align-items:center;gap:8px;padding:12px 28px;background:#fff;color:#6c47ff;border-radius:8px;text-decoration:none;font-size:14px;font-weight:800">
+    <a href="<?php echo esc_url( $book_url ); ?>" class="nhp-btn nhp-btn--white nhp-btn--lg">
       <i class="fa-solid fa-pen-nib"></i> Book Your Ad Now
     </a>
   </div>
@@ -225,12 +165,14 @@ $pub_date    = $post['published_at'] ? date('d F Y', strtotime($post['published_
   </div>
   <?php endif; ?>
 
-  <!-- Back to blog -->
   <div style="margin-top:40px;text-align:center">
-    <a href="<?= esc_url($blog_url) ?>" style="display:inline-flex;align-items:center;gap:8px;padding:11px 22px;border:2px solid #6c47ff;color:#6c47ff;border-radius:10px;text-decoration:none;font-size:14px;font-weight:700;transition:all .15s">
+    <a href="<?php echo esc_url( $blog_url ); ?>" class="nhp-btn nhp-btn--ghost" style="border:2px solid var(--nas-primary);color:var(--nas-primary)">
       <i class="fa-solid fa-arrow-left"></i> Back to All Articles
     </a>
   </div>
+</div>
+
+<?php nas_portal_block_quick_links(); ?>
 </div>
 
 <script>
@@ -253,10 +195,10 @@ document.querySelectorAll('#post-content a[href^="#"]').forEach(function(a) {
 (function() {
   var headings = document.querySelectorAll('#post-content h2');
   if (headings.length < 3) return;
-  var toc = '<div style="background:#f8fafc;border:1.5px solid #e2e8f0;border-radius:12px;padding:20px 24px;margin-bottom:28px"><div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:12px">📋 In This Article</div><ol style="margin:0;padding-left:20px">';
+  var toc = '<div class="nas-post-toc"><div class="nas-post-toc__title"><i class="fa-solid fa-list"></i> In This Article</div><ol>';
   headings.forEach(function(h, i) {
     h.id = 'section-' + (i+1);
-    toc += '<li style="margin-bottom:6px"><a href="#section-'+(i+1)+'" style="color:#6c47ff;text-decoration:none;font-size:13px">'+h.textContent+'</a></li>';
+    toc += '<li><a href="#section-'+(i+1)+'">'+h.textContent+'</a></li>';
   });
   toc += '</ol></div>';
   document.getElementById('post-content').insertAdjacentHTML('afterbegin', toc);

@@ -1,6 +1,6 @@
 # NAS Portal — Enterprise Redesign Roadmap
 
-**Version:** 3.8.0 (Phase 1 in progress)  
+**Version:** 3.9.0 (Phase 2 complete)  
 **Benchmark:** Homepage (`templates/public/home.php` + `assets/css/nas-homepage.css`)  
 **Goal:** Every portal page should feel like the same premium, mature, enterprise-level platform.
 
@@ -397,18 +397,18 @@ This roadmap defines a portal-wide unification: one shell, one design system, pa
 - [ ] Remove duplicate `top-nav.php` includes from FAQ/contact/track
 
 ### Phase 2 — Marketing pages (v3.9.0)
-- [ ] Cities + newspapers index premium redesign
-- [ ] City landing / category / newspaper detail sections
-- [ ] Booking wizard header unification
-- [ ] Login split layout + trust panel
-- [ ] Track order full redesign
-- [ ] Payment checkout trust row
+- [x] Cities + newspapers index premium redesign
+- [x] City landing / category / newspaper detail sections
+- [x] Booking wizard header unification (duplicate nav removed; portal shell provides header)
+- [x] Login split layout + trust panel
+- [x] Track order full redesign
+- [x] Payment checkout trust row + portal sections
 
 ### Phase 3 — Polish (v4.0.0)
 - [ ] Testimonials module integration
-- [ ] Blog premium layout
-- [ ] Vendor register enterprise form
-- [ ] Confirmation page celebration + upsell
+- [x] Blog premium layout
+- [x] Vendor register enterprise form
+- [x] Confirmation page celebration + upsell
 - [ ] Accessibility audit + skip links
 - [ ] Performance budget (< 200KB CSS public)
 
@@ -443,4 +443,20 @@ This roadmap defines a portal-wide unification: one shell, one design system, pa
 
 ---
 
-*Last updated: Phase 1 implementation — September 2026*
+## Files Changed in Phase 2 (v3.9.0)
+
+| File | Change |
+|------|--------|
+| `templates/partials/portal-blocks.php` | Reusable trust/process/FAQ/CTA blocks |
+| `templates/pages/about.php` … `state-page.php` | Deep enterprise sections |
+| `templates/public/contact.php`, `faq.php`, `track-order.php`, `login*.php` | Portal redesign |
+| `templates/payment/checkout.php` | Full portal checkout with trust/process sections |
+| `templates/booking/confirmation.php` | Navy/gold confirmation + portal blocks |
+| `templates/booking/wizard.php` | Remove duplicate nav; portal-page wrapper |
+| `templates/public/blog-index.php`, `blog-post.php` | Portal blog layout |
+| `templates/public/vendor-register.php` | Split layout + partner FAQ/CTA |
+| `templates/city-pages/city-landing.php` | Match city.php depth |
+| `templates/partials/nas-city-wrapper.php` | Portal shell integration |
+| `assets/css/nas-portal.css` | Checkout, confirmation, blog, vendor CSS |
+
+*Last updated: Phase 2 implementation — September 2026*

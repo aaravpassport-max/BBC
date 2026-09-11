@@ -1,86 +1,95 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) exit;
 /**
- * About page — content fragment (shell from nas-page-template.php)
+ * About page — enterprise content fragment
  */
 $brand       = nas_config( 'brand_name', get_bloginfo( 'name' ) );
-$booking_url = nas_get_page_url( 'nas_page_booking', '/book-newspaper-ad/' );
-$contact_url = nas_get_page_url( 'nas_page_contact', '/contact-us/' );
+$booking_url = nas_portal_booking_url();
+$contact_url = nas_portal_contact_url();
+$tagline     = nas_config( 'brand_tagline', 'Book Newspaper Ads Online — Fast, Easy, Affordable' );
 ?>
 <div class="nas-portal-page">
   <div class="nas-portal-wrap">
     <div class="nas-portal-hero">
       <span class="nas-portal-hero__eyebrow">About Us</span>
       <h1>India's Trusted <span>Newspaper Ad</span> Platform</h1>
-      <p><?php echo esc_html( $brand ); ?> makes newspaper advertising simple, transparent, and accessible for every business across India.</p>
+      <p><?php echo esc_html( $brand ); ?> — <?php echo esc_html( $tagline ); ?>. We connect advertisers with verified publishers across India through a transparent, technology-driven booking experience.</p>
     </div>
   </div>
 
-  <section class="nas-portal-section">
-    <div class="nas-portal-split">
-      <div>
-        <h2 style="font-family:var(--nas-font-display);font-size:1.75rem;font-weight:800;margin:0 0 16px;color:var(--nas-text)">Our Mission</h2>
-        <p style="color:var(--nas-text-muted);line-height:1.8;font-size:1rem;margin:0">We make newspaper advertising simple and accessible for every business in India. From a single classified ad to a full-page display, we handle everything — so you can focus on your business.</p>
-      </div>
-      <div class="nas-portal-highlight-card">
-        <div style="font-size:2.5rem;margin-bottom:12px"><i class="fa-solid fa-newspaper"></i></div>
-        <div class="nas-portal-highlight-card__value">300+</div>
-        <div class="nas-portal-highlight-card__label">Cities Covered Pan-India</div>
-      </div>
-    </div>
-  </section>
-
-  <section class="nas-portal-section nas-portal-section--muted">
-    <div class="nas-portal-section__head">
-      <h2>Platform at a Glance</h2>
-      <p>Trusted by thousands of advertisers, publishers, and agencies nationwide.</p>
-    </div>
-    <div class="nas-portal-stat-grid">
-      <?php
-      $stats = [
-          [ 'icon' => 'fa-newspaper', 'value' => '50+', 'label' => 'Newspapers' ],
-          [ 'icon' => 'fa-city', 'value' => '300+', 'label' => 'Cities' ],
-          [ 'icon' => 'fa-star', 'value' => '10,000+', 'label' => 'Happy Clients' ],
-      ];
-      foreach ( $stats as $s ) :
-      ?>
-      <div class="nas-portal-stat">
-        <div class="nas-portal-stat__icon"><i class="fa-solid <?php echo esc_attr( $s['icon'] ); ?>"></i></div>
-        <div class="nas-portal-stat__value"><?php echo esc_html( $s['value'] ); ?></div>
-        <div class="nas-portal-stat__label"><?php echo esc_html( $s['label'] ); ?></div>
-      </div>
-      <?php endforeach; ?>
-    </div>
-  </section>
+  <?php nas_portal_block_trust_ribbon(); ?>
 
   <section class="nas-portal-section">
-    <div class="nas-portal-section__head">
-      <h2>Why Choose <?php echo esc_html( $brand ); ?>?</h2>
-      <p>Enterprise-grade tools with the simplicity of online booking.</p>
-    </div>
-    <div class="nas-portal-feature-grid" style="max-width:1000px;margin:0 auto">
-      <?php
-      $features = [
-          [ 'fa-bolt', 'Instant Quote', 'Get exact pricing in seconds — no calls needed.' ],
-          [ 'fa-shield-check', 'Verified Publishers', 'Every newspaper is directly partnered and verified.' ],
-          [ 'fa-location-crosshairs', 'Real-time Tracking', 'Follow your ad from submission to publication.' ],
-          [ 'fa-wand-magic-sparkles', 'AI Copywriting', 'Let AI help write a compelling, compliant ad.' ],
-      ];
-      foreach ( $features as $f ) :
-      ?>
-      <div class="nas-portal-feature">
-        <div class="nas-portal-feature__icon"><i class="fa-solid <?php echo esc_attr( $f[0] ); ?>"></i></div>
-        <h3><?php echo esc_html( $f[1] ); ?></h3>
-        <p><?php echo esc_html( $f[2] ); ?></p>
+    <div class="nhp-container">
+      <div class="nas-portal-split">
+        <div>
+          <span class="nas-portal-hero__eyebrow" style="margin-bottom:12px">Our Mission</span>
+          <h2 style="font-family:var(--nas-font-display);font-size:clamp(1.5rem,3vw,2rem);font-weight:800;margin:0 0 16px;color:var(--nas-text)">Making Newspaper Advertising Accessible to Every Business</h2>
+          <p style="color:var(--nas-text-muted);line-height:1.85;font-size:1rem;margin:0 0 20px">We believe every business — from a local shop to a national brand — deserves access to newspaper advertising without complexity, opaque pricing, or endless phone calls. <?php echo esc_html( $brand ); ?> digitizes the entire journey: discover rates, compose your ad, pay securely, and track publication — all in one place.</p>
+          <p style="color:var(--nas-text-muted);line-height:1.85;font-size:1rem;margin:0">Our team works directly with authorized newspaper publishers to ensure your ad reaches the right edition on the right date, with proof of publication delivered to your dashboard.</p>
+        </div>
+        <div class="nas-portal-highlight-card">
+          <div style="font-size:2.5rem;margin-bottom:12px"><i class="fa-solid fa-globe"></i></div>
+          <?php $s = nas_portal_live_stats(); ?>
+          <div class="nas-portal-highlight-card__value"><?php echo $s['cities'] > 0 ? (int) $s['cities'] . '+' : '300+'; ?></div>
+          <div class="nas-portal-highlight-card__label">Cities Covered Pan-India</div>
+        </div>
       </div>
-      <?php endforeach; ?>
     </div>
   </section>
 
-  <section class="nas-portal-cta-band">
-    <h2>Ready to Place Your Newspaper Ad?</h2>
-    <p>Get instant rates across 300+ cities and 50+ publications — with secure payment and online tracking.</p>
-    <a href="<?php echo esc_url( $booking_url ); ?>" class="nhp-btn nhp-btn--white nhp-btn--lg">Check Ad Rates <i class="fa-solid fa-arrow-right"></i></a>
-    <a href="<?php echo esc_url( $contact_url ); ?>" class="nhp-btn nhp-btn--ghost nhp-btn--lg" style="margin-left:12px">Talk to Us</a>
+  <?php nas_portal_block_stats( 'Platform at a Glance', 'Real numbers from our live booking platform.' ); ?>
+
+  <section class="nas-portal-section">
+    <div class="nhp-container">
+      <div class="nas-portal-section__head">
+        <h2>What We Stand For</h2>
+        <p>The principles that guide every booking, every support conversation, and every publisher partnership.</p>
+      </div>
+      <div class="nas-portal-feature-grid">
+        <?php
+        $values = [
+            [ 'fa-eye', 'Transparency', 'Upfront rates, clear timelines, and GST invoices on every booking — no surprises.' ],
+            [ 'fa-handshake', 'Publisher Partnerships', 'We work only with authorized newspaper channels — your ad is never placed through unverified agents.' ],
+            [ 'fa-rocket', 'Speed & Simplicity', 'Instant quotes, online payment, and real-time tracking replace weeks of back-and-forth.' ],
+            [ 'fa-users', 'Customer First', 'Dedicated support from ad formatting advice through publication proof delivery.' ],
+            [ 'fa-shield-halved', 'Secure & Compliant', 'Razorpay-powered payments, encrypted data, and audit-ready booking records.' ],
+            [ 'fa-lightbulb', 'Innovation', 'AI-assisted copywriting, sample ads, and smart category recommendations built in.' ],
+        ];
+        foreach ( $values as $v ) :
+        ?>
+        <div class="nas-portal-feature">
+          <div class="nas-portal-feature__icon"><i class="fa-solid <?php echo esc_attr( $v[0] ); ?>"></i></div>
+          <h3><?php echo esc_html( $v[1] ); ?></h3>
+          <p><?php echo esc_html( $v[2] ); ?></p>
+        </div>
+        <?php endforeach; ?>
+      </div>
+    </div>
   </section>
+
+  <?php nas_portal_block_process( 'How It Works', 'Your Ad Journey with ' . $brand, 'Five simple steps from selection to published proof.' ); ?>
+
+  <?php nas_portal_block_advantages(); ?>
+
+  <?php
+  nas_portal_block_faq( [
+      [ 'Who is ' . $brand . '?', esc_html( $brand ) . ' is an online newspaper ad booking platform that connects advertisers with verified publications across India. We handle rate quotes, payment, submission to newspapers, and tracking until your ad is published.' ],
+      [ 'Which newspapers can I book through the platform?', 'We partner with leading English, Hindi, and regional language newspapers. Browse our <a href="' . esc_url( home_url( '/newspapers/' ) ) . '">full newspaper directory</a> or start the booking wizard to see publications available in your city.' ],
+      [ 'Is this an authorized booking channel?', 'Yes. We work directly with authorized publisher networks. Every booking includes a GST invoice and publication proof when your ad is printed.' ],
+      [ 'Can agencies and businesses book in bulk?', 'Absolutely. Businesses, agencies, and individuals use our platform daily. Contact our team for volume bookings or recurring campaign support.' ],
+  ], 'About ' . $brand, 'Common questions about our platform and services.' );
+  ?>
+
+  <?php nas_portal_block_accent_band(
+      'Start Advertising with Confidence',
+      'Instant rates · Secure payment · Online tracking · Publication proof',
+      $booking_url,
+      'Check Ad Rates'
+  ); ?>
+
+  <?php nas_portal_block_cta(
+      'Ready to Place Your Newspaper Ad?',
+      'Join thousands of advertisers who trust ' . $brand . ' for transparent, reliable newspaper advertising across India.'
+  ); ?>
 </div>

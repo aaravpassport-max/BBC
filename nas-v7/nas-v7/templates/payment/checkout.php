@@ -3,7 +3,7 @@ $booking_id = (int) ( $_GET['booking_id'] ?? 0 );
 $db         = \NAS\Core\Database::instance();
 $cfg        = \NAS\Core\Config::instance();
 
-if ( ! $booking_id ) { wp_safe_redirect( home_url('/') ); exit; }  // fixed: was wp_redirect() without exit
+if ( ! $booking_id ) { wp_safe_redirect( home_url('/') ); exit; }
 
 $booking = $db->row(
     "SELECT b.*, cl.name as client_name, cl.email as client_email, cl.phone as client_phone,
@@ -18,9 +18,6 @@ $booking = $db->row(
 );
 if ( ! $booking ) { echo '<p>Booking not found.</p>'; return; }
 
-$brand_color   = $cfg->get('brand_primary_color','#1A3A5C');
-$brand_name    = $cfg->get('brand_name','NewspaperAds');
-$logo_url      = $cfg->get('logo_url','');
 $razorpay_key  = $cfg->get('razorpay_key_id','');
 $payu_enabled  = (bool) $cfg->get('payu_merchant_key','');
 $stripe_key    = $cfg->get('stripe_publishable_key','');
@@ -28,105 +25,99 @@ $currency_sym  = $cfg->get('currency_symbol','₹');
 $gst_rate      = (float) $cfg->get('gst_percentage',18);
 $amount        = (float) $booking['total_amount'];
 $nonce         = wp_create_nonce('nas_action');
+$brand_color   = $cfg->get('brand_primary_color','#1A3A5C');
+$brand_name    = $cfg->get('brand_name','NewspaperAds');
+$logo_url      = $cfg->get('logo_url','');
+$base          = round($amount / (1 + $gst_rate/100), 2);
+$gst           = round($amount - $base, 2);
+$default_gw    = $razorpay_key ? 'razorpay' : ($payu_enabled ? 'payu' : ($stripe_key ? 'stripe' : 'bank_transfer'));
 ?>
-<link rel="stylesheet" href="<?php echo NAS_ASSETS; ?>css/nas-core.css">
-<style>
-.nas-checkout{max-width:900px;margin:40px auto;padding:0 16px;font-family:'Inter','Segoe UI',sans-serif}
-.nas-checkout-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px}
-@media(max-width:768px){.nas-checkout-grid{grid-template-columns:1fr}}
-.nas-card{background:#fff;border:1px solid #e2e8f0;border-radius:12px;padding:24px;box-shadow:0 2px 12px rgba(0,0,0,.06)}
-.nas-card h3{margin:0 0 16px;color:<?php echo esc_js($brand_color); ?>;font-size:16px;font-weight:600;border-bottom:1px solid #e2e8f0;padding-bottom:12px}
-.nas-order-row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:14px;color:#374151}
-.nas-order-row.total{font-weight:700;font-size:16px;color:#0f172a;border-bottom:none;padding-top:12px}
-.nas-gateway-list{display:flex;flex-direction:column;gap:10px}
-.nas-gw{border:2px solid #e2e8f0;border-radius:10px;padding:16px 20px;cursor:pointer;display:flex;align-items:center;gap:12px;transition:all .2s}
-.nas-gw:hover,.nas-gw.selected{border-color:<?php echo esc_js($brand_color); ?>;background:#f0f7ff}
-.nas-gw input[type=radio]{accent-color:<?php echo esc_js($brand_color); ?>}
-.nas-gw-label{font-weight:600;font-size:14px;color:#1e293b}
-.nas-gw-desc{font-size:12px;color:#64748b}
-.nas-pay-btn{width:100%;padding:16px;background:<?php echo esc_js($brand_color); ?>;color:#fff;border:none;border-radius:8px;font-size:16px;font-weight:700;cursor:pointer;margin-top:16px;transition:opacity .2s}
-.nas-pay-btn:hover{opacity:.9}
-.nas-pay-btn:disabled{opacity:.5;cursor:not-allowed}
-.nas-secure-note{text-align:center;font-size:12px;color:#94a3b8;margin-top:12px}
-.nas-logo{height:36px;margin-bottom:16px}
-</style>
-
-<div class="nas-checkout">
-  <?php if($logo_url): ?><img src="<?php echo esc_url($logo_url); ?>" class="nas-logo" alt="<?php echo esc_attr($brand_name); ?>"><br><?php endif; ?>
-  <h2 style="margin:0 0 24px;color:<?php echo esc_attr($brand_color); ?>">Complete Your Payment</h2>
-
-  <div class="nas-checkout-grid">
-    <!-- Order Summary -->
-    <div class="nas-card">
-      <h3>📋 Order Summary</h3>
-      <div class="nas-order-row"><span>Order ID</span><span><strong><?php echo esc_html($booking['uid']); ?></strong></span></div>
-      <div class="nas-order-row"><span>Newspaper</span><span><?php echo esc_html($booking['newspaper_name']); ?></span></div>
-      <div class="nas-order-row"><span>City</span><span><?php echo esc_html($booking['city_name']); ?></span></div>
-      <div class="nas-order-row"><span>Category</span><span><?php echo esc_html($booking['category_name']); ?></span></div>
-      <div class="nas-order-row"><span>Ad Type</span><span><?php echo esc_html($booking['ad_type'] ?? 'N/A'); ?></span></div>
-      <?php $base = round($amount / (1 + $gst_rate/100), 2); $gst = round($amount - $base, 2); ?>
-      <div class="nas-order-row"><span>Subtotal</span><span><?php echo $currency_sym . number_format($base,2); ?></span></div>
-      <div class="nas-order-row"><span>GST (<?php echo $gst_rate; ?>%)</span><span><?php echo $currency_sym . number_format($gst,2); ?></span></div>
-      <div class="nas-order-row total"><span>Total</span><span><?php echo $currency_sym . number_format($amount,2); ?></span></div>
-    </div>
-
-    <!-- Payment Gateway Selection -->
-    <div class="nas-card">
-      <h3>💳 Select Payment Method</h3>
-      <div class="nas-gateway-list">
-        <?php if($razorpay_key): ?>
-        <label class="nas-gw selected" onclick="selectGateway(this,'razorpay')">
-          <input type="radio" name="gateway" value="razorpay" checked>
-          <div>
-            <div class="nas-gw-label">Razorpay</div>
-            <div class="nas-gw-desc">UPI, Net Banking, Cards, Wallets — all Indian payment methods</div>
-          </div>
-        </label>
-        <?php endif; ?>
-        <?php if($payu_enabled): ?>
-        <label class="nas-gw" onclick="selectGateway(this,'payu')">
-          <input type="radio" name="gateway" value="payu">
-          <div>
-            <div class="nas-gw-label">PayU</div>
-            <div class="nas-gw-desc">Alternative Indian payment gateway</div>
-          </div>
-        </label>
-        <?php endif; ?>
-        <?php if($stripe_key): ?>
-        <label class="nas-gw" onclick="selectGateway(this,'stripe')">
-          <input type="radio" name="gateway" value="stripe">
-          <div>
-            <div class="nas-gw-label">Stripe</div>
-            <div class="nas-gw-desc">International credit / debit cards</div>
-          </div>
-        </label>
-        <?php endif; ?>
-        <label class="nas-gw" onclick="selectGateway(this,'bank_transfer')">
-          <input type="radio" name="gateway" value="bank_transfer">
-          <div>
-            <div class="nas-gw-label">Bank Transfer / NEFT</div>
-            <div class="nas-gw-desc">Manual payment — admin will confirm receipt</div>
-          </div>
-        </label>
-      </div>
-
-      <!-- Stripe card element (shown only when Stripe selected) -->
-      <div id="nas-stripe-element" style="display:none;margin-top:16px;padding:12px;border:1px solid #e2e8f0;border-radius:8px"></div>
-
-      <!-- Bank transfer info (shown only when bank_transfer selected) -->
-      <div id="nas-bank-info" style="display:none;margin-top:12px;background:#f8fafc;padding:14px;border-radius:8px;font-size:13px">
-        <strong>Bank Transfer Details:</strong><br>
-        <?php echo nl2br(esc_html($cfg->get('bank_transfer_details','Please contact us for bank transfer details.'))); ?>
-        <br><br>
-        <input type="text" id="nas-bank-ref" placeholder="Enter your UTR / transaction reference" style="width:100%;padding:8px 10px;border:1px solid #d0d7de;border-radius:6px;font-size:13px">
-      </div>
-
-      <button class="nas-pay-btn" id="nas-pay-btn" onclick="initiatePayment()">
-        Pay <?php echo $currency_sym . number_format($amount,2); ?> Now
-      </button>
-      <div class="nas-secure-note">🔒 Secure & encrypted payment. Your data is safe.</div>
+<div class="nas-portal-page">
+  <div class="nas-portal-wrap">
+    <div class="nas-portal-hero">
+      <span class="nas-portal-hero__eyebrow"><i class="fa-solid fa-lock"></i> Secure Checkout</span>
+      <h1>Complete Your <span>Payment</span></h1>
+      <p>Order <?php echo esc_html( $booking['uid'] ); ?> · <?php echo esc_html( $booking['newspaper_name'] ); ?> · <?php echo esc_html( $currency_sym . number_format( $amount, 2 ) ); ?></p>
     </div>
   </div>
+
+  <?php nas_portal_block_trust_ribbon(); ?>
+
+  <section class="nas-portal-section">
+    <div class="nhp-container nas-checkout">
+      <div class="nas-checkout-grid">
+        <div class="nas-checkout-card">
+          <h3><i class="fa-solid fa-receipt"></i> Order Summary</h3>
+          <div class="nas-order-row"><span>Order ID</span><span><strong><?php echo esc_html($booking['uid']); ?></strong></span></div>
+          <div class="nas-order-row"><span>Newspaper</span><span><?php echo esc_html($booking['newspaper_name']); ?></span></div>
+          <div class="nas-order-row"><span>City</span><span><?php echo esc_html($booking['city_name']); ?></span></div>
+          <div class="nas-order-row"><span>Category</span><span><?php echo esc_html($booking['category_name']); ?></span></div>
+          <div class="nas-order-row"><span>Ad Type</span><span><?php echo esc_html($booking['ad_type'] ?? 'N/A'); ?></span></div>
+          <div class="nas-order-row"><span>Subtotal</span><span><?php echo $currency_sym . number_format($base,2); ?></span></div>
+          <div class="nas-order-row"><span>GST (<?php echo $gst_rate; ?>%)</span><span><?php echo $currency_sym . number_format($gst,2); ?></span></div>
+          <div class="nas-order-row total"><span>Total</span><span><?php echo $currency_sym . number_format($amount,2); ?></span></div>
+        </div>
+
+        <div class="nas-checkout-card">
+          <h3><i class="fa-solid fa-credit-card"></i> Select Payment Method</h3>
+          <div class="nas-gateway-list">
+            <?php if($razorpay_key): ?>
+            <label class="nas-gw selected" onclick="selectGateway(this,'razorpay')">
+              <input type="radio" name="gateway" value="razorpay" checked>
+              <div>
+                <div class="nas-gw-label">Razorpay</div>
+                <div class="nas-gw-desc">UPI, Net Banking, Cards, Wallets — all Indian payment methods</div>
+              </div>
+            </label>
+            <?php endif; ?>
+            <?php if($payu_enabled): ?>
+            <label class="nas-gw<?php echo !$razorpay_key ? ' selected' : ''; ?>" onclick="selectGateway(this,'payu')">
+              <input type="radio" name="gateway" value="payu"<?php echo !$razorpay_key ? ' checked' : ''; ?>>
+              <div>
+                <div class="nas-gw-label">PayU</div>
+                <div class="nas-gw-desc">Alternative Indian payment gateway</div>
+              </div>
+            </label>
+            <?php endif; ?>
+            <?php if($stripe_key): ?>
+            <label class="nas-gw" onclick="selectGateway(this,'stripe')">
+              <input type="radio" name="gateway" value="stripe">
+              <div>
+                <div class="nas-gw-label">Stripe</div>
+                <div class="nas-gw-desc">International credit / debit cards</div>
+              </div>
+            </label>
+            <?php endif; ?>
+            <label class="nas-gw<?php echo $default_gw === 'bank_transfer' ? ' selected' : ''; ?>" onclick="selectGateway(this,'bank_transfer')">
+              <input type="radio" name="gateway" value="bank_transfer"<?php echo $default_gw === 'bank_transfer' ? ' checked' : ''; ?>>
+              <div>
+                <div class="nas-gw-label">Bank Transfer / NEFT</div>
+                <div class="nas-gw-desc">Manual payment — admin will confirm receipt</div>
+              </div>
+            </label>
+          </div>
+
+          <div id="nas-stripe-element" class="nas-stripe-element-wrap" style="display:none"></div>
+
+          <div id="nas-bank-info" class="nas-bank-info-wrap" style="display:none">
+            <strong>Bank Transfer Details:</strong><br>
+            <?php echo nl2br(esc_html($cfg->get('bank_transfer_details','Please contact us for bank transfer details.'))); ?>
+            <input type="text" id="nas-bank-ref" placeholder="Enter your UTR / transaction reference">
+          </div>
+
+          <button class="nas-pay-btn" id="nas-pay-btn" onclick="initiatePayment()">
+            Pay <?php echo $currency_sym . number_format($amount,2); ?> Now
+          </button>
+          <div class="nas-secure-note"><i class="fa-solid fa-shield-halved"></i> Secure &amp; encrypted payment. Your data is safe.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <?php
+  nas_portal_block_process( 'After Payment', 'What Happens Next', 'Your booking moves into our review queue immediately after payment confirmation.' );
+  nas_portal_block_quick_links();
+  ?>
 </div>
 
 <?php if($razorpay_key): ?>
@@ -157,7 +148,7 @@ var NAS_CHECKOUT = {
         stripe:   <?php echo $stripe_key ? 'true' : 'false'; ?>
     }
 };
-var selectedGateway = '<?php echo $razorpay_key ? 'razorpay' : ($payu_enabled ? 'payu' : ($stripe_key ? 'stripe' : 'bank_transfer')); ?>';
+var selectedGateway = '<?php echo esc_js($default_gw); ?>';
 var stripeInstance, stripeElements, cardElement;
 
 function selectGateway(el, gw) {
@@ -185,7 +176,7 @@ function initiatePayment() {
         var ref = document.getElementById('nas-bank-ref').value.trim();
         if (!ref) { alert('Please enter your transaction reference / UTR number'); btn.disabled=false; btn.textContent='Pay Now'; return; }
         jQuery.post(NAS_CHECKOUT.ajaxUrl, {
-            action:'nas_payment_failed', // uses this to record bank ref + set status
+            action:'nas_payment_failed',
             nonce: NAS_CHECKOUT.nonce,
             booking_id: NAS_CHECKOUT.bookingId,
             bank_ref: ref
@@ -193,7 +184,6 @@ function initiatePayment() {
         return;
     }
 
-    // Create payment order server-side
     jQuery.post(NAS_CHECKOUT.ajaxUrl, {
         action: 'nas_create_payment_order',
         nonce:  NAS_CHECKOUT.nonce,
@@ -239,7 +229,6 @@ function openRazorpay(data) {
 }
 
 function openPayU(data) {
-    // Build PayU form and submit
     var form = document.createElement('form');
     form.method = 'POST';
     form.action = data.payu_url;

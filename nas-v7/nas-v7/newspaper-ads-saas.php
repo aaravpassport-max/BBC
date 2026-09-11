@@ -3,7 +3,7 @@
  * Plugin Name: NewspaperAds SaaS — Professional Booking Platform
  * Plugin URI:  https://your-domain.com/newspaper-ads-saas
  * Description: Enterprise-grade newspaper ad booking SaaS platform with custom dashboards, workflow tracking, AI content, real-time chat, WhatsApp integration, and 300 city landing pages.
- * Version:     3.8.0
+ * Version:     3.9.0
  * Author:      Your Agency
  * Author URI:  https://your-domain.com
  * License:     GPL-2.0+
@@ -20,7 +20,7 @@ if ( ! function_exists('NAS_get_config') ) {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-define( 'NAS_VERSION',    '3.8.0' );
+define( 'NAS_VERSION',    '3.9.0' );
 define( 'NAS_FILE',       __FILE__ );
 define( 'NAS_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'NAS_PATH',       NAS_DIR );        // alias used throughout codebase
@@ -74,6 +74,7 @@ require_once NAS_DIR . 'core/Router.php';
 require_once NAS_DIR . 'core/ModuleManager.php';
 require_once NAS_DIR . 'core/Security.php';
 require_once NAS_DIR . 'core/Helpers.php';
+require_once NAS_DIR . 'templates/partials/portal-blocks.php';
 require_once NAS_DIR . 'database/Schema.php';
 require_once NAS_DIR . 'database/Seeder.php';
 if ( file_exists( NAS_DIR . 'database/SchemaV3.php' ) ) require_once NAS_DIR . 'database/SchemaV3.php';
@@ -696,9 +697,6 @@ function nas_portal_should_wrap_shell(): bool {
     }
     $slug = nas_portal_current_slug();
     if ( in_array( $slug, nas_portal_dashboard_slugs(), true ) ) {
-        return false;
-    }
-    if ( $slug === 'newspaper-ad-login' ) {
         return false;
     }
     return true;
