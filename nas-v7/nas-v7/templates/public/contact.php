@@ -6,13 +6,6 @@ $phone = $cfg->get('brand_phone','');
 $email = $cfg->get('brand_email','');
 $addr  = $cfg->get('brand_address','');
 $wa    = $cfg->get('brand_whatsapp','');
-$_nas_nav_links = [
-    ['label' => 'Home',       'url' => home_url('/')],
-    ['label' => 'Book an Ad', 'url' => nas_get_page_url('nas_page_booking','/book-newspaper-ad/')],
-    ['label' => 'My Bookings','url' => nas_get_page_url('nas_page_client_dashboard','/client-dashboard/')],
-];
-$nav_links = $_nas_nav_links;
-include NAS_PLUGIN_DIR . 'templates/partials/top-nav.php';
 ?>
 
 <div class="nas-portal-page">
@@ -105,6 +98,8 @@ include NAS_PLUGIN_DIR . 'templates/partials/top-nav.php';
     </div>
 
   </div>
+</div>
+</div>
 </div>
 
 <script>

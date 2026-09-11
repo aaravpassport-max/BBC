@@ -46,14 +46,7 @@ $fb_share    = 'https://www.facebook.com/sharer/sharer.php?u='.rawurlencode($pos
 
 $pub_date    = $post['published_at'] ? date('d F Y', strtotime($post['published_at'])) : '';
 
-$nav_links = [
-    ['label'=>'Home', 'url'=>home_url('/')],
-    ['label'=>'Blog', 'url'=>$blog_url],
-    ['label'=>esc_html(substr($post['title'],0,30)).'…', 'url'=>'#','active'=>true],
-];
-include NAS_PLUGIN_DIR . 'templates/partials/top-nav.php';
 ?>
-<link rel="stylesheet" href="<?= NAS_ASSETS ?>css/nas-enterprise.css">
 <!-- SEO meta for this post -->
 <?php if(!empty($post['seo_title'])): ?>
 <title><?= esc_html($post['seo_title']) ?> — <?= esc_html($brand) ?></title>

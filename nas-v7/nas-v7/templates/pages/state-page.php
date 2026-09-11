@@ -14,19 +14,8 @@ if ( empty($cities) ) {
     $cities = $db->select("SELECT id, name, slug, tier, population FROM `{$db->t('cities')}` WHERE is_active=1 AND LOWER(state) LIKE %s ORDER BY tier ASC, population DESC", ['%'.str_replace('-',' ',$state_slug).'%']);
 }
 
-include NAS_PLUGIN_DIR . 'templates/partials/top-nav.php';
 ?>
-<!DOCTYPE html>
-<html <?php language_attributes(); ?>>
-<head>
-<meta charset="<?php bloginfo('charset'); ?>">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Newspaper Ads in <?php echo esc_html($state_name); ?> | All Cities</title>
-<meta name="description" content="Book newspaper ads in all major cities of <?php echo esc_attr($state_name); ?>. Classified & display ads in local and national newspapers.">
-<?php wp_head(); ?>
-</head>
-<body class="nas-fullpage nas-state-page">
-
+<div class="nas-portal-page">
 <section style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:70px 20px 50px;text-align:center;color:#fff">
   <div style="max-width:800px;margin:0 auto">
     <h1 style="font-size:clamp(26px,5vw,46px);font-weight:800;margin:0 0 16px">Newspaper Ads in <?php echo esc_html($state_name); ?></h1>
@@ -56,6 +45,4 @@ include NAS_PLUGIN_DIR . 'templates/partials/top-nav.php';
   </div>
 </section>
 
-<?php wp_footer(); ?>
-</body>
-</html>
+</div>

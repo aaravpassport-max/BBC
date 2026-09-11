@@ -16,19 +16,8 @@ $cities       = json_decode($paper['cities_supported'] ?? '[]', true) ?: [];
 $editions     = json_decode($paper['editions'] ?? '[]', true) ?: [];
 $booking_url  = home_url('/book-newspaper-ad/?newspaper='.urlencode($paper['name']));
 
-include NAS_PLUGIN_DIR . 'templates/partials/top-nav.php';
 ?>
-<!DOCTYPE html>
-<html <?php language_attributes(); ?>>
-<head>
-<meta charset="<?php bloginfo('charset'); ?>">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Book Ads in <?php echo $name; ?> | Classified & Display</title>
-<meta name="description" content="Book classified and display newspaper ads in <?php echo esc_attr($name); ?>. Fast processing, verified rates, same-day confirmation.">
-<?php wp_head(); ?>
-</head>
-<body class="nas-fullpage nas-newspaper-page">
-
+<div class="nas-portal-page">
 <section style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:70px 20px 50px;color:#fff">
   <div style="max-width:1000px;margin:0 auto;display:flex;align-items:center;gap:32px;flex-wrap:wrap">
     <?php if ($paper['logo_url']): ?>
@@ -85,6 +74,4 @@ include NAS_PLUGIN_DIR . 'templates/partials/top-nav.php';
   </div>
 </section>
 
-<?php wp_footer(); ?>
-</body>
-</html>
+</div>

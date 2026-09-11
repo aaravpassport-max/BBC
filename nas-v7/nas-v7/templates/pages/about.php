@@ -1,70 +1,86 @@
-<?php if ( ! defined( 'ABSPATH' ) ) exit;
+<?php
+if ( ! defined( 'ABSPATH' ) ) exit;
 /**
- * About page — serves /about/
+ * About page — content fragment (shell from nas-page-template.php)
  */
-$brand = nas_config('brand_name', get_bloginfo('name'));
-include NAS_PLUGIN_DIR . 'templates/partials/top-nav.php';
+$brand       = nas_config( 'brand_name', get_bloginfo( 'name' ) );
+$booking_url = nas_get_page_url( 'nas_page_booking', '/book-newspaper-ad/' );
+$contact_url = nas_get_page_url( 'nas_page_contact', '/contact-us/' );
 ?>
-<!DOCTYPE html>
-<html <?php language_attributes(); ?>>
-<head>
-<meta charset="<?php bloginfo('charset'); ?>">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>About Us | <?php echo esc_html($brand); ?></title>
-<meta name="description" content="<?php echo esc_attr($brand); ?> — India's trusted online newspaper ad booking platform. Book classified & display ads in 300+ cities.">
-<?php wp_head(); ?>
-</head>
-<body class="nas-fullpage nas-about-page">
-
-<section style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:70px 20px 50px;text-align:center;color:#fff">
-  <div style="max-width:700px;margin:0 auto">
-    <h1 style="font-size:clamp(26px,5vw,46px);font-weight:800;margin:0 0 16px">About <?php echo esc_html($brand); ?></h1>
-    <p style="font-size:18px;opacity:.85;margin:0">India's trusted platform for newspaper ad booking — fast, reliable, transparent.</p>
+<div class="nas-portal-page">
+  <div class="nas-portal-wrap">
+    <div class="nas-portal-hero">
+      <span class="nas-portal-hero__eyebrow">About Us</span>
+      <h1>India's Trusted <span>Newspaper Ad</span> Platform</h1>
+      <p><?php echo esc_html( $brand ); ?> makes newspaper advertising simple, transparent, and accessible for every business across India.</p>
+    </div>
   </div>
-</section>
 
-<section style="padding:70px 20px;background:#fff">
-  <div style="max-width:900px;margin:0 auto">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;margin-bottom:60px">
+  <section class="nas-portal-section">
+    <div class="nas-portal-split">
       <div>
-        <h2 style="font-size:28px;font-weight:700;margin:0 0 16px;color:#0f172a">Our Mission</h2>
-        <p style="color:#475569;line-height:1.8;font-size:16px">We make newspaper advertising simple and accessible for every business in India. From a single classified ad to a full-page display, we handle everything — so you can focus on your business.</p>
+        <h2 style="font-family:var(--nas-font-display);font-size:1.75rem;font-weight:800;margin:0 0 16px;color:var(--nas-text)">Our Mission</h2>
+        <p style="color:var(--nas-text-muted);line-height:1.8;font-size:1rem;margin:0">We make newspaper advertising simple and accessible for every business in India. From a single classified ad to a full-page display, we handle everything — so you can focus on your business.</p>
       </div>
-      <div style="background:#f8fafc;border-radius:16px;padding:32px;text-align:center">
-        <div style="font-size:48px;margin-bottom:12px">📰</div>
-        <div style="font-size:36px;font-weight:800;color:#2563eb;margin-bottom:4px">300+</div>
-        <div style="color:#64748b">Cities Covered</div>
+      <div class="nas-portal-highlight-card">
+        <div style="font-size:2.5rem;margin-bottom:12px"><i class="fa-solid fa-newspaper"></i></div>
+        <div class="nas-portal-highlight-card__value">300+</div>
+        <div class="nas-portal-highlight-card__label">Cities Covered Pan-India</div>
       </div>
     </div>
+  </section>
 
-    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:24px;margin-bottom:60px">
-      <?php $stats = [['🗞️','50+','Newspapers'],['🏙️','300+','Cities'],['⭐','10,000+','Happy Clients']];
-      foreach ($stats as $s): ?>
-      <div style="background:#f8fafc;border-radius:14px;padding:28px;text-align:center">
-        <div style="font-size:36px;margin-bottom:8px"><?php echo $s[0]; ?></div>
-        <div style="font-size:32px;font-weight:800;color:#0f172a;margin-bottom:4px"><?php echo $s[1]; ?></div>
-        <div style="color:#64748b;font-size:14px"><?php echo $s[2]; ?></div>
+  <section class="nas-portal-section nas-portal-section--muted">
+    <div class="nas-portal-section__head">
+      <h2>Platform at a Glance</h2>
+      <p>Trusted by thousands of advertisers, publishers, and agencies nationwide.</p>
+    </div>
+    <div class="nas-portal-stat-grid">
+      <?php
+      $stats = [
+          [ 'icon' => 'fa-newspaper', 'value' => '50+', 'label' => 'Newspapers' ],
+          [ 'icon' => 'fa-city', 'value' => '300+', 'label' => 'Cities' ],
+          [ 'icon' => 'fa-star', 'value' => '10,000+', 'label' => 'Happy Clients' ],
+      ];
+      foreach ( $stats as $s ) :
+      ?>
+      <div class="nas-portal-stat">
+        <div class="nas-portal-stat__icon"><i class="fa-solid <?php echo esc_attr( $s['icon'] ); ?>"></i></div>
+        <div class="nas-portal-stat__value"><?php echo esc_html( $s['value'] ); ?></div>
+        <div class="nas-portal-stat__label"><?php echo esc_html( $s['label'] ); ?></div>
       </div>
       <?php endforeach; ?>
     </div>
+  </section>
 
-    <div style="background:#f8fafc;border-radius:16px;padding:40px;text-align:center">
-      <h2 style="font-size:24px;font-weight:700;margin:0 0 12px;color:#0f172a">Why Choose <?php echo esc_html($brand); ?>?</h2>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin-top:24px;text-align:left">
-        <?php $why = [['✅','Instant Quote','Get exact pricing in seconds — no calls needed'],['✅','Verified Publishers','Every newspaper is directly partnered'],['✅','Real-time Tracking','Follow your ad from submission to publication'],['✅','AI Copywriting','Let AI help write a compelling ad']];
-        foreach ($why as $w): ?>
-        <div><div style="font-weight:700;margin-bottom:4px;color:#0f172a"><?php echo $w[0]; ?> <?php echo $w[1]; ?></div><div style="font-size:13px;color:#64748b"><?php echo $w[2]; ?></div></div>
-        <?php endforeach; ?>
-      </div>
+  <section class="nas-portal-section">
+    <div class="nas-portal-section__head">
+      <h2>Why Choose <?php echo esc_html( $brand ); ?>?</h2>
+      <p>Enterprise-grade tools with the simplicity of online booking.</p>
     </div>
-  </div>
-</section>
+    <div class="nas-portal-feature-grid" style="max-width:1000px;margin:0 auto">
+      <?php
+      $features = [
+          [ 'fa-bolt', 'Instant Quote', 'Get exact pricing in seconds — no calls needed.' ],
+          [ 'fa-shield-check', 'Verified Publishers', 'Every newspaper is directly partnered and verified.' ],
+          [ 'fa-location-crosshairs', 'Real-time Tracking', 'Follow your ad from submission to publication.' ],
+          [ 'fa-wand-magic-sparkles', 'AI Copywriting', 'Let AI help write a compelling, compliant ad.' ],
+      ];
+      foreach ( $features as $f ) :
+      ?>
+      <div class="nas-portal-feature">
+        <div class="nas-portal-feature__icon"><i class="fa-solid <?php echo esc_attr( $f[0] ); ?>"></i></div>
+        <h3><?php echo esc_html( $f[1] ); ?></h3>
+        <p><?php echo esc_html( $f[2] ); ?></p>
+      </div>
+      <?php endforeach; ?>
+    </div>
+  </section>
 
-<section style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:60px 20px;text-align:center;color:#fff">
-  <h2 style="font-size:28px;font-weight:700;margin:0 0 16px">Ready to place your ad?</h2>
-  <a href="<?php echo esc_url(home_url('/book-newspaper-ad/')); ?>" style="display:inline-block;background:#f59e0b;color:#0f172a;padding:14px 32px;border-radius:10px;font-weight:700;font-size:16px;text-decoration:none">Book Now →</a>
-</section>
-
-<?php wp_footer(); ?>
-</body>
-</html>
+  <section class="nas-portal-cta-band">
+    <h2>Ready to Place Your Newspaper Ad?</h2>
+    <p>Get instant rates across 300+ cities and 50+ publications — with secure payment and online tracking.</p>
+    <a href="<?php echo esc_url( $booking_url ); ?>" class="nhp-btn nhp-btn--white nhp-btn--lg">Check Ad Rates <i class="fa-solid fa-arrow-right"></i></a>
+    <a href="<?php echo esc_url( $contact_url ); ?>" class="nhp-btn nhp-btn--ghost nhp-btn--lg" style="margin-left:12px">Talk to Us</a>
+  </section>
+</div>

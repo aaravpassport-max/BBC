@@ -57,12 +57,6 @@ $track_url    = nas_get_page_url('nas_page_track_order','/track-order/');
 $book_url     = nas_get_page_url('nas_page_booking','/book-newspaper-ad/');
 $invoice_url  = $booking ? get_permalink() ?: home_url('/') . '?action=nas_download_invoice&booking_id=' . ($booking['id']??0) . '&nonce=' . wp_create_nonce('nas_pdf') : '';
 
-$nav_links = [
-    ['label'=>'Home',        'url'=>home_url('/')],
-    ['label'=>'My Bookings', 'url'=>$dash_url],
-    ['label'=>'Book an Ad',  'url'=>$book_url],
-];
-include NAS_PLUGIN_DIR . 'templates/partials/top-nav.php';
 ?>
 <style>
 .nas-conf-wrap{max-width:760px;margin:0 auto;padding:40px 20px 80px;font-family:'Inter','Segoe UI',sans-serif}

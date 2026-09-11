@@ -372,20 +372,21 @@
   .nas-step-connector { min-width: 8px; }
 }
 
-/* ══ TOP NAV UPGRADE ═════════════════════════════════════════════════════════ */
-.nas-top-nav {
+/* ══ TOP NAV UPGRADE — dashboard shells only (public pages use portal-header) ═ */
+.nas-dash-app .nas-top-nav,
+.nas-admin-shell .nas-top-nav,
+.nas-portal-shell > .nas-top-nav {
   position: sticky;
   top: 0;
   z-index: 800;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  background: rgba(255,255,255,.95) !important;
-  border-bottom: 1px solid var(--nas-border);
 }
-@media (prefers-color-scheme: dark) {
-  .nas-top-nav { background: rgba(15,23,42,.95) !important; }
+.nas-dash-app .nas-top-nav__inner,
+.nas-admin-shell .nas-top-nav__inner,
+.nas-portal-shell > .nas-top-nav .nas-top-nav__inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 24px;
 }
-.nas-top-nav__inner { max-width: 1400px; margin: 0 auto; padding: 0 24px; }
 .nas-notif-panel {
   background: var(--nas-bg-white);
   border: 1.5px solid var(--nas-border);

@@ -9,12 +9,6 @@ $intro        = wp_kses_post( $meta['intro_content'] ?? '' );
 $faqs         = json_decode( $meta['faqs_json'] ?? '[]', true ) ?: [];
 $booking_url  = home_url( '/book-ad/?city=' . urlencode( $city['slug'] ?? '' ) );
 
-$nav_links = [
-  [ 'label' => 'Home',       'url' => home_url( '/' ) ],
-  [ 'label' => 'Book an Ad', 'url' => home_url( '/book-ad/' ) ],
-  [ 'label' => 'Cities',     'url' => home_url( '/newspaper-ads/' ) ],
-];
-include NAS_PLUGIN_DIR . 'templates/partials/top-nav.php';
 ?>
 
 <!-- Hero -->

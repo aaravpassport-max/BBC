@@ -183,6 +183,30 @@ class Enqueue {
         ]);
     }
 
+    /** Dashboard / app UI pages — load full dashboard CSS stack */
+    public static function is_nas_dashboard_page(): bool {
+        return is_page( [
+            'client-dashboard',
+            'admin-dashboard',
+            'staff-dashboard',
+            'moderation-dashboard',
+            'vendor-dashboard',
+            get_option( 'nas_page_client_dashboard' ),
+            get_option( 'nas_page_admin_dashboard' ),
+            get_option( 'nas_page_staff_dashboard' ),
+            get_option( 'nas_page_moderation_dashboard' ),
+            get_option( 'nas_page_vendor_dashboard' ),
+        ] );
+    }
+
+    /** Public marketing pages (not home, not dashboard) */
+    public static function is_nas_public_portal_page(): bool {
+        if ( self::is_nas_homepage() || self::is_nas_dashboard_page() ) {
+            return false;
+        }
+        return self::is_nas_page();
+    }
+
     // Cache-busts a specific asset by file modified time, falling back to
     // NAS_VERSION if the file can't be read (e.g. path issue) so enqueuing
     // never breaks — just won't auto-bust in that edge case.
@@ -240,43 +264,53 @@ class Enqueue {
             return;
         }
 
-        $v = NAS_VERSION;
         $a = NAS_ASSETS;
 
         wp_enqueue_style( 'nas-fonts',
             'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap',
             [], null );
-        // Font Awesome: loaded as non-blocking preload via preconnect_hints()
-        // This removes it from the render-blocking chain
-        wp_enqueue_style( 'nas-core',       $a . 'css/nas-core.css',       ['nas-fonts'], self::asset_ver('css/nas-core.css') );
-        wp_enqueue_style( 'nas-portal',     $a . 'css/nas-portal.css',     ['nas-core'],  self::asset_ver('css/nas-portal.css') );
-        wp_enqueue_style( 'nas-dashboard',  $a . 'css/nas-dashboard.css',  ['nas-core', 'nas-portal'],  self::asset_ver('css/nas-dashboard.css') );
-        wp_enqueue_style( 'nas-enterprise', NAS_ASSETS . 'css/nas-enterprise.css', ['nas-core', 'nas-dashboard'], self::asset_ver('css/nas-enterprise.css') );
-        wp_enqueue_style( 'nas-booking',    $a . 'css/nas-booking.css',    ['nas-core'],  self::asset_ver('css/nas-booking.css') );
-        wp_enqueue_style( 'nas-chat',       $a . 'css/nas-chat.css',       ['nas-core'],  self::asset_ver('css/nas-chat.css') );
-        wp_enqueue_style( 'nas-city-pages', $a . 'css/nas-city-pages.css', ['nas-core'],  self::asset_ver('css/nas-city-pages.css') );
-        wp_enqueue_style( 'nas-admin',      $a . 'css/nas-admin.css',      ['nas-core'],  self::asset_ver('css/nas-admin.css') );
+        wp_enqueue_style( 'nas-core', $a . 'css/nas-core.css', [ 'nas-fonts' ], self::asset_ver( 'css/nas-core.css' ) );
+        wp_enqueue_style( 'nas-portal', $a . 'css/nas-portal.css', [ 'nas-core' ], self::asset_ver( 'css/nas-portal.css' ) );
+
+        wp_enqueue_script( 'jquery' );
+        wp_enqueue_script( 'nas-core', $a . 'js/nas-core.js', [ 'jquery' ], self::asset_ver( 'js/nas-core.js' ), true );
+
+        // Public marketing pages: homepage header/footer styles only — no dashboard CSS war
+        if ( self::is_nas_public_portal_page() ) {
+            wp_enqueue_style( 'nas-homepage', $a . 'css/nas-homepage.css', [ 'nas-core', 'nas-portal' ], self::asset_ver( 'css/nas-homepage.css' ) );
+            wp_enqueue_style( 'nas-city-pages', $a . 'css/nas-city-pages.css', [ 'nas-core' ], self::asset_ver( 'css/nas-city-pages.css' ) );
+            wp_enqueue_script( 'nas-homepage', $a . 'js/nas-homepage.js', [ 'nas-core' ], self::asset_ver( 'js/nas-homepage.js' ), true );
+            wp_localize_script( 'nas-core', 'NAS', self::js_vars() );
+            return;
+        }
+
+        // Booking funnel + dashboards: full app stack
+        wp_enqueue_style( 'nas-dashboard', $a . 'css/nas-dashboard.css', [ 'nas-core', 'nas-portal' ], self::asset_ver( 'css/nas-dashboard.css' ) );
+        wp_enqueue_style( 'nas-enterprise', $a . 'css/nas-enterprise.css', [ 'nas-core', 'nas-dashboard' ], self::asset_ver( 'css/nas-enterprise.css' ) );
+        wp_enqueue_style( 'nas-booking', $a . 'css/nas-booking.css', [ 'nas-core' ], self::asset_ver( 'css/nas-booking.css' ) );
+        wp_enqueue_style( 'nas-chat', $a . 'css/nas-chat.css', [ 'nas-core' ], self::asset_ver( 'css/nas-chat.css' ) );
+        wp_enqueue_style( 'nas-city-pages', $a . 'css/nas-city-pages.css', [ 'nas-core' ], self::asset_ver( 'css/nas-city-pages.css' ) );
+        wp_enqueue_style( 'nas-admin', $a . 'css/nas-admin.css', [ 'nas-core' ], self::asset_ver( 'css/nas-admin.css' ) );
         wp_enqueue_style( 'select2-css',
             'https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/css/select2.min.css',
             [], '4.1.0' );
 
-        wp_enqueue_script( 'jquery' );
         wp_enqueue_script( 'select2',
             'https://cdnjs.cloudflare.com/ajax/libs/select2/4.1.0-rc.0/js/select2.min.js',
-            ['jquery'], '4.1.0', true );
+            [ 'jquery' ], '4.1.0', true );
         wp_enqueue_script( 'chart-js',
             'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js',
             [], '4.4.0', true );
         wp_enqueue_script( 'nas-core',
-            $a . 'js/nas-core.js', ['jquery', 'select2'], self::asset_ver('js/nas-core.js'), true );
+            $a . 'js/nas-core.js', [ 'jquery', 'select2' ], self::asset_ver( 'js/nas-core.js' ), true );
         wp_enqueue_script( 'nas-booking',
-            $a . 'js/nas-booking.js', ['nas-core'], self::asset_ver('js/nas-booking.js'), true );
+            $a . 'js/nas-booking.js', [ 'nas-core' ], self::asset_ver( 'js/nas-booking.js' ), true );
         wp_enqueue_script( 'nas-chat',
-            $a . 'js/nas-chat.js', ['nas-core'], self::asset_ver('js/nas-chat.js'), true );
+            $a . 'js/nas-chat.js', [ 'nas-core' ], self::asset_ver( 'js/nas-chat.js' ), true );
         wp_enqueue_script( 'nas-dashboard',
-            $a . 'js/nas-dashboard.js', ['nas-core', 'nas-chat'], self::asset_ver('js/nas-dashboard.js'), true );
+            $a . 'js/nas-dashboard.js', [ 'nas-core', 'nas-chat' ], self::asset_ver( 'js/nas-dashboard.js' ), true );
         wp_enqueue_script( 'nas-admin',
-            $a . 'js/nas-admin.js', ['nas-core', 'chart-js'], self::asset_ver('js/nas-admin.js'), true );
+            $a . 'js/nas-admin.js', [ 'nas-core', 'chart-js' ], self::asset_ver( 'js/nas-admin.js' ), true );
 
         wp_localize_script( 'nas-core', 'NAS', self::js_vars() );
     }

@@ -249,6 +249,17 @@
     }
     if (notifClose) notifClose.addEventListener('click', () => notifPanel?.classList.remove('is-open'));
 
+    // Header scroll shadow — public portal (nhp-header) + legacy nas-top-nav
+    const portalHeader = document.getElementById('nhp-header') || document.querySelector('.nhp-header');
+    const legacyNav = document.getElementById('nas-top-nav') || document.querySelector('.nas-top-nav');
+    const onScroll = () => {
+      const scrolled = window.scrollY > 12;
+      if (portalHeader) portalHeader.classList.toggle('nhp-header--scrolled', scrolled);
+      if (legacyNav) legacyNav.classList.toggle('is-scrolled', scrolled);
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+
     // Close all dropdowns on outside click
     document.addEventListener('click', (e) => {
       if (!e.target.closest('#nas-user-menu-btn') && !e.target.closest('#nas-user-dropdown')) {

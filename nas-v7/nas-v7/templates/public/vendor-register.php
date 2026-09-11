@@ -18,13 +18,8 @@ $logo_url  = $cfg->get('logo_url','');
 $nonce     = wp_create_nonce('nas_action');
 $login_url = home_url('/newspaper-ad-login/');
 
-$nav_links = [
-    ['label'=>'Home',      'url'=>home_url('/')],
-    ['label'=>'Book an Ad','url'=>home_url('/book-newspaper-ad/')],
-    ['label'=>'Login',     'url'=>$login_url],
-];
-include NAS_PLUGIN_DIR . 'templates/partials/top-nav.php';
 ?>
+<div class="nas-portal-page">
 <style>
 .nas-vr-wrap{max-width:760px;margin:48px auto;padding:0 20px 60px}
 .nas-vr-header{text-align:center;margin-bottom:36px}
@@ -311,3 +306,4 @@ window.vrTogglePw=function(id,btn){
 
 })();
 </script>
+</div>

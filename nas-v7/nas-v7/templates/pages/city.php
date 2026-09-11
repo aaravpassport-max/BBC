@@ -32,20 +32,8 @@ $newspapers = array_values($newspapers);
 // Load categories
 $categories = $db->select("SELECT id, name, slug, icon, description FROM `{$db->t('categories')}` WHERE is_active=1 ORDER BY sort_order ASC, name ASC LIMIT 12");
 
-include NAS_PLUGIN_DIR . 'templates/partials/top-nav.php';
 ?>
-<!DOCTYPE html>
-<html <?php language_attributes(); ?>>
-<head>
-<meta charset="<?php bloginfo('charset'); ?>">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title><?php echo esc_html($seo_title); ?></title>
-<meta name="description" content="<?php echo esc_attr($seo_desc); ?>">
-<link rel="canonical" href="<?php echo esc_url(home_url('/newspaper-ads/'.urlencode($city_slug).'/'));?>">
-<?php wp_head(); ?>
-</head>
-<body class="nas-fullpage nas-city-page">
-
+<div class="nas-portal-page">
 <!-- Hero -->
 <section class="nas-city-hero" style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);padding:80px 20px 60px;text-align:center;color:#fff">
   <div style="max-width:860px;margin:0 auto">
@@ -132,6 +120,4 @@ include NAS_PLUGIN_DIR . 'templates/partials/top-nav.php';
   </div>
 </section>
 
-<?php wp_footer(); ?>
-</body>
-</html>
+</div>

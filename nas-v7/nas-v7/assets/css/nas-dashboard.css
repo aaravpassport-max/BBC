@@ -675,22 +675,67 @@
   .nas-notif-panel { width: calc(100vw - 32px); right: -10px; }
 }
 
-/* ── Top nav class aliases (partial uses .nas-top-nav, dashboard uses .nas-topnav) ── */
-.nas-top-nav { background: var(--nas-primary); position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 12px rgba(0,0,0,.15); }
-.nas-top-nav__inner { max-width: 1400px; margin: 0 auto; padding: 0 20px; height: 58px; display: flex; align-items: center; gap: 12px; }
-.nas-top-nav__left { display: flex; align-items: center; gap: 12px; }
-.nas-top-nav__logo { text-decoration: none; display: flex; align-items: center; gap: 10px; color: #fff; font-size: 18px; font-weight: 700; }
-.nas-top-nav__links { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; }
-.nas-top-nav__links::-webkit-scrollbar { display: none; }
-.nas-top-nav__link { color: rgba(255,255,255,.72); font-size: 13.5px; font-weight: 500; padding: 7px 13px; border-radius: 8px; text-decoration: none; white-space: nowrap; transition: all .2s; }
-.nas-top-nav__link:hover, .nas-top-nav__link.active { color: #fff; background: rgba(255,255,255,.14); }
-.nas-top-nav__right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
-.nas-top-nav__user { display: flex; align-items: center; gap: 8px; cursor: pointer; position: relative; }
-.nas-top-nav__avatar { width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.2); color: #fff; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid rgba(255,255,255,.3); }
-.nas-top-nav__username { font-size: 13px; font-weight: 600; color: #fff; line-height: 1.2; }
-.nas-top-nav__role { font-size: 11px; color: rgba(255,255,255,.6); }
-.nas-top-nav__user-dd { position: absolute; top: calc(100% + 8px); right: 0; background: #fff; border: 1px solid var(--nas-border); border-radius: 12px; padding: 8px; min-width: 180px; box-shadow: 0 10px 40px rgba(0,0,0,.12); z-index: 9100; }
-.nas-logo-text { font-size: 18px; font-weight: 800; color: #fff; letter-spacing: -.3px; }
+/* ── Top nav — dark theme scoped to dashboard/admin shells only ── */
+.nas-dash-app .nas-top-nav,
+.nas-admin-shell .nas-top-nav,
+.nas-portal-shell > .nas-top-nav {
+  background: var(--nas-primary);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 12px rgba(0,0,0,.15);
+}
+.nas-dash-app .nas-top-nav__inner,
+.nas-admin-shell .nas-top-nav__inner,
+.nas-portal-shell > .nas-top-nav .nas-top-nav__inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 0 20px;
+  height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.nas-dash-app .nas-top-nav__logo,
+.nas-admin-shell .nas-top-nav__logo,
+.nas-portal-shell > .nas-top-nav .nas-top-nav__logo {
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+}
+.nas-dash-app .nas-top-nav__links a,
+.nas-admin-shell .nas-top-nav__links a,
+.nas-portal-shell > .nas-top-nav .nas-top-nav__links a {
+  color: rgba(255,255,255,.72);
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 7px 13px;
+  border-radius: 8px;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: all .2s;
+}
+.nas-dash-app .nas-top-nav__links a:hover,
+.nas-dash-app .nas-top-nav__links a.active,
+.nas-admin-shell .nas-top-nav__links a:hover,
+.nas-admin-shell .nas-top-nav__links a.active,
+.nas-portal-shell > .nas-top-nav .nas-top-nav__links a:hover,
+.nas-portal-shell > .nas-top-nav .nas-top-nav__links a.active {
+  color: #fff;
+  background: rgba(255,255,255,.14);
+}
+.nas-dash-app .nas-logo-text,
+.nas-admin-shell .nas-logo-text,
+.nas-portal-shell > .nas-top-nav .nas-logo-text {
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -.3px;
+}
 
 /* =============================================================
    Dashboard shared additions v3.1 — NO overrides, additions only

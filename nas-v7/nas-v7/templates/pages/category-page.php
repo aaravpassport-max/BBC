@@ -19,19 +19,8 @@ $samples = $db->select("SELECT * FROM `{$db->t('sample_ads')}` WHERE is_active=1
 // Top cities
 $cities = $db->select("SELECT id, name, slug FROM `{$db->t('cities')}` WHERE is_active=1 ORDER BY tier ASC, population DESC LIMIT 24");
 
-include NAS_PLUGIN_DIR . 'templates/partials/top-nav.php';
 ?>
-<!DOCTYPE html>
-<html <?php language_attributes(); ?>>
-<head>
-<meta charset="<?php bloginfo('charset'); ?>">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title><?php echo $cat_name; ?> Newspaper Ads | Book Now</title>
-<meta name="description" content="Book <?php echo esc_attr($cat_name); ?> newspaper ads across India. <?php echo esc_attr(wp_strip_all_tags($cat_desc)); ?>">
-<?php wp_head(); ?>
-</head>
-<body class="nas-fullpage nas-category-page">
-
+<div class="nas-portal-page">
 <section style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:70px 20px 50px;text-align:center;color:#fff">
   <div style="max-width:800px;margin:0 auto">
     <div style="font-size:48px;margin-bottom:16px"><?php echo esc_html($category['icon'] ?? '📰'); ?></div>
@@ -73,6 +62,4 @@ include NAS_PLUGIN_DIR . 'templates/partials/top-nav.php';
 </section>
 <?php endif; ?>
 
-<?php wp_footer(); ?>
-</body>
-</html>
+</div>

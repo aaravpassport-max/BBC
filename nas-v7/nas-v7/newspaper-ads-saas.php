@@ -3,7 +3,7 @@
  * Plugin Name: NewspaperAds SaaS — Professional Booking Platform
  * Plugin URI:  https://your-domain.com/newspaper-ads-saas
  * Description: Enterprise-grade newspaper ad booking SaaS platform with custom dashboards, workflow tracking, AI content, real-time chat, WhatsApp integration, and 300 city landing pages.
- * Version:     3.7.0
+ * Version:     3.8.0
  * Author:      Your Agency
  * Author URI:  https://your-domain.com
  * License:     GPL-2.0+
@@ -20,7 +20,7 @@ if ( ! function_exists('NAS_get_config') ) {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-define( 'NAS_VERSION',    '3.7.0' );
+define( 'NAS_VERSION',    '3.8.0' );
 define( 'NAS_FILE',       __FILE__ );
 define( 'NAS_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'NAS_PATH',       NAS_DIR );        // alias used throughout codebase
@@ -672,6 +672,59 @@ function nas_count_tables(): int {
     global $wpdb;
     $count = $wpdb->get_var( "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name LIKE '{$wpdb->prefix}nas_%'" );
     return (int) $count;
+}
+
+// ── Portal shell helpers (public marketing pages) ───────────────────────────
+function nas_portal_current_slug(): string {
+    $path = parse_url( $_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH ) ?? '';
+    return sanitize_title( basename( trim( $path, '/' ) ) );
+}
+
+function nas_portal_dashboard_slugs(): array {
+    return [
+        'client-dashboard',
+        'admin-dashboard',
+        'staff-dashboard',
+        'moderation-dashboard',
+        'vendor-dashboard',
+    ];
+}
+
+function nas_portal_should_wrap_shell(): bool {
+    if ( get_option( 'nas_homepage_enabled' ) && is_front_page() ) {
+        return false;
+    }
+    $slug = nas_portal_current_slug();
+    if ( in_array( $slug, nas_portal_dashboard_slugs(), true ) ) {
+        return false;
+    }
+    if ( $slug === 'newspaper-ad-login' ) {
+        return false;
+    }
+    return true;
+}
+
+function nas_portal_shell_open( ?string $active_nav = null ): void {
+    if ( ! nas_portal_should_wrap_shell() ) {
+        return;
+    }
+    if ( defined( 'NAS_PORTAL_SHELL_OPEN' ) ) {
+        return;
+    }
+    define( 'NAS_PORTAL_SHELL_OPEN', true );
+    $GLOBALS['portal_active_nav'] = $active_nav ?? nas_portal_current_slug();
+    include NAS_DIR . 'templates/partials/portal-header.php';
+}
+
+function nas_portal_shell_close(): void {
+    if ( ! defined( 'NAS_PORTAL_SHELL_OPEN' ) ) {
+        return;
+    }
+    if ( defined( 'NAS_PORTAL_SHELL_CLOSED' ) ) {
+        return;
+    }
+    define( 'NAS_PORTAL_SHELL_CLOSED', true );
+    include NAS_DIR . 'templates/partials/portal-footer.php';
 }
 
 // Helper: get a portal page URL by option key, with fallback slug

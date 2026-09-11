@@ -15,15 +15,7 @@ $db        = \NAS\Core\Database::instance();
 $categories_raw = $db->select("SELECT category, COUNT(*) as cnt FROM {$db->t('blog_posts')} WHERE status='published' GROUP BY category ORDER BY cnt DESC");
 $popular_posts  = $db->select("SELECT id,title,slug,views,published_at FROM {$db->t('blog_posts')} WHERE status='published' ORDER BY views DESC LIMIT 5");
 
-$nav_links = [
-    ['label'=>'Home',       'url'=>home_url('/')],
-    ['label'=>'Book an Ad', 'url'=>$book_url],
-    ['label'=>'Pricing',    'url'=>home_url('/pricing/')],
-    ['label'=>'Blog',       'url'=>'#','active'=>true],
-];
-include NAS_PLUGIN_DIR . 'templates/partials/top-nav.php';
 ?>
-<link rel="stylesheet" href="<?= NAS_ASSETS ?>css/nas-enterprise.css">
 <style>
 .nas-blog-page{max-width:1200px;margin:0 auto;padding:48px 20px 80px;font-family:'Inter','Segoe UI',sans-serif}
 .nas-blog-hero{background:linear-gradient(135deg,#1e1b4b,#3730a3);color:#fff;padding:64px 20px;text-align:center;margin-bottom:48px}

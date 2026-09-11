@@ -52,6 +52,16 @@ $cfg   = class_exists('\NAS\Core\Config') ? \NAS\Core\Config::instance() : null;
 $brand = $cfg ? $cfg->get( 'brand_name', get_bloginfo('name') ) : get_bloginfo('name');
 $title = $nas_post ? get_the_title( $nas_post->ID ) : $brand;
 if ( ! $title ) $title = $brand;
+
+$nas_portal_slug  = function_exists( 'nas_portal_current_slug' ) ? nas_portal_current_slug() : '';
+$nas_use_shell    = function_exists( 'nas_portal_should_wrap_shell' ) && nas_portal_should_wrap_shell();
+$nas_body_classes = 'nas-fullpage' . ( $nas_use_shell ? ' nas-public-portal' : '' );
+if ( $nas_portal_slug && function_exists( 'nas_portal_dashboard_slugs' ) && in_array( $nas_portal_slug, nas_portal_dashboard_slugs(), true ) ) {
+    $nas_body_classes .= ' nas-dash-app';
+}
+if ( $nas_portal_slug ) {
+    $nas_body_classes .= ' nas-page-' . sanitize_html_class( $nas_portal_slug );
+}
 ?>
 <!DOCTYPE html>
 <html <?php language_attributes(); ?>>
@@ -64,7 +74,8 @@ if ( ! $title ) $title = $brand;
 /* Hard-reset: admin bar + any theme chrome that might bleed through */
 #wpadminbar,.wpadminbar{display:none!important;}
 html{margin-top:0!important;padding-top:0!important;}
-body{margin:0!important;padding:0!important;background:#f8fafc;}
+body{margin:0!important;padding:0!important;background:#fff;}
+body.nas-public-portal{background:#fff;}
 /* Mobile nav drawer — hidden by default, opened by JS */
 .nas-mobile-nav-drawer{display:none;}
 .nas-mobile-nav-drawer.is-open{display:flex;}
@@ -72,8 +83,16 @@ body{margin:0!important;padding:0!important;background:#f8fafc;}
 .nas-mobile-nav-overlay.is-open{display:block;}
 </style>
 </head>
-<body class="nas-fullpage">
-<?php echo $nas_content; ?>
+<body class="<?php echo esc_attr( $nas_body_classes ); ?>">
+<?php
+if ( $nas_use_shell ) {
+    nas_portal_shell_open( $nas_portal_slug );
+}
+echo $nas_content; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+if ( $nas_use_shell ) {
+    nas_portal_shell_close();
+}
+?>
 <?php wp_footer(); ?>
 </body>
 </html>
