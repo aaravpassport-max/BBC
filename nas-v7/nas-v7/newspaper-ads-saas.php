@@ -3,7 +3,7 @@
  * Plugin Name: NewspaperAds SaaS — Professional Booking Platform
  * Plugin URI:  https://your-domain.com/newspaper-ads-saas
  * Description: Enterprise-grade newspaper ad booking SaaS platform with custom dashboards, workflow tracking, AI content, real-time chat, WhatsApp integration, and 300 city landing pages.
- * Version:     4.1.6
+ * Version:     4.1.7
  * Author:      Your Agency
  * Author URI:  https://your-domain.com
  * License:     GPL-2.0+
@@ -20,7 +20,7 @@ if ( ! function_exists('NAS_get_config') ) {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-define( 'NAS_VERSION',    '4.1.6' );
+define( 'NAS_VERSION',    '4.1.7' );
 define( 'NAS_FILE',       __FILE__ );
 define( 'NAS_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'NAS_PATH',       NAS_DIR );        // alias used throughout codebase
@@ -103,8 +103,6 @@ $_nas_v21_files = [
     NAS_DIR . 'modules/Contact/ContactModule.php',
     NAS_DIR . 'modules/Wallet/WalletModule.php',
     NAS_DIR . 'modules/Branding/BrandingModule.php',
-    NAS_DIR . 'modules/PWA/NASTheme.php',
-    NAS_DIR . 'modules/PWA/PWAModule.php',
     // Legacy combined file still loaded as fallback (harmless if empty)
     NAS_DIR . 'modules/PublicPages/PublicPagesModule.php',
 ];
@@ -151,9 +149,17 @@ add_action( 'plugins_loaded', function () {
         \NAS\Modules\Contact\ContactModule::class,
         \NAS\Modules\Wallet\WalletModule::class,
         \NAS\Modules\Branding\BrandingModule::class,
-        \NAS\Modules\PWA\PWAModule::class,
     ] );
 }, 5 );
+
+// PWA /nas-app/ removed — redirect legacy URLs to the main portal homepage
+add_action( 'template_redirect', function () {
+    $uri = strtok( $_SERVER['REQUEST_URI'] ?? '', '?' );
+    if ( $uri && preg_match( '#^/nas-app(/|$)|^/nas-sw\.js$#', $uri ) ) {
+        wp_safe_redirect( home_url( '/' ), 301 );
+        exit;
+    }
+}, 0 );
 
 // ── Init Dashboards & Router ──────────────────────────────────────────────────
 // Invalidate client dashboard cache when booking status changes
