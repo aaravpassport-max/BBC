@@ -4,6 +4,14 @@ import { interviewsApi } from '@/api/interviews';
 import { speechApi } from '@/api/speech';
 import { config } from '@/api/client';
 import { ErrorBlock } from '@/components/StateViews';
+import {
+  browserRecognitionSupported,
+  browserTtsSupported,
+  speakWithBrowserTts,
+  startBrowserRecognition,
+  stopBrowserTts,
+  type BrowserRecognitionHandle,
+} from '@/lib/browserSpeech';
 import type { ApiError, InterviewQuestion } from '@/types';
 
 interface ChatTurn { turnNumber: number; role: 'ai' | 'user'; text: string }
@@ -132,6 +140,9 @@ export default function LiveInterview() {
   const primedAudioRef = useRef<HTMLAudioElement | null>(null);
   const textOnlyRef = useRef(false);
   const ttsEnabledRef = useRef(true);
+  const useBrowserSttRef = useRef(config.hasDeepgram === false);
+  const browserRecRef = useRef<BrowserRecognitionHandle | null>(null);
+  const browserSttAccumRef = useRef('');
 
   useEffect(() => { textOnlyRef.current = textOnly; }, [textOnly]);
   useEffect(() => { ttsEnabledRef.current = ttsEnabled; }, [ttsEnabled]);
@@ -145,6 +156,8 @@ export default function LiveInterview() {
   }, [interviewId]);
 
   const releaseMicStream = useCallback(() => {
+    browserRecRef.current?.stop();
+    browserRecRef.current = null;
     if (mediaRecorderRef.current?.state === 'recording') {
       mediaRecorderRef.current.stop();
     }
@@ -168,26 +181,16 @@ export default function LiveInterview() {
     return primedAudioRef.current;
   }, []);
 
-  /**
-   * Plays Priya's voice. Intentionally independent of microphone state —
-   * a mic failure must never prevent TTS from running.
-   */
-  const speak = useCallback(async (text: string): Promise<void> => {
-    if (textOnlyRef.current || !ttsEnabledRef.current || !text.trim()) return;
-
-    releaseMicStream();
-    setVoiceState('speaking');
-    let url: string | null = null;
+  const playServerTts = useCallback(async (text: string): Promise<void> => {
+    const r = await speechApi.synthesize(text, interviewId);
+    const blob = base64ToBlob(r.audio_base64, r.mime);
+    const url = URL.createObjectURL(blob);
+    const audio = getAudioElement();
+    audioRef.current = audio;
+    audio.volume = 1;
+    audio.muted = false;
 
     try {
-      const r = await speechApi.synthesize(text, interviewId);
-      const blob = base64ToBlob(r.audio_base64, r.mime);
-      url = URL.createObjectURL(blob);
-      const audio = getAudioElement();
-      audioRef.current = audio;
-      audio.volume = 1;
-      audio.muted = false;
-
       await new Promise<void>((resolve, reject) => {
         const onEnd = () => { cleanup(); resolve(); };
         const onErr = () => { cleanup(); reject(new Error('audio playback failed')); };
@@ -197,23 +200,51 @@ export default function LiveInterview() {
         };
         audio.addEventListener('ended', onEnd);
         audio.addEventListener('error', onErr);
-        audio.src = url!;
+        audio.src = url;
         audio.currentTime = 0;
         void audio.play().catch(reject);
       });
-    } catch (err) {
-      const apiErr = err as ApiError;
-      if (apiErr?.code === 'ia_cfg') {
-        setTtsEnabled(false);
-        setTtsNotice('Voice is not set up on this site yet — continuing with text. (Missing ElevenLabs API key in admin settings.)');
-      } else {
-        setTtsNotice("Couldn't play Priya's voice — you can still read her questions and type your answers. " + (apiErr?.message || ''));
-      }
     } finally {
-      if (url) URL.revokeObjectURL(url);
+      URL.revokeObjectURL(url);
+    }
+  }, [interviewId, getAudioElement]);
+
+  /**
+   * Plays Priya's voice. Tries ElevenLabs when configured, then falls back to
+   * browser Web Speech Synthesis (the original behaviour without an API key).
+   */
+  const speak = useCallback(async (text: string): Promise<void> => {
+    if (textOnlyRef.current || !ttsEnabledRef.current || !text.trim()) return;
+
+    releaseMicStream();
+    stopBrowserTts();
+    setVoiceState('speaking');
+
+    const tryServerTts = config.hasElevenLabs !== false;
+
+    try {
+      if (tryServerTts) {
+        try {
+          await playServerTts(text);
+          return;
+        } catch {
+          /* fall through to browser TTS */
+        }
+      }
+
+      if (!browserTtsSupported()) {
+        setTtsEnabled(false);
+        setTtsNotice('Voice is not available in this browser — continuing with text.');
+        return;
+      }
+
+      await speakWithBrowserTts(text);
+    } catch {
+      setTtsNotice("Couldn't play Priya's voice — you can still read her questions and type your answers.");
+    } finally {
       setVoiceState('idle');
     }
-  }, [interviewId, getAudioElement, releaseMicStream]);
+  }, [playServerTts, releaseMicStream]);
 
   const acquireMicStream = useCallback(async (): Promise<MediaStream> => {
     if (streamRef.current?.getAudioTracks().some((t) => t.readyState === 'live')) {
@@ -243,11 +274,53 @@ export default function LiveInterview() {
     }
   }, []);
 
+  const startBrowserListening = useCallback((): boolean => {
+    if (!browserRecognitionSupported()) {
+      setMicNotice('Speech recognition is not supported in this browser — use "Type answer instead".');
+      setVoiceState('idle');
+      return false;
+    }
+
+    browserSttAccumRef.current = '';
+    setDraft('');
+    const handle = startBrowserRecognition(
+      (spoken, isFinal) => {
+        if (isFinal) {
+          browserSttAccumRef.current = browserSttAccumRef.current
+            ? `${browserSttAccumRef.current} ${spoken}`
+            : spoken;
+          setDraft(browserSttAccumRef.current);
+        } else {
+          setDraft(
+            browserSttAccumRef.current ? `${browserSttAccumRef.current} ${spoken}` : spoken,
+          );
+        }
+      },
+      (msg) => setMicNotice(msg),
+    );
+
+    if (!handle) {
+      setMicNotice('Could not start speech recognition — use "Type answer instead".');
+      setVoiceState('idle');
+      return false;
+    }
+
+    browserRecRef.current = handle;
+    setRecording(true);
+    setVoiceState('listening');
+    return true;
+  }, []);
+
   const startListening = useCallback(async () => {
     if (textOnlyRef.current) return;
     setDraft('');
     setError(null);
     setMicNotice(null);
+
+    if (useBrowserSttRef.current) {
+      startBrowserListening();
+      return;
+    }
 
     try {
       const stream = await acquireMicStream();
@@ -266,9 +339,38 @@ export default function LiveInterview() {
       setMicNotice(micErrorMessage(err));
       setVoiceState('idle');
     }
-  }, [acquireMicStream]);
+  }, [acquireMicStream, startBrowserListening]);
 
   const stopListeningAndTranscribe = useCallback(async () => {
+    if (browserRecRef.current) {
+      browserRecRef.current.stop();
+      browserRecRef.current = null;
+      setRecording(false);
+      setVoiceState('transcribing');
+      setTranscribing(true);
+
+      try {
+        const transcript = browserSttAccumRef.current.trim();
+        if (transcript) {
+          setDraft(transcript);
+          const turnNumber = pendingTurnNumber ?? nextTurnNumber.current;
+          setPendingTurnNumber(turnNumber);
+          await submitTurnRef.current(transcript, turnNumber);
+        } else {
+          setError({
+            code: 'ia_no_speech',
+            message: "Didn't catch that — please try speaking again, or type your answer below.",
+            status: 0,
+            retryable: false,
+          });
+        }
+      } finally {
+        setTranscribing(false);
+        setVoiceState('idle');
+      }
+      return;
+    }
+
     const mr = mediaRecorderRef.current;
     if (!mr || mr.state === 'inactive') return;
     setVoiceState('transcribing');
@@ -294,7 +396,12 @@ export default function LiveInterview() {
     } catch (err) {
       const apiErr = err as ApiError;
       if (apiErr?.code === 'ia_cfg') {
-        setMicNotice('Voice connection issue — check Deepgram API key in admin settings.');
+        useBrowserSttRef.current = true;
+        if (browserRecognitionSupported()) {
+          setMicNotice('Using browser speech recognition — tap the mic and speak again.');
+        } else {
+          setMicNotice('Voice transcription is not set up — use "Type answer instead".');
+        }
       } else {
         setError(apiErr);
       }
@@ -362,6 +469,7 @@ export default function LiveInterview() {
   async function onEndEarly() {
     if (!window.confirm('End this interview now? You can still view your report for what you’ve completed so far.')) return;
     audioRef.current?.pause();
+    stopBrowserTts();
     releaseMicStream();
     setEnding(true);
     try {

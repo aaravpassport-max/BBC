@@ -2,6 +2,10 @@ export interface IAConfig {
   apiBase: string;
   siteUrl: string;
   elevenLabsVoice: string;
+  /** Whether ElevenLabs is configured server-side (no secret exposed). */
+  hasElevenLabs?: boolean;
+  /** Whether Deepgram is configured server-side (no secret exposed). */
+  hasDeepgram?: boolean;
   razorpayKeyId: string;
   googleClientId: string;
   version: string;

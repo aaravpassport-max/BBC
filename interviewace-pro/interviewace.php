@@ -3,7 +3,7 @@
  * Plugin Name: InterviewAce
  * Plugin URI:  https://interviewace.in
  * Description: AI-powered voice interview platform — serves from root domain.
- * Version:     3.0.10
+ * Version:     3.0.11
  * Author:      InterviewAce
  * License:     Proprietary
  * Text Domain: interviewace
@@ -41,7 +41,7 @@ defined('ABSPATH') || exit;
  * discipline. Bumped here, and MUST be bumped on every future frontend
  * rebuild without exception.
  */
-define('IA_VERSION', '3.0.10');
+define('IA_VERSION', '3.0.11');
 define('IA_MIN_PHP',  '7.4');
 define('IA_MIN_WP',   '6.0');
 define('IA_MIN_MYSQL','5.7');
@@ -251,6 +251,8 @@ add_action('plugins_loaded', function() {
              * (not a secret) and is correctly still exposed here.
              */
             'elevenLabsVoice' => get_option('ia_elevenlabs_voice','EXAVITQu4vr4xnSDxMaL'),
+            'hasElevenLabs'   => ia_key('IA_ELEVENLABS_KEY') !== '',
+            'hasDeepgram'     => ia_key('IA_DEEPGRAM_KEY') !== '',
             'razorpayKeyId'   => get_option('ia_razorpay_key_id',''),
             'googleClientId'  => get_option('ia_google_client_id',''),
             'version'         => IA_VERSION,

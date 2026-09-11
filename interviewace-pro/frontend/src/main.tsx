@@ -19,6 +19,8 @@ if (!window.IA_CONFIG) {
     apiBase: import.meta.env.VITE_API_BASE || 'http://localhost:8888/wp-json/ia/v1',
     siteUrl: 'http://localhost:8888',
     elevenLabsVoice: 'EXAVITQu4vr4xnSDxMaL',
+    hasElevenLabs: false,
+    hasDeepgram: false,
     razorpayKeyId: '',
     googleClientId: '',
     version: 'dev',
