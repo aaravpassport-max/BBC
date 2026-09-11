@@ -1,0 +1,147 @@
+/* =========================================================
+   NAS – City Landing Pages CSS
+   ========================================================= */
+
+.nas-city-page { font-family: var(--nas-font); color: var(--nas-text); }
+
+/* ---- City Hero ---- */
+.nas-city-hero {
+  background: linear-gradient(135deg, var(--nas-primary) 0%, #1e3a8a 60%, #312e81 100%);
+  padding: 80px 20px 60px;
+  text-align: center;
+  color: #fff;
+  position: relative;
+  overflow: hidden;
+}
+.nas-city-hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+.nas-city-hero-content { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; }
+.nas-city-hero-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--nas-accent); opacity: 0.9; margin-bottom: 12px; }
+.nas-city-hero h1 { font-family: var(--nas-font-display); font-size: 42px; font-weight: 800; line-height: 1.15; color: #fff; margin-bottom: 16px; }
+.nas-city-hero p { font-size: 17px; opacity: 0.85; max-width: 560px; margin: 0 auto 28px; line-height: 1.6; }
+.nas-city-hero-badges { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 32px; }
+.nas-city-hero-badge { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); border-radius: 99px; padding: 6px 16px; font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+.nas-city-hero-cta { display: inline-flex; align-items: center; gap: 8px; padding: 14px 32px; background: #fff; color: var(--nas-primary); font-weight: 700; font-size: 15px; border-radius: var(--nas-radius-lg); text-decoration: none; transition: var(--nas-transition); box-shadow: var(--nas-shadow-md); }
+.nas-city-hero-cta:hover { transform: translateY(-2px); box-shadow: var(--nas-shadow-lg); }
+
+/* ---- City Features Strip ---- */
+.nas-city-features {
+  background: var(--nas-bg-white);
+  border-bottom: 1px solid var(--nas-border);
+  padding: 18px 20px;
+}
+.nas-city-features-inner {
+  max-width: 1100px; margin: 0 auto;
+  display: flex; justify-content: center; gap: 32px; flex-wrap: wrap;
+}
+.nas-city-feature { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; color: var(--nas-text-muted); }
+.nas-city-feature-icon { color: var(--nas-success); font-size: 18px; }
+
+/* ---- City Content Section ---- */
+.nas-city-content-section {
+  max-width: 1100px; margin: 0 auto;
+  padding: 60px 20px;
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 48px;
+  align-items: start;
+}
+.nas-city-main-content h2 { font-size: 26px; margin-bottom: 14px; }
+.nas-city-main-content h3 { font-size: 18px; margin: 24px 0 10px; color: var(--nas-primary); }
+.nas-city-main-content p { font-size: 15px; line-height: 1.75; color: #374151; margin-bottom: 14px; }
+.nas-city-main-content ul, .nas-city-main-content ol { padding-left: 20px; margin-bottom: 14px; }
+.nas-city-main-content li { font-size: 15px; line-height: 1.75; color: #374151; margin-bottom: 6px; }
+.nas-city-main-content strong { color: var(--nas-primary); }
+
+/* ---- City Sidebar ---- */
+.nas-city-sidebar { position: sticky; top: 80px; }
+.nas-city-form-card {
+  background: var(--nas-bg-white);
+  border-radius: var(--nas-radius-xl);
+  border: 1px solid var(--nas-border);
+  box-shadow: var(--nas-shadow-md);
+  overflow: hidden;
+}
+.nas-city-form-header {
+  background: linear-gradient(135deg, var(--nas-accent), var(--nas-purple));
+  padding: 18px 22px;
+  color: #fff;
+}
+.nas-city-form-header h3 { font-size: 17px; margin-bottom: 4px; }
+.nas-city-form-header p { font-size: 13px; opacity: 0.85; }
+.nas-city-form-body { padding: 20px 22px; }
+
+/* ---- Newspaper grid on city page ---- */
+.nas-city-papers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 20px 0; }
+.nas-city-paper-card {
+  border: 1px solid var(--nas-border);
+  border-radius: var(--nas-radius);
+  padding: 12px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  transition: var(--nas-transition);
+}
+.nas-city-paper-card:hover { border-color: var(--nas-accent); background: var(--nas-accent-light); color: var(--nas-accent); }
+.nas-city-paper-icon { font-size: 22px; margin-bottom: 6px; }
+
+/* ---- Categories Strip ---- */
+.nas-city-cats { background: var(--nas-bg); padding: 48px 20px; }
+.nas-city-cats-inner { max-width: 1100px; margin: 0 auto; }
+.nas-city-cats-title { font-size: 24px; font-weight: 700; text-align: center; margin-bottom: 28px; }
+.nas-city-cats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.nas-city-cat-card {
+  background: var(--nas-bg-white);
+  border: 1px solid var(--nas-border);
+  border-radius: var(--nas-radius-lg);
+  padding: 18px;
+  text-align: center;
+  transition: var(--nas-transition);
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--nas-text);
+  display: block;
+}
+.nas-city-cat-card:hover { transform: translateY(-3px); box-shadow: var(--nas-shadow-md); border-color: var(--nas-accent); }
+.nas-city-cat-icon { font-size: 30px; margin-bottom: 10px; }
+.nas-city-cat-name { font-size: 14px; font-weight: 600; }
+.nas-city-cat-desc { font-size: 12px; color: var(--nas-text-muted); margin-top: 4px; }
+
+/* ---- FAQ Section ---- */
+.nas-city-faq { max-width: 760px; margin: 0 auto; padding: 48px 20px; }
+.nas-city-faq-title { font-size: 24px; font-weight: 700; text-align: center; margin-bottom: 28px; }
+.nas-faq-item { border: 1px solid var(--nas-border); border-radius: var(--nas-radius-lg); margin-bottom: 10px; overflow: hidden; }
+.nas-faq-q { padding: 16px 20px; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: var(--nas-bg-white); transition: var(--nas-transition); font-size: 15px; }
+.nas-faq-q:hover { background: var(--nas-accent-light); color: var(--nas-accent); }
+.nas-faq-q .nas-faq-icon { font-size: 18px; transition: var(--nas-transition); flex-shrink: 0; }
+.nas-faq-item.open .nas-faq-icon { transform: rotate(45deg); }
+.nas-faq-a { padding: 0 20px; max-height: 0; overflow: hidden; transition: max-height 0.35s ease, padding 0.2s; font-size: 14px; color: var(--nas-text-muted); line-height: 1.7; }
+.nas-faq-item.open .nas-faq-a { max-height: 400px; padding: 0 20px 16px; }
+
+/* ---- CTA Banner ---- */
+.nas-city-cta-band {
+  background: linear-gradient(135deg, var(--nas-accent), var(--nas-purple));
+  padding: 60px 20px;
+  text-align: center;
+  color: #fff;
+}
+.nas-city-cta-band h2 { font-size: 28px; font-weight: 700; margin-bottom: 10px; }
+.nas-city-cta-band p { font-size: 16px; opacity: 0.85; margin-bottom: 24px; }
+
+/* ---- Responsive City Pages ---- */
+@media (max-width: 900px) {
+  .nas-city-content-section { grid-template-columns: 1fr; }
+  .nas-city-sidebar { position: static; }
+  .nas-city-cats-grid { grid-template-columns: repeat(2, 1fr); }
+  .nas-city-hero h1 { font-size: 28px; }
+  .nas-city-papers { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .nas-city-hero { padding: 50px 16px 40px; }
+  .nas-city-hero h1 { font-size: 22px; }
+  .nas-city-cats-grid { grid-template-columns: repeat(2, 1fr); }
+  .nas-city-features-inner { gap: 16px; }
+}

@@ -1,0 +1,261 @@
+/* ================================================================
+   NAS Super Combo — Chat UI CSS v3
+   Internal Notes · 3-Way Send · QR Picker · Reply Threading
+   ================================================================ */
+
+/* ── Chat Container ───────────────────────────────────────────── */
+#nas-chat-wrap { width: 100%; max-width: 680px; margin: 0 auto; }
+
+.nas-chat {
+  display: flex; flex-direction: column;
+  border: 1.5px solid var(--nas-border);
+  border-radius: var(--nas-radius-xl);
+  background: var(--nas-bg-white);
+  box-shadow: var(--nas-shadow-md);
+  overflow: hidden;
+  height: 600px; max-height: 80vh;
+}
+
+/* ── Header ───────────────────────────────────────────────────── */
+.nas-chat-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px;
+  background: linear-gradient(135deg, var(--nas-primary) 0%, var(--nas-primary-dark) 100%);
+  color: #fff; flex-shrink: 0;
+}
+.nas-chat-header-title {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 15px; font-weight: 700;
+}
+.nas-chat-header-actions { display: flex; gap: 8px; }
+.nas-chat-action-btn {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: rgba(255,255,255,.15); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; border: none; cursor: pointer;
+  transition: background .2s;
+}
+.nas-chat-action-btn:hover { background: rgba(255,255,255,.3); }
+.nas-chat-unread-badge {
+  background: var(--nas-danger); color: #fff;
+  font-size: 10px; font-weight: 700; padding: 2px 7px;
+  border-radius: var(--nas-radius-full); min-width: 20px; text-align: center;
+}
+
+/* ── Messages Area ────────────────────────────────────────────── */
+.nas-chat-messages {
+  flex: 1; overflow-y: auto; padding: 16px;
+  display: flex; flex-direction: column; gap: 4px;
+  background: var(--nas-bg);
+  scroll-behavior: smooth;
+}
+.nas-chat-messages::-webkit-scrollbar { width: 4px; }
+.nas-chat-messages::-webkit-scrollbar-thumb { background: var(--nas-border); border-radius: 4px; }
+.nas-chat-loading { text-align: center; color: var(--nas-text-muted); font-size: 13px; padding: 24px; }
+.nas-chat-empty { text-align: center; padding: 40px 20px; color: var(--nas-text-muted); }
+.nas-chat-empty i { display: block; font-size: 36px; margin-bottom: 10px; color: var(--nas-border); }
+.nas-chat-empty p { font-size: 13px; }
+
+/* ── Date Separator ───────────────────────────────────────────── */
+.nas-chat-date-sep {
+  display: flex; align-items: center; gap: 10px;
+  margin: 12px 0; color: var(--nas-text-muted);
+}
+.nas-chat-date-sep::before,
+.nas-chat-date-sep::after { content: ''; flex: 1; height: 1px; background: var(--nas-border); }
+.nas-chat-date-sep span { font-size: 11px; font-weight: 600; white-space: nowrap; background: var(--nas-bg); padding: 2px 8px; border-radius: var(--nas-radius-full); }
+
+/* ── Chat Bubble ──────────────────────────────────────────────── */
+.nas-chat-bubble {
+  max-width: 80%; display: flex; flex-direction: column;
+  position: relative; margin-bottom: 8px;
+}
+.nas-bubble-mine  { align-self: flex-end; align-items: flex-end; }
+.nas-bubble-theirs { align-self: flex-start; align-items: flex-start; }
+
+.nas-bubble-content {
+  padding: 10px 14px; border-radius: var(--nas-radius-lg); font-size: 14px;
+  line-height: 1.5; word-break: break-word; white-space: pre-wrap;
+}
+.nas-bubble-mine .nas-bubble-content {
+  background: var(--nas-primary); color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.nas-bubble-theirs .nas-bubble-content {
+  background: var(--nas-bg-white); color: var(--nas-text);
+  border: 1px solid var(--nas-border); border-bottom-left-radius: 4px;
+  box-shadow: var(--nas-shadow-sm);
+}
+
+/* Internal note bubble */
+.nas-bubble-internal .nas-bubble-content {
+  background: var(--nas-warning-light) !important; color: var(--nas-text) !important;
+  border: 1.5px dashed var(--nas-warning) !important; font-style: italic;
+}
+.nas-bubble-internal.nas-bubble-mine .nas-bubble-content { color: var(--nas-text) !important; }
+.nas-internal-label {
+  font-size: 10px; font-weight: 700; color: var(--nas-warning);
+  display: flex; align-items: center; gap: 4px; margin-bottom: 4px;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+
+/* Reply context */
+.nas-bubble-reply-ctx {
+  padding: 7px 12px; font-size: 11px; color: var(--nas-text-muted);
+  background: rgba(42,138,250,.08); border-left: 3px solid var(--nas-primary);
+  border-radius: var(--nas-radius-sm); margin-bottom: 4px;
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Footer */
+.nas-bubble-footer {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-top: 4px; padding: 0 2px;
+}
+.nas-bubble-sender { font-size: 11px; font-weight: 600; color: var(--nas-text-muted); }
+.nas-bubble-time   { font-size: 10px; color: var(--nas-text-light); }
+.nas-read-tick     { font-size: 12px; color: var(--nas-primary); margin-left: 2px; }
+
+/* Delivery badges */
+.nas-msg-badge {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10px; font-weight: 600; padding: 1px 6px;
+  border-radius: var(--nas-radius-full);
+}
+.nas-badge-email { background: #EFF6FF; color: #3B82F6; }
+.nas-badge-wa    { background: #F0FDF4; color: #22C55E; }
+
+/* Hover actions */
+.nas-bubble-actions {
+  display: flex; gap: 4px; margin-top: 4px;
+}
+.nas-bubble-action-btn {
+  font-size: 12px; padding: 4px 8px; border-radius: var(--nas-radius-md);
+  background: var(--nas-bg); border: 1px solid var(--nas-border);
+  color: var(--nas-text-muted); cursor: pointer; transition: all .15s;
+}
+.nas-bubble-action-btn:hover { background: var(--nas-primary-light); color: var(--nas-primary); border-color: var(--nas-primary); }
+
+/* ── Reply Preview ────────────────────────────────────────────── */
+.nas-chat-reply-preview {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 14px; background: var(--nas-primary-light);
+  border-top: 1px solid var(--nas-border); flex-shrink: 0;
+}
+.nas-chat-reply-bar {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--nas-primary); font-weight: 500;
+}
+.nas-chat-reply-cancel {
+  background: none; border: none; cursor: pointer; color: var(--nas-text-muted);
+  font-size: 14px; padding: 2px 6px; transition: color .15s;
+}
+.nas-chat-reply-cancel:hover { color: var(--nas-danger); }
+
+/* ── Mode Bar (Internal/Public) ───────────────────────────────── */
+.nas-chat-mode-bar {
+  display: flex; gap: 6px; padding: 8px 14px;
+  background: var(--nas-bg); border-top: 1px solid var(--nas-border); flex-shrink: 0;
+}
+.nas-chat-mode-btn {
+  flex: 1; padding: 7px 12px; border-radius: var(--nas-radius-md);
+  font-size: 12px; font-weight: 600; border: 1.5px solid var(--nas-border);
+  background: var(--nas-bg-white); color: var(--nas-text-muted);
+  cursor: pointer; transition: all .2s; display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+.nas-chat-mode-btn.active[data-mode="public"]   { background: var(--nas-primary-light); color: var(--nas-primary); border-color: var(--nas-primary); }
+.nas-chat-mode-btn.active[data-mode="internal"] { background: var(--nas-warning-light); color: var(--nas-warning); border-color: var(--nas-warning); }
+
+/* ── Composer ─────────────────────────────────────────────────── */
+.nas-chat-composer {
+  padding: 12px 14px; border-top: 1px solid var(--nas-border); flex-shrink: 0;
+  background: var(--nas-bg-white); display: flex; flex-direction: column; gap: 8px;
+  transition: background .2s;
+}
+.nas-chat-composer.nas-composer-internal {
+  background: var(--nas-warning-light);
+}
+.nas-chat-input {
+  width: 100%; padding: 10px 14px;
+  border: 1.5px solid var(--nas-border); border-radius: var(--nas-radius-lg);
+  font-family: var(--nas-font); font-size: 14px; resize: none; min-height: 72px;
+  transition: border-color .2s, box-shadow .2s; background: var(--nas-bg-white);
+}
+.nas-chat-input:focus { outline: none; border-color: var(--nas-primary); box-shadow: 0 0 0 3px rgba(42,138,250,.1); }
+.nas-composer-internal .nas-chat-input { border-color: var(--nas-warning); background: #fffdf5; }
+
+/* Attachments toolbar */
+.nas-composer-toolbar { display: flex; align-items: center; gap: 8px; }
+.nas-attach-btn {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; border-radius: var(--nas-radius-md);
+  background: var(--nas-bg); border: 1px solid var(--nas-border);
+  color: var(--nas-text-muted); cursor: pointer; font-size: 14px; transition: all .15s;
+}
+.nas-attach-btn:hover { background: var(--nas-primary-light); color: var(--nas-primary); }
+.nas-attach-preview { display: flex; gap: 6px; flex-wrap: wrap; }
+
+/* 3-way send buttons */
+.nas-chat-send-group { display: flex; gap: 6px; justify-content: flex-end; }
+.nas-chat-send-btn {
+  display: flex; align-items: center; gap: 6px; padding: 8px 16px;
+  border-radius: var(--nas-radius-lg); font-size: 13px; font-weight: 600;
+  border: none; cursor: pointer; transition: all .2s; white-space: nowrap;
+}
+#nas-send-chat-btn  { background: var(--nas-primary); color: #fff; }
+#nas-send-chat-btn:hover { background: var(--nas-primary-dark); }
+.nas-send-email-btn { background: #EFF6FF; color: #3B82F6; border: 1.5px solid #BFDBFE; }
+.nas-send-email-btn:hover { background: #3B82F6; color: #fff; }
+.nas-send-wa-btn    { background: #F0FDF4; color: #22C55E; border: 1.5px solid #BBF7D0; }
+.nas-send-wa-btn:hover { background: #22C55E; color: #fff; }
+
+/* ── Quick Reply Picker ───────────────────────────────────────── */
+.nas-qr-picker {
+  flex-direction: column;
+  position: absolute; bottom: 100%; right: 0; left: 0;
+  background: var(--nas-bg-white); border: 1.5px solid var(--nas-border);
+  border-radius: var(--nas-radius-xl); box-shadow: var(--nas-shadow-lg);
+  max-height: 320px; z-index: 200; overflow: hidden;
+  margin: 0 14px 8px;
+}
+.nas-qr-picker-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px; border-bottom: 1px solid var(--nas-border);
+  font-size: 13px; font-weight: 700; color: var(--nas-text); flex-shrink: 0;
+}
+.nas-qr-picker-header button {
+  background: none; border: none; cursor: pointer; color: var(--nas-text-muted); font-size: 16px;
+}
+.nas-qr-search { padding: 10px 14px; border-bottom: 1px solid var(--nas-border); flex-shrink: 0; }
+.nas-qr-cats {
+  display: flex; gap: 6px; padding: 8px 14px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--nas-border); flex-shrink: 0;
+}
+.nas-qr-cat-btn {
+  font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: var(--nas-radius-full);
+  border: 1.5px solid var(--nas-border); background: var(--nas-bg); color: var(--nas-text-muted);
+  cursor: pointer; transition: all .15s;
+}
+.nas-qr-cat-btn.active, .nas-qr-cat-btn:hover { background: var(--nas-primary); color: #fff; border-color: var(--nas-primary); }
+.nas-qr-list { flex: 1; overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+.nas-qr-item {
+  padding: 10px 12px; border-radius: var(--nas-radius-md); cursor: pointer;
+  border: 1px solid transparent; transition: all .15s; position: relative;
+}
+.nas-qr-item:hover { background: var(--nas-primary-light); border-color: var(--nas-primary); }
+.nas-qr-item-title { font-size: 13px; font-weight: 600; color: var(--nas-text); margin-bottom: 3px; }
+.nas-qr-item-preview { font-size: 12px; color: var(--nas-text-muted); line-height: 1.4; }
+.nas-qr-item-cat {
+  position: absolute; top: 8px; right: 10px;
+  font-size: 10px; background: var(--nas-bg); color: var(--nas-text-muted);
+  padding: 2px 7px; border-radius: var(--nas-radius-full); border: 1px solid var(--nas-border);
+}
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 600px) {
+  .nas-chat { height: 500px; }
+  .nas-chat-bubble { max-width: 90%; }
+  .nas-chat-send-group { flex-wrap: wrap; }
+  .nas-chat-send-btn  { flex: 1; justify-content: center; }
+  .nas-qr-picker      { margin: 0 8px 8px; }
+}

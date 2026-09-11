@@ -1,0 +1,929 @@
+/* =========================================================
+   NAS – Dashboard CSS (Admin / Client / Staff / Moderation)
+   ========================================================= */
+
+/* ---- Dashboard Wrapper ---- */
+.nas-dashboard {
+  min-height: 100vh;
+  background: var(--nas-bg);
+  font-family: var(--nas-font);
+  max-width: 1600px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* ---- Top Navigation ---- */
+.nas-topnav {
+  background: var(--nas-primary);
+  position: sticky;
+  top: 0;
+  z-index: 9000;
+  box-shadow: 0 2px 20px rgba(0,0,0,0.25);
+}
+.nas-topnav-inner {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0 24px;
+  height: 62px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.nas-nav-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  margin-right: 24px;
+  flex-shrink: 0;
+}
+.nas-nav-logo-icon {
+  width: 36px; height: 36px;
+  background: linear-gradient(135deg, var(--nas-accent), var(--nas-purple));
+  border-radius: var(--nas-radius);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px;
+}
+.nas-nav-logo-text {
+  font-family: var(--nas-font-display);
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+  line-height: 1;
+}
+.nas-nav-logo-text span { color: var(--nas-accent); }
+
+.nas-nav-items {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nas-nav-items::-webkit-scrollbar { display: none; }
+.nas-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  color: rgba(255,255,255,0.7);
+  text-decoration: none;
+  font-size: 13.5px;
+  font-weight: 500;
+  border-radius: var(--nas-radius);
+  cursor: pointer;
+  border: none;
+  background: none;
+  white-space: nowrap;
+  transition: var(--nas-transition);
+}
+.nas-nav-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
+.nas-nav-item.active { background: var(--nas-accent); color: #fff; }
+.nas-nav-item .nas-nav-icon { font-size: 16px; }
+.nas-nav-badge { background: var(--nas-danger); color: #fff; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 99px; min-width: 18px; text-align: center; }
+
+.nas-nav-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.nas-nav-notif-btn {
+  position: relative;
+  width: 38px; height: 38px;
+  background: rgba(255,255,255,0.1);
+  border: none; border-radius: var(--nas-radius); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,0.8); font-size: 18px; transition: var(--nas-transition);
+}
+.nas-nav-notif-btn:hover { background: rgba(255,255,255,0.2); color: #fff; }
+.nas-notif-dot { position: absolute; top: 6px; right: 6px; width: 8px; height: 8px; background: var(--nas-danger); border-radius: 50%; border: 2px solid var(--nas-primary); }
+
+.nas-nav-user {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 10px; border-radius: var(--nas-radius);
+  cursor: pointer; transition: var(--nas-transition);
+}
+.nas-nav-user:hover { background: rgba(255,255,255,0.1); }
+.nas-nav-avatar {
+  width: 34px; height: 34px;
+  background: linear-gradient(135deg, var(--nas-accent), var(--nas-purple));
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; font-weight: 700; color: #fff;
+}
+.nas-nav-username { color: rgba(255,255,255,0.9); font-size: 13px; font-weight: 500; }
+.nas-nav-role { color: rgba(255,255,255,0.5); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Mobile hamburger */
+.nas-hamburger { display: none; background: none; border: none; color: #fff; font-size: 22px; cursor: pointer; padding: 6px; }
+
+/* ---- Dashboard Content ---- */
+.nas-dash-content {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 28px 24px;
+}
+
+/* ---- Dashboard Header ---- */
+.nas-dash-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 28px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.nas-dash-title { font-size: 24px; font-weight: 700; }
+.nas-dash-subtitle { font-size: 14px; color: var(--nas-text-muted); margin-top: 4px; }
+
+/* ---- Stats Grid ---- */
+.nas-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  margin-bottom: 28px;
+}
+
+/* ---- Panel Grid ---- */
+.nas-panel-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 22px;
+  align-items: start;
+}
+.nas-panel-grid-full { grid-template-columns: 1fr; }
+
+/* ---- Filter Bar ---- */
+.nas-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  background: var(--nas-bg-white);
+  border: 1px solid var(--nas-border);
+  border-radius: var(--nas-radius-lg);
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+.nas-filter-bar .nas-input,
+.nas-filter-bar .nas-select { max-width: 180px; padding: 8px 12px; }
+.nas-filter-label { font-size: 13px; font-weight: 500; color: var(--nas-text-muted); white-space: nowrap; }
+
+/* ---- Booking Row Card ---- */
+.nas-booking-card {
+  background: var(--nas-bg-white);
+  border: 1px solid var(--nas-border);
+  border-radius: var(--nas-radius-lg);
+  padding: 18px 20px;
+  margin-bottom: 12px;
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+  transition: var(--nas-transition);
+  cursor: pointer;
+}
+.nas-booking-card:hover { box-shadow: var(--nas-shadow-md); border-color: var(--nas-accent); transform: translateX(2px); }
+.nas-booking-card-icon { width: 46px; height: 46px; border-radius: var(--nas-radius); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; background: var(--nas-accent-light); color: var(--nas-accent); }
+.nas-booking-card-main { flex: 1; min-width: 0; }
+.nas-booking-card-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.nas-booking-card-meta { font-size: 12px; color: var(--nas-text-muted); display: flex; flex-wrap: wrap; gap: 8px; }
+.nas-booking-card-right { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
+.nas-booking-card-price { font-size: 17px; font-weight: 700; color: var(--nas-accent); }
+
+/* ---- Workflow Progress ---- */
+.nas-workflow-wrap {
+  padding: 20px;
+  background: var(--nas-bg);
+  border-radius: var(--nas-radius-lg);
+  border: 1px solid var(--nas-border);
+  overflow-x: auto;
+}
+.nas-workflow-track {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+  min-width: 600px;
+  position: relative;
+}
+.nas-workflow-step {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+}
+.nas-workflow-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 19px;
+  left: 50%;
+  right: -50%;
+  height: 2px;
+  background: var(--nas-border);
+  z-index: 0;
+  transition: var(--nas-transition-slow);
+}
+.nas-workflow-step.done::after { background: var(--nas-success); }
+.nas-workflow-step.active::after { background: linear-gradient(90deg, var(--nas-success) 50%, var(--nas-border) 50%); }
+
+.nas-workflow-dot {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: var(--nas-bg-white);
+  border: 2px solid var(--nas-border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  position: relative;
+  z-index: 1;
+  transition: var(--nas-transition-slow);
+  flex-shrink: 0;
+}
+.nas-workflow-step.done .nas-workflow-dot { background: var(--nas-success); border-color: var(--nas-success); color: #fff; }
+.nas-workflow-step.active .nas-workflow-dot {
+  background: var(--nas-accent);
+  border-color: var(--nas-accent);
+  color: #fff;
+  box-shadow: 0 0 0 4px rgba(99,102,241,0.2);
+  animation: nasPulse 1.8s ease-in-out infinite;
+}
+.nas-workflow-step.rejected .nas-workflow-dot { background: var(--nas-danger); border-color: var(--nas-danger); color: #fff; }
+@keyframes nasPulse { 0%,100% { box-shadow: 0 0 0 4px rgba(99,102,241,0.2); } 50% { box-shadow: 0 0 0 8px rgba(99,102,241,0.1); } }
+.nas-workflow-label { font-size: 11px; font-weight: 500; color: var(--nas-text-muted); margin-top: 8px; max-width: 72px; line-height: 1.3; }
+.nas-workflow-step.done .nas-workflow-label { color: var(--nas-success); font-weight: 600; }
+.nas-workflow-step.active .nas-workflow-label { color: var(--nas-accent); font-weight: 600; }
+.nas-workflow-time { font-size: 10px; color: var(--nas-text-light); margin-top: 2px; }
+
+/* ---- Detail Drawer ---- */
+.nas-drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 9500; opacity: 0; pointer-events: none; transition: var(--nas-transition); backdrop-filter: blur(2px); }
+.nas-drawer-overlay.open { opacity: 1; pointer-events: all; }
+.nas-drawer {
+  position: fixed; right: 0; top: 0; bottom: 0; width: 520px; max-width: 95vw;
+  background: var(--nas-bg-white); box-shadow: var(--nas-shadow-lg); z-index: 9501;
+  transform: translateX(100%); transition: transform 0.35s cubic-bezier(0.4,0,0.2,1);
+  overflow-y: auto; display: flex; flex-direction: column;
+}
+.nas-drawer.open { transform: translateX(0); }
+.nas-drawer-header { padding: 20px 24px; border-bottom: 1px solid var(--nas-border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--nas-bg-white); z-index: 1; }
+.nas-drawer-title { font-size: 18px; font-weight: 600; }
+.nas-drawer-close { width: 36px; height: 36px; border: none; background: var(--nas-bg); border-radius: var(--nas-radius); cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; color: var(--nas-text-muted); transition: var(--nas-transition); }
+.nas-drawer-close:hover { background: var(--nas-danger-light); color: var(--nas-danger); }
+.nas-drawer-body { padding: 24px; flex: 1; }
+.nas-drawer-footer { padding: 16px 24px; border-top: 1px solid var(--nas-border); display: flex; gap: 10px; flex-wrap: wrap; }
+
+/* ---- Data row in drawer ---- */
+.nas-data-row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--nas-border-light); }
+.nas-data-row:last-child { border-bottom: none; }
+.nas-data-label { font-size: 12px; font-weight: 500; color: var(--nas-text-muted); text-transform: uppercase; letter-spacing: 0.4px; min-width: 120px; flex-shrink: 0; padding-top: 2px; }
+.nas-data-value { font-size: 14px; font-weight: 500; flex: 1; word-break: break-word; }
+
+/* ---- Admin Chat Panel ---- */
+.nas-chat-wrapper {
+  display: flex;
+  flex-direction: column;
+  height: 440px;
+  background: var(--nas-bg-white);
+  border-radius: var(--nas-radius-lg);
+  border: 1px solid var(--nas-border);
+  overflow: hidden;
+}
+.nas-chat-header { padding: 14px 18px; border-bottom: 1px solid var(--nas-border); display: flex; align-items: center; justify-content: space-between; background: var(--nas-primary); color: #fff; }
+.nas-chat-title { font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.nas-chat-online-dot { width: 8px; height: 8px; background: var(--nas-success); border-radius: 50%; }
+.nas-chat-actions { display: flex; gap: 6px; }
+.nas-chat-action-btn { width: 32px; height: 32px; border: none; background: rgba(255,255,255,0.15); border-radius: var(--nas-radius); cursor: pointer; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 14px; transition: var(--nas-transition); }
+.nas-chat-action-btn:hover { background: rgba(255,255,255,0.25); }
+.nas-chat-messages { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 10px; scroll-behavior: smooth; }
+.nas-chat-bubble { max-width: 80%; }
+.nas-chat-bubble.incoming { align-self: flex-start; }
+.nas-chat-bubble.outgoing { align-self: flex-end; }
+.nas-bubble-content {
+  padding: 10px 14px; border-radius: 18px; font-size: 13.5px; line-height: 1.5;
+  word-break: break-word; white-space: pre-wrap;
+}
+.nas-chat-bubble.incoming .nas-bubble-content { background: var(--nas-bg); border-radius: 4px 18px 18px 18px; color: var(--nas-text); }
+.nas-chat-bubble.outgoing .nas-bubble-content { background: var(--nas-accent); color: #fff; border-radius: 18px 4px 18px 18px; }
+.nas-bubble-meta { font-size: 10px; color: var(--nas-text-light); margin-top: 3px; }
+.nas-chat-bubble.outgoing .nas-bubble-meta { text-align: right; }
+.nas-chat-footer { padding: 12px 14px; border-top: 1px solid var(--nas-border); background: var(--nas-bg); }
+.nas-chat-input-row { display: flex; gap: 8px; align-items: flex-end; }
+.nas-chat-textarea {
+  flex: 1; padding: 9px 14px; border: 1px solid var(--nas-border); border-radius: 20px;
+  font-family: var(--nas-font); font-size: 13.5px; resize: none; max-height: 100px; line-height: 1.5;
+  background: var(--nas-bg-white); transition: var(--nas-transition);
+}
+.nas-chat-textarea:focus { outline: none; border-color: var(--nas-accent); }
+.nas-chat-send-btn { width: 38px; height: 38px; border: none; background: var(--nas-accent); border-radius: 50%; cursor: pointer; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 16px; transition: var(--nas-transition); flex-shrink: 0; }
+.nas-chat-send-btn:hover { background: var(--nas-accent-hover); transform: scale(1.08); }
+.nas-chat-quick-row { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.nas-quick-reply-chip { padding: 4px 10px; background: var(--nas-accent-light); color: var(--nas-accent); border-radius: 99px; font-size: 12px; cursor: pointer; border: 1px solid var(--nas-accent); transition: var(--nas-transition); }
+.nas-quick-reply-chip:hover { background: var(--nas-accent); color: #fff; }
+.nas-chat-via-row { display: flex; gap: 8px; margin-top: 8px; }
+.nas-via-btn { display: flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 99px; font-size: 12px; font-weight: 500; border: 1px solid; cursor: pointer; background: none; transition: var(--nas-transition); }
+.nas-via-btn-email { color: var(--nas-blue); border-color: var(--nas-blue); }
+.nas-via-btn-email:hover { background: var(--nas-blue-light); }
+.nas-via-btn-wa { color: #25D366; border-color: #25D366; }
+.nas-via-btn-wa:hover { background: #d4f8e8; }
+
+/* ---- Notification Panel ---- */
+.nas-notif-panel {
+  position: absolute;
+  right: 24px;
+  top: 68px;
+  width: 360px;
+  background: var(--nas-bg-white);
+  border: 1px solid var(--nas-border);
+  border-radius: var(--nas-radius-lg);
+  box-shadow: var(--nas-shadow-lg);
+  z-index: 9100;
+  display: none;
+}
+.nas-notif-panel.open { display: block; }
+.nas-notif-header { padding: 14px 18px; border-bottom: 1px solid var(--nas-border); display: flex; justify-content: space-between; align-items: center; }
+.nas-notif-title { font-weight: 600; font-size: 15px; }
+.nas-notif-list { max-height: 380px; overflow-y: auto; }
+.nas-notif-item { padding: 12px 18px; border-bottom: 1px solid var(--nas-border-light); cursor: pointer; transition: var(--nas-transition); }
+.nas-notif-item:hover { background: var(--nas-bg); }
+.nas-notif-item.unread { background: var(--nas-accent-light); }
+.nas-notif-item-title { font-size: 13.5px; font-weight: 600; margin-bottom: 3px; }
+.nas-notif-item-msg { font-size: 12.5px; color: var(--nas-text-muted); }
+.nas-notif-item-time { font-size: 11px; color: var(--nas-text-light); margin-top: 4px; }
+.nas-notif-empty { padding: 40px 20px; text-align: center; color: var(--nas-text-muted); font-size: 14px; }
+
+/* ---- Analytics Chart Area ---- */
+.nas-chart-card { padding: 22px; }
+.nas-chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }
+.nas-chart-title { font-size: 15px; font-weight: 600; }
+.nas-chart-period { display: flex; gap: 4px; }
+.nas-period-btn { padding: 4px 12px; border: 1px solid var(--nas-border); border-radius: 99px; font-size: 12px; cursor: pointer; background: var(--nas-bg-white); color: var(--nas-text-muted); transition: var(--nas-transition); }
+.nas-period-btn.active { background: var(--nas-accent); color: #fff; border-color: var(--nas-accent); }
+.nas-chart-canvas-wrap { height: 220px; position: relative; }
+
+/* ---- Mobile Nav Drawer ---- */
+.nas-mobile-nav {
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: 280px;
+  background: var(--nas-primary);
+  z-index: 99995;
+  transform: translateX(-100%);
+  transition: transform 0.3s cubic-bezier(0.4,0,0.2,1);
+  padding: 20px 0;
+  display: flex;
+  flex-direction: column;
+}
+.nas-mobile-nav.open { transform: translateX(0); }
+.nas-mobile-nav-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 99994; display: none; }
+.nas-mobile-nav-overlay.open { display: block; }
+.nas-mobile-nav-header { padding: 0 20px 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 12px; }
+.nas-mobile-nav-items { overflow-y: auto; flex: 1; padding: 0 10px; }
+.nas-mobile-nav-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; color: rgba(255,255,255,0.75); border-radius: var(--nas-radius); font-size: 14px; font-weight: 500; cursor: pointer; transition: var(--nas-transition); border: none; background: none; width: 100%; text-align: left; }
+.nas-mobile-nav-item:hover, .nas-mobile-nav-item.active { background: rgba(255,255,255,0.1); color: #fff; }
+
+/* ---- Responsive Dashboard ---- */
+@media (max-width: 1200px) {
+  .nas-stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .nas-panel-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 768px) {
+  .nas-topnav-inner { padding: 0 16px; }
+  .nas-nav-items { display: none; }
+  .nas-nav-items.open { display: flex; flex-direction: column; position: absolute; top: 62px; left: 0; right: 0; background: var(--nas-primary); padding: 8px; z-index: 8999; }
+  .nas-hamburger { display: flex; }
+  .nas-dash-content { padding: 18px 14px; }
+  .nas-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .nas-filter-bar { gap: 8px; }
+  .nas-filter-bar .nas-input,
+  .nas-filter-bar .nas-select { max-width: 140px; }
+  .nas-drawer { width: 100vw; max-width: none; }
+  .nas-notif-panel { right: 14px; width: calc(100vw - 28px); }
+}
+@media (max-width: 480px) {
+  .nas-stats-grid { grid-template-columns: 1fr; }
+  .nas-booking-card { flex-wrap: wrap; }
+  .nas-booking-card-right { width: 100%; flex-direction: row; align-items: center; justify-content: space-between; }
+}
+
+/* ════════════════════════════════════════════════════════
+   MISSING CLASSES — added v2.1
+   ════════════════════════════════════════════════════════ */
+
+/* ── Tab navigation ─────────────────────────────────────────────────────── */
+.nas-tab {
+  padding: 10px 16px;
+  border: none;
+  background: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--nas-text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  white-space: nowrap;
+  transition: color .2s, border-color .2s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.nas-tab:hover { color: var(--nas-accent); }
+.nas-tab.active { color: var(--nas-accent); border-bottom-color: var(--nas-accent); }
+
+/* ── Tab panels ─────────────────────────────────────────────────────────── */
+.nas-tab-panel { display: none; }
+.nas-tab-panel.active { display: block; }
+
+/* ── Order tab panels (inside drawer) ───────────────────────────────────── */
+.nas-order-tab-panel { display: none; }
+
+/* ── Modal overlay ──────────────────────────────────────────────────────── */
+.nas-modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.45);
+  z-index: 9999;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.nas-modal-overlay.open { display: flex; }
+.nas-modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 0;
+  width: 100%;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2);
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: nasSlideUp .2s ease;
+}
+@keyframes nasSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.nas-modal-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--nas-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 1;
+}
+.nas-modal-title { font-size: 16px; font-weight: 700; color: var(--nas-text); }
+.nas-modal-close {
+  width: 32px; height: 32px;
+  border: none; background: var(--nas-bg);
+  border-radius: var(--nas-radius); cursor: pointer;
+  font-size: 16px; color: var(--nas-text-muted);
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.nas-modal-close:hover { background: var(--nas-danger-light); color: var(--nas-danger); }
+.nas-modal-body { padding: 20px 24px; }
+.nas-modal-footer {
+  padding: 14px 24px;
+  border-top: 1px solid var(--nas-border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+/* ── Stat card ──────────────────────────────────────────────────────────── */
+.nas-stat-card {
+  background: var(--nas-bg-white);
+  border: 1px solid var(--nas-border);
+  border-radius: var(--nas-radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: 0 1px 4px rgba(0,0,0,.04);
+  transition: box-shadow .2s;
+}
+.nas-stat-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,.08); }
+.nas-stat-icon {
+  width: 44px; height: 44px;
+  border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+.nas-stat-value { font-size: 22px; font-weight: 800; color: var(--nas-text); line-height: 1; }
+.nas-stat-label { font-size: 12px; color: var(--nas-text-muted); margin-top: 3px; }
+
+/* ── Chat wrapper (inside drawer) ───────────────────────────────────────── */
+.nas-chat-wrapper { display: flex; flex-direction: column; height: 100%; min-height: 400px; }
+.nas-chat-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--nas-border);
+  background: var(--nas-bg);
+  display: flex; align-items: center; gap: 10px;
+}
+.nas-chat-title { font-size: 14px; font-weight: 600; color: var(--nas-text); display: flex; align-items: center; gap: 6px; }
+.nas-chat-online-dot { width: 8px; height: 8px; background: #16a34a; border-radius: 50%; animation: nasPulse 2s infinite; }
+@keyframes nasPulse { 0%,100% { opacity: 1; } 50% { opacity: .5; } }
+.nas-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 240px;
+}
+.nas-chat-footer { border-top: 1px solid var(--nas-border); padding: 12px 16px; }
+.nas-chat-input-row { display: flex; gap: 8px; align-items: flex-end; }
+.nas-chat-textarea {
+  flex: 1;
+  resize: none;
+  padding: 10px 14px;
+  border: 1.5px solid var(--nas-border);
+  border-radius: var(--nas-radius-lg);
+  font-size: 13.5px;
+  font-family: var(--nas-font);
+  line-height: 1.5;
+  transition: border-color .2s;
+  min-height: 40px;
+  max-height: 100px;
+}
+.nas-chat-textarea:focus { outline: none; border-color: var(--nas-accent); }
+.nas-chat-send-btn {
+  width: 40px; height: 40px;
+  background: var(--nas-accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--nas-radius-lg);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: opacity .2s;
+}
+.nas-chat-send-btn:hover { opacity: .9; }
+.nas-chat-bubble { max-width: 78%; padding: 10px 14px; border-radius: 14px; font-size: 13.5px; line-height: 1.5; }
+.nas-chat-bubble.outgoing { align-self: flex-end; background: var(--nas-accent); color: #fff; border-bottom-right-radius: 4px; }
+.nas-chat-bubble.incoming { align-self: flex-start; background: var(--nas-bg); color: var(--nas-text); border-bottom-left-radius: 4px; border: 1px solid var(--nas-border); }
+.nas-bubble-content { word-wrap: break-word; }
+.nas-bubble-meta { font-size: 10px; opacity: .6; margin-top: 4px; text-align: right; }
+
+/* ── Notification panel (dropdown) ─────────────────────────────────────── */
+.nas-notif-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 340px;
+  background: #fff;
+  border: 1px solid var(--nas-border);
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.12);
+  z-index: 9100;
+  overflow: hidden;
+}
+.nas-notif-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--nas-border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.nas-notif-title { font-size: 14px; font-weight: 700; }
+.nas-notif-list { max-height: 320px; overflow-y: auto; }
+.nas-notif-item {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--nas-border-light);
+  cursor: pointer;
+  transition: background .15s;
+}
+.nas-notif-item:hover { background: var(--nas-bg); }
+.nas-notif-item.unread { background: #eef2ff; }
+.nas-notif-item-title { font-size: 13px; font-weight: 600; color: var(--nas-text); }
+.nas-notif-item-msg { font-size: 12px; color: var(--nas-text-muted); margin-top: 2px; }
+.nas-notif-item-time { font-size: 11px; color: var(--nas-text-light); margin-top: 4px; }
+.nas-notif-empty { padding: 24px; text-align: center; font-size: 13px; color: var(--nas-text-muted); }
+.nas-notif-dot {
+  position: absolute;
+  top: 6px; right: 6px;
+  width: 8px; height: 8px;
+  background: var(--nas-danger);
+  border-radius: 50%;
+  border: 1.5px solid var(--nas-accent);
+}
+.nas-nav-notif-btn {
+  position: relative;
+  width: 36px; height: 36px;
+  background: rgba(255,255,255,.1);
+  border: none;
+  border-radius: var(--nas-radius);
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .2s;
+}
+.nas-nav-notif-btn:hover { background: rgba(255,255,255,.2); }
+
+/* ── Nav badge ──────────────────────────────────────────────────────────── */
+.nas-nav-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--nas-danger);
+  color: #fff;
+  font-size: 9px;
+  font-weight: 700;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  margin-left: 4px;
+}
+
+/* ── Dashboard content area ─────────────────────────────────────────────── */
+.nas-dash-content {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 20px;
+}
+
+/* ── Wallet balance card ─────────────────────────────────────────────────── */
+.nas-wallet-balance-card {
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+  border-radius: 16px;
+  padding: 28px;
+  margin-bottom: 20px;
+  text-align: center;
+  color: #fff;
+}
+
+/* ── Form grid for admin panels ─────────────────────────────────────────── */
+.nas-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.nas-form-row { display: flex; flex-direction: column; gap: 4px; }
+.nas-form-row--full { grid-column: 1 / -1; }
+.nas-form-group { margin-bottom: 14px; }
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .nas-form-grid { grid-template-columns: 1fr; }
+  .nas-modal { margin: 10px; }
+  .nas-notif-panel { width: calc(100vw - 32px); right: -10px; }
+}
+
+/* ── Top nav class aliases (partial uses .nas-top-nav, dashboard uses .nas-topnav) ── */
+.nas-top-nav { background: var(--nas-primary); position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 12px rgba(0,0,0,.15); }
+.nas-top-nav__inner { max-width: 1400px; margin: 0 auto; padding: 0 20px; height: 58px; display: flex; align-items: center; gap: 12px; }
+.nas-top-nav__left { display: flex; align-items: center; gap: 12px; }
+.nas-top-nav__logo { text-decoration: none; display: flex; align-items: center; gap: 10px; color: #fff; font-size: 18px; font-weight: 700; }
+.nas-top-nav__links { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+.nas-top-nav__links::-webkit-scrollbar { display: none; }
+.nas-top-nav__link { color: rgba(255,255,255,.72); font-size: 13.5px; font-weight: 500; padding: 7px 13px; border-radius: 8px; text-decoration: none; white-space: nowrap; transition: all .2s; }
+.nas-top-nav__link:hover, .nas-top-nav__link.active { color: #fff; background: rgba(255,255,255,.14); }
+.nas-top-nav__right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.nas-top-nav__user { display: flex; align-items: center; gap: 8px; cursor: pointer; position: relative; }
+.nas-top-nav__avatar { width: 34px; height: 34px; border-radius: 50%; background: rgba(255,255,255,.2); color: #fff; font-size: 14px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid rgba(255,255,255,.3); }
+.nas-top-nav__username { font-size: 13px; font-weight: 600; color: #fff; line-height: 1.2; }
+.nas-top-nav__role { font-size: 11px; color: rgba(255,255,255,.6); }
+.nas-top-nav__user-dd { position: absolute; top: calc(100% + 8px); right: 0; background: #fff; border: 1px solid var(--nas-border); border-radius: 12px; padding: 8px; min-width: 180px; box-shadow: 0 10px 40px rgba(0,0,0,.12); z-index: 9100; }
+.nas-logo-text { font-size: 18px; font-weight: 800; color: #fff; letter-spacing: -.3px; }
+
+/* =============================================================
+   Dashboard shared additions v3.1 — NO overrides, additions only
+   Uses existing --nas-* variables throughout
+   ============================================================= */
+
+/* ── Staff / Moderation / Vendor sidebar layout ──────────── */
+.nas-portal-shell {
+  display: flex; min-height: 100vh;
+  background: var(--nas-bg); font-family: var(--nas-font);
+}
+.nas-portal-sidebar {
+  width: 230px; flex-shrink: 0;
+  background: var(--nas-primary);
+  display: flex; flex-direction: column;
+  position: sticky; top: 0; height: 100vh;
+  overflow-y: auto; z-index: 100;
+  box-shadow: 3px 0 20px rgba(0,0,0,.15);
+  transition: transform .25s ease;
+}
+.nas-portal-sidebar-brand {
+  display: flex; align-items: center; gap: 10px;
+  padding: 18px 16px; border-bottom: 1px solid rgba(255,255,255,.1);
+  min-height: 62px;
+}
+.nas-portal-sidebar-brand-icon {
+  width: 34px; height: 34px; border-radius: var(--nas-radius);
+  background: linear-gradient(135deg, var(--nas-accent), var(--nas-purple));
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; flex-shrink: 0;
+}
+.nas-portal-sidebar-brand-name {
+  color: #fff; font-size: 14px; font-weight: 700;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.nas-portal-sidebar-brand-sub {
+  display: block; font-size: 10px; color: rgba(255,255,255,.45);
+  font-weight: 500; margin-top: 1px;
+}
+.nas-portal-nav { flex: 1; padding: 10px 8px; }
+.nas-portal-nav-section {
+  font-size: 10px; font-weight: 700; color: rgba(255,255,255,.3);
+  text-transform: uppercase; letter-spacing: 1px;
+  padding: 12px 10px 4px;
+}
+.nas-portal-nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: var(--nas-radius);
+  color: rgba(255,255,255,.7); font-size: 13px; font-weight: 500;
+  cursor: pointer; border: none; background: none;
+  width: 100%; text-align: left;
+  transition: all .18s; margin: 1px 0; white-space: nowrap;
+  font-family: var(--nas-font);
+}
+.nas-portal-nav-item:hover { background: rgba(255,255,255,.12); color: #fff; }
+.nas-portal-nav-item.active {
+  background: var(--nas-accent); color: #fff;
+}
+.nas-portal-nav-item i { width: 18px; text-align: center; font-size: 14px; flex-shrink: 0; }
+.nas-portal-nav-badge {
+  margin-left: auto; background: var(--nas-danger); color: #fff;
+  font-size: 10px; font-weight: 700; padding: 1px 6px;
+  border-radius: 99px; min-width: 18px; text-align: center;
+}
+.nas-portal-sidebar-footer {
+  padding: 10px 8px; border-top: 1px solid rgba(255,255,255,.1);
+}
+
+/* ── Mobile overlay ───────────────────────────────────────── */
+.nas-portal-overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.5); z-index: 99;
+  backdrop-filter: blur(2px);
+}
+.nas-portal-shell.mobile-open .nas-portal-overlay { display: block; }
+.nas-portal-shell.mobile-open .nas-portal-sidebar { transform: translateX(0) !important; }
+
+/* ── Main area ────────────────────────────────────────────── */
+.nas-portal-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.nas-portal-topbar {
+  height: 62px; background: var(--nas-bg-white);
+  border-bottom: 1px solid var(--nas-border);
+  display: flex; align-items: center; gap: 12px;
+  padding: 0 22px; position: sticky; top: 0; z-index: 50;
+  box-shadow: var(--nas-shadow-xs);
+}
+.nas-portal-topbar-toggle {
+  background: none; border: none; cursor: pointer;
+  width: 36px; height: 36px; border-radius: var(--nas-radius);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; color: var(--nas-text-muted); transition: all .18s;
+}
+.nas-portal-topbar-toggle:hover { background: var(--nas-bg); color: var(--nas-text); }
+.nas-portal-topbar-title { font-size: 16px; font-weight: 700; color: var(--nas-text); }
+.nas-portal-topbar-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+.nas-portal-content { flex: 1; padding: 24px; max-width: 1400px; margin: 0 auto; width: 100%; }
+.nas-portal-panel { display: none; }
+.nas-portal-panel.active { display: block; }
+
+/* ── Panel heading row ────────────────────────────────────── */
+.nas-panel-heading {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 20px; gap: 12px; flex-wrap: wrap;
+}
+.nas-panel-heading h2 {
+  font-size: 18px; font-weight: 700; color: var(--nas-text);
+  display: flex; align-items: center; gap: 8px; margin: 0;
+}
+.nas-panel-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ── Booking rows for portal dashboards ───────────────────── */
+.nas-booking-row {
+  background: var(--nas-bg-white);
+  border: 1px solid var(--nas-border);
+  border-radius: var(--nas-radius-lg);
+  padding: 14px 18px;
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 10px; transition: var(--nas-transition);
+  cursor: pointer;
+}
+.nas-booking-row:hover {
+  border-color: var(--nas-accent); box-shadow: var(--nas-shadow-sm);
+}
+.nas-booking-row__left { flex: 1; min-width: 0; }
+.nas-booking-row__id   { font-size: 14px; font-weight: 700; color: var(--nas-primary); margin-bottom: 4px; }
+.nas-booking-row__meta { font-size: 12px; color: var(--nas-text-muted); display: flex; gap: 6px; flex-wrap: wrap; }
+.nas-booking-row__date { font-size: 11px; color: var(--nas-text-light); margin-top: 3px; }
+.nas-booking-row__right {
+  display: flex; align-items: center; gap: 10px;
+  flex-shrink: 0; flex-wrap: wrap;
+}
+.nas-booking-row__amount { font-size: 15px; font-weight: 800; color: var(--nas-text); }
+
+/* ── Moderation review rows ───────────────────────────────── */
+.nas-review-row {
+  background: var(--nas-bg-white); border: 1px solid var(--nas-border);
+  border-radius: var(--nas-radius-lg); padding: 16px 18px;
+  margin-bottom: 12px; transition: var(--nas-transition);
+}
+.nas-review-row:hover { border-color: var(--nas-accent); }
+.nas-review-row-header {
+  display: flex; align-items: center; gap: 10px;
+  flex-wrap: wrap; margin-bottom: 10px;
+}
+.nas-review-uid { font-size: 14px; font-weight: 700; color: var(--nas-primary); }
+.nas-review-meta { font-size: 12px; color: var(--nas-text-muted); }
+.nas-review-content {
+  background: var(--nas-bg); border: 1px solid var(--nas-border-light);
+  border-radius: var(--nas-radius); padding: 12px 14px; font-size: 13px;
+  color: var(--nas-text); line-height: 1.55; margin-bottom: 12px;
+  max-height: 100px; overflow-y: auto;
+}
+.nas-review-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* ── Item list rows ───────────────────────────────────────── */
+.nas-item-row {
+  background: var(--nas-bg); border: 1px solid var(--nas-border);
+  border-radius: var(--nas-radius); padding: 12px 14px;
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 8px; transition: var(--nas-transition);
+}
+.nas-item-row:hover { border-color: var(--nas-accent); }
+.nas-item-row-info { flex: 1; min-width: 0; }
+.nas-item-row-info strong { display: block; font-size: 13px; font-weight: 600; color: var(--nas-text); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nas-item-row-info span { font-size: 12px; color: var(--nas-text-muted); }
+.nas-item-row-actions { display: flex; gap: 6px; flex-shrink: 0; }
+
+/* ── KPI row ──────────────────────────────────────────────── */
+.nas-kpi-row { display: grid; grid-template-columns: repeat(auto-fit,minmax(180px,1fr)); gap: 16px; margin-bottom: 24px; }
+.nas-kpi-box {
+  background: var(--nas-bg-white); border-radius: var(--nas-radius-lg);
+  padding: 18px; box-shadow: var(--nas-shadow-sm);
+  border-left: 4px solid; display: flex; align-items: center; gap: 12px;
+  transition: var(--nas-transition);
+}
+.nas-kpi-box:hover { transform: translateY(-2px); box-shadow: var(--nas-shadow-md); }
+.nas-kpi-box-icon {
+  width: 44px; height: 44px; border-radius: var(--nas-radius);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; color: #fff; flex-shrink: 0;
+}
+.nas-kpi-box-val { font-size: 22px; font-weight: 800; display: block; line-height: 1; margin-bottom: 4px; color: var(--nas-text); }
+.nas-kpi-box-label { font-size: 11px; color: var(--nas-text-muted); text-transform: uppercase; letter-spacing: .5px; font-weight: 600; }
+
+/* ── Empty/loading states ─────────────────────────────────── */
+.nas-loading-row { text-align: center; padding: 32px; color: var(--nas-text-muted); font-size: 14px; }
+.nas-loading-row .nas-spinner { margin: 0 auto 10px; }
+
+/* ── Two-col form layout ──────────────────────────────────── */
+.nas-two-col-form { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.nas-form-section {
+  background: var(--nas-bg-white); border-radius: var(--nas-radius-lg);
+  padding: 20px; box-shadow: var(--nas-shadow-xs); border: 1px solid var(--nas-border-light);
+}
+.nas-form-section h4 {
+  font-size: 14px; font-weight: 700; color: var(--nas-text);
+  margin: 0 0 14px; display: flex; align-items: center; gap: 8px;
+}
+.nas-form-row { margin-bottom: 14px; }
+.nas-form-row label { display: block; font-size: 12px; font-weight: 600; color: var(--nas-text-muted); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .3px; }
+
+/* ── Detail drawer tabs (portal) ──────────────────────────── */
+.nas-drawer-tabs {
+  display: flex; border-bottom: 2px solid var(--nas-border);
+  padding: 0 20px; overflow-x: auto; scrollbar-width: none; flex-shrink: 0;
+}
+.nas-drawer-tabs::-webkit-scrollbar { display: none; }
+.nas-drawer-tab {
+  padding: 10px 14px; border: none; background: none;
+  font-size: 13px; font-weight: 600; color: var(--nas-text-muted);
+  cursor: pointer; border-bottom: 2px solid transparent;
+  margin-bottom: -2px; white-space: nowrap; transition: all .18s;
+  font-family: var(--nas-font); display: flex; align-items: center; gap: 5px;
+}
+.nas-drawer-tab:hover { color: var(--nas-accent); }
+.nas-drawer-tab.active { color: var(--nas-accent); border-bottom-color: var(--nas-accent); }
+.nas-drawer-panel { display: none; padding: 20px; }
+.nas-drawer-panel.active { display: block; }
+
+/* ── Alert boxes ──────────────────────────────────────────── */
+.nas-alert-info    { background: var(--nas-blue-light); border: 1px solid #bfdbfe; color: #1d4ed8; padding: 12px 14px; border-radius: var(--nas-radius); font-size: 13px; margin-bottom: 14px; display: flex; align-items: flex-start; gap: 8px; }
+.nas-alert-success { background: var(--nas-success-light); border: 1px solid #bbf7d0; color: #16a34a; padding: 12px 14px; border-radius: var(--nas-radius); font-size: 13px; margin-bottom: 14px; display: flex; align-items: flex-start; gap: 8px; }
+.nas-alert-warning { background: var(--nas-warning-light); border: 1px solid #fde68a; color: #92400e; padding: 12px 14px; border-radius: var(--nas-radius); font-size: 13px; margin-bottom: 14px; display: flex; align-items: flex-start; gap: 8px; }
+.nas-alert-danger  { background: var(--nas-danger-light); border: 1px solid #fecaca; color: var(--nas-danger); padding: 12px 14px; border-radius: var(--nas-radius); font-size: 13px; margin-bottom: 14px; display: flex; align-items: flex-start; gap: 8px; }
+
+/* ── Responsive portal ────────────────────────────────────── */
+@media (max-width: 768px) {
+  .nas-portal-sidebar { transform: translateX(-100%); position: fixed; height: 100vh; z-index: 200; }
+  .nas-portal-content { padding: 16px; }
+  .nas-two-col-form { grid-template-columns: 1fr; }
+  .nas-kpi-row { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 480px) {
+  .nas-kpi-row { grid-template-columns: 1fr; }
+}

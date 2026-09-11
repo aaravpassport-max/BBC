@@ -1,0 +1,98 @@
+# Copyright (C) 2025 NAS Plugin
+# This file is distributed under the same license as the NAS Plugin package.
+msgid ""
+msgstr ""
+"Project-Id-Version: NAS Newspaper Ad SaaS 7.0\n"
+"Report-Msgid-Bugs-To: https://example.com/bugs\n"
+"POT-Creation-Date: 2025-01-01 00:00+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+"X-Generator: NAS Plugin Build\n"
+"X-Domain: nas\n"
+
+msgid "No bookings found."
+msgstr ""
+
+msgid "No requests found."
+msgstr ""
+
+msgid "Security check failed. Please refresh the page and try again."
+msgstr ""
+
+msgid "Incorrect email or password. Please try again."
+msgstr ""
+
+msgid "Passwords do not match. Please try again."
+msgstr ""
+
+msgid "Please enter a valid email address."
+msgstr ""
+
+msgid "Please enter a valid 10-digit phone number."
+msgstr ""
+
+msgid "Booking not found."
+msgstr ""
+
+msgid "Access denied."
+msgstr ""
+
+msgid "Please fill in all required fields."
+msgstr ""
+
+msgid "File uploaded successfully."
+msgstr ""
+
+msgid "Profile updated successfully."
+msgstr ""
+
+msgid "Vendor deleted. Open bookings returned to under review for reassignment."
+msgstr ""
+
+msgid "Status updated."
+msgstr ""
+
+msgid "Vendor assigned."
+msgstr ""
+
+msgid "Note saved."
+msgstr ""
+
+msgid "Loading…"
+msgstr ""
+
+msgid "Retry"
+msgstr ""
+
+msgid "Save"
+msgstr ""
+
+msgid "Cancel"
+msgstr ""
+
+msgid "Delete"
+msgstr ""
+
+msgid "Edit"
+msgstr ""
+
+msgid "Submit"
+msgstr ""
+
+msgid "Search…"
+msgstr ""
+
+msgid "No results found."
+msgstr ""
+
+msgid "Payment gateway integration"
+msgstr ""
+
+msgid "Invoice downloaded."
+msgstr ""

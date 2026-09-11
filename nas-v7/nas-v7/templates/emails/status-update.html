@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Booking Update — {{agency_name}}</title>
+<style>
+  body { margin:0; padding:0; background:#f4f6fb; font-family:'Segoe UI',Arial,sans-serif; color:#1e293b; }
+  .email-wrap { max-width:600px; margin:32px auto; background:#fff; border-radius:16px; overflow:hidden; box-shadow:0 4px 24px rgba(0,0,0,.08); }
+  .email-header { background:linear-gradient(135deg,#1e40af,#7c3aed); padding:36px; text-align:center; }
+  .email-header h1 { color:#fff; margin:0; font-size:22px; font-weight:700; }
+  .email-header p { color:rgba(255,255,255,.8); margin:8px 0 0; font-size:14px; }
+  .email-body { padding:36px; }
+  .status-badge { display:inline-block; padding:6px 16px; border-radius:99px; font-size:13px; font-weight:700; background:#dcfce7; color:#15803d; margin:16px 0; }
+  .status-badge.warning { background:#fef9c3; color:#a16207; }
+  .status-badge.info    { background:#dbeafe; color:#1d4ed8; }
+  .status-badge.danger  { background:#fee2e2; color:#b91c1c; }
+  .booking-card { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:20px; margin:20px 0; }
+  .detail-row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #e2e8f0; font-size:14px; }
+  .detail-row:last-child { border-bottom:none; }
+  .detail-label { color:#64748b; }
+  .detail-value { font-weight:600; }
+  .note-box { background:#eff6ff; border-left:4px solid #2563eb; border-radius:0 8px 8px 0; padding:14px 16px; margin:16px 0; font-size:14px; color:#1e40af; }
+  .cta-btn { display:block; background:linear-gradient(135deg,#1e40af,#7c3aed); color:#fff; text-decoration:none; text-align:center; padding:14px 32px; border-radius:10px; font-size:15px; font-weight:700; margin:24px 0; }
+  .email-footer { background:#f8fafc; padding:20px 36px; text-align:center; font-size:12px; color:#94a3b8; border-top:1px solid #e2e8f0; }
+  .email-footer a { color:#1e40af; text-decoration:none; }
+</style>
+</head>
+<body>
+<div class="email-wrap">
+  <div class="email-header">
+    <h1>Booking Status Update</h1>
+    <p>Your booking #{{booking_uid}} has been updated</p>
+  </div>
+  <div class="email-body">
+    <p>Hello <strong>{{client_name}}</strong>,</p>
+    <p>Your ad booking has been updated. Here are the latest details:</p>
+
+    <div class="status-badge {{status_class}}">{{status_label}}</div>
+
+    <div class="booking-card">
+      <div class="detail-row"><span class="detail-label">Booking ID</span><span class="detail-value">#{{booking_uid}}</span></div>
+      <div class="detail-row"><span class="detail-label">Newspaper</span><span class="detail-value">{{newspaper_name}}</span></div>
+      <div class="detail-row"><span class="detail-label">City</span><span class="detail-value">{{city_name}}</span></div>
+      <div class="detail-row"><span class="detail-label">Status</span><span class="detail-value">{{status_label}}</span></div>
+      <div class="detail-row"><span class="detail-label">Amount</span><span class="detail-value">{{total_amount}}</span></div>
+    </div>
+
+    {{#if note}}
+    <div class="note-box"><strong>Note from our team:</strong><br>{{note}}</div>
+    {{/if}}
+
+    <a href="{{dashboard_url}}" class="cta-btn">View Booking Details →</a>
+
+    <p style="font-size:13px;color:#64748b;">
+      Questions? Reply to this email or WhatsApp us at <strong>{{agency_phone}}</strong>.
+    </p>
+  </div>
+  <div class="email-footer">
+    <p>{{agency_name}} · {{agency_email}} · {{agency_phone}}</p>
+    <p><a href="{{home_url}}">Visit Website</a></p>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Booking Confirmed — {brand_name}</title>
+</head>
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;padding:32px 16px">
+  <tr>
+    <td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e2e8f0">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#0f172a,#1e3a5f);padding:32px 40px">
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td>
+                  {logo_url_tag}
+                  <h1 style="color:#ffffff;margin:12px 0 0;font-size:22px;font-weight:700">Booking Confirmed!</h1>
+                </td>
+                <td align="right" style="vertical-align:top">
+                  <span style="background:rgba(34,197,94,.2);color:#86efac;padding:6px 16px;border-radius:20px;font-size:13px;font-weight:600">✓ RECEIVED</span>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Greeting -->
+        <tr>
+          <td style="padding:32px 40px 0">
+            <p style="margin:0 0 8px;color:#374151;font-size:16px">Hi <strong>{client_name}</strong>,</p>
+            <p style="margin:0;color:#374151;font-size:15px;line-height:1.6">
+              Thank you for your newspaper ad booking! We have received your request and our team will review it shortly. You'll receive updates at every stage.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Booking Details -->
+        <tr>
+          <td style="padding:24px 40px">
+            <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:10px;overflow:hidden">
+              <tr>
+                <td colspan="2" style="background:#f8fafc;padding:14px 20px;font-weight:700;font-size:13px;color:#64748b;letter-spacing:.5px;text-transform:uppercase">Booking Summary</td>
+              </tr>
+              <tr>
+                <td style="padding:12px 20px;border-top:1px solid #f1f5f9;color:#64748b;font-size:14px;width:40%">Booking Reference</td>
+                <td style="padding:12px 20px;border-top:1px solid #f1f5f9;font-weight:700;font-size:14px;color:#0f172a">#{order_id}</td>
+              </tr>
+              <tr>
+                <td style="padding:12px 20px;border-top:1px solid #f1f5f9;color:#64748b;font-size:14px">Newspaper</td>
+                <td style="padding:12px 20px;border-top:1px solid #f1f5f9;font-size:14px;color:#0f172a">{newspaper_name}</td>
+              </tr>
+              <tr>
+                <td style="padding:12px 20px;border-top:1px solid #f1f5f9;color:#64748b;font-size:14px">Category</td>
+                <td style="padding:12px 20px;border-top:1px solid #f1f5f9;font-size:14px;color:#0f172a">{category}</td>
+              </tr>
+              <tr>
+                <td style="padding:12px 20px;border-top:1px solid #f1f5f9;color:#64748b;font-size:14px">City</td>
+                <td style="padding:12px 20px;border-top:1px solid #f1f5f9;font-size:14px;color:#0f172a">{city_name}</td>
+              </tr>
+              <tr>
+                <td style="padding:12px 20px;border-top:1px solid #f1f5f9;color:#64748b;font-size:14px">Publication Date</td>
+                <td style="padding:12px 20px;border-top:1px solid #f1f5f9;font-size:14px;color:#0f172a">{publish_date}</td>
+              </tr>
+              <tr>
+                <td style="padding:14px 20px;border-top:1px solid #f1f5f9;color:#64748b;font-size:14px;font-weight:600">Total Amount</td>
+                <td style="padding:14px 20px;border-top:1px solid #f1f5f9;font-size:18px;font-weight:800;color:#2563eb">{total_price}</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Next Steps -->
+        <tr>
+          <td style="padding:0 40px 28px">
+            <h3 style="font-size:16px;font-weight:700;color:#0f172a;margin:0 0 16px">What happens next?</h3>
+            <table width="100%" cellpadding="0" cellspacing="0">
+              <?php
+              $steps = [
+                ['1','Review','Our team reviews your booking within 4 hours'],
+                ['2','Payment','Complete payment to confirm your slot'],
+                ['3','Material','Upload your ad creative or approve our draft'],
+                ['4','Published','Your ad appears in the newspaper on the scheduled date'],
+              ];
+              // Note: since this is a static HTML template, steps are inline below
+              ?>
+            </table>
+            <div style="display:flex;flex-direction:column;gap:0">
+              <div style="display:flex;gap:14px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #f1f5f9">
+                <div style="width:28px;height:28px;background:#2563eb;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">1</div>
+                <div><strong style="color:#0f172a;font-size:14px">Review</strong><br><span style="color:#64748b;font-size:13px">Our team reviews your booking within 4 hours</span></div>
+              </div>
+              <div style="display:flex;gap:14px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #f1f5f9">
+                <div style="width:28px;height:28px;background:#2563eb;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">2</div>
+                <div><strong style="color:#0f172a;font-size:14px">Payment</strong><br><span style="color:#64748b;font-size:13px">Complete payment to confirm your publication slot</span></div>
+              </div>
+              <div style="display:flex;gap:14px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #f1f5f9">
+                <div style="width:28px;height:28px;background:#2563eb;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">3</div>
+                <div><strong style="color:#0f172a;font-size:14px">Ad Material</strong><br><span style="color:#64748b;font-size:13px">Upload your ad creative or approve our drafted text</span></div>
+              </div>
+              <div style="display:flex;gap:14px;align-items:flex-start;padding:10px 0">
+                <div style="width:28px;height:28px;background:#16a34a;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0">✓</div>
+                <div><strong style="color:#0f172a;font-size:14px">Published!</strong><br><span style="color:#64748b;font-size:13px">Your ad appears in the newspaper on the scheduled date</span></div>
+              </div>
+            </div>
+          </td>
+        </tr>
+
+        <!-- CTA -->
+        <tr>
+          <td style="padding:0 40px 32px;text-align:center">
+            <a href="{dashboard_link}" style="display:inline-block;background:#2563eb;color:#ffffff;padding:14px 32px;border-radius:10px;text-decoration:none;font-weight:700;font-size:15px">Track Your Booking →</a>
+            <p style="margin:14px 0 0;font-size:13px;color:#94a3b8">Or visit <a href="{booking_link}" style="color:#2563eb;text-decoration:none">Book Another Ad</a></p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f8fafc;padding:20px 40px;border-top:1px solid #e2e8f0">
+            <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center">
+              &copy; {brand_name} · This email was sent to you because you placed an ad booking.<br>
+              If you did not make this booking, please <a href="mailto:{support_email}" style="color:#2563eb;text-decoration:none">contact us immediately</a>.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>

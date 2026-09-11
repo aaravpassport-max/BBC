@@ -1,0 +1,12 @@
+[
+  {"id":1,"name":"Obituary","description":"Death announcements, condolences, remembrances","icon":"🕊️","keywords":["death","passed away","late","demise","condolence","funeral","prayer meeting"]},
+  {"id":2,"name":"Matrimonial","description":"Marriage proposals, bride/groom wanted ads","icon":"💍","keywords":["bride","groom","matrimony","marriage","alliance","caste","horoscope"]},
+  {"id":3,"name":"Property","description":"Buy, sell, rent real estate ads","icon":"🏠","keywords":["flat","apartment","house","plot","office","BHK","rent","sale","sq ft"]},
+  {"id":4,"name":"Recruitment","description":"Job postings, career opportunities","icon":"💼","keywords":["vacancy","hiring","required","job","career","apply","experience","salary"]},
+  {"id":5,"name":"Business","description":"Business announcements, partnerships, tenders","icon":"📊","keywords":["company","business","tender","partnership","franchise","dealer","distributor"]},
+  {"id":6,"name":"Education","description":"Admissions, courses, institutions, results","icon":"🎓","keywords":["admission","course","college","university","institute","training","batch"]},
+  {"id":7,"name":"Name Change","description":"Legal name change announcements","icon":"📜","keywords":["name change","formerly known","gazette","legal","changed name"]},
+  {"id":8,"name":"Lost & Found","description":"Lost documents, pets, belongings","icon":"🔍","keywords":["lost","found","missing","reward","documents","certificate","RC book"]},
+  {"id":9,"name":"Public Notice","description":"Legal notices, tenders, government notices","icon":"⚖️","keywords":["notice","public","legal","court","affidavit","tender","auction"]},
+  {"id":10,"name":"Retail & Offers","description":"Shop sales, product launches, offers","icon":"🛍️","keywords":["sale","offer","discount","launch","grand opening","deals","special offer"]}
+]

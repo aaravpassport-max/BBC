@@ -1,0 +1,575 @@
+/* =========================================================
+   NAS – Core CSS Design System
+   ========================================================= */
+
+/* ---- CSS Variables ---- */
+:root {
+  --nas-primary:        #2A8AFA;
+  --nas-primary-dark:   #1B6FD8;
+  --nas-primary-light:  #D7DBFF;
+  --nas-accent:         #EFA414;
+  --nas-accent-hover:   #D68F0A;
+  --nas-accent-light:   #FFF3DC;
+  --nas-success:        #2F5258;
+  --nas-success-light:  #E7EFF0;
+  --nas-warning:        #EFA414;
+  --nas-warning-light:  #FFF3DC;
+  --nas-danger:         #E5484D;
+  --nas-danger-light:   #FDECEC;
+  --nas-purple:         #2A8AFA;
+  --nas-purple-light:   #D7DBFF;
+  --nas-orange:         #EFA414;
+  --nas-orange-light:   #FFF3DC;
+  --nas-blue:           #2A8AFA;
+  --nas-blue-light:     #D7DBFF;
+  --nas-grey:           #5B6B78;
+  --nas-grey-light:     #F7F8FC;
+  --nas-text:           #202C39;
+  --nas-text-muted:     #5B6B78;
+  --nas-text-light:     #8C99A6;
+  --nas-border:         #E3E6F5;
+  --nas-border-light:   #EEF0FA;
+  --nas-bg:             #F7F8FC;
+  --nas-bg-white:       #ffffff;
+  --nas-shadow-xs:      0 1px 2px 0 rgba(32,44,57,0.05);
+  --nas-shadow-sm:      0 2px 8px 0 rgba(42,138,250,0.08);
+  --nas-shadow-md:      0 4px 20px 0 rgba(42,138,250,0.12);
+  --nas-shadow-lg:      0 10px 40px 0 rgba(32,44,57,0.14);
+  --nas-shadow-glow:    0 0 0 3px rgba(42,138,250,0.18);
+  --nas-radius-sm:      6px;
+  --nas-radius:         10px;
+  --nas-radius-lg:      16px;
+  --nas-radius-xl:      24px;
+  --nas-radius-full:    9999px;
+  --nas-font:           'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --nas-font-display:   'Poppins', var(--nas-font);
+  --nas-transition:     all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --nas-transition-slow:all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ---- Reset & Base ---- */
+.nas-wrap * { box-sizing: border-box; margin: 0; padding: 0; }
+.nas-wrap { font-family: var(--nas-font); color: var(--nas-text); -webkit-font-smoothing: antialiased; }
+
+/* ---- Status Colors ---- */
+:root {
+  --status-booking_received:    #6b7280;
+  --status-under_review:        #3b82f6;
+  --status-ready_to_process:    #0ea5e9;
+  --status-documents_received:  #f97316;
+  --status-payment_received:    #eab308;
+  --status-ad_processing:       #8b5cf6;
+  --status-submitted_to_pub:    #a855f7;
+  --status-published:           #10b981;
+  --status-completed:           #059669;
+  --status-not_able_to_process: #ef4444;
+  --status-not_eligible:        #dc2626;
+  --status-no_service:          #b91c1c;
+  --status-rejected:            #ef4444;
+}
+
+/* ---- Typography ---- */
+.nas-wrap h1,.nas-wrap h2,.nas-wrap h3,.nas-wrap h4,.nas-wrap h5 {
+  font-family: var(--nas-font-display);
+  font-weight: 600;
+  line-height: 1.25;
+  color: var(--nas-primary);
+}
+
+/* ---- Buttons ---- */
+.nas-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  font-family: var(--nas-font);
+  font-size: 14px;
+  font-weight: 500;
+  border: none;
+  border-radius: var(--nas-radius);
+  cursor: pointer;
+  transition: var(--nas-transition);
+  text-decoration: none;
+  white-space: nowrap;
+  line-height: 1;
+}
+.nas-btn:focus { outline: none; box-shadow: var(--nas-shadow-glow); }
+.nas-btn-primary { background: var(--nas-accent); color: #fff; }
+.nas-btn-primary:hover { background: var(--nas-accent-hover); transform: translateY(-1px); box-shadow: var(--nas-shadow-sm); }
+.nas-btn-secondary { background: var(--nas-bg); color: var(--nas-text); border: 1px solid var(--nas-border); }
+.nas-btn-secondary:hover { background: var(--nas-grey-light); }
+.nas-btn-success { background: var(--nas-success); color: #fff; }
+.nas-btn-success:hover { background: #059669; }
+.nas-btn-danger { background: var(--nas-danger); color: #fff; }
+.nas-btn-danger:hover { background: #dc2626; }
+.nas-btn-ghost { background: transparent; color: var(--nas-accent); }
+.nas-btn-ghost:hover { background: var(--nas-accent-light); }
+.nas-btn-sm { padding: 6px 12px; font-size: 12px; }
+.nas-btn-lg { padding: 12px 28px; font-size: 15px; }
+.nas-btn-xl { padding: 14px 36px; font-size: 16px; border-radius: var(--nas-radius-lg); }
+.nas-btn-icon { padding: 8px; border-radius: var(--nas-radius); }
+.nas-btn[disabled], .nas-btn.nas-loading { opacity: 0.7; pointer-events: none; }
+
+/* ---- Form Elements ---- */
+.nas-form-group { margin-bottom: 18px; }
+.nas-label { display: block; font-size: 13px; font-weight: 500; color: var(--nas-text); margin-bottom: 6px; }
+.nas-label span.nas-req { color: var(--nas-danger); margin-left: 2px; }
+.nas-input, .nas-select, .nas-textarea {
+  width: 100%;
+  padding: 10px 14px;
+  font-family: var(--nas-font);
+  font-size: 14px;
+  color: var(--nas-text);
+  background: var(--nas-bg-white);
+  border: 1px solid var(--nas-border);
+  border-radius: var(--nas-radius);
+  transition: var(--nas-transition);
+  appearance: none;
+}
+.nas-input:focus, .nas-select:focus, .nas-textarea:focus {
+  outline: none;
+  border-color: var(--nas-accent);
+  box-shadow: var(--nas-shadow-glow);
+}
+.nas-textarea { resize: vertical; min-height: 90px; }
+.nas-select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 10px center; padding-right: 36px; cursor: pointer; }
+.nas-input-error { border-color: var(--nas-danger) !important; }
+.nas-field-error { font-size: 12px; color: var(--nas-danger); margin-top: 4px; }
+.nas-input-group { position: relative; }
+.nas-input-group .nas-input { padding-left: 40px; }
+.nas-input-group .nas-input-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--nas-text-muted); pointer-events: none; }
+
+/* ---- Cards ---- */
+.nas-card {
+  background: var(--nas-bg-white);
+  border-radius: var(--nas-radius-lg);
+  border: 1px solid var(--nas-border);
+  box-shadow: var(--nas-shadow-sm);
+  overflow: hidden;
+  transition: var(--nas-transition);
+}
+.nas-card:hover { box-shadow: var(--nas-shadow-md); }
+.nas-card-header { padding: 20px 24px; border-bottom: 1px solid var(--nas-border-light); display: flex; align-items: center; justify-content: space-between; }
+.nas-card-title { font-size: 16px; font-weight: 600; }
+.nas-card-body { padding: 24px; }
+.nas-card-footer { padding: 16px 24px; border-top: 1px solid var(--nas-border-light); background: var(--nas-bg); }
+
+/* ---- Stat Cards ---- */
+.nas-stat-card {
+  background: var(--nas-bg-white);
+  border-radius: var(--nas-radius-lg);
+  border: 1px solid var(--nas-border);
+  padding: 22px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  box-shadow: var(--nas-shadow-xs);
+  transition: var(--nas-transition);
+}
+.nas-stat-card:hover { transform: translateY(-2px); box-shadow: var(--nas-shadow-md); }
+.nas-stat-icon { width: 52px; height: 52px; border-radius: var(--nas-radius); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+.nas-stat-value { font-size: 28px; font-weight: 700; font-family: var(--nas-font-display); line-height: 1; margin-bottom: 4px; }
+.nas-stat-label { font-size: 13px; color: var(--nas-text-muted); }
+.nas-stat-change { font-size: 12px; font-weight: 500; margin-top: 4px; }
+.nas-stat-change.up { color: var(--nas-success); }
+.nas-stat-change.down { color: var(--nas-danger); }
+
+/* ---- Badge / Status Pills ---- */
+.nas-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: var(--nas-radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.nas-badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.nas-status-badge { padding: 4px 12px; font-size: 12px; border-radius: var(--nas-radius-full); font-weight: 600; letter-spacing: 0.3px; }
+
+/* Auto-color status badges */
+[data-status="booking_received"]    { background: #f3f4f6; color: var(--status-booking_received); }
+[data-status="under_review"]        { background: var(--nas-blue-light); color: var(--status-under_review); }
+[data-status="ready_to_process"]    { background: #e0f2fe; color: var(--status-ready_to_process); }
+[data-status="documents_received"]  { background: var(--nas-orange-light); color: var(--status-documents_received); }
+[data-status="payment_received"]    { background: #fefce8; color: #a16207; }
+[data-status="ad_processing"]       { background: var(--nas-purple-light); color: var(--status-ad_processing); }
+[data-status="submitted_to_pub"]    { background: #f5f3ff; color: var(--status-submitted_to_pub); }
+[data-status="published"]           { background: var(--nas-success-light); color: var(--status-published); }
+[data-status="completed"]           { background: #d1fae5; color: var(--status-completed); }
+[data-status="rejected"],
+[data-status="not_able_to_process"],
+[data-status="not_eligible"],
+[data-status="no_service"]          { background: var(--nas-danger-light); color: var(--status-rejected); }
+
+/* ---- Table ---- */
+.nas-table-wrap { overflow-x: auto; border-radius: var(--nas-radius-lg); border: 1px solid var(--nas-border); }
+.nas-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.nas-table th { padding: 12px 16px; text-align: left; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; color: var(--nas-text-muted); background: var(--nas-bg); border-bottom: 1px solid var(--nas-border); white-space: nowrap; }
+.nas-table td { padding: 13px 16px; border-bottom: 1px solid var(--nas-border-light); vertical-align: middle; }
+.nas-table tr:last-child td { border-bottom: none; }
+.nas-table tbody tr { transition: var(--nas-transition); }
+.nas-table tbody tr:hover { background: var(--nas-bg); }
+.nas-table .nas-actions { display: flex; gap: 6px; }
+
+/* ---- Modal ---- */
+.nas-modal-overlay {
+  position: fixed; inset: 0; background: rgba(15,23,42,0.55); z-index: 99990;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px; opacity: 0; pointer-events: none; transition: var(--nas-transition);
+  backdrop-filter: blur(4px);
+}
+.nas-modal-overlay.nas-active { opacity: 1; pointer-events: all; }
+.nas-modal {
+  background: var(--nas-bg-white); border-radius: var(--nas-radius-xl);
+  box-shadow: var(--nas-shadow-lg); width: 100%; max-width: 600px; max-height: 90vh;
+  overflow-y: auto; transform: translateY(20px) scale(0.97); transition: var(--nas-transition-slow);
+}
+.nas-modal-overlay.nas-active .nas-modal { transform: translateY(0) scale(1); }
+.nas-modal-header { padding: 22px 28px; border-bottom: 1px solid var(--nas-border); display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--nas-bg-white); z-index: 1; }
+.nas-modal-title { font-size: 18px; font-weight: 600; }
+.nas-modal-close { width: 36px; height: 36px; border: none; background: var(--nas-bg); border-radius: var(--nas-radius); cursor: pointer; display: flex; align-items: center; justify-content: center; color: var(--nas-text-muted); font-size: 18px; transition: var(--nas-transition); }
+.nas-modal-close:hover { background: var(--nas-danger-light); color: var(--nas-danger); }
+.nas-modal-body { padding: 24px 28px; }
+.nas-modal-footer { padding: 16px 28px; border-top: 1px solid var(--nas-border); display: flex; justify-content: flex-end; gap: 10px; background: var(--nas-bg); border-radius: 0 0 var(--nas-radius-xl) var(--nas-radius-xl); }
+
+/* ---- Pagination ---- */
+.nas-pagination { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.nas-page-btn { padding: 6px 12px; border: 1px solid var(--nas-border); border-radius: var(--nas-radius); background: var(--nas-bg-white); color: var(--nas-text); cursor: pointer; font-size: 13px; transition: var(--nas-transition); }
+.nas-page-btn:hover { background: var(--nas-accent-light); border-color: var(--nas-accent); color: var(--nas-accent); }
+.nas-page-btn.active { background: var(--nas-accent); color: #fff; border-color: var(--nas-accent); }
+.nas-page-btn[disabled] { opacity: 0.4; pointer-events: none; }
+
+/* ---- Toast Notifications ---- */
+#nas-toast-container {
+  position: fixed; bottom: 28px; right: 28px; z-index: 999999;
+  display: flex; flex-direction: column; gap: 10px; max-width: 380px;
+}
+.nas-toast {
+  padding: 14px 20px; border-radius: var(--nas-radius-lg); min-width: 280px; max-width: 400px;
+  display: flex; align-items: flex-start; gap: 12px; box-shadow: var(--nas-shadow-lg);
+  animation: nasToastIn 0.35s cubic-bezier(0.175,0.885,0.32,1.275) both;
+  font-size: 14px; font-weight: 500;
+}
+.nas-toast-success { background: var(--nas-success); color: #fff; }
+.nas-toast-error   { background: var(--nas-danger); color: #fff; }
+.nas-toast-warning { background: var(--nas-warning); color: var(--nas-primary); }
+.nas-toast-info    { background: var(--nas-accent); color: #fff; }
+.nas-toast-icon { font-size: 18px; flex-shrink: 0; }
+.nas-toast-msg { flex: 1; line-height: 1.4; }
+.nas-toast-close { background: none; border: none; color: inherit; opacity: 0.75; cursor: pointer; font-size: 16px; padding: 0; margin-top: 1px; }
+.nas-toast-close:hover { opacity: 1; }
+.nas-toast.nas-fade-out { animation: nasToastOut 0.3s ease forwards; }
+@keyframes nasToastIn  {
+  from { transform: translateX(110%) scale(.95); opacity: 0; }
+  to   { transform: translateX(0) scale(1); opacity: 1; }
+}
+@keyframes nasToastOut {
+  from { transform: translateX(0) scale(1); opacity: 1; }
+  to   { transform: translateX(110%) scale(.95); opacity: 0; }
+}
+
+/* ---- Loading ---- */
+.nas-spinner { width: 20px; height: 20px; border: 2px solid rgba(255,255,255,0.3); border-top-color: currentColor; border-radius: 50%; animation: nasSpinner 0.7s linear infinite; display: inline-block; }
+@keyframes nasSpinner { to { transform: rotate(360deg); } }
+.nas-skeleton { background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%); background-size: 200% 100%; animation: nasSkeleton 1.5s infinite; border-radius: var(--nas-radius); }
+@keyframes nasSkeleton { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+
+/* ---- Tabs ---- */
+.nas-tabs { display: flex; border-bottom: 2px solid var(--nas-border); gap: 2px; overflow-x: auto; }
+.nas-tab { padding: 11px 18px; font-size: 14px; font-weight: 500; color: var(--nas-text-muted); border: none; background: none; cursor: pointer; position: relative; white-space: nowrap; transition: var(--nas-transition); border-radius: var(--nas-radius) var(--nas-radius) 0 0; }
+.nas-tab:hover { color: var(--nas-accent); background: var(--nas-accent-light); }
+.nas-tab.active { color: var(--nas-accent); font-weight: 600; }
+.nas-tab.active::after { content: ''; position: absolute; bottom: -2px; left: 0; right: 0; height: 2px; background: var(--nas-accent); border-radius: 2px 2px 0 0; }
+.nas-tab-count { background: var(--nas-accent); color: #fff; font-size: 11px; padding: 2px 7px; border-radius: 99px; margin-left: 6px; }
+.nas-tab-panel { display: none; }
+.nas-tab-panel.active { display: block; }
+
+/* ---- Search bar ---- */
+.nas-search-bar { position: relative; }
+.nas-search-bar input { padding-left: 40px; }
+.nas-search-bar .nas-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--nas-text-muted); }
+
+/* ---- Grid helpers ---- */
+.nas-grid { display: grid; gap: 20px; }
+.nas-grid-2 { grid-template-columns: repeat(2, 1fr); }
+.nas-grid-3 { grid-template-columns: repeat(3, 1fr); }
+.nas-grid-4 { grid-template-columns: repeat(4, 1fr); }
+
+/* ---- Utility ---- */
+.nas-flex { display: flex; }
+.nas-items-center { align-items: center; }
+.nas-justify-between { justify-content: space-between; }
+.nas-gap-2 { gap: 8px; }
+.nas-gap-3 { gap: 12px; }
+.nas-gap-4 { gap: 16px; }
+.nas-mt-1 { margin-top: 4px; }
+.nas-mt-2 { margin-top: 8px; }
+.nas-mt-4 { margin-top: 16px; }
+.nas-mb-4 { margin-bottom: 16px; }
+.nas-text-sm { font-size: 13px; }
+.nas-text-xs { font-size: 12px; }
+.nas-text-muted { color: var(--nas-text-muted); }
+.nas-text-accent { color: var(--nas-accent); }
+.nas-text-center { text-align: center; }
+.nas-fw-600 { font-weight: 600; }
+.nas-hidden { display: none !important; }
+.nas-truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nas-divider { border: none; border-top: 1px solid var(--nas-border); margin: 16px 0; }
+
+/* ---- Empty State ---- */
+.nas-empty-state { text-align: center; padding: 60px 20px; }
+.nas-empty-state .nas-empty-icon { font-size: 48px; color: var(--nas-text-light); margin-bottom: 16px; }
+.nas-empty-state h3 { font-size: 18px; margin-bottom: 8px; color: var(--nas-text-muted); }
+.nas-empty-state p { color: var(--nas-text-light); font-size: 14px; }
+
+/* ---- Responsive ---- */
+@media (max-width: 1280px) {
+  .nas-grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 900px) {
+  .nas-grid-3, .nas-grid-2 { grid-template-columns: 1fr; }
+  .nas-grid-4 { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 600px) {
+  .nas-grid-4 { grid-template-columns: 1fr; }
+  .nas-modal { margin: 0 16px; max-height: 90vh; border-radius: var(--nas-radius-xl); }
+  .nas-modal-overlay { align-items: center; justify-content: center; padding: 16px; }
+  .nas-modal-success { margin: 0 auto; border-radius: var(--nas-radius-xl) !important; max-width: 94vw; }
+  .nas-btn-xl { padding: 13px 24px; }
+  #nas-toast-container { bottom: 80px; left: 16px; right: 16px; }
+  .nas-toast { min-width: auto; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TOP NAV — Mobile Drawer  (must be hidden by default)
+   ═══════════════════════════════════════════════════════════ */
+.nas-mobile-nav-drawer {
+  display: none; /* HIDDEN by default — JS opens with is-open class */
+  position: fixed;
+  inset: 0;
+  z-index: 99990;
+}
+.nas-mobile-nav-drawer.is-open {
+  display: flex;
+}
+.nas-mobile-nav-drawer__inner {
+  width: 280px;
+  max-width: 85vw;
+  background: #0f172a;
+  height: 100%;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow-y: auto;
+  animation: nasSlideInLeft 0.25s ease;
+}
+.nas-mobile-nav-drawer__inner a {
+  display: block;
+  color: rgba(255,255,255,.78);
+  font-size: 15px;
+  font-weight: 500;
+  padding: 11px 14px;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: background .15s;
+}
+.nas-mobile-nav-drawer__inner a:hover { background: rgba(255,255,255,.1); color: #fff; }
+.nas-mobile-nav-drawer__inner ul { list-style: none; margin: 0; padding: 0; }
+.nas-mobile-nav-drawer__inner ul li a {
+  display: block; color: rgba(255,255,255,.78); padding: 11px 14px;
+  border-radius: 8px; text-decoration: none; font-size: 15px; font-weight: 500;
+}
+.nas-mobile-nav-drawer__close {
+  align-self: flex-end;
+  background: rgba(255,255,255,.1);
+  border: none;
+  color: #fff;
+  width: 34px; height: 34px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 12px;
+}
+.nas-mobile-nav-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 99989;
+}
+.nas-mobile-nav-overlay.is-open { display: block; }
+@keyframes nasSlideInLeft {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+/* Hamburger (visible only on mobile) */
+.nas-hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+}
+.nas-hamburger span {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: #fff;
+  border-radius: 2px;
+  transition: all .2s;
+}
+@media (max-width: 768px) {
+  .nas-hamburger { display: flex; }
+  .nas-top-nav__links { display: none !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   TOP NAV — User Dropdown & Notification Panel
+   ═══════════════════════════════════════════════════════════ */
+.nas-top-nav__user-menu { position: relative; }
+
+/* User dropdown — HIDDEN by default */
+.nas-user-dropdown {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 6px;
+  box-shadow: 0 8px 32px rgba(0,0,0,.12);
+  z-index: 9999;
+  list-style: none;
+  margin: 0;
+}
+/* OPEN when .is-open class added by JS */
+.nas-user-dropdown.is-open,
+.nas-top-nav__user-menu:focus-within .nas-user-dropdown {
+  display: block;
+  animation: nasDropIn .15s ease;
+}
+@keyframes nasDropIn {
+  from { opacity:0; transform:translateY(-6px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.nas-user-dropdown li { margin: 0; padding: 0; }
+.nas-user-dropdown li a {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  color: #1e293b;
+  text-decoration: none;
+  border-radius: 8px;
+  transition: background .15s;
+}
+.nas-user-dropdown li a:hover { background: #f1f5f9; }
+.nas-user-dropdown li a i { width: 16px; color: #64748b; }
+.nas-user-dropdown__divider {
+  height: 1px;
+  background: #f1f5f9;
+  margin: 4px 0;
+}
+
+/* Avatar button */
+.nas-top-nav__avatar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255,255,255,.12);
+  border: 1.5px solid rgba(255,255,255,.2);
+  border-radius: 99px;
+  padding: 4px 12px 4px 4px;
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .2s;
+}
+.nas-top-nav__avatar:hover { background: rgba(255,255,255,.22); }
+.nas-top-nav__avatar img { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+.nas-top-nav__avatar span { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nas-top-nav__avatar i { font-size: 10px; opacity: .7; }
+
+/* Notification panel */
+.nas-notif-panel {
+  display: none;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 340px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.12);
+  z-index: 9999;
+  overflow: hidden;
+}
+.nas-notif-panel.is-open { display: block; animation: nasDropIn .15s ease; }
+.nas-notif-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+.nas-notif-panel__close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  font-size: 16px;
+  padding: 2px 6px;
+}
+.nas-notif-list { max-height: 300px; overflow-y: auto; }
+.nas-empty-state-sm { padding: 20px; text-align: center; font-size: 13px; color: #94a3b8; }
+
+/* Icon button (bell) */
+.nas-top-nav__icon-btn {
+  position: relative;
+  background: rgba(255,255,255,.12);
+  border: none;
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background .2s;
+}
+.nas-top-nav__icon-btn:hover { background: rgba(255,255,255,.2); }
+.nas-notif-badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 16px;
+  height: 16px;
+  background: #ef4444;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--nas-primary,#0f172a);
+}
+
+/* Wrapper for notif button + panel */
+.nas-top-nav__right { position: relative; display: flex; align-items: center; gap: 10px; }

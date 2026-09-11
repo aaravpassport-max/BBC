@@ -1,0 +1,617 @@
+/**
+ * NAS Enterprise UI System v1.0
+ * Design system additions: skeleton loading, dark mode, status badges,
+ * stat cards, stepper, empty states, mobile fixes, and visual polish.
+ */
+
+/* ══ CSS CUSTOM PROPERTIES ══════════════════════════════════════════════════ */
+:root {
+  --nas-primary:         #2A8AFA;
+  --nas-primary-dark:    #1B6FD8;
+  --nas-primary-light:   #D7DBFF;
+  --nas-success:         #2F5258;
+  --nas-success-light:   #E7EFF0;
+  --nas-warning:         #EFA414;
+  --nas-warning-light:   #FFF3DC;
+  --nas-danger:          #dc2626;
+  --nas-danger-light:    #fef2f2;
+  --nas-info:            #2563eb;
+  --nas-info-light:      #eff6ff;
+  --nas-bg-page:         #f1f5f9;
+  --nas-bg-white:        #ffffff;
+  --nas-bg-gray:         #f8fafc;
+  --nas-border:          #e2e8f0;
+  --nas-border-dark:     #cbd5e1;
+  --nas-text:            #0f172a;
+  --nas-text-secondary:  #475569;
+  --nas-text-muted:      #94a3b8;
+  --nas-radius-sm:       6px;
+  --nas-radius-md:       10px;
+  --nas-radius-lg:       14px;
+  --nas-radius-xl:       18px;
+  --nas-shadow-sm:       0 1px 3px rgba(0,0,0,.08);
+  --nas-shadow-md:       0 4px 16px rgba(0,0,0,.08);
+  --nas-shadow-lg:       0 8px 32px rgba(0,0,0,.10);
+  --nas-transition:      all .15s ease;
+}
+
+/* ══ DARK MODE ═══════════════════════════════════════════════════════════════ */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --nas-bg-page:        #0f172a;
+    --nas-bg-white:       #1e293b;
+    --nas-bg-gray:        #1a2535;
+    --nas-border:         #334155;
+    --nas-border-dark:    #475569;
+    --nas-text:           #f1f5f9;
+    --nas-text-secondary: #cbd5e1;
+    --nas-text-muted:     #64748b;
+    --nas-shadow-sm:      0 1px 3px rgba(0,0,0,.3);
+    --nas-shadow-md:      0 4px 16px rgba(0,0,0,.3);
+  }
+}
+
+/* ══ SKELETON LOADING STATES ═════════════════════════════════════════════════ */
+.nas-skeleton {
+  background: linear-gradient(90deg, #f0f4f8 25%, #e2e8f0 50%, #f0f4f8 75%);
+  background-size: 200% 100%;
+  animation: nasSkeleton 1.6s ease-in-out infinite;
+  border-radius: 4px;
+  display: inline-block;
+}
+@keyframes nasSkeleton {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+@media (prefers-color-scheme: dark) {
+  .nas-skeleton {
+    background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%);
+    background-size: 200% 100%;
+  }
+}
+.nas-skeleton-row td div { height: 14px; border-radius: 3px; }
+
+/* ══ ENHANCED STATUS BADGES ══════════════════════════════════════════════════ */
+.nas-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .3px;
+  white-space: nowrap;
+  text-transform: capitalize;
+}
+.nas-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .7; flex-shrink: 0; }
+.nas-status--booking_received,
+.nas-status--pending        { background: #FEF3C7; color: #92400E; }
+.nas-status--under_review   { background: #DBEAFE; color: #1E40AF; }
+.nas-status--payment_pending{ background: #FEE2E2; color: #7F1D1D; }
+.nas-status--payment_received{ background: #D1FAE5; color: #064E3B; }
+.nas-status--proof_ready    { background: #EDE9FE; color: #5B21B6; }
+.nas-status--client_approved{ background: #CCFBF1; color: #0F4C4C; }
+.nas-status--sent_to_vendor { background: #FEF9C3; color: #713F12; }
+.nas-status--published,
+.nas-status--completed      { background: #DCFCE7; color: #14532D; }
+.nas-status--rejected       { background: #FEE2E2; color: #7F1D1D; }
+.nas-status--active         { background: #D1FAE5; color: #064E3B; }
+.nas-status--pending_approval{ background: #FEF3C7; color: #92400E; }
+.nas-status--open           { background: #DBEAFE; color: #1E40AF; }
+.nas-status--in_progress    { background: #EDE9FE; color: #5B21B6; }
+.nas-status--resolved       { background: #DCFCE7; color: #14532D; }
+.nas-status--closed         { background: #F1F5F9; color: #475569; }
+
+/* ══ STAT CARDS (Enterprise) ═════════════════════════════════════════════════ */
+.nas-stat-grid-v2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+  margin-bottom: 28px;
+}
+.nas-stat-card-v2 {
+  background: var(--nas-bg-white);
+  border: 1.5px solid var(--nas-border);
+  border-radius: var(--nas-radius-xl);
+  padding: 20px;
+  position: relative;
+  overflow: hidden;
+  transition: var(--nas-transition);
+}
+.nas-stat-card-v2:hover {
+  border-color: var(--nas-primary);
+  box-shadow: var(--nas-shadow-md);
+  transform: translateY(-1px);
+}
+.nas-stat-card-v2-accent {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--accent, var(--nas-primary));
+  border-radius: 0;
+}
+.nas-stat-card-v2-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  margin-bottom: 12px;
+  background: var(--accent-light, var(--nas-primary-light));
+  color: var(--accent, var(--nas-primary));
+}
+.nas-stat-v2-value {
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--nas-text);
+  line-height: 1;
+  margin-bottom: 6px;
+  font-variant-numeric: tabular-nums;
+}
+.nas-stat-v2-label {
+  font-size: 12px;
+  color: var(--nas-text-muted);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+}
+.nas-stat-v2-trend {
+  font-size: 11px;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+.nas-stat-v2-trend.up   { color: var(--nas-success); }
+.nas-stat-v2-trend.down { color: var(--nas-danger); }
+.nas-stat-v2-trend.flat { color: var(--nas-text-muted); }
+
+/* ══ PROGRESS STEPPER ════════════════════════════════════════════════════════ */
+.nas-stepper {
+  display: flex;
+  align-items: flex-start;
+  padding: 16px 0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.nas-stepper::-webkit-scrollbar { display: none; }
+.nas-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 80px;
+  flex: 1;
+  position: relative;
+}
+.nas-step-dot {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid var(--nas-border);
+  background: var(--nas-bg-white);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--nas-text-muted);
+  z-index: 1;
+  position: relative;
+  transition: var(--nas-transition);
+}
+.nas-step.done .nas-step-dot {
+  background: var(--nas-success);
+  border-color: var(--nas-success);
+  color: #fff;
+}
+.nas-step.active .nas-step-dot {
+  background: var(--nas-primary-light);
+  border-color: var(--nas-primary);
+  color: var(--nas-primary);
+  box-shadow: 0 0 0 4px rgba(42,138,250,.15);
+}
+.nas-step-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--nas-text-muted);
+  margin-top: 8px;
+  text-align: center;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.nas-step.done .nas-step-label  { color: var(--nas-success); }
+.nas-step.active .nas-step-label { color: var(--nas-primary); }
+.nas-step-connector {
+  flex: 1;
+  height: 2px;
+  background: var(--nas-border);
+  align-self: flex-start;
+  margin-top: 17px;
+  transition: background .3s;
+  min-width: 20px;
+}
+.nas-step.done + .nas-step-connector { background: var(--nas-success); }
+
+/* ══ EMPTY STATES ════════════════════════════════════════════════════════════ */
+.nas-empty-state {
+  text-align: center;
+  padding: 60px 24px;
+  color: var(--nas-text-muted);
+}
+.nas-empty-state .nas-empty-icon {
+  font-size: 52px;
+  margin-bottom: 16px;
+  display: block;
+  opacity: .4;
+}
+.nas-empty-state h3 {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--nas-text);
+  margin: 0 0 8px;
+}
+.nas-empty-state p {
+  font-size: 14px;
+  max-width: 320px;
+  margin: 0 auto 20px;
+  line-height: 1.6;
+}
+
+/* ══ CARD TABLE (enhanced) ═══════════════════════════════════════════════════ */
+.nas-card-table {
+  background: var(--nas-bg-white);
+  border: 1.5px solid var(--nas-border);
+  border-radius: var(--nas-radius-xl);
+  overflow: hidden;
+  box-shadow: var(--nas-shadow-sm);
+}
+.nas-card-table-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--nas-border);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.nas-card-table-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--nas-text);
+  margin: 0;
+}
+.nas-card-table-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px;
+  border-top: 1px solid var(--nas-border);
+  font-size: 13px;
+  color: var(--nas-text-muted);
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* ══ TOAST UPGRADE ═══════════════════════════════════════════════════════════ */
+.nas-toast {
+  position: relative;
+  overflow: hidden;
+}
+.nas-toast::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  background: rgba(255,255,255,.35);
+  border-radius: 0 0 0 0;
+  animation: nasToastTimer 4s linear forwards;
+}
+@keyframes nasToastTimer {
+  from { width: 100%; }
+  to   { width: 0; }
+}
+
+/* ══ MOBILE RESPONSIVE FIXES ═════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Admin sidebar: collapses to bottom tab bar on mobile */
+  .nas-admin-sidebar {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    height: auto !important;
+    width: 100% !important;
+    flex-direction: row !important;
+    padding: 0 !important;
+    border-top: 1px solid var(--nas-border) !important;
+    border-right: none !important;
+    z-index: 900 !important;
+    overflow-x: auto;
+    background: var(--nas-bg-white) !important;
+  }
+  .nas-admin-sidebar .nas-sidebar-logo { display: none !important; }
+  .nas-admin-sidebar nav,
+  .nas-sidebar-nav { flex-direction: row !important; overflow-x: auto; padding: 0 !important; }
+  .nas-admin-tab-btn {
+    flex-direction: column !important;
+    min-width: 70px !important;
+    padding: 10px 6px !important;
+    font-size: 10px !important;
+    gap: 2px !important;
+    white-space: nowrap;
+  }
+  .nas-admin-tab-btn i { font-size: 18px !important; }
+  .nas-admin-main {
+    margin-left: 0 !important;
+    padding-bottom: 80px !important;
+  }
+  /* Stat grids */
+  .nas-stat-grid-v2 { grid-template-columns: 1fr 1fr !important; }
+  .nas-stats-grid   { grid-template-columns: 1fr 1fr !important; }
+  /* Dashboards */
+  .nas-portal-layout { flex-direction: column !important; }
+  .nas-portal-sidebar { width: 100% !important; border-right: none !important; border-bottom: 1px solid var(--nas-border) !important; }
+  /* Tables */
+  .nas-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  /* Drawers: full screen on mobile */
+  .nas-drawer {
+    left: 0 !important;
+    width: 100% !important;
+    top: 0 !important;
+    border-radius: 0 !important;
+  }
+}
+@media (max-width: 480px) {
+  .nas-stat-grid-v2 { grid-template-columns: 1fr !important; }
+  .nas-stepper { gap: 0; }
+  .nas-step-connector { min-width: 8px; }
+}
+
+/* ══ TOP NAV UPGRADE ═════════════════════════════════════════════════════════ */
+.nas-top-nav {
+  position: sticky;
+  top: 0;
+  z-index: 800;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  background: rgba(255,255,255,.95) !important;
+  border-bottom: 1px solid var(--nas-border);
+}
+@media (prefers-color-scheme: dark) {
+  .nas-top-nav { background: rgba(15,23,42,.95) !important; }
+}
+.nas-top-nav__inner { max-width: 1400px; margin: 0 auto; padding: 0 24px; }
+.nas-notif-panel {
+  background: var(--nas-bg-white);
+  border: 1.5px solid var(--nas-border);
+  box-shadow: var(--nas-shadow-lg);
+  border-radius: var(--nas-radius-lg);
+  width: 360px;
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+/* ══ NOTIFICATION CENTER ══════════════════════════════════════════════════════ */
+.nas-notif-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--nas-border);
+  cursor: pointer;
+  transition: var(--nas-transition);
+}
+.nas-notif-item:hover { background: var(--nas-bg-gray); }
+.nas-notif-item.unread { background: var(--nas-primary-light); }
+.nas-notif-item.unread:hover { background: #ede9fe; }
+.nas-notif-item-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+  background: var(--nas-bg-gray);
+}
+.nas-notif-item-body { flex: 1; min-width: 0; }
+.nas-notif-item-title { font-size: 13px; font-weight: 600; color: var(--nas-text); margin-bottom: 2px; }
+.nas-notif-item-text  { font-size: 12px; color: var(--nas-text-muted); line-height: 1.5; }
+.nas-notif-item-time  { font-size: 11px; color: var(--nas-text-muted); margin-top: 4px; }
+
+/* ══ WALLET UI ═══════════════════════════════════════════════════════════════ */
+.nas-wallet-hero {
+  background: linear-gradient(135deg, #2A8AFA 0%, #202C39 100%);
+  border-radius: var(--nas-radius-xl);
+  padding: 28px 24px;
+  color: #fff;
+  margin-bottom: 20px;
+  position: relative;
+  overflow: hidden;
+}
+.nas-wallet-hero::before {
+  content: '';
+  position: absolute;
+  top: -30px; right: -30px;
+  width: 120px; height: 120px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.08);
+}
+.nas-wallet-label { font-size: 13px; opacity: .8; margin-bottom: 6px; }
+.nas-wallet-balance { font-size: 42px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+.nas-wallet-sub { font-size: 12px; opacity: .7; }
+.nas-wallet-txn-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--nas-border);
+  font-size: 13px;
+}
+.nas-wallet-txn-row:last-child { border-bottom: none; }
+.nas-wallet-txn-credit { color: var(--nas-success); font-weight: 700; }
+.nas-wallet-txn-debit  { color: var(--nas-danger);  font-weight: 700; }
+
+/* ══ SUPPORT TICKETS ═════════════════════════════════════════════════════════ */
+.nas-ticket-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--nas-border);
+  cursor: pointer;
+  transition: var(--nas-transition);
+}
+.nas-ticket-item:hover { opacity: .85; }
+.nas-ticket-uid { font-size: 11px; font-weight: 700; font-family: monospace; color: var(--nas-primary); margin-bottom: 2px; }
+.nas-ticket-subject { font-size: 14px; font-weight: 600; color: var(--nas-text); margin-bottom: 4px; }
+.nas-ticket-meta { font-size: 12px; color: var(--nas-text-muted); }
+
+/* ══ ANALYTICS UPGRADES ══════════════════════════════════════════════════════ */
+.nas-analytics-controls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: var(--nas-bg-white);
+  border: 1.5px solid var(--nas-border);
+  border-radius: var(--nas-radius-lg);
+}
+.nas-date-range { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.nas-date-range input[type=date] { padding: 8px 10px; border: 1.5px solid var(--nas-border); border-radius: 8px; font-size: 13px; }
+.nas-export-btns { display: flex; gap: 8px; }
+.nas-funnel {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 20px 0;
+  justify-content: center;
+}
+.nas-funnel-stage { text-align: center; flex: 1; }
+.nas-funnel-bar {
+  background: linear-gradient(to top, var(--nas-primary), #a78bfa);
+  border-radius: 6px 6px 0 0;
+  min-height: 20px;
+  margin: 0 auto 8px;
+  transition: height .6s ease;
+}
+.nas-funnel-label { font-size: 11px; font-weight: 600; color: var(--nas-text-muted); }
+.nas-funnel-count { font-size: 18px; font-weight: 800; color: var(--nas-text); }
+.nas-funnel-pct   { font-size: 11px; color: var(--nas-text-muted); }
+
+/* ══ VENDOR REGISTRATION PAGE ════════════════════════════════════════════════ */
+.nas-vr-benefits-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 36px;
+}
+.nas-vr-benefit-card {
+  background: var(--nas-bg-white);
+  border: 1.5px solid var(--nas-border);
+  border-radius: var(--nas-radius-lg);
+  padding: 20px;
+  text-align: center;
+}
+.nas-vr-benefit-icon { font-size: 32px; margin-bottom: 10px; }
+.nas-vr-benefit-title { font-size: 14px; font-weight: 700; color: var(--nas-text); margin-bottom: 4px; }
+.nas-vr-benefit-desc  { font-size: 12px; color: var(--nas-text-muted); line-height: 1.5; }
+
+/* ══ CONTENT CALENDAR ════════════════════════════════════════════════════════ */
+.nas-cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+.nas-cal-cell {
+  background: var(--nas-bg-white);
+  border: 1px solid var(--nas-border);
+  border-radius: 6px;
+  min-height: 80px;
+  padding: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: var(--nas-transition);
+}
+.nas-cal-cell:hover { border-color: var(--nas-primary); }
+.nas-cal-cell.today { border-color: var(--nas-primary); background: var(--nas-primary-light); }
+.nas-cal-cell.has-bookings { position: relative; }
+.nas-cal-day-num { font-weight: 700; font-size: 12px; color: var(--nas-text); margin-bottom: 4px; }
+.nas-cal-event { background: var(--nas-primary); color: #fff; border-radius: 3px; padding: 1px 4px; margin-bottom: 1px; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nas-cal-event.completed { background: var(--nas-success); }
+.nas-cal-event.pending   { background: var(--nas-warning); }
+
+/* ══ ABOUT PAGE SECTIONS ══════════════════════════════════════════════════════ */
+.nas-about-hero {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4c1d95 100%);
+  color: #fff;
+  padding: 80px 24px;
+  text-align: center;
+}
+.nas-about-hero h1 { font-size: 44px; font-weight: 800; margin-bottom: 16px; }
+.nas-about-hero p  { font-size: 18px; opacity: .85; max-width: 600px; margin: 0 auto; }
+.nas-stats-banner {
+  display: flex;
+  justify-content: center;
+  gap: 0;
+  background: #fff;
+  border-bottom: 1px solid var(--nas-border);
+}
+.nas-stats-banner-item {
+  flex: 1;
+  max-width: 220px;
+  text-align: center;
+  padding: 28px 20px;
+  border-right: 1px solid var(--nas-border);
+}
+.nas-stats-banner-item:last-child { border-right: none; }
+.nas-stats-banner-num { font-size: 36px; font-weight: 800; color: var(--nas-primary); line-height: 1; }
+.nas-stats-banner-lbl { font-size: 13px; color: var(--nas-text-muted); margin-top: 4px; }
+
+/* ══ PRICING PAGE CALCULATOR ═════════════════════════════════════════════════ */
+.nas-pricing-calc {
+  background: var(--nas-bg-white);
+  border: 1.5px solid var(--nas-border);
+  border-radius: var(--nas-radius-xl);
+  overflow: hidden;
+  box-shadow: var(--nas-shadow-md);
+  margin-bottom: 32px;
+}
+.nas-pricing-calc-header {
+  background: linear-gradient(135deg, var(--nas-primary), #202C39);
+  padding: 24px 28px;
+  color: #fff;
+}
+.nas-pricing-calc-header h3 { font-size: 20px; font-weight: 700; margin: 0 0 4px; }
+.nas-pricing-calc-header p  { font-size: 14px; opacity: .85; margin: 0; }
+.nas-pricing-calc-body { padding: 28px; }
+.nas-pricing-calc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+@media (max-width: 600px) { .nas-pricing-calc-grid { grid-template-columns: 1fr; } }
+.nas-pricing-result {
+  background: linear-gradient(135deg, #f5f3ff, #ede9fe);
+  border: 2px solid #c4b5fd;
+  border-radius: var(--nas-radius-lg);
+  padding: 20px 24px;
+  text-align: center;
+  margin-top: 16px;
+}
+.nas-pricing-result-label { font-size: 13px; color: #7c3aed; font-weight: 600; margin-bottom: 6px; }
+.nas-pricing-result-price { font-size: 40px; font-weight: 800; color: #5b21b6; line-height: 1; }
+.nas-pricing-result-note  { font-size: 12px; color: #7c3aed; margin-top: 6px; }
+
+/* ══ GLOBAL PRINT STYLES ═════════════════════════════════════════════════════ */
+@media print {
+  .nas-top-nav, .nas-admin-sidebar, .nas-portal-sidebar,
+  .nas-portal-nav-sidebar, .nas-btn, button, .nas-actions { display: none !important; }
+  .nas-admin-main, .nas-portal-content { margin: 0 !important; padding: 0 !important; }
+  body { background: #fff !important; }
+}
