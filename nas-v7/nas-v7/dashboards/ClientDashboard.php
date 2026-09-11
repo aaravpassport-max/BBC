@@ -4,11 +4,10 @@ namespace NAS\Dashboards;
 use NAS\Core\Database;
 
 /**
- * Client Dashboard — React SPA
+ * Client Dashboard — mobile-first PHP app shell
  *
- * PHP renders a minimal container div and injects all configuration
- * data as a window.NAS_DASH JS object. The React bundle
- * (assets/js/nas-client-dashboard.js) mounts into #nas-react-dashboard.
+ * Renders templates/client/dashboard.php with server-side initial stats
+ * and a fixed bottom tab bar on mobile (Bookings · Profile · Wallet · Support).
  *
  * Data injection: stats and first page of bookings are server-rendered
  * so the initial paint shows real data instantly — no spinner, no AJAX

@@ -3,7 +3,7 @@
  * Plugin Name: NewspaperAds SaaS — Professional Booking Platform
  * Plugin URI:  https://your-domain.com/newspaper-ads-saas
  * Description: Enterprise-grade newspaper ad booking SaaS platform with custom dashboards, workflow tracking, AI content, real-time chat, WhatsApp integration, and 300 city landing pages.
- * Version:     4.1.3
+ * Version:     4.1.4
  * Author:      Your Agency
  * Author URI:  https://your-domain.com
  * License:     GPL-2.0+
@@ -20,7 +20,7 @@ if ( ! function_exists('NAS_get_config') ) {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-define( 'NAS_VERSION',    '4.1.3' );
+define( 'NAS_VERSION',    '4.1.4' );
 define( 'NAS_FILE',       __FILE__ );
 define( 'NAS_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'NAS_PATH',       NAS_DIR );        // alias used throughout codebase

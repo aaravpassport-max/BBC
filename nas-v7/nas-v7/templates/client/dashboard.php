@@ -15,8 +15,8 @@ $brand       = $cfg->get( 'brand_name', get_bloginfo('name') );
 $logo        = $cfg->get( 'logo_url', '' );
 $nonce       = wp_create_nonce( 'nas_action' );
 $rest_nonce  = wp_create_nonce( 'wp_rest' );
-// Use frontend proxy endpoint — CDN blocks POST to /wp-admin/admin-ajax.php
-$ajax        = admin_url('admin-ajax.php');
+// CDN blocks POST to /wp-admin/admin-ajax.php — use dedicated plugin endpoint
+$ajax        = NAS_URL . 'nas-ajax.php';
 $booking_url = nas_get_page_url( 'nas_page_booking', '/book-newspaper-ad/' );
 ?>
 <style>
@@ -320,15 +320,6 @@ textarea.cd-form-control{resize:vertical;min-height:70px}
 </style>
 
 <div id="nas-client-dashboard">
-<?php if ( current_user_can('manage_options') ): ?>
-<div style="background:#0f172a;color:#94a3b8;font-size:11px;font-family:monospace;padding:5px 16px;display:flex;gap:16px;flex-wrap:wrap;border-bottom:1px solid #1e293b">
-  <span style="color:#6366f1">NAS DEBUG</span>
-  <span>AJAX=<strong style="color:#22c55e"><?php echo esc_html($ajax); ?></strong></span>
-  <span>UID=<strong style="color:#22c55e"><?php echo get_current_user_id(); ?></strong></span>
-  <span>LOGGEDIN=<strong style="color:#22c55e"><?php echo is_user_logged_in()?'YES':'NO'; ?></strong></span>
-  <span>NONCE=<strong style="color:#22c55e"><?php echo esc_html(substr($nonce,0,8)); ?>...</strong></span>
-</div>
-<?php endif; ?>
 
 <!-- TOPNAV -->
 <nav class="cd-topnav">
@@ -418,7 +409,20 @@ textarea.cd-form-control{resize:vertical;min-height:70px}
       <h2 style="font-size:18px;font-weight:800;margin:0 0 22px;color:#1e293b">My Profile</h2>
       <div class="cd-profile-grid">
         <div class="cd-form-group"><label class="cd-form-label">Full Name</label><input id="pf-name" class="cd-form-control" type="text" value="<?php echo esc_attr($user->display_name); ?>"></div>
-  <!-- ── Wallet Panel ── -->
+        <div class="cd-form-group"><label class="cd-form-label">Email</label><input id="pf-email" class="cd-form-control" type="email" value="<?php echo esc_attr($user->user_email); ?>"></div>
+        <div class="cd-form-group"><label class="cd-form-label">Phone</label><input id="pf-phone" class="cd-form-control" type="tel" placeholder="Your phone number"></div>
+        <div class="cd-form-group"><label class="cd-form-label">City</label><input id="pf-city" class="cd-form-control" type="text" placeholder="Your city"></div>
+        <div class="cd-form-group" style="grid-column:1/-1"><label class="cd-form-label">Address</label><textarea id="pf-address" class="cd-form-control" rows="2" placeholder="Your address"></textarea></div>
+        <div class="cd-form-group"><label class="cd-form-label">New Password <small style="color:#94a3b8;font-weight:400;text-transform:none">(leave blank to keep)</small></label><input id="pf-pass" class="cd-form-control" type="password" placeholder="••••••••"></div>
+        <div class="cd-form-group"><label class="cd-form-label">GST Number <small style="color:#94a3b8;font-weight:400;text-transform:none">(optional)</small></label><input id="pf-gst" class="cd-form-control" type="text" placeholder="22AAAAA0000A1Z5"></div>
+      </div>
+      <div style="margin-top:20px;display:flex;gap:10px">
+        <button class="cd-btn cd-btn-primary" id="pf-save-btn" onclick="cdSaveProfile(this)">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PANEL: WALLET -->
   <div class="cd-panel" id="cd-panel-wallet">
     <div class="cd-wallet-panel">
 
@@ -479,7 +483,7 @@ textarea.cd-form-control{resize:vertical;min-height:70px}
     </div>
   </div>
 
-  <!-- ── Support Tickets Panel ── -->
+  <!-- PANEL: SUPPORT TICKETS -->
   <div class="cd-panel" id="cd-panel-tickets">
     <div class="cd-ticket-panel">
 
@@ -546,19 +550,6 @@ textarea.cd-form-control{resize:vertical;min-height:70px}
         <div style="padding:40px;text-align:center"><span class="cd-spinner"></span></div>
       </div>
 
-    </div>
-  </div>
-
-        <div class="cd-form-group"><label class="cd-form-label">Email</label><input id="pf-email" class="cd-form-control" type="email" value="<?php echo esc_attr($user->user_email); ?>"></div>
-        <div class="cd-form-group"><label class="cd-form-label">Phone</label><input id="pf-phone" class="cd-form-control" type="tel" placeholder="Your phone number"></div>
-        <div class="cd-form-group"><label class="cd-form-label">City</label><input id="pf-city" class="cd-form-control" type="text" placeholder="Your city"></div>
-        <div class="cd-form-group" style="grid-column:1/-1"><label class="cd-form-label">Address</label><textarea id="pf-address" class="cd-form-control" rows="2" placeholder="Your address"></textarea></div>
-        <div class="cd-form-group"><label class="cd-form-label">New Password <small style="color:#94a3b8;font-weight:400;text-transform:none">(leave blank to keep)</small></label><input id="pf-pass" class="cd-form-control" type="password" placeholder="••••••••"></div>
-        <div class="cd-form-group"><label class="cd-form-label">GST Number <small style="color:#94a3b8;font-weight:400;text-transform:none">(optional)</small></label><input id="pf-gst" class="cd-form-control" type="text" placeholder="22AAAAA0000A1Z5"></div>
-      </div>
-      <div style="margin-top:20px;display:flex;gap:10px">
-        <button class="cd-btn cd-btn-primary" id="pf-save-btn" onclick="cdSaveProfile(this)">Save Changes</button>
-      </div>
     </div>
   </div>
 
@@ -772,15 +763,6 @@ document.addEventListener('click',function(e){if(!e.target.closest('.cd-avatar')
 
 /* ── Stats ───────────────────────────────────────────────────────────── */
 function cdLoadStats(){
-  // Show which URL is being used before the call
-  var statsEl2=document.querySelector('.cd-stats');
-  if(statsEl2&&!statsEl2.dataset.tracing){
-    statsEl2.dataset.tracing='1';
-    var dbgDiv=document.createElement('div');
-    dbgDiv.style.cssText='font-size:10px;color:#94a3b8;padding:4px 0;grid-column:1/-1';
-    dbgDiv.textContent='AJAX: '+AJAX;
-    statsEl2.appendChild(dbgDiv);
-  }
   ajax('nas_get_dashboard_stats',{}).then(function(d){
     var set=function(id,v){var el=document.getElementById(id);if(el)el.textContent=v;};
     set('cd-s-total',d.total_bookings??'0');
