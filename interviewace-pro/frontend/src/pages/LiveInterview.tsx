@@ -13,6 +13,28 @@ type VoiceState = 'idle' | 'speaking' | 'listening' | 'transcribing' | 'thinking
 
 const SILENT_AUDIO_DATA_URI = 'data:audio/wav;base64,UklGRiwAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQgAAAAAAAAAAAAAAA==';
 
+function micErrorMessage(err: unknown): string {
+  const e = err as DOMException;
+  if (e?.name === 'NotAllowedError' || e?.name === 'PermissionDeniedError') {
+    return 'Microphone access denied. Allow it in browser settings and refresh.';
+  }
+  if (e?.name === 'NotFoundError' || e?.name === 'DevicesNotFoundError') {
+    return 'No microphone found. Connect a microphone and try again.';
+  }
+  if (!window.isSecureContext) {
+    return 'Microphone requires HTTPS. Open this site with https:// and try again.';
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    return 'Microphone is not available in this browser.';
+  }
+  const detail = e?.message ? ` (${e.message})` : '';
+  return `Could not start the microphone${detail}. Tap the mic button below to try again.`;
+}
+
+function streamIsLive(stream: MediaStream | null): boolean {
+  return Boolean(stream && stream.getAudioTracks().some((t) => t.readyState === 'live'));
+}
+
 function photoWrapClass(voiceState: VoiceState, submitting: boolean): string {
   if (submitting || voiceState === 'thinking') return 'ia-photo-wrap--thinking';
   if (voiceState === 'speaking') return 'ia-photo-wrap--speaking';
@@ -170,17 +192,20 @@ export default function LiveInterview() {
     }
   }, [interviewId]);
 
-  const stopStreaming = useCallback(() => {
+  const closeDeepgramSocket = useCallback(() => {
     streamingRef.current = false;
-    if (dgSocketRef.current) {
-      try {
-        if (dgSocketRef.current.readyState === WebSocket.OPEN) {
-          dgSocketRef.current.send(JSON.stringify({ type: 'CloseStream' }));
-        }
-        dgSocketRef.current.close();
-      } catch { /* ignore */ }
-      dgSocketRef.current = null;
-    }
+    if (!dgSocketRef.current) return;
+    try {
+      if (dgSocketRef.current.readyState === WebSocket.OPEN) {
+        dgSocketRef.current.send(JSON.stringify({ type: 'CloseStream' }));
+      }
+      dgSocketRef.current.close();
+    } catch { /* ignore */ }
+    dgSocketRef.current = null;
+  }, []);
+
+  const releaseMicStream = useCallback(() => {
+    closeDeepgramSocket();
     if (mediaRecorderRef.current?.state === 'recording') {
       mediaRecorderRef.current.stop();
     }
@@ -189,14 +214,42 @@ export default function LiveInterview() {
       streamRef.current.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     }
+  }, [closeDeepgramSocket]);
+
+  const acquireMicStream = useCallback(async (): Promise<MediaStream> => {
+    if (streamIsLive(streamRef.current)) return streamRef.current!;
+    if (!window.isSecureContext) {
+      throw new DOMException('Microphone requires HTTPS', 'SecurityError');
+    }
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new DOMException('Microphone API unavailable', 'NotSupportedError');
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    streamRef.current = stream;
+    return stream;
   }, []);
+
+  const startBasicRecording = useCallback((stream: MediaStream) => {
+    streamingRef.current = false;
+    closeDeepgramSocket();
+    if (mediaRecorderRef.current?.state === 'recording') {
+      mediaRecorderRef.current.stop();
+    }
+    const mr = new MediaRecorder(stream);
+    chunksRef.current = [];
+    mr.ondataavailable = (e) => chunksRef.current.push(e.data);
+    mr.start();
+    mediaRecorderRef.current = mr;
+    setRecording(true);
+    setVoiceState('listening');
+  }, [closeDeepgramSocket]);
 
   const startListening = useCallback(async () => {
     if (!voiceModeRef.current) return;
     setDraft('');
+    setError(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      streamRef.current = stream;
+      const stream = await acquireMicStream();
 
       // Attempt live streaming transcription via short-lived Deepgram token.
       // Falls back to record-then-transcribe if token/stream setup fails.
@@ -230,7 +283,11 @@ export default function LiveInterview() {
           } catch { /* ignore malformed frames */ }
         };
 
-        const mr = new MediaRecorder(stream, { mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm' });
+        if (mediaRecorderRef.current?.state === 'recording') {
+          mediaRecorderRef.current.stop();
+        }
+        const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm';
+        const mr = new MediaRecorder(stream, { mimeType: mime });
         chunksRef.current = [];
         mr.ondataavailable = (e) => {
           if (e.data.size > 0 && ws.readyState === WebSocket.OPEN) {
@@ -245,26 +302,17 @@ export default function LiveInterview() {
         return;
       } catch {
         // Streaming unavailable — secure fallback: record clip, transcribe server-side.
-        // See api/class-api-speech.php::stt_stream_token() for why this may fail
-        // (e.g. Deepgram project lookup or temp-key minting not configured).
-        stopStreaming();
-        const mr = new MediaRecorder(stream);
-        chunksRef.current = [];
-        mr.ondataavailable = (e) => chunksRef.current.push(e.data);
-        mr.start();
-        mediaRecorderRef.current = mr;
-        mr.addEventListener('stop', () => {
-          stream.getTracks().forEach((t) => t.stop());
-        });
-        setRecording(true);
-        setVoiceState('listening');
+        // IMPORTANT: only close the WebSocket here, NOT the mic stream — killing the
+        // stream then trying MediaRecorder was the root cause of the false
+        // "Microphone access denied" error users saw when streaming setup failed.
+        closeDeepgramSocket();
+        startBasicRecording(stream);
       }
-    } catch {
-      setVoiceMode(false);
-      setVoiceUnavailable('Microphone access denied. Allow it in browser settings and refresh.');
+    } catch (err) {
+      setVoiceUnavailable(micErrorMessage(err));
       setVoiceState('idle');
     }
-  }, [interviewId, stopStreaming]);
+  }, [interviewId, acquireMicStream, closeDeepgramSocket, startBasicRecording]);
 
   const stopListeningAndTranscribe = useCallback(async () => {
     const mr = mediaRecorderRef.current;
@@ -273,7 +321,11 @@ export default function LiveInterview() {
     setTranscribing(true);
 
     if (streamingRef.current) {
-      stopStreaming();
+      closeDeepgramSocket();
+      if (mediaRecorderRef.current?.state === 'recording') {
+        mediaRecorderRef.current.stop();
+      }
+      mediaRecorderRef.current = null;
       setRecording(false);
       const transcript = draft.replace(/\s*\[…\]$/, '').trim();
       setTranscribing(false);
@@ -317,7 +369,7 @@ export default function LiveInterview() {
       setVoiceState('idle');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [interviewId, pendingTurnNumber, draft, stopStreaming]);
+  }, [interviewId, pendingTurnNumber, draft, closeDeepgramSocket]);
 
   const submitTurn = useCallback(
     async (transcript: string, turnNumber: number) => {
@@ -359,7 +411,7 @@ export default function LiveInterview() {
   const submitTurnRef = useRef(submitTurn);
   useEffect(() => { submitTurnRef.current = submitTurn; }, [submitTurn]);
 
-  useEffect(() => () => stopStreaming(), [stopStreaming]);
+  useEffect(() => () => releaseMicStream(), [releaseMicStream]);
 
   function onSend() {
     const text = draft.trim();
@@ -377,7 +429,7 @@ export default function LiveInterview() {
   async function onEndEarly() {
     if (!window.confirm('End this interview now? You can still view your report for what you’ve completed so far.')) return;
     audioRef.current?.pause();
-    stopStreaming();
+    releaseMicStream();
     setEnding(true);
     try {
       const r = await interviewsApi.end(interviewId);
@@ -394,6 +446,8 @@ export default function LiveInterview() {
       return;
     }
     if (voiceMode && !submitting && voiceState !== 'speaking') {
+      setVoiceUnavailable(null);
+      setError(null);
       void startListening();
     }
   }
@@ -404,12 +458,11 @@ export default function LiveInterview() {
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await acquireMicStream();
       const mr = new MediaRecorder(stream);
       chunksRef.current = [];
       mr.ondataavailable = (e) => chunksRef.current.push(e.data);
       mr.onstop = async () => {
-        stream.getTracks().forEach((t) => t.stop());
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
         setTranscribing(true);
         try {
@@ -425,8 +478,8 @@ export default function LiveInterview() {
       mediaRecorderRef.current = mr;
       setRecording(true);
       setVoiceState('listening');
-    } catch {
-      setError({ code: 'ia_mic', message: 'Microphone access denied. Allow it in browser settings and refresh.', status: 0, retryable: false });
+    } catch (err) {
+      setError({ code: 'ia_mic', message: micErrorMessage(err), status: 0, retryable: false });
     }
   }
 
@@ -434,6 +487,19 @@ export default function LiveInterview() {
     const primed = new Audio(SILENT_AUDIO_DATA_URI);
     primedAudioRef.current = primed;
     const primePlay = primed.play();
+
+    // Request mic permission NOW, inside the click handler, before any long async
+    // work (TTS playback). Browsers tie getUserMedia to the user gesture — calling
+    // it later after Priya finishes speaking often fails even when mic isn't blocked.
+    let micReady = false;
+    try {
+      await acquireMicStream();
+      micReady = true;
+    } catch (err) {
+      setVoiceUnavailable(micErrorMessage(err));
+      setVoiceMode(false);
+    }
+
     setStarted(true);
     try {
       await primePlay;
@@ -441,7 +507,7 @@ export default function LiveInterview() {
     } catch { /* fall through to text mode */ }
     if (state.openingLine) {
       await speak(state.openingLine);
-      if (voiceModeRef.current) void startListening();
+      if (voiceModeRef.current && micReady) void startListening();
     }
   }
 

@@ -3,7 +3,7 @@
  * Plugin Name: InterviewAce
  * Plugin URI:  https://interviewace.in
  * Description: AI-powered voice interview platform — serves from root domain.
- * Version:     3.0.7
+ * Version:     3.0.8
  * Author:      InterviewAce
  * License:     Proprietary
  * Text Domain: interviewace
@@ -41,7 +41,7 @@ defined('ABSPATH') || exit;
  * discipline. Bumped here, and MUST be bumped on every future frontend
  * rebuild without exception.
  */
-define('IA_VERSION', '3.0.7');
+define('IA_VERSION', '3.0.8');
 define('IA_MIN_PHP',  '7.4');
 define('IA_MIN_WP',   '6.0');
 define('IA_MIN_MYSQL','5.7');
