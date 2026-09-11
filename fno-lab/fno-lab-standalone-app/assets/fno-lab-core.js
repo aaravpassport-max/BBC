@@ -238,8 +238,8 @@ function checkScalpingCapitalPreservation(brain, ctx, opts) {
     const ids = (brain.pretradeGateCheck.triggered || []).map(t => t.id);
     if (fa === 'block' || fa === 'reject') {
       reasons.push(`Pre-trade gate would block (${ids.join(', ') || fa})`);
-    } else if (fa === 'require_confirmation' && ids.some(id => id === 'FM077' || id === 'FM032' || id === 'FM031')) {
-      reasons.push(`Operator/trap warning (${ids.filter(id => id === 'FM077' || id === 'FM032' || id === 'FM031').join(', ')})`);
+    } else if (fa === 'require_confirmation' && ids.some(id => id === 'FM077' || id === 'FM032' || id === 'FM031' || id === 'FM158' || id === 'FM159')) {
+      reasons.push(`Operator/trap warning (${ids.filter(id => id === 'FM077' || id === 'FM032' || id === 'FM031' || id === 'FM158' || id === 'FM159').join(', ')})`);
     }
   }
   const journalToday = opts.journalToday || [];
@@ -8974,6 +8974,25 @@ function evaluatePreTradeFailureModes(evalCtx) {
       check('FM032', 'Real wrong-side-of-market positioning check fires', 'high', 'require_confirmation', wrongSideFM.reason, wrongSideFM.isWrongSideWarning === true);
     }
 
+    if (typeof computeLiquidityTrapEngine === 'function' && ctx.liquidityInputs) {
+      const liqFM = computeLiquidityTrapEngine(ctx, brain, ctx.liquidityInputs);
+      const tradeDir = optionType === 'CE' ? 'bullish' : optionType === 'PE' ? 'bearish' : null;
+      const opposesBull = tradeDir === 'bullish' && (liqFM.probabilities.bullTrap > 0.5 || liqFM.stages.activePattern === 'ce_trap_sequence');
+      const opposesBear = tradeDir === 'bearish' && (liqFM.probabilities.bearTrap > 0.5 || liqFM.stages.activePattern === 'pe_trap_sequence');
+      const opposes = opposesBull || opposesBear;
+      check('FM157', 'Significant liquidity trap score opposes trade direction', 'medium', 'reduce_confidence',
+        `Trap score ${liqFM.trapScore}/100 (${liqFM.trapScoreLabel}) — ${liqFM.state.replace(/_/g, ' ')}`,
+        liqFM.trapScore >= 51 && opposes);
+      check('FM158', 'Extreme liquidity trap score opposes trade direction', 'high', 'require_confirmation',
+        `Trap score ${liqFM.trapScore}/100 — ${liqFM.sweep.detected ? liqFM.sweep.type : liqFM.stages.activePattern || 'multi-factor trap evidence'}`,
+        liqFM.trapScore >= 86 && opposes);
+      const sweepOpposes = liqFM.sweep.detected && (
+        (tradeDir === 'bullish' && liqFM.sweep.direction === 'bearish_trap') ||
+        (tradeDir === 'bearish' && liqFM.sweep.direction === 'bullish_trap')
+      );
+      check('FM159', 'Liquidity sweep detected against trade direction', 'high', 'require_confirmation', liqFM.sweep.reason || 'Liquidity sweep active', sweepOpposes);
+    }
+
     // FM156: real, NEW this pass - the "IV sanity ceiling" investigation
     // (see checkIVInternalConsistency's own TRACE for why this is a
     // mathematically-derived BSM-inversion consistency check, never a
@@ -15940,8 +15959,31 @@ function render(){
         ceSpreadPct: snapCeSpread, peSpreadPct: snapPeSpread
       });
 
+      const priceChangePctForLiq = (closes.length > 1 && closes[0] > 0) ? ((spot - closes[0]) / closes[0] * 100) : null;
+      let ceOIChLiq = 0, peOIChLiq = 0;
+      (rec && rec.data || []).forEach(d => {
+        if (d.CE) ceOIChLiq += d.CE.changeinOpenInterest || 0;
+        if (d.PE) peOIChLiq += d.PE.changeinOpenInterest || 0;
+      });
+      const netOIChangeForLiq = ceOIChLiq + peOIChLiq;
+      ctx.liquidityInputs = {
+        netOIChange: netOIChangeForLiq,
+        priceChangePct: priceChangePctForLiq,
+        breakoutCondition: computeBreakoutReversalCondition(ctx.candles, 20),
+        reversalSignal: computeReversalSignal(ctx.candles),
+        trapSignal: computeTrapSignal(netOIChangeForLiq, priceChangePctForLiq),
+      };
+
       const brain=evaluateBrain(ctx);
       lastBrain=brain;
+      if (typeof computeLiquidityTrapEngine === 'function') {
+        const liqEngine = computeLiquidityTrapEngine(ctx, brain, ctx.liquidityInputs);
+        const liqOpt = brain.decision === 'BUY_READY' ? 'CE' : brain.decision === 'SELL_READY' ? 'PE' : null;
+        applyLiquidityTrapInfluence(brain, liqEngine, liqOpt);
+        logLiquidityTrapObservation(liqEngine, sym, spot, brain);
+        renderLiquidityBehaviourPanel(liqEngine);
+        ctx.liquidityBehaviour = liqEngine;
+      }
       // Real, NEW this pass (Advanced Trading Intelligence spec §3/§16) -
       // cached to a window global, same real pattern as
       // window.FNO_SUGGESTED_OBSERVATIONS, so renderDecisionIntelligence()

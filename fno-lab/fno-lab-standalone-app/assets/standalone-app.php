@@ -235,6 +235,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
 [data-theme="light"] #wrongSideCheckBox,
 [data-theme="light"] #hypothesisStatsBox,
 [data-theme="light"] #autonomousModeStatus,
+[data-theme="light"] #liquidityBehaviourBox,
 [data-theme="light"] #factorRegistryCoverage{
   color:var(--muted-text)!important;
 }
@@ -630,6 +631,12 @@ body.fno-nse-disabled .nse-only-section{display:none}
         <div id="breakoutTrapCheckBox" style="font-size:12px">Loading...</div>
       </div>
 
+      <div class="card card-accent-info">
+        <h3>🌊 Liquidity & Trap Behaviour Engine <span class="card-subtitle">Crowding, sweeps, between-level path, CE/PE trap sequences</span></h3>
+        <div style="font-size:10px;color:#64748b;margin-bottom:8px">Probabilistic analysis only — integrates Operator Intel, OI trap, failed breakout, and liquidity-map signals. Does NOT use simplistic "more CE buyers = down" rules. Scores feed the main brain as soft adjustments; extreme contradictory evidence can trigger pre-trade gates.</div>
+        <div id="liquidityBehaviourBox" style="font-size:12px">Loading...</div>
+      </div>
+
       <div class="card">
         <h3>🔊 Volume Confirmation <span class="card-subtitle">Does volume confirm the activity?</span></h3>
         <div id="volumeConfirmationBox" style="font-size:12px">Loading...</div>
@@ -919,6 +926,7 @@ window.FNO_FACTORS_CATALOG = <?php echo $json ? wp_json_encode($json) : '[]'; ?>
 </script>
 <script type="module">
 <?php include __DIR__ . '/fno-lab-core.js'; ?>
+<?php include __DIR__ . '/liquidity-behaviour-engine.js'; ?>
 <?php include __DIR__ . '/strategy-diagnostic-report.js'; ?>
 </script>
 <?php endif; ?>
