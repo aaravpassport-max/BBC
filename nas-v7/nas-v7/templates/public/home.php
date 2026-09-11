@@ -351,7 +351,7 @@ if ( $nhp_embed ) {
 <!-- Trust ribbon -->
 <section class="nhp-trust-ribbon" aria-label="Platform guarantees">
   <div class="nhp-container nhp-trust-ribbon__inner">
-    <div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-badge-check"></i></span> Authorized Publisher Network</div>
+    <div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-award"></i></span> Authorized Publisher Network</div>
     <div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-indian-rupee-sign"></i></span> Lowest Rates Guaranteed</div>
     <div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-receipt"></i></span> GST Invoice Included</div>
     <div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-headset"></i></span> Dedicated Booking Support</div>

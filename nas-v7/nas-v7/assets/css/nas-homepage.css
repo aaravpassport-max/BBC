@@ -893,7 +893,8 @@
 }
 
 .nhp-section--marketplace {
-  background: linear-gradient(180deg, #fff 0%, #f0f9ff 100%);
+  background: linear-gradient(180deg, #f0f9ff 0%, #fff 100%);
+  padding-top: 0;
 }
 
 .nhp-paper-card {
