@@ -3,7 +3,7 @@
  * Plugin Name: NewspaperAds SaaS — Professional Booking Platform
  * Plugin URI:  https://your-domain.com/newspaper-ads-saas
  * Description: Enterprise-grade newspaper ad booking SaaS platform with custom dashboards, workflow tracking, AI content, real-time chat, WhatsApp integration, and 300 city landing pages.
- * Version:     3.5.1
+ * Version:     3.5.2
  * Author:      Your Agency
  * Author URI:  https://your-domain.com
  * License:     GPL-2.0+
@@ -20,7 +20,7 @@ if ( ! function_exists('NAS_get_config') ) {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-define( 'NAS_VERSION',    '3.5.1' );
+define( 'NAS_VERSION',    '3.5.2' );
 define( 'NAS_FILE',       __FILE__ );
 define( 'NAS_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'NAS_PATH',       NAS_DIR );        // alias used throughout codebase
@@ -202,7 +202,7 @@ add_action( 'init', function () {
         'nas_blog'                 => 'templates/public/blog-index.php',
         'nas_blog_post'            => 'templates/public/blog-post.php',
         'nas_payment'              => 'templates/payment/checkout.php',
-        'nas_homepage'             => 'templates/public/home.php',
+        // nas_homepage registered separately below with embed-mode support
         'nas_city_index'           => 'templates/city-pages/city-landing.php',
         // v3 Super Combo pages — these were missing and left those pages blank
         'nas_pricing'              => 'templates/pages/pricing.php',
@@ -745,8 +745,11 @@ add_filter( 'plugin_action_links_' . plugin_basename( NAS_FILE ), function ( $li
     return array_merge( $portal_links, $links );
 } );
 
-// ── Homepage shortcode ──────────────────────────────────────────────────────
-add_shortcode( 'nas_homepage', function() {
+// ── Homepage shortcode (embed mode — no nested HTML document) ───────────────
+add_shortcode( 'nas_homepage', function () {
+    if ( ! defined( 'NAS_HOME_EMBED' ) ) {
+        define( 'NAS_HOME_EMBED', true );
+    }
     ob_start();
     include NAS_DIR . 'templates/public/home.php';
     return ob_get_clean();
@@ -778,14 +781,26 @@ add_filter( 'template_include', function( $template ) {
     return $template;
 }, 999 );
 
-// ── Homepage: serve full-page template (bypasses theme entirely) ─────────────
-add_filter( 'template_include', function( $template ) {
-    if ( is_front_page() && get_option('nas_homepage_enabled') ) {
-        $hp = NAS_DIR . 'templates/public/home.php';
-        if ( file_exists($hp) ) return $hp;
+// ── Homepage: always serve standalone home.php on NAS front page (priority 1000) ─
+add_filter( 'template_include', function ( $template ) {
+    if ( is_admin() || wp_doing_ajax() || ! is_front_page() ) {
+        return $template;
     }
-    return $template;
-} );
+
+    $hp = NAS_DIR . 'templates/public/home.php';
+    if ( ! file_exists( $hp ) ) {
+        return $template;
+    }
+
+    $page_id = (int) get_queried_object_id();
+    $content = $page_id ? (string) get_post_field( 'post_content', $page_id ) : '';
+
+    $use_nas_home = get_option( 'nas_homepage_enabled' )
+        || has_shortcode( $content, 'nas_homepage' )
+        || is_page( [ 'nas-homepage', 'nas-home', 'homepage', 'home' ] );
+
+    return $use_nas_home ? $hp : $template;
+}, 1000 );
 
 // ── Blog single post page ────────────────────────────────────────────────────
 add_filter( 'template_include', function( $template ) {
