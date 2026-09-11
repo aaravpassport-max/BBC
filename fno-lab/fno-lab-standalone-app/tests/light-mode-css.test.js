@@ -11,5 +11,6 @@ assert.ok(/\[data-theme="light"\] #fno-root \[style\*="background:#020617"\]/.te
 assert.ok(/\[data-theme="light"\] #fno-root \[style\*="color:#e2e8f0"\]/.test(php), 'light gray text remapped for light backgrounds');
 assert.ok(/\[data-theme="light"\] \.green\{background:#dcfce7/.test(php), 'semantic badges get light-mode variants');
 assert.ok(/#failureModeLibraryBox/.test(php), 'static panel boxes get light-mode text override');
+assert.ok(/\[data-theme="light"\] #scalpingSessionReadinessBox/.test(php), 'scalping profit profile panel gets light-mode contrast');
 
 console.log('All light-mode-css tests passed.');

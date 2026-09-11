@@ -708,6 +708,10 @@ function renderScalpingSessionReadiness(brain, ctx) {
   if (!box) return;
   if (!isScalpingProfitProfileActive()) { box.style.display = 'none'; return; }
   box.style.display = 'block';
+  const tp = fnoThemePalette();
+  box.style.background = tp.warnBg;
+  box.style.borderColor = tp.warnBorder;
+  box.style.color = tp.text;
   const thresholds = getEffectiveDecisionThresholds();
   const ds = (brain && typeof brain.directionalScore === 'number') ? brain.directionalScore : null;
   const wds = (brain && typeof brain.weightedDirectionalScore === 'number') ? brain.weightedDirectionalScore : null;
@@ -746,7 +750,7 @@ function renderScalpingSessionReadiness(brain, ctx) {
     ? '🛡️ Capital preservation ON (High confidence, operator/trap blocks, 1 loss/day cap)'
     : 'Capital preservation OFF';
   box.innerHTML = [
-    `<b style="color:#fde68a">⚡ Scalping Profit Profile</b> <span style="color:#94a3b8">(FM ${fmMode}, realistic fills, ${bracketTxt})</span>`,
+    `<b style="color:${tp.warn}">⚡ Scalping Profit Profile</b> <span style="color:${tp.muted}">(FM ${fmMode}, realistic fills, ${bracketTxt})</span>`,
     `Live thresholds: BUY ≥ ${thresholds.buyThreshold}, SELL ≤ ${thresholds.sellThreshold}`,
     ds !== null
       ? `Directional ${ds.toFixed(1)} — ${buyGap > 0 ? `${buyGap.toFixed(1)} pts to BUY` : '✓ BUY zone'} · ${sellGap > 0 ? `${sellGap.toFixed(1)} pts to SELL` : '✓ SELL zone'}`
@@ -758,7 +762,7 @@ function renderScalpingSessionReadiness(brain, ctx) {
     microTxt,
     `Size: ${lotTxt}`,
     preserveTxt,
-  ].map(line => `<div style="padding:3px 0;font-size:11px">${line}</div>`).join('');
+  ].map(line => `<div style="padding:3px 0;font-size:11px;color:${tp.text}">${line}</div>`).join('');
 }
 
 /**
@@ -921,7 +925,7 @@ function renderEligibilityFunnel(sym) {
   ).join('') || '<span style="color:#64748b">No specific block reasons recorded for setups yet.</span>';
 
   const alertHtml = funnel.alert
-    ? `<div style="padding:8px;margin-bottom:10px;border-radius:8px;background:${funnel.alert.level === 'critical' ? '#450a0a' : '#422006'};border:1px solid ${funnel.alert.level === 'critical' ? '#991b1b' : '#92400e'};color:${funnel.alert.level === 'critical' ? '#fca5a5' : '#fde68a'};font-size:11px"><b>⚠️ ${funnel.alert.level === 'critical' ? 'Action needed' : 'Review suggested'}:</b> ${escapeHtml(funnel.alert.message)}</div>`
+    ? `<div style="padding:8px;margin-bottom:10px;border-radius:8px;background:${funnel.alert.level === 'critical' ? tp.failBg : tp.warnBg};border:1px solid ${funnel.alert.level === 'critical' ? tp.failBorder : tp.warnBorder};color:${funnel.alert.level === 'critical' ? tp.fail : tp.warn};font-size:11px"><b>⚠️ ${funnel.alert.level === 'critical' ? 'Action needed' : 'Review suggested'}:</b> ${escapeHtml(funnel.alert.message)}</div>`
     : '';
 
   box.innerHTML = `
@@ -19505,7 +19509,12 @@ function updateEffectiveTradingTypeBadge() {
   if (!badge) return;
   const isSwing = fnoSettings.get().tradingTypes.swing;
   const type = resolveDecisionTradingType();
-  const colors = { scalping: ['#422006', '#fde68a'], intraday: ['#0c1a2e', '#93c5fd'], swing: ['#2e1065', '#c4b5fd'] };
+  const tp = fnoThemePalette();
+  const colors = {
+    scalping: [tp.warnBg, tp.warn],
+    intraday: [tp.waitBg, tp.waitText],
+    swing: [tp.panelPurple, tp.accentPurple],
+  };
   const labels = { scalping: '⚡ Scalping', intraday: '📊 Intraday', swing: '📅 Swing' };
   const [bg, fg] = colors[type] || colors.intraday;
   badge.style.background = bg; badge.style.color = fg;

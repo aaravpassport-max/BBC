@@ -238,6 +238,23 @@ body.fno-nse-disabled .nse-only-section{display:none}
 [data-theme="light"] #factorRegistryCoverage{
   color:var(--muted-text)!important;
 }
+[data-theme="light"] #scalpingSessionReadinessBox,
+[data-theme="light"] #settingsModalOverlay [style*="background:#422006"],
+[data-theme="light"] #settingsModalOverlay [style*="background: #422006"]{
+  background:#fef3c7!important;
+  border-color:#fcd34d!important;
+  color:#92400e!important;
+}
+[data-theme="light"] #scalpingSessionReadinessBox [style*="color:#fde68a"],
+[data-theme="light"] #settingsModalOverlay [style*="background:#422006"] [style*="color:#fde68a"],
+[data-theme="light"] #settingsModalOverlay [style*="background: #422006"] [style*="color:#fde68a"]{
+  color:#92400e!important;
+}
+[data-theme="light"] #scalpingSessionReadinessBox [style*="color:#94a3b8"],
+[data-theme="light"] #settingsModalOverlay [style*="background:#422006"] [style*="color:#94a3b8"],
+[data-theme="light"] #settingsModalOverlay [style*="background: #422006"] [style*="color:#94a3b8"]{
+  color:#78350f!important;
+}
 [data-theme="light"] #dailyChecks button[data-daily-btn]{
   color:var(--muted-text)!important;
 }

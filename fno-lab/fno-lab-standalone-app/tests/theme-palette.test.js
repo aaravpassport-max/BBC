@@ -16,6 +16,7 @@ assert.strictEqual(light.text, '#0f172a');
 assert.strictEqual(light.panel, '#f1f5f9');
 assert.strictEqual(light.accentBlue, '#1d4ed8');
 assert.ok(/renderOptionChainTable[\s\S]*fnoThemePalette\(\)/.test(coreSrc));
+assert.ok(/renderScalpingSessionReadiness[\s\S]*fnoThemePalette\(\)/.test(coreSrc));
 assert.ok(/brain\.decision==='BUY_READY'[\s\S]*tpDec\.passBg/.test(coreSrc));
 
 console.log('All theme-palette tests passed.');
