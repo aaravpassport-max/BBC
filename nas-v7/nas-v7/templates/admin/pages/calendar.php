@@ -5,7 +5,7 @@
  */
 if (!defined('ABSPATH')) exit;
 $C = json_encode([
-    'ajaxUrl'  => admin_url('admin-ajax.php'),
+    'ajaxUrl'  => function_exists('nas_get_ajax_url') ? nas_get_ajax_url( (int) get_option('nas_page_admin_dashboard') ?: null ) : admin_url('admin-ajax.php'),
     'nonce'    => wp_create_nonce('nas_action'),
     // FIX (audit): adminUrl was never included here, but calOpenDetail() references
     // CAL.adminUrl when linking to a booking's detail page — it was always undefined.

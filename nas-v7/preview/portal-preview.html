@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NAS Portal Preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<link rel="stylesheet" href="/nas-v7/assets/css/nas-core.css">
+<link rel="stylesheet" href="/nas-v7/assets/css/nas-portal.css">
+<link rel="stylesheet" href="/nas-v7/assets/css/nas-homepage.css">
+<style>
+body{margin:0;background:#fff}
+.preview-nav{position:sticky;top:0;z-index:9999;background:#0c1222;padding:12px 20px;display:flex;gap:10px;flex-wrap:wrap}
+.preview-nav a{color:#fff;text-decoration:none;padding:8px 14px;border-radius:8px;background:rgba(255,255,255,.1);font:600 13px Inter,sans-serif}
+.preview-nav a.active{background:#F59E0B}
+.preview-page{display:none}
+.preview-page.active{display:block}
+#wpadminbar{display:none!important}
+</style>
+</head>
+<body class="nas-fullpage nas-public-portal">
+
+<nav class="preview-nav">
+  <a href="#contact" class="active" onclick="show('contact',this)">Contact</a>
+  <a href="#faq" onclick="show('faq',this)">FAQ</a>
+  <a href="#newspapers" onclick="show('newspapers',this)">Newspapers</a>
+  <a href="#about" onclick="show('about',this)">About</a>
+  <a href="#pricing" onclick="show('pricing',this)">Pricing</a>
+</nav>
+
+<!-- CONTACT -->
+<div id="contact" class="preview-page active">
+<header class="nhp-topbar"><div class="nhp-container nhp-topbar__inner"><div class="nhp-topbar__contacts"><span class="nhp-topbar__item"><i class="fa-solid fa-phone"></i> +91 98765 43210</span></div></div></header>
+<header class="nhp-header nhp-header--light"><div class="nhp-container nhp-header__inner"><a class="nhp-header__brand" href="#"><span class="nhp-header__logo-text">NewspaperAds</span></a><nav class="nhp-header__nav"><a class="nhp-header__link" href="#">Home</a><a class="nhp-header__link" href="#">Newspapers</a><a class="nhp-header__link is-active" href="#">Contact</a></nav><div class="nhp-header__actions"><a class="nhp-btn nhp-btn--primary" href="#">Book an Ad</a></div></div></header>
+<main class="nas-main-content">
+<div class="nas-portal-page">
+  <div class="nas-portal-wrap"><div class="nas-portal-hero"><span class="nas-portal-hero__eyebrow">Get in Touch</span><h1>Contact <span>Our Team</span></h1><p>Questions about rates, publications, ad formatting, or an existing booking?</p></div></div>
+  <section class="nhp-trust-ribbon"><div class="nhp-container nhp-trust-ribbon__inner"><div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-award"></i></span> Authorized Publisher Network</div><div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-indian-rupee-sign"></i></span> Lowest Rates Guaranteed</div><div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-receipt"></i></span> GST Invoice Included</div><div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-headset"></i></span> Dedicated Booking Support</div></div></section>
+  <section class="nas-portal-section nas-portal-section--after-ribbon"><div class="nhp-container"><div class="nas-contact-grid"><div class="nas-contact-info"><h2>Reach Us Directly</h2><p>Our booking specialists can help you choose the right newspaper.</p><div class="nas-ci-row"><div class="nas-ci-icon"><i class="fa-solid fa-phone"></i></div><div class="nas-ci-text"><strong>Phone</strong><span>+91 98765 43210</span></div></div><div class="nas-ci-row"><div class="nas-ci-icon"><i class="fa-solid fa-clock"></i></div><div class="nas-ci-text"><strong>Support Hours</strong><span>Mon–Sat, 10:00 AM – 6:00 PM IST</span></div></div></div><div class="nas-contact-form-card"><h3>Send Us a Message</h3><div class="nas-form-row"><div class="nas-field"><label>Name</label><input type="text" placeholder="Rahul Sharma"></div><div class="nas-field"><label>Email</label><input type="email" placeholder="rahul@example.com"></div></div><div class="nas-field"><label>Message</label><textarea rows="4" placeholder="Tell us how we can help…"></textarea></div><button class="nas-submit-btn">Send Message <i class="fa-solid fa-paper-plane"></i></button></div></div></div></section>
+</div>
+</main>
+<footer class="nhp-footer"><div class="nhp-container"><div class="nhp-footer__grid"><div><div class="nhp-footer__brand-name">NewspaperAds</div><p class="nhp-footer__tagline">Book newspaper ads online across India.</p></div></div></div></footer>
+</div>
+
+<!-- FAQ -->
+<div id="faq" class="preview-page">
+<header class="nhp-header nhp-header--light"><div class="nhp-container nhp-header__inner"><a class="nhp-header__brand" href="#"><span class="nhp-header__logo-text">NewspaperAds</span></a></div></header>
+<main class="nas-main-content">
+<div class="nas-portal-page">
+  <div class="nas-portal-wrap"><div class="nas-portal-hero"><span class="nas-portal-hero__eyebrow">Help Center</span><h1>Frequently Asked <span>Questions</span></h1><p>Find answers about booking newspaper ads, payments, and publication timelines.</p></div></div>
+  <section class="nhp-trust-ribbon"><div class="nhp-container nhp-trust-ribbon__inner"><div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-award"></i></span> Authorized Publisher Network</div><div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-indian-rupee-sign"></i></span> Lowest Rates Guaranteed</div><div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-receipt"></i></span> GST Invoice Included</div><div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-headset"></i></span> Dedicated Booking Support</div></div></section>
+  <section class="nas-portal-section nas-portal-section--after-ribbon"><div class="nhp-container"><div class="nas-faq-layout"><aside class="nas-faq-sidebar"><div class="nas-faq-help-card"><div class="nas-faq-help-card__icon"><i class="fa-solid fa-headset"></i></div><h3>Need personal help?</h3><p>Our support team can assist with newspaper selection.</p><a href="#" class="nas-btn nas-btn-primary">Contact Support</a></div><div class="nas-faq-search-wrap"><i class="fa-solid fa-search"></i><input type="search" placeholder="Search questions…"></div><div class="nas-faq-cats"><button type="button" class="nas-faq-cat active">All</button><button type="button" class="nas-faq-cat">Booking</button></div></aside><div><div class="nas-faq-list"><div class="nas-faq-item nas-faq-item--c0 is-open"><button type="button" class="nas-faq-q"><span class="nas-faq-q__num">01</span><span class="nas-faq-q__text">How do I book a newspaper ad?</span><i class="fa-solid fa-chevron-down nas-faq-q__chevron"></i></button><div class="nas-faq-a">Select your city and newspaper, choose ad format, enter content, and pay online.</div></div><div class="nas-faq-item nas-faq-item--c1"><button type="button" class="nas-faq-q"><span class="nas-faq-q__num">02</span><span class="nas-faq-q__text">What payment methods are accepted?</span><i class="fa-solid fa-chevron-down nas-faq-q__chevron"></i></button><div class="nas-faq-a">UPI, credit/debit cards, and net banking via Razorpay.</div></div></div><div class="nas-faq-cta-bar">Can't find your answer? <a href="#">Talk to our support team →</a></div></div></div></div></section>
+</div>
+</main>
+</div>
+
+<!-- NEWSPAPERS -->
+<div id="newspapers" class="preview-page">
+<header class="nhp-header nhp-header--light"><div class="nhp-container nhp-header__inner"><a class="nhp-header__brand" href="#"><span class="nhp-header__logo-text">NewspaperAds</span></a></div></header>
+<main class="nas-main-content">
+<div class="nas-portal-page">
+  <div class="nas-portal-wrap"><div class="nas-portal-hero"><span class="nas-portal-hero__eyebrow">Publications</span><h1>India's Leading <span>Newspapers</span></h1><p>50 verified publications · English, Hindi &amp; regional languages</p><input type="search" class="nas-portal-search-hero" placeholder="Search newspapers by name…"></div></div>
+  <section class="nhp-trust-ribbon"><div class="nhp-container nhp-trust-ribbon__inner"><div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-award"></i></span> Authorized Publisher Network</div><div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-indian-rupee-sign"></i></span> Lowest Rates Guaranteed</div><div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-receipt"></i></span> GST Invoice Included</div><div class="nhp-trust-ribbon__item"><span class="nhp-trust-ribbon__icon"><i class="fa-solid fa-headset"></i></span> Dedicated Booking Support</div></div></section>
+  <section class="nhp-section nhp-section--marketplace nas-portal-section--compact"><div class="nhp-container"><div class="nhp-section__header nhp-section__header--center"><span class="nhp-section__eyebrow">Featured</span><h2 class="nhp-section__title">Most Booked Publications</h2></div><div class="nhp-papers-grid"><article class="nhp-paper-card nhp-paper-card--a0"><div class="nhp-paper-card__top"><div class="nhp-paper-card__logo"><span class="nhp-paper-card__logo-fallback">TO</span></div><div><h3 class="nhp-paper-card__name">Times of India</h3><p class="nhp-paper-card__meta">English</p></div></div><p class="nhp-paper-card__price">From <strong>₹25</strong>/word</p><a href="#" class="nhp-paper-card__cta">Book This Newspaper <i class="fa-solid fa-arrow-right"></i></a></article><article class="nhp-paper-card nhp-paper-card--a1"><div class="nhp-paper-card__top"><div class="nhp-paper-card__logo"><span class="nhp-paper-card__logo-fallback">HD</span></div><div><h3 class="nhp-paper-card__name">Hindustan Times</h3><p class="nhp-paper-card__meta">English</p></div></div><p class="nhp-paper-card__price">From <strong>₹22</strong>/word</p><a href="#" class="nhp-paper-card__cta">Book This Newspaper <i class="fa-solid fa-arrow-right"></i></a></article></div></div></section>
+  <section class="nas-portal-section nas-portal-section--muted"><div class="nhp-container"><div class="nas-portal-section__head"><h2>All Newspapers by Language</h2><p>Browse the complete directory.</p></div><div class="nas-lang-group"><h3 class="nas-lang-group__title">English <span>(12)</span></h3><div class="nas-lang-group__grid"><div class="nas-portal-np-card"><div class="nas-np-card__row"><div class="nas-np-card__logo-fallback">TO</div><div><div class="nas-np-card__name">Times of India</div><div class="nas-np-card__meta">45 cities · 2,500,000 circulation</div></div></div><div class="nas-np-card__rates">Classified from <strong>₹25/word</strong> · Display from <strong>₹800/sq.cm</strong></div><a href="#" class="nas-btn nas-btn-primary nas-np-card__btn">Book This Newspaper</a></div><div class="nas-portal-np-card"><div class="nas-np-card__row"><div class="nas-np-card__logo-fallback">HD</div><div><div class="nas-np-card__name">Hindustan Times</div><div class="nas-np-card__meta">38 cities</div></div></div><div class="nas-np-card__rates">Classified from <strong>₹22/word</strong> · Display from <strong>₹750/sq.cm</strong></div><a href="#" class="nas-btn nas-btn-primary nas-np-card__btn">Book This Newspaper</a></div></div></div></div></section>
+</div>
+</main>
+</div>
+
+<script>
+function show(id, el) {
+  document.querySelectorAll('.preview-page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.preview-nav a').forEach(a => a.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  el.classList.add('active');
+}
+</script>
+</body>
+</html>

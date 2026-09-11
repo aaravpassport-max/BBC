@@ -11,6 +11,11 @@ class StaffDashboard {
         add_action( 'wp_ajax_nas_staff_update_booking_status', [ self::class, 'update_booking_status' ] );
         add_action( 'wp_ajax_nas_staff_get_today_tasks',       [ self::class, 'get_today_tasks' ] );
         add_action( 'wp_ajax_nas_staff_mark_task_done',        [ self::class, 'mark_task_done' ] );
+        // Aliases used by staff dashboard JS (also registered via AjaxAliases)
+        add_action( 'wp_ajax_nas_get_assigned_bookings', [ self::class, 'get_assigned_bookings' ] );
+        add_action( 'wp_ajax_nas_get_today_tasks',       [ self::class, 'get_today_tasks' ] );
+        add_action( 'wp_ajax_nas_mark_task_done',        [ self::class, 'mark_task_done' ] );
+        add_action( 'wp_ajax_nas_update_booking_status', [ self::class, 'update_booking_status' ] );
     }
 
     // TRACE: render() — Trigger: wp_ajax_render AJAX action.

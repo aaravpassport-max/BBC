@@ -157,11 +157,10 @@ function nas_portal_nav_match_slug( string $nav_key, ?string $active = null ): b
 }
 
 function nas_portal_should_show_bottom_nav(): bool {
-    if ( function_exists( 'nas_portal_dashboard_slugs' ) ) {
-        $slug = nas_portal_nav_active_slug();
-        if ( in_array( $slug, nas_portal_dashboard_slugs(), true ) ) {
-            return false;
-        }
+    // Client dashboard renders its own tab bar (cd-bottom-nav).
+    $slug = nas_portal_nav_active_slug();
+    if ( $slug === 'client-dashboard' ) {
+        return false;
     }
     return true;
 }

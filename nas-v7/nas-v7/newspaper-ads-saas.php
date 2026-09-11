@@ -3,7 +3,7 @@
  * Plugin Name: NewspaperAds SaaS — Professional Booking Platform
  * Plugin URI:  https://your-domain.com/newspaper-ads-saas
  * Description: Enterprise-grade newspaper ad booking SaaS platform with custom dashboards, workflow tracking, AI content, real-time chat, WhatsApp integration, and 300 city landing pages.
- * Version:     4.1.7
+ * Version:     4.1.8
  * Author:      Your Agency
  * Author URI:  https://your-domain.com
  * License:     GPL-2.0+
@@ -20,7 +20,7 @@ if ( ! function_exists('NAS_get_config') ) {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-define( 'NAS_VERSION',    '4.1.7' );
+define( 'NAS_VERSION',    '4.1.8' );
 define( 'NAS_FILE',       __FILE__ );
 define( 'NAS_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'NAS_PATH',       NAS_DIR );        // alias used throughout codebase
@@ -845,12 +845,22 @@ add_action( 'init', function () {
     if ( ( $_SERVER['REQUEST_METHOD'] ?? '' ) !== 'POST' ) {
         return;
     }
-    if ( empty( $_POST['nas_action'] ) || empty( $_POST['action'] ) ) {
+    if ( empty( $_POST['action'] ) ) {
         return;
     }
 
     $action = sanitize_key( wp_unslash( $_POST['action'] ) );
     if ( ! $action || strpos( $action, 'nas_' ) !== 0 ) {
+        return;
+    }
+
+    // Client/staff/vendor send nas_action=1; admin dashboard pages post nas_* without it.
+    $explicit = ! empty( $_POST['nas_action'] );
+    $on_dashboard = false;
+    if ( ! $explicit && function_exists( 'nas_portal_current_slug' ) && function_exists( 'nas_portal_dashboard_slugs' ) ) {
+        $on_dashboard = in_array( nas_portal_current_slug(), nas_portal_dashboard_slugs(), true );
+    }
+    if ( ! $explicit && ! $on_dashboard ) {
         return;
     }
 
@@ -879,7 +889,7 @@ add_action( 'init', function () {
     }
 
     wp_send_json_error( [ 'message' => 'No handler for: ' . $action ], 404 );
-}, 0 );
+}, 99 );
 
 // ── WP Toolbar (top bar) shortcut ────────────────────────────────────────────
 add_action( 'admin_bar_menu', function ( \WP_Admin_Bar $bar ) {
