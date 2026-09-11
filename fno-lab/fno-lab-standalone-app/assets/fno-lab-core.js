@@ -15770,10 +15770,7 @@ function render(){
       const priceChangePct = (closes.length > 1 && closes[0] > 0) ? ((spot - closes[0]) / closes[0] * 100) : null;
       const operatorIntel = computeOperatorIntel(rec, spot, pcr, status.fii_long_short || null, priceChangePct, daysExp);
 
-      ctx.strikeShift = getCachedStrikeShift(sym, strike, optionType);
-      fetchStrikeShiftForContext(ctx, strike, optionType).then(shift => {
-        if (shift) ctx.strikeShift = shift;
-      }).catch(() => { /* non-critical */ });
+      let strikeShiftForRefresh = getCachedStrikeShift(sym, strike, optionType);
 
       evaluateHypothesesIfDue(spot, sym).then(() => loadHypothesisStats()); // real, throttled refresh of the stats display whenever real evaluation actually runs, not just on page load
       // Real, live display of the CURRENT hypothesis, even one this
@@ -15797,7 +15794,7 @@ function render(){
           <div style="color:#64748b;font-size:10px;margin-top:2px">${escapeHtml(trackRecord.reason)}</div>
         `;
       };
-      renderCurrentHypothesisBox(null, ctx.strikeShift);
+      renderCurrentHypothesisBox(null, strikeShiftForRefresh);
 
 
       // Real Option Chain ladder - ATM ± 8 strikes, real live CE/PE data
@@ -15992,6 +15989,13 @@ function render(){
         ema21Series: ema21, vwapSeries: vwap,
       };
       curCtx=ctx;
+      ctx.strikeShift = strikeShiftForRefresh;
+      fetchStrikeShiftForContext(ctx, strike, optionType).then(shift => {
+        if (shift) {
+          ctx.strikeShift = shift;
+          strikeShiftForRefresh = shift;
+        }
+      }).catch(() => { /* non-critical */ });
       renderPriceChart(ctx); // user's own direct request - live candle chart + entry/exit markers, redrawn every refresh alongside everything else
 
       // Real rolling-history snapshot (unblocks VIX 15m/PCR 30m/IV Rank/

@@ -21,7 +21,11 @@ assert.ok(/computeLiquidityTrapValidationStats/.test(engineSrc));
 assert.ok(/computeMicrostructureAbsorptionBoost/.test(engineSrc));
 assert.ok(/inferLiquidityTrapExpectedDirection/.test(engineSrc));
 
-assert.ok(/fetchStrikeShiftForContext/.test(coreSrc));
+assert.ok(/strikeShiftForRefresh/.test(coreSrc), 'strike shift must use pre-ctx cache variable, not ctx before initialization');
+const ctxDeclPos = coreSrc.indexOf('const ctx={');
+const earlyCtxStrikeShift = coreSrc.indexOf('ctx.strikeShift');
+assert.ok(ctxDeclPos > 0, 'const ctx={ must exist');
+assert.ok(earlyCtxStrikeShift === -1 || earlyCtxStrikeShift > ctxDeclPos, 'ctx.strikeShift must not appear before const ctx={');
 assert.ok(/fetchOIAccumulationHistory/.test(coreSrc));
 assert.ok(/check\('FM088'/.test(coreSrc));
 assert.ok(/evaluateLiquidityTrapOutcomes\(spot, sym\)/.test(coreSrc));
