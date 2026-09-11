@@ -181,28 +181,19 @@ class Helpers {
     }
 }
 
-// ── Global function aliases for convenience ───────────────────────────────────
-// TRACE: nas_fmt_price(amount) — Trigger: called by any template or module needing price display.
-//        Steps: retrieves currency_symbol from Config → formats float to 2dp → prepends symbol.
-//        Output: formatted string e.g. '₹1,200.00'. Edge cases: non-numeric input cast to 0.00.
-//        Preconditions: auth verified by caller. Postcondition: returns result or wp_send_json_error.
-//        Edge cases: missing params → error; DB failure → false/null/error response.
+// Global helpers — must live in the global namespace so templates/partials can call them.
+namespace {
+
 function nas_fmt_price( float $amount ): string {
     return \NAS\Core\Helpers::format_currency( $amount );
 }
-// TRACE: nas_status_label(status) — Trigger: called by templates to display human-readable status.
-//        Steps: looks up status in Helpers::all_statuses() label map → returns display string.
-//        Output: human string e.g. 'Under Review'. Edge cases: unknown status → returns raw status key.
-//        Preconditions: auth verified by caller. Postcondition: returns result or wp_send_json_error.
-//        Edge cases: missing params → error; DB failure → false/null/error response.
+
 function nas_status_label( string $status ): string {
     return \NAS\Core\Helpers::status_label( $status );
 }
-// TRACE: nas_config(key, default) — Trigger: global helper wrapper for Config::instance()->get().
-//        Steps: gets Config singleton → calls get(key, default) → returns setting value.
-//        Output: setting value (mixed type). Edge cases: key not in DB → returns $default.
-//        Preconditions: auth verified by caller. Postcondition: returns result or wp_send_json_error.
-//        Edge cases: missing params → error; DB failure → false/null/error response.
+
 function nas_config( string $key, $default = null ) {
     return \NAS\Core\Config::instance()->get( $key, $default );
+}
+
 }
