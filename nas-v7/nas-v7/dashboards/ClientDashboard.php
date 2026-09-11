@@ -93,8 +93,17 @@ class ClientDashboard {
             }
         }
 
+        $initial_tickets = [ 'tickets' => [] ];
+        if ( $cid ) {
+            $initial_tickets['tickets'] = $db->select(
+                "SELECT * FROM `{$db->t('support_tickets')}` WHERE client_id = %d ORDER BY created_at DESC LIMIT 50",
+                $cid
+            ) ?: [];
+        }
+
         $initial_stats    = wp_json_encode( $stats );
         $initial_bookings = wp_json_encode( $bookings_data );
+        $initial_tickets  = wp_json_encode( $initial_tickets );
 
         ob_start();
         include NAS_DIR . 'templates/client/dashboard.php';

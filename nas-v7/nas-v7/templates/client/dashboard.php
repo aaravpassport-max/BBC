@@ -15,8 +15,8 @@ $brand       = $cfg->get( 'brand_name', get_bloginfo('name') );
 $logo        = $cfg->get( 'logo_url', '' );
 $nonce       = wp_create_nonce( 'nas_action' );
 $rest_nonce  = wp_create_nonce( 'wp_rest' );
-// CDN blocks POST to /wp-admin/admin-ajax.php — use dedicated plugin endpoint
-$ajax        = NAS_URL . 'nas-ajax.php';
+// CDN blocks POST to /wp-admin/admin-ajax.php — POST to this page instead
+$ajax        = nas_get_ajax_url( (int) get_option( 'nas_page_client_dashboard' ) ?: null );
 $booking_url = nas_get_page_url( 'nas_page_booking', '/book-newspaper-ad/' );
 ?>
 <style>
@@ -592,6 +592,7 @@ var NONCE='<?php echo esc_js($nonce); ?>';
 var BOOKING_URL='<?php echo esc_js(nas_get_page_url("nas_page_booking","/book-newspaper-ad/")); ?>';
 var INITIAL_STATS=<?php echo isset($initial_stats) ? $initial_stats : 'null'; ?>;
 var INITIAL_BOOKINGS=<?php echo isset($initial_bookings) ? $initial_bookings : 'null'; ?>;
+var INITIAL_TICKETS=<?php echo isset($initial_tickets) ? $initial_tickets : 'null'; ?>;
 var REST_NONCE='<?php echo esc_js($rest_nonce); ?>';
 var AJAX='<?php echo esc_js($ajax); ?>';
 var MY_ID=<?php echo $my_id; ?>;
@@ -1197,12 +1198,9 @@ window.cdFilterWallet = function() {
 /* ── Support Tickets — full implementation ── */
 var cdOpenTicketId = null;
 
-function cdLoadTickets() {
+function cdRenderTickets(d) {
   var listEl = document.getElementById('cd-tickets-list');
   if (!listEl) return;
-  listEl.innerHTML = '<div style="padding:40px;text-align:center"><span class="cd-spinner"></span></div>';
-
-  ajax('nas_get_my_tickets', {}).then(function(d) {
     var tickets = d.tickets || [];
     if (!tickets.length) {
       listEl.innerHTML =
@@ -1255,9 +1253,28 @@ function cdLoadTickets() {
         '</div>' +
         '</div>';
     }).join('');
+}
 
-  }).catch(function() {
-    listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#dc2626;font-size:13px"><i class="fa-solid fa-triangle-exclamation"></i> Failed to load tickets. Please refresh.</div>';
+function cdLoadTickets(forceRefresh) {
+  var listEl = document.getElementById('cd-tickets-list');
+  if (!listEl) return;
+
+  if (!forceRefresh && typeof INITIAL_TICKETS !== 'undefined' && INITIAL_TICKETS) {
+    cdRenderTickets(INITIAL_TICKETS);
+    INITIAL_TICKETS = null;
+    return;
+  }
+
+  listEl.innerHTML = '<div style="padding:40px;text-align:center"><span class="cd-spinner"></span></div>';
+
+  ajax('nas_get_my_tickets', {}).then(function(d) {
+    cdRenderTickets(d);
+  }).catch(function(e) {
+    listEl.innerHTML = '<div style="padding:24px;text-align:center;color:#dc2626;font-size:13px">'
+      + '<i class="fa-solid fa-triangle-exclamation"></i> Failed to load tickets.'
+      + '<div style="font-size:12px;color:#94a3b8;margin-top:8px">' + esc(e.message || 'Please refresh.') + '</div>'
+      + '<button class="cd-btn cd-btn-primary" style="margin-top:12px" onclick="cdLoadTickets(true)">Retry</button>'
+      + '</div>';
   });
 }
 
@@ -1398,7 +1415,7 @@ window.cdSubmitTicket = function() {
       ]
     });
 
-    cdLoadTickets();
+    cdLoadTickets(true);
   }).catch(function(e) {
     if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Submit Ticket'; }
     toast(e.message || 'Submission failed', 'error', 'Error');

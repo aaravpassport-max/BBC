@@ -3,7 +3,7 @@
  * Plugin Name: NewspaperAds SaaS — Professional Booking Platform
  * Plugin URI:  https://your-domain.com/newspaper-ads-saas
  * Description: Enterprise-grade newspaper ad booking SaaS platform with custom dashboards, workflow tracking, AI content, real-time chat, WhatsApp integration, and 300 city landing pages.
- * Version:     4.1.4
+ * Version:     4.1.5
  * Author:      Your Agency
  * Author URI:  https://your-domain.com
  * License:     GPL-2.0+
@@ -20,7 +20,7 @@ if ( ! function_exists('NAS_get_config') ) {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-define( 'NAS_VERSION',    '4.1.4' );
+define( 'NAS_VERSION',    '4.1.5' );
 define( 'NAS_FILE',       __FILE__ );
 define( 'NAS_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'NAS_PATH',       NAS_DIR );        // alias used throughout codebase
@@ -810,6 +810,70 @@ function nas_get_page_url( string $option_key, string $fallback_slug = '' ): str
     }
     return home_url( $fallback_slug );
 }
+
+/**
+ * CDN-safe AJAX URL — POST to the current portal page (same origin, never blocked).
+ * Falls back to nas-ajax.php then admin-ajax.php.
+ */
+function nas_get_ajax_url( ?int $page_id = null ): string {
+    if ( $page_id ) {
+        $url = get_permalink( $page_id );
+        if ( $url ) {
+            return $url;
+        }
+    }
+    if ( is_singular() ) {
+        $url = get_permalink();
+        if ( $url ) {
+            return $url;
+        }
+    }
+    return NAS_URL . 'nas-ajax.php';
+}
+
+/**
+ * Dispatch NAS AJAX when POSTed to a portal page URL (CDN blocks wp-admin/admin-ajax.php).
+ * Client dashboard, vendor dashboard, and other templates send nas_action=1 + action=...
+ */
+add_action( 'init', function () {
+    if ( ( $_SERVER['REQUEST_METHOD'] ?? '' ) !== 'POST' ) {
+        return;
+    }
+    if ( empty( $_POST['nas_action'] ) || empty( $_POST['action'] ) ) {
+        return;
+    }
+
+    $action = sanitize_key( wp_unslash( $_POST['action'] ) );
+    if ( ! $action || strpos( $action, 'nas_' ) !== 0 ) {
+        return;
+    }
+
+    if ( ! defined( 'DOING_AJAX' ) ) {
+        define( 'DOING_AJAX', true );
+    }
+
+    while ( ob_get_level() > 0 ) {
+        ob_end_clean();
+    }
+    nocache_headers();
+    header( 'Content-Type: application/json; charset=utf-8' );
+
+    if ( is_user_logged_in() ) {
+        $hook = 'wp_ajax_' . $action;
+        if ( has_action( $hook ) ) {
+            do_action( $hook );
+            exit;
+        }
+    }
+
+    $hook_nopriv = 'wp_ajax_nopriv_' . $action;
+    if ( has_action( $hook_nopriv ) ) {
+        do_action( $hook_nopriv );
+        exit;
+    }
+
+    wp_send_json_error( [ 'message' => 'No handler for: ' . $action ], 404 );
+}, 0 );
 
 // ── WP Toolbar (top bar) shortcut ────────────────────────────────────────────
 add_action( 'admin_bar_menu', function ( \WP_Admin_Bar $bar ) {
