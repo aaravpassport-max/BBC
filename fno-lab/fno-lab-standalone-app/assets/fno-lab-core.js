@@ -196,6 +196,27 @@ function updateLotQtyHint(symbol) {
   hint.textContent = formatLotQtyLabel(sym, getLotCountFromUi());
 }
 
+/** Theme-aware palette for inline-rendered panels (light mode readability). */
+function fnoThemePalette() {
+  const light = typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme') === 'light';
+  if (light) {
+    return {
+      panel: '#f1f5f9', panelElevated: '#e2e8f0', panelInfo: '#eff6ff', panelStrike: '#dbeafe', panelPurple: '#f3e8ff',
+      text: '#0f172a', muted: '#475569', muted2: '#64748b', line: '#cbd5e1', lineBtn: '#94a3b8',
+      accentBlue: '#1d4ed8', accentPurple: '#6d28d9', pass: '#166534', passBg: '#dcfce7', passBorder: '#86efac',
+      fail: '#991b1b', failBg: '#fee2e2', failBorder: '#fca5a5', warn: '#92400e', warnBg: '#fef3c7', warnBorder: '#fcd34d',
+      waitBg: '#eff6ff', waitText: '#1d4ed8', inactiveBtnBg: '#f1f5f9', inactiveBtnText: '#475569',
+    };
+  }
+  return {
+    panel: '#020617', panelElevated: '#0e152a', panelInfo: '#0c1a2e', panelStrike: '#0f172a', panelPurple: '#1e1b2e',
+    text: '#e2e8f0', muted: '#94a3b8', muted2: '#64748b', line: '#1e293b', lineBtn: '#334155',
+    accentBlue: '#93c5fd', accentPurple: '#c4b5fd', pass: '#4ade80', passBg: '#052e16', passBorder: '#4ade80',
+    fail: '#f87171', failBg: '#450a0a', failBorder: '#f87171', warn: '#fde68a', warnBg: '#422006', warnBorder: '#fde68a',
+    waitBg: '#0c1a2e', waitText: '#93c5fd', inactiveBtnBg: '#0f172a', inactiveBtnText: '#64748b',
+  };
+}
+
 /**
  * Scalping capital preservation — extra entry gates (measurement-safe, hard blocks only
  * when enabled). Goal: fewer but higher-quality entries; cannot eliminate losses entirely.
@@ -565,14 +586,15 @@ function syncTargetSlUiFromPreset(optPrice) {
 
 function highlightScalpingBracketPresetButtons(activeId) {
   if (typeof document === 'undefined') return;
+  const tp = fnoThemePalette();
   ['settingScalpingBracketButtons', 'mainScalpingBracketButtons'].forEach(containerId => {
     const container = document.getElementById(containerId);
     if (!container) return;
     container.querySelectorAll('.bracket-preset-btn[data-preset]').forEach(btn => {
       const active = btn.getAttribute('data-preset') === activeId;
-      btn.style.background = active ? '#166534' : '#020617';
-      btn.style.borderColor = active ? '#4ade80' : '#334155';
-      btn.style.color = active ? '#ecfdf5' : '#e2e8f0';
+      btn.style.background = active ? '#166534' : tp.inactiveBtnBg;
+      btn.style.borderColor = active ? tp.passBorder : tp.lineBtn;
+      btn.style.color = active ? '#ecfdf5' : tp.text;
       btn.setAttribute('aria-pressed', active ? 'true' : 'false');
     });
   });
@@ -877,15 +899,16 @@ function renderEligibilityFunnel(sym) {
   if (typeof document === 'undefined') return null;
   const box = document.getElementById('eligibilityFunnelBox');
   if (!box) return null;
+  const tp = fnoThemePalette();
   const funnel = computeEligibilityFunnel(getDecisionLog(), { limit: 100, symbol: sym || null });
   if (!funnel.sampleCount) {
-    box.innerHTML = '<span style="color:#64748b">Funnel builds automatically — one row per refresh. After a few Brain refreshes you will see exactly where trades are filtered (score, gates, execution).</span>';
+    box.innerHTML = `<span style="color:${tp.muted2}">Funnel builds automatically — one row per refresh. After a few Brain refreshes you will see exactly where trades are filtered (score, gates, execution).</span>`;
     return funnel;
   }
 
   const bar = (label, count, color, detail) => {
     const pct = funnel.totalRefreshes ? Math.max(2, Math.round(count / funnel.totalRefreshes * 100)) : 0;
-    return `<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>${escapeHtml(label)}</span><span style="color:#94a3b8">${count} (${pct}%)</span></div><div style="height:6px;background:#1e293b;border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${color}"></div></div>${detail ? `<div style="font-size:10px;color:#64748b;margin-top:2px">${detail}</div>` : ''}</div>`;
+    return `<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:2px"><span>${escapeHtml(label)}</span><span style="color:${tp.muted}">${count} (${pct}%)</span></div><div style="height:6px;background:${tp.line};border-radius:4px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${color}"></div></div>${detail ? `<div style="font-size:10px;color:${tp.muted2};margin-top:2px">${detail}</div>` : ''}</div>`;
   };
 
   const breakdownRows = Object.entries(funnel.breakdown)
@@ -904,9 +927,9 @@ function renderEligibilityFunnel(sym) {
   box.innerHTML = `
     ${alertHtml}
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px;font-size:11px">
-      <div style="background:#020617;padding:8px;border-radius:8px;text-align:center"><div style="color:#94a3b8">Refreshes</div><div style="font-weight:800;font-size:16px">${funnel.sampleCount}</div></div>
-      <div style="background:#020617;padding:8px;border-radius:8px;text-align:center"><div style="color:#94a3b8">BUY/SELL setups</div><div style="font-weight:800;font-size:16px;color:#93c5fd">${funnel.potentialSetups}</div><div style="font-size:10px;color:#64748b">${funnel.eligibilityRatePct != null ? funnel.eligibilityRatePct + '% eligibility' : '—'}</div></div>
-      <div style="background:#020617;padding:8px;border-radius:8px;text-align:center"><div style="color:#94a3b8">Opened</div><div style="font-weight:800;font-size:16px;color:#4ade80">${funnel.opened}</div><div style="font-size:10px;color:#64748b">${funnel.executionRatePct != null ? funnel.executionRatePct + '% of setups' : '—'}</div></div>
+      <div style="background:${tp.panel};padding:8px;border-radius:8px;text-align:center"><div style="color:${tp.muted}">Refreshes</div><div style="font-weight:800;font-size:16px;color:${tp.text}">${funnel.sampleCount}</div></div>
+      <div style="background:${tp.panel};padding:8px;border-radius:8px;text-align:center"><div style="color:${tp.muted}">BUY/SELL setups</div><div style="font-weight:800;font-size:16px;color:${tp.accentBlue}">${funnel.potentialSetups}</div><div style="font-size:10px;color:${tp.muted2}">${funnel.eligibilityRatePct != null ? funnel.eligibilityRatePct + '% eligibility' : '—'}</div></div>
+      <div style="background:${tp.panel};padding:8px;border-radius:8px;text-align:center"><div style="color:${tp.muted}">Opened</div><div style="font-weight:800;font-size:16px;color:${tp.pass}">${funnel.opened}</div><div style="font-size:10px;color:${tp.muted2}">${funnel.executionRatePct != null ? funnel.executionRatePct + '% of setups' : '—'}</div></div>
     </div>
     ${bar('No signal (WAIT — score below threshold)', funnel.noSignalWait, '#475569', funnel.weightedScoreWait ? `${funnel.weightedScoreWait} blocked by weighted-score safety` : '')}
     ${bar('Critical fail (NO_TRADE)', funnel.noSignalNoTrade, '#7f1d1d', '')}
@@ -15265,20 +15288,21 @@ function render(){
   ];
   const dailyEl=document.getElementById('dailyChecks');
   let dailyState=loadObj(STORAGE.daily);
+  const dailyTp = fnoThemePalette();
   dailyEl.innerHTML='';
   dailyGroups.forEach(group=>{
     const groupDiv=document.createElement('div');
     groupDiv.style.cssText='margin-bottom:10px';
-    groupDiv.innerHTML=`<div style="font-size:11px;font-weight:700;color:#94a3b8;margin-bottom:4px">${escapeHtml(group.label)}</div>`;
+    groupDiv.innerHTML=`<div style="font-size:11px;font-weight:700;color:${dailyTp.muted};margin-bottom:4px">${escapeHtml(group.label)}</div>`;
     group.keys.forEach(k=>{
       const row=document.createElement('div');
-      row.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #111827;font-size:11px;gap:6px';
+      row.style.cssText=`display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid ${dailyTp.line};font-size:11px;gap:6px`;
       const cur = dailyState[k.id]; // true / false / undefined
       row.innerHTML=`<span>${escapeHtml(k.label)}</span>
         <span style="display:flex;gap:3px">
-          <button type="button" data-daily-btn="${k.id}" data-val="true" style="padding:2px 8px;border-radius:4px;border:1px solid ${cur===true?'#4ade80':'#334155'};background:${cur===true?'#052e16':'#0f172a'};color:${cur===true?'#4ade80':'#64748b'};font-size:10px;cursor:pointer">Yes</button>
-          <button type="button" data-daily-btn="${k.id}" data-val="false" style="padding:2px 8px;border-radius:4px;border:1px solid ${cur===false?'#f87171':'#334155'};background:${cur===false?'#450a0a':'#0f172a'};color:${cur===false?'#f87171':'#64748b'};font-size:10px;cursor:pointer">No</button>
-          <button type="button" data-daily-btn="${k.id}" data-val="unset" style="padding:2px 8px;border-radius:4px;border:1px solid ${cur===undefined?'#94a3b8':'#334155'};background:${cur===undefined?'#1e293b':'#0f172a'};color:#94a3b8;font-size:10px;cursor:pointer" title="Not reported - honestly UNAVAILABLE, not guessed">-</button>
+          <button type="button" data-daily-btn="${k.id}" data-val="true" style="padding:2px 8px;border-radius:4px;border:1px solid ${cur===true?dailyTp.passBorder:dailyTp.lineBtn};background:${cur===true?dailyTp.passBg:dailyTp.inactiveBtnBg};color:${cur===true?dailyTp.pass:dailyTp.inactiveBtnText};font-size:10px;cursor:pointer">Yes</button>
+          <button type="button" data-daily-btn="${k.id}" data-val="false" style="padding:2px 8px;border-radius:4px;border:1px solid ${cur===false?dailyTp.failBorder:dailyTp.lineBtn};background:${cur===false?dailyTp.failBg:dailyTp.inactiveBtnBg};color:${cur===false?dailyTp.fail:dailyTp.inactiveBtnText};font-size:10px;cursor:pointer">No</button>
+          <button type="button" data-daily-btn="${k.id}" data-val="unset" style="padding:2px 8px;border-radius:4px;border:1px solid ${cur===undefined?dailyTp.muted:dailyTp.lineBtn};background:${cur===undefined?dailyTp.line:dailyTp.inactiveBtnBg};color:${dailyTp.muted};font-size:10px;cursor:pointer" title="Not reported - honestly UNAVAILABLE, not guessed">-</button>
         </span>`;
       groupDiv.appendChild(row);
     });
@@ -15288,7 +15312,7 @@ function render(){
   const deviceRow=document.createElement('div');
   deviceRow.style.cssText='display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:11px;gap:6px';
   deviceRow.innerHTML=`<span>Mobile vs Laptop</span>
-    <select data-daily-select="mobileVsLaptop" style="background:#0f172a;color:#e2e8f0;border:1px solid #334155;border-radius:4px;font-size:10px">
+    <select data-daily-select="mobileVsLaptop" style="background:${dailyTp.inactiveBtnBg};color:${dailyTp.text};border:1px solid ${dailyTp.lineBtn};border-radius:4px;font-size:10px">
       <option value="">Not set</option>
       <option value="Mobile" ${dailyState.mobileVsLaptop==='Mobile'?'selected':''}>Mobile</option>
       <option value="Laptop" ${dailyState.mobileVsLaptop==='Laptop'?'selected':''}>Laptop</option>
@@ -15307,12 +15331,13 @@ function render(){
       // - caught before shipping, not after).
       const row = btn.closest('span').parentElement;
       row.querySelectorAll('[data-daily-btn]').forEach(b=>{
+        const tp = fnoThemePalette();
         const isActive = (b.dataset.val==='unset') ? (dailyState[key]===undefined) : (dailyState[key]===(b.dataset.val==='true'));
-        const activeColor = b.dataset.val==='true' ? '#4ade80' : b.dataset.val==='false' ? '#f87171' : '#94a3b8';
-        const activeBg = b.dataset.val==='true' ? '#052e16' : b.dataset.val==='false' ? '#450a0a' : '#1e293b';
-        b.style.borderColor = isActive ? activeColor : '#334155';
-        b.style.background = isActive ? activeBg : '#0f172a';
-        if (b.dataset.val!=='unset') b.style.color = isActive ? activeColor : '#64748b';
+        const activeColor = b.dataset.val==='true' ? tp.pass : b.dataset.val==='false' ? tp.fail : tp.muted;
+        const activeBg = b.dataset.val==='true' ? tp.passBg : b.dataset.val==='false' ? tp.failBg : tp.line;
+        b.style.borderColor = isActive ? activeColor : tp.lineBtn;
+        b.style.background = isActive ? activeBg : tp.inactiveBtnBg;
+        if (b.dataset.val!=='unset') b.style.color = isActive ? activeColor : tp.inactiveBtnText;
       });
     });
   });
@@ -15693,41 +15718,35 @@ function render(){
 
       if (decay.snapshot) {
         const g = decay.snapshot.now;
+        const tp = fnoThemePalette();
+        const tile = (label, value, valueColor) => `<div style="background:${tp.panel};padding:6px;border-radius:8px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">${label}</div><div style="font-weight:800;color:${valueColor || tp.text}">${value}</div></div>`;
         document.getElementById('greeksMetrics').innerHTML = g.valid ? `
-          <div style="background:#020617;padding:6px;border-radius:8px"><div style="color:#94a3b8">Delta</div><div style="font-weight:800">${g.delta.toFixed(3)}</div></div>
-          <div style="background:#020617;padding:6px;border-radius:8px"><div style="color:#94a3b8">Gamma</div><div style="font-weight:800">${g.gamma.toFixed(5)}</div></div>
-          <div style="background:#020617;padding:6px;border-radius:8px"><div style="color:#94a3b8">Vega</div><div style="font-weight:800">${g.vega.toFixed(2)}</div></div>
-          <div style="background:#020617;padding:6px;border-radius:8px"><div style="color:#94a3b8">Theta/day</div><div style="font-weight:800;color:#f87171">${g.thetaPerDay.toFixed(2)}</div></div>
-          <div style="background:#020617;padding:6px;border-radius:8px"><div style="color:#94a3b8">Rho</div><div style="font-weight:800">${g.rho.toFixed(3)}</div></div>
-          <div style="background:#020617;padding:6px;border-radius:8px"><div style="color:#94a3b8">Vanna</div><div style="font-weight:800">${g.vanna.toFixed(4)}</div></div>
-          <div style="background:#020617;padding:6px;border-radius:8px"><div style="color:#94a3b8">Vomma</div><div style="font-weight:800">${g.vomma.toFixed(3)}</div></div>
-          <div style="background:#020617;padding:6px;border-radius:8px"><div style="color:#94a3b8">Charm/day</div><div style="font-weight:800">${g.charm.toFixed(4)}</div></div>
-          <div style="background:#020617;padding:6px;border-radius:8px"><div style="color:#94a3b8">BS Price</div><div style="font-weight:800">${g.price.toFixed(1)}</div></div>
-        ` : `<div style="grid-column:1/4;color:#fbbf24">Degenerate inputs (T or IV <= 0) - showing intrinsic value only: ${escapeHtml(g.reason)}</div>`;
+          ${tile('Delta', g.delta.toFixed(3))}
+          ${tile('Gamma', g.gamma.toFixed(5))}
+          ${tile('Vega', g.vega.toFixed(2))}
+          ${tile('Theta/day', g.thetaPerDay.toFixed(2), tp.fail)}
+          ${tile('Rho', g.rho.toFixed(3))}
+          ${tile('Vanna', g.vanna.toFixed(4))}
+          ${tile('Vomma', g.vomma.toFixed(3))}
+          ${tile('Charm/day', g.charm.toFixed(4))}
+          ${tile('BS Price', g.price.toFixed(1))}
+        ` : `<div style="grid-column:1/4;color:${tp.warn}">Degenerate inputs (T or IV <= 0) - showing intrinsic value only: ${escapeHtml(g.reason)}</div>`;
       }
 
-      document.getElementById('decayMetrics').innerHTML=`
-        <div style="background:#020617;padding:8px;border-radius:8px"><div style="color:#94a3b8">Theta/Day</div><div style="font-weight:800;color:#f87171">${decay.thetaPerDay} Rs</div><div style="font-size:10px">${decay.lotDecay} Rs/lot/day</div></div>
-        <div style="background:#020617;padding:8px;border-radius:8px"><div style="color:#94a3b8">Time Value</div><div style="font-weight:800">${decay.timeValue} Rs</div></div>
-        <div style="background:#020617;padding:8px;border-radius:8px"><div style="color:#94a3b8">Decay %/day</div><div style="font-weight:800;color:#fbbf24">${decay.decayPct}%</div></div>
-        <div style="background:#020617;padding:8px;border-radius:8px"><div style="color:#94a3b8">FII Long <span style="font-size:9px;color:#64748b">(${status.fiiSource==='premium'?'premium':status.fiiSource==='free'?'free':'--'})</span></div><div style="font-weight:800">${status.fii_long_short?.long!=null ? status.fii_long_short.long+'%' : 'N/A - configure a premium provider in Settings > F&O Lab Providers'}</div></div>
-        <div style="background:#020617;padding:8px;border-radius:8px"><div style="color:#94a3b8">Ban List <span style="font-size:9px;color:#64748b">(${status.banListSource==='cache'?'cached':status.banListSource==='nse_live'?'live free':status.banListSource==='disabled'?'NSE off':'--'})</span></div><div style="font-weight:800">${(status.banListSource==='unavailable'||status.banListSource==='disabled') ? '⚠️ Unverified' : (!(status.banList||[]).includes(sym)?'✅ Not in Ban':'❌ '+sym+' In Ban')}</div></div>
-        <!-- FOUND via a real, direct user report with a live
-             screenshot: this display and the real factor-scoring
-             logic above both had the exact same real, significant
-             bug - checking whether the real ban list had ANY real
-             entries at all, rather than whether THIS symbol
-             specifically was in it. NIFTY/BANKNIFTY/FINNIFTY are
-             indices and are never genuinely eligible for the real
-             F&O ban list (only individual stocks are), but this bug
-             meant ANY real stock being banned anywhere would
-             incorrectly show the index itself as banned here too -
-             fixed to the same real, correct per-symbol check used
-             elsewhere (FM090 - previously mistagged FM036 here in this
-             comment; corrected by this session's catalog-ID-drift
-             remediation pass, see evaluatePreTradeFailureModes). -->
-        <div style="background:#020617;padding:8px;border-radius:8px"><div style="color:#94a3b8">Days Exp</div><div style="font-weight:800">${daysExp} days</div></div>
-      `;
+      document.getElementById('decayMetrics').innerHTML=(function(){
+        const tp = fnoThemePalette();
+        const tile = (label, value, sub, valueColor) => `<div style="background:${tp.panel};padding:8px;border-radius:8px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">${label}</div><div style="font-weight:800;color:${valueColor || tp.text}">${value}</div>${sub ? `<div style="font-size:10px;color:${tp.muted2}">${sub}</div>` : ''}</div>`;
+        const fiiSrc = status.fiiSource==='premium'?'premium':status.fiiSource==='free'?'free':'--';
+        const banSrc = status.banListSource==='cache'?'cached':status.banListSource==='nse_live'?'live free':status.banListSource==='disabled'?'NSE off':'--';
+        return `
+        ${tile('Theta/Day', `${decay.thetaPerDay} Rs`, `${decay.lotDecay} Rs/lot/day`, tp.fail)}
+        ${tile('Time Value', `${decay.timeValue} Rs`)}
+        ${tile('Decay %/day', `${decay.decayPct}%`, null, tp.warn)}
+        ${tile('FII Long ('+fiiSrc+')', status.fii_long_short?.long!=null ? status.fii_long_short.long+'%' : 'N/A - configure a premium provider in Settings > F&O Lab Providers')}
+        ${tile('Ban List ('+banSrc+')', (status.banListSource==='unavailable'||status.banListSource==='disabled') ? '⚠️ Unverified' : (!(status.banList||[]).includes(sym)?'✅ Not in Ban':'❌ '+sym+' In Ban'))}
+        ${tile('Days Exp', `${daysExp} days`)}
+        `;
+      })();
 
       const journal = await syncServerJournal();
       if (isStaleRefresh()) return; // see fnoRefreshGeneration TRACE - a newer call superseded this one during the journal sync await
@@ -16199,7 +16218,8 @@ function render(){
       const tierInfo = tierLabels[brain.decisionTier] || tierLabels.NO_TRADE;
       const tierEl = document.getElementById('decisionTierBadge');
       if (tierEl) {
-        tierEl.innerHTML = `${escapeHtml(tierInfo.emoji)} <b style="color:${tierInfo.color}">${escapeHtml(tierInfo.text)}</b> <span style="color:#64748b;font-size:11px">(§23 real 7-tier - directional score ${brain.directionalScore.toFixed(1)})</span>`;
+        const tp = fnoThemePalette();
+        tierEl.innerHTML = `${escapeHtml(tierInfo.emoji)} <b style="color:${tierInfo.color}">${escapeHtml(tierInfo.text)}</b> <span style="color:${tp.muted2};font-size:11px">(§23 real 7-tier - directional score ${brain.directionalScore.toFixed(1)})</span>`;
       }
 
       // Real, visible pre-trade gate warning next to the eligibility
@@ -16225,15 +16245,16 @@ function render(){
         gateWarningHtml = `<div style="margin-top:6px;padding:6px;background:#422006;border-radius:6px;color:#fde68a;font-size:12px"><b>⚠️ Would need confirmation if opened right now:</b> ${escapeHtml(gateDetail)}</div>`;
       }
 
+      const tpDec = fnoThemePalette();
       if(brain.decision==='BUY_READY'){
         decEl.innerHTML=`🟢 BUY READY - ${escapeHtml(brain.reason)} [${mode.toUpperCase()}]${confBadge}${modelBadge}${gateWarningHtml}`;
-        decEl.style.background='#052e16'; decEl.style.color='#4ade80';
+        decEl.style.background=tpDec.passBg; decEl.style.color=tpDec.pass;
       } else if(brain.decision==='NO_TRADE'){
         decEl.innerHTML=`⛔ NO_TRADE - ${escapeHtml(brain.reason)}${confBadge}${modelBadge}`;
-        decEl.style.background='#422006'; decEl.style.color='#fde68a';
+        decEl.style.background=tpDec.warnBg; decEl.style.color=tpDec.warn;
       } else {
         decEl.innerHTML=`🟡 ${escapeHtml(brain.decision)} - ${escapeHtml(brain.reason)}${confBadge}${modelBadge}${gateWarningHtml}`;
-        decEl.style.background='#0c1a2e'; decEl.style.color='#93c5fd';
+        decEl.style.background=tpDec.waitBg; decEl.style.color=tpDec.waitText;
       }
 
       // Factor Registry panel (Master Prompt §2, §54-57) - real
@@ -16243,11 +16264,12 @@ function render(){
         const c = brain.factorRegistry.counts;
         const summaryEl = document.getElementById('factorRegistrySummary');
         if (summaryEl) {
+          const tp = fnoThemePalette();
           summaryEl.innerHTML = `
-            <div style="background:#052e16;padding:8px;border-radius:8px;text-align:center"><div style="color:#4ade80;font-weight:800;font-size:16px">${c.COMPUTED}</div><div style="color:#94a3b8">Computed</div></div>
-            <div style="background:#0c1a2e;padding:8px;border-radius:8px;text-align:center"><div style="color:#93c5fd;font-weight:800;font-size:16px">${c.NOT_APPLICABLE}</div><div style="color:#94a3b8">Not Applicable</div></div>
-            <div style="background:#422006;padding:8px;border-radius:8px;text-align:center"><div style="color:#fde68a;font-weight:800;font-size:16px">${c.UNAVAILABLE}</div><div style="color:#94a3b8">Unavailable</div></div>
-            <div style="background:#1e1b2e;padding:8px;border-radius:8px;text-align:center"><div style="color:#c4b5fd;font-weight:800;font-size:16px">${c.NOT_COMPUTED}</div><div style="color:#94a3b8">Not Computed</div></div>
+            <div style="background:${tp.passBg};padding:8px;border-radius:8px;text-align:center;border:1px solid ${tp.passBorder}"><div style="color:${tp.pass};font-weight:800;font-size:16px">${c.COMPUTED}</div><div style="color:${tp.muted}">Computed</div></div>
+            <div style="background:${tp.panelInfo};padding:8px;border-radius:8px;text-align:center;border:1px solid #93c5fd"><div style="color:${tp.accentBlue};font-weight:800;font-size:16px">${c.NOT_APPLICABLE}</div><div style="color:${tp.muted}">Not Applicable</div></div>
+            <div style="background:${tp.warnBg};padding:8px;border-radius:8px;text-align:center;border:1px solid ${tp.warnBorder}"><div style="color:${tp.warn};font-weight:800;font-size:16px">${c.UNAVAILABLE}</div><div style="color:${tp.muted}">Unavailable</div></div>
+            <div style="background:${tp.panelPurple};padding:8px;border-radius:8px;text-align:center;border:1px solid #c4b5fd"><div style="color:${tp.accentPurple};font-weight:800;font-size:16px">${c.NOT_COMPUTED}</div><div style="color:${tp.muted}">Not Computed</div></div>
           `;
         }
         const covEl = document.getElementById('factorRegistryCoverage');
@@ -16272,15 +16294,16 @@ function render(){
         // SAME registry just built above - no extra computation.
         const roadmapEl = document.getElementById('factorActivationRoadmap');
         if (roadmapEl) {
+          const tp = fnoThemePalette();
           const roadmap = computeFactorActivationRoadmap(brain.factorRegistry.byId);
           roadmapEl.innerHTML = `
-            <div style="font-size:10px;color:#64748b;margin-bottom:4px">§56 Factor Activation Roadmap (development status - distinct from live coverage above)</div>
+            <div style="font-size:10px;color:${tp.muted2};margin-bottom:4px">§56 Factor Activation Roadmap (development status - distinct from live coverage above)</div>
             <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;font-size:10px">
-              <div style="background:#020617;padding:4px;border-radius:6px;text-align:center"><div style="font-weight:800">${roadmap['Catalogue']}</div><div style="color:#64748b">Catalogue</div></div>
-              <div style="background:#020617;padding:4px;border-radius:6px;text-align:center"><div style="font-weight:800">${roadmap['Data Source Defined']}</div><div style="color:#64748b">Source Defined</div></div>
-              <div style="background:#020617;padding:4px;border-radius:6px;text-align:center"><div style="font-weight:800">${roadmap['Calculation Implemented']}</div><div style="color:#93c5fd">Calc Implemented</div></div>
-              <div style="background:#020617;padding:4px;border-radius:6px;text-align:center"><div style="font-weight:800">${roadmap['Validated']}</div><div style="color:#fde68a">Validated</div></div>
-              <div style="background:#020617;padding:4px;border-radius:6px;text-align:center"><div style="font-weight:800">${roadmap['Active']}</div><div style="color:#4ade80">Active</div></div>
+              <div style="background:${tp.panel};padding:4px;border-radius:6px;text-align:center;border:1px solid ${tp.line}"><div style="font-weight:800;color:${tp.text}">${roadmap['Catalogue']}</div><div style="color:${tp.muted2}">Catalogue</div></div>
+              <div style="background:${tp.panel};padding:4px;border-radius:6px;text-align:center;border:1px solid ${tp.line}"><div style="font-weight:800;color:${tp.text}">${roadmap['Data Source Defined']}</div><div style="color:${tp.muted2}">Source Defined</div></div>
+              <div style="background:${tp.panel};padding:4px;border-radius:6px;text-align:center;border:1px solid ${tp.line}"><div style="font-weight:800;color:${tp.text}">${roadmap['Calculation Implemented']}</div><div style="color:${tp.accentBlue}">Calc Implemented</div></div>
+              <div style="background:${tp.panel};padding:4px;border-radius:6px;text-align:center;border:1px solid ${tp.line}"><div style="font-weight:800;color:${tp.text}">${roadmap['Validated']}</div><div style="color:${tp.warn}">Validated</div></div>
+              <div style="background:${tp.panel};padding:4px;border-radius:6px;text-align:center;border:1px solid ${tp.line}"><div style="font-weight:800;color:${tp.text}">${roadmap['Active']}</div><div style="color:${tp.pass}">Active</div></div>
             </div>
           `;
         }
@@ -16634,24 +16657,25 @@ function render(){
         // meant to preserve. Distinct label + distinct (grey, not
         // blue) badge color so a user scanning this list can actually
         // tell "unavailable" apart from a real computed factor.
-        const badge=r.pass===true?'<span class="badge green">PASS</span>':r.pass===false?'<span class="badge red">FAIL</span>':'<span class="badge" style="background:#334155;color:#94a3b8" title="Genuinely unavailable/not computed this refresh - not a computed neutral verdict">N/A</span>';
-        div.innerHTML=`<div style="flex:1"><b>${escapeHtml(r.factor)}</b> [${escapeHtml(r.cat)}]<br><span style="color:#94a3b8">${escapeHtml(r.reason)}</span></div><div>${badge}</div>`;
+        const badge=r.pass===true?'<span class="badge green">PASS</span>':r.pass===false?'<span class="badge red">FAIL</span>':`<span class="badge" style="background:${fnoThemePalette().panelElevated};color:${fnoThemePalette().muted};border:1px solid ${fnoThemePalette().line}" title="Genuinely unavailable/not computed this refresh - not a computed neutral verdict">N/A</span>`;
+        div.innerHTML=`<div style="flex:1"><b>${escapeHtml(r.factor)}</b> [${escapeHtml(r.cat)}]<br><span style="color:${fnoThemePalette().muted}">${escapeHtml(r.reason)}</span></div><div>${badge}</div>`;
         listEl.appendChild(div);
       });
 
       const opEl = document.getElementById('operatorIntel');
       if(opEl){
-        const biasColor = {ACCUMULATION:'#4ade80', DISTRIBUTION:'#f87171', BULLISH_TRAP:'#fbbf24', BEARISH_TRAP:'#fbbf24', NEUTRAL:'#93c5fd'}[brain.operatorIntel.bias] || '#93c5fd';
+        const tp = fnoThemePalette();
+        const biasColor = {ACCUMULATION:tp.pass, DISTRIBUTION:tp.fail, BULLISH_TRAP:tp.warn, BEARISH_TRAP:tp.warn, NEUTRAL:tp.accentBlue}[brain.operatorIntel.bias] || tp.accentBlue;
         opEl.innerHTML = `
-          <div style="text-align:center;padding:8px;border-radius:10px;background:#020617;margin-bottom:8px">
+          <div style="text-align:center;padding:8px;border-radius:10px;background:${tp.panel};margin-bottom:8px;border:1px solid ${tp.line}">
             <div style="font-size:16px;font-weight:800;color:${biasColor}">${brain.operatorIntel.bias.replace('_',' ')}</div>
-            <div style="font-size:11px;color:#94a3b8">Score ${brain.operatorIntel.score.toFixed(2)} | Confidence: ${brain.operatorIntel.confidence}</div>
+            <div style="font-size:11px;color:${tp.muted}">Score ${brain.operatorIntel.score.toFixed(2)} | Confidence: ${brain.operatorIntel.confidence}</div>
           </div>
-          <div style="font-size:11px;color:#64748b;margin-bottom:6px">Inference from public OI/volume data - not certainty. One weighted input among many, not a standalone signal to trade on.</div>
+          <div style="font-size:11px;color:${tp.muted2};margin-bottom:6px">Inference from public OI/volume data - not certainty. One weighted input among many, not a standalone signal to trade on.</div>
         ` + brain.operatorIntel.signals.map(s=>`
-          <div style="padding:5px 0;border-bottom:1px solid #111827">
+          <div style="padding:5px 0;border-bottom:1px solid ${tp.line}">
             <b style="font-size:11px">${escapeHtml(s.factor)}</b> ${s.contrib>0?'<span class="badge green">+</span>':s.contrib<0?'<span class="badge red">-</span>':'<span class="badge blue">0</span>'}
-            <div style="font-size:10px;color:#94a3b8">${escapeHtml(s.reason)}</div>
+            <div style="font-size:10px;color:${tp.muted}">${escapeHtml(s.reason)}</div>
           </div>
         `).join('');
       }
@@ -16705,8 +16729,9 @@ function render(){
   function renderLearningPanel(journal) {
     const el = document.getElementById('learningStats');
     if (!el) return;
+    const tp = fnoThemePalette();
     if (!journal.length) {
-      el.innerHTML = `<div style="color:#64748b">No trades journaled yet - stats will appear here once you have closed trades (manually via Force Exit, or via Auto Trades hitting target/SL).</div>`;
+      el.innerHTML = `<div style="color:${tp.muted2}">No trades journaled yet - stats will appear here once you have closed trades (manually via Force Exit, or via Auto Trades hitting target/SL).</div>`;
       return;
     }
     const winners = journal.filter(t=>t.pnl>0), losers = journal.filter(t=>t.pnl<0);
@@ -16725,12 +16750,12 @@ function render(){
     }
     el.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-        <div style="background:#020617;padding:8px;border-radius:8px"><div style="color:#94a3b8">Win Rate (real)</div><div style="font-weight:800;color:${winRate>=50?'#4ade80':'#f87171'}">${winRate.toFixed(1)}% (${winners.length}/${journal.length})</div></div>
-        <div style="background:#020617;padding:8px;border-radius:8px"><div style="color:#94a3b8">Total P&L</div><div style="font-weight:800;color:${totalPnL>=0?'#4ade80':'#f87171'}">Rs${totalPnL.toFixed(0)}</div></div>
-        <div style="background:#020617;padding:8px;border-radius:8px"><div style="color:#94a3b8">Avg Win / Avg Loss</div><div style="font-weight:800">Rs${avgWin.toFixed(0)} / Rs${avgLoss.toFixed(0)}</div></div>
-        <div style="background:#020617;padding:8px;border-radius:8px"><div style="color:#94a3b8">Current Streak</div><div style="font-weight:800">${streak>0?streak+streakType:'-'}</div></div>
+        <div style="background:${tp.panel};padding:8px;border-radius:8px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Win Rate (real)</div><div style="font-weight:800;color:${winRate>=50?tp.pass:tp.fail}">${winRate.toFixed(1)}% (${winners.length}/${journal.length})</div></div>
+        <div style="background:${tp.panel};padding:8px;border-radius:8px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Total P&L</div><div style="font-weight:800;color:${totalPnL>=0?tp.pass:tp.fail}">Rs${totalPnL.toFixed(0)}</div></div>
+        <div style="background:${tp.panel};padding:8px;border-radius:8px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Avg Win / Avg Loss</div><div style="font-weight:800;color:${tp.text}">Rs${avgWin.toFixed(0)} / Rs${avgLoss.toFixed(0)}</div></div>
+        <div style="background:${tp.panel};padding:8px;border-radius:8px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Current Streak</div><div style="font-weight:800;color:${tp.text}">${streak>0?streak+streakType:'-'}</div></div>
       </div>
-      <div style="font-size:10px;color:#64748b;margin-top:6px">Computed from ${journal.length} real journaled trades${window.FNO_AJAX.isLoggedIn?' (server-synced)':' (localStorage only - log in to persist across devices)'}. ${journal.length<20?'Fewer than 20 trades - treat these numbers as noisy, not a reliable edge estimate yet.':'20+ trades - still cross-check against the Psychology category Backtest Overfitting factor (50+ recommended before trusting an edge).'}</div>
+      <div style="font-size:10px;color:${tp.muted2};margin-top:6px">Computed from ${journal.length} real journaled trades${window.FNO_AJAX.isLoggedIn?' (server-synced)':' (localStorage only - log in to persist across devices)'}. ${journal.length<20?'Fewer than 20 trades - treat these numbers as noisy, not a reliable edge estimate yet.':'20+ trades - still cross-check against the Psychology category Backtest Overfitting factor (50+ recommended before trusting an edge).'}</div>
     `;
   }
 
@@ -16779,13 +16804,14 @@ function render(){
   function renderOptionChainTable(ocRows, spot, selectedStrike, selectedType, sym) {
     const el = document.getElementById('optionChainTable');
     if (!el) return;
+    const tp = fnoThemePalette();
     if (!ocRows.length) {
-      el.innerHTML = `<span style="color:#64748b">No live option-chain data this refresh - NSE source unavailable.</span>`;
+      el.innerHTML = `<span style="color:${tp.muted2}">No live option-chain data this refresh - NSE source unavailable.</span>`;
       return;
     }
     const sorted = ocRows.filter(r=>r && typeof r.strikePrice==='number').sort((a,b)=>a.strikePrice-b.strikePrice);
     const atmIdx = sorted.reduce((best,r,i)=> (best===null || Math.abs(r.strikePrice-spot) < Math.abs(sorted[best].strikePrice-spot)) ? i : best, null);
-    if (atmIdx === null) { el.innerHTML = `<span style="color:#64748b">No valid strikes in this refresh's data.</span>`; return; }
+    if (atmIdx === null) { el.innerHTML = `<span style="color:${tp.muted2}">No valid strikes in this refresh's data.</span>`; return; }
     const windowRows = sorted.slice(Math.max(0, atmIdx-8), atmIdx+9);
 
     const fmt = (v, dp) => typeof v==='number' ? v.toFixed(dp===undefined?1:dp) : '-';
@@ -16809,31 +16835,31 @@ function render(){
       const ce = row.CE||{}, pe = row.PE||{};
       const ceSelected = isAtm===isAtm && row.strikePrice===selectedStrike && selectedType==='CE';
       const peSelected = row.strikePrice===selectedStrike && selectedType==='PE';
-      return `<tr style="${isAtm?'background:#1e293b':''}">
-        <td style="padding:3px 6px;text-align:right;color:#94a3b8">${fmtInt(ce.openInterest)}</td>
-        <td style="padding:3px 6px;text-align:right;color:${(ce.changeinOpenInterest||0)>=0?'#4ade80':'#f87171'}">${fmtInt(ce.changeinOpenInterest)}</td>
-        <td style="padding:3px 6px;text-align:right;color:#94a3b8">${fmtInt(ce.totalTradedVolume)}</td>
-        <td style="padding:3px 6px;text-align:right;color:#94a3b8">${fmt(ce.impliedVolatility,1)}</td>
-        <td data-oc-strike="${row.strikePrice}" data-oc-type="CE" style="padding:3px 6px;text-align:right;font-weight:800;cursor:pointer;background:${ceSelected?'#052e16':'transparent'};color:${ceSelected?'#4ade80':'#e2e8f0'}">${fmt(ce.lastPrice,2)}</td>
-        <td style="padding:3px 10px;text-align:center;font-weight:800;background:#0f172a">${row.strikePrice}</td>
-        <td data-oc-strike="${row.strikePrice}" data-oc-type="PE" style="padding:3px 6px;text-align:left;font-weight:800;cursor:pointer;background:${peSelected?'#450a0a':'transparent'};color:${peSelected?'#f87171':'#e2e8f0'}">${fmt(pe.lastPrice,2)}</td>
-        <td style="padding:3px 6px;text-align:left;color:#94a3b8">${fmt(pe.impliedVolatility,1)}</td>
-        <td style="padding:3px 6px;text-align:left;color:#94a3b8">${fmtInt(pe.totalTradedVolume)}</td>
-        <td style="padding:3px 6px;text-align:left;color:${(pe.changeinOpenInterest||0)>=0?'#4ade80':'#f87171'}">${fmtInt(pe.changeinOpenInterest)}</td>
-        <td style="padding:3px 6px;text-align:left;color:#94a3b8">${fmtInt(pe.openInterest)}</td>
+      return `<tr style="${isAtm?`background:${tp.line}`:''}">
+        <td style="padding:3px 6px;text-align:right;color:${tp.muted}">${fmtInt(ce.openInterest)}</td>
+        <td style="padding:3px 6px;text-align:right;color:${(ce.changeinOpenInterest||0)>=0?tp.pass:tp.fail}">${fmtInt(ce.changeinOpenInterest)}</td>
+        <td style="padding:3px 6px;text-align:right;color:${tp.muted}">${fmtInt(ce.totalTradedVolume)}</td>
+        <td style="padding:3px 6px;text-align:right;color:${tp.muted}">${fmt(ce.impliedVolatility,1)}</td>
+        <td data-oc-strike="${row.strikePrice}" data-oc-type="CE" style="padding:3px 6px;text-align:right;font-weight:800;cursor:pointer;background:${ceSelected?tp.passBg:'transparent'};color:${ceSelected?tp.pass:tp.text}">${fmt(ce.lastPrice,2)}</td>
+        <td style="padding:3px 10px;text-align:center;font-weight:800;background:${tp.panelStrike};color:${tp.text}">${row.strikePrice}</td>
+        <td data-oc-strike="${row.strikePrice}" data-oc-type="PE" style="padding:3px 6px;text-align:left;font-weight:800;cursor:pointer;background:${peSelected?tp.failBg:'transparent'};color:${peSelected?tp.fail:tp.text}">${fmt(pe.lastPrice,2)}</td>
+        <td style="padding:3px 6px;text-align:left;color:${tp.muted}">${fmt(pe.impliedVolatility,1)}</td>
+        <td style="padding:3px 6px;text-align:left;color:${tp.muted}">${fmtInt(pe.totalTradedVolume)}</td>
+        <td style="padding:3px 6px;text-align:left;color:${(pe.changeinOpenInterest||0)>=0?tp.pass:tp.fail}">${fmtInt(pe.changeinOpenInterest)}</td>
+        <td style="padding:3px 6px;text-align:left;color:${tp.muted}">${fmtInt(pe.openInterest)}</td>
       </tr>`;
     }).join('');
 
     el.innerHTML = `
-      <table style="width:100%;border-collapse:collapse">
-        <thead><tr style="color:#64748b;border-bottom:1px solid #1e293b">
+      <table style="width:100%;border-collapse:collapse;color:${tp.text}">
+        <thead><tr style="color:${tp.muted};border-bottom:1px solid ${tp.line}">
           <th style="padding:3px 6px;text-align:right">OI</th><th style="padding:3px 6px;text-align:right">Chg OI</th><th style="padding:3px 6px;text-align:right">Vol</th><th style="padding:3px 6px;text-align:right">IV</th><th style="padding:3px 6px;text-align:right">CE LTP</th>
           <th style="padding:3px 10px;text-align:center">Strike</th>
           <th style="padding:3px 6px;text-align:left">PE LTP</th><th style="padding:3px 6px;text-align:left">IV</th><th style="padding:3px 6px;text-align:left">Vol</th><th style="padding:3px 6px;text-align:left">Chg OI</th><th style="padding:3px 6px;text-align:left">OI</th>
         </tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <div style="font-size:9px;color:#64748b;margin-top:4px">ATM row highlighted. Click any LTP cell to select that strike/type.</div>
+      <div style="font-size:9px;color:${tp.muted2};margin-top:4px">ATM row highlighted. Click any LTP cell to select that strike/type.</div>
     `;
     el.querySelectorAll('[data-oc-strike]').forEach(cell => {
       cell.addEventListener('click', () => {

@@ -201,6 +201,52 @@ body.fno-nse-disabled .nse-only-section{display:none}
 [data-theme="light"] #settingsModalOverlay strong{
   color:var(--text);
 }
+[data-theme="light"] #fno-root [style*="background:#1e293b"],
+[data-theme="light"] #fno-root [style*="background: #1e293b"],
+[data-theme="light"] #fno-root [style*="background:#1e1b2e"],
+[data-theme="light"] #fno-root [style*="background:#334155"],
+[data-theme="light"] #settingsModalOverlay [style*="background:#1e293b"],
+[data-theme="light"] #settingsModalOverlay [style*="background:#334155"]{
+  background:var(--panel-bg-elevated)!important;border-color:var(--line-subtle)!important;color:var(--text)!important;
+}
+[data-theme="light"] #fno-root [style*="color:#93c5fd"],
+[data-theme="light"] #fno-root [style*="color: #93c5fd"],
+[data-theme="light"] #settingsModalOverlay [style*="color:#93c5fd"]{
+  color:#1d4ed8!important;
+}
+[data-theme="light"] #fno-root [style*="color:#c4b5fd"],
+[data-theme="light"] #fno-root [style*="color:#a78bfa"],
+[data-theme="light"] #settingsModalOverlay [style*="color:#c4b5fd"],
+[data-theme="light"] #settingsModalOverlay [style*="color:#a78bfa"]{
+  color:#6d28d9!important;
+}
+[data-theme="light"] #failureModeLibraryBox,
+[data-theme="light"] #blockedAttemptsHistoryBox,
+[data-theme="light"] #decisionIntelligenceBox,
+[data-theme="light"] #ivSurfaceBox,
+[data-theme="light"] #aiNarrativeBox,
+[data-theme="light"] #eligibilityFunnelBox,
+[data-theme="light"] #tradeTypeWeightingBox,
+[data-theme="light"] #currentHypothesisBox,
+[data-theme="light"] #dealerGammaBox,
+[data-theme="light"] #multiLevelPayoffBox,
+[data-theme="light"] #futuresAlignBox,
+[data-theme="light"] #multiInstrumentBox,
+[data-theme="light"] #wrongSideCheckBox,
+[data-theme="light"] #hypothesisStatsBox,
+[data-theme="light"] #autonomousModeStatus,
+[data-theme="light"] #factorRegistryCoverage{
+  color:var(--muted-text)!important;
+}
+[data-theme="light"] #dailyChecks button[data-daily-btn]{
+  color:var(--muted-text)!important;
+}
+[data-theme="light"] #openSettingsBtn[style*="background:#334155"]{
+  background:#64748b!important;color:#fff!important;
+}
+[data-theme="light"] select option{
+  background:var(--input-bg);color:var(--input-text);
+}
 </style>
 </head>
 <body>
