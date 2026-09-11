@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit
+    bootstrap="bootstrap.php"
+    backupGlobals="false"
+    colors="true"
+    convertErrorsToExceptions="true"
+    convertNoticesToExceptions="true"
+    convertWarningsToExceptions="true"
+    verbose="true"
+>
+    <testsuites>
+        <testsuite name="InterviewAce">
+            <directory suffix=".php">./</directory>
+            <exclude>bootstrap.php</exclude>
+        </testsuite>
+    </testsuites>
+
+    <coverage>
+        <include>
+            <directory suffix=".php">../api</directory>
+            <directory suffix=".php">../includes</directory>
+        </include>
+        <report>
+            <html outputDirectory="../coverage" lowUpperBound="50" highUpperBound="80"/>
+        </report>
+    </coverage>
+</phpunit>
