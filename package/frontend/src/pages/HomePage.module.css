@@ -1,0 +1,111 @@
+.page {
+  min-height: 100vh;
+  max-width: 480px;
+  margin: 0 auto;
+  padding-bottom: calc(var(--nav-height) + 16px);
+}
+
+.body {
+  padding: 16px 16px 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.activeTrip {
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 8px 0 4px;
+}
+
+.sectionHint {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 14px;
+}
+
+.serviceGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.serviceTile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: 132px;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 16px;
+  cursor: pointer;
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+}
+
+.serviceTile:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+}
+
+.serviceTileWide {
+  grid-column: 1 / -1;
+  min-height: auto;
+  flex-direction: row;
+  align-items: center;
+}
+
+.serviceIcon {
+  font-size: 36px;
+  line-height: 1;
+}
+
+.serviceCopy {
+  flex: 1;
+  min-width: 0;
+}
+
+.serviceLabel {
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.serviceDesc {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.chevron {
+  position: absolute;
+  top: 16px;
+  right: 14px;
+  font-size: 22px;
+  color: var(--text-muted);
+  line-height: 1;
+}
+
+.serviceTileWide .chevron {
+  position: static;
+  margin-left: auto;
+  flex-shrink: 0;
+}
