@@ -7,6 +7,20 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 add_filter( 'show_admin_bar', '__return_false', 999 );
 remove_action( 'wp_head', '_admin_bar_bump_cb' );
 
+// Standalone homepage: strip theme styles that override NAS design (loaded after wp_head).
+add_action( 'wp_enqueue_scripts', function () {
+    global $wp_styles;
+    if ( ! $wp_styles || ! is_array( $wp_styles->queue ) ) {
+        return;
+    }
+    foreach ( $wp_styles->queue as $handle ) {
+        if ( strpos( $handle, 'nas-' ) === 0 || in_array( $handle, [ 'admin-bar', 'dashicons' ], true ) ) {
+            continue;
+        }
+        wp_dequeue_style( $handle );
+    }
+}, 9999 );
+
 $cfg     = \NAS\Core\Config::instance();
 $db      = \NAS\Core\Database::instance();
 $brand   = $cfg->get( 'brand_name', get_bloginfo( 'name' ) );
@@ -72,6 +86,10 @@ function nhp_edition_label( $editions_raw, $fallback = '' ) {
     }
     return $label;
 }
+
+$nhp_v_core = @filemtime( NAS_PLUGIN_DIR . 'assets/css/nas-core.css' ) ?: NAS_VERSION;
+$nhp_v_home = @filemtime( NAS_PLUGIN_DIR . 'assets/css/nas-homepage.css' ) ?: NAS_VERSION;
+$nhp_v_js   = @filemtime( NAS_PLUGIN_DIR . 'assets/js/nas-homepage.js' ) ?: NAS_VERSION;
 ?>
 <!DOCTYPE html>
 <html <?php language_attributes(); ?>>
@@ -81,7 +99,22 @@ function nhp_edition_label( $editions_raw, $fallback = '' ) {
   <meta name="description" content="<?php echo esc_attr( $tagline ); ?> — <?php echo esc_attr( $brand ); ?>">
   <title><?php echo esc_html( $brand ); ?> — <?php echo esc_html( $tagline ); ?></title>
   <?php wp_head(); ?>
-  <style>:root{--nhp-primary:<?php echo esc_attr( $color ); ?>;--nas-primary:<?php echo esc_attr( $color ); ?>;}</style>
+  <!-- NAS homepage assets (after wp_head so they override theme CSS) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <link rel="stylesheet" href="<?php echo esc_url( NAS_ASSETS . 'css/nas-core.css' ); ?>?ver=<?php echo esc_attr( $nhp_v_core ); ?>">
+  <link rel="stylesheet" href="<?php echo esc_url( NAS_ASSETS . 'css/nas-homepage.css' ); ?>?ver=<?php echo esc_attr( $nhp_v_home ); ?>">
+  <style>
+    :root{--nhp-primary:<?php echo esc_attr( $color ); ?>;--nas-primary:<?php echo esc_attr( $color ); ?>;}
+    #wpadminbar,.wpadminbar{display:none!important}
+    html{margin-top:0!important;padding-top:0!important}
+    body.nas-homepage{margin:0!important;padding:0!important;background:#fff!important}
+  </style>
+  <script>window.NAS=window.NAS||{booking_url:<?php echo wp_json_encode( $booking_url ); ?>};</script>
+  <script src="<?php echo esc_url( includes_url( 'js/jquery/jquery.min.js' ) ); ?>"></script>
+  <script src="<?php echo esc_url( NAS_ASSETS . 'js/nas-homepage.js' ); ?>?ver=<?php echo esc_attr( $nhp_v_js ); ?>" defer></script>
 </head>
 <body class="nas-homepage">
 

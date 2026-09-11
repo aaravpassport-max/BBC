@@ -193,8 +193,19 @@ class Enqueue {
     }
 
     // ── Homepage assets (standalone front-page template) ─────────────────
+    public static function is_nas_homepage(): bool {
+        if ( get_option( 'nas_homepage_enabled' ) && is_front_page() ) {
+            return true;
+        }
+        // Shortcode-based homepage on any NAS front page slug
+        if ( is_page( [ 'nas-homepage', 'nas-home', 'homepage' ] ) ) {
+            return true;
+        }
+        return false;
+    }
+
     public static function homepage_assets(): void {
-        if ( ! is_front_page() || ! get_option( 'nas_homepage_enabled' ) ) {
+        if ( ! self::is_nas_homepage() ) {
             return;
         }
 
@@ -206,6 +217,9 @@ class Enqueue {
             [], null );
         wp_enqueue_style( 'nas-core', $a . 'css/nas-core.css', [ 'nas-fonts' ], self::asset_ver( 'css/nas-core.css' ) );
         wp_enqueue_style( 'nas-homepage', $a . 'css/nas-homepage.css', [ 'nas-core' ], self::asset_ver( 'css/nas-homepage.css' ) );
+        wp_enqueue_style( 'font-awesome',
+            'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css',
+            [], '6.5.0' );
 
         wp_enqueue_script( 'jquery' );
         wp_enqueue_script( 'nas-core', $a . 'js/nas-core.js', [ 'jquery' ], self::asset_ver( 'js/nas-core.js' ), true );
@@ -216,7 +230,7 @@ class Enqueue {
 
     // ── Frontend assets ───────────────────────────────────────────────────
     public static function frontend_assets(): void {
-        if ( is_front_page() && get_option( 'nas_homepage_enabled' ) ) {
+        if ( self::is_nas_homepage() ) {
             return; // homepage_assets() handles the front page
         }
 
@@ -281,7 +295,7 @@ class Enqueue {
 
     // Emits preconnect + non-blocking Font Awesome in <head>.
     public static function preconnect_hints(): void {
-        if ( ! self::is_nas_page() && ! ( is_front_page() && get_option( 'nas_homepage_enabled' ) ) ) {
+        if ( ! self::is_nas_page() && ! self::is_nas_homepage() ) {
             return;
         }
         echo '<link rel="preconnect" href="https://fonts.googleapis.com">' . PHP_EOL;
