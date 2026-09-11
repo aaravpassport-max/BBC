@@ -21,11 +21,12 @@ assert.ok(/computeLiquidityTrapValidationStats/.test(engineSrc));
 assert.ok(/computeMicrostructureAbsorptionBoost/.test(engineSrc));
 assert.ok(/inferLiquidityTrapExpectedDirection/.test(engineSrc));
 
-assert.ok(/strikeShiftForRefresh/.test(coreSrc), 'strike shift must use pre-ctx cache variable, not ctx before initialization');
-const ctxDeclPos = coreSrc.indexOf('const ctx={');
-const earlyCtxStrikeShift = coreSrc.indexOf('ctx.strikeShift');
-assert.ok(ctxDeclPos > 0, 'const ctx={ must exist');
-assert.ok(earlyCtxStrikeShift === -1 || earlyCtxStrikeShift > ctxDeclPos, 'ctx.strikeShift must not appear before const ctx={');
+assert.ok(/strikeShiftForRefresh/.test(coreSrc), 'strike shift must use pre-ctx cache variable, not refreshCtx before initialization');
+const refreshCtxDeclPos = coreSrc.indexOf('const refreshCtx={');
+const earlyRefreshCtxStrikeShift = coreSrc.indexOf('refreshCtx.strikeShift');
+assert.ok(refreshCtxDeclPos > 0, 'const refreshCtx={ must exist');
+assert.ok(earlyRefreshCtxStrikeShift === -1 || earlyRefreshCtxStrikeShift > refreshCtxDeclPos, 'refreshCtx.strikeShift must not appear before const refreshCtx={');
+assert.ok(/const refreshCtx=\{/.test(coreSrc), 'refreshBrain uses refreshCtx instead of ctx to avoid TDZ collisions');
 assert.ok(/fetchOIAccumulationHistory/.test(coreSrc));
 assert.ok(/check\('FM088'/.test(coreSrc));
 assert.ok(/evaluateLiquidityTrapOutcomes\(spot, sym\)/.test(coreSrc));

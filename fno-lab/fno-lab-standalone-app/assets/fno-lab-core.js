@@ -15571,7 +15571,7 @@ function render(){
       // in this project's own gap analysis). Real value (or honest
       // null/unknown if no premium calendar provider is configured)
       // now overwrites status.isEventDay before anything downstream
-      // reads it - every existing consumer of ctx.status.isEventDay
+      // reads it - every existing consumer of refreshCtx.status.isEventDay
       // gets the fix automatically, no other code needed to change.
       status.isEventDay = (eventCalendar && eventCalendar.isEventDay !== undefined) ? eventCalendar.isEventDay : null;
       status.eventName = (eventCalendar && eventCalendar.eventName) || null;
@@ -15586,7 +15586,7 @@ function render(){
       // but genuinely no client-side caller anywhere in this file
       // (confirmed by search) until now. Raw real actions array stored
       // honestly as-received; the near-expiry match itself is computed
-      // inside computeMarketFactors, where ctx.decay.days (the real
+      // inside computeMarketFactors, where refreshCtx.decay.days (the real
       // days-to-expiry, already resolved from the real selected
       // option's own expiryDate) is available - "unavailable" (no
       // provider/NSE integration off) is stored distinctly from
@@ -15629,7 +15629,7 @@ function render(){
       // Defense-in-depth sanitization pass (see sanitizeOcRows()'s own
       // TRACE) - applied ONCE here, before rec.data reaches any
       // consumer (renderOptionChainTable, the PCR sum below, ocRow
-      // selection, ctx.ocRows, computeMaxPainInfo, hypothesis
+      // selection, refreshCtx.ocRows, computeMaxPainInfo, hypothesis
       // generation, etc.), so every one of those call sites is
       // protected without needing to be individually touched. A no-op
       // on this app's real, confirmed-clean NSE JSON API response
@@ -15837,15 +15837,15 @@ function render(){
       const journal = await syncServerJournal();
       if (isStaleRefresh()) return; // see fnoRefreshGeneration TRACE - a newer call superseded this one during the journal sync await
       // Real, new: threads the real, current paper account balance into
-      // ctx for the first time, closing the specific "real, additional
+      // refreshCtx for the first time, closing the specific "real, additional
       // architecture work, not a quick reuse" gap FM044/FM095/FM096 were
       // all blocked on (a separate async fetch never threaded into this
-      // synchronous entry-flow ctx). Reuses fetchPaperAccount() and
+      // synchronous entry-flow refreshCtx). Reuses fetchPaperAccount() and
       // computeEquityCurve(), the exact same two functions
       // loadPaperAccount() already calls to render the Account panel -
       // no new computation, no fabricated balance. Never blocks the
       // refresh cycle on failure (same "optional enhancement" pattern as
-      // every other non-core ctx field here) - a failed fetch just
+      // every other non-core refreshCtx field here) - a failed fetch just
       // leaves accountAvailableCapital/accountCurrentDrawdownPct as
       // null, and every consumer below is guarded accordingly.
       const paperAccountForCtx = await fetchPaperAccount();
@@ -15872,12 +15872,12 @@ function render(){
 
       // Real regime label, computed once here from the same real
       // inputs (candles/vix/isExpiry) computeMarketRegime always
-      // uses - included directly in ctx below so evaluateBrain can
+      // uses - included directly in refreshCtx below so evaluateBrain can
       // apply the real, regime-based historical adjustment found
       // disconnected and reconnected this session, without a second,
       // redundant regime computation.
       const regimeLabel = computeMarketRegime({ candles, vix: typeof status.vix==='number' ? status.vix : null, isExpiry: status.isExpiry||false }).label;
-      const ctx={
+      const refreshCtx={
         spot, ema21:ema21[last], vwap:vwap[last],
         pcr, totalPE, totalCE,
         vix: typeof status.vix==='number' ? status.vix : null,
@@ -15908,7 +15908,7 @@ function render(){
         fiiLongShort: status.fii_long_short || null,
         kiteMarginEstimate,
         // FOUND while auditing for the same "declared but never
-        // genuinely wired" bug class as Phase 129's ctx.consecLoss
+        // genuinely wired" bug class as Phase 129's refreshCtx.consecLoss
         // discovery: a real, hardcoded `consecLoss:0` field used to
         // live here, permanently wrong and never actually read by any
         // real code anywhere in this file (confirmed by a real,
@@ -15988,15 +15988,15 @@ function render(){
         // of this app already trusts, index-aligned 1:1 with `candles`.
         ema21Series: ema21, vwapSeries: vwap,
       };
-      curCtx=ctx;
-      ctx.strikeShift = strikeShiftForRefresh;
-      fetchStrikeShiftForContext(ctx, strike, optionType).then(shift => {
+      curCtx=refreshCtx;
+      refreshCtx.strikeShift = strikeShiftForRefresh;
+      fetchStrikeShiftForContext(refreshCtx, strike, optionType).then(shift => {
         if (shift) {
-          ctx.strikeShift = shift;
+          refreshCtx.strikeShift = shift;
           strikeShiftForRefresh = shift;
         }
       }).catch(() => { /* non-critical */ });
-      renderPriceChart(ctx); // user's own direct request - live candle chart + entry/exit markers, redrawn every refresh alongside everything else
+      renderPriceChart(refreshCtx); // user's own direct request - live candle chart + entry/exit markers, redrawn every refresh alongside everything else
 
       // Real rolling-history snapshot (unblocks VIX 15m/PCR 30m/IV Rank/
       // Straddle-vs-Yesterday - see recordSnapshot's TRACE comment).
@@ -16022,7 +16022,7 @@ function render(){
       const snapCeSpread = checkSpreadLevel(ocRow && ocRow.CE).spreadPct;
       const snapPeSpread = checkSpreadLevel(ocRow && ocRow.PE).spreadPct;
       recordSnapshot({
-        ts: Date.now(), vix: ctx.vix, pcr,
+        ts: Date.now(), vix: refreshCtx.vix, pcr,
         straddle: (ocRow && ocRow.CE && ocRow.PE && typeof ocRow.CE.lastPrice==='number' && typeof ocRow.PE.lastPrice==='number') ? (ocRow.CE.lastPrice+ocRow.PE.lastPrice) : null,
         iv: (decay.snapshot && decay.snapshot.iv) || null,
         volume: (snapCeVolume+snapPeVolume) || null,
@@ -16036,30 +16036,38 @@ function render(){
         if (d.PE) peOIChLiq += d.PE.changeinOpenInterest || 0;
       });
       const netOIChangeForLiq = ceOIChLiq + peOIChLiq;
-      ctx.liquidityInputs = {
+      refreshCtx.liquidityInputs = {
         netOIChange: netOIChangeForLiq,
         priceChangePct: priceChangePctForLiq,
-        breakoutCondition: computeBreakoutReversalCondition(ctx.candles, 20),
-        reversalSignal: computeReversalSignal(ctx.candles),
+        breakoutCondition: computeBreakoutReversalCondition(refreshCtx.candles, 20),
+        reversalSignal: computeReversalSignal(refreshCtx.candles),
         trapSignal: computeTrapSignal(netOIChangeForLiq, priceChangePctForLiq),
       };
 
-      const brain=evaluateBrain(ctx);
+      const brain=evaluateBrain(refreshCtx);
       lastBrain=brain;
-      if (typeof computeLiquidityTrapEngine === 'function') {
-        const liqEngine = computeLiquidityTrapEngine(ctx, brain, ctx.liquidityInputs);
-        const liqOpt = brain.decision === 'BUY_READY' ? 'CE' : brain.decision === 'SELL_READY' ? 'PE' : null;
-        applyLiquidityTrapInfluence(brain, liqEngine, liqOpt);
-        logLiquidityTrapObservation(liqEngine, sym, spot, brain);
-        const trapValidationStats = typeof evaluateLiquidityTrapOutcomes === 'function'
-          ? evaluateLiquidityTrapOutcomes(spot, sym) : null;
-        renderLiquidityBehaviourPanel(liqEngine, trapValidationStats);
-        ctx.liquidityBehaviour = liqEngine;
-        generateAndLogHypothesisIfDue(operatorIntel, rec && rec.data, spot, sym, ctx.liquidityInputs.trapSignal, ctx.strikeShift);
-        renderCurrentHypothesisBox(ctx.liquidityInputs.trapSignal, ctx.strikeShift);
-      } else {
-        generateAndLogHypothesisIfDue(operatorIntel, rec && rec.data, spot, sym, ctx.liquidityInputs ? ctx.liquidityInputs.trapSignal : null, ctx.strikeShift);
-        renderCurrentHypothesisBox(ctx.liquidityInputs ? ctx.liquidityInputs.trapSignal : null, ctx.strikeShift);
+      try {
+        if (typeof computeLiquidityTrapEngine === 'function') {
+          const liqEngine = computeLiquidityTrapEngine(refreshCtx, brain, refreshCtx.liquidityInputs);
+          const liqOpt = brain.decision === 'BUY_READY' ? 'CE' : brain.decision === 'SELL_READY' ? 'PE' : null;
+          applyLiquidityTrapInfluence(brain, liqEngine, liqOpt);
+          logLiquidityTrapObservation(liqEngine, sym, spot, brain);
+          const trapValidationStats = typeof evaluateLiquidityTrapOutcomes === 'function'
+            ? evaluateLiquidityTrapOutcomes(spot, sym) : null;
+          renderLiquidityBehaviourPanel(liqEngine, trapValidationStats);
+          refreshCtx.liquidityBehaviour = liqEngine;
+          generateAndLogHypothesisIfDue(operatorIntel, rec && rec.data, spot, sym, refreshCtx.liquidityInputs.trapSignal, refreshCtx.strikeShift);
+          renderCurrentHypothesisBox(refreshCtx.liquidityInputs.trapSignal, refreshCtx.strikeShift);
+        } else {
+          generateAndLogHypothesisIfDue(operatorIntel, rec && rec.data, spot, sym, refreshCtx.liquidityInputs ? refreshCtx.liquidityInputs.trapSignal : null, refreshCtx.strikeShift);
+          renderCurrentHypothesisBox(refreshCtx.liquidityInputs ? refreshCtx.liquidityInputs.trapSignal : null, refreshCtx.strikeShift);
+        }
+      } catch (liqErr) {
+        console.warn('Liquidity trap engine failed (non-critical):', liqErr);
+        const liqBox = document.getElementById('liquidityBehaviourBox');
+        if (liqBox) liqBox.innerHTML = `<span style="color:#fde68a">Liquidity engine error this refresh: ${escapeHtml(liqErr.message)} — brain/factors still active.</span>`;
+        generateAndLogHypothesisIfDue(operatorIntel, rec && rec.data, spot, sym, refreshCtx.liquidityInputs ? refreshCtx.liquidityInputs.trapSignal : null, refreshCtx.strikeShift);
+        renderCurrentHypothesisBox(refreshCtx.liquidityInputs ? refreshCtx.liquidityInputs.trapSignal : null, refreshCtx.strikeShift);
       }
       // Real, NEW this pass (Advanced Trading Intelligence spec §3/§16) -
       // cached to a window global, same real pattern as
@@ -16079,8 +16087,8 @@ function render(){
 
       // Master Prompt §41 - log rejected opportunities (throttled) so
       // they can later be evaluated against what actually happened.
-      logRejectionIfDue(brain.decision, ctx, buildEntrySnapshot(brain, ctx, sym), sym, brain);
-      logFailureEventsIfDue(brain, ctx.regimeLabel, sym);
+      logRejectionIfDue(brain.decision, refreshCtx, buildEntrySnapshot(brain, refreshCtx, sym), sym, brain);
+      logFailureEventsIfDue(brain, refreshCtx.regimeLabel, sym);
 
       // FOUND AND FIXED this session, via a direct, careful audit: the
       // ONLY code path that ever opened a real Auto Trade position was
@@ -16126,7 +16134,7 @@ function render(){
         if (existingPosition && existingPosition.id) { decisionLogBlockReason = 'A position is already open - no new position can be opened until it closes.'; }
         if (!existingPosition || !existingPosition.id) {
           const autoOptionType = brain.decision === 'BUY_READY' ? 'CE' : 'PE';
-          const autoLeg = autoOptionType === 'PE' ? (ctx.ocRow && ctx.ocRow.PE) : (ctx.ocRow && ctx.ocRow.CE);
+          const autoLeg = autoOptionType === 'PE' ? (refreshCtx.ocRow && refreshCtx.ocRow.PE) : (refreshCtx.ocRow && refreshCtx.ocRow.CE);
           if (!autoLeg || typeof autoLeg.lastPrice !== 'number') { decisionLogBlockReason = 'No live premium available for the signaled leg this refresh.'; }
           if (autoLeg && typeof autoLeg.lastPrice === 'number') {
             const useTradeTypeDefaults = fnoSettings.get().tradeTypeTargetSlEnabled;
@@ -16142,12 +16150,12 @@ function render(){
               autoTarget = (formTarget && formTarget > autoLeg.lastPrice) ? formTarget : +(autoLeg.lastPrice * 1.3).toFixed(2);
               autoSl = (formSl && formSl < autoLeg.lastPrice) ? formSl : +(autoLeg.lastPrice * 0.85).toFixed(2);
             }
-            const autoStrike = parseFloat(document.getElementById('strike') && document.getElementById('strike').value) || (ctx.ocRow && ctx.ocRow.strikePrice);
+            const autoStrike = parseFloat(document.getElementById('strike') && document.getElementById('strike').value) || (refreshCtx.ocRow && refreshCtx.ocRow.strikePrice);
             const autoExecMode = (document.getElementById('executionMode') && document.getElementById('executionMode').value) || 'realistic';
             const autoTrailing = !!(document.getElementById('trailingEnabled') && document.getElementById('trailingEnabled').checked);
             const autoPartial = !!(document.getElementById('partialExitEnabled') && document.getElementById('partialExitEnabled').checked);
             if (autoStrike) {
-              const preservation = checkScalpingCapitalPreservation(brain, ctx, { journalToday: todayTrades });
+              const preservation = checkScalpingCapitalPreservation(brain, refreshCtx, { journalToday: todayTrades });
               if (!preservation.allowed) {
                 decisionLogBlockReason = preservation.reason;
               } else {
@@ -16203,8 +16211,8 @@ function render(){
         regimeLabel: brain.regime ? brain.regime.label : null,
         strategyVersion: typeof FNO_STRATEGY_VERSION !== 'undefined' ? FNO_STRATEGY_VERSION : null,
         signalOptionType: brain.decision === 'BUY_READY' ? 'CE' : (brain.decision === 'SELL_READY' ? 'PE' : null),
-        spot: (typeof ctx.spot === 'number') ? ctx.spot : null,
-        atmStrike: (ctx.ocRow && typeof ctx.ocRow.strikePrice === 'number') ? ctx.ocRow.strikePrice : null,
+        spot: (typeof refreshCtx.spot === 'number') ? refreshCtx.spot : null,
+        atmStrike: (refreshCtx.ocRow && typeof refreshCtx.ocRow.strikePrice === 'number') ? refreshCtx.ocRow.strikePrice : null,
         confidenceTierFactorCoverage: (brain.categoriesNotEvaluated || []).length,
         // Real, NEW this pass - added specifically so
         // computeMissedOpportunityAnalysis() can re-price a real,
@@ -16212,12 +16220,12 @@ function render(){
         // audited bsGreeksAtDays() this app's own live Greeks/Decay
         // panels use) instead of only ever comparing raw underlying
         // spot movement. Both are real, already-computed values this
-        // exact refresh (ctx.decay.days/ctx.decay.snapshot.iv, the
+        // exact refresh (refreshCtx.decay.days/refreshCtx.decay.snapshot.iv, the
         // same fields calculateDecay() itself just built a few lines
         // above) - never a second, independent estimate.
-        entryDaysToExpiry: (ctx.decay && typeof ctx.decay.days === 'number') ? ctx.decay.days : null,
-        entryIV: (ctx.decay && ctx.decay.snapshot && typeof ctx.decay.snapshot.iv === 'number') ? ctx.decay.snapshot.iv : null,
-        lotSize: (typeof ctx.lotSize === 'number') ? ctx.lotSize : null,
+        entryDaysToExpiry: (refreshCtx.decay && typeof refreshCtx.decay.days === 'number') ? refreshCtx.decay.days : null,
+        entryIV: (refreshCtx.decay && refreshCtx.decay.snapshot && typeof refreshCtx.decay.snapshot.iv === 'number') ? refreshCtx.decay.snapshot.iv : null,
+        lotSize: (typeof refreshCtx.lotSize === 'number') ? refreshCtx.lotSize : null,
         tradeOpened: decisionLogTradeOpened,
         blockReason: decisionLogTradeOpened ? null : decisionLogBlockReason,
         rejectionCategory: decisionRejectionMeta ? decisionRejectionMeta.category : null,
@@ -16228,9 +16236,9 @@ function render(){
           .sort((a, b) => Math.abs(b.score || 0) - Math.abs(a.score || 0))
           .slice(0, 8)
           .map(r => ({ factor: r.factor, pass: r.pass, score: r.score, cat: r.cat || null })),
-        signalEntryPremium: (ctx.ocRow && typeof ctx.ocRow.lastPrice === 'number') ? ctx.ocRow.lastPrice : null,
-        lotCount: ctx.lotCount != null ? ctx.lotCount : getLotCountFromUi(),
-        exchangeLotSize: ctx.exchangeLotSize != null ? ctx.exchangeLotSize : getExchangeLotSize(sym),
+        signalEntryPremium: (refreshCtx.ocRow && typeof refreshCtx.ocRow.lastPrice === 'number') ? refreshCtx.ocRow.lastPrice : null,
+        lotCount: refreshCtx.lotCount != null ? refreshCtx.lotCount : getLotCountFromUi(),
+        exchangeLotSize: refreshCtx.exchangeLotSize != null ? refreshCtx.exchangeLotSize : getExchangeLotSize(sym),
         orderQty: lotSize,
         indicatorSettings: {
           buyThreshold: brain.buyThreshold,
@@ -16309,7 +16317,7 @@ function render(){
         box.innerHTML = `<b>${typeLabels[w.tradingType] || w.tradingType} weighting:</b> raw ${brain.totalScore.toFixed(1)} → weighted <b>${w.weightedScore.toFixed(1)}</b><br><div style="margin-top:4px;font-size:10px">${catHtml}</div>`;
       })();
 
-      renderScalpingSessionReadiness(brain, ctx);
+      renderScalpingSessionReadiness(brain, refreshCtx);
 
       const decEl=document.getElementById('brainDecision');
       const confBadge = brain.confidence ? ` <span style="font-size:11px;opacity:0.8">[${brain.confidence} confidence${brain.confidence!==brain.rawConfidence?', downgraded from '+brain.rawConfidence+' by low factor coverage - see §55':''}]</span>` : '';
@@ -16320,7 +16328,7 @@ function render(){
       // enforces server-side too.
       let modelBadge = '';
       if (window.FNO_ACTIVE_PROB_MODEL && brain.factorRegistry) {
-        const entrySnapForModel = buildEntrySnapshot(brain, ctx, sym);
+        const entrySnapForModel = buildEntrySnapshot(brain, refreshCtx, sym);
         if (entrySnapForModel) {
           const modelProb = predictWinProbability(window.FNO_ACTIVE_PROB_MODEL, entrySnapForModel);
           modelBadge = ` <span style="font-size:11px;color:#c4b5fd">[Model: ${(modelProb*100).toFixed(0)}% win probability, ${window.FNO_ACTIVE_PROB_MODEL.holdoutAccuracy.toFixed(0)}% holdout accuracy]</span>`;
@@ -16404,7 +16412,7 @@ function render(){
         // Phase 6 report-accuracy audit fix - the counts above told a
         // viewer HOW MANY factors were NOT_COMPUTED but never WHY. This
         // panel makes the real, per-category reason (derived from the
-        // same real ctx guard conditions evaluateBrain itself used to
+        // same real refreshCtx guard conditions evaluateBrain itself used to
         // skip each compute*Factors() call) explicit rather than silent.
         const notEvalEl = document.getElementById('categoriesNotEvaluated');
         if (notEvalEl) {
@@ -16437,7 +16445,7 @@ function render(){
       const snapBox = document.getElementById('marketSnapshotBox');
       let liveRegimeLabel = null;
       if (snapBox) {
-        const snap = computeMarketSnapshot(ctx, brain.operatorIntel ? brain.operatorIntel.bias : 'NEUTRAL');
+        const snap = computeMarketSnapshot(refreshCtx, brain.operatorIntel ? brain.operatorIntel.bias : 'NEUTRAL');
         liveRegimeLabel = snap.regime.label;
         snapBox.innerHTML = `
           <div style="font-weight:700;margin-bottom:6px">${escapeHtml(snap.summary)}</div>
@@ -16454,12 +16462,12 @@ function render(){
       // User's own founding vision document - real "Breakouts, False
       // breakouts, Breakdowns, False breakdowns, Reversals, Choppy
       // markets, Range-bound markets" detection, reusing the SAME
-      // real ctx.candles already fetched for the Market Snapshot above
+      // real refreshCtx.candles already fetched for the Market Snapshot above
       // - no new fetch.
       const breakoutBox = document.getElementById('breakoutConditionBox');
       if (breakoutBox) {
-        const cond = computeBreakoutReversalCondition(ctx.candles, 20);
-        const rev = computeReversalSignal(ctx.candles);
+        const cond = computeBreakoutReversalCondition(refreshCtx.candles, 20);
+        const rev = computeReversalSignal(refreshCtx.candles);
         const condColor = { breakout_up:'#4ade80', breakdown:'#f87171', false_breakout_up:'#fde68a', false_breakdown:'#fde68a', choppy:'#fde68a', range_bound:'#94a3b8', insufficient_data:'#64748b' }[cond.condition] || '#94a3b8';
         breakoutBox.innerHTML = `
           <div style="font-weight:700;color:${condColor};margin-bottom:4px">${escapeHtml(cond.condition.replace(/_/g,' ').toUpperCase())}</div>
@@ -16529,12 +16537,12 @@ function render(){
         // User's own founding vision document - real "Sudden
         // volatility events", distinct from the regime classifier's
         // real "High-volatility markets" LEVEL check - this is a real
-        // RATE-OF-CHANGE question, reusing the SAME real ctx.vix and
+        // RATE-OF-CHANGE question, reusing the SAME real refreshCtx.vix and
         // rolling snapshot history already available - no new fetch.
         const suddenVolBox = document.getElementById('suddenVolatilityEventBox');
         if (suddenVolBox) {
           const vixHistory = getSnapshotHistory().filter(s=>typeof s.vix==='number');
-          const sv = computeSuddenVolatilityEvent(ctx.vix, vixHistory);
+          const sv = computeSuddenVolatilityEvent(refreshCtx.vix, vixHistory);
           suddenVolBox.innerHTML = sv.isSuddenEvent
             ? `<div style="padding:8px;border-radius:8px;background:#450a0a;color:#fca5a5;font-size:11px">⚡ ${escapeHtml(sv.reason)}</div>`
             : `<div style="padding:6px;border-radius:8px;background:#020617;color:#64748b;font-size:10px">${escapeHtml(sv.reason)}</div>`;
@@ -16590,12 +16598,12 @@ function render(){
       }
 
       // Enterprise Plan #9 - real IV Surface panel, reusing the SAME
-      // ctx.ocRows/ctx.expiryDates already fetched this refresh (no
+      // refreshCtx.ocRows/refreshCtx.expiryDates already fetched this refresh (no
       // extra request) - shows every expiry's real cross-strike skew
       // and the real term-structure shape across the whole curve.
       const ivSurfaceBox = document.getElementById('ivSurfaceBox');
       if (ivSurfaceBox) {
-        const surface = computeIVSurface(ctx.ocRows, ctx.expiryDates, spot);
+        const surface = computeIVSurface(refreshCtx.ocRows, refreshCtx.expiryDates, spot);
         if (surface.byExpiry.length === 0) {
           ivSurfaceBox.innerHTML = `<span style="color:#64748b">Not enough real strikes with valid CE+PE IV this refresh to build a surface.</span>`;
         } else {
@@ -16659,7 +16667,7 @@ function render(){
       const futuresAlignBox = document.getElementById('futuresAlignBox');
       let liveFuturesAlignment = null;
       if (futuresAlignBox) {
-        const premiumPct = (typeof ctx.futuresPrice === 'number' && ctx.futuresPrice > 0 && spot > 0) ? ((ctx.futuresPrice - spot) / spot * 100) : null;
+        const premiumPct = (typeof refreshCtx.futuresPrice === 'number' && refreshCtx.futuresPrice > 0 && spot > 0) ? ((refreshCtx.futuresPrice - spot) / spot * 100) : null;
         liveFuturesAlignment = computeFuturesOptionsAlignment(premiumPct, pcr);
         const alignColor = liveFuturesAlignment.alignment === 'aligned' ? '#4ade80' : liveFuturesAlignment.alignment === 'contradictory' ? '#fde68a' : '#64748b';
         futuresAlignBox.innerHTML = `
@@ -16672,12 +16680,12 @@ function render(){
       // Consistency synthesis ("should not analyze one CE or PE
       // position independently"), reusing the SAME real
       // futuresAlignment just computed above, the real IV Surface
-      // (rec.ocRows/ctx.expiryDates already fetched), and the real
+      // (rec.ocRows/refreshCtx.expiryDates already fetched), and the real
       // Put-Call Parity check (decay.snapshot/ocRow already
       // available) - no new fetch anywhere in this whole panel.
       const multiInstrumentBox = document.getElementById('multiInstrumentBox');
       if (multiInstrumentBox) {
-        const liveSurface = (ctx.ocRows && ctx.expiryDates) ? computeIVSurface(ctx.ocRows, ctx.expiryDates, spot) : null;
+        const liveSurface = (refreshCtx.ocRows && refreshCtx.expiryDates) ? computeIVSurface(refreshCtx.ocRows, refreshCtx.expiryDates, spot) : null;
         const liveSkew = (liveSurface && liveSurface.byExpiry.length > 0) ? liveSurface.byExpiry[0].skew : null;
         let liveParity = null;
         if (ocRow && ocRow.CE && ocRow.PE && typeof ocRow.CE.lastPrice === 'number' && typeof ocRow.PE.lastPrice === 'number' && decay.snapshot) {
@@ -16807,7 +16815,7 @@ function render(){
       // fix isn't silently computed and invisible: Directional score
       // is what actually drives the decision now; the other four are
       // shown for real transparency but never move the threshold.
-      document.getElementById('brainLog').textContent=`Brain Standalone ${mode.toUpperCase()} Spot ${spot.toFixed(1)} Directional Score ${brain.directionalScore.toFixed(1)} (Risk ${brain.riskScore.toFixed(1)} | Trade-Quality ${brain.tradeQualityScore.toFixed(1)} | Model-Quality ${brain.modelQualityScore.toFixed(1)} | Human-Operator ${brain.humanOperatorScore.toFixed(1)}) Decision ${brain.decision} | Operator bias: ${brain.operatorIntel.bias} | No theme, no shortcode, works like app at /`;
+      document.getElementById('brainLog').textContent=`Brain Standalone ${mode.toUpperCase()} v${typeof FNO_PLUGIN_VERSION !== 'undefined' ? FNO_PLUGIN_VERSION : '?'} Spot ${spot.toFixed(1)} Directional Score ${brain.directionalScore.toFixed(1)} (Risk ${brain.riskScore.toFixed(1)} | Trade-Quality ${brain.tradeQualityScore.toFixed(1)} | Model-Quality ${brain.modelQualityScore.toFixed(1)} | Human-Operator ${brain.humanOperatorScore.toFixed(1)}) Decision ${brain.decision} | Operator bias: ${brain.operatorIntel.bias} | No theme, no shortcode, works like app at /`;
 
       // Enterprise Data Architecture Plan #20/#22 - real Data Quality
       // flags, computed server-side above and surfaced here in the
@@ -16827,7 +16835,8 @@ function render(){
       const decEl = document.getElementById('brainDecision');
       if (brainLogEl) brainLogEl.textContent += '\n❌ ' + e.message;
       if (decEl && /Loading brain/i.test(decEl.textContent)) {
-        decEl.innerHTML = '❌ Brain refresh failed — ' + escapeHtml(e.message);
+        const ver = typeof FNO_PLUGIN_VERSION !== 'undefined' ? FNO_PLUGIN_VERSION : '?';
+        decEl.innerHTML = '❌ Brain refresh failed — ' + escapeHtml(e.message) + ` <span style="font-size:10px;opacity:0.85">(plugin v${escapeHtml(ver)} — reinstall from PR #17 branch zip if not v16.30.3+)</span>`;
         decEl.style.background = '#450a0a';
         decEl.style.color = '#fca5a5';
       }
