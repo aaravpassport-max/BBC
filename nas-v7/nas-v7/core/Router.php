@@ -154,41 +154,21 @@ class Router {
             exit;
         }
 
-        // Set query vars so templates can access them via get_query_var()
-        foreach ( $data as $k => $v ) {
-            set_query_var( 'nas_' . $k, $v );
-        }
-        $GLOBALS['nas_route_data'] = $data;
+        $slug_map = [
+            'cities-index'     => [ 'cities', 'Cities' ],
+            'newspapers-index' => [ 'newspapers', 'Newspapers' ],
+            'pricing'          => [ 'pricing', 'Pricing' ],
+            'about'            => [ 'about', 'About' ],
+            'support'          => [ 'support', 'Support' ],
+            'city'             => [ 'cities', 'City' ],
+            'state-page'       => [ 'cities', 'State' ],
+            'newspaper-detail' => [ 'newspapers', 'Newspaper' ],
+            'category-page'    => [ 'newspapers', 'Category' ],
+        ];
+        $nav_slug = $slug_map[ $name ][0] ?? sanitize_title( $name );
+        $title    = $slug_map[ $name ][1] ?? ucwords( str_replace( '-', ' ', $name ) );
 
-        // Enqueue NAS assets — these will be output by wp_head() inside the template.
-        // DO NOT wrap the template in another HTML shell — every page template already
-        // outputs its own <!DOCTYPE html>…</html> and calls wp_head()/wp_footer().
-        add_filter( 'show_admin_bar', '__return_false', 999 );
-        wp_enqueue_style(  'nas-fonts',    'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap', [], null );
-        wp_enqueue_style(  'font-awesome', 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css', [], '6.5.0' );
-        wp_enqueue_style(  'nas-core',     NAS_ASSETS . 'css/nas-core.css',       ['nas-fonts'], NAS_VERSION );
-        wp_enqueue_style(  'nas-booking',  NAS_ASSETS . 'css/nas-booking.css',    ['nas-core'],  NAS_VERSION );
-        wp_enqueue_style(  'nas-city-pages', NAS_ASSETS . 'css/nas-city-pages.css', ['nas-core'], NAS_VERSION );
-        // Note: nas-chat.css intentionally excluded — not needed on public static/city pages
-        wp_enqueue_script( 'jquery' );
-        wp_enqueue_script( 'nas-core',       NAS_ASSETS . 'js/nas-core.js',    ['jquery'],    NAS_VERSION, true );
-        wp_enqueue_script( 'nas-booking-js', NAS_ASSETS . 'js/nas-booking.js', ['nas-core'],  NAS_VERSION, true );
-        wp_localize_script( 'nas-core', 'NAS', [
-            'ajax_url'   => admin_url( 'admin-ajax.php' ),
-            'nonce'      => wp_create_nonce( 'nas_action' ),
-            'home_url'   => home_url( '/' ),
-            'assets_url' => NAS_ASSETS,
-            'currency'   => nas_config( 'currency_symbol', '₹' ),
-            'user_id'    => get_current_user_id(),
-            'user_role'  => \NAS\Core\Security::current_role(),
-            'is_logged_in' => is_user_logged_in() ? 1 : 0,
-            'version'    => NAS_VERSION,
-        ] );
-
-        ob_start();
-        include $file;
-        echo ob_get_clean();
-        exit;
+        nas_portal_render_route( $file, $nav_slug, $title, $data );
     }
 
     public function register( string $method, string $pattern, callable $handler ): void {}

@@ -16,8 +16,9 @@ $dash_url    = nas_get_page_url( 'nas_page_client_dashboard', '/client-dashboard
 
   <?php nas_portal_block_trust_ribbon(); ?>
 
-  <div class="nas-portal-wrap">
-    <div class="nas-faq-layout">
+  <section class="nas-portal-section nas-portal-section--after-ribbon">
+    <div class="nhp-container">
+      <div class="nas-faq-layout">
       <aside class="nas-faq-sidebar">
         <div class="nas-faq-help-card">
           <div class="nas-faq-help-card__icon"><i class="fa-solid fa-circle-info"></i></div>
@@ -67,7 +68,8 @@ $dash_url    = nas_get_page_url( 'nas_page_client_dashboard', '/client-dashboard
         <div id="nas-track-error" class="nas-form-error" style="display:none;margin-top:16px"></div>
       </div>
     </div>
-  </div>
+    </div>
+  </section>
 
   <?php nas_portal_block_process( 'Order Lifecycle', 'What Happens After You Book', 'Understand each stage from payment to published proof.' ); ?>
 

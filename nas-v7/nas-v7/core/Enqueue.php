@@ -262,6 +262,29 @@ class Enqueue {
         wp_localize_script( 'nas-core', 'NAS', self::js_vars() );
     }
 
+    /** Public marketing portal stack — used by WP pages and Router routes. */
+    public static function enqueue_public_portal_assets( bool $city_css = false ): void {
+        $a = NAS_ASSETS;
+
+        wp_enqueue_style( 'nas-fonts',
+            'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Poppins:wght@400;500;600;700;800&display=swap',
+            [], null );
+        wp_enqueue_style( 'nas-core', $a . 'css/nas-core.css', [ 'nas-fonts' ], self::asset_ver( 'css/nas-core.css' ) );
+        wp_enqueue_style( 'nas-portal', $a . 'css/nas-portal.css', [ 'nas-core' ], self::asset_ver( 'css/nas-portal.css' ) );
+        wp_enqueue_style( 'nas-homepage', $a . 'css/nas-homepage.css', [ 'nas-core', 'nas-portal' ], self::asset_ver( 'css/nas-homepage.css' ) );
+        if ( $city_css ) {
+            wp_enqueue_style( 'nas-city-pages', $a . 'css/nas-city-pages.css', [ 'nas-core' ], self::asset_ver( 'css/nas-city-pages.css' ) );
+        }
+        wp_enqueue_style( 'font-awesome',
+            'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css',
+            [], '6.5.0' );
+
+        wp_enqueue_script( 'jquery' );
+        wp_enqueue_script( 'nas-core', $a . 'js/nas-core.js', [ 'jquery' ], self::asset_ver( 'js/nas-core.js' ), true );
+        wp_enqueue_script( 'nas-homepage', $a . 'js/nas-homepage.js', [ 'nas-core' ], self::asset_ver( 'js/nas-homepage.js' ), true );
+        wp_localize_script( 'nas-core', 'NAS', self::js_vars() );
+    }
+
     // ── Frontend assets ───────────────────────────────────────────────────
     public static function frontend_assets(): void {
         if ( self::is_nas_homepage() ) {
@@ -285,14 +308,8 @@ class Enqueue {
         wp_enqueue_script( 'nas-core', $a . 'js/nas-core.js', [ 'jquery' ], self::asset_ver( 'js/nas-core.js' ), true );
 
         // Public marketing pages: homepage header/footer styles only — no dashboard CSS war
-        // CSS budget target: nas-core + nas-portal + nas-homepage ≈ 150KB uncompressed (< 200KB)
         if ( self::is_nas_public_portal_page() ) {
-            wp_enqueue_style( 'nas-homepage', $a . 'css/nas-homepage.css', [ 'nas-core', 'nas-portal' ], self::asset_ver( 'css/nas-homepage.css' ) );
-            if ( self::needs_city_pages_css() ) {
-                wp_enqueue_style( 'nas-city-pages', $a . 'css/nas-city-pages.css', [ 'nas-core' ], self::asset_ver( 'css/nas-city-pages.css' ) );
-            }
-            wp_enqueue_script( 'nas-homepage', $a . 'js/nas-homepage.js', [ 'nas-core' ], self::asset_ver( 'js/nas-homepage.js' ), true );
-            wp_localize_script( 'nas-core', 'NAS', self::js_vars() );
+            self::enqueue_public_portal_assets( self::needs_city_pages_css() );
             return;
         }
 

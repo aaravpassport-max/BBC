@@ -41,14 +41,14 @@ $newspapers_url = home_url( '/newspapers/' );
         <h2>Top Metro &amp; Tier-1 Cities</h2>
         <p>Book ads in India's largest advertising markets — instant rates available online.</p>
       </div>
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px">
+      <div class="nas-portal-city-grid">
         <?php foreach ( $tier1 as $city ) : ?>
         <a href="<?php echo esc_url( home_url( '/newspaper-ads/' . ( $city['slug'] ?: sanitize_title( $city['name'] ) ) . '/' ) ); ?>"
-           class="nas-portal-feature" style="text-decoration:none;color:inherit;text-align:center;padding:24px 16px">
-          <div class="nas-portal-feature__icon" style="margin:0 auto 12px"><i class="fa-solid fa-city"></i></div>
-          <h3 style="margin:0 0 4px"><?php echo esc_html( $city['name'] ); ?></h3>
-          <p style="margin:0;font-size:0.8125rem"><?php echo esc_html( $city['state'] ); ?></p>
-          <span class="nas-portal-city-link__badge" style="margin-top:8px;display:inline-block">Tier 1</span>
+           class="nas-portal-feature nas-portal-feature--link">
+          <div class="nas-portal-feature__icon"><i class="fa-solid fa-city"></i></div>
+          <h3><?php echo esc_html( $city['name'] ); ?></h3>
+          <p><?php echo esc_html( $city['state'] ); ?></p>
+          <span class="nas-portal-city-link__badge">Tier 1</span>
         </a>
         <?php endforeach; ?>
       </div>

@@ -16,9 +16,23 @@
 }
 
 .nas-portal-wrap {
-  max-width: 1100px;
+  width: 100%;
+  max-width: var(--nhp-container, 1240px);
   margin: 0 auto;
-  padding: clamp(32px, 5vw, 56px) clamp(16px, 4vw, 24px) clamp(64px, 8vw, 96px);
+  padding-left: clamp(20px, 4vw, 32px);
+  padding-right: clamp(20px, 4vw, 32px);
+}
+
+/* Hero block — first wrap on each portal page */
+.nas-portal-page > .nas-portal-wrap:first-of-type {
+  padding-top: clamp(32px, 5vw, 56px);
+  padding-bottom: clamp(12px, 2vw, 24px);
+}
+
+/* Body content wrap — FAQ, track order, etc. */
+.nas-portal-page > .nas-portal-wrap:not(:first-of-type) {
+  padding-top: clamp(28px, 4vw, 40px);
+  padding-bottom: clamp(48px, 6vw, 72px);
 }
 
 .nas-portal-hero {
@@ -609,7 +623,16 @@
 
 /* ── Enterprise section components (portal pages) ─────────────────────── */
 .nas-portal-section {
-  padding: clamp(48px, 8vw, 80px) clamp(16px, 4vw, 24px);
+  padding: clamp(48px, 8vw, 80px) 0;
+}
+
+.nas-portal-section--after-ribbon {
+  padding-top: clamp(28px, 4vw, 40px);
+}
+
+.nas-portal-section--compact {
+  padding-top: clamp(32px, 5vw, 48px);
+  padding-bottom: clamp(32px, 5vw, 48px);
 }
 
 .nas-portal-section--muted {
@@ -948,6 +971,133 @@
 
 .nas-portal-np-card:hover {
   box-shadow: 0 8px 28px rgba(12, 18, 34, 0.08);
+}
+
+.nas-lang-group {
+  margin-bottom: 40px;
+}
+
+.nas-lang-group__title {
+  font-family: var(--nas-font-display);
+  font-size: 1.125rem;
+  font-weight: 800;
+  margin: 0 0 20px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid var(--nas-border);
+  color: var(--nas-text);
+}
+
+.nas-lang-group__title span {
+  color: var(--nas-text-muted);
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.nas-lang-group__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.nas-np-card__row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.nas-np-card__logo {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid var(--nas-border);
+  flex-shrink: 0;
+}
+
+.nas-np-card__logo-fallback {
+  width: 44px;
+  height: 44px;
+  background: var(--nas-border);
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: var(--nas-text-muted);
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.nas-np-card__name {
+  font-weight: 700;
+  font-size: 0.9375rem;
+  color: var(--nas-text);
+}
+
+.nas-np-card__meta {
+  font-size: 0.75rem;
+  color: var(--nas-text-muted);
+}
+
+.nas-np-card__rates {
+  font-size: 0.8125rem;
+  color: var(--nas-text-muted);
+  margin-bottom: 14px;
+}
+
+.nas-np-card__btn {
+  width: 100%;
+  justify-content: center;
+  font-size: 0.8125rem;
+}
+
+.nas-portal-city-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+}
+
+.nas-portal-feature--link {
+  text-decoration: none;
+  color: inherit;
+  text-align: center;
+  padding: 24px 16px;
+}
+
+.nas-portal-feature--link .nas-portal-feature__icon {
+  margin: 0 auto 12px;
+}
+
+.nas-portal-feature--link h3 {
+  margin: 0 0 4px;
+}
+
+.nas-portal-feature--link p {
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.nas-portal-feature--link .nas-portal-city-link__badge {
+  margin-top: 8px;
+  display: inline-block;
+}
+
+.nas-portal-noresults {
+  display: none;
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--nas-text-muted);
+}
+
+/* Tighten homepage-style sections directly after trust ribbon */
+.nas-portal-page > .nhp-trust-ribbon + .nhp-section,
+.nas-portal-page > .nhp-trust-ribbon + .nas-portal-section {
+  padding-top: clamp(40px, 6vw, 64px);
+}
+
+.nas-portal-page > .nhp-trust-ribbon + .nas-portal-wrap {
+  padding-top: clamp(28px, 4vw, 40px);
 }
 
 /* ── Detail page layout (newspaper, etc.) ─────────────────────────────── */

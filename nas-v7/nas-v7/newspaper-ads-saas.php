@@ -3,7 +3,7 @@
  * Plugin Name: NewspaperAds SaaS — Professional Booking Platform
  * Plugin URI:  https://your-domain.com/newspaper-ads-saas
  * Description: Enterprise-grade newspaper ad booking SaaS platform with custom dashboards, workflow tracking, AI content, real-time chat, WhatsApp integration, and 300 city landing pages.
- * Version:     4.0.2
+ * Version:     4.0.3
  * Author:      Your Agency
  * Author URI:  https://your-domain.com
  * License:     GPL-2.0+
@@ -20,7 +20,7 @@ if ( ! function_exists('NAS_get_config') ) {
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
-define( 'NAS_VERSION',    '4.0.2' );
+define( 'NAS_VERSION',    '4.0.3' );
 define( 'NAS_FILE',       __FILE__ );
 define( 'NAS_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'NAS_PATH',       NAS_DIR );        // alias used throughout codebase
@@ -702,8 +702,8 @@ function nas_portal_should_wrap_shell(): bool {
     return true;
 }
 
-function nas_portal_shell_open( ?string $active_nav = null ): void {
-    if ( ! nas_portal_should_wrap_shell() ) {
+function nas_portal_shell_open( ?string $active_nav = null, bool $force = false ): void {
+    if ( ! $force && ! nas_portal_should_wrap_shell() ) {
         return;
     }
     if ( defined( 'NAS_PORTAL_SHELL_OPEN' ) ) {
@@ -723,6 +723,60 @@ function nas_portal_shell_close(): void {
     }
     define( 'NAS_PORTAL_SHELL_CLOSED', true );
     include NAS_DIR . 'templates/partials/portal-footer.php';
+}
+
+/**
+ * Render a portal page fragment inside the full public shell (Router routes).
+ */
+function nas_portal_render_route( string $template_file, string $slug, string $title, array $data = [] ): void {
+    foreach ( $data as $k => $v ) {
+        set_query_var( 'nas_' . $k, $v );
+    }
+    $GLOBALS['nas_route_data'] = $data;
+
+    add_filter( 'show_admin_bar', '__return_false', 999 );
+    remove_action( 'wp_head', '_admin_bar_bump_cb' );
+    remove_action( 'wp_footer', 'wp_admin_bar_render', 1000 );
+
+    if ( class_exists( '\NAS\Core\Enqueue' ) ) {
+        \NAS\Core\Enqueue::enqueue_public_portal_assets();
+    }
+
+    $cfg   = class_exists( '\NAS\Core\Config' ) ? \NAS\Core\Config::instance() : null;
+    $brand = $cfg ? $cfg->get( 'brand_name', get_bloginfo( 'name' ) ) : get_bloginfo( 'name' );
+    $body  = 'nas-fullpage nas-public-portal nas-page-' . sanitize_html_class( $slug );
+    ?>
+<!DOCTYPE html>
+<html <?php language_attributes(); ?>>
+<head>
+<meta charset="<?php bloginfo( 'charset' ); ?>">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title><?php echo esc_html( $title . ' — ' . $brand ); ?></title>
+<?php wp_head(); ?>
+<style>
+#wpadminbar,.wpadminbar{display:none!important;}
+html{margin-top:0!important;padding-top:0!important;}
+body{margin:0!important;padding:0!important;background:#fff;}
+body.nas-public-portal{background:#fff;}
+.nas-mobile-nav-drawer{display:none;}
+.nas-mobile-nav-drawer.is-open{display:flex;}
+.nas-mobile-nav-overlay{display:none;}
+.nas-mobile-nav-overlay.is-open{display:block;}
+</style>
+</head>
+<body class="<?php echo esc_attr( $body ); ?>">
+<?php
+    nas_portal_shell_open( $slug, true );
+    echo '<main id="nas-main-content" class="nas-main-content" tabindex="-1">';
+    include $template_file;
+    echo '</main>';
+    nas_portal_shell_close();
+    wp_footer();
+    ?>
+</body>
+</html>
+    <?php
+    exit;
 }
 
 // Helper: get a portal page URL by option key, with fallback slug

@@ -230,7 +230,7 @@ function nas_portal_block_faq( array $faqs, string $title = 'Frequently Asked Qu
     }
     ?>
 <section class="nas-portal-section nas-portal-section--muted">
-  <div class="nhp-container" style="max-width:800px">
+  <div class="nhp-container nhp-container--narrow">
     <div class="nas-portal-section__head">
       <h2><?php echo esc_html( $title ); ?></h2>
       <?php if ( $subtitle ) : ?><p><?php echo esc_html( $subtitle ); ?></p><?php endif; ?>

@@ -23,8 +23,8 @@ $track_url   = nas_portal_track_url();
 
   <?php nas_portal_block_trust_ribbon(); ?>
 
-  <section class="nas-portal-section" style="padding-top:0">
-    <div class="nas-contact-wrap" style="max-width:1100px;margin:0 auto;padding:0 16px">
+  <section class="nas-portal-section nas-portal-section--after-ribbon">
+    <div class="nhp-container">
       <div class="nas-contact-grid">
 
         <div class="nas-contact-info">

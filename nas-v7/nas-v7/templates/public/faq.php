@@ -19,8 +19,9 @@ $walink = $cfg->get( 'brand_whatsapp', '' )
 
   <?php nas_portal_block_trust_ribbon(); ?>
 
-  <div class="nas-portal-wrap">
-    <div class="nas-faq-layout">
+  <section class="nas-portal-section nas-portal-section--after-ribbon">
+    <div class="nhp-container">
+      <div class="nas-faq-layout">
       <aside class="nas-faq-sidebar">
         <div class="nas-faq-help-card">
           <div class="nas-faq-help-card__icon"><i class="fa-solid fa-headset"></i></div>
@@ -47,7 +48,8 @@ $walink = $cfg->get( 'brand_whatsapp', '' )
         <div class="nas-faq-cta-bar">Can't find your answer? <a href="<?php echo esc_url( $contact_url ); ?>">Talk to our support team →</a></div>
       </div>
     </div>
-  </div>
+    </div>
+  </section>
 
   <?php nas_portal_block_quick_links(); ?>
 
