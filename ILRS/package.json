@@ -1,6 +1,6 @@
 {
   "name": "ilrs",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "ILRS — Intelligent Life Reminder System",
   "author": {
     "name": "Business OS",
@@ -98,7 +98,8 @@
       "createStartMenuShortcut": true,
       "shortcutName": "ILRS",
       "runAfterFinish": true,
-      "deleteAppDataOnUninstall": false
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh"
     }
   }
 }

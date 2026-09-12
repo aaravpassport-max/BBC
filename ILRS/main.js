@@ -29,17 +29,45 @@ const pendingDueEvents = [];
 let backgroundNoticeShown = false;
 const startInBackground = process.argv.includes('--background') || process.argv.includes('--hidden');
 
+function allowAppQuit() {
+  app.isQuitting = true;
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.removeAllListeners('close');
+    mainWindow.close();
+  }
+  if (tray) {
+    try { tray.destroy(); } catch (_) { /* ignore */ }
+    tray = null;
+  }
+  if (schedulerTimer) clearInterval(schedulerTimer);
+  app.quit();
+}
+
+// Installer/update may pass --quit-for-install to close a running tray instance
+if (process.argv.includes('--quit-for-install')) {
+  app.whenReady().then(() => allowAppQuit());
+}
+
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
   app.quit();
 } else {
-  app.on('second-instance', () => {
+  app.on('second-instance', (_event, argv) => {
+    if (argv.includes('--quit-for-install')) {
+      allowAppQuit();
+      return;
+    }
     if (mainWindow) {
       if (mainWindow.isMinimized()) mainWindow.restore();
       mainWindow.show();
       mainWindow.focus();
     }
   });
+}
+
+if (process.platform === 'win32') {
+  process.on('SIGTERM', () => allowAppQuit());
+  process.on('SIGINT', () => allowAppQuit());
 }
 
 function createWindow() {
@@ -810,4 +838,8 @@ app.on('activate', () => {
 app.on('before-quit', () => {
   app.isQuitting = true;
   if (schedulerTimer) clearInterval(schedulerTimer);
+  if (tray) {
+    try { tray.destroy(); } catch (_) { /* ignore */ }
+    tray = null;
+  }
 });
