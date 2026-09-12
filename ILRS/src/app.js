@@ -178,7 +178,23 @@ const PAGES = {
   rewards: renderRewards,
 };
 
+function dismissPageModals() {
+  ['med-modal', 'bill-modal', 'fam-modal', 'famr-modal', 'hab-modal', 'cl-modal', 'onboard-modal'].forEach((id) => {
+    document.getElementById(id)?.remove();
+  });
+  document.querySelectorAll('.modal-overlay').forEach((el) => {
+    if (el.id !== 'alert-popup') el.remove();
+  });
+}
+
+function attachModalDismiss(overlay) {
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
+}
+
 async function navigate(page) {
+  dismissPageModals();
   App.currentPage = page;
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.page === page);
@@ -895,6 +911,7 @@ function showAddMedicine() {
       </div>
     </div>
   `;
+  attachModalDismiss(overlay);
   document.body.appendChild(overlay);
 }
 
@@ -1016,6 +1033,7 @@ function showAddBill() {
       </div>
     </div>
   `;
+  attachModalDismiss(overlay);
   document.body.appendChild(overlay);
 }
 
@@ -1120,6 +1138,7 @@ function showAddFamily() {
       </div>
     </div>
   `;
+  attachModalDismiss(overlay);
   document.body.appendChild(overlay);
 }
 
@@ -1155,6 +1174,7 @@ function viewFamilyReminders(memberId, name) {
         : memberReminders.map(r => `<div style="padding:10px 0;border-bottom:1px solid var(--border)"><div style="font-weight:600">${r.title}</div><div style="font-size:12px;color:var(--text-muted)">${r.category} • ${r.repeat_type}</div></div>`).join('')}
     </div>
   `;
+  attachModalDismiss(overlay);
   document.body.appendChild(overlay);
 }
 
@@ -1214,6 +1234,7 @@ function showAddHabit() {
       </div>
     </div>
   `;
+  attachModalDismiss(overlay);
   document.body.appendChild(overlay);
 }
 
@@ -1397,6 +1418,7 @@ function showAddChecklist() {
       </div>
     </div>
   `;
+  attachModalDismiss(overlay);
   document.body.appendChild(overlay);
 }
 
@@ -1976,6 +1998,13 @@ function taskTypeIcon(t) {
 
 // ── IPC Listeners ──────────────────────────────────────────────────
 function setupListeners() {
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const alert = document.getElementById('alert-popup');
+    if (alert) return;
+    dismissPageModals();
+  });
+
   api.onNavigate(page => navigate(page));
 
   api.onReminderDue(reminder => {
@@ -2094,7 +2123,7 @@ async function init() {
     updateBadges();
 
     // Hide loader, show app
-    document.getElementById('loading-screen').style.display = 'none';
+    document.getElementById('loading-screen')?.remove();
     document.getElementById('main-app').style.display = 'grid';
 
     // Check onboarding
