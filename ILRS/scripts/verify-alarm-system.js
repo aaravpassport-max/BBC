@@ -77,7 +77,7 @@ async function verifyElectronPlayback() {
 
   // Test renderer-first path with real app window
   const win = new BrowserWindow({
-    show: false,
+    show: true,
     webPreferences: {
       preload: path.join(__dirname, '..', 'preload.js'),
       contextIsolation: true,
