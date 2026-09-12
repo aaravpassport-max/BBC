@@ -1,0 +1,277 @@
+import { useState, useEffect } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { Screen } from '../components/Screen';
+import { Button } from '../components/Button';
+import { FareCard, FareCardLine, FareCardDivider } from '../components/FareCard';
+import {
+  confirmBooking,
+  verifyBookingPayment,
+  devConfirmBookingPayment,
+  getWallet,
+  getMyCorporateAccounts,
+  ApiError,
+  getErrorMessage,
+  type Quote,
+  type CorporateAccount,
+  type GatewaySession,
+} from '../api';
+import { PAYMENT_METHODS, BRAND, type PaymentMethodId } from '../constants/brand';
+import type { LocationPoint } from '../lib/locations';
+
+const RAZORPAY_SCRIPT_URL = 'https://checkout.razorpay.com/v1/checkout.js';
+
+declare global {
+  interface Window {
+    Razorpay: new (options: Record<string, unknown>) => { open: () => void };
+  }
+}
+
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (window.Razorpay) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = RAZORPAY_SCRIPT_URL;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
+interface LocationState {
+  quote: Quote;
+  pickup: LocationPoint;
+  drops: LocationPoint[];
+  goodsCategory: string;
+  weightBand?: string;
+  helperNeeded: boolean;
+  couponCode?: string;
+  scheduledFor?: string;
+}
+
+function money(n: number): string {
+  return `₹${n.toFixed(2)}`;
+}
+
+async function completeCardPayment(bookingId: string, session: GatewaySession): Promise<void> {
+  if (session.simulated) {
+    await devConfirmBookingPayment(bookingId, session.gateway_ref!);
+    return;
+  }
+
+  const loaded = await loadRazorpayScript();
+  if (!loaded) throw new Error('Could not load the payment provider.');
+
+  await new Promise<void>((resolve, reject) => {
+    const razorpay = new window.Razorpay({
+      key: session.key_id,
+      amount: session.amount,
+      currency: session.currency,
+      order_id: session.order_id,
+      name: BRAND.name,
+      description: 'Trip payment',
+      handler: async (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) => {
+        try {
+          await verifyBookingPayment(bookingId, response);
+          resolve();
+        } catch (err) {
+          reject(err);
+        }
+      },
+      modal: { ondismiss: () => reject(new Error('Payment cancelled.')) },
+    });
+    razorpay.open();
+  });
+}
+
+export function ConfirmPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const state = location.state as LocationState | undefined;
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethodId>('wallet');
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [corporateAccounts, setCorporateAccounts] = useState<CorporateAccount[]>([]);
+  const [selectedCorporateId, setSelectedCorporateId] = useState<string | null>(null);
+
+  useEffect(() => {
+    getWallet()
+      .then((w) => setWalletBalance(w.real_money_balance + w.promotional_credit_balance))
+      .catch(() => undefined);
+    getMyCorporateAccounts()
+      .then((accounts) => {
+        setCorporateAccounts(accounts);
+        if (accounts.length > 0) setSelectedCorporateId(accounts[0].account_id);
+      })
+      .catch(() => undefined);
+  }, []);
+
+  if (!state?.quote || !state.pickup || !state.drops?.length) {
+    navigate('/home');
+    return null;
+  }
+
+  const { quote, pickup, drops, goodsCategory, weightBand, helperNeeded, scheduledFor } = state;
+  const fb = quote.fare_breakdown;
+  const hasCorporate = corporateAccounts.length > 0;
+  const availableMethods = PAYMENT_METHODS.filter((m) => m.id !== 'corporate_bill' || hasCorporate);
+
+  async function handleConfirm() {
+    setError('');
+    setLoading(true);
+    try {
+      const booking = await confirmBooking(quote.quote_id, paymentMethod, scheduledFor);
+
+      if (booking.payment_required && booking.gateway_session) {
+        await completeCardPayment(booking.id, booking.gateway_session);
+      }
+
+      navigate(`/track/${booking.id}`);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'QUOTE_EXPIRED') {
+        setError('This price has expired. Please get a new quote.');
+      } else {
+        setError(getErrorMessage(err, 'Could not confirm your booking. Please try again.'));
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Screen
+      eyebrow="Review & confirm"
+      title="Confirm your booking"
+      onBack={() => navigate('/home')}
+      footer={
+        <>
+          {error && <p style={{ color: 'var(--danger)', fontSize: 13, marginBottom: 10 }}>{error}</p>}
+          <Button onClick={() => void handleConfirm()} loading={loading}>
+            Confirm · {money(fb.final_fare)}
+          </Button>
+        </>
+      }
+    >
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <RoutePoint kind="pickup" label={pickup.label} sub={pickup.addressLine} />
+        {drops.map((drop, i) => (
+          <RoutePoint key={i} kind="drop" label={drop.label} sub={drop.addressLine} index={drops.length > 1 ? i + 1 : undefined} />
+        ))}
+      </div>
+
+      <div style={{ color: 'var(--text-muted)', fontSize: 13 }}>
+        <span style={{ textTransform: 'capitalize' }}>{quote.vehicle_category.replace(/_/g, ' ')}</span> · {goodsCategory}
+        {weightBand ? ` · ${weightBand}` : ''}
+        {helperNeeded ? ' · helper requested' : ''}
+      </div>
+
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Payment method</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {availableMethods.map((m) => (
+            <label
+              key={m.id}
+              style={{
+                display: 'flex',
+                gap: 10,
+                alignItems: 'flex-start',
+                border: `1px solid ${paymentMethod === m.id ? 'var(--accent)' : 'var(--border)'}`,
+                borderRadius: 12,
+                padding: '12px 14px',
+                background: paymentMethod === m.id ? 'var(--accent-soft)' : 'var(--surface)',
+                cursor: 'pointer',
+              }}
+            >
+              <input
+                type="radio"
+                name="payment"
+                checked={paymentMethod === m.id}
+                onChange={() => setPaymentMethod(m.id)}
+                style={{ marginTop: 3 }}
+              />
+              <span style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 600 }}>{m.label}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                  {m.description}
+                  {m.id === 'wallet' && walletBalance != null && ` · Balance ${money(walletBalance)}`}
+                </div>
+                {m.id === 'corporate_bill' && paymentMethod === 'corporate_bill' && corporateAccounts.length > 1 && (
+                  <select
+                    value={selectedCorporateId ?? ''}
+                    onChange={(e) => setSelectedCorporateId(e.target.value)}
+                    style={{ marginTop: 8, width: '100%', padding: 8, borderRadius: 8, border: '1px solid var(--border)' }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {corporateAccounts.map((a) => (
+                      <option key={a.account_id} value={a.account_id}>{a.name}</option>
+                    ))}
+                  </select>
+                )}
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <FareCard label="Fare breakdown" id={quote.quote_id.slice(0, 8).toUpperCase()}>
+        <FareCardLine label="Base fare" value={money(fb.base_fare)} />
+        <FareCardLine label="Distance" value={money(fb.distance_charge)} />
+        {fb.night_surcharge > 0 && <FareCardLine label="Night surcharge" value={money(fb.night_surcharge)} />}
+        {fb.surge_multiplier > 1 && <FareCardLine label={`Demand surge · ${fb.surge_multiplier}×`} value="" />}
+        <FareCardLine label="Platform fee" value={money(fb.platform_fee)} />
+        <FareCardLine label="Tax" value={money(fb.tax)} />
+        {fb.coupon_discount > 0 && <FareCardLine label="Coupon discount" value={`−${money(fb.coupon_discount)}`} muted />}
+        {fb.subscription_benefit > 0 && <FareCardLine label="Membership benefit" value={`−${money(fb.subscription_benefit)}`} muted />}
+        {(fb.loyalty_discount ?? 0) > 0 && <FareCardLine label="Loyalty points" value={`−${money(fb.loyalty_discount!)}`} muted />}
+        <FareCardDivider />
+        <FareCardLine label="Total" value={money(fb.final_fare)} emphasis />
+      </FareCard>
+
+      <p style={{ color: 'var(--text-muted)', fontSize: 12, textAlign: 'center' }}>
+        Price locked until {new Date(quote.expires_at).toLocaleTimeString()}.
+      </p>
+
+      {scheduledFor && (
+        <p style={{ color: 'var(--accent-strong)', fontSize: 13, textAlign: 'center', fontWeight: 600 }}>
+          📅 Scheduled for {new Date(scheduledFor).toLocaleString()}
+        </p>
+      )}
+    </Screen>
+  );
+}
+
+function RoutePoint({
+  kind,
+  label,
+  sub,
+  index,
+}: {
+  kind: 'pickup' | 'drop';
+  label: string;
+  sub?: string;
+  index?: number;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+      <span
+        style={{
+          width: 10,
+          height: 10,
+          borderRadius: kind === 'pickup' ? '50%' : '2px',
+          background: kind === 'pickup' ? 'var(--pickup)' : 'var(--drop)',
+          flexShrink: 0,
+        }}
+      />
+      <div>
+        <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          {kind === 'pickup' ? 'Pickup' : index ? `Drop ${index}` : 'Drop'}
+        </div>
+        <div style={{ fontSize: 15 }}>{label}</div>
+        {sub && <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>{sub}</div>}
+      </div>
+    </div>
+  );
+}
