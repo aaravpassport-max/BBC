@@ -110,24 +110,32 @@ async function playAlertSound(soundId, repeat = 2, mainWindowRef = null) {
     return false;
   }
 
-  // 1) Renderer in main window — verified working in E2E tests
-  if (mainWindowRef && !mainWindowRef.isDestroyed() && mainWindowRef.webContents && !mainWindowRef.webContents.isDestroyed()) {
+  const repeats = Math.max(1, Number(repeat) || 1);
+  const windowVisible = mainWindowRef
+    && !mainWindowRef.isDestroyed()
+    && mainWindowRef.isVisible()
+    && mainWindowRef.webContents
+    && !mainWindowRef.webContents.isDestroyed();
+
+  // Visible window: renderer audio (verified in E2E tests)
+  if (windowVisible) {
     mainWindowRef.webContents.send('play-alert-sound', soundId);
-    lastPlayback = { ok: true, method: 'renderer-ipc', soundId };
+    lastPlayback = { ok: true, method: 'renderer-ipc', soundId, repeats };
     return true;
   }
 
-  // 2) Native OS player — works when app is in tray with no renderer focus
-  const native = await playWithNative(soundPath);
-  if (native.ok) {
-    lastPlayback = { ...native, soundId, soundPath };
-    return true;
+  // Hidden / tray / closed-window: native OS audio so alarms still ring in background
+  for (let i = 0; i < repeats; i++) {
+    const native = await playWithNative(soundPath);
+    if (native.ok) {
+      lastPlayback = { ...native, soundId, soundPath, repeats, attempt: i + 1 };
+      continue;
+    }
+    const hidden = await playWithHiddenWindow(soundPath, repeats - i);
+    lastPlayback = { ...hidden, soundId, soundPath, nativeErr: native.err, attempt: i + 1 };
+    return hidden.ok;
   }
-
-  // 3) Hidden helper window
-  const hidden = await playWithHiddenWindow(soundPath, repeat);
-  lastPlayback = { ...hidden, soundId, soundPath, nativeErr: native.err };
-  return hidden.ok;
+  return true;
 }
 
 function getLastPlayback() {

@@ -1661,9 +1661,16 @@ async function renderSettings(el) {
           <div class="setting-row">
             <div class="setting-info">
               <div class="setting-label">Test Alarm (1 minute)</div>
-              <div class="setting-desc">Schedules a real reminder alarm in 60 seconds — keep ILRS running in the tray</div>
+              <div class="setting-desc">Schedules a real alarm in 60 seconds — close the window; it rings from the tray</div>
             </div>
             <button class="btn btn-primary btn-sm" onclick="scheduleTestAlarm()">⏰ Test Alarm</button>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-label">Background reminders</div>
+              <div class="setting-desc">Closing the window keeps ILRS running in the system tray. Use tray → Quit to stop fully.</div>
+            </div>
+            <span style="font-size:12px;color:var(--normal);font-weight:700">✓ Enabled</span>
           </div>
         </div>
 
@@ -1735,7 +1742,10 @@ async function renderSettings(el) {
             <div class="toggle ${s.rewards_enabled==='1'?'on':''}" id="t-rewards" onclick="this.classList.toggle('on')"></div>
           </div>
           <div class="setting-row">
-            <div class="setting-info"><div class="setting-label">Start with Windows</div></div>
+            <div class="setting-info">
+              <div class="setting-label">Start with Windows</div>
+              <div class="setting-desc">Launch ILRS in the background when your PC starts (recommended)</div>
+            </div>
             <div class="toggle ${s.auto_start==='1'?'on':''}" id="t-autostart" onclick="this.classList.toggle('on')"></div>
           </div>
         </div>
@@ -1781,6 +1791,7 @@ async function saveSettings() {
   for (const [k, v] of Object.entries(updates)) {
     await saveSetting(k, v);
   }
+  await api.applyAutoStart?.(updates.auto_start === '1');
   toast('✅ Settings saved!');
 }
 
@@ -1797,7 +1808,7 @@ async function testDesktopNotification() {
 async function scheduleTestAlarm() {
   const result = await api.scheduleTestAlarm();
   if (result?.success) {
-    toast(`⏰ Test alarm scheduled for ${result.fireAt.slice(11, 16)} — keep ILRS running`);
+    toast(`⏰ Test alarm at ${result.fireAt.slice(11, 16)} — you can close the window; ILRS stays in tray`);
     navigate('reminders');
   } else {
     toast(`Could not schedule test alarm: ${result?.error || 'unknown error'}`, 'critical');

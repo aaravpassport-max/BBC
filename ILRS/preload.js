@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('ilrs', {
   getSystemClock: () => ipcRenderer.invoke('get-system-clock'),
   computeNextFire: (startDate, time, repeatType) =>
     ipcRenderer.invoke('compute-next-fire', { startDate, time, repeatType }),
+  applyAutoStart: (enable) => ipcRenderer.invoke('apply-auto-start', enable),
 
   // Export
   exportData: (data) => ipcRenderer.invoke('export-data', data),

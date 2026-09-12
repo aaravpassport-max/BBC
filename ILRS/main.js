@@ -1,7 +1,7 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, dialog, shell, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { showDesktopNotification, getSetting, TRAY_ICON_PATH } = require('./notifications');
+const { showDesktopNotification, getSetting, shouldPlaySound, TRAY_ICON_PATH } = require('./notifications');
 const { playAlertSound } = require('./sound-player');
 const {
   toLocalISO,
@@ -25,6 +25,8 @@ let db;
 let schedulerTimer;
 const firedKeys = new Set();
 const pendingDueEvents = [];
+let backgroundNoticeShown = false;
+const startInBackground = process.argv.includes('--background') || process.argv.includes('--hidden');
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -58,7 +60,7 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
 
   mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
+    if (!startInBackground) mainWindow.show();
     flushPendingDueEvents();
     runSchedulerTick();
   });
@@ -67,8 +69,44 @@ function createWindow() {
     if (!app.isQuitting) {
       e.preventDefault();
       mainWindow.hide();
+      showBackgroundRunningNotice();
     }
   });
+}
+
+function showBackgroundRunningNotice() {
+  if (backgroundNoticeShown) return;
+  backgroundNoticeShown = true;
+  showDesktopNotification(db, {
+    title: 'ILRS is running in the background',
+    why_it_matters: 'Reminders will still ring and notify. Right-click the tray icon → Quit to stop fully.',
+    priority: 'important',
+    alert_style: 'popup-only',
+  }, { type: 'reminder', force: true });
+  if (tray && process.platform === 'win32') {
+    try {
+      tray.displayBalloon({
+        title: 'ILRS still running',
+        content: 'Reminders work in the background. Tray → Quit to stop.',
+        iconType: 'info',
+      });
+    } catch (_) { /* balloon optional */ }
+  }
+}
+
+function applyAutoStart(enable) {
+  try {
+    const settings = {
+      openAtLogin: Boolean(enable),
+      path: process.execPath,
+    };
+    if (enable && (process.platform === 'win32' || process.platform === 'darwin' || process.platform === 'linux')) {
+      settings.args = ['--background'];
+    }
+    app.setLoginItemSettings(settings);
+  } catch (err) {
+    console.error('applyAutoStart error:', err.message);
+  }
 }
 
 function createTray() {
@@ -82,12 +120,13 @@ function createTray() {
 
   const contextMenu = Menu.buildFromTemplate([
     { label: 'Open ILRS', click: () => { mainWindow.show(); mainWindow.focus(); } },
-    { label: 'Quick Add Reminder', click: () => { mainWindow.show(); mainWindow.webContents.send('navigate', 'add'); } },
+    { label: 'Quick Add Reminder', click: () => { mainWindow.show(); mainWindow.focus(); mainWindow.webContents.send('navigate', 'add'); } },
     { type: 'separator' },
-    { label: 'Test Notification', click: () => sendTestNotification() },
+    { label: 'Test Notification + Sound', click: () => sendTestNotification() },
+    { label: 'Schedule Test Alarm (1 min)', click: () => scheduleTestAlarmFromTray() },
     { label: 'Pause Alerts (1 hour)', click: () => pauseAlerts(60) },
     { type: 'separator' },
-    { label: 'Quit ILRS', click: () => { app.isQuitting = true; app.quit(); } },
+    { label: 'Quit ILRS (stops all reminders)', click: () => { app.isQuitting = true; app.quit(); } },
   ]);
 
   tray.setContextMenu(contextMenu);
@@ -109,11 +148,36 @@ function sendTestNotification() {
   showDesktopNotification(db, {
     title: 'ILRS Test Notification',
     why_it_matters: 'Desktop notifications are working correctly.',
-    priority: 'normal',
+    priority: 'important',
+    alert_style: 'sound-popup',
     is_private: 0,
-  }, { onClick: focusMainWindow, type: 'reminder' });
+  }, { onClick: focusMainWindow, type: 'reminder', force: true });
   const tone = getSetting(db, 'reminder_tone', 'loud-chime');
   playAlertSound(tone, 2, mainWindow);
+}
+
+async function scheduleTestAlarmFromTray() {
+  try {
+    const id = require('crypto').randomUUID();
+    const fireAt = new Date(Date.now() + 60000);
+    const start = localDateStr(fireAt);
+    const time = `${String(fireAt.getHours()).padStart(2, '0')}:${String(fireAt.getMinutes()).padStart(2, '0')}`;
+    const nextFire = toLocalISO(fireAt);
+    db.prepare(`
+      INSERT INTO reminders (
+        id, title, task_type, category, why_it_matters, repeat_type, reminder_time,
+        start_date, priority, alert_style, status, next_fire, alarm_rings, created_at, updated_at
+      ) VALUES (?, ?, 'reminder', 'general', ?, 'once', ?, ?, 'important', 'sound-popup', 'active', ?, 0, datetime('now'), datetime('now'))
+    `).run(id, 'ILRS Test Alarm', 'Tray test alarm — should ring in 1 minute.', time, start, nextFire);
+    showDesktopNotification(db, {
+      title: 'Test alarm scheduled',
+      why_it_matters: `Will ring at ${time}. ILRS can stay hidden in the tray.`,
+      priority: 'important',
+      alert_style: 'popup-only',
+    }, { force: true });
+  } catch (err) {
+    console.error('scheduleTestAlarmFromTray:', err.message);
+  }
 }
 
 function dispatchDueItem(item, type = 'reminder') {
@@ -129,13 +193,17 @@ function dispatchDueItem(item, type = 'reminder') {
     pendingDueEvents.push(payload);
   }
 
-  const style = getSetting(db, 'notification_style', 'sound-popup');
   showDesktopNotification(db, item, { onClick: focusMainWindow, type });
 
-  if (style !== 'silent' && style !== 'popup-only') {
-    const tone = getSetting(db, 'reminder_tone', 'loud-chime');
-    const repeats = item.priority === 'critical' ? 3 : 2;
+  if (shouldPlaySound(db, item)) {
+    const tone = item.alert_tone || getSetting(db, 'reminder_tone', 'loud-chime');
+    const repeats = item.priority === 'critical' ? 4 : 3;
     playAlertSound(tone, repeats, mainWindow);
+  }
+
+  // Wake/show window for critical alarms even when running in background
+  if (item.priority === 'critical' && mainWindow && !mainWindow.isDestroyed()) {
+    if (!mainWindow.isVisible()) mainWindow.show();
   }
 }
 
@@ -199,6 +267,14 @@ function setupIPC() {
     const now = new Date();
     const start = startDate && !String(startDate).includes('Z') ? startDate : localDateStr(now);
     return { nextFire: computeNextFire(start, time, repeatType || 'once', now) };
+  });
+
+  ipcMain.handle('apply-auto-start', async (_event, enable) => {
+    applyAutoStart(Boolean(enable));
+    if (db) {
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('auto_start', ?)").run(enable ? '1' : '0');
+    }
+    return { success: true };
   });
 
   ipcMain.handle('export-data', async (_event, { format, data }) => {
@@ -410,7 +486,7 @@ function initDatabase() {
     snooze_limit: '3',
     quiet_hours_start: '23:00',
     quiet_hours_end: '06:00',
-    quiet_hours_enabled: '1',
+    quiet_hours_enabled: '0',
     critical_override: '1',
     reminder_tone: 'loud-chime',
     appearance: 'dark',
@@ -447,9 +523,21 @@ function repairReminderSchedules() {
       runSystemClockMigrationV6();
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '6')").run();
     }
+    if (version < 7) {
+      runBackgroundAlarmMigrationV7();
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '7')").run();
+    }
   } catch (err) {
     console.error('repairReminderSchedules error:', err.message);
   }
+}
+
+function runBackgroundAlarmMigrationV7() {
+  const now = new Date();
+  syncAllSchedulesToSystemClock(now);
+  // Ensure reminders are not silently blocked by quiet hours after upgrade
+  db.prepare("UPDATE settings SET value = '0' WHERE key = 'quiet_hours_enabled' AND value = '1'").run();
+  console.log('Background alarm migration v7: resynced schedules and relaxed quiet hours');
 }
 
 function runSystemClockMigrationV6() {
@@ -677,15 +765,19 @@ app.whenReady().then(() => {
   }
 
   db = initDatabase();
-  createWindow();
-  createTray();
   setupIPC();
   if (db) {
     repairReminderSchedules();
     syncAllSchedulesToSystemClock();
     startScheduler();
     scheduleBackup();
+    applyAutoStart(getSetting(db, 'auto_start', '1') === '1');
     setTimeout(catchUpOverdueReminders, 1500);
+  }
+  createWindow();
+  createTray();
+  if (startInBackground) {
+    showBackgroundRunningNotice();
   }
 
   powerMonitor.on('resume', () => {
