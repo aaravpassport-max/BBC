@@ -2,6 +2,7 @@ const { Notification, app } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const notifier = require('node-notifier');
+const { APP_ID, getTrayIconPath } = require('./windows-support');
 
 const ICON_PATH = path.join(__dirname, 'assets', 'icon.png');
 const TRAY_ICON_PATH = path.join(__dirname, 'assets', 'tray-icon.png');
@@ -17,7 +18,7 @@ function getSetting(db, key, defaultValue = '') {
 }
 
 function isQuietHours(db, now = new Date()) {
-  if (getSetting(db, 'quiet_hours_enabled', '1') !== '1') return false;
+  if (getSetting(db, 'quiet_hours_enabled', '0') !== '1') return false;
   const start = getSetting(db, 'quiet_hours_start', '23:00');
   const end = getSetting(db, 'quiet_hours_end', '06:00');
   const cur = now.toTimeString().slice(0, 5);
@@ -89,19 +90,48 @@ function buildContent(item, type = 'reminder') {
   };
 }
 
-function showDesktopNotification(db, item, { onClick, type = 'reminder', force = false } = {}) {
+function getNotificationIcon() {
+  const tray = getTrayIconPath();
+  if (tray && fs.existsSync(tray)) return tray;
+  if (fs.existsSync(TRAY_ICON_PATH)) return TRAY_ICON_PATH;
+  if (fs.existsSync(ICON_PATH)) return ICON_PATH;
+  return undefined;
+}
+
+function showWithNodeNotifier(content, { onClick, silent }) {
+  return new Promise((resolve) => {
+    const icon = getNotificationIcon();
+    notifier.notify({
+      title: content.title,
+      message: content.body,
+      icon,
+      sound: !silent,
+      wait: true,
+      appID: APP_ID,
+    }, (err, response) => {
+      if (!err && (response === 'activate' || response === 'click' || response === 'timeout')) {
+        onClick?.();
+      }
+      resolve(!err);
+    });
+  });
+}
+
+async function showDesktopNotification(db, item, { onClick, type = 'reminder', force = false } = {}) {
   if (!force && !shouldNotify(db, item)) return false;
 
   const style = getEffectiveStyle(db, item);
   const content = buildContent(item, type);
   const silent = style === 'popup-only';
-  const icon = fs.existsSync(ICON_PATH) ? ICON_PATH : undefined;
+  const icon = getNotificationIcon();
 
   if (process.platform === 'win32') {
-    app.setAppUserModelId('com.ilrs.app');
+    app.setAppUserModelId(APP_ID);
+    // Windows 10: SnoreToast via node-notifier is most reliable (needs Start Menu shortcut)
+    const notifierOk = await showWithNodeNotifier(content, { onClick, silent });
+    if (notifierOk) return true;
   }
 
-  let shown = false;
   if (Notification.isSupported()) {
     try {
       const notification = new Notification({
@@ -115,26 +145,13 @@ function showDesktopNotification(db, item, { onClick, type = 'reminder', force =
       notification.on('click', () => onClick?.());
       notification.on('action', () => onClick?.());
       notification.show();
-      shown = true;
+      return true;
     } catch (err) {
       console.warn('Electron notification failed:', err.message);
     }
   }
 
-  if (shown) return true;
-
-  notifier.notify({
-    title: content.title,
-    message: content.body,
-    icon: fs.existsSync(TRAY_ICON_PATH) ? TRAY_ICON_PATH : icon,
-    sound: !silent,
-    wait: true,
-    appID: 'com.ilrs.app',
-  }, (_err, response) => {
-    if (response === 'activate' || response === 'click' || response === 'timeout') {
-      onClick?.();
-    }
-  });
+  await showWithNodeNotifier(content, { onClick, silent });
   return true;
 }
 

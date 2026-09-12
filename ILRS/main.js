@@ -1,7 +1,8 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, dialog, shell, powerMonitor } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { showDesktopNotification, getSetting, shouldPlaySound, TRAY_ICON_PATH } = require('./notifications');
+const { showDesktopNotification, getSetting, shouldPlaySound } = require('./notifications');
+const { createTrayIcon, ensureWindowsToastSupport, showFatalError } = require('./windows-support');
 const { playAlertSound } = require('./sound-player');
 const {
   toLocalISO,
@@ -60,7 +61,8 @@ function createWindow() {
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
 
   mainWindow.once('ready-to-show', () => {
-    if (!startInBackground) mainWindow.show();
+    const firstRun = db && getSetting(db, 'onboarding_done', '0') !== '1';
+    if (!startInBackground || firstRun) mainWindow.show();
     flushPendingDueEvents();
     runSchedulerTick();
   });
@@ -110,13 +112,13 @@ function applyAutoStart(enable) {
 }
 
 function createTray() {
-  const iconPath = fs.existsSync(TRAY_ICON_PATH) ? TRAY_ICON_PATH : path.join(__dirname, 'assets', 'icon.png');
-  const icon = fs.existsSync(iconPath)
-    ? nativeImage.createFromPath(iconPath).resize({ width: 16, height: 16 })
-    : nativeImage.createEmpty();
+  const icon = createTrayIcon();
+  if (icon.isEmpty()) {
+    console.error('Tray icon missing — check assets/tray-icon.png');
+  }
 
   tray = new Tray(icon);
-  tray.setToolTip('ILRS — Life Reminder System');
+  tray.setToolTip('ILRS — Life Reminder System (running)');
 
   const contextMenu = Menu.buildFromTemplate([
     { label: 'Open ILRS', click: () => { mainWindow.show(); mainWindow.focus(); } },
@@ -304,7 +306,11 @@ function initDatabase() {
   try {
     Database = require('better-sqlite3');
   } catch (e) {
-    console.error('better-sqlite3 not found. Run: npm install');
+    console.error('better-sqlite3 failed to load:', e.message);
+    showFatalError(
+      'ILRS Database Error',
+      `Reminders cannot run because the database module failed to load.\n\n${e.message}\n\nTry reinstalling ILRS or run INSTALL.bat from the source folder.`
+    );
     return null;
   }
 
@@ -761,10 +767,17 @@ function performBackup() {
 
 app.whenReady().then(() => {
   if (process.platform === 'win32') {
-    app.setAppUserModelId('com.ilrs.app');
+    ensureWindowsToastSupport();
   }
 
   db = initDatabase();
+  if (!db) {
+    showFatalError(
+      'ILRS Cannot Start',
+      'The reminder database could not be initialized. Reminders, sounds, and notifications will not work.\n\nPlease reinstall ILRS-Setup from the latest release.'
+    );
+  }
+
   setupIPC();
   if (db) {
     repairReminderSchedules();
@@ -774,9 +787,9 @@ app.whenReady().then(() => {
     applyAutoStart(getSetting(db, 'auto_start', '1') === '1');
     setTimeout(catchUpOverdueReminders, 1500);
   }
-  createWindow();
   createTray();
-  if (startInBackground) {
+  createWindow();
+  if (startInBackground && db && getSetting(db, 'onboarding_done', '0') === '1') {
     showBackgroundRunningNotice();
   }
 

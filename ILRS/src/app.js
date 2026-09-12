@@ -1667,8 +1667,8 @@ async function renderSettings(el) {
           </div>
           <div class="setting-row">
             <div class="setting-info">
-              <div class="setting-label">Background reminders</div>
-              <div class="setting-desc">Closing the window keeps ILRS running in the system tray. Use tray → Quit to stop fully.</div>
+              <div class="setting-label">Background reminders (Windows)</div>
+              <div class="setting-desc">Close the window — ILRS stays in the system tray (near the clock). Click the ^ arrow if hidden. Tray → Quit stops all reminders.</div>
             </div>
             <span style="font-size:12px;color:var(--normal);font-weight:700">✓ Enabled</span>
           </div>

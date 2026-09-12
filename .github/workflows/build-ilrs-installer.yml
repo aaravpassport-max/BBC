@@ -38,6 +38,7 @@ jobs:
           $version = (Get-Content package.json | ConvertFrom-Json).version
           npm run build:win
           cd dist && powershell Compress-Archive -Path win-unpacked -DestinationPath "ILRS-Portable-$version-Windows-x64.zip" -Force
+        # NSIS installer is the recommended download for Windows 10 (toast notifications + tray)
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: false
 

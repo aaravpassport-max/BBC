@@ -4,7 +4,7 @@
 const path = require('path');
 const fs = require('fs');
 const { spawn } = require('child_process');
-const { BrowserWindow } = require('electron');
+const { app, BrowserWindow } = require('electron');
 const { resolveSoundId } = require('./alarm');
 
 let soundWindow;
@@ -14,6 +14,30 @@ function getSoundPath(soundId) {
   const file = resolveSoundId(soundId);
   const soundPath = path.join(__dirname, 'assets', 'sounds', `${file}.wav`);
   return fs.existsSync(soundPath) ? soundPath : null;
+}
+
+/**
+ * PowerShell and some OS players cannot read files inside app.asar.
+ * Copy to userData so packaged Windows builds can play alarm sounds.
+ */
+function resolvePlayableSoundPath(soundPath) {
+  if (!soundPath) return null;
+  if (!soundPath.includes('app.asar')) return soundPath;
+
+  try {
+    const cacheDir = path.join(app.getPath('userData'), 'sound-cache');
+    fs.mkdirSync(cacheDir, { recursive: true });
+    const dest = path.join(cacheDir, path.basename(soundPath));
+    const srcStat = fs.statSync(soundPath);
+    const destStat = fs.existsSync(dest) ? fs.statSync(dest) : null;
+    if (!destStat || destStat.size !== srcStat.size || destStat.mtimeMs < srcStat.mtimeMs) {
+      fs.copyFileSync(soundPath, dest);
+    }
+    return dest;
+  } catch (err) {
+    console.error('resolvePlayableSoundPath:', err.message);
+    return soundPath;
+  }
 }
 
 function getSoundWindow() {
@@ -30,10 +54,11 @@ function getSoundWindow() {
 
 function playWithNative(soundPath) {
   return new Promise((resolve) => {
+    const playable = resolvePlayableSoundPath(soundPath);
     const done = (ok, method, err = null) => resolve({ ok, method, err });
 
     if (process.platform === 'win32') {
-      const escaped = soundPath.replace(/'/g, "''");
+      const escaped = playable.replace(/'/g, "''");
       const child = spawn('powershell', [
         '-NoProfile', '-Command',
         `(New-Object System.Media.SoundPlayer '${escaped}').PlaySync()`,
@@ -44,16 +69,16 @@ function playWithNative(soundPath) {
     }
 
     if (process.platform === 'darwin') {
-      const child = spawn('afplay', [soundPath], { stdio: 'ignore' });
+      const child = spawn('afplay', [playable], { stdio: 'ignore' });
       child.on('error', (e) => done(false, 'afplay', e.message));
       child.on('close', (code) => done(code === 0, 'afplay', code === 0 ? null : `exit ${code}`));
       return;
     }
 
     const players = [
-      ['ffplay', ['-nodisp', '-autoexit', '-loglevel', 'quiet', soundPath]],
-      ['paplay', [soundPath]],
-      ['aplay', ['-q', soundPath]],
+      ['ffplay', ['-nodisp', '-autoexit', '-loglevel', 'quiet', playable]],
+      ['paplay', [playable]],
+      ['aplay', ['-q', playable]],
     ];
 
     function tryPlayer(index) {
@@ -71,13 +96,14 @@ function playWithHiddenWindow(soundPath, repeat = 2) {
   return new Promise((resolve) => {
     const { ipcMain } = require('electron');
     const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const url = `file://${soundPath.replace(/\\/g, '/')}`;
+    const playable = resolvePlayableSoundPath(soundPath);
+    const url = `file://${playable.replace(/\\/g, '/')}`;
     const win = getSoundWindow();
 
     const timeout = setTimeout(() => {
       cleanup();
       resolve({ ok: false, method: 'electron-file', err: 'timeout' });
-    }, 12000);
+    }, 15000);
 
     const cleanup = () => {
       clearTimeout(timeout);
@@ -117,23 +143,26 @@ async function playAlertSound(soundId, repeat = 2, mainWindowRef = null) {
     && mainWindowRef.webContents
     && !mainWindowRef.webContents.isDestroyed();
 
-  // Visible window: renderer audio (verified in E2E tests)
   if (windowVisible) {
     mainWindowRef.webContents.send('play-alert-sound', soundId);
     lastPlayback = { ok: true, method: 'renderer-ipc', soundId, repeats };
     return true;
   }
 
-  // Hidden / tray / closed-window: native OS audio so alarms still ring in background
+  // Background / tray: hidden Electron player first (works with asar), then native OS
   for (let i = 0; i < repeats; i++) {
+    const hidden = await playWithHiddenWindow(soundPath, 1);
+    if (hidden.ok) {
+      lastPlayback = { ...hidden, soundId, soundPath, repeats, attempt: i + 1 };
+      continue;
+    }
     const native = await playWithNative(soundPath);
     if (native.ok) {
       lastPlayback = { ...native, soundId, soundPath, repeats, attempt: i + 1 };
       continue;
     }
-    const hidden = await playWithHiddenWindow(soundPath, repeats - i);
     lastPlayback = { ...hidden, soundId, soundPath, nativeErr: native.err, attempt: i + 1 };
-    return hidden.ok;
+    return false;
   }
   return true;
 }
@@ -142,4 +171,11 @@ function getLastPlayback() {
   return lastPlayback;
 }
 
-module.exports = { playAlertSound, getLastPlayback, getSoundPath, playWithNative, playWithHiddenWindow };
+module.exports = {
+  playAlertSound,
+  getLastPlayback,
+  getSoundPath,
+  resolvePlayableSoundPath,
+  playWithNative,
+  playWithHiddenWindow,
+};
