@@ -4,6 +4,7 @@ const fs = require('fs');
 const { showDesktopNotification, getSetting, shouldPlaySound } = require('./notifications');
 const { createTrayIcon, ensureWindowsToastSupport, showFatalError } = require('./windows-support');
 const { playAlertSound } = require('./sound-player');
+const { announceReminder, shouldAnnounceVoice } = require('./voice-announcer');
 const {
   toLocalISO,
   localDateStr,
@@ -229,6 +230,10 @@ function dispatchDueItem(item, type = 'reminder') {
     const tone = item.alert_tone || getSetting(db, 'reminder_tone', 'loud-chime');
     const repeats = item.priority === 'critical' ? 4 : 3;
     playAlertSound(tone, repeats, mainWindow);
+  }
+
+  if (shouldAnnounceVoice(db, item, getSetting)) {
+    setTimeout(() => announceReminder(item, type, mainWindow), 1800);
   }
 
   // Wake/show window for critical alarms even when running in background
@@ -533,6 +538,7 @@ function initDatabase() {
     rewards_enabled: '1',
     urgency_matrix_widget: '0',
     auto_start: '1',
+    voice_announcements: '1',
     onboarding_done: '0',
     app_pin: '',
   };

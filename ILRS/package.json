@@ -1,6 +1,6 @@
 {
   "name": "ilrs",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "ILRS — Intelligent Life Reminder System",
   "author": {
     "name": "Business OS",
@@ -17,6 +17,7 @@
     "test:live-alarm": "node scripts/verify-live-alarm.js",
     "test:background-alarm": "electron scripts/test-background-alarm.js --no-sandbox",
     "test:windows-sound": "electron scripts/test-windows-sound-path.js --no-sandbox",
+    "test:voice-text": "node scripts/test-voice-text.js",
     "test:db": "node scripts/test-db-ops.js",
     "test:e2e": "electron scripts/e2e-ipc-test.js --no-sandbox",
     "dev": "electron . --dev --no-sandbox",
@@ -59,6 +60,9 @@
       "alarm.js",
       "sound-player.js",
       "sound-player.html",
+      "voice-announcer.js",
+      "voice-player.html",
+      "reminder-voice.js",
       "windows-support.js",
       "assets/sounds/**/*",
       "src/**/*",

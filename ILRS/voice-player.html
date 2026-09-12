@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"></head><body>
+<script>
+  const { ipcRenderer } = require('electron');
+
+  let voicesReady = false;
+
+  function loadVoices() {
+    return speechSynthesis.getVoices();
+  }
+
+  speechSynthesis.onvoiceschanged = () => { voicesReady = true; };
+  loadVoices();
+
+  function pickIndianEnglishVoice() {
+    const voices = loadVoices();
+    const ranked = [
+      (v) => v.lang === 'en-IN',
+      (v) => /en-in/i.test(v.lang),
+      (v) => /india|heera|neerja|ravi|priya|kalpana/i.test(v.name),
+      (v) => v.lang.startsWith('en') && v.localService,
+      (v) => v.lang.startsWith('en-GB'),
+      (v) => v.lang.startsWith('en'),
+    ];
+    for (const test of ranked) {
+      const match = voices.find(test);
+      if (match) return match;
+    }
+    return voices[0] || null;
+  }
+
+  function speakText(text, requestId) {
+    const finish = (ok, err) => ipcRenderer.send('voice-announce-result', { requestId, ok, err: err || null });
+
+    if (!text || !window.speechSynthesis) {
+      finish(false, 'speech synthesis unavailable');
+      return;
+    }
+
+    try {
+      speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-IN';
+      utterance.rate = 0.94;
+      utterance.pitch = 1;
+      utterance.volume = 1;
+
+      const voice = pickIndianEnglishVoice();
+      if (voice) {
+        utterance.voice = voice;
+        utterance.lang = voice.lang || 'en-IN';
+      }
+
+      let done = false;
+      const timeout = setTimeout(() => {
+        if (!done) {
+          done = true;
+          speechSynthesis.cancel();
+          finish(false, 'speech timeout');
+        }
+      }, 45000);
+
+      utterance.onend = () => {
+        if (done) return;
+        done = true;
+        clearTimeout(timeout);
+        finish(true);
+      };
+      utterance.onerror = (e) => {
+        if (done) return;
+        done = true;
+        clearTimeout(timeout);
+        finish(false, e.error || 'speech error');
+      };
+
+      speechSynthesis.speak(utterance);
+    } catch (err) {
+      finish(false, err.message);
+    }
+  }
+
+  ipcRenderer.on('speak-text', (_e, payload) => {
+    const { text, requestId } = payload;
+    if (!voicesReady) {
+      setTimeout(() => speakText(text, requestId), 250);
+      return;
+    }
+    speakText(text, requestId);
+  });
+</script>
+</body></html>

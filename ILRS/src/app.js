@@ -1639,6 +1639,20 @@ async function renderSettings(el) {
           </div>
           <div class="setting-row">
             <div class="setting-info">
+              <div class="setting-label">Voice Announcement</div>
+              <div class="setting-desc">After the alert, ILRS speaks the reminder purpose in natural Indian English</div>
+            </div>
+            <div class="toggle ${s.voice_announcements==='1'?'on':''}" id="t-voice" onclick="this.classList.toggle('on')"></div>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-label">Preview Voice</div>
+              <div class="setting-desc">Hear a sample Indian English announcement</div>
+            </div>
+            <button class="btn btn-ghost btn-sm" onclick="previewVoiceAnnouncement()">🗣️ Preview</button>
+          </div>
+          <div class="setting-row">
+            <div class="setting-info">
               <div class="setting-label">Snooze Duration</div>
               <div class="setting-desc">Default snooze time in minutes</div>
             </div>
@@ -1786,6 +1800,7 @@ async function saveSettings() {
     app_lock: document.getElementById('t-lock')?.classList.contains('on') ? '1' : '0',
     rewards_enabled: document.getElementById('t-rewards')?.classList.contains('on') ? '1' : '0',
     auto_start: document.getElementById('t-autostart')?.classList.contains('on') ? '1' : '0',
+    voice_announcements: document.getElementById('t-voice')?.classList.contains('on') ? '1' : '0',
   };
 
   for (const [k, v] of Object.entries(updates)) {
@@ -1817,6 +1832,16 @@ async function scheduleTestAlarm() {
 
 function previewSound(soundId) {
   window.ILRSSounds?.previewSound(soundId);
+}
+
+function previewVoiceAnnouncement() {
+  const sample = window.ILRSVoiceText?.build({
+    title: 'Take blood pressure medicine',
+    why_it_matters: 'It keeps your health on track.',
+    priority: 'important',
+  }, 'reminder');
+  window.ILRSVoice?.speak(sample || 'Just a reminder. Time to take your medicine. Please do not forget.');
+  toast('Playing voice preview — uses your system Indian English voice if available');
 }
 
 async function performManualBackup() {
@@ -1956,6 +1981,11 @@ function setupListeners() {
     const repeats = 2;
     window.ILRSSounds?.playAlertSound(soundId || App.settings.reminder_tone || 'loud-chime', { repeat: repeats });
   });
+
+  api.onSpeakReminder(({ text }) => {
+    if (App.settings.voice_announcements === '0') return;
+    window.ILRSVoice?.speak(text);
+  });
 }
 
 function processAlertQueue() {
@@ -1982,7 +2012,10 @@ function showInAppAlert(reminder) {
 
   const isPrivate = Number(reminder.is_private) === 1;
   const title = isPrivate ? 'Private Reminder' : reminder.title;
-  const body = isPrivate ? 'You have a scheduled reminder.' : (reminder.why_it_matters || 'Time for action!');
+  const type = reminder._type || reminder.task_type || 'reminder';
+  const body = isPrivate
+    ? 'You have a scheduled reminder.'
+    : (window.ILRSVoiceText?.display(reminder, type) || reminder.why_it_matters || 'Time for action!');
   const isAlarm = reminder.priority === 'critical' || reminder._type === 'reminder';
 
   const overlay = document.createElement('div');
