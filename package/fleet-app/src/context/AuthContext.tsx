@@ -1,0 +1,49 @@
+import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { setToken, setRefreshToken, logoutSession } from '../api/client';
+
+interface AuthState {
+  isAuthenticated: boolean;
+  userId: string | null;
+  login: (token: string, userId: string, refreshToken?: string) => void;
+  logout: () => void;
+}
+
+const AuthContext = createContext<AuthState | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [userId, setUserId] = useState<string | null>(() => localStorage.getItem('user_id'));
+
+  const login = useCallback((token: string, uid: string, refreshToken?: string) => {
+    setToken(token);
+    if (refreshToken) setRefreshToken(refreshToken);
+    localStorage.setItem('user_id', uid);
+    setUserId(uid);
+  }, []);
+
+  const logout = useCallback(() => {
+    void logoutSession();
+    localStorage.removeItem('user_id');
+    setUserId(null);
+  }, []);
+
+  return (
+    <AuthContext.Provider value={{ isAuthenticated: !!userId, userId, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth(): AuthState {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
+}
+
+export function getDeviceId(): string {
+  let id = localStorage.getItem('device_id');
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem('device_id', id);
+  }
+  return id;
+}

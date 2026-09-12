@@ -1,0 +1,15 @@
+.portmystuff-app-shell{max-width:480px;margin:0 auto;min-height:80vh;background:#f4f6f9;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+.portmystuff-app-root{min-height:80vh}
+.portmystuff-loading{display:flex;align-items:center;justify-content:center;min-height:200px;color:#64748b;font-family:system-ui,sans-serif}
+.pms-iframe{width:100%;min-height:80vh;border:0}
+.pms-mini-app{padding:20px;font-family:system-ui,sans-serif}
+.pms-mini-app h2{margin:0 0 8px;color:#1a2332}
+.pms-mini-app .pms-btn{display:block;width:100%;padding:14px;border:none;border-radius:12px;background:#0d9f4f;color:#fff;font-weight:600;font-size:16px;cursor:pointer;margin-top:12px}
+.pms-mini-app .pms-btn-secondary{background:#64748b}
+.pms-mini-app .pms-btn-danger{background:#dc2626}
+.pms-mini-app .pms-quote-card{text-align:left}
+.pms-mini-app .pms-tabs{display:flex;gap:8px;margin:12px 0}
+.pms-mini-app .pms-tab{flex:1;padding:12px;border:none;border-radius:10px;background:#e2e8f0;font-weight:600;cursor:pointer}
+.pms-mini-app .pms-stat{padding:8px 0;color:#334155}
+.pms-mini-app .pms-list-item{padding:10px;border-bottom:1px solid #e2e8f0;font-size:14px}
+.pms-mini-app input{width:100%;padding:12px;border:1px solid #e2e8f0;border-radius:10px;margin:8px 0;box-sizing:border-box}

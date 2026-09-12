@@ -1,0 +1,6 @@
+.pms-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin:20px 0}
+.pms-card{background:#fff;border:1px solid #c3c4c7;border-radius:8px;padding:16px}
+.pms-card-label{font-size:12px;color:#646970;margin-bottom:6px}
+.pms-card-value{font-size:28px;font-weight:700;color:#0d9f4f}
+.pms-code{background:#f6f7f7;padding:12px;border-radius:6px;overflow:auto;max-height:400px}
+.pms-inline-form{display:flex;gap:8px;align-items:center;margin:12px 0}

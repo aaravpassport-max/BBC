@@ -1,0 +1,75 @@
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%);
+  color: #0f172a;
+  font-family: 'Segoe UI', system-ui, sans-serif;
+}
+
+.header {
+  background: #0d9f4f;
+  color: #fff;
+  padding: 16px 20px 12px;
+  box-shadow: 0 4px 20px rgba(13, 159, 79, 0.25);
+}
+
+.brandRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.back {
+  color: #fff;
+  text-decoration: none;
+  font-size: 24px;
+  line-height: 1;
+  margin-top: 4px;
+}
+
+.brand {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  opacity: 0.85;
+  font-weight: 700;
+}
+
+.title {
+  margin: 4px 0 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 4px 0 0;
+  opacity: 0.9;
+  font-size: 14px;
+}
+
+.nav {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  margin-top: 14px;
+  padding-bottom: 4px;
+}
+
+.navLink {
+  color: #fff;
+  text-decoration: none;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.main {
+  flex: 1;
+  padding: 20px;
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
