@@ -140,6 +140,12 @@ async function saveSetting(key, value) {
   await db('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)', [key, String(value)]);
 }
 
+function applyTheme(theme) {
+  const resolved = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', resolved);
+  App.settings.appearance = resolved;
+}
+
 // ── Data Loaders ───────────────────────────────────────────────────
 async function loadAllData() {
   const [reminders, medicines, bills, habits, family] = await Promise.all([
@@ -195,7 +201,7 @@ function renderShell() {
 
     <!-- Top Bar -->
     <div class="topbar">
-      <div class="topbar-logo">ILRS <span>Life Reminder System</span></div>
+      <div class="topbar-logo">ILRS <span>Modern Reminder</span></div>
       <div class="quick-add-bar">
         <input type="text" id="quick-input" placeholder="⚡ Quick add: 'Take medicine at 8pm daily' or 'Pay electricity bill on 5th'..." />
         <button class="quick-add-btn" onclick="handleQuickAdd()">+</button>
@@ -1716,7 +1722,7 @@ async function renderSettings(el) {
             <div class="setting-info"><div class="setting-label">Theme</div></div>
             <select class="form-select" style="width:auto" id="s-theme">
               <option value="dark" ${s.appearance==='dark'?'selected':''}>🌙 Dark</option>
-              <option value="light" ${s.appearance==='light'?'selected':''}>☀️ Light (coming soon)</option>
+              <option value="light" ${s.appearance==='light'?'selected':''}>☀️ Light</option>
             </select>
           </div>
           <div class="setting-row">
@@ -1767,6 +1773,10 @@ async function renderSettings(el) {
     </div>
   `;
 
+  document.getElementById('s-theme')?.addEventListener('change', (e) => {
+    applyTheme(e.target.value);
+  });
+
   settingsClockTimer = setInterval(async () => {
     const display = document.getElementById('system-clock-display');
     if (!display || App.currentPage !== 'settings') {
@@ -1806,6 +1816,7 @@ async function saveSettings() {
   for (const [k, v] of Object.entries(updates)) {
     await saveSetting(k, v);
   }
+  applyTheme(updates.appearance);
   await api.applyAutoStart?.(updates.auto_start === '1');
   toast('✅ Settings saved!');
 }
@@ -2036,7 +2047,7 @@ function showInAppAlert(reminder) {
   overlay.className = reminder.priority === 'critical' ? 'alert-popup' : 'modal-overlay';
   overlay.id = 'alert-popup';
   overlay.innerHTML = `
-    <div class="alert-box" style="${isAlarm ? 'border:2px solid var(--critical);box-shadow:0 0 30px rgba(255,80,80,0.35)' : ''}">
+    <div class="alert-box${isAlarm ? ' alarm-active' : ''}">
       <div class="alert-icon">${reminder.priority === 'critical' ? '🚨' : '⏰'}</div>
       <h2>${title}</h2>
       <p>${body}</p>
@@ -2075,6 +2086,7 @@ function dismissAlert() {
 async function init() {
   try {
     await loadSettings();
+    applyTheme(App.settings.appearance || 'dark');
     await loadAllData();
     renderShell();
     setupListeners();
@@ -2108,9 +2120,9 @@ function showOnboarding() {
   overlay.id = 'onboard-modal';
   overlay.innerHTML = `
     <div class="modal" style="text-align:center;max-width:480px">
-      <div style="font-size:56px;margin-bottom:16px">🧠</div>
+      <div style="font-size:56px;margin-bottom:16px">🔔</div>
       <div class="modal-title" style="font-size:22px;margin-bottom:8px">Welcome to ILRS!</div>
-      <p style="color:var(--text-secondary);margin-bottom:20px">Your Intelligent Life Reminder System is ready. Let's get started!</p>
+      <p style="color:var(--text-secondary);margin-bottom:20px">Your Modern Reminder system is ready. Let's get started!</p>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:24px">
         <div class="card card-sm" style="display:flex;align-items:center;gap:12px;text-align:left">
           <span style="font-size:24px">💊</span>

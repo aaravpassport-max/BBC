@@ -1,51 +1,132 @@
-/* ── ILRS Design System ────────────────────────────────────────────── */
-:root {
-  --bg-base:      #0d0d1a;
-  --bg-surface:   #13131f;
-  --bg-card:      #1a1a2e;
-  --bg-hover:     #1f1f35;
-  --bg-active:    #252545;
-  --border:       #2a2a4a;
-  --border-light: #333360;
+/* ── ILRS Modern Reminder Design System ───────────────────────────── */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
 
-  --text-primary:   #f0f0ff;
-  --text-secondary: #9090c0;
-  --text-muted:     #5a5a8a;
+  --bg-base:      #0B1220;
+  --bg-surface:   #111827;
+  --bg-card:      #1A2332;
+  --bg-hover:     #243044;
+  --bg-active:    #2D3B52;
+  --bg-input:     #0F1728;
+  --border:       #334155;
+  --border-light: #475569;
 
-  --accent:       #6c63ff;
-  --accent-light: #8a83ff;
-  --accent-dim:   rgba(108,99,255,0.15);
+  --text-primary:   #F8FAFC;
+  --text-secondary: #CBD5E1;
+  --text-muted:     #94A3B8;
+  --text-on-accent: #FFFFFF;
 
-  --critical:  #ff4757;
-  --important: #ff9f43;
-  --normal:    #2ed573;
-  --info:      #1e90ff;
+  --accent:       #0D9488;
+  --accent-light: #14B8A6;
+  --accent-dark:  #0F766E;
+  --accent-dim:   rgba(13, 148, 136, 0.18);
+  --accent-shadow: rgba(13, 148, 136, 0.35);
 
-  --critical-dim:  rgba(255,71,87,0.12);
-  --important-dim: rgba(255,159,67,0.12);
-  --normal-dim:    rgba(46,213,115,0.12);
-  --info-dim:      rgba(30,144,255,0.12);
+  --critical:  #F43F5E;
+  --important: #F59E0B;
+  --normal:    #10B981;
+  --info:      #0EA5E9;
 
-  --medicine-color: #a29bfe;
-  --bills-color:    #fd79a8;
-  --family-color:   #fdcb6e;
-  --habit-color:    #55efc4;
-  --work-color:     #74b9ff;
+  --critical-dim:  rgba(244, 63, 94, 0.16);
+  --important-dim: rgba(245, 158, 11, 0.16);
+  --normal-dim:    rgba(16, 185, 129, 0.16);
+  --info-dim:      rgba(14, 165, 233, 0.16);
+
+  --medicine-color: #8B5CF6;
+  --bills-color:    #EC4899;
+  --family-color:   #F59E0B;
+  --habit-color:    #10B981;
+  --work-color:     #3B82F6;
+
+  --tag-medicine-bg: rgba(139, 92, 246, 0.18);
+  --tag-bills-bg:    rgba(236, 72, 153, 0.18);
+  --tag-family-bg:   rgba(245, 158, 11, 0.18);
+  --tag-habit-bg:    rgba(16, 185, 129, 0.18);
+  --tag-work-bg:     rgba(59, 130, 246, 0.18);
+
+  --overlay-bg: rgba(2, 6, 23, 0.78);
+  --alert-overlay-bg: rgba(2, 6, 23, 0.88);
+  --focus-topbar-bg: rgba(13, 148, 136, 0.12);
+  --focus-topbar-border: #14B8A6;
+  --overdue-bg: rgba(244, 63, 94, 0.1);
+  --alert-border: rgba(244, 63, 94, 0.45);
+  --toast-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+  --alert-glow: 0 0 30px rgba(244, 63, 94, 0.4);
 
   --radius-sm: 8px;
   --radius:    12px;
   --radius-lg: 18px;
   --radius-xl: 24px;
 
-  --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
-  --shadow:    0 4px 20px rgba(0,0,0,0.4);
-  --shadow-lg: 0 8px 40px rgba(0,0,0,0.5);
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.28);
+  --shadow:    0 4px 20px rgba(0, 0, 0, 0.35);
+  --shadow-lg: 0 8px 40px rgba(0, 0, 0, 0.45);
 
   --font-body: 'DM Sans', sans-serif;
   --font-mono: 'Space Mono', monospace;
 
   --sidebar-width: 220px;
   --topbar-height: 56px;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --bg-base:      #F1F5F9;
+  --bg-surface:   #FFFFFF;
+  --bg-card:      #FFFFFF;
+  --bg-hover:     #E2E8F0;
+  --bg-active:    #CBD5E1;
+  --bg-input:     #FFFFFF;
+  --border:       #CBD5E1;
+  --border-light: #94A3B8;
+
+  --text-primary:   #0F172A;
+  --text-secondary: #334155;
+  --text-muted:     #64748B;
+  --text-on-accent: #FFFFFF;
+
+  --accent:       #0D9488;
+  --accent-light: #0F766E;
+  --accent-dark:  #115E59;
+  --accent-dim:   rgba(13, 148, 136, 0.12);
+  --accent-shadow: rgba(13, 148, 136, 0.28);
+
+  --critical:  #DC2626;
+  --important: #D97706;
+  --normal:    #059669;
+  --info:      #0284C7;
+
+  --critical-dim:  rgba(220, 38, 38, 0.1);
+  --important-dim: rgba(217, 119, 6, 0.12);
+  --normal-dim:    rgba(5, 150, 105, 0.12);
+  --info-dim:      rgba(2, 132, 199, 0.12);
+
+  --medicine-color: #6D28D9;
+  --bills-color:    #BE185D;
+  --family-color:   #B45309;
+  --habit-color:    #047857;
+  --work-color:     #1D4ED8;
+
+  --tag-medicine-bg: rgba(109, 40, 217, 0.12);
+  --tag-bills-bg:    rgba(190, 24, 93, 0.12);
+  --tag-family-bg:   rgba(180, 83, 9, 0.12);
+  --tag-habit-bg:    rgba(4, 120, 87, 0.12);
+  --tag-work-bg:     rgba(29, 78, 216, 0.12);
+
+  --overlay-bg: rgba(15, 23, 42, 0.45);
+  --alert-overlay-bg: rgba(15, 23, 42, 0.55);
+  --focus-topbar-bg: rgba(13, 148, 136, 0.1);
+  --focus-topbar-border: #0D9488;
+  --overdue-bg: rgba(220, 38, 38, 0.08);
+  --alert-border: rgba(220, 38, 38, 0.35);
+  --toast-shadow: 0 8px 28px rgba(15, 23, 42, 0.15);
+  --alert-glow: 0 0 30px rgba(220, 38, 38, 0.28);
+
+  --shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.08);
+  --shadow:    0 4px 20px rgba(15, 23, 42, 0.1);
+  --shadow-lg: 0 8px 40px rgba(15, 23, 42, 0.14);
 }
 
 /* ── Reset & Base ─────────────────────────────────────────────────── */
@@ -130,7 +211,7 @@ html, body {
 .quick-add-btn {
   position: absolute;
   right: 8px; top: 50%; transform: translateY(-50%);
-  background: var(--accent); border: none; color: white;
+  background: var(--accent); border: none; color: var(--text-on-accent);
   width: 26px; height: 26px; border-radius: 6px; cursor: pointer;
   display: flex; align-items: center; justify-content: center; font-size: 16px;
   transition: background 0.2s;
@@ -256,7 +337,8 @@ html, body {
 }
 
 .btn-primary { background: var(--accent); color: white; }
-.btn-primary:hover { background: var(--accent-light); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(108,99,255,0.4); }
+.btn-primary { color: var(--text-on-accent); }
+.btn-primary:hover { background: var(--accent-light); transform: translateY(-1px); box-shadow: 0 4px 12px var(--accent-shadow); }
 
 .btn-danger { background: var(--critical); color: white; }
 .btn-danger:hover { filter: brightness(1.1); }
@@ -316,7 +398,7 @@ html, body {
 .reminder-card.critical { border-left: 3px solid var(--critical); background: var(--critical-dim); }
 .reminder-card.important { border-left: 3px solid var(--important); }
 .reminder-card.normal { border-left: 3px solid var(--normal); }
-.reminder-card.overdue { background: rgba(255,71,87,0.06); }
+.reminder-card.overdue { background: var(--overdue-bg); }
 
 .reminder-check {
   width: 20px; height: 20px;
@@ -347,11 +429,11 @@ html, body {
   background: var(--bg-hover);
   color: var(--text-secondary);
 }
-.tag.medicine { background: rgba(162,155,254,0.15); color: var(--medicine-color); }
-.tag.bills    { background: rgba(253,121,168,0.15); color: var(--bills-color); }
-.tag.family   { background: rgba(253,203,110,0.15); color: var(--family-color); }
-.tag.habit    { background: rgba(85,239,196,0.15);  color: var(--habit-color); }
-.tag.work     { background: rgba(116,185,255,0.15); color: var(--work-color); }
+.tag.medicine { background: var(--tag-medicine-bg); color: var(--medicine-color); }
+.tag.bills    { background: var(--tag-bills-bg); color: var(--bills-color); }
+.tag.family   { background: var(--tag-family-bg); color: var(--family-color); }
+.tag.habit    { background: var(--tag-habit-bg); color: var(--habit-color); }
+.tag.work     { background: var(--tag-work-bg); color: var(--work-color); }
 .tag.critical { background: var(--critical-dim); color: var(--critical); }
 .tag.important{ background: var(--important-dim); color: var(--important); }
 .tag.normal   { background: var(--normal-dim); color: var(--normal); }
@@ -384,7 +466,7 @@ html, body {
 .form-hint { font-size: 11px; color: var(--text-muted); }
 
 .form-input, .form-select, .form-textarea {
-  background: var(--bg-base);
+  background: var(--bg-input);
   border: 1px solid var(--border);
   color: var(--text-primary);
   padding: 9px 12px;
@@ -525,7 +607,7 @@ html, body {
 
 .attention-banner {
   background: var(--critical-dim);
-  border: 1px solid rgba(255,71,87,0.3);
+  border: 1px solid var(--alert-border);
   border-radius: var(--radius);
   padding: 12px 16px;
   margin-bottom: 16px;
@@ -544,7 +626,7 @@ html, body {
 /* ── Modal / Overlay ──────────────────────────────────────────────── */
 .modal-overlay {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,0.7);
+  background: var(--overlay-bg);
   display: flex; align-items: center; justify-content: center;
   z-index: 1000;
   backdrop-filter: blur(4px);
@@ -574,7 +656,7 @@ html, body {
 /* ── Alert Popup (Critical) ───────────────────────────────────────── */
 .alert-popup {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,0.85);
+  background: var(--alert-overlay-bg);
   display: flex; align-items: center; justify-content: center;
   z-index: 9999;
 }
@@ -586,6 +668,10 @@ html, body {
   text-align: center;
   max-width: 440px;
   animation: alertPop 0.3s cubic-bezier(0.34,1.56,0.64,1);
+}
+.alert-box.alarm-active {
+  border-color: var(--critical);
+  box-shadow: var(--alert-glow);
 }
 @keyframes alertPop { from{transform:scale(0.7)} to{transform:scale(1)} }
 .alert-box .alert-icon { font-size: 48px; margin-bottom: 12px; }
@@ -617,7 +703,7 @@ html, body {
 .toast.warning  { border-left: 3px solid var(--important); }
 
 /* ── Focus Mode ───────────────────────────────────────────────────── */
-body.focus-mode .topbar { background: rgba(0,200,180,0.08); border-bottom-color: #00c8b4; }
+body.focus-mode .topbar { background: var(--focus-topbar-bg); border-bottom-color: var(--focus-topbar-border); }
 body.focus-mode .focus-badge { display: inline-flex !important; }
 
 /* ── Tabs ─────────────────────────────────────────────────────────── */
@@ -714,7 +800,93 @@ body.focus-mode .focus-badge { display: inline-flex !important; }
   .stats-bar { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 800px) {
-  :root { --sidebar-width: 52px; }
+  :root, [data-theme="dark"], [data-theme="light"] { --sidebar-width: 52px; }
   .nav-item span { display: none; }
   .sidebar-section-label { display: none; }
+}
+
+/* ── Global readability helpers ───────────────────────────────────── */
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-light); text-decoration: underline; }
+code {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  border: 1px solid var(--border);
+}
+
+.toast {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  box-shadow: var(--toast-shadow);
+}
+
+.toast.critical { border-color: var(--critical); background: var(--critical-dim); }
+.toast.warning { border-color: var(--important); background: var(--important-dim); }
+
+.setting-info .setting-label { color: var(--text-primary); }
+
+select.form-select,
+input.form-input,
+textarea.form-input {
+  background: var(--bg-input);
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .btn-ghost:hover {
+  background: var(--bg-hover);
+  color: var(--accent-dark);
+}
+
+[data-theme="light"] .loader-logo h1 { color: var(--accent-dark); }
+
+[data-theme="light"] .card,
+[data-theme="light"] .stat-card,
+[data-theme="light"] .reminder-card,
+[data-theme="light"] .coming-up-panel {
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .nav-item.active {
+  color: var(--accent-dark);
+  font-weight: 600;
+}
+
+[data-theme="light"] .topbar-logo {
+  color: var(--accent-dark);
+}
+
+[data-theme="light"] .calendar-day.selected {
+  color: var(--text-on-accent);
+}
+
+[data-theme="light"] .stat-card.purple .stat-value {
+  color: var(--accent-dark);
+}
+
+[data-theme="light"] .quadrant-option.selected {
+  color: var(--accent-dark);
+}
+
+[data-theme="light"] .dose-row {
+  background: var(--bg-hover);
+}
+
+[data-theme="light"] .report-chart {
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+}
+
+[data-theme="light"] .modal-title,
+[data-theme="light"] .alert-box h2 {
+  color: var(--text-primary);
+}
+
+[data-theme="light"] .form-select option {
+  background: var(--bg-surface);
+  color: var(--text-primary);
 }

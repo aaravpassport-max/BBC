@@ -77,8 +77,8 @@ function createWindow() {
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    title: 'ILRS — Intelligent Life Reminder System',
-    backgroundColor: '#0f0f1a',
+    title: 'ILRS — Modern Reminder',
+    backgroundColor: '#0B1220',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

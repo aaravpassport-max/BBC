@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Generate minimal ILRS icon assets (PNG) without external dependencies.
+ * Generate ILRS "Modern Reminder" icon assets — teal squircle, bell + clock badge.
  */
 const fs = require('fs');
 const path = require('path');
@@ -32,15 +32,15 @@ function createPng(size, drawPixel) {
   const ihdr = Buffer.alloc(13);
   ihdr.writeUInt32BE(size, 0);
   ihdr.writeUInt32BE(size, 4);
-  ihdr[8] = 8; // bit depth
-  ihdr[9] = 6; // RGBA
+  ihdr[8] = 8;
+  ihdr[9] = 6;
   ihdr[10] = 0; ihdr[11] = 0; ihdr[12] = 0;
 
   const rowSize = 1 + size * 4;
   const raw = Buffer.alloc(rowSize * size);
   for (let y = 0; y < size; y++) {
     const rowStart = y * rowSize;
-    raw[rowStart] = 0; // filter none
+    raw[rowStart] = 0;
     for (let x = 0; x < size; x++) {
       const [r, g, b, a] = drawPixel(x, y, size);
       const px = rowStart + 1 + x * 4;
@@ -57,26 +57,52 @@ function createPng(size, drawPixel) {
   ]);
 }
 
-function bellPixel(x, y, size) {
+/** Modern Reminder icon: teal rounded tile, white bell, amber clock badge */
+function modernReminderPixel(x, y, size) {
   const cx = size / 2;
   const cy = size / 2;
-  const dx = (x - cx) / size;
-  const dy = (y - cy) / size;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  const bell = dist < 0.32 && dy > -0.15 && dy < 0.2;
-  const clapper = dist < 0.08 && dy > 0.18;
-  const bg = dist < 0.46;
-  if (bell || clapper) return [99, 102, 241, 255];
-  if (bg) return [15, 15, 26, 255];
-  return [0, 0, 0, 0];
+  const scale = size * 0.44;
+  const nx = (x - cx) / scale;
+  const ny = (y - cy) / scale;
+
+  const squircle = Math.pow(Math.abs(nx), 3.2) + Math.pow(Math.abs(ny), 3.2);
+  if (squircle > 1.05) return [0, 0, 0, 0];
+
+  const t = (ny + 1) / 2;
+  const bg = [
+    Math.round(8 + t * 12),
+    Math.round(115 + t * 35),
+    Math.round(105 + t * 28),
+    255,
+  ];
+
+  const bx = nx * 1.05;
+  const by = ny + 0.08;
+  const bell = (bx * bx + by * by * 1.35) < 0.38 && by > -0.38 && by < 0.22;
+  const knob = Math.abs(bx) < 0.09 && by > -0.48 && by < -0.32;
+  const clapper = (bx * bx + (by - 0.26) * (by - 0.26)) < 0.028;
+
+  const hx = nx - 0.52;
+  const hy = ny + 0.5;
+  const clockDist = hx * hx + hy * hy;
+  const clockFace = clockDist < 0.11;
+  const hourHand = Math.abs(hx + 0.01) < 0.035 && hy < 0.02 && hy > -0.06;
+  const minuteHand = Math.abs(hx - hy * 0.4) < 0.028 && hx > -0.02 && hx < 0.07;
+
+  if (bell || knob || clapper) return [255, 255, 255, 255];
+  if (clockFace) {
+    if (hourHand || minuteHand) return [8, 100, 92, 255];
+    return [255, 247, 230, 255];
+  }
+
+  return bg;
 }
 
 for (const size of [16, 32, 256]) {
-  const png = createPng(size, bellPixel);
+  const png = createPng(size, modernReminderPixel);
   const name = size === 16 ? 'tray-icon.png' : size === 256 ? 'icon.png' : `icon-${size}.png`;
   fs.writeFileSync(path.join(assetsDir, name), png);
 }
 
-// Copy for electron-builder targets
 fs.copyFileSync(path.join(assetsDir, 'icon.png'), path.join(assetsDir, 'icon-256.png'));
-console.log('Generated ILRS icons in assets/');
+console.log('Generated Modern Reminder icons in assets/');
