@@ -113,7 +113,7 @@ function showBackgroundRunningNotice() {
     why_it_matters: 'Reminders will still ring and notify. Right-click the tray icon → Quit to stop fully.',
     priority: 'important',
     alert_style: 'popup-only',
-  }, { type: 'reminder', force: true });
+  }, { type: 'reminder', force: true, onClick: focusMainWindow });
   if (tray && process.platform === 'win32') {
     try {
       tray.displayBalloon({
@@ -161,7 +161,7 @@ function createTray() {
   ]);
 
   tray.setContextMenu(contextMenu);
-  tray.on('click', () => { mainWindow.show(); mainWindow.focus(); });
+  tray.on('click', () => focusMainWindow());
 }
 
 function pauseAlerts(minutes) {
@@ -169,10 +169,37 @@ function pauseAlerts(minutes) {
 }
 
 function focusMainWindow() {
-  if (!mainWindow) return;
+  if (!mainWindow || mainWindow.isDestroyed()) return;
+
   if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.setSkipTaskbar(false);
   mainWindow.show();
-  mainWindow.focus();
+
+  if (process.platform === 'win32') {
+    mainWindow.setAlwaysOnTop(true, 'screen-saver');
+    mainWindow.focus();
+    setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setAlwaysOnTop(false);
+    }, 600);
+  } else {
+    mainWindow.focus();
+  }
+
+  try {
+    app.focus({ steal: true });
+  } catch (_) { /* unsupported on some platforms */ }
+
+  if (typeof mainWindow.moveTop === 'function') mainWindow.moveTop();
+}
+
+function openReminderFromNotification(item, type = 'reminder') {
+  focusMainWindow();
+  flushPendingDueEvents();
+
+  const payload = { ...item, _type: type, _fromNotificationClick: true };
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+    mainWindow.webContents.send('notification-clicked', payload);
+  }
 }
 
 function sendTestNotification() {
@@ -182,7 +209,12 @@ function sendTestNotification() {
     priority: 'important',
     alert_style: 'sound-popup',
     is_private: 0,
-  }, { onClick: focusMainWindow, type: 'reminder', force: true });
+  }, { onClick: () => openReminderFromNotification({
+    title: 'ILRS Test Notification',
+    why_it_matters: 'Desktop notifications are working correctly.',
+    priority: 'important',
+    id: 'test-notification',
+  }, 'reminder'), type: 'reminder', force: true });
   const tone = getSetting(db, 'reminder_tone', 'loud-chime');
   playAlertSound(tone, 2, mainWindow);
 }
@@ -205,7 +237,7 @@ async function scheduleTestAlarmFromTray() {
       why_it_matters: `Will ring at ${time}. ILRS can stay hidden in the tray.`,
       priority: 'important',
       alert_style: 'popup-only',
-    }, { force: true });
+    }, { force: true, onClick: focusMainWindow });
   } catch (err) {
     console.error('scheduleTestAlarmFromTray:', err.message);
   }
@@ -224,7 +256,7 @@ function dispatchDueItem(item, type = 'reminder') {
     pendingDueEvents.push(payload);
   }
 
-  showDesktopNotification(db, item, { onClick: focusMainWindow, type });
+  showDesktopNotification(db, item, { onClick: () => openReminderFromNotification(item, type), type });
 
   if (shouldPlaySound(db, item)) {
     const tone = item.alert_tone || getSetting(db, 'reminder_tone', 'loud-chime');
@@ -265,7 +297,10 @@ function setupIPC() {
   });
 
   ipcMain.on('send-notification', (_event, payload) => {
-    showDesktopNotification(db, payload, { onClick: focusMainWindow, type: payload.type || 'reminder' });
+    showDesktopNotification(db, payload, {
+      onClick: () => openReminderFromNotification(payload, payload.type || 'reminder'),
+      type: payload.type || 'reminder',
+    });
   });
 
   ipcMain.handle('test-notification', async () => {

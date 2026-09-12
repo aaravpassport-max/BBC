@@ -1986,6 +1986,20 @@ function setupListeners() {
     if (App.settings.voice_announcements === '0') return;
     window.ILRSVoice?.speak(text);
   });
+
+  api.onNotificationClicked((reminder) => {
+    openReminderFromNotificationClick(reminder);
+  });
+}
+
+function openReminderFromNotificationClick(reminder) {
+  if (!reminder) return;
+  App.isProcessingAlert = false;
+  showInAppAlert(reminder);
+  App.isProcessingAlert = true;
+  if (App.currentPage !== 'reminders' && App.currentPage !== 'dashboard') {
+    navigate('reminders');
+  }
 }
 
 function processAlertQueue() {

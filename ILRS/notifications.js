@@ -7,6 +7,10 @@ const { APP_ID, getTrayIconPath } = require('./windows-support');
 const ICON_PATH = path.join(__dirname, 'assets', 'icon.png');
 const TRAY_ICON_PATH = path.join(__dirname, 'assets', 'tray-icon.png');
 
+/** @type {Map<string, () => void>} */
+const pendingClickHandlers = new Map();
+let notifierHooksReady = false;
+
 function getSetting(db, key, defaultValue = '') {
   if (!db) return defaultValue;
   try {
@@ -98,7 +102,55 @@ function getNotificationIcon() {
   return undefined;
 }
 
-function showWithNodeNotifier(content, { onClick, silent }) {
+function isActivateResponse(response) {
+  if (!response) return false;
+  const value = String(response).toLowerCase();
+  return value === 'activate'
+    || value === 'activated'
+    || value === 'click'
+    || value === 'clicked'
+    || value === 'useraction'
+    || value === 'action';
+}
+
+function registerClickHandler(key, onClick) {
+  if (!onClick || !key) return;
+  pendingClickHandlers.set(key, onClick);
+  setTimeout(() => pendingClickHandlers.delete(key), 10 * 60 * 1000);
+}
+
+function fireClickHandler(key) {
+  const handler = pendingClickHandlers.get(key);
+  if (!handler) return false;
+  pendingClickHandlers.delete(key);
+  try {
+    handler();
+  } catch (err) {
+    console.error('Notification click handler error:', err.message);
+  }
+  return true;
+}
+
+function ensureNotifierClickHooks() {
+  if (notifierHooksReady) return;
+  notifierHooksReady = true;
+
+  const onNotifierActivate = (_notifierObject, options) => {
+    const key = options?.toastTag || options?.tag || options?.id
+      || `${options?.title || ''}|${options?.message || options?.subtitle || ''}`;
+    fireClickHandler(key);
+  };
+
+  notifier.on('click', onNotifierActivate);
+  notifier.on('activate', onNotifierActivate);
+  notifier.on('action', onNotifierActivate);
+}
+
+function showWithNodeNotifier(content, { onClick, silent, clickKey }) {
+  ensureNotifierClickHooks();
+  const key = clickKey || `${content.title}|${content.body}`;
+  registerClickHandler(key, onClick);
+
   return new Promise((resolve) => {
     const icon = getNotificationIcon();
     notifier.notify({
@@ -108,13 +160,50 @@ function showWithNodeNotifier(content, { onClick, silent }) {
       sound: !silent,
       wait: true,
       appID: APP_ID,
+      toastTag: key,
+      tag: key,
+      id: key,
     }, (err, response) => {
-      if (!err && (response === 'activate' || response === 'click' || response === 'timeout')) {
-        onClick?.();
+      if (!err && isActivateResponse(response)) {
+        fireClickHandler(key);
       }
       resolve(!err);
     });
   });
+}
+
+function showWithElectronNotification(content, { onClick, silent, type, icon, clickKey }) {
+  if (!Notification.isSupported()) return false;
+
+  const key = clickKey || `${content.title}|${content.body}`;
+  registerClickHandler(key, onClick);
+
+  try {
+    const notification = new Notification({
+      title: content.title,
+      body: content.body,
+      urgency: content.urgency,
+      silent,
+      icon,
+      timeoutType: type === 'reminder' || content.urgency === 'critical' ? 'never' : 'default',
+      closeButtonText: 'Dismiss',
+    });
+
+    const handleClick = () => {
+      fireClickHandler(key);
+      try { notification.close(); } catch (_) { /* ignore */ }
+    };
+
+    notification.on('click', handleClick);
+    notification.on('action', handleClick);
+    notification.on('close', () => pendingClickHandlers.delete(key));
+    notification.show();
+    return true;
+  } catch (err) {
+    console.warn('Electron notification failed:', err.message);
+    pendingClickHandlers.delete(key);
+    return false;
+  }
 }
 
 async function showDesktopNotification(db, item, { onClick, type = 'reminder', force = false } = {}) {
@@ -124,35 +213,19 @@ async function showDesktopNotification(db, item, { onClick, type = 'reminder', f
   const content = buildContent(item, type);
   const silent = style === 'popup-only';
   const icon = getNotificationIcon();
+  const clickKey = `ilrs-${item?.id || 'general'}-${Date.now()}`;
 
   if (process.platform === 'win32') {
     app.setAppUserModelId(APP_ID);
-    // Windows 10: SnoreToast via node-notifier is most reliable (needs Start Menu shortcut)
-    const notifierOk = await showWithNodeNotifier(content, { onClick, silent });
-    if (notifierOk) return true;
   }
 
-  if (Notification.isSupported()) {
-    try {
-      const notification = new Notification({
-        title: content.title,
-        body: content.body,
-        urgency: content.urgency,
-        silent,
-        icon,
-        timeoutType: type === 'reminder' || content.urgency === 'critical' ? 'never' : 'default',
-      });
-      notification.on('click', () => onClick?.());
-      notification.on('action', () => onClick?.());
-      notification.show();
-      return true;
-    } catch (err) {
-      console.warn('Electron notification failed:', err.message);
-    }
+  // Electron native notifications — reliable click-to-focus when app is in tray
+  if (showWithElectronNotification(content, { onClick, silent, type, icon, clickKey })) {
+    return true;
   }
 
-  await showWithNodeNotifier(content, { onClick, silent });
-  return true;
+  const notifierOk = await showWithNodeNotifier(content, { onClick, silent, clickKey });
+  return notifierOk;
 }
 
 module.exports = {
@@ -165,4 +238,7 @@ module.exports = {
   getSetting,
   ICON_PATH,
   TRAY_ICON_PATH,
+  isActivateResponse,
+  registerClickHandler,
+  fireClickHandler,
 };
