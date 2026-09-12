@@ -1,0 +1,72 @@
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
+import { setToken, setRefreshToken, logoutSession } from '../api/client';
+import { clearDemoSession } from '../api/demoAuth';
+
+interface AuthState {
+  isAuthenticated: boolean;
+  userId: string | null;
+  login: (token: string, userId: string, refreshToken?: string) => void;
+  logout: () => void;
+}
+
+const AuthContext = createContext<AuthState | null>(null);
+
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [userId, setUserId] = useState<string | null>(() => localStorage.getItem('user_id'));
+  const [bootstrapped, setBootstrapped] = useState(false);
+
+  useEffect(() => {
+    const storedUserId = localStorage.getItem('user_id');
+    const storedToken = localStorage.getItem('access_token');
+    if (storedUserId && storedToken) {
+      setToken(storedToken);
+      setUserId(storedUserId);
+    }
+    setBootstrapped(true);
+  }, []);
+
+  const login = useCallback((token: string, uid: string, refreshToken?: string) => {
+    setToken(token);
+    if (refreshToken) setRefreshToken(refreshToken);
+    localStorage.setItem('user_id', uid);
+    setUserId(uid);
+  }, []);
+
+  const logout = useCallback(() => {
+    void logoutSession();
+    localStorage.removeItem('user_id');
+    clearDemoSession();
+    setUserId(null);
+  }, []);
+
+  if (!bootstrapped) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f4f6f9', color: '#64748b', fontSize: 14 }}>
+        Loading…
+      </div>
+    );
+  }
+
+  return (
+    <AuthContext.Provider value={{ isAuthenticated: !!userId, userId, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+}
+
+export function useAuth(): AuthState {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
+}
+
+/** A stable per-browser device identifier, generated once and persisted —
+ * the backend's rate limiting and refresh-token binding key off this. */
+export function getDeviceId(): string {
+  let id = localStorage.getItem('device_id');
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem('device_id', id);
+  }
+  return id;
+}
