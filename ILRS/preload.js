@@ -8,6 +8,9 @@ contextBridge.exposeInMainWorld('ilrs', {
   sendNotification: (data) => ipcRenderer.send('send-notification', data),
   testNotification: () => ipcRenderer.invoke('test-notification'),
   scheduleTestAlarm: () => ipcRenderer.invoke('schedule-test-alarm'),
+  getSystemClock: () => ipcRenderer.invoke('get-system-clock'),
+  computeNextFire: (startDate, time, repeatType) =>
+    ipcRenderer.invoke('compute-next-fire', { startDate, time, repeatType }),
 
   // Export
   exportData: (data) => ipcRenderer.invoke('export-data', data),

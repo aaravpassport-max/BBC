@@ -34,7 +34,7 @@ function saveResults() {
 const Database = require('better-sqlite3');
 const { showDesktopNotification } = require('../notifications');
 const { playAlertSound, getLastPlayback, playWithNative, playWithHiddenWindow } = require('../sound-player');
-const { toLocalISO, localDateStr, isDue, planAfterFire } = require('../alarm');
+const { toLocalISO, localDateStr, shouldFireNow, planAfterFire } = require('../alarm');
 
 let db;
 
@@ -148,22 +148,20 @@ async function verifyDesktopNotification() {
 
 function runSchedulerCheck(now = new Date()) {
   const today = localDateStr(now);
-  const nowLocal = toLocalISO(now);
-  const timeNow = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
   const candidates = db.prepare(`
     SELECT * FROM reminders WHERE status = 'active' AND (start_date = '' OR start_date <= ?)
-    AND ((next_fire != '' AND next_fire <= ?) OR (next_fire = '' AND reminder_time != '' AND reminder_time = ?))
+    AND (next_fire != '' OR reminder_time != '')
     LIMIT 30
-  `).all(today, nowLocal, timeNow);
+  `).all(today);
 
   const fired = [];
   for (const reminder of candidates) {
-    const due = reminder.next_fire ? isDue(reminder.next_fire, now) : reminder.reminder_time === timeNow;
-    if (!due) continue;
+    if (!shouldFireNow(reminder, now)) continue;
     fired.push(reminder);
     const plan = planAfterFire(reminder, now);
+    const firedAt = toLocalISO(now);
     db.prepare(`UPDATE reminders SET next_fire=?, alarm_rings=?, status=?, last_fired=?, updated_at=? WHERE id=?`)
-      .run(plan.nextFire || reminder.next_fire, plan.alarmRings, plan.status, now.toISOString(), now.toISOString(), reminder.id);
+      .run(plan.nextFire || reminder.next_fire, plan.alarmRings, plan.status, firedAt, firedAt, reminder.id);
   }
   return fired;
 }

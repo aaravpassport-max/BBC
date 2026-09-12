@@ -73,6 +73,14 @@ function computeNextFireLocal(startDate, time, repeatType = 'once') {
   return toLocalFireISO(fire);
 }
 
+async function computeNextFireForSave(startDate, time, repeatType = 'once') {
+  if (api.computeNextFire) {
+    const result = await api.computeNextFire(startDate, time, repeatType);
+    if (result?.nextFire) return result.nextFire;
+  }
+  return computeNextFireLocal(startDate, time, repeatType);
+}
+
 function isReminderOverdue(nextFire) {
   if (!nextFire) return false;
   const clean = String(nextFire).trim().replace(' ', 'T');
@@ -686,8 +694,8 @@ async function saveReminder(id, isEdit) {
   const startDate = document.getElementById('f-start').value || todayStr();
   const repeatType = document.getElementById('f-repeat').value;
 
-  // Compute next_fire in local time (matches main-process alarm scheduler)
-  const nextFire = computeNextFireLocal(startDate, time, repeatType);
+  // Compute next_fire using main-process computer clock (matches alarm scheduler)
+  const nextFire = await computeNextFireForSave(startDate, time, repeatType);
 
   const params = [
     id,
@@ -912,9 +920,10 @@ async function saveMedicine() {
   const startDate = document.getElementById('m-start').value || todayStr();
   for (const t of times) {
     const rid = uuid();
+    const medNextFire = await computeNextFireForSave(startDate, t, 'daily');
     if (!await dbRun(`INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,reminder_time,start_date,priority,alert_style,status,next_fire,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
       [rid, `Take ${name}`, 'reminder', 'medicine', document.getElementById('m-condition').value || 'Medication', 'daily', t,
-       startDate, 'important', 'sound-popup', 'active', computeNextFireLocal(startDate, t, 'daily')])) return;
+       startDate, 'important', 'sound-popup', 'active', medNextFire])) return;
   }
 
   document.getElementById('med-modal').remove();
@@ -1014,7 +1023,7 @@ async function saveBill() {
      dueDay, parseInt(document.getElementById('b-warn').value) || 3, document.getElementById('b-notes').value, 'active'])) return;
 
   const rid = uuid();
-  const nextFire = computeNextFireLocal(todayStr(), '09:00', 'monthly');
+  const nextFire = await computeNextFireForSave(todayStr(), '09:00', 'monthly');
   if (!await dbRun(`INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,reminder_time,start_date,priority,alert_style,status,next_fire,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
     [rid, `Pay ${name}`, 'reminder', 'bills', 'Avoid late payment charges', 'monthly', '09:00', todayStr(), 'important', 'sound-popup', 'active', nextFire])) return;
 
@@ -1213,7 +1222,7 @@ async function saveHabit() {
     [id, name, freq, time])) return;
 
   const rid = uuid();
-  const nextFire = computeNextFireLocal(todayStr(), time, freq === 'daily' ? 'daily' : 'weekly');
+  const nextFire = await computeNextFireForSave(todayStr(), time, freq === 'daily' ? 'daily' : 'weekly');
   if (!await dbRun(`INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,reminder_time,start_date,priority,alert_style,status,next_fire,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
     [rid, name, 'habit', 'personal', 'Build a positive habit', freq === 'daily' ? 'daily' : 'weekly', time, todayStr(), 'normal', 'sound-popup', 'active', nextFire])) return;
 
@@ -1555,12 +1564,22 @@ async function renderRewards(el) {
 }
 
 // ── Settings ───────────────────────────────────────────────────────
+let settingsClockTimer;
+
 async function renderSettings(el) {
   const s = App.settings;
+  const clock = await api.getSystemClock?.() || { time: nowTimeStr(), date: todayStr(), timezone: 'local' };
+
+  if (settingsClockTimer) clearInterval(settingsClockTimer);
 
   el.innerHTML = `
     <div class="page-header">
-      <div><div class="page-title">⚙️ Settings</div></div>
+      <div>
+        <div class="page-title">⚙️ Settings</div>
+        <div class="page-subtitle" id="system-clock-display" style="font-size:13px;color:var(--text-muted);margin-top:4px">
+          🕐 Computer time: ${clock.time} · ${clock.date} (${clock.timezone || 'local'})
+        </div>
+      </div>
       <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
     </div>
 
@@ -1723,6 +1742,19 @@ async function renderSettings(el) {
       </div>
     </div>
   `;
+
+  settingsClockTimer = setInterval(async () => {
+    const display = document.getElementById('system-clock-display');
+    if (!display || App.currentPage !== 'settings') {
+      clearInterval(settingsClockTimer);
+      settingsClockTimer = null;
+      return;
+    }
+    const live = await api.getSystemClock?.();
+    if (live) {
+      display.textContent = `🕐 Computer time: ${live.time} · ${live.date} (${live.timezone || 'local'})`;
+    }
+  }, 1000);
 }
 
 async function saveSettings() {
@@ -1840,7 +1872,9 @@ async function handleQuickAdd() {
   }
 
   const id = uuid();
-  const nextFire = reminderTime ? computeNextFireLocal(todayStr(), reminderTime, repeatType) : computeNextFireLocal(todayStr(), nowTimeStr(), repeatType);
+  const nextFire = reminderTime
+    ? await computeNextFireForSave(todayStr(), reminderTime, repeatType)
+    : await computeNextFireForSave(todayStr(), nowTimeStr(), repeatType);
 
   if (!await dbRun(`INSERT INTO reminders (id,title,task_type,category,repeat_type,reminder_time,start_date,priority,alert_style,status,next_fire,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
     [id, title, 'reminder', category, repeatType, reminderTime, todayStr(), priority, 'sound-popup', 'active', nextFire])) return;

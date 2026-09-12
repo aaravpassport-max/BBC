@@ -9,7 +9,11 @@ const {
   computeNextFire,
   normalizeNextFire,
   localDateStr,
+  localTimeStr,
   parseLocalDateTime,
+  shouldFireNow,
+  syncNextFireWithSystemClock,
+  getSystemClockInfo,
 } = require('../alarm');
 
 function test(name, fn) {
@@ -62,6 +66,51 @@ test('reminder due exactly at scheduled minute', () => {
   const fire = '2026-09-03T14:30:00';
   assert.strictEqual(isDue(fire, new Date(2026, 8, 3, 14, 30, 0)), true);
   assert.strictEqual(isDue(fire, new Date(2026, 8, 3, 14, 29, 59)), false);
+});
+
+test('shouldFireNow matches computer HH:mm even when next_fire is wrong', () => {
+  const now = new Date(2026, 8, 3, 10, 0, 0);
+  const reminder = {
+    reminder_time: '10:00',
+    repeat_type: 'daily',
+    start_date: '2026-09-01',
+    next_fire: '2026-09-03T15:30:00',
+    last_fired: '',
+  };
+  assert.strictEqual(shouldFireNow(reminder, now), true);
+});
+
+test('shouldFireNow does not double-fire in same minute', () => {
+  const now = new Date(2026, 8, 3, 10, 0, 30);
+  const reminder = {
+    reminder_time: '10:00',
+    repeat_type: 'daily',
+    start_date: '2026-09-01',
+    next_fire: '2026-09-03T10:00:00',
+    last_fired: '2026-09-03T10:00:15',
+  };
+  assert.strictEqual(shouldFireNow(reminder, now), false);
+});
+
+test('syncNextFireWithSystemClock aligns to local wall time', () => {
+  const now = new Date(2026, 8, 3, 9, 0, 0);
+  const synced = syncNextFireWithSystemClock({
+    reminder_time: '10:00',
+    repeat_type: 'once',
+    start_date: '2026-09-03',
+    next_fire: '2026-09-03T15:30:00',
+  }, now);
+  const parsed = parseLocalDateTime(synced);
+  assert.strictEqual(parsed.getHours(), 10);
+  assert.strictEqual(parsed.getMinutes(), 0);
+});
+
+test('getSystemClockInfo returns local time fields', () => {
+  const now = new Date(2026, 8, 3, 14, 45, 0);
+  const info = getSystemClockInfo(now);
+  assert.strictEqual(info.time, localTimeStr(now));
+  assert.strictEqual(info.date, localDateStr(now));
+  assert.ok(info.timezone);
 });
 
 console.log('\nTimezone regression tests finished.');

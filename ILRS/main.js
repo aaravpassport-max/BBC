@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, dialog, shell } = require('electron');
+const { app, BrowserWindow, Tray, Menu, ipcMain, nativeImage, dialog, shell, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { showDesktopNotification, getSetting, TRAY_ICON_PATH } = require('./notifications');
@@ -14,6 +14,9 @@ const {
   normalizeNextFire,
   isSnoozedFire,
   parseLocalDateTime,
+  shouldFireNow,
+  syncNextFireWithSystemClock,
+  getSystemClockInfo,
 } = require('./alarm');
 
 let mainWindow;
@@ -188,6 +191,14 @@ function setupIPC() {
 
   ipcMain.on('open-backup-folder', (_event, folderPath) => {
     shell.openPath(folderPath);
+  });
+
+  ipcMain.handle('get-system-clock', async () => getSystemClockInfo());
+
+  ipcMain.handle('compute-next-fire', async (_event, { startDate, time, repeatType }) => {
+    const now = new Date();
+    const start = startDate && !String(startDate).includes('Z') ? startDate : localDateStr(now);
+    return { nextFire: computeNextFire(start, time, repeatType || 'once', now) };
   });
 
   ipcMain.handle('export-data', async (_event, { format, data }) => {
@@ -427,13 +438,60 @@ function initDatabase() {
 function repairReminderSchedules() {
   if (!db) return;
   try {
-    const version = getSetting(db, 'schema_version', '0');
-    if (Number(version) < 5) {
+    const version = Number(getSetting(db, 'schema_version', '0'));
+    if (version < 5) {
       runTimezoneMigrationV5();
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '5')").run();
     }
+    if (version < 6) {
+      runSystemClockMigrationV6();
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '6')").run();
+    }
   } catch (err) {
     console.error('repairReminderSchedules error:', err.message);
+  }
+}
+
+function runSystemClockMigrationV6() {
+  const now = new Date();
+  const rows = db.prepare(`
+    SELECT id, start_date, reminder_time, repeat_type, next_fire
+    FROM reminders WHERE status = 'active' AND reminder_time != ''
+  `).all();
+
+  const fix = db.prepare('UPDATE reminders SET next_fire = ?, last_fired = ? WHERE id = ?');
+  let fixed = 0;
+
+  for (const row of rows) {
+    const normalized = normalizeNextFire(row.next_fire);
+    if (normalized && isSnoozedFire(normalized, row.reminder_time, now)) {
+      fix.run(normalized, '', row.id);
+      fixed += 1;
+      continue;
+    }
+    const synced = syncNextFireWithSystemClock(row, now);
+    if (synced) {
+      fix.run(synced, '', row.id);
+      fixed += 1;
+    }
+  }
+
+  console.log(`System-clock migration v6: resynced ${fixed} reminder schedule(s) to computer time`);
+}
+
+function syncAllSchedulesToSystemClock(now = new Date()) {
+  if (!db) return;
+  const rows = db.prepare(`
+    SELECT id, start_date, reminder_time, repeat_type, next_fire
+    FROM reminders WHERE status = 'active' AND reminder_time != ''
+  `).all();
+
+  const fix = db.prepare('UPDATE reminders SET next_fire = ? WHERE id = ?');
+  for (const row of rows) {
+    const normalized = normalizeNextFire(row.next_fire);
+    if (normalized && isSnoozedFire(normalized, row.reminder_time, now)) continue;
+    const synced = syncNextFireWithSystemClock(row, now);
+    if (synced && synced !== normalized) fix.run(synced, row.id);
   }
 }
 
@@ -474,18 +532,18 @@ function runTimezoneMigrationV5() {
 
 function afterReminderFired(reminder, now = new Date()) {
   const plan = planAfterFire(reminder, now);
+  const firedAt = toLocalISO(now);
   db.prepare(`
     UPDATE reminders
     SET next_fire = ?, alarm_rings = ?, status = ?, last_fired = ?, updated_at = ?
     WHERE id = ?
-  `).run(plan.nextFire || reminder.next_fire, plan.alarmRings, plan.status, now.toISOString(), now.toISOString(), reminder.id);
+  `).run(plan.nextFire || reminder.next_fire, plan.alarmRings, plan.status, firedAt, firedAt, reminder.id);
 }
 
 function checkDueReminders(now = new Date()) {
   const today = localDateStr(now);
-  const timeNow = localTimeStr(now);
 
-  // Use JS isDue() for all comparisons — never compare next_fire to UTC strings in SQL.
+  // All timing decisions use the computer's local wall clock (shouldFireNow).
   const candidates = db.prepare(`
     SELECT * FROM reminders
     WHERE status = 'active'
@@ -496,14 +554,7 @@ function checkDueReminders(now = new Date()) {
   `).all(today);
 
   for (const reminder of candidates) {
-    let due = false;
-    if (reminder.next_fire) {
-      due = isDue(reminder.next_fire, now);
-    } else if (reminder.reminder_time) {
-      due = reminder.reminder_time === timeNow;
-    }
-    if (!due) continue;
-
+    if (!shouldFireNow(reminder, now)) continue;
     dispatchDueItem(reminder, 'reminder');
     afterReminderFired(reminder, now);
   }
@@ -514,14 +565,13 @@ function catchUpOverdueReminders() {
   const now = new Date();
   const rows = db.prepare(`
     SELECT * FROM reminders
-    WHERE status = 'active' AND next_fire != ''
+    WHERE status = 'active' AND (next_fire != '' OR reminder_time != '')
     ORDER BY next_fire ASC
     LIMIT 20
   `).all();
 
   for (const reminder of rows) {
-    if (!isDue(reminder.next_fire, now)) continue;
-    if ((reminder.start_date || '') > localDateStr(now)) continue;
+    if (!shouldFireNow(reminder, now)) continue;
     dispatchDueItem(reminder, 'reminder');
     afterReminderFired(reminder, now);
   }
@@ -579,10 +629,20 @@ function runSchedulerTick() {
   }
 }
 
+let syncCounter = 0;
+
 function startScheduler() {
   if (schedulerTimer) clearInterval(schedulerTimer);
   runSchedulerTick();
-  schedulerTimer = setInterval(runSchedulerTick, 10000);
+  // Tick every second so alarms ring on the computer's minute boundary.
+  schedulerTimer = setInterval(() => {
+    runSchedulerTick();
+    syncCounter += 1;
+    if (syncCounter >= 300) {
+      syncCounter = 0;
+      syncAllSchedulesToSystemClock();
+    }
+  }, 1000);
 }
 
 function scheduleBackup() {
@@ -622,10 +682,18 @@ app.whenReady().then(() => {
   setupIPC();
   if (db) {
     repairReminderSchedules();
+    syncAllSchedulesToSystemClock();
     startScheduler();
     scheduleBackup();
     setTimeout(catchUpOverdueReminders, 1500);
   }
+
+  powerMonitor.on('resume', () => {
+    console.log('System resumed — resyncing schedules to computer clock');
+    syncAllSchedulesToSystemClock();
+    catchUpOverdueReminders();
+    runSchedulerTick();
+  });
 });
 
 app.on('window-all-closed', () => {});

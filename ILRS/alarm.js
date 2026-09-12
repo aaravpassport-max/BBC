@@ -43,12 +43,87 @@ function computeNextFireFromReminder(row, now = new Date()) {
   return computeNextFire(startDate, row.reminder_time, row.repeat_type || 'once', now);
 }
 
+function alreadyFiredThisMinute(reminder, now = new Date()) {
+  if (!reminder.last_fired) return false;
+  const last = parseLocalDateTime(normalizeNextFire(reminder.last_fired));
+  if (!last) return false;
+  return last.getFullYear() === now.getFullYear()
+    && last.getMonth() === now.getMonth()
+    && last.getDate() === now.getDate()
+    && last.getHours() === now.getHours()
+    && last.getMinutes() === now.getMinutes();
+}
+
+/**
+ * Decide if a reminder should ring now, using the computer's local clock.
+ * Uses next_fire when set, and falls back to matching reminder_time to system HH:mm.
+ */
+function shouldFireNow(reminder, now = new Date()) {
+  const today = localDateStr(now);
+  if (reminder.start_date && reminder.start_date > today) return false;
+  if (reminder.end_date && reminder.end_date < today) return false;
+  if (alreadyFiredThisMinute(reminder, now)) return false;
+
+  // Snoozed to a custom future time — only fire when that exact time arrives.
+  if (reminder.next_fire && isSnoozedFire(reminder.next_fire, reminder.reminder_time, now)) {
+    return isDue(reminder.next_fire, now);
+  }
+
+  // Primary: stored next_fire moment has arrived (local wall clock).
+  if (reminder.next_fire && isDue(reminder.next_fire, now)) return true;
+
+  // Safety net: computer clock HH:mm matches reminder_time (fixes drift/wrong next_fire).
+  if (!reminder.reminder_time) return false;
+  if (reminder.reminder_time !== localTimeStr(now)) return false;
+
+  const repeat = reminder.repeat_type || 'once';
+  if (repeat === 'once') {
+    return !reminder.start_date || reminder.start_date <= today;
+  }
+  if (repeat === 'daily') return true;
+  if (repeat === 'weekly') {
+    if (!reminder.start_date) return true;
+    const anchor = parseLocalDateTime(`${reminder.start_date}T12:00:00`);
+    return anchor ? anchor.getDay() === now.getDay() : true;
+  }
+  if (repeat === 'monthly') {
+    if (!reminder.start_date) return true;
+    const day = Number(reminder.start_date.split('-')[2]);
+    return now.getDate() === day;
+  }
+  return true;
+}
+
+function syncNextFireWithSystemClock(reminder, now = new Date()) {
+  if (!reminder.reminder_time) return reminder.next_fire || '';
+  if (isSnoozedFire(reminder.next_fire, reminder.reminder_time, now)) {
+    return normalizeNextFire(reminder.next_fire);
+  }
+  const startDate = reminder.start_date && !String(reminder.start_date).includes('Z')
+    ? reminder.start_date
+    : localDateStr(now);
+  return computeNextFire(startDate, reminder.reminder_time, reminder.repeat_type || 'once', now);
+}
+
+function getSystemClockInfo(now = new Date()) {
+  return {
+    localISO: toLocalISO(now),
+    date: localDateStr(now),
+    time: localTimeStr(now),
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    offsetMinutes: -now.getTimezoneOffset(),
+  };
+}
+
 function isSnoozedFire(nextFire, reminderTime, now = new Date()) {
-  const parsed = parseLocalDateTime(nextFire);
+  const parsed = parseLocalDateTime(normalizeNextFire(nextFire));
   if (!parsed || parsed.getTime() <= now.getTime()) return false;
   const [rh, rm] = String(reminderTime || '').split(':').map(Number);
   if (Number.isNaN(rh)) return false;
-  return parsed.getHours() !== rh || parsed.getMinutes() !== rm;
+  if (parsed.getHours() === rh && parsed.getMinutes() === rm) return false;
+  // Snooze/re-ring fires are minutes ahead — not hours-off timezone drift.
+  const maxCustomFireMs = 4 * 60 * 60 * 1000;
+  return (parsed.getTime() - now.getTime()) <= maxCustomFireMs;
 }
 
 function parseLocalDateTime(value) {
@@ -182,6 +257,10 @@ module.exports = {
   computeNextFire,
   computeNextFireFromReminder,
   isSnoozedFire,
+  shouldFireNow,
+  alreadyFiredThisMinute,
+  syncNextFireWithSystemClock,
+  getSystemClockInfo,
   advanceRecurring,
   planAfterFire,
   resolveSoundId,
