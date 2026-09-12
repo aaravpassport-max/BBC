@@ -1,0 +1,179 @@
+.locationCard {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.locationRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 0;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.dotPickup {
+  background: var(--pickup);
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.2);
+}
+
+.dotDrop {
+  background: var(--drop);
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15);
+}
+
+.connector {
+  width: 2px;
+  height: 20px;
+  background: var(--border);
+  margin-left: 5px;
+}
+
+.fieldBlock {
+  flex: 1;
+  min-width: 0;
+}
+
+.fieldLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.select {
+  width: 100%;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 500;
+  outline: none;
+}
+
+.gpsLink {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 8px;
+  padding: 0;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sectionLabel {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.vehicleCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  padding: 14px 16px;
+  cursor: pointer;
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.vehicleCard:hover {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+}
+
+.vehicleIcon {
+  font-size: 28px;
+}
+
+.vehicleName {
+  font-weight: 700;
+  font-size: 15px;
+  text-transform: capitalize;
+}
+
+.vehicleBlurb {
+  color: var(--text-muted);
+  font-size: 12px;
+  margin-top: 2px;
+}
+
+.vehiclePrice {
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--accent);
+}
+
+.toggleRow {
+  display: flex;
+  gap: 8px;
+}
+
+.toggleBtn {
+  flex: 1;
+  padding: 12px 0;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.toggleBtnActive {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.page {
+  min-height: 100vh;
+  max-width: 480px;
+  margin: 0 auto;
+  padding-bottom: calc(var(--nav-height) + 16px);
+}
+
+.body {
+  padding: 0 16px 16px;
+  margin-top: -16px;
+}
+
+.card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
