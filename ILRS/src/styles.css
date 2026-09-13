@@ -401,6 +401,16 @@ html, body {
 .reminder-card.important { border-left: 3px solid var(--important); }
 .reminder-card.normal { border-left: 3px solid var(--normal); }
 .reminder-card.overdue { background: var(--overdue-bg); }
+.reminder-card.task-in_progress { border-left: 3px solid var(--accent); }
+.reminder-card.task-postponed { opacity: 0.85; }
+.section-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin: 16px 0 8px;
+}
 
 .reminder-check {
   width: 20px; height: 20px;

@@ -6,6 +6,7 @@ const {
   completeOccurrence,
   snoozeReminder: snoozeReminderAction,
   postponeReminder,
+  updateWorkflowStatus,
   parseNotificationAction,
 } = require('./reminder-actions');
 const { createTrayIcon, ensureWindowsToastSupport, showFatalError } = require('./windows-support');
@@ -417,6 +418,17 @@ function setupIPC() {
     }
   });
 
+  ipcMain.handle('update-workflow-status', async (_event, { id, workflowStatus }) => {
+    try {
+      if (!id || !workflowStatus) return { success: false, error: 'Missing id or status' };
+      const result = updateWorkflowStatus(db, id, workflowStatus);
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('apply-auto-start', async (_event, enable) => {
     applyAutoStart(Boolean(enable));
     if (db) {
@@ -680,9 +692,28 @@ function repairReminderSchedules() {
       runBackgroundAlarmMigrationV7();
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '7')").run();
     }
+    if (version < 8) {
+      runModuleUnifyMigrationV8();
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '8')").run();
+    }
   } catch (err) {
     console.error('repairReminderSchedules error:', err.message);
   }
+}
+
+function runModuleUnifyMigrationV8() {
+  try { db.exec("ALTER TABLE reminders ADD COLUMN workflow_status TEXT DEFAULT 'pending'"); } catch (_) { /* exists */ }
+  try { db.exec("ALTER TABLE reminders ADD COLUMN source_type TEXT DEFAULT ''"); } catch (_) { /* exists */ }
+  try { db.exec("ALTER TABLE reminders ADD COLUMN source_id TEXT DEFAULT ''"); } catch (_) { /* exists */ }
+
+  // Legacy module rows duplicated medicine/bill/habit alerts — modules own scheduling now.
+  const legacy = db.prepare(`
+    UPDATE reminders SET status = 'deleted', updated_at = datetime('now')
+    WHERE status = 'active'
+    AND (category IN ('medicine', 'bills') OR task_type = 'habit')
+    AND (source_type IS NULL OR source_type = '')
+  `).run();
+  console.log(`Module unify migration v8: retired ${legacy.changes} duplicate module reminder(s)`);
 }
 
 function runBackgroundAlarmMigrationV7() {
@@ -788,8 +819,10 @@ function checkDueReminders(now = new Date()) {
   const candidates = db.prepare(`
     SELECT * FROM reminders
     WHERE status = 'active'
+    AND (source_type IS NULL OR source_type = '')
     AND (start_date = '' OR start_date <= ?)
     AND (next_fire != '' OR reminder_time != '')
+    AND NOT (task_type = 'task' AND (reminder_time IS NULL OR reminder_time = ''))
     ORDER BY next_fire ASC
     LIMIT 50
   `).all(today);
@@ -858,6 +891,29 @@ function checkDueBills(now) {
   }
 }
 
+function checkDueHabits(now = new Date()) {
+  const today = localDateStr(now);
+  const timeStr = localTimeStr(now);
+  const day = now.getDay();
+  const habits = db.prepare("SELECT * FROM habits WHERE status = 'active'").all();
+
+  for (const habit of habits) {
+    if (!habit.target_time || habit.target_time !== timeStr) continue;
+
+    const freq = habit.frequency || 'daily';
+    if (freq === 'weekdays' && (day === 0 || day === 6)) continue;
+    if (freq === 'weekends' && day !== 0 && day !== 6) continue;
+
+    const done = db.prepare(`
+      SELECT id FROM habit_logs
+      WHERE habit_id = ? AND log_date = ? AND completed = 1
+    `).get(habit.id, today);
+    if (done) continue;
+
+    dispatchDueItem(habit, 'habit');
+  }
+}
+
 function runSchedulerTick() {
   if (!db) return;
   try {
@@ -865,6 +921,7 @@ function runSchedulerTick() {
     checkDueReminders(now);
     checkDueMedicines(now);
     checkDueBills(now);
+    checkDueHabits(now);
   } catch (err) {
     console.error('Scheduler error:', err.message);
   }

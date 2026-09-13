@@ -37,6 +37,8 @@ function makeDb() {
       snooze_count INTEGER DEFAULT 0,
       snooze_duration INTEGER DEFAULT 10,
       last_completed TEXT,
+      workflow_status TEXT DEFAULT 'pending',
+      task_type TEXT DEFAULT 'reminder',
       updated_at TEXT
     );
     CREATE TABLE reminder_logs (
@@ -93,6 +95,22 @@ test('snoozeReminder respects snooze limit', () => {
   const result = snoozeReminder(db, 'r3', 10);
   assert.strictEqual(result.success, false);
   assert.strictEqual(result.error, 'snooze_limit');
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
+test('completeOccurrence completes tasks without recurring advance', () => {
+  const { db, dbPath } = makeDb();
+  db.prepare(`INSERT INTO reminders (id, title, task_type, repeat_type, status, workflow_status) VALUES (?, ?, 'task', 'once', 'active', 'in_progress')`)
+    .run('t1', 'Finish report');
+
+  const result = completeOccurrence(db, 't1', new Date(2026, 8, 13, 10, 0, 0));
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(result.task, true);
+
+  const row = db.prepare('SELECT status, workflow_status FROM reminders WHERE id = ?').get('t1');
+  assert.strictEqual(row.status, 'completed');
+  assert.strictEqual(row.workflow_status, 'done');
   db.close();
   fs.unlinkSync(dbPath);
 });

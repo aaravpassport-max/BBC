@@ -21,6 +21,21 @@ function getReminder(db, id) {
 /**
  * Mark one occurrence done. Recurring series stays active with next_fire advanced.
  */
+function updateWorkflowStatus(db, id, workflowStatus, now = new Date()) {
+  const reminder = getReminder(db, id);
+  if (!reminder) return { success: false, error: 'Reminder not found' };
+
+  db.prepare(`
+    UPDATE reminders SET workflow_status = ?, updated_at = ? WHERE id = ?
+  `).run(workflowStatus, toLocalISO(now), id);
+  db.prepare(`
+    INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
+    VALUES (?, ?, ?, datetime('now'))
+  `).run(randomUUID(), id, workflowStatus);
+
+  return { success: true, workflowStatus };
+}
+
 function completeOccurrence(db, id, now = new Date()) {
   const reminder = getReminder(db, id);
   if (!reminder) return { success: false, error: 'Reminder not found' };
@@ -28,12 +43,28 @@ function completeOccurrence(db, id, now = new Date()) {
 
   const firedAt = toLocalISO(now);
   const repeat = reminder.repeat_type || 'once';
+  const isTask = reminder.task_type === 'task';
+
+  if (isTask) {
+    db.prepare(`
+      UPDATE reminders
+      SET status = 'completed', workflow_status = 'done', alarm_rings = 0,
+          last_completed = ?, updated_at = ?
+      WHERE id = ?
+    `).run(firedAt, firedAt, id);
+    db.prepare(`
+      INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
+      VALUES (?, ?, 'completed', datetime('now'))
+    `).run(randomUUID(), id);
+    return { success: true, recurring: false, task: true };
+  }
 
   if (repeat !== 'once') {
     const nextFire = advanceRecurring(reminder, now);
     db.prepare(`
       UPDATE reminders
-      SET next_fire = ?, alarm_rings = 0, snooze_count = 0, last_completed = ?, updated_at = ?
+      SET next_fire = ?, alarm_rings = 0, snooze_count = 0, workflow_status = 'pending',
+          last_completed = ?, updated_at = ?
       WHERE id = ?
     `).run(nextFire, firedAt, firedAt, id);
     db.prepare(`
@@ -45,7 +76,8 @@ function completeOccurrence(db, id, now = new Date()) {
 
   db.prepare(`
     UPDATE reminders
-    SET status = 'completed', alarm_rings = 0, last_completed = ?, updated_at = ?
+    SET status = 'completed', workflow_status = 'done', alarm_rings = 0,
+        last_completed = ?, updated_at = ?
     WHERE id = ?
   `).run(firedAt, firedAt, id);
   db.prepare(`
@@ -102,9 +134,11 @@ function postponeReminder(db, id, dateStr, timeStr, now = new Date()) {
     now,
   );
 
+  const workflowClause = reminder.task_type === 'task' ? ", workflow_status = 'postponed'" : '';
   db.prepare(`
     UPDATE reminders
-    SET start_date = ?, reminder_time = ?, next_fire = ?, alarm_rings = 0, snooze_count = 0, updated_at = ?
+    SET start_date = ?, reminder_time = ?, next_fire = ?, alarm_rings = 0, snooze_count = 0,
+        updated_at = ?${workflowClause}
     WHERE id = ?
   `).run(dateStr, timeStr || reminder.reminder_time, nextFire, toLocalISO(now), id);
   db.prepare(`
@@ -129,6 +163,7 @@ module.exports = {
   completeOccurrence,
   snoozeReminder,
   postponeReminder,
+  updateWorkflowStatus,
   parseNotificationAction,
   getSetting,
 };

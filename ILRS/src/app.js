@@ -149,7 +149,7 @@ function applyTheme(theme) {
 // ── Data Loaders ───────────────────────────────────────────────────
 async function loadAllData() {
   const [reminders, medicines, bills, habits, family] = await Promise.all([
-    db("SELECT * FROM reminders WHERE status != 'deleted' ORDER BY priority DESC, next_fire ASC"),
+    db("SELECT * FROM reminders WHERE status != 'deleted' AND (source_type IS NULL OR source_type = '') ORDER BY priority DESC, next_fire ASC"),
     db("SELECT * FROM medicines WHERE status = 'active' ORDER BY name"),
     db("SELECT * FROM bills WHERE status = 'active' ORDER BY due_day"),
     db("SELECT * FROM habits WHERE status = 'active' ORDER BY name"),
@@ -170,6 +170,7 @@ const PAGES = {
   upcoming: () => renderSmartList('upcoming'),
   overdue: () => renderSmartList('overdue'),
   reminders: renderReminders,
+  tasks: renderTasks,
   add: renderAddReminder,
   medicine: renderMedicine,
   bills: renderBills,
@@ -251,18 +252,16 @@ function renderShell() {
       ${navItem('upcoming', '📆', 'Upcoming')}
       ${navItem('overdue', '⚠️', 'Overdue', '')}
       ${navItem('reminders', '📋', 'All')}
+      ${navItem('tasks', '✅', 'Tasks')}
       ${navItem('calendar', '📅', 'Calendar')}
 
-      <div class="sidebar-section-label">Modules</div>
+      <div class="sidebar-section-label">Life</div>
       ${navItem('medicine', '💊', 'Medicine')}
       ${navItem('bills', '💸', 'Bills')}
-      ${navItem('family', '👨‍👩‍👧', 'Family')}
       ${navItem('habits', '🔁', 'Habits')}
-      ${navItem('checklists', '✅', 'Checklists')}
-
-      <div class="sidebar-section-label">Insights</div>
-      ${navItem('reports', '📊', 'Reports')}
-      ${navItem('rewards', '🏅', 'Rewards')}
+      ${navItem('family', '👨‍👩‍👧', 'Family')}
+      ${navItem('checklists', '📝', 'Checklists')}
+      ${App.settings.rewards_enabled === '1' ? navItem('rewards', '🏅', 'Rewards') : ''}
 
       <div class="sidebar-section-label">System</div>
       ${navItem('settings', '⚙️', 'Settings')}
@@ -335,9 +334,10 @@ async function renderToday(el) {
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
-  const dueToday = App.reminders.filter(r => C?.isDueToday(r, now) || (r.status === 'active' && !r.next_fire && r.start_date === today));
-  const overdue = App.reminders.filter(r => C?.isOverdueItem(r, now) || isReminderOverdue(r.next_fire));
-  const dueTomorrow = App.reminders.filter(r => C?.isDueTomorrow(r, now));
+  const schedulable = (r) => r.task_type !== 'task' || (r.reminder_time && r.next_fire);
+  const dueToday = App.reminders.filter(r => schedulable(r) && (C?.isDueToday(r, now) || (r.status === 'active' && !r.next_fire && r.start_date === today)));
+  const overdue = App.reminders.filter(r => schedulable(r) && (C?.isOverdueItem(r, now) || isReminderOverdue(r.next_fire)));
+  const dueTomorrow = App.reminders.filter(r => schedulable(r) && C?.isDueTomorrow(r, now));
   const attention = overdue.length + dueToday.length;
   const critical = App.reminders.filter(r => r.priority === 'critical' && r.status === 'active');
   const completedToday = await db("SELECT COUNT(*) as c FROM reminder_logs WHERE action='completed' AND date(timestamp)=?", [today]);
@@ -477,23 +477,24 @@ async function renderSmartList(mode) {
   const el = document.getElementById('content');
   const C = cap();
   const now = new Date();
+  const schedulable = (r) => r.task_type !== 'task' || (r.reminder_time && r.next_fire);
   let items = [];
   let title = '';
   let subtitle = '';
 
   switch (mode) {
     case 'tomorrow':
-      items = App.reminders.filter(r => C?.isDueTomorrow(r, now));
+      items = App.reminders.filter(r => schedulable(r) && C?.isDueTomorrow(r, now));
       title = '🌅 Tomorrow';
       subtitle = 'What is coming tomorrow';
       break;
     case 'upcoming':
-      items = App.reminders.filter(r => C?.isUpcoming(r, now));
+      items = App.reminders.filter(r => schedulable(r) && C?.isUpcoming(r, now));
       title = '📆 Upcoming';
       subtitle = 'Next 7 days';
       break;
     case 'overdue':
-      items = App.reminders.filter(r => C?.isOverdueItem(r, now) || isReminderOverdue(r.next_fire));
+      items = App.reminders.filter(r => schedulable(r) && (C?.isOverdueItem(r, now) || isReminderOverdue(r.next_fire)));
       title = '⚠️ Overdue';
       subtitle = 'Needs your attention';
       break;
@@ -524,19 +525,40 @@ async function renderSmartList(mode) {
 }
 
 // ── Reminder Card ──────────────────────────────────────────────────
+function workflowLabel(status) {
+  const labels = {
+    pending: 'Pending',
+    in_progress: 'In progress',
+    postponed: 'Postponed',
+    done: 'Done',
+  };
+  return labels[status] || status || 'Pending';
+}
+
 function reminderCard(r) {
   const C = cap();
-  const isOverdue = C?.isOverdueItem(r) || isReminderOverdue(r.next_fire);
+  const isTask = r.task_type === 'task';
+  const wf = r.workflow_status || 'pending';
+  const isOverdue = !isTask && (C?.isOverdueItem(r) || isReminderOverdue(r.next_fire));
   const tags = JSON.parse(r.tags || '[]');
-  const kind = r.task_type === 'task' ? '✅ Task' : '🔔 Reminder';
+  const kind = isTask ? '✅ Task' : '🔔 Reminder';
   const timeLabel = r.reminder_time ? formatTime(r.reminder_time) : '';
   const rel = C?.relativeTimeLabel(r.next_fire) || '';
   const dateShort = C?.formatDateShort(r.next_fire) || '';
-  const context = [dateShort, timeLabel, rel].filter(Boolean).join(' · ');
+  const context = [isTask ? workflowLabel(wf) : null, dateShort, timeLabel, rel].filter(Boolean).join(' · ');
+  const taskActions = isTask ? `
+        ${wf === 'pending' || wf === 'postponed' ? `<button class="action-btn" onclick="startTask('${r.id}')" title="Start">▶</button>` : ''}
+        ${wf === 'in_progress' ? `<button class="action-btn done" onclick="completeReminder('${r.id}')">✓</button>` : ''}
+        ${wf !== 'done' && r.status !== 'completed' ? `<button class="action-btn" onclick="postponeTask('${r.id}')" title="Postpone">📅</button>` : ''}
+      ` : `
+        <button class="action-btn done" onclick="completeReminder('${r.id}')">✓</button>
+        <button class="action-btn snooze" onclick="showSnoozeMenu('${r.id}')">💤</button>
+        <button class="action-btn" onclick="postponeTomorrow('${r.id}')" title="Tomorrow">→</button>
+      `;
   return `
-    <div class="reminder-card ${r.priority} ${isOverdue ? 'overdue' : ''}" id="rcard-${r.id}">
-      <div class="reminder-check ${r.status === 'completed' ? 'done' : ''}" onclick="completeReminder('${r.id}')">
-        ${r.status === 'completed' ? '✓' : ''}
+    <div class="reminder-card ${r.priority} ${isOverdue ? 'overdue' : ''} ${isTask ? `task-${wf}` : ''}" id="rcard-${r.id}">
+      <div class="reminder-check ${r.status === 'completed' || wf === 'done' ? 'done' : ''}" onclick="completeReminder('${r.id}')">
+        ${r.status === 'completed' || wf === 'done' ? '✓' : ''}
       </div>
       <div class="reminder-body">
         <div class="reminder-title">${r.title}</div>
@@ -549,9 +571,7 @@ function reminderCard(r) {
         </div>
       </div>
       <div class="reminder-actions">
-        <button class="action-btn done" onclick="completeReminder('${r.id}')">✓</button>
-        <button class="action-btn snooze" onclick="showSnoozeMenu('${r.id}')">💤</button>
-        <button class="action-btn" onclick="postponeTomorrow('${r.id}')" title="Tomorrow">→</button>
+        ${taskActions}
         <button class="action-btn" onclick="editReminder('${r.id}')">✏️</button>
       </div>
     </div>`;
@@ -571,6 +591,30 @@ function habitMiniCard(h) {
       </div>
       <div class="progress-bar"><div class="progress-fill green" style="width:${pct}%"></div></div>
     </div>`;
+}
+
+// ── Tasks Page ─────────────────────────────────────────────────────
+async function renderTasks(el) {
+  const tasks = App.reminders.filter(r =>
+    r.task_type === 'task' && r.status !== 'completed' && (r.workflow_status || 'pending') !== 'done'
+  );
+  const pending = tasks.filter(t => (t.workflow_status || 'pending') === 'pending');
+  const active = tasks.filter(t => t.workflow_status === 'in_progress');
+  const postponed = tasks.filter(t => t.workflow_status === 'postponed');
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div>
+        <div class="page-title">✅ Tasks</div>
+        <div class="page-subtitle">Work items without the pressure of a timed alarm</div>
+      </div>
+      <button class="btn btn-primary" onclick="showCaptureSheet({ task_type: 'task' })">＋ New Task</button>
+    </div>
+    ${active.length ? `<div class="section-label">In progress</div><div class="reminder-list">${active.map(r => reminderCard(r)).join('')}</div>` : ''}
+    ${pending.length ? `<div class="section-label">Pending</div><div class="reminder-list">${pending.map(r => reminderCard(r)).join('')}</div>` : ''}
+    ${postponed.length ? `<div class="section-label">Postponed</div><div class="reminder-list">${postponed.map(r => reminderCard(r)).join('')}</div>` : ''}
+    ${tasks.length === 0 ? `<div class="empty-state"><div class="empty-icon">✅</div><h3>No open tasks</h3><p>Create a task for things to do without a strict reminder time.</p></div>` : ''}
+  `;
 }
 
 // ── Reminders Page ─────────────────────────────────────────────────
@@ -729,8 +773,9 @@ async function completeReminder(id) {
   }
 
   const r = App.reminders.find(x => x.id === id);
-  const recurring = result?.recurring || (r && r.repeat_type && r.repeat_type !== 'once');
-  toast(recurring ? '✅ Done — next occurrence scheduled' : '✅ Marked as complete!');
+  const isTask = result?.task || r?.task_type === 'task';
+  const recurring = result?.recurring || (r && r.repeat_type && r.repeat_type !== 'once' && !isTask);
+  toast(isTask ? '✅ Task completed!' : recurring ? '✅ Done — next occurrence scheduled' : '✅ Marked as complete!');
 
   const card = document.getElementById(`rcard-${id}`);
   if (card && !recurring) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
@@ -839,6 +884,24 @@ async function postponeNextWeek(id) {
   const d = C ? C.dateStr(C.addDays(new Date(), 7)) : todayStr();
   const r = App.reminders.find(x => x.id === id);
   await postponeTo(id, d, r?.reminder_time || '09:00');
+}
+
+async function startTask(id) {
+  const result = api.updateWorkflowStatus
+    ? await api.updateWorkflowStatus(id, 'in_progress')
+    : null;
+  if (!result) {
+    await db("UPDATE reminders SET workflow_status='in_progress', updated_at=? WHERE id=?",
+      [new Date().toISOString(), id]);
+  }
+  toast('▶ Task started');
+  await loadAllData();
+  if (PAGES[App.currentPage]) navigate(App.currentPage);
+}
+
+async function postponeTask(id) {
+  await postponeTomorrow(id);
+  toast('📅 Task postponed');
 }
 
 async function deleteReminder(id) {
@@ -1006,15 +1069,6 @@ async function saveMedicine() {
      document.getElementById('m-food').value, document.getElementById('m-start').value,
      document.getElementById('m-end').value, '', 'active'])) return;
 
-  const startDate = document.getElementById('m-start').value || todayStr();
-  for (const t of times) {
-    const rid = uuid();
-    const medNextFire = await computeNextFireForSave(startDate, t, 'daily');
-    if (!await dbRun(`INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,reminder_time,start_date,priority,alert_style,status,next_fire,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
-      [rid, `Take ${name}`, 'reminder', 'medicine', document.getElementById('m-condition').value || 'Medication', 'daily', t,
-       startDate, 'important', 'sound-popup', 'active', medNextFire])) return;
-  }
-
   document.getElementById('med-modal').remove();
   toast(`💊 ${name} added!`);
   navigate('medicine');
@@ -1111,11 +1165,6 @@ async function saveBill() {
   if (!await dbRun(`INSERT INTO bills (id,name,bill_type,amount,due_day,warning_days,account_info,status) VALUES (?,?,?,?,?,?,?,?)`,
     [id, name, document.getElementById('b-type').value, parseFloat(document.getElementById('b-amount').value) || 0,
      dueDay, parseInt(document.getElementById('b-warn').value) || 3, document.getElementById('b-notes').value, 'active'])) return;
-
-  const rid = uuid();
-  const nextFire = await computeNextFireForSave(todayStr(), '09:00', 'monthly');
-  if (!await dbRun(`INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,reminder_time,start_date,priority,alert_style,status,next_fire,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
-    [rid, `Pay ${name}`, 'reminder', 'bills', 'Avoid late payment charges', 'monthly', '09:00', todayStr(), 'important', 'sound-popup', 'active', nextFire])) return;
 
   document.getElementById('bill-modal').remove();
   toast(`💸 ${name} added!`);
@@ -1313,11 +1362,6 @@ async function saveHabit() {
 
   if (!await dbRun(`INSERT INTO habits (id,name,frequency,target_time,streak,best_streak,completion_rate,status) VALUES (?,?,?,?,0,0,0,'active')`,
     [id, name, freq, time])) return;
-
-  const rid = uuid();
-  const nextFire = await computeNextFireForSave(todayStr(), time, freq === 'daily' ? 'daily' : 'weekly');
-  if (!await dbRun(`INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,reminder_time,start_date,priority,alert_style,status,next_fire,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
-    [rid, name, 'habit', 'personal', 'Build a positive habit', freq === 'daily' ? 'daily' : 'weekly', time, todayStr(), 'normal', 'sound-popup', 'active', nextFire])) return;
 
   document.getElementById('hab-modal').remove();
   toast(`🔁 Habit started!`);
@@ -1813,13 +1857,6 @@ async function renderSettings(el) {
               <option value="light" ${s.appearance==='light'?'selected':''}>☀️ Light</option>
             </select>
           </div>
-          <div class="setting-row">
-            <div class="setting-info"><div class="setting-label">Density</div></div>
-            <select class="form-select" style="width:auto" id="s-density">
-              <option value="comfortable" ${s.layout_density==='comfortable'?'selected':''}>Comfortable</option>
-              <option value="compact" ${s.layout_density==='compact'?'selected':''}>Compact</option>
-            </select>
-          </div>
         </div>
 
         <div class="card" style="margin-bottom:16px">
@@ -1839,16 +1876,20 @@ async function renderSettings(el) {
           </div>
         </div>
 
-        <div class="card">
-          <div class="settings-section-title">🔒 Security</div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="settings-section-title">📊 Insights</div>
           <div class="setting-row">
-            <div class="setting-info"><div class="setting-label">App Lock (PIN)</div><div class="setting-desc">Require PIN to open ILRS</div></div>
-            <div class="toggle ${s.app_lock==='1'?'on':''}" id="t-lock" onclick="this.classList.toggle('on')"></div>
+            <div class="setting-info"><div class="setting-label">Weekly Reports</div><div class="setting-desc">View completion stats and trends</div></div>
+            <button class="btn btn-ghost btn-sm" onclick="navigate('reports')">Open Reports</button>
           </div>
           <div class="setting-row">
-            <div class="setting-info"><div class="setting-label">Rewards System</div></div>
+            <div class="setting-info"><div class="setting-label">Rewards & Streaks</div><div class="setting-desc">Show rewards in sidebar when enabled</div></div>
             <div class="toggle ${s.rewards_enabled==='1'?'on':''}" id="t-rewards" onclick="this.classList.toggle('on')"></div>
           </div>
+        </div>
+
+        <div class="card">
+          <div class="settings-section-title">🖥️ System</div>
           <div class="setting-row">
             <div class="setting-info">
               <div class="setting-label">Start with Windows</div>
@@ -1892,10 +1933,8 @@ async function saveSettings() {
     quiet_hours_end: document.getElementById('s-qend')?.value || '06:00',
     critical_override: document.getElementById('t-crit')?.classList.contains('on') ? '1' : '0',
     appearance: document.getElementById('s-theme')?.value || 'dark',
-    layout_density: document.getElementById('s-density')?.value || 'comfortable',
     local_backup: document.getElementById('t-backup')?.classList.contains('on') ? '1' : '0',
     data_cleanup_days: document.getElementById('s-cleanup')?.value || '90',
-    app_lock: document.getElementById('t-lock')?.classList.contains('on') ? '1' : '0',
     rewards_enabled: document.getElementById('t-rewards')?.classList.contains('on') ? '1' : '0',
     auto_start: document.getElementById('t-autostart')?.classList.contains('on') ? '1' : '0',
     voice_announcements: document.getElementById('t-voice')?.classList.contains('on') ? '1' : '0',
@@ -1906,7 +1945,9 @@ async function saveSettings() {
   }
   applyTheme(updates.appearance);
   await api.applyAutoStart?.(updates.auto_start === '1');
+  renderShell();
   toast('✅ Settings saved!');
+  if (PAGES[App.currentPage]) navigate(App.currentPage);
 }
 
 async function testDesktopNotification() {
