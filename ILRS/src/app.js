@@ -712,13 +712,28 @@ async function saveReminder(id, isEdit) {
 }
 
 async function completeReminder(id) {
-  await db("UPDATE reminders SET status='completed', alarm_rings=0, last_completed=?, updated_at=? WHERE id=?",
-    [new Date().toISOString(), new Date().toISOString(), id]);
-  await db("INSERT INTO reminder_logs (id,reminder_id,action,timestamp) VALUES (?,?,'completed',datetime('now'))",
-    [uuid(), id]);
-  toast('✅ Marked as complete!');
+  const result = api.completeReminder
+    ? await api.completeReminder(id)
+    : null;
+
+  if (result && !result.success) {
+    toast(result.error || 'Could not complete reminder', 'warning');
+    return;
+  }
+
+  if (!result) {
+    await db("UPDATE reminders SET status='completed', alarm_rings=0, last_completed=?, updated_at=? WHERE id=?",
+      [new Date().toISOString(), new Date().toISOString(), id]);
+    await db("INSERT INTO reminder_logs (id,reminder_id,action,timestamp) VALUES (?,?,'completed',datetime('now'))",
+      [uuid(), id]);
+  }
+
+  const r = App.reminders.find(x => x.id === id);
+  const recurring = result?.recurring || (r && r.repeat_type && r.repeat_type !== 'once');
+  toast(recurring ? '✅ Done — next occurrence scheduled' : '✅ Marked as complete!');
+
   const card = document.getElementById(`rcard-${id}`);
-  if (card) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
+  if (card && !recurring) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
   await loadAllData();
   updateBadges();
 }
@@ -731,12 +746,29 @@ async function snoozeReminder(id, minutes) {
     toast(`Snooze limit reached (${limit}). Mark done or postpone.`, 'warning');
     return;
   }
+
   const duration = minutes || parseInt(r?.snooze_duration) || parseInt(App.settings.snooze_duration) || 10;
-  const newFire = toLocalFireISO(new Date(Date.now() + duration * 60000));
-  await db("UPDATE reminders SET next_fire=?, alarm_rings=0, snooze_count=snooze_count+1, updated_at=? WHERE id=?",
-    [newFire, new Date().toISOString(), id]);
-  await db("INSERT INTO reminder_logs (id,reminder_id,action,timestamp) VALUES (?,?,'snoozed',datetime('now'))", [uuid(), id]);
-  toast(`💤 Snoozed for ${duration} minutes`);
+  const result = api.snoozeReminder
+    ? await api.snoozeReminder(id, duration)
+    : null;
+
+  if (result?.error === 'snooze_limit') {
+    toast(`Snooze limit reached (${result.limit || limit}). Mark done or postpone.`, 'warning');
+    return;
+  }
+  if (result && !result.success) {
+    toast(result.error || 'Could not snooze', 'warning');
+    return;
+  }
+
+  if (!result) {
+    const newFire = toLocalFireISO(new Date(Date.now() + duration * 60000));
+    await db("UPDATE reminders SET next_fire=?, alarm_rings=0, snooze_count=snooze_count+1, updated_at=? WHERE id=?",
+      [newFire, new Date().toISOString(), id]);
+    await db("INSERT INTO reminder_logs (id,reminder_id,action,timestamp) VALUES (?,?,'snoozed',datetime('now'))", [uuid(), id]);
+  }
+
+  toast(`💤 Snoozed for ${result?.minutes || duration} minutes`);
   await loadAllData();
   updateBadges();
   if (PAGES[App.currentPage]) navigate(App.currentPage);
@@ -768,10 +800,23 @@ function showSnoozeMenu(id) {
 async function postponeTo(id, dateStr, timeStr) {
   const r = App.reminders.find(x => x.id === id);
   if (!r) return;
-  const nextFire = await computeNextFireForSave(dateStr, timeStr || r.reminder_time || '09:00', r.repeat_type || 'once');
-  await db("UPDATE reminders SET start_date=?, reminder_time=?, next_fire=?, alarm_rings=0, updated_at=? WHERE id=?",
-    [dateStr, timeStr || r.reminder_time, nextFire, new Date().toISOString(), id]);
-  await db("INSERT INTO reminder_logs (id,reminder_id,action,timestamp) VALUES (?,?,'postponed',datetime('now'))", [uuid(), id]);
+
+  const result = api.postponeReminder
+    ? await api.postponeReminder(id, dateStr, timeStr || r.reminder_time || '09:00')
+    : null;
+
+  if (result && !result.success) {
+    toast(result.error || 'Could not postpone', 'warning');
+    return;
+  }
+
+  if (!result) {
+    const nextFire = await computeNextFireForSave(dateStr, timeStr || r.reminder_time || '09:00', r.repeat_type || 'once');
+    await db("UPDATE reminders SET start_date=?, reminder_time=?, next_fire=?, alarm_rings=0, updated_at=? WHERE id=?",
+      [dateStr, timeStr || r.reminder_time, nextFire, new Date().toISOString(), id]);
+    await db("INSERT INTO reminder_logs (id,reminder_id,action,timestamp) VALUES (?,?,'postponed',datetime('now'))", [uuid(), id]);
+  }
+
   toast('📅 Postponed');
   await loadAllData();
   updateBadges();
@@ -2023,6 +2068,13 @@ function setupListeners() {
 
   api.onNotificationClicked((reminder) => {
     openReminderFromNotificationClick(reminder);
+  });
+
+  api.onReminderUpdated?.(async () => {
+    await loadAllData();
+    updateBadges();
+    if (PAGES[App.currentPage]) navigate(App.currentPage);
+    dismissAlert();
   });
 }
 

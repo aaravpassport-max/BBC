@@ -2,8 +2,11 @@
 const assert = require('assert');
 const {
   isActivateResponse,
+  isActionResponse,
   registerClickHandler,
+  registerActionHandler,
   fireClickHandler,
+  fireActionHandler,
 } = require('../notifications');
 
 function test(name, fn) {
@@ -29,6 +32,23 @@ test('registerClickHandler fires once', () => {
   assert.strictEqual(fireClickHandler('test-key'), true);
   assert.strictEqual(count, 1);
   assert.strictEqual(fireClickHandler('test-key'), false);
+});
+
+test('isActionResponse detects toast action labels', () => {
+  assert.strictEqual(isActionResponse('Done'), true);
+  assert.strictEqual(isActionResponse('Snooze'), true);
+  assert.strictEqual(isActionResponse('dismissed'), false);
+});
+
+test('registerActionHandler fires action and clears click handler', () => {
+  let action = '';
+  let clicked = false;
+  registerClickHandler('action-key', () => { clicked = true; });
+  registerActionHandler('action-key', (a) => { action = a; });
+  assert.strictEqual(fireActionHandler('action-key', 'Done'), true);
+  assert.strictEqual(action, 'Done');
+  assert.strictEqual(fireClickHandler('action-key'), false);
+  assert.strictEqual(clicked, false);
 });
 
 console.log('\nNotification click tests finished.');

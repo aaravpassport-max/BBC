@@ -9,7 +9,14 @@ const TRAY_ICON_PATH = path.join(__dirname, 'assets', 'tray-icon.png');
 
 /** @type {Map<string, () => void>} */
 const pendingClickHandlers = new Map();
+/** @type {Map<string, (action: string) => void>} */
+const pendingActionHandlers = new Map();
 let notifierHooksReady = false;
+
+const REMINDER_TOAST_ACTIONS = [
+  { type: 'button', text: 'Done' },
+  { type: 'button', text: 'Snooze' },
+];
 
 function getSetting(db, key, defaultValue = '') {
   if (!db) return defaultValue;
@@ -119,6 +126,12 @@ function registerClickHandler(key, onClick) {
   setTimeout(() => pendingClickHandlers.delete(key), 10 * 60 * 1000);
 }
 
+function registerActionHandler(key, onAction) {
+  if (!onAction || !key) return;
+  pendingActionHandlers.set(key, onAction);
+  setTimeout(() => pendingActionHandlers.delete(key), 10 * 60 * 1000);
+}
+
 function fireClickHandler(key) {
   const handler = pendingClickHandlers.get(key);
   if (!handler) return false;
@@ -131,29 +144,60 @@ function fireClickHandler(key) {
   return true;
 }
 
+function fireActionHandler(key, action) {
+  const handler = pendingActionHandlers.get(key);
+  if (!handler || !action) return false;
+  pendingActionHandlers.delete(key);
+  pendingClickHandlers.delete(key);
+  try {
+    handler(action);
+  } catch (err) {
+    console.error('Notification action handler error:', err.message);
+  }
+  return true;
+}
+
+function isActionResponse(response) {
+  if (!response) return false;
+  const value = String(response).toLowerCase();
+  return value.includes('done')
+    || value.includes('snooze')
+    || value.includes('tomorrow')
+    || value === 'buttonclicked';
+}
+
 function ensureNotifierClickHooks() {
   if (notifierHooksReady) return;
   notifierHooksReady = true;
 
+  const resolveKey = (options) => options?.toastTag || options?.tag || options?.id
+    || `${options?.title || ''}|${options?.message || options?.subtitle || ''}`;
+
   const onNotifierActivate = (_notifierObject, options) => {
-    const key = options?.toastTag || options?.tag || options?.id
-      || `${options?.title || ''}|${options?.message || options?.subtitle || ''}`;
+    fireClickHandler(resolveKey(options));
+  };
+
+  const onNotifierAction = (_notifierObject, options, action) => {
+    const key = resolveKey(options);
+    const actionName = action || options?.activationType || options?.button;
+    if (actionName && fireActionHandler(key, String(actionName))) return;
     fireClickHandler(key);
   };
 
   notifier.on('click', onNotifierActivate);
   notifier.on('activate', onNotifierActivate);
-  notifier.on('action', onNotifierActivate);
+  notifier.on('action', onNotifierAction);
 }
 
-function showWithNodeNotifier(content, { onClick, silent, clickKey }) {
+function showWithNodeNotifier(content, { onClick, onAction, silent, clickKey, actions }) {
   ensureNotifierClickHooks();
   const key = clickKey || `${content.title}|${content.body}`;
   registerClickHandler(key, onClick);
+  if (onAction) registerActionHandler(key, onAction);
 
   return new Promise((resolve) => {
     const icon = getNotificationIcon();
-    notifier.notify({
+    const notifyOptions = {
       title: content.title,
       message: content.body,
       icon,
@@ -163,20 +207,34 @@ function showWithNodeNotifier(content, { onClick, silent, clickKey }) {
       toastTag: key,
       tag: key,
       id: key,
-    }, (err, response) => {
-      if (!err && isActivateResponse(response)) {
-        fireClickHandler(key);
+    };
+    if (actions?.length) {
+      notifyOptions.actions = actions.map((a) => a.text || a);
+    }
+
+    notifier.notify(notifyOptions, (err, response, metadata) => {
+      if (!err) {
+        const actionText = metadata?.activationType || metadata?.button
+          || (typeof response === 'object' ? (response.activationType || response.button) : null);
+        if (actionText && fireActionHandler(key, String(actionText))) {
+          resolve(true);
+          return;
+        }
+        if (isActivateResponse(response) || isActivateResponse(actionText)) {
+          fireClickHandler(key);
+        }
       }
       resolve(!err);
     });
   });
 }
 
-function showWithElectronNotification(content, { onClick, silent, type, icon, clickKey }) {
+function showWithElectronNotification(content, { onClick, onAction, silent, type, icon, clickKey, actions }) {
   if (!Notification.isSupported()) return false;
 
   const key = clickKey || `${content.title}|${content.body}`;
   registerClickHandler(key, onClick);
+  if (onAction) registerActionHandler(key, onAction);
 
   try {
     const notification = new Notification({
@@ -187,6 +245,7 @@ function showWithElectronNotification(content, { onClick, silent, type, icon, cl
       icon,
       timeoutType: type === 'reminder' || content.urgency === 'critical' ? 'never' : 'default',
       closeButtonText: 'Dismiss',
+      actions: actions?.length ? actions : undefined,
     });
 
     const handleClick = () => {
@@ -194,19 +253,37 @@ function showWithElectronNotification(content, { onClick, silent, type, icon, cl
       try { notification.close(); } catch (_) { /* ignore */ }
     };
 
+    const handleAction = (_event, index) => {
+      const label = actions?.[index]?.text || actions?.[index] || '';
+      if (label && fireActionHandler(key, label)) {
+        try { notification.close(); } catch (_) { /* ignore */ }
+        return;
+      }
+      handleClick();
+    };
+
     notification.on('click', handleClick);
-    notification.on('action', handleClick);
-    notification.on('close', () => pendingClickHandlers.delete(key));
+    notification.on('action', handleAction);
+    notification.on('close', () => {
+      pendingClickHandlers.delete(key);
+      pendingActionHandlers.delete(key);
+    });
     notification.show();
     return true;
   } catch (err) {
     console.warn('Electron notification failed:', err.message);
     pendingClickHandlers.delete(key);
+    pendingActionHandlers.delete(key);
     return false;
   }
 }
 
-async function showDesktopNotification(db, item, { onClick, type = 'reminder', force = false } = {}) {
+async function showDesktopNotification(db, item, {
+  onClick,
+  onAction,
+  type = 'reminder',
+  force = false,
+} = {}) {
   if (!force && !shouldNotify(db, item)) return false;
 
   const style = getEffectiveStyle(db, item);
@@ -214,17 +291,20 @@ async function showDesktopNotification(db, item, { onClick, type = 'reminder', f
   const silent = style === 'popup-only';
   const icon = getNotificationIcon();
   const clickKey = `ilrs-${item?.id || 'general'}-${Date.now()}`;
+  const actions = (type === 'reminder' && item?.id && onAction) ? REMINDER_TOAST_ACTIONS : undefined;
 
   if (process.platform === 'win32') {
     app.setAppUserModelId(APP_ID);
   }
 
+  const opts = { onClick, onAction, silent, type, icon, clickKey, actions };
+
   // Electron native notifications — reliable click-to-focus when app is in tray
-  if (showWithElectronNotification(content, { onClick, silent, type, icon, clickKey })) {
+  if (showWithElectronNotification(content, opts)) {
     return true;
   }
 
-  const notifierOk = await showWithNodeNotifier(content, { onClick, silent, clickKey });
+  const notifierOk = await showWithNodeNotifier(content, opts);
   return notifierOk;
 }
 
@@ -239,6 +319,10 @@ module.exports = {
   ICON_PATH,
   TRAY_ICON_PATH,
   isActivateResponse,
+  isActionResponse,
   registerClickHandler,
+  registerActionHandler,
   fireClickHandler,
+  fireActionHandler,
+  REMINDER_TOAST_ACTIONS,
 };

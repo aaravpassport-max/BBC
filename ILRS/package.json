@@ -1,6 +1,6 @@
 {
   "name": "ilrs",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "ILRS — Intelligent Life Reminder System",
   "author": {
     "name": "Business OS",
@@ -21,6 +21,7 @@
     "test:notification-click": "node scripts/test-notification-click.js",
     "test:modal-dismiss": "node scripts/test-modal-dismiss.js",
     "test:capture": "node scripts/test-capture-parse.js",
+    "test:reminder-actions": "node scripts/test-reminder-actions.js",
     "test:db": "node scripts/test-db-ops.js",
     "test:e2e": "electron scripts/e2e-ipc-test.js --no-sandbox",
     "dev": "electron . --dev --no-sandbox",
@@ -60,6 +61,7 @@
       "main.js",
       "preload.js",
       "notifications.js",
+      "reminder-actions.js",
       "alarm.js",
       "sound-player.js",
       "sound-player.html",

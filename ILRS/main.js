@@ -2,6 +2,12 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, powerMonitor } =
 const path = require('path');
 const fs = require('fs');
 const { showDesktopNotification, getSetting, shouldPlaySound } = require('./notifications');
+const {
+  completeOccurrence,
+  snoozeReminder: snoozeReminderAction,
+  postponeReminder,
+  parseNotificationAction,
+} = require('./reminder-actions');
 const { createTrayIcon, ensureWindowsToastSupport, showFatalError } = require('./windows-support');
 const { playAlertSound } = require('./sound-player');
 const { announceReminder, shouldAnnounceVoice } = require('./voice-announcer');
@@ -192,6 +198,12 @@ function focusMainWindow() {
   if (typeof mainWindow.moveTop === 'function') mainWindow.moveTop();
 }
 
+function notifyRendererDataChanged() {
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+    mainWindow.webContents.send('reminder-updated');
+  }
+}
+
 function openReminderFromNotification(item, type = 'reminder') {
   focusMainWindow();
   flushPendingDueEvents();
@@ -199,6 +211,35 @@ function openReminderFromNotification(item, type = 'reminder') {
   const payload = { ...item, _type: type, _fromNotificationClick: true };
   if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
     mainWindow.webContents.send('notification-clicked', payload);
+  }
+}
+
+function handleNotificationAction(item, actionLabel, type = 'reminder') {
+  if (type !== 'reminder' || !item?.id || !db) return;
+
+  const action = parseNotificationAction(actionLabel);
+  if (!action) return;
+
+  if (action === 'done') {
+    completeOccurrence(db, item.id);
+    notifyRendererDataChanged();
+    return;
+  }
+
+  if (action === 'snooze') {
+    const minutes = parseInt(getSetting(db, 'snooze_duration', '10'), 10) || 10;
+    snoozeReminderAction(db, item.id, minutes);
+    notifyRendererDataChanged();
+    return;
+  }
+
+  if (action === 'tomorrow') {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const dateStr = localDateStr(tomorrow);
+    postponeReminder(db, item.id, dateStr, item.reminder_time || '09:00');
+    notifyRendererDataChanged();
   }
 }
 
@@ -256,7 +297,11 @@ function dispatchDueItem(item, type = 'reminder') {
     pendingDueEvents.push(payload);
   }
 
-  showDesktopNotification(db, item, { onClick: () => openReminderFromNotification(item, type), type });
+  showDesktopNotification(db, item, {
+    onClick: () => openReminderFromNotification(item, type),
+    onAction: (action) => handleNotificationAction(item, action, type),
+    type,
+  });
 
   if (shouldPlaySound(db, item)) {
     const tone = item.alert_tone || getSetting(db, 'reminder_tone', 'loud-chime');
@@ -337,6 +382,39 @@ function setupIPC() {
     const now = new Date();
     const start = startDate && !String(startDate).includes('Z') ? startDate : localDateStr(now);
     return { nextFire: computeNextFire(start, time, repeatType || 'once', now) };
+  });
+
+  ipcMain.handle('complete-reminder', async (_event, { id }) => {
+    try {
+      if (!id) return { success: false, error: 'Missing id' };
+      const result = completeOccurrence(db, id);
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('snooze-reminder', async (_event, { id, minutes }) => {
+    try {
+      if (!id) return { success: false, error: 'Missing id' };
+      const result = snoozeReminderAction(db, id, minutes);
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('postpone-reminder', async (_event, { id, dateStr, timeStr }) => {
+    try {
+      if (!id || !dateStr) return { success: false, error: 'Missing id or date' };
+      const result = postponeReminder(db, id, dateStr, timeStr);
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
   });
 
   ipcMain.handle('apply-auto-start', async (_event, enable) => {

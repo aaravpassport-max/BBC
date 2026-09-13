@@ -11,6 +11,10 @@ contextBridge.exposeInMainWorld('ilrs', {
   getSystemClock: () => ipcRenderer.invoke('get-system-clock'),
   computeNextFire: (startDate, time, repeatType) =>
     ipcRenderer.invoke('compute-next-fire', { startDate, time, repeatType }),
+  completeReminder: (id) => ipcRenderer.invoke('complete-reminder', { id }),
+  snoozeReminder: (id, minutes) => ipcRenderer.invoke('snooze-reminder', { id, minutes }),
+  postponeReminder: (id, dateStr, timeStr) =>
+    ipcRenderer.invoke('postpone-reminder', { id, dateStr, timeStr }),
   applyAutoStart: (enable) => ipcRenderer.invoke('apply-auto-start', enable),
 
   // Export
@@ -31,6 +35,7 @@ contextBridge.exposeInMainWorld('ilrs', {
   onPlaySound: (callback) => ipcRenderer.on('play-alert-sound', (_, soundId) => callback(soundId)),
   onSpeakReminder: (callback) => ipcRenderer.on('speak-reminder', (_, payload) => callback(payload)),
   onNotificationClicked: (callback) => ipcRenderer.on('notification-clicked', (_, reminder) => callback(reminder)),
+  onReminderUpdated: (callback) => ipcRenderer.on('reminder-updated', () => callback()),
 
   // Remove listeners
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel)
