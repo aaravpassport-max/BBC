@@ -10,6 +10,8 @@ const {
   changeInquiryStage,
   findPossibleDuplicates,
   computeInquiryHealth,
+  deleteInquiry,
+  bulkDeleteInquiries,
   seedInquiryStages,
 } = require('../inquiry-actions');
 
@@ -109,6 +111,29 @@ test('updateInquiry updates requirement and notes', () => {
   assert.strictEqual(result.success, true);
   assert.strictEqual(result.inquiry.requirement, 'Passport');
   assert.strictEqual(result.inquiry.notes, 'Urgent');
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
+test('deleteInquiry marks inquiry deleted', () => {
+  const { db, dbPath } = makeDb();
+  const now = new Date(2026, 8, 13, 10, 0, 0);
+  const { inquiry } = createInquiry(db, { clientName: 'A', requirement: 'Visa' }, now);
+  const result = deleteInquiry(db, inquiry.id);
+  assert.strictEqual(result.success, true);
+  const row = db.prepare('SELECT outcome_status FROM inquiries WHERE id = ?').get(inquiry.id);
+  assert.strictEqual(row.outcome_status, 'deleted');
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
+test('bulkDeleteInquiries deletes multiple inquiries', () => {
+  const { db, dbPath } = makeDb();
+  const now = new Date(2026, 8, 13, 10, 0, 0);
+  const a = createInquiry(db, { clientName: 'A', requirement: 'X' }, now).inquiry;
+  const b = createInquiry(db, { clientName: 'B', requirement: 'Y' }, now).inquiry;
+  const result = bulkDeleteInquiries(db, [a.id, b.id]);
+  assert.strictEqual(result.deleted, 2);
   db.close();
   fs.unlinkSync(dbPath);
 });

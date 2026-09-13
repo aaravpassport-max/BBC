@@ -9,18 +9,23 @@
   function inquiryCard(inq, compact = false) {
     const pipeline = P();
     const health = pipeline?.healthClass(inq.health) || '';
+    const stageCls = pipeline?.stageCategoryClass?.(inq.stage_key) || '';
+    const selected = App.selectedInquiryIds?.has(inq.id);
     const followLabel = inq.next_follow_up
       ? `${formatDate(inq.next_follow_up)}${inq.next_follow_up_time ? ' · ' + formatTime(inq.next_follow_up_time) : ''}`
       : 'No follow-up set';
     const assignee = typeof assigneeLabel === 'function' ? assigneeLabel(inq.assigned_to) : '';
     return `
-      <div class="inquiry-card ${health}" onclick="openInquiryDetail('${inq.id}')">
+      <div class="inquiry-card ${health} ${stageCls}" onclick="openInquiryDetail('${inq.id}')">
+        <input type="checkbox" class="item-select-checkbox" ${selected ? 'checked' : ''}
+          onclick="event.stopPropagation();toggleInquirySelection('${inq.id}', this.checked)" title="Select" />
         <div class="inquiry-card-top">
           <strong>${inq.client_name}</strong>
           <span class="inquiry-number">${inq.inquiry_number || ''}</span>
+          <button class="action-btn delete btn-sm" onclick="event.stopPropagation();deleteInquiryItem('${inq.id}')" title="Delete">🗑</button>
         </div>
         <div class="inquiry-requirement">${inq.requirement}</div>
-        <div class="inquiry-stage-badge">${stageDisplay(inq.stage_key)}</div>
+        <div class="inquiry-stage-badge ${stageCls}">${stageDisplay(inq.stage_key)}</div>
         ${inq.quotation_amount > 0 ? `<div class="inquiry-amount">₹${Number(inq.quotation_amount).toLocaleString('en-IN')}</div>` : ''}
         <div class="inquiry-next-action">
           <span class="next-action-label">Next:</span> ${inq.next_action || 'Follow up'}
@@ -62,8 +67,14 @@
     const amount = inq.quotation_amount > 0
       ? `₹${Number(inq.quotation_amount).toLocaleString('en-IN')}`
       : (inq.expected_value > 0 ? `~₹${Number(inq.expected_value).toLocaleString('en-IN')}` : '—');
+    const stageCls = pipeline?.stageCategoryClass?.(inq.stage_key) || '';
+    const selected = App.selectedInquiryIds?.has(inq.id);
     return `
-      <tr class="pipeline-row ${health}" onclick="openInquiryDetail('${inq.id}')">
+      <tr class="pipeline-row ${health} ${stageCls}" onclick="openInquiryDetail('${inq.id}')">
+        <td class="pipeline-select" onclick="event.stopPropagation()">
+          <input type="checkbox" class="item-select-checkbox" ${selected ? 'checked' : ''}
+            onclick="event.stopPropagation();toggleInquirySelection('${inq.id}', this.checked)" />
+        </td>
         <td class="pipeline-id">${inq.inquiry_number || '—'}</td>
         <td class="pipeline-client"><strong>${inq.client_name}</strong></td>
         <td class="pipeline-req">${inq.requirement}</td>
@@ -75,6 +86,9 @@
         <td class="pipeline-assignee">${assignee || 'Me'}</td>
         <td><span class="inquiry-health-pill ${health}">${pipeline?.healthLabel(inq.health) || ''}</span></td>
         <td class="pipeline-days">${daysInStage(inq)}</td>
+        <td class="pipeline-actions" onclick="event.stopPropagation()">
+          <button class="action-btn delete btn-sm" onclick="deleteInquiryItem('${inq.id}')" title="Delete">🗑</button>
+        </td>
       </tr>`;
   }
 
@@ -83,14 +97,53 @@
     navigate('pipeline');
   }
 
+  function setPipelineStageFilter(stageKey) {
+    App.pipelineStageFilter = stageKey;
+    navigate('pipeline');
+  }
+
+  function setInquiryStageFilter(stageKey) {
+    App.inquiryStageFilter = stageKey;
+    navigate('inquiries');
+  }
+
+  function stageFilterOptions(selected) {
+    const pipeline = P();
+    const stages = [...(pipeline?.getActiveStages() || []), ...(pipeline?.getClosedStages() || [])];
+    return `<option value="all" ${selected === 'all' ? 'selected' : ''}>All stages</option>`
+      + stages.map((s) =>
+        `<option value="${s.key}" ${selected === s.key ? 'selected' : ''}>${s.display}</option>`
+      ).join('');
+  }
+
+  async function deleteInquiryItem(id) {
+    if (!confirm('Delete this inquiry?')) return;
+    const result = await window.ilrs?.deleteInquiry?.(id);
+    if (result && !result.success) {
+      toast(result?.error || 'Could not delete', 'warning');
+      return;
+    }
+    App.selectedInquiryIds?.delete(id);
+    toast('Inquiry deleted', 'warning');
+    await loadAllData();
+    refreshCurrentView?.();
+    if (App.currentPage === 'inquiry-detail' && App.selectedInquiryId === id) {
+      navigate('inquiries');
+    } else if (PAGES[App.currentPage]) {
+      navigate(App.currentPage);
+    }
+  }
+
   async function renderPipeline(el) {
     const pipeline = P();
     const categories = pipeline?.STAGE_CATEGORIES || {};
     const active = activeInquiries();
     const catFilter = App.pipelineCategoryFilter || 'all';
+    const stageFilter = App.pipelineStageFilter || 'all';
     const stages = (pipeline?.getActiveStages() || []).filter((s) => {
-      if (catFilter === 'all') return true;
-      return s.category === catFilter;
+      if (catFilter !== 'all' && s.category !== catFilter) return false;
+      if (stageFilter !== 'all' && s.key !== stageFilter) return false;
+      return true;
     });
 
     const byStage = {};
@@ -98,6 +151,7 @@
       const stageKey = inq.stage_key || 'follow_up';
       const stage = pipeline?.getStage(stageKey);
       if (catFilter !== 'all' && stage?.category !== catFilter) continue;
+      if (stageFilter !== 'all' && stageKey !== stageFilter) continue;
       if (!byStage[stageKey]) byStage[stageKey] = [];
       byStage[stageKey].push(inq);
     }
@@ -116,8 +170,8 @@
       });
       if (rows.length === 0) return '';
       return `
-        <tr class="pipeline-stage-header">
-          <td colspan="11">
+        <tr class="pipeline-stage-header ${pipeline?.stageCategoryClass?.(stage.key) || ''}">
+          <td colspan="12">
             <span class="pipeline-stage-name">${stage.display}</span>
             <span class="nav-badge">${rows.length}</span>
           </td>
@@ -142,12 +196,20 @@
           `<button class="smart-tab ${catFilter === key ? 'active' : ''}" onclick="setPipelineCategory('${key}')">${label}</button>`
         ).join('')}
       </div>
+      <div class="pipeline-stage-filter" style="margin-bottom:12px">
+        <label class="form-label" style="display:inline;margin-right:8px">Stage:</label>
+        <select class="form-select" style="width:auto;min-width:220px" onchange="setPipelineStageFilter(this.value)">
+          ${stageFilterOptions(stageFilter)}
+        </select>
+      </div>
+      ${typeof renderBulkSelectionBar === 'function' ? renderBulkSelectionBar('inquiry') : ''}
       <div class="pipeline-table-wrap card">
         ${visibleCount === 0
           ? '<div class="empty-state" style="padding:32px"><div class="empty-icon">📊</div><h3>No inquiries in this view</h3><p>Create an inquiry or change the category filter.</p></div>'
           : `<table class="pipeline-table">
             <thead>
               <tr>
+                <th style="width:36px"></th>
                 <th>ID</th>
                 <th>Client</th>
                 <th>Requirement</th>
@@ -159,6 +221,7 @@
                 <th>Assigned</th>
                 <th>Health</th>
                 <th>Days</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>${tableBody}</tbody>
@@ -174,6 +237,8 @@
     if (filter === 'active') items = items.filter((i) => i.outcome_status === 'active');
     else if (filter === 'closed') items = items.filter((i) => i.outcome_status !== 'active');
     else if (filter === 'mine') items = items.filter((i) => i.assigned_to === 'me' || !i.assigned_to);
+    const stageFilter = App.inquiryStageFilter || 'all';
+    if (stageFilter !== 'all') items = items.filter((i) => i.stage_key === stageFilter);
     const clientFilter = App.clientFilterId ? (App.clients || []).find((c) => c.id === App.clientFilterId) : null;
 
     el.innerHTML = `
@@ -188,6 +253,13 @@
         <button class="smart-tab ${filter === 'mine' ? 'active' : ''}" onclick="setInquiryFilter('mine')">My Inquiries</button>
         <button class="smart-tab ${filter === 'closed' ? 'active' : ''}" onclick="setInquiryFilter('closed')">Closed / Lost</button>
       </div>
+      <div class="pipeline-stage-filter" style="margin-bottom:12px">
+        <label class="form-label" style="display:inline;margin-right:8px">Stage:</label>
+        <select class="form-select" style="width:auto;min-width:220px" onchange="setInquiryStageFilter(this.value)">
+          ${stageFilterOptions(stageFilter)}
+        </select>
+      </div>
+      ${typeof renderBulkSelectionBar === 'function' ? renderBulkSelectionBar('inquiry') : ''}
       <div class="inquiry-list">
         ${items.length === 0
           ? '<div class="empty-state"><div class="empty-icon">📥</div><h3>No inquiries</h3><p>Create your first inquiry in seconds.</p></div>'
@@ -253,6 +325,7 @@
           <button class="btn btn-ghost btn-sm" onclick="logInquiryQuick('${id}','whatsapp')">💬 WhatsApp</button>
           <button class="btn btn-ghost btn-sm" onclick="showInquiryLinkedTask('${id}')">＋ Task</button>
           <button class="btn btn-ghost btn-sm" onclick="editInquiry('${id}')">Edit</button>
+          <button class="btn btn-ghost btn-sm" onclick="deleteInquiryItem('${id}')">🗑 Delete</button>
           ${inq.outcome_status !== 'active'
             ? `<button class="btn btn-ghost btn-sm" onclick="reopenInquiryConfirm('${id}')">↩ Reopen</button>`
             : `<button class="btn btn-primary btn-sm" onclick="showStageChangeModal('${id}')">Change Stage</button>`}
@@ -504,6 +577,9 @@
   window.inquiryCard = inquiryCard;
   window.renderPipeline = renderPipeline;
   window.setPipelineCategory = setPipelineCategory;
+  window.setPipelineStageFilter = setPipelineStageFilter;
+  window.setInquiryStageFilter = setInquiryStageFilter;
+  window.deleteInquiryItem = deleteInquiryItem;
   window.renderInquiries = renderInquiries;
   window.renderInquiryFollowups = renderInquiryFollowups;
   window.renderInquiryDetail = renderInquiryDetail;

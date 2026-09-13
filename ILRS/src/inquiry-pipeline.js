@@ -37,6 +37,26 @@
 
   const SOURCE_CHIPS = ['Phone', 'WhatsApp', 'Website', 'Email', 'Walk-in', 'Referral', 'Existing Client', 'Social Media', 'Other'];
 
+  const STAGE_CATEGORY_COLORS = {
+    qualification: { bg: 'rgba(59, 130, 246, 0.16)', border: '#3b82f6' },
+    quotation: { bg: 'rgba(168, 85, 247, 0.16)', border: '#a855f7' },
+    documentation: { bg: 'rgba(14, 165, 233, 0.16)', border: '#0ea5e9' },
+    feasibility: { bg: 'rgba(234, 179, 8, 0.16)', border: '#eab308' },
+    payment: { bg: 'rgba(34, 197, 94, 0.16)', border: '#22c55e' },
+    fulfilment: { bg: 'rgba(20, 184, 166, 0.16)', border: '#14b8a6' },
+    closed: { bg: 'rgba(100, 116, 139, 0.16)', border: '#64748b' },
+  };
+
+  function stageCategoryClass(key) {
+    const cat = getStage(key)?.category || 'qualification';
+    return `stage-cat-${cat}`;
+  }
+
+  function getStageStyle(key) {
+    const cat = getStage(key)?.category || 'qualification';
+    return STAGE_CATEGORY_COLORS[cat] || STAGE_CATEGORY_COLORS.qualification;
+  }
+
   function setStages(stages) {
     if (stages?.length) activeStages = stages;
   }
@@ -93,5 +113,8 @@
     getStageAutomation,
     healthLabel,
     healthClass,
+    STAGE_CATEGORY_COLORS,
+    stageCategoryClass,
+    getStageStyle,
   };
 })();

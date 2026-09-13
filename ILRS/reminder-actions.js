@@ -88,17 +88,12 @@ function completeOccurrence(db, id, now = new Date()) {
 }
 
 /**
- * Snooze a reminder by N minutes. Enforces snooze_limit from settings.
+ * Snooze a reminder by N minutes (unlimited).
  */
 function snoozeReminder(db, id, minutes, now = new Date()) {
   const reminder = getReminder(db, id);
   if (!reminder) return { success: false, error: 'Reminder not found' };
-
-  const limit = parseInt(getSetting(db, 'snooze_limit', '3'), 10) || 3;
-  const count = parseInt(reminder.snooze_count, 10) || 0;
-  if (count >= limit) {
-    return { success: false, error: 'snooze_limit', limit };
-  }
+  if (reminder.status === 'deleted') return { success: false, error: 'Reminder deleted' };
 
   const duration = minutes
     || parseInt(reminder.snooze_duration, 10)
@@ -125,28 +120,58 @@ function snoozeReminder(db, id, minutes, now = new Date()) {
 function postponeReminder(db, id, dateStr, timeStr, now = new Date()) {
   const reminder = getReminder(db, id);
   if (!reminder) return { success: false, error: 'Reminder not found' };
+  if (reminder.status === 'deleted') return { success: false, error: 'Reminder deleted' };
 
   const { computeNextFire } = require('./alarm');
+  const resolvedTime = timeStr || reminder.reminder_time || '09:00';
   const nextFire = computeNextFire(
     dateStr,
-    timeStr || reminder.reminder_time || '09:00',
+    resolvedTime,
     reminder.repeat_type || 'once',
     now,
     reminder.repeat_value,
   );
 
+  const wasCompleted = reminder.status === 'completed' || reminder.workflow_status === 'done';
+  const workflowStatus = wasCompleted ? 'pending' : 'postponed';
+
   db.prepare(`
     UPDATE reminders
     SET start_date = ?, reminder_time = ?, next_fire = ?, alarm_rings = 0, snooze_count = 0,
-        workflow_status = 'postponed', updated_at = ?
+        status = 'active', workflow_status = ?, last_completed = NULL, updated_at = ?
     WHERE id = ?
-  `).run(dateStr, timeStr || reminder.reminder_time, nextFire, toLocalISO(now), id);
+  `).run(dateStr, resolvedTime, nextFire, workflowStatus, toLocalISO(now), id);
   db.prepare(`
     INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
     VALUES (?, ?, 'postponed', datetime('now'))
   `).run(randomUUID(), id);
 
   return { success: true, nextFire };
+}
+
+function deleteReminder(db, id, now = new Date()) {
+  const reminder = getReminder(db, id);
+  if (!reminder) return { success: false, error: 'Reminder not found' };
+  db.prepare(`
+    UPDATE reminders SET status = 'deleted', updated_at = ? WHERE id = ?
+  `).run(toLocalISO(now), id);
+  db.prepare(`
+    INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
+    VALUES (?, ?, 'deleted', datetime('now'))
+  `).run(randomUUID(), id);
+  return { success: true };
+}
+
+function bulkDeleteReminders(db, ids, now = new Date()) {
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return { success: false, error: 'No items selected' };
+  }
+  let deleted = 0;
+  for (const id of ids) {
+    const result = deleteReminder(db, id, now);
+    if (result.success) deleted += 1;
+  }
+  return { success: true, deleted };
 }
 
 function parseNotificationAction(response) {
@@ -163,6 +188,8 @@ module.exports = {
   completeOccurrence,
   snoozeReminder,
   postponeReminder,
+  deleteReminder,
+  bulkDeleteReminders,
   updateWorkflowStatus,
   parseNotificationAction,
   getSetting,

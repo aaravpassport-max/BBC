@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld('ilrs', {
   snoozeReminder: (id, minutes) => ipcRenderer.invoke('snooze-reminder', { id, minutes }),
   postponeReminder: (id, dateStr, timeStr) =>
     ipcRenderer.invoke('postpone-reminder', { id, dateStr, timeStr }),
+  deleteReminder: (id) => ipcRenderer.invoke('delete-reminder', { id }),
+  bulkDeleteReminders: (ids) => ipcRenderer.invoke('bulk-delete-reminders', { ids }),
   updateWorkflowStatus: (id, workflowStatus) =>
     ipcRenderer.invoke('update-workflow-status', { id, workflowStatus }),
   completeModuleAction: (type, id, doseTime) =>
@@ -38,6 +40,8 @@ contextBridge.exposeInMainWorld('ilrs', {
   logInquiryActivity: (id, type, title, body) => ipcRenderer.invoke('log-inquiry-activity', { id, type, title, body }),
   findInquiryDuplicates: (data) => ipcRenderer.invoke('find-inquiry-duplicates', data),
   reopenInquiry: (id, stageKey) => ipcRenderer.invoke('reopen-inquiry', { id, stageKey }),
+  deleteInquiry: (id) => ipcRenderer.invoke('delete-inquiry', { id }),
+  bulkDeleteInquiries: (ids) => ipcRenderer.invoke('bulk-delete-inquiries', { ids }),
   getPipelineStages: () => ipcRenderer.invoke('get-pipeline-stages'),
   savePipelineStage: (stage) => ipcRenderer.invoke('save-pipeline-stage', { stage }),
   getInquiryTemplates: () => ipcRenderer.invoke('get-inquiry-templates'),

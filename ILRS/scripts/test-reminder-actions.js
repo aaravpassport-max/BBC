@@ -7,6 +7,9 @@ const Database = require('better-sqlite3');
 const {
   completeOccurrence,
   snoozeReminder,
+  postponeReminder,
+  deleteReminder,
+  bulkDeleteReminders,
   parseNotificationAction,
 } = require('../reminder-actions');
 const { parseLocalDateTime } = require('../alarm');
@@ -86,15 +89,53 @@ test('completeOccurrence advances daily reminder without completing series', () 
   fs.unlinkSync(dbPath);
 });
 
-test('snoozeReminder respects snooze limit', () => {
+test('snoozeReminder allows unlimited snoozes', () => {
   const { db, dbPath } = makeDb();
   db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)').run('snooze_limit', '2');
-  db.prepare(`INSERT INTO reminders (id, title, snooze_count, status, next_fire) VALUES (?, ?, 2, 'active', '2026-09-13T09:00:00')`)
-    .run('r3', 'Limited');
+  db.prepare(`INSERT INTO reminders (id, title, snooze_count, status, next_fire) VALUES (?, ?, 5, 'active', '2026-09-13T09:00:00')`)
+    .run('r3', 'Unlimited');
 
-  const result = snoozeReminder(db, 'r3', 10);
-  assert.strictEqual(result.success, false);
-  assert.strictEqual(result.error, 'snooze_limit');
+  const result = snoozeReminder(db, 'r3', 10, new Date(2026, 8, 13, 9, 0, 0));
+  assert.strictEqual(result.success, true);
+  const row = db.prepare('SELECT snooze_count FROM reminders WHERE id = ?').get('r3');
+  assert.strictEqual(row.snooze_count, 6);
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
+test('postponeReminder reactivates completed task', () => {
+  const { db, dbPath } = makeDb();
+  db.prepare(`INSERT INTO reminders (id, title, task_type, status, workflow_status, reminder_time, start_date, next_fire)
+    VALUES (?, ?, 'task', 'completed', 'done', '09:00', '2026-09-10', '2026-09-10T09:00:00')`)
+    .run('r4', 'Done task');
+
+  const result = postponeReminder(db, 'r4', '2026-09-20', '14:00', new Date(2026, 8, 13, 10, 0, 0));
+  assert.strictEqual(result.success, true);
+  const row = db.prepare('SELECT status, workflow_status, next_fire FROM reminders WHERE id = ?').get('r4');
+  assert.strictEqual(row.status, 'active');
+  assert.strictEqual(row.workflow_status, 'pending');
+  assert.ok(row.next_fire);
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
+test('deleteReminder soft-deletes item', () => {
+  const { db, dbPath } = makeDb();
+  db.prepare(`INSERT INTO reminders (id, title, status) VALUES (?, ?, 'active')`).run('r5', 'Remove me');
+  const result = deleteReminder(db, 'r5');
+  assert.strictEqual(result.success, true);
+  const row = db.prepare('SELECT status FROM reminders WHERE id = ?').get('r5');
+  assert.strictEqual(row.status, 'deleted');
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
+test('bulkDeleteReminders deletes multiple items', () => {
+  const { db, dbPath } = makeDb();
+  db.prepare(`INSERT INTO reminders (id, title, status) VALUES ('a', 'A', 'active'), ('b', 'B', 'active')`).run();
+  const result = bulkDeleteReminders(db, ['a', 'b']);
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(result.deleted, 2);
   db.close();
   fs.unlinkSync(dbPath);
 });

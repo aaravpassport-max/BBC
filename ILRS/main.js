@@ -6,6 +6,8 @@ const {
   completeOccurrence,
   snoozeReminder: snoozeReminderAction,
   postponeReminder,
+  deleteReminder: deleteReminderAction,
+  bulkDeleteReminders,
   updateWorkflowStatus,
   parseNotificationAction,
 } = require('./reminder-actions');
@@ -21,6 +23,8 @@ const {
   logInquiryActivity,
   findPossibleDuplicates,
   reopenInquiry,
+  deleteInquiry,
+  bulkDeleteInquiries,
   seedInquiryStages,
 } = require('./inquiry-actions');
 const { loadStagesFromDb, saveStageToDb } = require('./inquiry-stage-store');
@@ -567,6 +571,48 @@ function setupIPC() {
     try {
       if (!id || !dateStr) return { success: false, error: 'Missing id or date' };
       const result = postponeReminder(db, id, dateStr, timeStr);
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('delete-reminder', async (_event, { id }) => {
+    try {
+      if (!id) return { success: false, error: 'Missing id' };
+      const result = deleteReminderAction(db, id);
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('bulk-delete-reminders', async (_event, { ids }) => {
+    try {
+      const result = bulkDeleteReminders(db, ids);
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('delete-inquiry', async (_event, { id }) => {
+    try {
+      if (!id) return { success: false, error: 'Missing id' };
+      const result = deleteInquiry(db, id);
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('bulk-delete-inquiries', async (_event, { ids }) => {
+    try {
+      const result = bulkDeleteInquiries(db, ids);
       if (result.success) notifyRendererDataChanged();
       return result;
     } catch (err) {

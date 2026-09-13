@@ -306,9 +306,15 @@ async function showDesktopNotification(db, item, {
   const opts = { onClick, onAction, silent, type, icon, clickKey, actions };
 
   // Electron native notifications — reliable click-to-focus when app is in tray
-  if (showWithElectronNotification(content, opts)) {
-    return true;
+  const electronOk = showWithElectronNotification(content, opts);
+
+  // Linux Electron toasts often fail silently — always try node-notifier too
+  if (process.platform === 'linux') {
+    const notifierOk = await showWithNodeNotifier(content, opts);
+    return electronOk || notifierOk;
   }
+
+  if (electronOk) return true;
 
   const notifierOk = await showWithNodeNotifier(content, opts);
   return notifierOk;

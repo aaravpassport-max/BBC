@@ -335,6 +335,29 @@ function updateInquiry(db, inquiryId, data, now = new Date()) {
   return { success: true, inquiry: updated };
 }
 
+function deleteInquiry(db, inquiryId) {
+  const inquiry = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
+  if (!inquiry) return { success: false, error: 'Inquiry not found' };
+  if (inquiry.outcome_status === 'deleted') return { success: false, error: 'Already deleted' };
+  db.prepare(`
+    UPDATE inquiries SET outcome_status = 'deleted', updated_at = datetime('now') WHERE id = ?
+  `).run(inquiryId);
+  logActivity(db, inquiryId, 'note', 'Inquiry deleted', '', {});
+  return { success: true };
+}
+
+function bulkDeleteInquiries(db, ids) {
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return { success: false, error: 'No items selected' };
+  }
+  let deleted = 0;
+  for (const id of ids) {
+    const result = deleteInquiry(db, id);
+    if (result.success) deleted += 1;
+  }
+  return { success: true, deleted };
+}
+
 function reopenInquiry(db, inquiryId, stageKey = 'follow_up') {
   const inquiry = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
   if (!inquiry) return { success: false, error: 'Inquiry not found' };
@@ -367,6 +390,8 @@ module.exports = {
   computeInquiryHealth,
   createFollowUpReminder,
   reopenInquiry,
+  deleteInquiry,
+  bulkDeleteInquiries,
   seedInquiryStages,
   logActivity,
 };

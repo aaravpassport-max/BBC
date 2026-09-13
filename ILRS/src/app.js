@@ -24,6 +24,10 @@ const App = {
   isProcessingAlert: false,
   currentAlert: null,
   searchIndex: 0,
+  selectedReminderIds: new Set(),
+  selectedInquiryIds: new Set(),
+  pipelineStageFilter: 'all',
+  inquiryStageFilter: 'all',
 };
 
 // ── Utilities ─────────────────────────────────────────────────────
@@ -194,7 +198,7 @@ async function loadAllData() {
     db("SELECT * FROM bills WHERE status = 'active' ORDER BY due_day"),
     db("SELECT * FROM habits WHERE status = 'active' ORDER BY name"),
     db('SELECT * FROM family_members ORDER BY name'),
-    db("SELECT * FROM inquiries ORDER BY updated_at DESC"),
+    db("SELECT * FROM inquiries WHERE outcome_status != 'deleted' ORDER BY updated_at DESC"),
     db('SELECT * FROM clients ORDER BY name'),
     api.getInquiryTemplates?.().then((r) => r?.templates || []).catch(() => []),
   ]);
@@ -808,6 +812,7 @@ async function renderSmartList(mode) {
       <button class="smart-tab ${mode === 'overdue' ? 'active' : ''}" onclick="navigate('overdue')">Overdue</button>
       <button class="smart-tab ${mode === 'postponed' ? 'active' : ''}" onclick="navigate('postponed')">Postponed · ${postponedCount}</button>
     </div>
+    ${renderBulkSelectionBar('reminder')}
     ${lifeCards.length > 0 ? `
     <div class="section-header" style="margin-top:8px">
       <div class="section-title">🌿 Life ${mode === 'overdue' ? 'Overdue' : 'Tomorrow'}</div>
@@ -845,7 +850,8 @@ function reminderCard(r) {
   const C = cap();
   const isTask = r.task_type === 'task';
   const wf = r.workflow_status || 'pending';
-  const isOverdue = !isTask && isOverdueReminder(r);
+  const isDone = r.status === 'completed' || wf === 'done';
+  const isOverdue = !isTask && !isDone && isOverdueReminder(r);
   const tags = JSON.parse(r.tags || '[]');
   const kind = isTask ? '✅ Task' : '🔔 Reminder';
   const timeLabel = r.reminder_time ? formatTime(r.reminder_time) : '';
@@ -863,19 +869,24 @@ function reminderCard(r) {
     rel,
     assignee ? `👤 ${assignee}` : null,
   ].filter(Boolean).join(' · ');
-  const taskActions = isTask ? `
+  const selected = App.selectedReminderIds.has(r.id);
+  const taskActions = isDone ? `
+        <button class="action-btn" onclick="showPostponeMenu('${r.id}')" title="Reschedule">📅</button>
+      ` : isTask ? `
         ${wf === 'pending' || wf === 'postponed' ? `<button class="action-btn" onclick="startTask('${r.id}')" title="Start">▶</button>` : ''}
         ${wf === 'in_progress' ? `<button class="action-btn done" onclick="completeReminder('${r.id}')">✓</button>` : ''}
-        ${wf !== 'done' && r.status !== 'completed' ? `<button class="action-btn" onclick="postponeTask('${r.id}')" title="Postpone">📅</button>` : ''}
+        <button class="action-btn" onclick="showPostponeMenu('${r.id}')" title="Postpone">📅</button>
       ` : `
         <button class="action-btn done" onclick="completeReminder('${r.id}')">✓</button>
         <button class="action-btn snooze" onclick="showSnoozeMenu('${r.id}')">💤</button>
-        <button class="action-btn" onclick="postponeTomorrow('${r.id}')" title="Tomorrow">→</button>
+        <button class="action-btn" onclick="showPostponeMenu('${r.id}')" title="Postpone">📅</button>
       `;
   return `
-    <div class="reminder-card ${r.priority} ${isOverdue ? 'overdue' : ''} ${isTask ? `task-${wf}` : ''}" id="rcard-${r.id}">
-      <div class="reminder-check ${r.status === 'completed' || wf === 'done' ? 'done' : ''}" onclick="completeReminder('${r.id}')">
-        ${r.status === 'completed' || wf === 'done' ? '✓' : ''}
+    <div class="reminder-card ${r.priority} ${isOverdue ? 'overdue' : ''} ${isTask ? `task-${wf}` : ''} ${isDone ? 'completed-item' : ''}" id="rcard-${r.id}">
+      <input type="checkbox" class="item-select-checkbox" ${selected ? 'checked' : ''}
+        onclick="event.stopPropagation();toggleReminderSelection('${r.id}', this.checked)" title="Select" />
+      <div class="reminder-check ${isDone ? 'done' : ''}" onclick="completeReminder('${r.id}')">
+        ${isDone ? '✓' : ''}
       </div>
       <div class="reminder-body">
         <div class="reminder-title">${r.title}</div>
@@ -890,8 +901,86 @@ function reminderCard(r) {
       <div class="reminder-actions">
         ${taskActions}
         <button class="action-btn" onclick="editReminder('${r.id}')">✏️</button>
+        <button class="action-btn delete" onclick="deleteReminder('${r.id}')" title="Delete">🗑</button>
       </div>
     </div>`;
+}
+
+function renderBulkSelectionBar(type) {
+  const isReminder = type === 'reminder';
+  const count = isReminder ? App.selectedReminderIds.size : App.selectedInquiryIds.size;
+  if (!count) return '';
+  const onDelete = isReminder ? 'bulkDeleteSelectedReminders()' : 'bulkDeleteSelectedInquiries()';
+  const onClear = isReminder ? 'clearReminderSelection()' : 'clearInquirySelection()';
+  return `
+    <div class="bulk-selection-bar">
+      <span>${count} selected</span>
+      <button class="btn btn-danger btn-sm" onclick="${onDelete}">🗑 Bulk Delete</button>
+      <button class="btn btn-ghost btn-sm" onclick="${onClear}">Clear</button>
+    </div>`;
+}
+
+function toggleReminderSelection(id, checked) {
+  if (checked) App.selectedReminderIds.add(id);
+  else App.selectedReminderIds.delete(id);
+  if (PAGES[App.currentPage]) navigate(App.currentPage);
+}
+
+function toggleInquirySelection(id, checked) {
+  if (checked) App.selectedInquiryIds.add(id);
+  else App.selectedInquiryIds.delete(id);
+  if (PAGES[App.currentPage]) navigate(App.currentPage);
+}
+
+function clearReminderSelection() {
+  App.selectedReminderIds.clear();
+  if (PAGES[App.currentPage]) navigate(App.currentPage);
+}
+
+function clearInquirySelection() {
+  App.selectedInquiryIds.clear();
+  if (PAGES[App.currentPage]) navigate(App.currentPage);
+}
+
+async function bulkDeleteSelectedReminders() {
+  const ids = [...App.selectedReminderIds];
+  if (!ids.length) return;
+  if (!confirm(`Delete ${ids.length} reminder(s)?`)) return;
+  const result = api.bulkDeleteReminders
+    ? await api.bulkDeleteReminders(ids)
+    : null;
+  if (result && !result.success) {
+    toast(result.error || 'Could not delete', 'warning');
+    return;
+  }
+  if (!result) {
+    for (const id of ids) {
+      await db("UPDATE reminders SET status='deleted' WHERE id=?", [id]);
+    }
+  }
+  App.selectedReminderIds.clear();
+  toast(`Deleted ${result?.deleted || ids.length} item(s)`, 'warning');
+  await loadAllData();
+  updateBadges();
+  refreshCurrentView();
+}
+
+async function bulkDeleteSelectedInquiries() {
+  const ids = [...App.selectedInquiryIds];
+  if (!ids.length) return;
+  if (!confirm(`Delete ${ids.length} inquiry(s)?`)) return;
+  const result = api.bulkDeleteInquiries
+    ? await api.bulkDeleteInquiries(ids)
+    : null;
+  if (result && !result.success) {
+    toast(result.error || 'Could not delete', 'warning');
+    return;
+  }
+  App.selectedInquiryIds.clear();
+  toast(`Deleted ${result?.deleted || ids.length} inquiry(s)`, 'warning');
+  await loadAllData();
+  updateBadges();
+  refreshCurrentView();
 }
 
 function habitMiniCard(h) {
@@ -923,6 +1012,7 @@ async function renderCompleted(el) {
         <div class="page-subtitle">${items.length} finished item${items.length !== 1 ? 's' : ''}</div>
       </div>
     </div>
+    ${renderBulkSelectionBar('reminder')}
     <div class="reminder-list">
       ${items.length === 0
         ? `<div class="empty-state"><div class="empty-icon">🎉</div><h3>Nothing completed yet</h3><p>Finished reminders and tasks appear here.</p></div>`
@@ -948,6 +1038,7 @@ async function renderTasks(el) {
       </div>
       <button class="btn btn-primary" onclick="showCaptureSheet({ task_type: 'task' })">＋ New Task</button>
     </div>
+    ${renderBulkSelectionBar('reminder')}
     ${active.length ? `<div class="section-label">In progress</div><div class="reminder-list">${active.map(r => reminderCard(r)).join('')}</div>` : ''}
     ${pending.length ? `<div class="section-label">Pending</div><div class="reminder-list">${pending.map(r => reminderCard(r)).join('')}</div>` : ''}
     ${postponed.length ? `<div class="section-label">Postponed</div><div class="reminder-list">${postponed.map(r => reminderCard(r)).join('')}</div>` : ''}
@@ -978,6 +1069,7 @@ async function renderReminders(el) {
       <div><div class="page-title">🔔 All Reminders</div><div class="page-subtitle" id="reminder-count"></div></div>
       <button class="btn btn-primary" onclick="showCaptureSheet()">＋ New</button>
     </div>
+    <div id="reminders-bulk-bar">${renderBulkSelectionBar('reminder')}</div>
 
     <!-- Filters -->
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
@@ -1122,22 +1214,11 @@ async function completeReminder(id) {
 
 async function snoozeReminder(id, minutes) {
   const r = App.reminders.find(x => x.id === id);
-  const limit = parseInt(App.settings.snooze_limit) || 3;
-  const count = parseInt(r?.snooze_count) || 0;
-  if (count >= limit) {
-    toast(`Snooze limit reached (${limit}). Mark done or postpone.`, 'warning');
-    return;
-  }
-
   const duration = minutes || parseInt(r?.snooze_duration) || parseInt(App.settings.snooze_duration) || 10;
   const result = api.snoozeReminder
     ? await api.snoozeReminder(id, duration)
     : null;
 
-  if (result?.error === 'snooze_limit') {
-    toast(`Snooze limit reached (${result.limit || limit}). Mark done or postpone.`, 'warning');
-    return;
-  }
   if (result && !result.success) {
     toast(result.error || 'Could not snooze', 'warning');
     return;
@@ -1171,12 +1252,87 @@ function showSnoozeMenu(id) {
       <div class="chip-row" style="margin-top:8px">
         <button class="chip" onclick="document.getElementById('snooze-menu').remove();postponeTonight('${id}')">This evening</button>
         <button class="chip" onclick="document.getElementById('snooze-menu').remove();postponeTomorrow('${id}')">Tomorrow</button>
-        <button class="chip" onclick="document.getElementById('snooze-menu').remove();postponeNextWeek('${id}')">Next week</button>
+        <button class="chip" onclick="document.getElementById('snooze-menu').remove();showPostponeMenu('${id}')">Pick date…</button>
       </div>
     </div>`;
   attachModalDismiss(menu);
   menu.querySelector('.capture-sheet')?.addEventListener('click', e => e.stopPropagation());
   document.body.appendChild(menu);
+}
+
+function showPostponeMenu(id) {
+  const r = App.reminders.find(x => x.id === id);
+  if (!r) return;
+  document.getElementById('snooze-menu')?.remove();
+  document.getElementById('postpone-menu')?.remove();
+  const C = cap();
+  const defaultTime = r.reminder_time || '09:00';
+  const menu = document.createElement('div');
+  menu.id = 'postpone-menu';
+  menu.className = 'modal-overlay';
+  menu.style.zIndex = '1050';
+  menu.innerHTML = `
+    <div class="capture-sheet" style="width:min(400px,94vw)">
+      <div class="capture-header">
+        <h2>Postpone / Reschedule</h2>
+        <button class="modal-close" onclick="document.getElementById('postpone-menu').remove()">✕</button>
+      </div>
+      <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px">${r.title}</p>
+      <label class="form-label">When</label>
+      <div class="chip-row" id="postpone-when-chips">
+        <button type="button" class="chip" data-when="today">Today</button>
+        <button type="button" class="chip selected" data-when="tomorrow">Tomorrow</button>
+        <button type="button" class="chip" data-when="evening">This evening</button>
+        <button type="button" class="chip" data-when="next-week">Next week</button>
+        <button type="button" class="chip" data-when="custom">Pick date…</button>
+      </div>
+      <div id="postpone-custom-fields" style="display:none;margin-top:12px">
+        <label class="form-label">Date</label>
+        <input type="date" class="form-input" id="postpone-date" />
+        <label class="form-label" style="margin-top:8px">Time</label>
+        <input type="time" class="form-input" id="postpone-time" value="${defaultTime}" />
+      </div>
+      <div class="capture-actions" style="margin-top:16px">
+        <button class="btn btn-ghost" onclick="document.getElementById('postpone-menu').remove()">Cancel</button>
+        <button class="btn btn-primary" id="postpone-confirm">Confirm</button>
+      </div>
+    </div>`;
+  attachModalDismiss(menu);
+  menu.querySelector('.capture-sheet')?.addEventListener('click', e => e.stopPropagation());
+  document.body.appendChild(menu);
+
+  let selectedWhen = 'tomorrow';
+  const chips = menu.querySelectorAll('#postpone-when-chips .chip');
+  const customFields = menu.querySelector('#postpone-custom-fields');
+  chips.forEach((chip) => {
+    chip.addEventListener('click', () => {
+      selectedWhen = chip.dataset.when;
+      chips.forEach((c) => c.classList.toggle('selected', c === chip));
+      customFields.style.display = selectedWhen === 'custom' ? 'block' : 'none';
+    });
+  });
+
+  menu.querySelector('#postpone-confirm')?.addEventListener('click', async () => {
+    let dateStr;
+    let timeStr = defaultTime;
+    const now = new Date();
+    if (selectedWhen === 'custom') {
+      dateStr = menu.querySelector('#postpone-date')?.value;
+      timeStr = menu.querySelector('#postpone-time')?.value || defaultTime;
+      if (!dateStr) { toast('Pick a date', 'warning'); return; }
+    } else if (selectedWhen === 'today') {
+      dateStr = todayStr();
+    } else if (selectedWhen === 'tomorrow') {
+      dateStr = C ? C.dateStr(C.addDays(now, 1)) : todayStr();
+    } else if (selectedWhen === 'evening') {
+      dateStr = todayStr();
+      timeStr = '18:00';
+    } else if (selectedWhen === 'next-week') {
+      dateStr = C ? C.dateStr(C.addDays(now, 7)) : todayStr();
+    }
+    menu.remove();
+    await postponeTo(id, dateStr, timeStr);
+  });
 }
 
 async function postponeTo(id, dateStr, timeStr) {
@@ -1237,15 +1393,24 @@ async function startTask(id) {
 }
 
 async function postponeTask(id) {
-  await postponeTomorrow(id);
-  toast('📅 Task postponed');
+  showPostponeMenu(id);
 }
 
 async function deleteReminder(id) {
-  if (!confirm('Delete this reminder?')) return;
-  await db("UPDATE reminders SET status='deleted' WHERE id=?", [id]);
-  toast('Reminder deleted', 'warning');
-  navigate('reminders');
+  if (!confirm('Delete this reminder/task?')) return;
+  const result = api.deleteReminder ? await api.deleteReminder(id) : null;
+  if (result && !result.success) {
+    toast(result.error || 'Could not delete', 'warning');
+    return;
+  }
+  if (!result) {
+    await db("UPDATE reminders SET status='deleted' WHERE id=?", [id]);
+  }
+  App.selectedReminderIds.delete(id);
+  toast('Deleted', 'warning');
+  await loadAllData();
+  updateBadges();
+  refreshCurrentView();
 }
 
 function editReminder(id) {
@@ -2259,13 +2424,6 @@ async function renderSettings(el) {
           </div>
           <div class="setting-row">
             <div class="setting-info">
-              <div class="setting-label">Snooze Limit</div>
-              <div class="setting-desc">Max times a reminder can be snoozed</div>
-            </div>
-            <input type="number" class="form-input" style="width:80px" id="s-slimit" value="${s.snooze_limit || 3}" min="1" max="10"/>
-          </div>
-          <div class="setting-row">
-            <div class="setting-info">
               <div class="setting-label">Test Desktop Notification</div>
               <div class="setting-desc">Verify system notifications are working</div>
             </div>
@@ -2395,7 +2553,6 @@ async function saveSettings() {
     notification_style: document.getElementById('s-notif')?.value || 'sound-popup',
     reminder_tone: document.getElementById('s-tone')?.value || 'loud-chime',
     snooze_duration: document.getElementById('s-snooze')?.value || '10',
-    snooze_limit: document.getElementById('s-slimit')?.value || '3',
     quiet_hours_enabled: document.getElementById('t-quiet')?.classList.contains('on') ? '1' : '0',
     quiet_hours_start: document.getElementById('s-qstart')?.value || '23:00',
     quiet_hours_end: document.getElementById('s-qend')?.value || '06:00',
@@ -2824,12 +2981,91 @@ function processAlertQueue() {
     return;
   }
 
-  showInAppAlert(reminder);
+  if (reminder.priority === 'critical') {
+    showInAppAlert(reminder);
+  } else {
+    showDueNotificationPopup(reminder);
+  }
   const tone = reminder.alert_tone || App.settings.reminder_tone || 'loud-chime';
   const repeats = reminder.priority === 'critical' ? 4 : 3;
   if (reminder.alert_style !== 'silent' && reminder.alert_style !== 'popup-only') {
     window.ILRSSounds?.playAlertSound(tone, { repeat: repeats });
   }
+}
+
+function showDueNotificationPopup(reminder) {
+  if (!reminder) return;
+  let stack = document.getElementById('due-notification-stack');
+  if (!stack) {
+    stack = document.createElement('div');
+    stack.id = 'due-notification-stack';
+    document.body.appendChild(stack);
+  }
+
+  const popupId = `due-notif-${reminder.id}-${Date.now()}`;
+  const isPrivate = Number(reminder.is_private) === 1;
+  const type = reminder._type || reminder.task_type || 'reminder';
+  const title = isPrivate ? 'Private Reminder' : (reminder.title || reminder.name || 'Reminder');
+  const body = isPrivate
+    ? 'You have a scheduled reminder.'
+    : (reminder.why_it_matters || 'Time to take action!');
+  const isModule = type === 'medicine' || type === 'bill' || type === 'habit';
+  const doneLabel = type === 'medicine' ? 'Taken' : type === 'bill' ? 'Paid' : 'Done';
+
+  const el = document.createElement('div');
+  el.className = `due-notification ${reminder.priority || 'normal'}`;
+  el.id = popupId;
+  el.innerHTML = `
+    <button class="due-notification-close" onclick="dismissDueNotification('${popupId}')">✕</button>
+    <div class="due-notification-icon">${reminder.priority === 'critical' ? '🚨' : '🔔'}</div>
+    <div class="due-notification-body">
+      <div class="due-notification-title">${title}</div>
+      <div class="due-notification-text">${body}</div>
+    </div>
+    <div class="due-notification-actions">
+      <button class="btn btn-primary btn-sm" onclick="completeDueNotification('${popupId}', '${reminder.id}', '${type}')">${doneLabel}</button>
+      ${!isModule ? `<button class="btn btn-ghost btn-sm" onclick="snoozeDueNotification('${popupId}', '${reminder.id}')">Snooze</button>` : ''}
+      ${!isModule ? `<button class="btn btn-ghost btn-sm" onclick="postponeDueNotification('${popupId}', '${reminder.id}')">Postpone</button>` : ''}
+    </div>`;
+  stack.appendChild(el);
+  App.currentAlert = reminder;
+
+  setTimeout(() => {
+    const node = document.getElementById(popupId);
+    if (node) node.classList.add('due-notification-visible');
+  }, 10);
+}
+
+function dismissDueNotification(popupId) {
+  document.getElementById(popupId)?.remove();
+  App.isProcessingAlert = false;
+  processAlertQueue();
+}
+
+async function completeDueNotification(popupId, id, type) {
+  document.getElementById(popupId)?.remove();
+  App.currentAlert = App.reminders.find((r) => r.id === id) || App.currentAlert;
+  if (type === 'medicine' || type === 'bill' || type === 'habit') {
+    await completeFromAlert();
+  } else {
+    await completeReminder(id);
+  }
+  App.isProcessingAlert = false;
+  processAlertQueue();
+}
+
+async function snoozeDueNotification(popupId, id) {
+  document.getElementById(popupId)?.remove();
+  await snoozeReminder(id);
+  App.isProcessingAlert = false;
+  processAlertQueue();
+}
+
+function postponeDueNotification(popupId, id) {
+  document.getElementById(popupId)?.remove();
+  App.isProcessingAlert = false;
+  showPostponeMenu(id);
+  processAlertQueue();
 }
 
 function showInAppAlert(reminder) {
