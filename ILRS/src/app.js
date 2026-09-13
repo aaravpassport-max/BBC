@@ -187,7 +187,7 @@ const PAGES = {
 };
 
 function dismissPageModals() {
-  ['med-modal', 'bill-modal', 'fam-modal', 'famr-modal', 'hab-modal', 'cl-modal', 'onboard-modal', 'capture-sheet', 'search-palette'].forEach((id) => {
+  ['med-modal', 'bill-modal', 'fam-modal', 'famr-modal', 'hab-modal', 'cl-modal', 'onboard-modal', 'capture-sheet', 'search-palette', 'shortcuts-help'].forEach((id) => {
     document.getElementById(id)?.remove();
   });
   document.querySelectorAll('.modal-overlay').forEach((el) => {
@@ -328,44 +328,102 @@ function navItem(page, icon, label, badge = '') {
   </button>`;
 }
 
+// ── Life attention helpers ─────────────────────────────────────────
+function getPendingMedDoses(medLogs, nowT = nowTimeStr()) {
+  const items = [];
+  for (const med of App.medicines) {
+    const times = JSON.parse(med.dose_times || '[]');
+    for (const time of times) {
+      const log = medLogs.find(l => l.medicine_id === med.id && l.dose_time === time);
+      if (log?.status === 'taken') continue;
+      items.push({ med, time, overdue: time < nowT, missed: time < nowT });
+    }
+  }
+  return items.sort((a, b) => a.time.localeCompare(b.time));
+}
+
+function getBillsNeedingAttention(todayDay = new Date().getDate()) {
+  return App.bills.filter(b => {
+    const diff = parseInt(b.due_day) - todayDay;
+    const warn = parseInt(b.warning_days || 3);
+    return diff <= warn;
+  }).map(b => {
+    const diff = parseInt(b.due_day) - todayDay;
+    return { bill: b, diff, overdue: diff < 0, dueToday: diff === 0 };
+  }).sort((a, b) => a.diff - b.diff);
+}
+
+function getHabitsDueToday(habitLogs) {
+  const day = new Date().getDay();
+  return App.habits.filter(h => {
+    const freq = h.frequency || 'daily';
+    if (freq === 'weekdays' && (day === 0 || day === 6)) return false;
+    if (freq === 'weekends' && day !== 0 && day !== 6) return false;
+    const done = habitLogs.some(l => l.habit_id === h.id && Number(l.completed) === 1);
+    return !done;
+  });
+}
+
+function lifeAttentionCard(type, id, { title, subtitle, overdue, primaryAction, primaryLabel, icon }) {
+  return `
+    <div class="reminder-card ${overdue ? 'overdue important' : 'normal'}" id="life-${type}-${id}">
+      <div class="reminder-check" onclick="${primaryAction}">${icon}</div>
+      <div class="reminder-body">
+        <div class="reminder-title">${title}</div>
+        <div class="reminder-context ${overdue ? 'overdue' : ''}">${subtitle}</div>
+      </div>
+      <div class="reminder-actions">
+        <button class="action-btn done" onclick="${primaryAction}">${primaryLabel}</button>
+      </div>
+    </div>`;
+}
+
 // ── Today (Home) ───────────────────────────────────────────────────
 async function renderToday(el) {
   const C = cap();
   const now = new Date();
   const today = todayStr();
   const nowT = nowTimeStr();
+  const todayDay = now.getDate();
   const name = App.settings.user_name || 'Friend';
   const hour = now.getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+
+  const [medLogs, habitLogs, weekMedTaken, weekHabitLogs] = await Promise.all([
+    db('SELECT * FROM medicine_logs WHERE log_date=?', [today]),
+    db('SELECT * FROM habit_logs WHERE log_date=?', [today]),
+    db("SELECT COUNT(*) as c FROM medicine_logs WHERE status='taken' AND log_date >= date('now', '-7 days')"),
+    db("SELECT COUNT(*) as c FROM habit_logs WHERE completed=1 AND log_date >= date('now', '-7 days')"),
+  ]);
 
   const schedulable = (r) => r.task_type !== 'task' || (r.reminder_time && r.next_fire);
   const dueToday = App.reminders.filter(r => schedulable(r) && (C?.isDueToday(r, now) || (r.status === 'active' && !r.next_fire && r.start_date === today)));
   const overdue = App.reminders.filter(r => schedulable(r) && (C?.isOverdueItem(r, now) || isReminderOverdue(r.next_fire)));
   const dueTomorrow = App.reminders.filter(r => schedulable(r) && C?.isDueTomorrow(r, now));
-  const attention = overdue.length + dueToday.length;
-  const critical = App.reminders.filter(r => r.priority === 'critical' && r.status === 'active');
-  const completedToday = await db("SELECT COUNT(*) as c FROM reminder_logs WHERE action='completed' AND date(timestamp)=?", [today]);
-  const cCount = completedToday?.[0]?.c || 0;
 
-  // Today's medicine doses
-  const medDoses = [];
+  const pendingMeds = getPendingMedDoses(medLogs || [], nowT);
+  const billsAttention = getBillsNeedingAttention(todayDay);
+  const habitsDue = getHabitsDueToday(habitLogs || []);
+  const lifeCount = pendingMeds.length + billsAttention.length + habitsDue.length;
+  const attention = overdue.length + dueToday.length + lifeCount;
+
+  const medDosesAll = [];
   for (const med of App.medicines) {
     const times = JSON.parse(med.dose_times || '[]');
-    times.forEach(t => medDoses.push({ med, time: t, past: t <= nowT }));
+    times.forEach(t => {
+      const log = (medLogs || []).find(l => l.medicine_id === med.id && l.dose_time === t);
+      medDosesAll.push({ med, time: t, taken: log?.status === 'taken', past: t <= nowT });
+    });
   }
-  medDoses.sort((a, b) => a.time.localeCompare(b.time));
+  medDosesAll.sort((a, b) => a.time.localeCompare(b.time));
 
-  // Bills due soon
-  const billsDue = App.bills.filter(b => {
-    const day = parseInt(b.due_day);
-    const todayDay = new Date().getDate();
-    const diff = day - todayDay;
-    return (diff >= 0 && diff <= parseInt(b.warning_days || 3)) || diff < 0;
-  });
+  const billsDue = getBillsNeedingAttention(todayDay);
+  const medTakenWeek = weekMedTaken?.[0]?.c || 0;
+  const habitLogsWeek = weekHabitLogs?.[0]?.c || 0;
 
   el.innerHTML = `
     <div class="greeting-line">${greeting}, ${name}</div>
-    <div class="greeting-sub">${attention === 0 ? 'You\'re all caught up!' : `${attention} thing${attention !== 1 ? 's' : ''} need your attention`}</div>
+    <div class="greeting-sub">${attention === 0 ? 'You\'re all caught up!' : `${attention} thing${attention !== 1 ? 's' : ''} need your attention`}${lifeCount > 0 ? ` · ${lifeCount} from Life` : ''}</div>
 
     <div class="smart-tabs">
       <button class="smart-tab active" onclick="navigate('today')">Today · ${dueToday.length}</button>
@@ -402,13 +460,36 @@ async function renderToday(el) {
         </div>
         ${dueToday.length > 8 ? `<div style="text-align:center;margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="navigate('reminders')">View all ${dueToday.length}</button></div>` : ''}
 
-        <!-- Habits today -->
-        ${App.habits.length > 0 ? `
+        ${lifeCount > 0 ? `
         <div class="section-header" style="margin-top:24px">
-          <div class="section-title">🔁 Today's Habits</div>
+          <div class="section-title">🌿 Life Today</div>
+          <button class="btn btn-ghost btn-sm" onclick="navigate('medicine')">Life modules</button>
         </div>
-        <div style="display:flex;flex-direction:column;gap:8px">
-          ${App.habits.slice(0, 4).map(h => habitMiniCard(h)).join('')}
+        <div class="reminder-list" style="margin-bottom:12px">
+          ${pendingMeds.map(d => lifeAttentionCard('med', `${d.med.id}-${d.time}`, {
+            icon: '💊',
+            title: `Take ${d.med.name}`,
+            subtitle: `Medicine · ${formatTime(d.time)}${d.overdue ? ' · overdue' : ''}`,
+            overdue: d.overdue,
+            primaryLabel: '✓',
+            primaryAction: `markDoseTaken('${d.med.id}','${d.time}')`,
+          })).join('')}
+          ${billsAttention.slice(0, 4).map(({ bill, diff, overdue }) => lifeAttentionCard('bill', bill.id, {
+            icon: '💸',
+            title: `Pay ${bill.name}`,
+            subtitle: `Bill · ${overdue ? `Overdue ${Math.abs(diff)}d` : diff === 0 ? 'Due today' : `Due in ${diff}d`}`,
+            overdue,
+            primaryLabel: '✓',
+            primaryAction: `markBillPaid('${bill.id}')`,
+          })).join('')}
+          ${habitsDue.slice(0, 4).map(h => lifeAttentionCard('habit', h.id, {
+            icon: '🔁',
+            title: h.name,
+            subtitle: `Habit · ${formatTime(h.target_time)} · 🔥 ${h.streak || 0}d`,
+            overdue: false,
+            primaryLabel: '✓',
+            primaryAction: `logHabit('${h.id}')`,
+          })).join('')}
         </div>` : ''}
       </div>
 
@@ -419,15 +500,16 @@ async function renderToday(el) {
             <div class="section-title">💊 Medicine Today</div>
             <button class="btn btn-ghost btn-sm" onclick="navigate('medicine')">All</button>
           </div>
-          ${medDoses.length === 0 ? `<p style="color:var(--text-muted);font-size:13px">No medicines scheduled.</p>` :
-            medDoses.slice(0, 5).map(d => `
+          ${medDosesAll.length === 0 ? `<p style="color:var(--text-muted);font-size:13px">No medicines scheduled.</p>` :
+            medDosesAll.slice(0, 5).map(d => `
             <div class="dose-row">
-              <div class="dose-status ${d.past ? 'taken' : 'due'}">${d.past ? '✅' : '🕐'}</div>
+              <div class="dose-status ${d.taken ? 'taken' : d.past ? 'missed' : 'due'}">${d.taken ? '✅' : d.past ? '⏰' : '🕐'}</div>
               <div style="flex:1">
                 <div style="font-size:13px;font-weight:600">${d.med.name}</div>
                 <div style="font-size:11px;color:var(--text-muted)">${d.med.condition}</div>
               </div>
               <div style="font-family:var(--font-mono);font-size:12px;color:var(--text-secondary)">${formatTime(d.time)}</div>
+              ${!d.taken ? `<button class="btn btn-sm btn-primary" onclick="markDoseTaken('${d.med.id}','${d.time}')">✓</button>` : ''}
             </div>`).join('')}
         </div>
 
@@ -438,18 +520,15 @@ async function renderToday(el) {
             <button class="btn btn-ghost btn-sm" onclick="navigate('bills')">All</button>
           </div>
           ${billsDue.length === 0 ? `<p style="color:var(--text-muted);font-size:13px">No bills due soon. ✨</p>` :
-            billsDue.slice(0, 4).map(b => {
-              const day = parseInt(b.due_day);
-              const todayDay = new Date().getDate();
-              const diff = day - todayDay;
-              const status = diff < 0 ? 'overdue' : diff === 0 ? 'pending' : 'pending';
+            billsDue.slice(0, 4).map(({ bill, diff, overdue }) => {
+              const status = overdue ? 'overdue' : diff === 0 ? 'pending' : 'pending';
               return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-                <span style="font-size:20px">${billIcon(b.bill_type)}</span>
+                <span style="font-size:20px">${billIcon(b.bill.bill_type)}</span>
                 <div style="flex:1">
-                  <div style="font-size:13px;font-weight:600">${b.name}</div>
-                  <div style="font-size:11px;color:var(--text-muted)">Due ${diff < 0 ? Math.abs(diff)+' days ago' : diff === 0 ? 'TODAY' : 'in '+diff+' days'}</div>
+                  <div style="font-size:13px;font-weight:600">${bill.bill.name}</div>
+                  <div style="font-size:11px;color:var(--text-muted)">Due ${overdue ? Math.abs(diff)+' days ago' : diff === 0 ? 'TODAY' : 'in '+diff+' days'}</div>
                 </div>
-                <span class="bill-status ${status}">${diff < 0 ? 'Overdue' : diff === 0 ? 'Due Today' : 'Upcoming'}</span>
+                <button class="btn btn-sm btn-primary" onclick="markBillPaid('${bill.bill.id}')">✓</button>
               </div>`;
             }).join('')}
         </div>
@@ -459,12 +538,12 @@ async function renderToday(el) {
           <div class="section-title" style="margin-bottom:12px">📈 This Week</div>
           <div style="display:flex;flex-direction:column;gap:8px">
             <div style="display:flex;justify-content:space-between;font-size:13px">
-              <span style="color:var(--text-secondary)">Medicines taken</span>
-              <span style="color:var(--medicine-color);font-weight:600">${App.medicines.length * 7} doses</span>
+              <span style="color:var(--text-secondary)">Doses taken (7d)</span>
+              <span style="color:var(--medicine-color);font-weight:600">${medTakenWeek}</span>
             </div>
             <div style="display:flex;justify-content:space-between;font-size:13px">
-              <span style="color:var(--text-secondary)">Active habits</span>
-              <span style="color:var(--habit-color);font-weight:600">${App.habits.length}</span>
+              <span style="color:var(--text-secondary)">Habits logged (7d)</span>
+              <span style="color:var(--habit-color);font-weight:600">${habitLogsWeek}</span>
             </div>
             <div style="display:flex;justify-content:space-between;font-size:13px">
               <span style="color:var(--text-secondary)">Family members</span>
@@ -1034,13 +1113,37 @@ async function renderMedicine(el) {
   `;
 }
 
-function switchMedTab(btn, tab) {
+async function switchMedTab(btn, tab) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   ['today', 'all', 'history'].forEach(t => {
     const el = document.getElementById(`med-tab-${t}`);
     if (el) el.style.display = t === tab ? '' : 'none';
   });
+  if (tab === 'history') await loadMedHistory();
+}
+
+async function loadMedHistory() {
+  const el = document.getElementById('med-tab-history');
+  if (!el) return;
+  const rows = await db(`
+    SELECT ml.*, m.name as med_name FROM medicine_logs ml
+    LEFT JOIN medicines m ON m.id = ml.medicine_id
+    ORDER BY ml.log_date DESC, ml.dose_time DESC LIMIT 40
+  `) || [];
+
+  el.innerHTML = rows.length === 0
+    ? `<div class="empty-state"><div class="empty-icon">📋</div><h3>No dose history yet</h3><p>Mark doses as taken to build your history.</p></div>`
+    : `<div style="display:flex;flex-direction:column;gap:8px">
+      ${rows.map(r => `
+        <div class="card card-sm" style="display:flex;align-items:center;gap:12px;padding:12px 16px">
+          <span style="font-size:20px">${r.status === 'taken' ? '✅' : '⏰'}</span>
+          <div style="flex:1">
+            <div style="font-weight:600">${r.med_name || 'Medicine'}</div>
+            <div style="font-size:12px;color:var(--text-muted)">${formatDate(r.log_date)} · ${formatTime(r.dose_time)} · ${r.status}</div>
+          </div>
+        </div>`).join('')}
+    </div>`;
 }
 
 async function markDoseTaken(medId, doseTime) {
@@ -1057,37 +1160,53 @@ async function markDoseTaken(medId, doseTime) {
       [logId, medId, doseTime, doseTime, 'taken', new Date().toISOString(), todayStr()]);
   }
   toast('💊 Dose marked as taken!');
-  navigate('medicine');
+  await loadAllData();
+  navigate(App.currentPage === 'today' ? 'today' : 'medicine');
 }
 
 function showAddMedicine() {
+  showMedicineModal();
+}
+
+function showMedicineModal(existing = null) {
+  const med = existing || {};
+  const isEdit = !!existing?.id;
+  const times = JSON.parse(med.dose_times || '["08:00"]');
+  const doses = med.doses_per_day || times.length || 1;
+
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'med-modal';
   overlay.innerHTML = `
     <div class="modal">
       <div class="modal-header">
-        <div class="modal-title">💊 Add Medicine</div>
+        <div class="modal-title">💊 ${isEdit ? 'Edit' : 'Add'} Medicine</div>
         <button class="modal-close" onclick="document.getElementById('med-modal').remove()">✕</button>
       </div>
+      <input type="hidden" id="m-id" value="${med.id || ''}" />
       <div class="form-grid">
-        <div class="form-group full"><label class="form-label">Medicine Name *</label><input type="text" class="form-input" id="m-name" placeholder="e.g. Metformin 500mg" /></div>
-        <div class="form-group full"><label class="form-label">Condition / Purpose</label><input type="text" class="form-input" id="m-condition" placeholder="e.g. Diabetes" /></div>
-        <div class="form-group"><label class="form-label">Doses per Day</label><input type="number" class="form-input" id="m-doses" value="1" min="1" max="8" onchange="updateDoseTimes(this.value)"/></div>
+        <div class="form-group full"><label class="form-label">Medicine Name *</label><input type="text" class="form-input" id="m-name" value="${med.name || ''}" placeholder="e.g. Metformin 500mg" /></div>
+        <div class="form-group full"><label class="form-label">Condition / Purpose</label><input type="text" class="form-input" id="m-condition" value="${med.condition || ''}" placeholder="e.g. Diabetes" /></div>
+        <div class="form-group"><label class="form-label">Doses per Day</label><input type="number" class="form-input" id="m-doses" value="${doses}" min="1" max="8" onchange="updateDoseTimes(this.value)"/></div>
         <div class="form-group"><label class="form-label">Food Timing</label>
-          <select class="form-select" id="m-food"><option value="before">Before Food</option><option value="after" selected>After Food</option><option value="with">With Food</option><option value="empty">Empty Stomach</option></select>
+          <select class="form-select" id="m-food">
+            <option value="before" ${(med.food_timing || 'after') === 'before' ? 'selected' : ''}>Before Food</option>
+            <option value="after" ${(med.food_timing || 'after') === 'after' ? 'selected' : ''}>After Food</option>
+            <option value="with" ${med.food_timing === 'with' ? 'selected' : ''}>With Food</option>
+            <option value="empty" ${med.food_timing === 'empty' ? 'selected' : ''}>Empty Stomach</option>
+          </select>
         </div>
         <div class="form-group full" id="dose-times-container">
           <label class="form-label">Dose Times</label>
-          <input type="time" class="form-input" id="m-time-0" value="08:00" style="margin-bottom:6px"/>
+          ${times.map((t, i) => `<input type="time" class="form-input" id="m-time-${i}" value="${t}" style="margin-bottom:6px"/>`).join('')}
         </div>
-        <div class="form-group"><label class="form-label">Start Date</label><input type="date" class="form-input" id="m-start" value="${todayStr()}"/></div>
-        <div class="form-group"><label class="form-label">End Date (optional)</label><input type="date" class="form-input" id="m-end" /></div>
-        <div class="form-group full"><label class="form-label">Notes</label><textarea class="form-textarea" id="m-notes" placeholder="Dosage info, doctor's note..."></textarea></div>
+        <div class="form-group"><label class="form-label">Start Date</label><input type="date" class="form-input" id="m-start" value="${med.start_date || todayStr()}"/></div>
+        <div class="form-group"><label class="form-label">End Date (optional)</label><input type="date" class="form-input" id="m-end" value="${med.end_date || ''}" /></div>
+        <div class="form-group full"><label class="form-label">Notes</label><textarea class="form-textarea" id="m-notes" placeholder="Dosage info, doctor's note...">${med.notes || ''}</textarea></div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="document.getElementById('med-modal').remove()">Cancel</button>
-        <button class="btn btn-primary" onclick="saveMedicine()">💊 Save Medicine</button>
+        <button class="btn btn-primary" onclick="saveMedicine()">💊 ${isEdit ? 'Update' : 'Save'} Medicine</button>
       </div>
     </div>
   `;
@@ -1114,14 +1233,31 @@ async function saveMedicine() {
     const t = document.getElementById(`m-time-${i}`);
     if (t) times.push(t.value);
   }
-  const id = uuid();
-  if (!await dbRun(`INSERT INTO medicines (id,name,condition,doses_per_day,dose_times,food_timing,start_date,end_date,notes,status) VALUES (?,?,?,?,?,?,?,?,?,?)`,
-    [id, name, document.getElementById('m-condition').value, doses, JSON.stringify(times),
-     document.getElementById('m-food').value, document.getElementById('m-start').value,
-     document.getElementById('m-end').value, '', 'active'])) return;
+  const editId = document.getElementById('m-id')?.value;
+  const params = [
+    name,
+    document.getElementById('m-condition').value,
+    doses,
+    JSON.stringify(times),
+    document.getElementById('m-food').value,
+    document.getElementById('m-start').value,
+    document.getElementById('m-end').value,
+    document.getElementById('m-notes')?.value || '',
+  ];
+
+  let ok;
+  if (editId) {
+    ok = await dbRun(`UPDATE medicines SET name=?,condition=?,doses_per_day=?,dose_times=?,food_timing=?,start_date=?,end_date=?,notes=? WHERE id=?`,
+      [...params, editId]);
+  } else {
+    ok = await dbRun(`INSERT INTO medicines (id,name,condition,doses_per_day,dose_times,food_timing,start_date,end_date,notes,status) VALUES (?,?,?,?,?,?,?,?,?,?)`,
+      [uuid(), ...params, 'active']);
+  }
+  if (!ok) return;
 
   document.getElementById('med-modal').remove();
-  toast(`💊 ${name} added!`);
+  toast(`💊 ${name} ${editId ? 'updated' : 'added'}!`);
+  await loadAllData();
   navigate('medicine');
 }
 
@@ -1133,7 +1269,8 @@ async function deleteMedicine(id) {
 }
 
 function editMedicine(id) {
-  toast('Edit medicine — coming soon', 'warning');
+  const med = App.medicines.find(m => m.id === id);
+  if (med) showMedicineModal(med);
 }
 
 // ── Bills Module ───────────────────────────────────────────────────
@@ -1236,7 +1373,8 @@ async function markBillPaid(id) {
     await db(`UPDATE bills SET payment_status='paid' WHERE id=?`, [id]);
   }
   toast('✅ Bill marked as paid!');
-  navigate('bills');
+  await loadAllData();
+  navigate(App.currentPage === 'today' ? 'today' : 'bills');
 }
 
 async function deleteBill(id) {
@@ -1448,7 +1586,8 @@ async function logHabit(id) {
     }
   }
   toast('🔥 Habit logged! Streak growing!');
-  navigate('habits');
+  await loadAllData();
+  navigate(App.currentPage === 'today' ? 'today' : 'habits');
 }
 
 async function deleteHabit(id) {
@@ -2259,9 +2398,49 @@ function showSearchPalette() {
   renderResults();
 }
 
+function isTypingInField(target) {
+  if (!target) return false;
+  const tag = target.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
+}
+
+function showShortcutsHelp() {
+  dismissPageModals();
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay search-overlay';
+  overlay.id = 'shortcuts-help';
+  const shortcuts = [
+    ['Ctrl+K', 'Search everything'],
+    ['Ctrl+Shift+A', 'New reminder / task'],
+    ['Enter', 'Submit quick-add bar'],
+    ['Esc', 'Close modal or search'],
+    ['?', 'Show this help'],
+  ];
+  overlay.innerHTML = `
+    <div class="search-palette" role="dialog" aria-label="Keyboard shortcuts">
+      <h2 style="margin:0 0 12px;font-size:18px">⌨️ Keyboard Shortcuts</h2>
+      <div class="search-results">
+        ${shortcuts.map(([key, desc]) => `
+          <div class="search-result" style="cursor:default">
+            <span class="search-result-icon" style="font-family:var(--font-mono);font-size:12px;min-width:120px">${key}</span>
+            <span class="search-result-body"><span class="search-result-title">${desc}</span></span>
+          </div>`).join('')}
+      </div>
+      <button class="btn btn-ghost btn-sm" style="margin-top:12px;width:100%" onclick="document.getElementById('shortcuts-help').remove()">Close</button>
+    </div>
+  `;
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+}
+
 // ── IPC Listeners ──────────────────────────────────────────────────
 function setupListeners() {
   document.addEventListener('keydown', (e) => {
+    if (e.key === '?' && !e.ctrlKey && !e.metaKey && !isTypingInField(e.target)) {
+      e.preventDefault();
+      showShortcutsHelp();
+      return;
+    }
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
       showSearchPalette();
