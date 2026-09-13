@@ -1,6 +1,6 @@
 {
   "name": "ilrs",
-  "version": "1.0.24",
+  "version": "1.0.25",
   "description": "ILRS — Intelligent Life Reminder System",
   "author": {
     "name": "Business OS",
@@ -66,6 +66,13 @@
       "notifications.js",
       "reminder-actions.js",
       "module-actions.js",
+      "habit-streak.js",
+      "inquiry-actions.js",
+      "inquiry-pipeline.js",
+      "inquiry-health-monitor.js",
+      "inquiry-stage-store.js",
+      "inquiry-templates.js",
+      "inquiry-analytics.js",
       "alarm.js",
       "sound-player.js",
       "sound-player.html",
