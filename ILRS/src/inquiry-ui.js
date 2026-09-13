@@ -206,9 +206,18 @@
         if (typeof toast === 'function') toast(result?.error || `Could not ${isEdit ? 'update' : 'create'} inquiry`, 'warning');
         return;
       }
+      if (!result.inquiry?.id) {
+        if (typeof toast === 'function') toast('Save failed: inquiry was not created.', 'critical');
+        return;
+      }
+      if (typeof loadAllData === 'function') await loadAllData();
+      const verified = (App.inquiries || []).find((i) => i.id === result.inquiry.id);
+      if (!verified) {
+        if (typeof toast === 'function') toast('Save failed: inquiry not found after save.', 'critical');
+        return;
+      }
       overlay.remove();
       if (typeof toast === 'function') toast(isEdit ? '📥 Inquiry updated' : `📥 Inquiry ${result.inquiry.inquiry_number} created`);
-      if (typeof loadAllData === 'function') await loadAllData();
       if (typeof navigate === 'function') {
         App.selectedInquiryId = result.inquiry.id;
         navigate('inquiry-detail');

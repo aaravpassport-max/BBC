@@ -3,19 +3,53 @@
   const P = () => window.ILRSInquiryPipeline;
   const cats = () => P()?.STAGE_CATEGORIES || {};
 
+  const W = () => window.ILRSWorkflowPipeline;
+
+  function workflowStageTable(entityType, stages) {
+    return `
+      <div class="pipeline-table-wrap card" style="margin-bottom:20px">
+        <div class="section-title" style="padding:12px 16px 0">${entityType === 'task' ? '✅ Task' : '🔔 Reminder'} Stages</div>
+        <table class="pipeline-table">
+          <thead><tr><th>Order</th><th>Key</th><th>Name</th><th>Reminder</th><th>Closed</th><th></th></tr></thead>
+          <tbody>
+            ${stages.map((s) => `
+              <tr class="${W()?.stageClass?.(entityType, s.key) || ''}">
+                <td><input type="number" class="form-input wf-stage-sort" data-type="${entityType}" data-key="${s.key}" value="${s.sort}" style="width:60px"/></td>
+                <td class="pipeline-id">${s.key}</td>
+                <td><input type="text" class="form-input wf-stage-display" data-type="${entityType}" data-key="${s.key}" value="${s.display}"/></td>
+                <td>${s.automation?.reminderEnabled || s.automation?.followUpDays ? `${s.automation.followUpDays || 0}d` : '—'}</td>
+                <td>${s.closed ? 'Yes' : 'No'}</td>
+                <td><button class="btn btn-ghost btn-sm" onclick="saveWorkflowStageRow('${entityType}','${s.key}')">Save</button></td>
+              </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }
+
   async function renderPipelineSettings(el) {
+    const tab = App.workflowSettingsTab || 'inquiry';
     const result = await window.ilrs?.getPipelineStages?.();
     const stages = result?.stages || P()?.DEFAULT_STAGES || [];
     if (result?.stages) P()?.setStages?.(stages);
+    const taskStages = (await window.ilrs?.getWorkflowStages?.('task'))?.stages || W()?.getStages?.('task') || [];
+    const reminderStages = (await window.ilrs?.getWorkflowStages?.('reminder'))?.stages || W()?.getStages?.('reminder') || [];
+    W()?.setStages?.('task', taskStages);
+    W()?.setStages?.('reminder', reminderStages);
 
     el.innerHTML = `
       <div class="page-header">
         <div>
-          <div class="page-title">⚙️ Pipeline Stages</div>
-          <div class="page-subtitle">Configure stage names, order, and categories</div>
+          <div class="page-title">⚙️ Workflow Stages</div>
+          <div class="page-subtitle">Configure stages for inquiries, tasks, and reminders</div>
         </div>
         <button class="btn btn-ghost" onclick="navigate('pipeline')">← Pipeline</button>
       </div>
+      <div class="smart-tabs" style="margin-bottom:16px">
+        <button class="smart-tab ${tab === 'inquiry' ? 'active' : ''}" onclick="setWorkflowSettingsTab('inquiry')">Inquiries</button>
+        <button class="smart-tab ${tab === 'task' ? 'active' : ''}" onclick="setWorkflowSettingsTab('task')">Tasks</button>
+        <button class="smart-tab ${tab === 'reminder' ? 'active' : ''}" onclick="setWorkflowSettingsTab('reminder')">Reminders</button>
+      </div>
+      ${tab === 'inquiry' ? `
       <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">
         Edit display names and sort order. Stage keys are fixed; automation rules are defined per stage in the database.
       </p>
@@ -51,7 +85,29 @@
       </div>
       <div class="inquiry-list" id="template-list">
         ${(App.inquiryTemplates || []).map(templateCard).join('') || '<p class="pipeline-empty">No templates yet.</p>'}
-      </div>`;
+      </div>` : ''}
+      ${tab === 'task' ? workflowStageTable('task', taskStages) : ''}
+      ${tab === 'reminder' ? workflowStageTable('reminder', reminderStages) : ''}`;
+  }
+
+  function setWorkflowSettingsTab(tab) {
+    App.workflowSettingsTab = tab;
+    navigate('pipeline-settings');
+  }
+
+  async function saveWorkflowStageRow(entityType, key) {
+    const stages = (await window.ilrs?.getWorkflowStages?.(entityType))?.stages || [];
+    const stage = stages.find((s) => s.key === key);
+    if (!stage) return;
+    stage.display = document.querySelector(`.wf-stage-display[data-type="${entityType}"][data-key="${key}"]`)?.value || stage.display;
+    stage.sort = parseInt(document.querySelector(`.wf-stage-sort[data-type="${entityType}"][data-key="${key}"]`)?.value, 10) || stage.sort;
+    stage.entityType = entityType;
+    const result = await window.ilrs?.saveWorkflowStage?.(stage);
+    if (!result?.success) { toast(result?.error || 'Could not save', 'warning'); return; }
+    W()?.setStages?.(entityType, result.stages);
+    toast('Stage saved');
+    await loadAllData();
+    navigate('pipeline-settings');
   }
 
   function templateCard(t) {
@@ -124,4 +180,6 @@
   window.showTemplateForm = showTemplateForm;
   window.useInquiryTemplate = useInquiryTemplate;
   window.deleteInquiryTemplate = deleteInquiryTemplate;
+  window.setWorkflowSettingsTab = setWorkflowSettingsTab;
+  window.saveWorkflowStageRow = saveWorkflowStageRow;
 })();

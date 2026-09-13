@@ -49,6 +49,14 @@ contextBridge.exposeInMainWorld('ilrs', {
   deleteInquiryTemplate: (id) => ipcRenderer.invoke('delete-inquiry-template', { id }),
   getWorkAnalytics: () => ipcRenderer.invoke('get-work-analytics'),
   refreshInquiryHealth: () => ipcRenderer.invoke('refresh-inquiry-health'),
+  getWorkflowStages: (entityType) => ipcRenderer.invoke('get-workflow-stages', { entityType }),
+  saveWorkflowStage: (stage) => ipcRenderer.invoke('save-workflow-stage', { stage }),
+  deleteWorkflowStage: (entityType, key, reassignTo) =>
+    ipcRenderer.invoke('delete-workflow-stage', { entityType, key, reassignTo }),
+  changeReminderStage: (id, stageKey, options) =>
+    ipcRenderer.invoke('change-reminder-stage', { id, stageKey, options }),
+  setInitialReminderStage: (id, entityType, stageKey) =>
+    ipcRenderer.invoke('set-initial-reminder-stage', { id, entityType, stageKey }),
 
   // Listeners
   onNavigate: (callback) => ipcRenderer.on('navigate', (_, page) => callback(page)),

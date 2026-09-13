@@ -205,6 +205,12 @@ function changeInquiryStage(db, inquiryId, newStageKey, options = {}, now = new 
   const oldKey = inquiry.stage_key;
   const outcome = isClosedStage(newStageKey, stages) ? 'closed_lost' : (newStageKey === 'delivered' ? 'closed_won' : 'active');
 
+  // Cancel prior stage follow-up reminders before applying new stage rules
+  db.prepare(`
+    UPDATE reminders SET status = 'deleted', updated_at = datetime('now')
+    WHERE source_type = 'inquiry' AND source_id = ? AND status != 'deleted'
+  `).run(inquiryId);
+
   db.prepare(`
     UPDATE inquiries SET stage_key = ?, outcome_status = ?, closed_reason = ?,
       stage_changed_at = datetime('now'), updated_at = datetime('now'),

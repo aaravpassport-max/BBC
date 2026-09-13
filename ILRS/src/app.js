@@ -162,6 +162,18 @@ async function dbRun(sql, params = []) {
     toast(`Save failed: ${result.error || 'database error'}`, 'critical');
     return false;
   }
+  const upper = sql.trim().toUpperCase();
+  if (!upper.startsWith('SELECT') && result.data) {
+    const changes = result.data.changes ?? 0;
+    if (upper.startsWith('INSERT') && changes === 0) {
+      toast('Save failed: nothing was inserted.', 'critical');
+      return false;
+    }
+    if (upper.startsWith('UPDATE') && changes === 0) {
+      toast('Save failed: no matching item to update.', 'critical');
+      return false;
+    }
+  }
   return true;
 }
 
@@ -191,6 +203,15 @@ async function syncPipelineStages() {
   }
 }
 
+async function syncWorkflowStages() {
+  for (const entityType of ['task', 'reminder']) {
+    const result = await api.getWorkflowStages?.(entityType);
+    if (result?.success && result.stages) {
+      window.ILRSWorkflowPipeline?.setStages?.(entityType, result.stages);
+    }
+  }
+}
+
 async function loadAllData() {
   const [reminders, medicines, bills, habits, family, inquiries, clients, templates] = await Promise.all([
     db("SELECT * FROM reminders WHERE status != 'deleted' AND (source_type IS NULL OR source_type = '') ORDER BY priority DESC, next_fire ASC"),
@@ -211,6 +232,7 @@ async function loadAllData() {
   App.clients = clients || [];
   App.inquiryTemplates = templates || [];
   await syncPipelineStages();
+  await syncWorkflowStages();
 }
 
 // ── Navigation ─────────────────────────────────────────────────────
@@ -870,6 +892,11 @@ function reminderCard(r) {
     assignee ? `👤 ${assignee}` : null,
   ].filter(Boolean).join(' · ');
   const selected = App.selectedReminderIds.has(r.id);
+  const entityType = isTask ? 'task' : 'reminder';
+  const W = window.ILRSWorkflowPipeline;
+  const stageKey = r.stage_key || '';
+  const stageCls = stageKey && W ? W.stageClass(entityType, stageKey) : '';
+  const stageLabel = stageKey && W ? W.stageDisplay(entityType, stageKey) : '';
   const taskActions = isDone ? `
         <button class="action-btn" onclick="showPostponeMenu('${r.id}')" title="Reschedule">📅</button>
       ` : isTask ? `
@@ -882,7 +909,7 @@ function reminderCard(r) {
         <button class="action-btn" onclick="showPostponeMenu('${r.id}')" title="Postpone">📅</button>
       `;
   return `
-    <div class="reminder-card ${r.priority} ${isOverdue ? 'overdue' : ''} ${isTask ? `task-${wf}` : ''} ${isDone ? 'completed-item' : ''}" id="rcard-${r.id}">
+    <div class="reminder-card ${r.priority} ${isOverdue ? 'overdue' : ''} ${isTask ? `task-${wf}` : ''} ${isDone ? 'completed-item' : ''} ${stageCls}" id="rcard-${r.id}">
       <input type="checkbox" class="item-select-checkbox" ${selected ? 'checked' : ''}
         onclick="event.stopPropagation();toggleReminderSelection('${r.id}', this.checked)" title="Select" />
       <div class="reminder-check ${isDone ? 'done' : ''}" onclick="completeReminder('${r.id}')">
@@ -893,6 +920,7 @@ function reminderCard(r) {
         <div class="reminder-context ${isOverdue ? 'overdue' : ''}">${kind}${context ? ' · ' + context : ''}</div>
         ${r.why_it_matters ? `<div class="reminder-why">${r.why_it_matters}</div>` : ''}
         <div class="reminder-meta">
+          ${stageLabel ? `<span class="inquiry-stage-badge ${stageCls}" onclick="event.stopPropagation();showWorkflowStageModal('${r.id}','${entityType}')" title="Change stage">${stageLabel}</span>` : ''}
           <span class="tag ${r.category}">${categoryIcon(r.category)} ${r.category}</span>
           ${r.priority !== 'normal' ? `<span class="tag ${r.priority}">${priorityLabel(r.priority)}</span>` : ''}
           ${tags.slice(0, 1).map(t => `<span class="tag">#${t}</span>`).join('')}
@@ -963,6 +991,60 @@ async function bulkDeleteSelectedReminders() {
   await loadAllData();
   updateBadges();
   refreshCurrentView();
+}
+
+function showWorkflowStageModal(id, entityType) {
+  const r = App.reminders.find((x) => x.id === id);
+  if (!r) return;
+  const W = window.ILRSWorkflowPipeline;
+  const stages = W?.getStages?.(entityType) || [];
+  document.getElementById('workflow-stage-modal')?.remove();
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.id = 'workflow-stage-modal';
+  overlay.innerHTML = `
+    <div class="capture-sheet" style="max-width:420px">
+      <div class="capture-header"><h2>Change stage</h2>
+        <button class="modal-close" onclick="document.getElementById('workflow-stage-modal').remove()">✕</button>
+      </div>
+      <p style="font-size:13px;color:var(--text-secondary)">${r.title}</p>
+      <label class="form-label">Stage</label>
+      <select class="form-select" id="wf-stage-select">
+        ${stages.map((s) => `<option value="${s.key}" ${s.key === r.stage_key ? 'selected' : ''}>${s.display}</option>`).join('')}
+      </select>
+      <label class="form-label" style="margin-top:12px">Override reminder date (optional)</label>
+      <input type="date" class="form-input" id="wf-stage-date" />
+      <input type="time" class="form-input" id="wf-stage-time" value="${r.reminder_time || '09:00'}" style="margin-top:8px" />
+      <label class="setting-row" style="margin-top:12px;padding:8px 0">
+        <span class="form-label">Disable stage auto-reminder for this item</span>
+        <div class="toggle" id="wf-disable-stage-reminder"></div>
+      </label>
+      <div class="capture-actions">
+        <button class="btn btn-ghost" onclick="document.getElementById('workflow-stage-modal').remove()">Cancel</button>
+        <button class="btn btn-primary" id="wf-stage-save">Update stage</button>
+      </div>
+    </div>`;
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+  overlay.querySelector('#wf-stage-save')?.addEventListener('click', async () => {
+    const stageKey = overlay.querySelector('#wf-stage-select')?.value;
+    const manualDate = overlay.querySelector('#wf-stage-date')?.value;
+    const manualTime = overlay.querySelector('#wf-stage-time')?.value;
+    const disable = overlay.querySelector('#wf-disable-stage-reminder')?.classList.contains('on');
+    const result = await api.changeReminderStage?.(id, stageKey, {
+      manualDate: manualDate || undefined,
+      manualTime: manualTime || undefined,
+      disableStageReminder: disable,
+    });
+    overlay.remove();
+    if (!result?.success) {
+      toast(result?.error || 'Could not change stage', 'warning');
+      return;
+    }
+    toast(`Stage → ${result.stage?.display || stageKey}`);
+    await loadAllData();
+    refreshCurrentView();
+  });
 }
 
 async function bulkDeleteSelectedInquiries() {

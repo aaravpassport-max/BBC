@@ -31,6 +31,14 @@ const { loadStagesFromDb, saveStageToDb } = require('./inquiry-stage-store');
 const { listTemplates, createTemplate, deleteTemplate, seedDefaultTemplates } = require('./inquiry-templates');
 const { getWorkAnalytics } = require('./inquiry-analytics');
 const { checkInquiryAlerts, refreshAllInquiryHealth } = require('./inquiry-health-monitor');
+const {
+  loadWorkflowStages,
+  saveWorkflowStage,
+  deleteWorkflowStage,
+  seedWorkflowStages,
+  countStageUsage,
+} = require('./workflow-stage-store');
+const { changeReminderStage, setInitialReminderStage } = require('./workflow-stage-actions');
 const { getWeeklyAnchorDay, recalculateAllHabitStreaks } = require('./habit-streak');
 const { createTrayIcon, ensureWindowsToastSupport, showFatalError } = require('./windows-support');
 const { playAlertSound } = require('./sound-player');
@@ -537,6 +545,55 @@ function setupIPC() {
     }
   });
 
+  ipcMain.handle('get-workflow-stages', async (_event, { entityType }) => {
+    try {
+      return { success: true, stages: loadWorkflowStages(db, entityType) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('save-workflow-stage', async (_event, { stage }) => {
+    try {
+      if (!stage?.key || !stage?.entityType) return { success: false, error: 'Missing stage key or type' };
+      saveWorkflowStage(db, stage);
+      notifyRendererDataChanged();
+      return { success: true, stages: loadWorkflowStages(db, stage.entityType) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('delete-workflow-stage', async (_event, { entityType, key, reassignTo }) => {
+    try {
+      const result = deleteWorkflowStage(db, entityType, key, reassignTo);
+      if (result.success) notifyRendererDataChanged();
+      return { ...result, usage: countStageUsage(db, entityType, key) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('change-reminder-stage', async (_event, { id, stageKey, options }) => {
+    try {
+      const result = changeReminderStage(db, id, stageKey, options || {});
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('set-initial-reminder-stage', async (_event, { id, entityType, stageKey }) => {
+    try {
+      setInitialReminderStage(db, id, entityType, stageKey);
+      notifyRendererDataChanged();
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('get-system-clock', async () => getSystemClockInfo());
 
   ipcMain.handle('compute-next-fire', async (_event, { startDate, time, repeatType, repeatValue }) => {
@@ -1020,8 +1077,38 @@ function repairReminderSchedules() {
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '12')").run();
       console.log('Inquiry workflow migration v12 complete');
     }
+    if (version < 13) {
+      runWorkflowStagesMigrationV13();
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '13')").run();
+      console.log('Workflow stages migration v13 complete');
+    }
   } catch (err) {
     console.error('repairReminderSchedules error:', err.message);
+  }
+}
+
+function runWorkflowStagesMigrationV13() {
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS workflow_stages (
+        key TEXT NOT NULL,
+        entity_type TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        category TEXT DEFAULT 'general',
+        sort_order INTEGER DEFAULT 0,
+        is_closed INTEGER DEFAULT 0,
+        color TEXT DEFAULT '',
+        fields_json TEXT DEFAULT '[]',
+        automation_json TEXT DEFAULT '{}',
+        PRIMARY KEY (key, entity_type)
+      );
+    `);
+    try { db.exec("ALTER TABLE reminders ADD COLUMN stage_key TEXT DEFAULT ''"); } catch (_) { /* exists */ }
+    try { db.exec("ALTER TABLE reminders ADD COLUMN stage_changed_at TEXT DEFAULT ''"); } catch (_) { /* exists */ }
+    try { db.exec('ALTER TABLE reminders ADD COLUMN stage_reminder_disabled INTEGER DEFAULT 0'); } catch (_) { /* exists */ }
+    seedWorkflowStages(db);
+  } catch (err) {
+    console.error('Workflow stages migration v13 error:', err.message);
   }
 }
 

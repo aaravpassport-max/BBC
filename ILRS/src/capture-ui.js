@@ -78,7 +78,7 @@
     if (typeof dismissPageModals === 'function') dismissPageModals();
     document.getElementById('capture-sheet')?.remove();
 
-    const isEdit = !!existing;
+    const isEdit = !!(existing && existing.id);
     const r = existing || {};
     const state = {
       id: r.id || (typeof uuid === 'function' ? uuid() : ''),
@@ -160,6 +160,8 @@
               ).join('')}
             </div>
           </div>
+          <div class="form-group"><label class="form-label">Stage</label>
+            <select class="form-select" id="capture-stage"></select></div>
           <div class="form-group"><label class="form-label">Assign to</label>
             <select class="form-select" id="capture-assignee">
               <option value="me" ${state.assigned === 'me' ? 'selected' : ''}>Me</option>
@@ -305,6 +307,22 @@
 
     overlay.querySelector('#capture-save')?.addEventListener('click', () => saveCaptureSheet(close));
 
+    const refreshStageOptions = () => {
+      const kind = document.querySelector('.kind-btn.active')?.dataset.kind || 'reminder';
+      const entityType = kind === 'task' ? 'task' : 'reminder';
+      const stages = window.ILRSWorkflowPipeline?.getStages?.(entityType) || [];
+      const sel = overlay.querySelector('#capture-stage');
+      if (!sel) return;
+      const current = r.stage_key || stages[0]?.key || '';
+      sel.innerHTML = stages.map((s) =>
+        `<option value="${s.key}" ${s.key === current ? 'selected' : ''}>${s.display}</option>`
+      ).join('');
+    };
+    overlay.querySelectorAll('.kind-btn').forEach((btn) => {
+      btn.addEventListener('click', () => { setTimeout(refreshStageOptions, 0); });
+    });
+    refreshStageOptions();
+
     overlay.querySelector('.capture-sheet')?.addEventListener('click', (e) => e.stopPropagation());
   }
 
@@ -380,13 +398,30 @@
       const workflowStatus = kind === 'task' ? 'pending' : 'pending';
       const sourceType = document.getElementById('capture-source-type')?.value || '';
       const sourceId = document.getElementById('capture-source-id')?.value || '';
+      const stageKey = document.getElementById('capture-stage')?.value || '';
       ok = await dbRun(
-        `INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,repeat_value,reminder_time,start_date,end_date,priority,urgency_quadrant,alert_style,snooze_duration,assigned_to,is_private,notes,tags,next_fire,status,workflow_status,source_type,source_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'active',?,?,?,datetime('now'),datetime('now'))`,
-        [...params, workflowStatus, sourceType, sourceId]
+        `INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,repeat_value,reminder_time,start_date,end_date,priority,urgency_quadrant,alert_style,snooze_duration,assigned_to,is_private,notes,tags,next_fire,status,workflow_status,source_type,source_id,stage_key,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'active',?,?,?,?,datetime('now'),datetime('now'))`,
+        [...params, workflowStatus, sourceType, sourceId, stageKey]
       );
+      if (ok && stageKey) {
+        await window.ilrs?.setInitialReminderStage?.(id, kind, stageKey);
+      } else if (ok) {
+        await window.ilrs?.setInitialReminderStage?.(id, kind);
+      }
     }
 
     if (!ok) return;
+
+    const savedId = id;
+    const verify = await db(
+      'SELECT id FROM reminders WHERE id = ? AND status != ?',
+      [savedId, 'deleted']
+    );
+    if (!verify?.length) {
+      if (typeof toast === 'function') toast('Save failed: item was not found after saving. Please try again.', 'critical');
+      return;
+    }
+
     if (typeof toast === 'function') toast(isEdit ? 'Updated!' : 'Created!');
     onClose();
     if (typeof loadAllData === 'function') await loadAllData();
