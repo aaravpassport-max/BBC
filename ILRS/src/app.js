@@ -164,7 +164,11 @@ async function loadAllData() {
 
 // ── Navigation ─────────────────────────────────────────────────────
 const PAGES = {
-  dashboard: renderDashboard,
+  today: renderToday,
+  dashboard: renderToday,
+  tomorrow: () => renderSmartList('tomorrow'),
+  upcoming: () => renderSmartList('upcoming'),
+  overdue: () => renderSmartList('overdue'),
   reminders: renderReminders,
   add: renderAddReminder,
   medicine: renderMedicine,
@@ -179,13 +183,15 @@ const PAGES = {
 };
 
 function dismissPageModals() {
-  ['med-modal', 'bill-modal', 'fam-modal', 'famr-modal', 'hab-modal', 'cl-modal', 'onboard-modal'].forEach((id) => {
+  ['med-modal', 'bill-modal', 'fam-modal', 'famr-modal', 'hab-modal', 'cl-modal', 'onboard-modal', 'capture-sheet'].forEach((id) => {
     document.getElementById(id)?.remove();
   });
   document.querySelectorAll('.modal-overlay').forEach((el) => {
     if (el.id !== 'alert-popup') el.remove();
   });
 }
+
+function cap() { return window.ILRSCapture; }
 
 function attachModalDismiss(overlay) {
   overlay.addEventListener('click', (e) => {
@@ -194,6 +200,10 @@ function attachModalDismiss(overlay) {
 }
 
 async function navigate(page) {
+  if (page === 'add') {
+    showCaptureSheet();
+    return;
+  }
   dismissPageModals();
   App.currentPage = page;
   document.querySelectorAll('.nav-item').forEach(el => {
@@ -219,8 +229,9 @@ function renderShell() {
     <div class="topbar">
       <div class="topbar-logo">ILRS <span>Modern Reminder</span></div>
       <div class="quick-add-bar">
-        <input type="text" id="quick-input" placeholder="⚡ Quick add: 'Take medicine at 8pm daily' or 'Pay electricity bill on 5th'..." />
-        <button class="quick-add-btn" onclick="handleQuickAdd()">+</button>
+        <input type="text" id="quick-input" placeholder="⚡ Call John tomorrow at 10am — press Enter" autocomplete="off" />
+        <button class="quick-add-btn" onclick="handleQuickAdd()" title="Add reminder">+</button>
+        <div class="quick-add-preview" id="quick-add-preview"></div>
       </div>
       <div class="topbar-actions">
         <button class="topbar-btn" id="focus-btn" onclick="toggleFocusMode()" title="Focus Mode">🎯 Focus</button>
@@ -233,11 +244,14 @@ function renderShell() {
 
     <!-- Sidebar -->
     <nav class="sidebar">
-      <div class="sidebar-section-label">Main</div>
-      ${navItem('dashboard', '🏠', 'Dashboard')}
-      ${navItem('reminders', '🔔', 'Reminders')}
+      <button class="btn btn-primary sidebar-add-btn" onclick="showCaptureSheet()">＋ New Reminder</button>
+      <div class="sidebar-section-label">Focus</div>
+      ${navItem('today', '☀️', 'Today')}
+      ${navItem('tomorrow', '🌅', 'Tomorrow')}
+      ${navItem('upcoming', '📆', 'Upcoming')}
+      ${navItem('overdue', '⚠️', 'Overdue', '')}
+      ${navItem('reminders', '📋', 'All')}
       ${navItem('calendar', '📅', 'Calendar')}
-      ${navItem('add', '➕', 'Add New')}
 
       <div class="sidebar-section-label">Modules</div>
       ${navItem('medicine', '💊', 'Medicine')}
@@ -269,10 +283,38 @@ function renderShell() {
     el.addEventListener('click', () => navigate(el.dataset.page));
   });
 
-  // Quick add on Enter
-  document.getElementById('quick-input').addEventListener('keydown', e => {
+  // Quick add on Enter + live parse preview
+  const quickInput = document.getElementById('quick-input');
+  quickInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') handleQuickAdd();
   });
+  quickInput.addEventListener('input', updateQuickAddPreview);
+
+  // Floating add button
+  if (!document.getElementById('fab-add')) {
+    const fab = document.createElement('button');
+    fab.id = 'fab-add';
+    fab.className = 'fab-add';
+    fab.title = 'New reminder (Ctrl+Shift+A)';
+    fab.textContent = '+';
+    fab.onclick = () => showCaptureSheet();
+    document.body.appendChild(fab);
+  }
+}
+
+function updateQuickAddPreview() {
+  const input = document.getElementById('quick-input');
+  const preview = document.getElementById('quick-add-preview');
+  if (!input || !preview || !cap()) return;
+  const text = input.value.trim();
+  if (!text) { preview.innerHTML = ''; return; }
+  const parsed = cap().parseReminderText(text);
+  const chips = [];
+  if (parsed.startDate) chips.push(parsed.startDate === todayStr() ? 'Today' : parsed.startDate);
+  if (parsed.time) chips.push(formatTime(parsed.time));
+  if (parsed.repeatType !== 'once') chips.push(parsed.repeatType);
+  if (parsed.priority !== 'normal') chips.push(parsed.priority);
+  preview.innerHTML = chips.map(c => `<span class="chip selected">${c}</span>`).join('');
 }
 
 function navItem(page, icon, label, badge = '') {
@@ -283,13 +325,20 @@ function navItem(page, icon, label, badge = '') {
   </button>`;
 }
 
-// ── Dashboard ──────────────────────────────────────────────────────
-async function renderDashboard(el) {
+// ── Today (Home) ───────────────────────────────────────────────────
+async function renderToday(el) {
+  const C = cap();
+  const now = new Date();
   const today = todayStr();
-  const now = nowTimeStr();
+  const nowT = nowTimeStr();
+  const name = App.settings.user_name || 'Friend';
+  const hour = now.getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
 
-  const todayReminders = App.reminders.filter(r => r.status === 'active' && (!r.start_date || r.start_date <= today));
-  const overdue = App.reminders.filter(r => r.status === 'active' && isReminderOverdue(r.next_fire));
+  const dueToday = App.reminders.filter(r => C?.isDueToday(r, now) || (r.status === 'active' && !r.next_fire && r.start_date === today));
+  const overdue = App.reminders.filter(r => C?.isOverdueItem(r, now) || isReminderOverdue(r.next_fire));
+  const dueTomorrow = App.reminders.filter(r => C?.isDueTomorrow(r, now));
+  const attention = overdue.length + dueToday.length;
   const critical = App.reminders.filter(r => r.priority === 'critical' && r.status === 'active');
   const completedToday = await db("SELECT COUNT(*) as c FROM reminder_logs WHERE action='completed' AND date(timestamp)=?", [today]);
   const cCount = completedToday?.[0]?.c || 0;
@@ -298,7 +347,7 @@ async function renderDashboard(el) {
   const medDoses = [];
   for (const med of App.medicines) {
     const times = JSON.parse(med.dose_times || '[]');
-    times.forEach(t => medDoses.push({ med, time: t, past: t <= now }));
+    times.forEach(t => medDoses.push({ med, time: t, past: t <= nowT }));
   }
   medDoses.sort((a, b) => a.time.localeCompare(b.time));
 
@@ -311,12 +360,14 @@ async function renderDashboard(el) {
   });
 
   el.innerHTML = `
-    <!-- Stats Bar -->
-    <div class="stats-bar">
-      <div class="stat-card purple"><div class="stat-value">${todayReminders.length}</div><div class="stat-label">Today's Tasks</div></div>
-      <div class="stat-card green"><div class="stat-value">${cCount}</div><div class="stat-label">Completed Today</div></div>
-      <div class="stat-card red"><div class="stat-value">${overdue.length}</div><div class="stat-label">Overdue</div></div>
-      <div class="stat-card orange"><div class="stat-value">${critical.length}</div><div class="stat-label">Critical</div></div>
+    <div class="greeting-line">${greeting}, ${name}</div>
+    <div class="greeting-sub">${attention === 0 ? 'You\'re all caught up!' : `${attention} thing${attention !== 1 ? 's' : ''} need your attention`}</div>
+
+    <div class="smart-tabs">
+      <button class="smart-tab active" onclick="navigate('today')">Today · ${dueToday.length}</button>
+      <button class="smart-tab" onclick="navigate('tomorrow')">Tomorrow · ${dueTomorrow.length}</button>
+      <button class="smart-tab" onclick="navigate('overdue')">Overdue · ${overdue.length}</button>
+      <button class="smart-tab" onclick="navigate('upcoming')">Upcoming</button>
     </div>
 
     ${overdue.length > 0 ? `
@@ -331,16 +382,21 @@ async function renderDashboard(el) {
 
     <div class="dashboard-grid">
       <div>
-        <!-- Today's Reminders -->
+        ${overdue.length > 0 ? `
         <div class="section-header">
-          <div class="section-title">📋 Today's Reminders</div>
-          <button class="btn btn-primary btn-sm" onclick="navigate('add')">+ Add</button>
+          <div class="section-title">⚠️ Overdue</div>
+        </div>
+        <div class="reminder-list" style="margin-bottom:20px">${overdue.slice(0, 5).map(r => reminderCard(r)).join('')}</div>` : ''}
+
+        <div class="section-header">
+          <div class="section-title">☀️ Due Today</div>
+          <button class="btn btn-primary btn-sm" onclick="showCaptureSheet()">+ Add</button>
         </div>
         <div class="reminder-list" id="dashboard-reminders">
-          ${todayReminders.length === 0 ? `<div class="empty-state"><div class="empty-icon">🎉</div><h3>All clear!</h3><p>No reminders for today. Add one!</p></div>` :
-            todayReminders.slice(0, 8).map(r => reminderCard(r)).join('')}
+          ${dueToday.length === 0 ? `<div class="empty-state"><div class="empty-icon">🎉</div><h3>Nothing due today</h3><p>Press <strong>＋ New Reminder</strong> or type in the quick-add bar.</p></div>` :
+            dueToday.slice(0, 8).map(r => reminderCard(r)).join('')}
         </div>
-        ${todayReminders.length > 8 ? `<div style="text-align:center;margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="navigate('reminders')">View all ${todayReminders.length} reminders</button></div>` : ''}
+        ${dueToday.length > 8 ? `<div style="text-align:center;margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="navigate('reminders')">View all ${dueToday.length}</button></div>` : ''}
 
         <!-- Habits today -->
         ${App.habits.length > 0 ? `
@@ -417,10 +473,66 @@ async function renderDashboard(el) {
   `;
 }
 
+async function renderSmartList(mode) {
+  const el = document.getElementById('content');
+  const C = cap();
+  const now = new Date();
+  let items = [];
+  let title = '';
+  let subtitle = '';
+
+  switch (mode) {
+    case 'tomorrow':
+      items = App.reminders.filter(r => C?.isDueTomorrow(r, now));
+      title = '🌅 Tomorrow';
+      subtitle = 'What is coming tomorrow';
+      break;
+    case 'upcoming':
+      items = App.reminders.filter(r => C?.isUpcoming(r, now));
+      title = '📆 Upcoming';
+      subtitle = 'Next 7 days';
+      break;
+    case 'overdue':
+      items = App.reminders.filter(r => C?.isOverdueItem(r, now) || isReminderOverdue(r.next_fire));
+      title = '⚠️ Overdue';
+      subtitle = 'Needs your attention';
+      break;
+    default:
+      items = [];
+  }
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div>
+        <div class="page-title">${title}</div>
+        <div class="page-subtitle">${subtitle} · ${items.length} item${items.length !== 1 ? 's' : ''}</div>
+      </div>
+      <button class="btn btn-primary" onclick="showCaptureSheet()">＋ New</button>
+    </div>
+    <div class="smart-tabs">
+      <button class="smart-tab" onclick="navigate('today')">Today</button>
+      <button class="smart-tab ${mode === 'tomorrow' ? 'active' : ''}" onclick="navigate('tomorrow')">Tomorrow</button>
+      <button class="smart-tab ${mode === 'upcoming' ? 'active' : ''}" onclick="navigate('upcoming')">Upcoming</button>
+      <button class="smart-tab ${mode === 'overdue' ? 'active' : ''}" onclick="navigate('overdue')">Overdue</button>
+    </div>
+    <div class="reminder-list">
+      ${items.length === 0
+        ? `<div class="empty-state"><div class="empty-icon">✨</div><h3>Nothing here</h3><p>You're clear for this view.</p></div>`
+        : items.map(r => reminderCard(r)).join('')}
+    </div>
+  `;
+}
+
 // ── Reminder Card ──────────────────────────────────────────────────
 function reminderCard(r) {
-  const isOverdue = isReminderOverdue(r.next_fire);
+  const C = cap();
+  const isOverdue = C?.isOverdueItem(r) || isReminderOverdue(r.next_fire);
   const tags = JSON.parse(r.tags || '[]');
+  const kind = r.task_type === 'task' ? '✅ Task' : '🔔 Reminder';
+  const timeLabel = r.reminder_time ? formatTime(r.reminder_time) : '';
+  const rel = C?.relativeTimeLabel(r.next_fire) || '';
+  const dateShort = C?.formatDateShort(r.next_fire) || '';
+  const context = [dateShort, timeLabel, rel].filter(Boolean).join(' · ');
   return `
     <div class="reminder-card ${r.priority} ${isOverdue ? 'overdue' : ''}" id="rcard-${r.id}">
       <div class="reminder-check ${r.status === 'completed' ? 'done' : ''}" onclick="completeReminder('${r.id}')">
@@ -428,22 +540,19 @@ function reminderCard(r) {
       </div>
       <div class="reminder-body">
         <div class="reminder-title">${r.title}</div>
+        <div class="reminder-context ${isOverdue ? 'overdue' : ''}">${kind}${context ? ' · ' + context : ''}</div>
         ${r.why_it_matters ? `<div class="reminder-why">${r.why_it_matters}</div>` : ''}
         <div class="reminder-meta">
           <span class="tag ${r.category}">${categoryIcon(r.category)} ${r.category}</span>
-          <span class="tag ${r.priority}">${priorityLabel(r.priority)}</span>
-          ${tags.slice(0, 2).map(t => `<span class="tag">#${t}</span>`).join('')}
-          <span class="reminder-time ${isOverdue ? 'overdue' : ''}">
-            ${r.reminder_time ? formatTime(r.reminder_time) : r.repeat_type !== 'once' ? '🔁 ' + r.repeat_type : ''}
-            ${isOverdue ? ' ⚠️ Overdue' : ''}
-          </span>
+          ${r.priority !== 'normal' ? `<span class="tag ${r.priority}">${priorityLabel(r.priority)}</span>` : ''}
+          ${tags.slice(0, 1).map(t => `<span class="tag">#${t}</span>`).join('')}
         </div>
       </div>
       <div class="reminder-actions">
-        <button class="action-btn done" onclick="completeReminder('${r.id}')">✓ Done</button>
-        <button class="action-btn snooze" onclick="snoozeReminder('${r.id}')">💤 Snooze</button>
+        <button class="action-btn done" onclick="completeReminder('${r.id}')">✓</button>
+        <button class="action-btn snooze" onclick="showSnoozeMenu('${r.id}')">💤</button>
+        <button class="action-btn" onclick="postponeTomorrow('${r.id}')" title="Tomorrow">→</button>
         <button class="action-btn" onclick="editReminder('${r.id}')">✏️</button>
-        <button class="action-btn" onclick="deleteReminder('${r.id}')" style="color:var(--critical)">🗑</button>
       </div>
     </div>`;
 }
@@ -485,7 +594,7 @@ async function renderReminders(el) {
   el.innerHTML = `
     <div class="page-header">
       <div><div class="page-title">🔔 All Reminders</div><div class="page-subtitle" id="reminder-count"></div></div>
-      <button class="btn btn-primary" onclick="navigate('add')">➕ Add Reminder</button>
+      <button class="btn btn-primary" onclick="showCaptureSheet()">＋ New</button>
     </div>
 
     <!-- Filters -->
@@ -530,166 +639,14 @@ function searchReminders(query, reminders, renderFn) {
   renderFn(filtered);
 }
 
-// ── Add / Edit Reminder ────────────────────────────────────────────
-async function renderAddReminder(el, existing = null) {
-  const isEdit = !!existing;
-  const r = existing || {
-    id: uuid(), task_type: 'reminder', category: 'general', priority: 'normal',
-    urgency_quadrant: 'important-not-urgent', repeat_type: 'once', alert_style: 'sound-popup',
-    snooze_duration: 10, is_private: 0, reminder_time: '', start_date: todayStr(),
-    end_date: '', title: '', why_it_matters: '', notes: '', tags: '[]',
-    assigned_to: 'me', time_mode: 'exact', reminder_times: '[]'
-  };
-
-  el.innerHTML = `
-    <div class="page-header">
-      <div><div class="page-title">${isEdit ? '✏️ Edit Reminder' : '➕ Add New Reminder'}</div></div>
-      <button class="btn btn-ghost" onclick="navigate('reminders')">← Back</button>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 340px;gap:20px">
-      <div>
-        <!-- Basic Info -->
-        <div class="card" style="margin-bottom:16px">
-          <div style="font-size:15px;font-weight:700;margin-bottom:16px">📝 Basic Information</div>
-          <div class="form-grid">
-            <div class="form-group full">
-              <label class="form-label">Task Type</label>
-              <div style="display:flex;gap:8px;flex-wrap:wrap">
-                ${['reminder','task','habit','event','checklist','routine'].map(t => `
-                  <button class="priority-option ${r.task_type === t ? 'selected-normal' : ''}" onclick="selectTaskType(this,'${t}')">${taskTypeIcon(t)} ${t}</button>
-                `).join('')}
-              </div>
-              <input type="hidden" id="f-task-type" value="${r.task_type}"/>
-            </div>
-            <div class="form-group full">
-              <label class="form-label">Title *</label>
-              <input type="text" class="form-input" id="f-title" value="${r.title}" placeholder="e.g. Take Blood Pressure Medicine" />
-            </div>
-            <div class="form-group full">
-              <label class="form-label">Why does this matter? <span style="color:var(--text-muted)">(motivational context)</span></label>
-              <input type="text" class="form-input" id="f-why" value="${r.why_it_matters}" placeholder="e.g. To keep BP under control" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Category</label>
-              <select class="form-select" id="f-category">
-                ${['general','medicine','bills','family','work','health','personal','shopping','education','fitness'].map(c =>
-                  `<option value="${c}" ${r.category === c ? 'selected' : ''}>${categoryIcon(c)} ${c}</option>`
-                ).join('')}
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Assigned To</label>
-              <select class="form-select" id="f-assigned">
-                <option value="me" ${r.assigned_to === 'me' ? 'selected' : ''}>👤 Me</option>
-                ${App.family.map(f => `<option value="${f.id}" ${r.assigned_to === f.id ? 'selected' : ''}>${f.name}</option>`).join('')}
-              </select>
-            </div>
-            <div class="form-group full">
-              <label class="form-label">Notes</label>
-              <textarea class="form-textarea" id="f-notes" placeholder="Any extra details...">${r.notes}</textarea>
-            </div>
-            <div class="form-group full">
-              <label class="form-label">Tags <span style="color:var(--text-muted)">(comma separated)</span></label>
-              <input type="text" class="form-input" id="f-tags" value="${JSON.parse(r.tags || '[]').join(', ')}" placeholder="health, family, urgent" />
-            </div>
-          </div>
-        </div>
-
-        <!-- Schedule -->
-        <div class="card" style="margin-bottom:16px">
-          <div style="font-size:15px;font-weight:700;margin-bottom:16px">🗓 Schedule</div>
-          <div class="form-grid">
-            <div class="form-group">
-              <label class="form-label">Repeat</label>
-              <select class="form-select" id="f-repeat">
-                <option value="once" ${r.repeat_type==='once'?'selected':''}>One-time</option>
-                <option value="daily" ${r.repeat_type==='daily'?'selected':''}>Daily</option>
-                <option value="weekly" ${r.repeat_type==='weekly'?'selected':''}>Weekly</option>
-                <option value="monthly" ${r.repeat_type==='monthly'?'selected':''}>Monthly</option>
-                <option value="custom" ${r.repeat_type==='custom'?'selected':''}>Custom</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Time</label>
-              <input type="time" class="form-input" id="f-time" value="${r.reminder_time}" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Start Date</label>
-              <input type="date" class="form-input" id="f-start" value="${r.start_date || todayStr()}" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">End Date <span style="color:var(--text-muted)">(optional)</span></label>
-              <input type="date" class="form-input" id="f-end" value="${r.end_date}" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <!-- Priority -->
-        <div class="card" style="margin-bottom:16px">
-          <div style="font-size:15px;font-weight:700;margin-bottom:12px">⚡ Priority</div>
-          <div class="priority-selector" id="priority-selector">
-            ${['normal','important','critical'].map(p => `
-              <button class="priority-option ${r.priority === p ? 'selected-' + p : ''}" onclick="selectPriority(this,'${p}')">${priorityLabel(p)}</button>
-            `).join('')}
-          </div>
-          <input type="hidden" id="f-priority" value="${r.priority}" />
-        </div>
-
-        <!-- Urgency Matrix -->
-        <div class="card" style="margin-bottom:16px">
-          <div style="font-size:15px;font-weight:700;margin-bottom:12px">📊 Urgency Matrix</div>
-          <div class="quadrant-grid" id="quadrant-grid">
-            ${[
-              {v:'urgent-important',icon:'🔥',l:'DO NOW',d:'Urgent + Important'},
-              {v:'important-not-urgent',icon:'📌',l:'SCHEDULE',d:'Important, Not Urgent'},
-              {v:'urgent-not-important',icon:'🏃',l:'DELEGATE',d:'Urgent, Not Important'},
-              {v:'not-urgent-not-important',icon:'🗑',l:'ELIMINATE',d:'Neither'},
-            ].map(q => `
-              <button class="quadrant-option ${r.urgency_quadrant === q.v ? 'selected' : ''}" onclick="selectQuadrant(this,'${q.v}')">
-                <span class="q-icon">${q.icon}</span>${q.l}<br><span style="font-weight:400;color:var(--text-muted)">${q.d}</span>
-              </button>
-            `).join('')}
-          </div>
-          <input type="hidden" id="f-quadrant" value="${r.urgency_quadrant}" />
-        </div>
-
-        <!-- Alert Settings -->
-        <div class="card" style="margin-bottom:16px">
-          <div style="font-size:15px;font-weight:700;margin-bottom:12px">🔔 Alert Settings</div>
-          <div class="form-group" style="margin-bottom:10px">
-            <label class="form-label">Alert Style</label>
-            <select class="form-select" id="f-alert">
-              <option value="sound-popup" ${r.alert_style==='sound-popup'?'selected':''}>🔊 Sound + Popup</option>
-              <option value="popup-only" ${r.alert_style==='popup-only'?'selected':''}>💬 Popup Only</option>
-              <option value="silent" ${r.alert_style==='silent'?'selected':''}>🔕 Silent</option>
-              <option value="escalate" ${r.alert_style==='escalate'?'selected':''}>📢 Escalate if Missed</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="form-label">Snooze Duration (minutes)</label>
-            <input type="number" class="form-input" id="f-snooze" value="${r.snooze_duration}" min="1" max="60" />
-          </div>
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-top:10px">
-            <span class="form-label">Private (hide title in notification)</span>
-            <div class="toggle ${r.is_private ? 'on' : ''}" id="t-private" onclick="this.classList.toggle('on');document.getElementById('f-private').value=this.classList.contains('on')?1:0"></div>
-            <input type="hidden" id="f-private" value="${r.is_private}" />
-          </div>
-        </div>
-
-        <!-- Save -->
-        <button class="btn btn-primary" style="width:100%;justify-content:center;padding:14px" onclick="saveReminder('${r.id}',${isEdit})">
-          ${isEdit ? '💾 Update Reminder' : '✅ Save Reminder'}
-        </button>
-        ${isEdit ? `<button class="btn btn-ghost" style="width:100%;justify-content:center;margin-top:8px" onclick="navigate('reminders')">Cancel</button>` : ''}
-      </div>
-    </div>
-  `;
+// ── Add / Edit Reminder (legacy route → capture sheet) ─────────────
+async function renderAddReminder(el) {
+  el.innerHTML = '';
+  showCaptureSheet();
+  if (App.currentPage === 'add') navigate('today');
 }
 
-// Selector helpers
+// Selector helpers (legacy form — capture sheet uses chips)
 function selectPriority(btn, val) {
   document.querySelectorAll('#priority-selector .priority-option').forEach(b => b.className = 'priority-option');
   btn.className = `priority-option selected-${val}`;
@@ -766,13 +723,77 @@ async function completeReminder(id) {
   updateBadges();
 }
 
-async function snoozeReminder(id) {
-  const duration = parseInt(App.settings.snooze_duration) || 10;
+async function snoozeReminder(id, minutes) {
+  const r = App.reminders.find(x => x.id === id);
+  const limit = parseInt(App.settings.snooze_limit) || 3;
+  const count = parseInt(r?.snooze_count) || 0;
+  if (count >= limit) {
+    toast(`Snooze limit reached (${limit}). Mark done or postpone.`, 'warning');
+    return;
+  }
+  const duration = minutes || parseInt(r?.snooze_duration) || parseInt(App.settings.snooze_duration) || 10;
   const newFire = toLocalFireISO(new Date(Date.now() + duration * 60000));
   await db("UPDATE reminders SET next_fire=?, alarm_rings=0, snooze_count=snooze_count+1, updated_at=? WHERE id=?",
     [newFire, new Date().toISOString(), id]);
   await db("INSERT INTO reminder_logs (id,reminder_id,action,timestamp) VALUES (?,?,'snoozed',datetime('now'))", [uuid(), id]);
   toast(`💤 Snoozed for ${duration} minutes`);
+  await loadAllData();
+  updateBadges();
+  if (PAGES[App.currentPage]) navigate(App.currentPage);
+}
+
+function showSnoozeMenu(id) {
+  document.getElementById('snooze-menu')?.remove();
+  const menu = document.createElement('div');
+  menu.id = 'snooze-menu';
+  menu.className = 'modal-overlay';
+  menu.style.zIndex = '1050';
+  menu.innerHTML = `
+    <div class="capture-sheet" style="width:min(360px,94vw)">
+      <div class="capture-header"><h2>Snooze</h2><button class="modal-close" onclick="document.getElementById('snooze-menu').remove()">✕</button></div>
+      <div class="chip-row">
+        ${[10, 30, 60].map(m => `<button class="chip" onclick="document.getElementById('snooze-menu').remove();snoozeReminder('${id}',${m})">${m} min</button>`).join('')}
+      </div>
+      <div class="chip-row" style="margin-top:8px">
+        <button class="chip" onclick="document.getElementById('snooze-menu').remove();postponeTonight('${id}')">This evening</button>
+        <button class="chip" onclick="document.getElementById('snooze-menu').remove();postponeTomorrow('${id}')">Tomorrow</button>
+        <button class="chip" onclick="document.getElementById('snooze-menu').remove();postponeNextWeek('${id}')">Next week</button>
+      </div>
+    </div>`;
+  attachModalDismiss(menu);
+  menu.querySelector('.capture-sheet')?.addEventListener('click', e => e.stopPropagation());
+  document.body.appendChild(menu);
+}
+
+async function postponeTo(id, dateStr, timeStr) {
+  const r = App.reminders.find(x => x.id === id);
+  if (!r) return;
+  const nextFire = await computeNextFireForSave(dateStr, timeStr || r.reminder_time || '09:00', r.repeat_type || 'once');
+  await db("UPDATE reminders SET start_date=?, reminder_time=?, next_fire=?, alarm_rings=0, updated_at=? WHERE id=?",
+    [dateStr, timeStr || r.reminder_time, nextFire, new Date().toISOString(), id]);
+  await db("INSERT INTO reminder_logs (id,reminder_id,action,timestamp) VALUES (?,?,'postponed',datetime('now'))", [uuid(), id]);
+  toast('📅 Postponed');
+  await loadAllData();
+  updateBadges();
+  if (PAGES[App.currentPage]) navigate(App.currentPage);
+}
+
+async function postponeTomorrow(id) {
+  const C = cap();
+  const d = C ? C.dateStr(C.addDays(new Date(), 1)) : todayStr();
+  const r = App.reminders.find(x => x.id === id);
+  await postponeTo(id, d, r?.reminder_time || '09:00');
+}
+
+async function postponeTonight(id) {
+  await postponeTo(id, todayStr(), '18:00');
+}
+
+async function postponeNextWeek(id) {
+  const C = cap();
+  const d = C ? C.dateStr(C.addDays(new Date(), 7)) : todayStr();
+  const r = App.reminders.find(x => x.id === id);
+  await postponeTo(id, d, r?.reminder_time || '09:00');
 }
 
 async function deleteReminder(id) {
@@ -784,7 +805,7 @@ async function deleteReminder(id) {
 
 function editReminder(id) {
   const r = App.reminders.find(x => x.id === id);
-  if (r) renderAddReminder(document.getElementById('content'), r);
+  if (r) showCaptureSheet(r);
 }
 
 // ── Medicine Module ────────────────────────────────────────────────
@@ -1899,60 +1920,28 @@ async function clearOldData() {
   toast('🗑 Old data cleared');
 }
 
-// ── Quick Add (NLP-like) ───────────────────────────────────────────
+// ── Quick Add (NLP) ────────────────────────────────────────────────
 async function handleQuickAdd() {
   const input = document.getElementById('quick-input');
   const text = input.value.trim();
   if (!text) return;
 
-  // Parse intent from text
-  let title = text;
-  let category = 'general';
-  let repeatType = 'once';
-  let priority = 'normal';
-  let reminderTime = '';
-
-  const lower = text.toLowerCase();
-
-  // Detect category
-  if (lower.includes('medicine') || lower.includes('tablet') || lower.includes('capsule') || lower.includes('pill')) category = 'medicine';
-  else if (lower.includes('bill') || lower.includes('pay') || lower.includes('electricity') || lower.includes('rent')) category = 'bills';
-  else if (lower.includes('family') || lower.includes('mom') || lower.includes('dad') || lower.includes('wife') || lower.includes('husband')) category = 'family';
-  else if (lower.includes('work') || lower.includes('meeting') || lower.includes('office') || lower.includes('client')) category = 'work';
-
-  // Detect priority
-  if (lower.includes('urgent') || lower.includes('critical') || lower.includes('asap') || lower.includes('emergency')) priority = 'critical';
-  else if (lower.includes('important')) priority = 'important';
-
-  // Detect repeat
-  if (lower.includes('daily') || lower.includes('every day') || lower.includes('रोज')) repeatType = 'daily';
-  else if (lower.includes('weekly') || lower.includes('every week')) repeatType = 'weekly';
-  else if (lower.includes('monthly') || lower.includes('every month')) repeatType = 'monthly';
-
-  // Detect time
-  const timeMatch = text.match(/at\s+(\d{1,2}):?(\d{2})?\s*(am|pm)?/i);
-  if (timeMatch) {
-    let h = parseInt(timeMatch[1]);
-    const m = parseInt(timeMatch[2] || '0');
-    const ampm = (timeMatch[3] || '').toLowerCase();
-    if (ampm === 'pm' && h < 12) h += 12;
-    if (ampm === 'am' && h === 12) h = 0;
-    reminderTime = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-  }
+  const parsed = cap()?.parseReminderText(text) || { title: text, startDate: todayStr(), time: '', repeatType: 'once', category: 'general', priority: 'normal' };
+  if (!parsed.title) { toast('Please describe what to remember', 'warning'); return; }
 
   const id = uuid();
-  const nextFire = reminderTime
-    ? await computeNextFireForSave(todayStr(), reminderTime, repeatType)
-    : await computeNextFireForSave(todayStr(), nowTimeStr(), repeatType);
+  const fireTime = parsed.time || '09:00';
+  const nextFire = await computeNextFireForSave(parsed.startDate, fireTime, parsed.repeatType);
 
   if (!await dbRun(`INSERT INTO reminders (id,title,task_type,category,repeat_type,reminder_time,start_date,priority,alert_style,status,next_fire,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
-    [id, title, 'reminder', category, repeatType, reminderTime, todayStr(), priority, 'sound-popup', 'active', nextFire])) return;
+    [id, parsed.title, 'reminder', parsed.category, parsed.repeatType, parsed.time, parsed.startDate, parsed.priority, 'sound-popup', 'active', nextFire])) return;
 
   input.value = '';
-  toast(`✅ Added: "${title}"`);
+  updateQuickAddPreview();
+  toast(`✅ ${parsed.title}`);
   await loadAllData();
   updateBadges();
-  if (App.currentPage === 'dashboard' || App.currentPage === 'reminders') navigate(App.currentPage);
+  if (PAGES[App.currentPage]) navigate(App.currentPage);
 }
 
 // ── Focus Mode ─────────────────────────────────────────────────────
@@ -1977,7 +1966,7 @@ async function updateBadges() {
 function showAlertCount() {
   const overdue = App.reminders.filter(r => r.status === 'active' && isReminderOverdue(r.next_fire));
   if (overdue.length === 0) { toast('✅ No pending alerts!'); return; }
-  navigate('reminders');
+  navigate('overdue');
 }
 
 // ── Helper Labels ──────────────────────────────────────────────────
@@ -1999,6 +1988,11 @@ function taskTypeIcon(t) {
 // ── IPC Listeners ──────────────────────────────────────────────────
 function setupListeners() {
   document.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {
+      e.preventDefault();
+      showCaptureSheet();
+      return;
+    }
     if (e.key !== 'Escape') return;
     const alert = document.getElementById('alert-popup');
     if (alert) return;
@@ -2037,8 +2031,8 @@ function openReminderFromNotificationClick(reminder) {
   App.isProcessingAlert = false;
   showInAppAlert(reminder);
   App.isProcessingAlert = true;
-  if (App.currentPage !== 'reminders' && App.currentPage !== 'dashboard') {
-    navigate('reminders');
+  if (App.currentPage !== 'reminders' && App.currentPage !== 'today' && App.currentPage !== 'dashboard') {
+    navigate('today');
   }
 }
 
@@ -2048,6 +2042,11 @@ function processAlertQueue() {
   const reminder = App.alertQueue.shift();
 
   if (App.pausedUntil && Date.now() < App.pausedUntil && reminder.priority !== 'critical') {
+    processAlertQueue();
+    return;
+  }
+
+  if (App.focusMode && reminder.priority !== 'critical') {
     processAlertQueue();
     return;
   }
@@ -2119,7 +2118,7 @@ async function init() {
     await loadAllData();
     renderShell();
     setupListeners();
-    await navigate('dashboard');
+    await navigate('today');
     updateBadges();
 
     // Hide loader, show app

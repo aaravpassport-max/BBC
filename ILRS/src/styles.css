@@ -192,6 +192,8 @@ html, body {
   flex: 1;
   max-width: 600px;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .quick-add-bar input {
@@ -891,3 +893,161 @@ textarea.form-input {
   background: var(--bg-surface);
   color: var(--text-primary);
 }
+
+/* ── Fast Capture Sheet ───────────────────────────────────────────── */
+.capture-overlay { z-index: 1100; }
+.capture-sheet {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-xl);
+  padding: 24px 28px;
+  width: min(480px, 94vw);
+  max-height: 90vh;
+  overflow-y: auto;
+  animation: slideUp 0.2s ease;
+}
+.capture-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.capture-header h2 { font-size: 20px; font-weight: 700; }
+.capture-input-lg { font-size: 16px; padding: 12px 14px; margin-bottom: 16px; }
+.kind-toggle {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  background: var(--bg-base);
+  border-radius: var(--radius);
+  padding: 4px;
+}
+.kind-btn {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.kind-btn.active {
+  background: var(--bg-card);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+}
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.chip {
+  border: 1px solid var(--border);
+  background: var(--bg-base);
+  color: var(--text-secondary);
+  padding: 7px 14px;
+  border-radius: 99px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body);
+  transition: all 0.15s;
+}
+.chip:hover { border-color: var(--accent); color: var(--accent-light); }
+.chip.selected {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent-light);
+}
+[data-theme="light"] .chip.selected { color: var(--accent-dark); }
+.capture-more-toggle {
+  background: none;
+  border: none;
+  color: var(--accent-light);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 0;
+  margin: 8px 0 12px;
+  font-family: var(--font-body);
+}
+[data-theme="light"] .capture-more-toggle { color: var(--accent-dark); }
+.capture-more { border-top: 1px solid var(--border); padding-top: 12px; }
+.capture-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.capture-create-btn { min-width: 120px; justify-content: center; }
+.quick-add-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+  min-height: 0;
+}
+.quick-add-preview .chip { font-size: 11px; padding: 4px 10px; }
+.sidebar-add-btn {
+  margin: 8px;
+  width: calc(100% - 16px);
+  justify-content: center;
+}
+.greeting-line { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+.greeting-sub { font-size: 14px; color: var(--text-secondary); margin-bottom: 20px; }
+.smart-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.smart-tab {
+  padding: 8px 14px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-body);
+}
+.smart-tab.active, .smart-tab:hover {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent-light);
+}
+[data-theme="light"] .smart-tab.active { color: var(--accent-dark); }
+.reminder-context {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.reminder-context.overdue { color: var(--critical); font-weight: 600; }
+.fab-add {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--text-on-accent);
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  box-shadow: var(--shadow-lg);
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s;
+}
+.fab-add:hover { transform: scale(1.05); background: var(--accent-light); }
