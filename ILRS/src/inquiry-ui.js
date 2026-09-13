@@ -82,7 +82,7 @@
 
         <div class="capture-actions">
           <button type="button" class="btn btn-ghost" id="inq-cancel">Cancel</button>
-          <button type="button" class="btn btn-primary capture-create-btn" id="inq-save">Create Inquiry</button>
+          <button type="button" class="btn btn-primary capture-create-btn" id="inq-save">${isEdit ? 'Save Changes' : 'Create Inquiry'}</button>
         </div>
         <input type="hidden" id="inq-when" value="tomorrow" />
         <input type="hidden" id="inq-source" value="${esc(inq.source || '')}" />
@@ -164,18 +164,20 @@
       if (window.ilrs?.findInquiryDuplicates && !isEdit) {
         const dup = await window.ilrs.findInquiryDuplicates(data);
         if (dup?.matches?.length) {
-          const names = dup.matches.map((m) => `${m.inquiry_number} ${m.client_name}`).join(', ');
-          if (!confirm(`Possible existing inquiry: ${names}\n\nCreate new anyway?`)) return;
+          const proceed = await showDuplicateConfirm(dup.matches);
+          if (!proceed) return;
         }
       }
 
-      const result = await window.ilrs?.createInquiry?.(data);
+      const result = isEdit
+        ? await window.ilrs?.updateInquiry?.(inq.id, data)
+        : await window.ilrs?.createInquiry?.(data);
       if (!result?.success) {
-        if (typeof toast === 'function') toast(result?.error || 'Could not create inquiry', 'warning');
+        if (typeof toast === 'function') toast(result?.error || `Could not ${isEdit ? 'update' : 'create'} inquiry`, 'warning');
         return;
       }
       overlay.remove();
-      if (typeof toast === 'function') toast(`📥 Inquiry ${result.inquiry.inquiry_number} created`);
+      if (typeof toast === 'function') toast(isEdit ? '📥 Inquiry updated' : `📥 Inquiry ${result.inquiry.inquiry_number} created`);
       if (typeof loadAllData === 'function') await loadAllData();
       if (typeof navigate === 'function') {
         App.selectedInquiryId = result.inquiry.id;
@@ -184,6 +186,35 @@
     });
 
     setTimeout(() => document.getElementById('inq-client')?.focus(), 50);
+  }
+
+  function showDuplicateConfirm(matches) {
+    return new Promise((resolve) => {
+      const overlay = document.createElement('div');
+      overlay.className = 'modal-overlay';
+      overlay.id = 'inq-dup-modal';
+      overlay.innerHTML = `
+        <div class="capture-sheet" style="max-width:420px">
+          <div class="capture-header"><h2>Possible duplicate</h2>
+            <button class="modal-close" onclick="document.getElementById('inq-dup-modal').remove();window.__inqDupResolve(false)">✕</button>
+          </div>
+          <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px">An active inquiry may already exist for this contact:</p>
+          <div class="inquiry-list" style="margin-bottom:16px">
+            ${matches.map((m) => `
+              <div class="inquiry-card" style="cursor:pointer" onclick="App.selectedInquiryId='${m.id}';document.getElementById('inq-dup-modal').remove();window.__inqDupResolve(false);navigate('inquiry-detail')">
+                <strong>${m.client_name}</strong> · ${m.inquiry_number || ''}<br>
+                <span style="font-size:12px;color:var(--text-muted)">${m.requirement || ''}</span>
+              </div>`).join('')}
+          </div>
+          <div class="capture-actions">
+            <button class="btn btn-ghost" onclick="document.getElementById('inq-dup-modal').remove();window.__inqDupResolve(false)">Cancel</button>
+            <button class="btn btn-primary" onclick="document.getElementById('inq-dup-modal').remove();window.__inqDupResolve(true)">Create new anyway</button>
+          </div>
+        </div>`;
+      window.__inqDupResolve = resolve;
+      overlay.addEventListener('click', (e) => { if (e.target === overlay) { overlay.remove(); resolve(false); } });
+      document.body.appendChild(overlay);
+    });
   }
 
   window.showQuickAddMenu = showQuickAddMenu;

@@ -6,6 +6,7 @@ const os = require('os');
 const Database = require('better-sqlite3');
 const {
   createInquiry,
+  updateInquiry,
   changeInquiryStage,
   findPossibleDuplicates,
   computeInquiryHealth,
@@ -90,6 +91,18 @@ test('findPossibleDuplicates matches mobile', () => {
   createInquiry(db, { clientName: 'A', requirement: 'X', mobile: '111' }, now);
   const matches = findPossibleDuplicates(db, { mobile: '111', name: 'A', requirement: 'Y' });
   assert.strictEqual(matches.length, 1);
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
+test('updateInquiry updates requirement and notes', () => {
+  const { db, dbPath } = makeDb();
+  const now = new Date(2026, 8, 13, 10, 0, 0);
+  const { inquiry } = createInquiry(db, { clientName: 'A', requirement: 'Visa' }, now);
+  const result = updateInquiry(db, inquiry.id, { requirement: 'Passport', notes: 'Urgent' }, now);
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(result.inquiry.requirement, 'Passport');
+  assert.strictEqual(result.inquiry.notes, 'Urgent');
   db.close();
   fs.unlinkSync(dbPath);
 });

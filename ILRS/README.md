@@ -76,12 +76,22 @@ Life items are managed in their own modules — they do **not** duplicate into t
 - **Family** — members, assignee on capture, emergency contact flag
 - **Checklists** — named lists with progress tracking
 
+### Work / Inquiries
+- **Pipeline** — table view grouped by stage (not Kanban): ID, client, requirement, stage, follow-up, health, days in stage
+- **Inquiries** — list with Active / My / Closed filters; click to open detail
+- **Follow-ups** — overdue, today, and upcoming inquiry follow-ups
+- **Clients** — contacts auto-created from inquiries; filter inquiries by client
+- Fast **New Inquiry** sheet (client + requirement + next action + follow-up)
+- Stage change modal, edit inquiry, reopen closed inquiries
+- Tasks/reminders can link to an inquiry (`source_type=inquiry`)
+- Duplicate detection when creating inquiries
+
 ### Keyboard shortcuts
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+N` | New reminder / task |
-| `Ctrl+Shift+A` | New reminder / task |
-| `Ctrl+K` | Search everything |
+| `Ctrl+N` | New reminder / task / inquiry |
+| `Ctrl+Shift+A` | New reminder / task / inquiry |
+| `Ctrl+K` | Search everything (incl. inquiries & clients) |
 | `?` | Show shortcuts help |
 | `Esc` | Close modal or search |
 

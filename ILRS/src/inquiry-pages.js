@@ -166,16 +166,19 @@
     const all = App.inquiries || [];
     const filter = App.inquiryListFilter || 'active';
     let items = all;
-    if (filter === 'active') items = all.filter((i) => i.outcome_status === 'active');
-    else if (filter === 'closed') items = all.filter((i) => i.outcome_status !== 'active');
-    else if (filter === 'mine') items = all.filter((i) => i.assigned_to === 'me' || !i.assigned_to);
+    if (App.clientFilterId) items = items.filter((i) => i.client_id === App.clientFilterId);
+    if (filter === 'active') items = items.filter((i) => i.outcome_status === 'active');
+    else if (filter === 'closed') items = items.filter((i) => i.outcome_status !== 'active');
+    else if (filter === 'mine') items = items.filter((i) => i.assigned_to === 'me' || !i.assigned_to);
+    const clientFilter = App.clientFilterId ? (App.clients || []).find((c) => c.id === App.clientFilterId) : null;
 
     el.innerHTML = `
       <div class="page-header">
         <div><div class="page-title">📥 Inquiries</div>
-          <div class="page-subtitle">${items.length} inquiries</div></div>
+          <div class="page-subtitle">${clientFilter ? `${clientFilter.name} · ` : ''}${items.length} inquiries</div></div>
         <button class="btn btn-primary" onclick="showInquirySheet()">＋ New Inquiry</button>
       </div>
+      ${clientFilter ? `<div style="margin-bottom:12px"><button class="btn btn-ghost btn-sm" onclick="App.clientFilterId=null;navigate('inquiries')">✕ Clear client filter</button></div>` : ''}
       <div class="smart-tabs">
         <button class="smart-tab ${filter === 'active' ? 'active' : ''}" onclick="setInquiryFilter('active')">Active</button>
         <button class="smart-tab ${filter === 'mine' ? 'active' : ''}" onclick="setInquiryFilter('mine')">My Inquiries</button>
@@ -244,8 +247,11 @@
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <button class="btn btn-ghost btn-sm" onclick="logInquiryQuick('${id}','call')">📞 Call</button>
           <button class="btn btn-ghost btn-sm" onclick="logInquiryQuick('${id}','whatsapp')">💬 WhatsApp</button>
-          <button class="btn btn-ghost btn-sm" onclick="showCaptureSheet()">＋ Task</button>
-          <button class="btn btn-primary btn-sm" onclick="showStageChangeModal('${id}')">Change Stage</button>
+          <button class="btn btn-ghost btn-sm" onclick="showInquiryLinkedTask('${id}')">＋ Task</button>
+          <button class="btn btn-ghost btn-sm" onclick="editInquiry('${id}')">Edit</button>
+          ${inq.outcome_status !== 'active'
+            ? `<button class="btn btn-ghost btn-sm" onclick="reopenInquiryConfirm('${id}')">↩ Reopen</button>`
+            : `<button class="btn btn-primary btn-sm" onclick="showStageChangeModal('${id}')">Change Stage</button>`}
         </div>
       </div>
 
@@ -315,27 +321,124 @@
     navigate('inquiry-detail');
   }
 
+  function editInquiry(id) {
+    const inq = (App.inquiries || []).find((i) => i.id === id);
+    if (inq && typeof showInquirySheet === 'function') showInquirySheet(inq);
+  }
+
+  function showInquiryLinkedTask(id) {
+    const inq = (App.inquiries || []).find((i) => i.id === id);
+    if (!inq) return;
+    if (typeof showCaptureSheet === 'function') {
+      showCaptureSheet({
+        task_type: 'task',
+        category: 'work',
+        title: inq.next_action ? `${inq.next_action}: ${inq.client_name}` : `Follow up: ${inq.client_name}`,
+        source_type: 'inquiry',
+        source_id: inq.id,
+        assigned_to: inq.assigned_to || 'me',
+      });
+    }
+  }
+
   function showStageChangeModal(id) {
     const inq = (App.inquiries || []).find((i) => i.id === id);
     if (!inq) return;
     const pipeline = P();
     const stages = [...(pipeline?.getActiveStages() || []), ...(pipeline?.getClosedStages() || [])];
-    const stageKey = prompt(
-      `New stage for ${inq.client_name}:\n\n` +
-      stages.map((s, i) => `${i + 1}. ${s.display}`).join('\n') +
-      '\n\nEnter stage number or key:',
-      '',
-    );
-    if (!stageKey) return;
-    let key = stageKey;
-    const num = parseInt(stageKey, 10);
-    if (!Number.isNaN(num) && num >= 1 && num <= stages.length) key = stages[num - 1].key;
-    const selected = stages.find((s) => s.key === key || s.display.toLowerCase() === stageKey.toLowerCase());
-    if (!selected) {
-      toast('Invalid stage', 'warning');
+    if (typeof dismissPageModals === 'function') dismissPageModals();
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'stage-change-modal';
+    overlay.innerHTML = `
+      <div class="capture-sheet" style="max-width:480px">
+        <div class="capture-header">
+          <h2>Change stage</h2>
+          <button class="modal-close" onclick="document.getElementById('stage-change-modal').remove()">✕</button>
+        </div>
+        <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px">${inq.client_name} · ${inq.inquiry_number || ''}</p>
+        <label class="form-label">New stage</label>
+        <select class="form-select" id="stage-change-select" style="margin-bottom:12px">
+          ${stages.map((s) => `<option value="${s.key}" ${s.key === inq.stage_key ? 'selected' : ''}>${s.display}</option>`).join('')}
+        </select>
+        <label class="form-label">Note (optional)</label>
+        <textarea class="form-textarea" id="stage-change-note" rows="2" placeholder="Reason or context"></textarea>
+        <div class="capture-actions">
+          <button class="btn btn-ghost" onclick="document.getElementById('stage-change-modal').remove()">Cancel</button>
+          <button class="btn btn-primary" id="stage-change-save">Update stage</button>
+        </div>
+      </div>`;
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+    overlay.querySelector('#stage-change-save')?.addEventListener('click', async () => {
+      const key = document.getElementById('stage-change-select')?.value;
+      const note = document.getElementById('stage-change-note')?.value.trim();
+      overlay.remove();
+      const result = await window.ilrs?.changeInquiryStage?.(id, key, { note });
+      if (!result?.success) {
+        toast(result?.error || 'Could not change stage', 'warning');
+        return;
+      }
+      toast(`Stage → ${result.stage?.display || key}`);
+      await loadAllData();
+      navigate('inquiry-detail');
+    });
+  }
+
+  async function reopenInquiryConfirm(id) {
+    const inq = (App.inquiries || []).find((i) => i.id === id);
+    if (!inq) return;
+    if (!confirm(`Reopen inquiry for ${inq.client_name}?`)) return;
+    const result = await window.ilrs?.reopenInquiry?.(id, 'follow_up');
+    if (!result?.success) {
+      toast(result?.error || 'Could not reopen', 'warning');
       return;
     }
-    changeInquiryStageConfirm(id, selected.key);
+    toast('Inquiry reopened');
+    await loadAllData();
+    navigate('inquiry-detail');
+  }
+
+  async function renderClients(el) {
+    const clients = App.clients || [];
+    const inquiries = App.inquiries || [];
+    el.innerHTML = `
+      <div class="page-header">
+        <div>
+          <div class="page-title">👤 Clients</div>
+          <div class="page-subtitle">${clients.length} contacts</div>
+        </div>
+        <button class="btn btn-primary" onclick="showInquirySheet()">＋ New Inquiry</button>
+      </div>
+      <div class="pipeline-table-wrap card">
+        ${clients.length === 0
+          ? '<div class="empty-state" style="padding:32px"><div class="empty-icon">👤</div><h3>No clients yet</h3><p>Clients are created when you add inquiries.</p></div>'
+          : `<table class="pipeline-table">
+            <thead><tr><th>Name</th><th>Company</th><th>Mobile</th><th>Email</th><th>Inquiries</th></tr></thead>
+            <tbody>
+              ${clients.map((c) => {
+                const count = inquiries.filter((i) => i.client_id === c.id).length;
+                const active = inquiries.filter((i) => i.client_id === c.id && i.outcome_status === 'active').length;
+                return `<tr class="pipeline-row" onclick="openClientInquiries('${c.id}')">
+                  <td><strong>${c.name}</strong></td>
+                  <td>${c.company || '—'}</td>
+                  <td>${c.mobile || '—'}</td>
+                  <td>${c.email || '—'}</td>
+                  <td>${active} active / ${count} total</td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>`}
+      </div>`;
+  }
+
+  function openClientInquiries(clientId) {
+    const client = (App.clients || []).find((c) => c.id === clientId);
+    if (!client) return;
+    App.inquiryListFilter = 'active';
+    App.clientFilterId = clientId;
+    navigate('inquiries');
   }
 
   async function changeInquiryStageConfirm(id, stageKey) {
@@ -349,14 +452,20 @@
     navigate('inquiry-detail');
   }
 
+  window.inquiryCard = inquiryCard;
   window.renderPipeline = renderPipeline;
   window.setPipelineCategory = setPipelineCategory;
   window.renderInquiries = renderInquiries;
   window.renderInquiryFollowups = renderInquiryFollowups;
   window.renderInquiryDetail = renderInquiryDetail;
+  window.renderClients = renderClients;
   window.openInquiryDetail = openInquiryDetail;
+  window.openClientInquiries = openClientInquiries;
   window.setInquiryFilter = setInquiryFilter;
+  window.editInquiry = editInquiry;
+  window.showInquiryLinkedTask = showInquiryLinkedTask;
   window.showStageChangeModal = showStageChangeModal;
+  window.reopenInquiryConfirm = reopenInquiryConfirm;
   window.logInquiryQuick = logInquiryQuick;
   window.promptInquiryNote = promptInquiryNote;
 })();

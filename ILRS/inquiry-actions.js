@@ -268,6 +268,69 @@ function logInquiryActivity(db, inquiryId, { type, title, body }) {
   return { success: true };
 }
 
+function updateInquiry(db, inquiryId, data, now = new Date()) {
+  const inquiry = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
+  if (!inquiry) return { success: false, error: 'Inquiry not found' };
+
+  if (data.clientName || data.mobile || data.email) {
+    const client = findOrCreateClient(db, {
+      name: data.clientName || inquiry.client_name,
+      company: data.company || inquiry.company,
+      mobile: data.mobile || inquiry.mobile,
+      email: data.email || inquiry.email,
+    });
+    db.prepare(`
+      UPDATE clients SET name = ?, company = ?, mobile = ?, email = ? WHERE id = ?
+    `).run(client.name, data.company || client.company, data.mobile || client.mobile, data.email || client.email, client.id);
+    data.clientId = client.id;
+  }
+
+  db.prepare(`
+    UPDATE inquiries SET
+      client_id = COALESCE(?, client_id),
+      client_name = COALESCE(?, client_name),
+      company = COALESCE(?, company),
+      mobile = COALESCE(?, mobile),
+      email = COALESCE(?, email),
+      requirement = COALESCE(?, requirement),
+      service_category = COALESCE(?, service_category),
+      source = COALESCE(?, source),
+      stage_key = COALESCE(?, stage_key),
+      next_action = COALESCE(?, next_action),
+      next_follow_up = COALESCE(?, next_follow_up),
+      next_follow_up_time = COALESCE(?, next_follow_up_time),
+      expected_value = COALESCE(?, expected_value),
+      quotation_amount = COALESCE(?, quotation_amount),
+      notes = COALESCE(?, notes),
+      updated_at = datetime('now')
+    WHERE id = ?
+  `).run(
+    data.clientId ?? null,
+    data.clientName ?? null,
+    data.company ?? null,
+    data.mobile ?? null,
+    data.email ?? null,
+    data.requirement ?? null,
+    data.serviceCategory ?? null,
+    data.source ?? null,
+    data.stageKey ?? null,
+    data.nextAction ?? null,
+    data.nextFollowUp ?? null,
+    data.nextFollowUpTime ?? null,
+    data.expectedValue != null ? parseFloat(data.expectedValue) : null,
+    data.quotationAmount != null ? parseFloat(data.quotationAmount) : null,
+    data.notes ?? null,
+    inquiryId,
+  );
+
+  logActivity(db, inquiryId, 'note', 'Inquiry updated', data.requirement || inquiry.requirement, {});
+  const updated = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
+  const health = computeInquiryHealth(updated, now);
+  db.prepare('UPDATE inquiries SET health = ? WHERE id = ?').run(health, inquiryId);
+  updated.health = health;
+  return { success: true, inquiry: updated };
+}
+
 function reopenInquiry(db, inquiryId, stageKey = 'follow_up') {
   const inquiry = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
   if (!inquiry) return { success: false, error: 'Inquiry not found' };
@@ -292,6 +355,7 @@ function seedInquiryStages(db) {
 
 module.exports = {
   createInquiry,
+  updateInquiry,
   changeInquiryStage,
   logInquiryActivity,
   findPossibleDuplicates,

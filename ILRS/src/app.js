@@ -95,6 +95,32 @@ function isReminderOverdue(nextFire) {
   return new Date(y, m - 1, d, hh, mm || 0, 0, 0).getTime() < Date.now();
 }
 
+function isActiveSchedulableReminder(r) {
+  if (!r || r.status !== 'active') return false;
+  if (r.task_type === 'task' && (r.workflow_status || 'pending') === 'done') return false;
+  return true;
+}
+
+function isSchedulableReminder(r) {
+  return r.task_type !== 'task' || (r.reminder_time && r.next_fire);
+}
+
+function isOverdueReminder(r, now = new Date()) {
+  if (!isActiveSchedulableReminder(r) || !isSchedulableReminder(r)) return false;
+  const C = cap();
+  return Boolean(C?.isOverdueItem(r, now) || isReminderOverdue(r.next_fire));
+}
+
+function refreshCurrentView() {
+  const page = App.currentPage;
+  if (PAGES[page]) navigate(page);
+}
+
+function stayOnLifeView(defaultPage) {
+  const stay = ['today', 'overdue', 'tomorrow'];
+  navigate(stay.includes(App.currentPage) ? App.currentPage : defaultPage);
+}
+
 function localNowISO() {
   return toLocalFireISO(new Date());
 }
@@ -195,10 +221,11 @@ const PAGES = {
   inquiries: renderInquiries,
   'inquiry-followups': renderInquiryFollowups,
   'inquiry-detail': renderInquiryDetail,
+  clients: renderClients,
 };
 
 function dismissPageModals() {
-  ['med-modal', 'bill-modal', 'fam-modal', 'famr-modal', 'hab-modal', 'cl-modal', 'onboard-modal', 'capture-sheet', 'search-palette', 'shortcuts-help', 'inquiry-sheet', 'quick-add-menu'].forEach((id) => {
+  ['med-modal', 'bill-modal', 'fam-modal', 'famr-modal', 'hab-modal', 'cl-modal', 'onboard-modal', 'capture-sheet', 'search-palette', 'shortcuts-help', 'inquiry-sheet', 'quick-add-menu', 'stage-change-modal', 'inq-dup-modal'].forEach((id) => {
     document.getElementById(id)?.remove();
   });
   document.querySelectorAll('.modal-overlay').forEach((el) => {
@@ -275,6 +302,7 @@ function renderShell() {
       ${navItem('pipeline', '📊', 'Pipeline')}
       ${navItem('inquiries', '📥', 'Inquiries')}
       ${navItem('inquiry-followups', '📞', 'Follow-ups')}
+      ${navItem('clients', '👤', 'Clients')}
 
       <div class="sidebar-section-label">Life</div>
       ${navItem('medicine', '💊', 'Medicine')}
@@ -507,17 +535,21 @@ async function renderToday(el) {
     db("SELECT COUNT(*) as c FROM habit_logs WHERE completed=1 AND log_date >= date('now', '-7 days')"),
   ]);
 
-  const schedulable = (r) => r.task_type !== 'task' || (r.reminder_time && r.next_fire);
-  const dueToday = App.reminders.filter(r => schedulable(r) && (C?.isDueToday(r, now) || (r.status === 'active' && !r.next_fire && r.start_date === today)));
-  const overdue = App.reminders.filter(r => schedulable(r) && (C?.isOverdueItem(r, now) || isReminderOverdue(r.next_fire)));
-  const dueTomorrow = App.reminders.filter(r => schedulable(r) && C?.isDueTomorrow(r, now));
+  const dueToday = App.reminders.filter(r => isActiveSchedulableReminder(r) && isSchedulableReminder(r) && (C?.isDueToday(r, now) || (!r.next_fire && r.start_date === today)));
+  const overdue = App.reminders.filter(r => isOverdueReminder(r, now));
+  const dueTomorrow = App.reminders.filter(r => isActiveSchedulableReminder(r) && isSchedulableReminder(r) && C?.isDueTomorrow(r, now));
   const postponedItems = App.reminders.filter(r => C?.isPostponedItem(r));
+
+  const activeInquiries = (App.inquiries || []).filter(i => i.outcome_status === 'active');
+  const inquiryFollowUpsToday = activeInquiries.filter(i => i.next_follow_up === today);
+  const inquiryFollowUpsOverdue = activeInquiries.filter(i => i.next_follow_up && i.next_follow_up < today);
+  const inquiryAttention = inquiryFollowUpsToday.length + inquiryFollowUpsOverdue.length;
 
   const pendingMeds = getPendingMedDoses(medLogs || [], nowT);
   const billsAttention = getBillsNeedingAttention(todayDay);
   const habitsDue = getHabitsDueToday(habitLogs || []);
   const lifeCount = pendingMeds.length + billsAttention.length + habitsDue.length;
-  const attention = overdue.length + dueToday.length + lifeCount;
+  const attention = overdue.length + dueToday.length + lifeCount + inquiryAttention;
 
   const medDosesAll = [];
   for (const med of App.medicines) {
@@ -572,6 +604,16 @@ async function renderToday(el) {
             dueToday.slice(0, 8).map(r => reminderCard(r)).join('')}
         </div>
         ${dueToday.length > 8 ? `<div style="text-align:center;margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="navigate('reminders')">View all ${dueToday.length}</button></div>` : ''}
+
+        ${inquiryAttention > 0 ? `
+        <div class="section-header" style="margin-top:24px">
+          <div class="section-title">📥 Work Follow-ups</div>
+          <button class="btn btn-ghost btn-sm" onclick="navigate('inquiry-followups')">All follow-ups</button>
+        </div>
+        <div class="inquiry-list" style="margin-bottom:16px">
+          ${inquiryFollowUpsOverdue.slice(0, 3).map(i => typeof inquiryCard === 'function' ? inquiryCard(i, true) : '').join('')}
+          ${inquiryFollowUpsToday.slice(0, 3).map(i => typeof inquiryCard === 'function' ? inquiryCard(i, true) : '').join('')}
+        </div>` : ''}
 
         ${lifeCount > 0 ? `
         <div class="section-header" style="margin-top:24px">
@@ -679,7 +721,6 @@ async function renderSmartList(mode) {
   const tomorrowDate = C ? C.addDays(now, 1) : new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
   const tomorrowStr = C ? C.dateStr(tomorrowDate) : today;
   const tomorrowDay = tomorrowDate.getDate();
-  const schedulable = (r) => r.task_type !== 'task' || (r.reminder_time && r.next_fire);
   let items = [];
   let title = '';
   let subtitle = '';
@@ -706,17 +747,17 @@ async function renderSmartList(mode) {
 
   switch (mode) {
     case 'tomorrow':
-      items = App.reminders.filter(r => schedulable(r) && C?.isDueTomorrow(r, now));
+      items = App.reminders.filter(r => isActiveSchedulableReminder(r) && isSchedulableReminder(r) && C?.isDueTomorrow(r, now));
       title = '🌅 Tomorrow';
       subtitle = 'What is coming tomorrow';
       break;
     case 'upcoming':
-      items = App.reminders.filter(r => schedulable(r) && C?.isUpcoming(r, now));
+      items = App.reminders.filter(r => isActiveSchedulableReminder(r) && isSchedulableReminder(r) && C?.isUpcoming(r, now));
       title = '📆 Upcoming';
       subtitle = 'Next 7 days';
       break;
     case 'overdue':
-      items = App.reminders.filter(r => schedulable(r) && (C?.isOverdueItem(r, now) || isReminderOverdue(r.next_fire)));
+      items = App.reminders.filter(r => isOverdueReminder(r, now));
       title = '⚠️ Overdue';
       subtitle = 'Needs your attention';
       break;
@@ -787,7 +828,7 @@ function reminderCard(r) {
   const C = cap();
   const isTask = r.task_type === 'task';
   const wf = r.workflow_status || 'pending';
-  const isOverdue = !isTask && (C?.isOverdueItem(r) || isReminderOverdue(r.next_fire));
+  const isOverdue = !isTask && isOverdueReminder(r);
   const tags = JSON.parse(r.tags || '[]');
   const kind = isTask ? '✅ Task' : '🔔 Reminder';
   const timeLabel = r.reminder_time ? formatTime(r.reminder_time) : '';
@@ -1057,10 +1098,9 @@ async function completeReminder(id) {
   const recurring = result?.recurring || (r && r.repeat_type && r.repeat_type !== 'once' && !isTask);
   toast(isTask ? '✅ Task completed!' : recurring ? '✅ Done — next occurrence scheduled' : '✅ Marked as complete!');
 
-  const card = document.getElementById(`rcard-${id}`);
-  if (card && !recurring) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
   await loadAllData();
   updateBadges();
+  refreshCurrentView();
 }
 
 async function snoozeReminder(id, minutes) {
@@ -1320,7 +1360,7 @@ async function markDoseTaken(medId, doseTime) {
   }
   toast('💊 Dose marked as taken!');
   await loadAllData();
-  navigate(App.currentPage === 'today' ? 'today' : 'medicine');
+  stayOnLifeView('medicine');
 }
 
 function showAddMedicine() {
@@ -1564,7 +1604,7 @@ async function markBillPaid(id) {
   }
   toast('✅ Bill marked as paid!');
   await loadAllData();
-  navigate(App.currentPage === 'today' ? 'today' : 'bills');
+  stayOnLifeView('bills');
 }
 
 async function deleteBill(id) {
@@ -1771,7 +1811,7 @@ async function logHabit(id) {
   const streakMsg = result?.streak ? ` · 🔥 ${result.streak}d streak` : '';
   toast(`🔥 Habit logged!${streakMsg}`);
   await loadAllData();
-  navigate(App.currentPage === 'today' ? 'today' : 'habits');
+  stayOnLifeView('habits');
 }
 
 async function deleteHabit(id) {
@@ -2017,6 +2057,17 @@ async function renderReports(el) {
         <div style="font-size:48px;font-weight:700;font-family:var(--font-mono);color:var(--habit-color);margin:16px 0">${habitLogs?.[0]?.c || 0}</div>
         <div style="font-size:13px;color:var(--text-secondary)">habit completions this week</div>
         <div style="font-size:12px;color:var(--text-muted);margin-top:8px">${App.habits.length} active habits</div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">📥 Work / Inquiries</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px">
+          <div><div style="font-size:28px;font-weight:700;font-family:var(--font-mono)">${(App.inquiries || []).filter(i => i.outcome_status === 'active').length}</div><div style="font-size:12px;color:var(--text-muted)">Active inquiries</div></div>
+          <div><div style="font-size:28px;font-weight:700;font-family:var(--font-mono);color:var(--critical)">${(App.inquiries || []).filter(i => i.outcome_status === 'active' && i.next_follow_up && i.next_follow_up < today).length}</div><div style="font-size:12px;color:var(--text-muted)">Overdue follow-ups</div></div>
+          <div><div style="font-size:28px;font-weight:700;font-family:var(--font-mono);color:var(--warning)">${(App.inquiries || []).filter(i => i.health === 'stale' || i.health === 'at_risk').length}</div><div style="font-size:12px;color:var(--text-muted)">At risk / stale</div></div>
+          <div><div style="font-size:28px;font-weight:700;font-family:var(--font-mono)">${(App.clients || []).length}</div><div style="font-size:12px;color:var(--text-muted)">Clients</div></div>
+        </div>
+        <button class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="navigate('pipeline')">Open pipeline</button>
       </div>
 
       <div class="card">
@@ -2441,7 +2492,7 @@ function toggleFocusMode() {
 
 // ── Badge Count ────────────────────────────────────────────────────
 async function updateBadges() {
-  const overdue = App.reminders.filter(r => r.status === 'active' && isReminderOverdue(r.next_fire));
+  const overdue = App.reminders.filter(r => isOverdueReminder(r));
   const badge = document.getElementById('alert-badge');
   if (badge) {
     badge.textContent = overdue.length;
@@ -2450,7 +2501,7 @@ async function updateBadges() {
 }
 
 function showAlertCount() {
-  const overdue = App.reminders.filter(r => r.status === 'active' && isReminderOverdue(r.next_fire));
+  const overdue = App.reminders.filter(r => isOverdueReminder(r));
   if (overdue.length === 0) { toast('✅ No pending alerts!'); return; }
   navigate('overdue');
 }
@@ -2511,6 +2562,20 @@ function buildSearchResults(query) {
   App.family.forEach((f) => {
     if (!`${f.name} ${f.role || ''}`.toLowerCase().includes(q)) return;
     results.push({ id: f.id, type: 'family', page: 'family', icon: '👨‍👩‍👧', title: f.name, subtitle: f.role || 'Family', action: () => navigate('family') });
+  });
+
+  (App.clients || []).forEach((c) => {
+    const hay = `${c.name} ${c.company || ''} ${c.mobile || ''} ${c.email || ''}`.toLowerCase();
+    if (!hay.includes(q)) return;
+    results.push({
+      id: c.id,
+      type: 'client',
+      page: 'clients',
+      icon: '👤',
+      title: c.name,
+      subtitle: `Client · ${c.company || c.mobile || 'contact'}`,
+      action: () => { App.clientFilterId = c.id; navigate('inquiries'); },
+    });
   });
 
   (App.inquiries || []).forEach((inq) => {

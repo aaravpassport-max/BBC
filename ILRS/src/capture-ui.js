@@ -99,7 +99,9 @@
       alert: r.alert_style || 'sound-popup',
       private: Number(r.is_private) === 1,
       endDate: r.end_date || '',
-      moreOpen: isEdit,
+      sourceType: r.source_type || '',
+      sourceId: r.source_id || '',
+      moreOpen: isEdit || !!(r.source_type && r.source_id),
     };
 
     const overlay = document.createElement('div');
@@ -111,6 +113,7 @@
           <h2>${isEdit ? 'Edit' : 'Create'}</h2>
           <button type="button" class="modal-close" id="capture-close" aria-label="Close">✕</button>
         </div>
+        ${state.sourceType === 'inquiry' && state.sourceId ? `<div class="capture-linked-banner">📥 Linked to inquiry</div>` : ''}
 
         <div class="kind-toggle">
           <button type="button" class="kind-btn ${state.kind === 'reminder' ? 'active' : ''}" data-kind="reminder">🔔 Reminder</button>
@@ -189,6 +192,8 @@
         <input type="hidden" id="capture-when" value="${state.when}" />
         <input type="hidden" id="capture-priority" value="${state.priority}" />
         <input type="hidden" id="capture-private" value="${state.private ? '1' : '0'}" />
+        <input type="hidden" id="capture-source-type" value="${esc(state.sourceType)}" />
+        <input type="hidden" id="capture-source-id" value="${esc(state.sourceId)}" />
       </div>
     `;
 
@@ -373,9 +378,11 @@
       );
     } else {
       const workflowStatus = kind === 'task' ? 'pending' : 'pending';
+      const sourceType = document.getElementById('capture-source-type')?.value || '';
+      const sourceId = document.getElementById('capture-source-id')?.value || '';
       ok = await dbRun(
-        `INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,repeat_value,reminder_time,start_date,end_date,priority,urgency_quadrant,alert_style,snooze_duration,assigned_to,is_private,notes,tags,next_fire,status,workflow_status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'active',?,datetime('now'),datetime('now'))`,
-        [...params, workflowStatus]
+        `INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,repeat_value,reminder_time,start_date,end_date,priority,urgency_quadrant,alert_style,snooze_duration,assigned_to,is_private,notes,tags,next_fire,status,workflow_status,source_type,source_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'active',?,?,?,datetime('now'),datetime('now'))`,
+        [...params, workflowStatus, sourceType, sourceId]
       );
     }
 

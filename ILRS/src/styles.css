@@ -988,6 +988,16 @@ textarea.form-input {
 }
 [data-theme="light"] .capture-more-toggle { color: var(--accent-dark); }
 .capture-more { border-top: 1px solid var(--border); padding-top: 12px; }
+.capture-linked-banner {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-light);
+  background: var(--accent-dim);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  margin-bottom: 12px;
+}
 .capture-actions {
   display: flex;
   gap: 10px;

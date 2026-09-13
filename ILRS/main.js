@@ -16,6 +16,7 @@ const {
 } = require('./module-actions');
 const {
   createInquiry,
+  updateInquiry,
   changeInquiryStage,
   logInquiryActivity,
   findPossibleDuplicates,
@@ -408,6 +409,16 @@ function setupIPC() {
   ipcMain.handle('create-inquiry', async (_event, data) => {
     try {
       const result = createInquiry(db, data || {});
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('update-inquiry', async (_event, { id, data }) => {
+    try {
+      const result = updateInquiry(db, id, data || {});
       if (result.success) notifyRendererDataChanged();
       return result;
     } catch (err) {
