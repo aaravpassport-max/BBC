@@ -26,10 +26,18 @@
   function showInquirySheet(existing = null) {
     if (typeof dismissPageModals === 'function') dismissPageModals();
     const pipeline = P();
-    const stages = pipeline?.getActiveStages() || [];
-    const sources = pipeline?.SOURCE_CHIPS || [];
     const isEdit = !!existing?.id;
     const inq = existing || {};
+    const activeStages = pipeline?.getActiveStages() || [];
+    const closedStages = pipeline?.getClosedStages() || [];
+    const stages = isEdit
+      ? [...activeStages, ...closedStages.filter((s) => !activeStages.find((a) => a.key === s.key))]
+      : activeStages;
+    const sources = pipeline?.SOURCE_CHIPS || [];
+    const cap = window.ILRSCapture;
+    const whenInfo = isEdit && inq.next_follow_up && cap?.resolveWhenFromExisting
+      ? cap.resolveWhenFromExisting({ start_date: inq.next_follow_up })
+      : { when: 'tomorrow', startDate: '' };
 
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay capture-overlay';
@@ -64,10 +72,10 @@
         <label class="form-label">Next follow-up</label>
         <div class="chip-row" id="inq-when-chips">
           ${['today', 'tomorrow', 'next-week', 'custom'].map((w) =>
-            `<button type="button" class="chip" data-when="${w}">${w === 'next-week' ? 'Next week' : w === 'custom' ? 'Pick date…' : w.charAt(0).toUpperCase() + w.slice(1)}</button>`
+            `<button type="button" class="chip ${whenInfo.when === w ? 'selected' : ''}" data-when="${w}">${w === 'next-week' ? 'Next week' : w === 'custom' ? 'Pick date…' : w.charAt(0).toUpperCase() + w.slice(1)}</button>`
           ).join('')}
         </div>
-        <input type="date" class="form-input" id="inq-follow-date" style="display:none;margin-top:8px" />
+        <input type="date" class="form-input" id="inq-follow-date" value="${whenInfo.startDate || ''}" style="display:${whenInfo.when === 'custom' ? 'block' : 'none'};margin-top:8px" />
         <input type="time" class="form-input" id="inq-follow-time" value="${inq.next_follow_up_time || '11:00'}" style="margin-top:8px" />
 
         <button type="button" class="capture-more-toggle" id="inq-more-toggle">+ More Details</button>
@@ -91,14 +99,13 @@
           <button type="button" class="btn btn-ghost" id="inq-cancel">Cancel</button>
           <button type="button" class="btn btn-primary capture-create-btn" id="inq-save">${isEdit ? 'Save Changes' : 'Create Inquiry'}</button>
         </div>
-        <input type="hidden" id="inq-when" value="tomorrow" />
+        <input type="hidden" id="inq-when" value="${whenInfo.when}" />
         <input type="hidden" id="inq-source" value="${esc(inq.source || '')}" />
       </div>`;
 
     if (typeof attachModalDismiss === 'function') attachModalDismiss(overlay);
     document.body.appendChild(overlay);
 
-    const cap = window.ILRSCapture;
     const resolveWhen = (when) => {
       const now = new Date();
       if (!cap) return typeof todayStr === 'function' ? todayStr() : '';
@@ -160,11 +167,14 @@
       overlay.querySelectorAll('#inq-source-chips .chip').forEach((c) => c.classList.toggle('selected', c === chip));
     });
 
-    // Default tomorrow selected
-    const tomorrowChip = overlay.querySelector('[data-when="tomorrow"]');
-    if (tomorrowChip) {
-      tomorrowChip.classList.add('selected');
-      document.getElementById('inq-follow-date').value = resolveWhen('tomorrow');
+    if (!isEdit) {
+      const tomorrowChip = overlay.querySelector('[data-when="tomorrow"]');
+      if (tomorrowChip) {
+        tomorrowChip.classList.add('selected');
+        document.getElementById('inq-follow-date').value = resolveWhen('tomorrow');
+      }
+    } else if (whenInfo.when !== 'custom') {
+      document.getElementById('inq-follow-date').value = whenInfo.startDate || resolveWhen(whenInfo.when);
     }
 
     overlay.querySelector('#inq-save')?.addEventListener('click', async () => {
@@ -175,12 +185,15 @@
         return;
       }
       const when = document.getElementById('inq-when')?.value || 'tomorrow';
+      const nextFollowUp = when === 'custom'
+        ? (document.getElementById('inq-follow-date')?.value || resolveWhen(when))
+        : resolveWhen(when);
       const data = {
         clientName,
         requirement,
         stageKey: document.getElementById('inq-stage')?.value,
         nextAction: document.getElementById('inq-next-action')?.value.trim(),
-        nextFollowUp: resolveWhen(when),
+        nextFollowUp,
         nextFollowUpTime: document.getElementById('inq-follow-time')?.value || '11:00',
         mobile: document.getElementById('inq-mobile')?.value.trim(),
         email: document.getElementById('inq-email')?.value.trim(),

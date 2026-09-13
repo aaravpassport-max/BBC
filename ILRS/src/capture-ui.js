@@ -80,11 +80,15 @@
 
     const isEdit = !!(existing && existing.id);
     const r = existing || {};
+    const whenInfo = isEdit && C()?.resolveWhenFromExisting
+      ? C().resolveWhenFromExisting(r)
+      : { when: 'today', startDate: r.start_date || (typeof todayStr === 'function' ? todayStr() : '') };
     const state = {
       id: r.id || (typeof uuid === 'function' ? uuid() : ''),
       kind: r.task_type === 'task' ? 'task' : 'reminder',
-      when: 'today',
-      startDate: r.start_date || (typeof todayStr === 'function' ? todayStr() : ''),
+      when: whenInfo.when,
+      startDate: whenInfo.startDate,
+      stageKey: r.stage_key || '',
       time: r.reminder_time || '',
       timeMode: r.reminder_time ? (['09:00', '10:00', '14:00', '18:00'].includes(r.reminder_time) ? r.reminder_time : 'custom') : '',
       category: r.category || 'general',
@@ -125,7 +129,7 @@
 
         <label class="form-label">When?</label>
         <div class="chip-row" id="capture-when-chips">${whenChipHtml(state.when)}</div>
-        <input type="date" class="form-input capture-custom-date" id="capture-date" value="${state.startDate}" style="display:none;margin-top:8px" />
+        <input type="date" class="form-input capture-custom-date" id="capture-date" value="${state.startDate}" style="display:${state.when === 'custom' ? 'block' : 'none'};margin-top:8px" />
 
         <label class="form-label">Time <span class="form-hint">(recommended for reminders)</span></label>
         <div class="chip-row" id="capture-time-chips">${timeChipHtml(state.timeMode)}</div>
@@ -204,7 +208,7 @@
     if (typeof attachModalDismiss === 'function') attachModalDismiss(overlay);
     document.body.appendChild(overlay);
 
-    wireCaptureSheet(overlay);
+    wireCaptureSheet(overlay, r, isEdit);
     setTimeout(() => document.getElementById('capture-title')?.focus(), 50);
   }
 
@@ -222,7 +226,7 @@
     }
   }
 
-  function wireCaptureSheet(overlay) {
+  function wireCaptureSheet(overlay, existing = {}, isEdit = false) {
     const close = () => overlay.remove();
 
     overlay.querySelector('#capture-close')?.addEventListener('click', close);
@@ -309,19 +313,35 @@
 
     overlay.querySelector('#capture-save')?.addEventListener('click', () => saveCaptureSheet(close));
 
-    const refreshStageOptions = () => {
-      const kind = document.querySelector('.kind-btn.active')?.dataset.kind || 'reminder';
+    const refreshStageOptions = async () => {
+      const kind = overlay.querySelector('.kind-btn.active')?.dataset.kind || 'reminder';
       const entityType = kind === 'task' ? 'task' : 'reminder';
-      const stages = window.ILRSWorkflowPipeline?.getStages?.(entityType) || [];
+      let stages = window.ILRSWorkflowPipeline?.getStages?.(entityType) || [];
+      if (!stages.length && window.ilrs?.getWorkflowStages) {
+        const result = await window.ilrs.getWorkflowStages(entityType);
+        if (result?.success && result.stages?.length) {
+          stages = result.stages;
+          window.ILRSWorkflowPipeline?.setStages?.(entityType, stages);
+        }
+      }
       const sel = overlay.querySelector('#capture-stage');
       if (!sel) return;
-      const current = r.stage_key || stages[0]?.key || '';
+      const defaultKey = entityType === 'task' ? 'new' : 'scheduled';
+      const current = existing?.stage_key || defaultKey;
+      if (!stages.length) {
+        sel.innerHTML = `<option value="${current}">${current}</option>`;
+        return;
+      }
+      const hasCurrent = stages.some((s) => s.key === current);
       sel.innerHTML = stages.map((s) =>
         `<option value="${s.key}" ${s.key === current ? 'selected' : ''}>${s.display}</option>`
       ).join('');
+      if (!hasCurrent && current) {
+        sel.innerHTML += `<option value="${current}" selected>${current} (current)</option>`;
+      }
     };
     overlay.querySelectorAll('.kind-btn').forEach((btn) => {
-      btn.addEventListener('click', () => { setTimeout(refreshStageOptions, 0); });
+      btn.addEventListener('click', () => { refreshStageOptions(); });
     });
     refreshStageOptions();
 
@@ -337,7 +357,9 @@
 
     const kind = document.querySelector('.kind-btn.active')?.dataset.kind || 'reminder';
     const when = document.getElementById('capture-when')?.value || 'today';
-    const startDate = resolveWhenDate(when);
+    const startDate = when === 'custom'
+      ? (document.getElementById('capture-date')?.value || resolveWhenDate(when))
+      : resolveWhenDate(when);
     const time = document.getElementById('capture-time')?.value || (when === 'evening' ? '18:00' : '');
     const repeatType = document.getElementById('capture-repeat')?.value || 'once';
     let repeatValue = '';

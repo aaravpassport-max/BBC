@@ -243,6 +243,21 @@
     return isActiveReminder(r) && !!r.next_fire && nextFireDateStr(r.next_fire) === dateStr;
   }
 
+  /** Map an existing reminder/task to a when-chip + preserved start date for edit forms. */
+  function resolveWhenFromExisting(reminder, now = new Date()) {
+    const start = String(reminder?.start_date || reminder?.next_fire || '').slice(0, 10);
+    if (!start || start.length < 10) {
+      return { when: 'today', startDate: dateStr(now) };
+    }
+    const today = dateStr(now);
+    const tomorrow = dateStr(addDays(now, 1));
+    const nextWeek = dateStr(addDays(now, 7));
+    if (start === today) return { when: 'today', startDate: start };
+    if (start === tomorrow) return { when: 'tomorrow', startDate: start };
+    if (start === nextWeek) return { when: 'next-week', startDate: start };
+    return { when: 'custom', startDate: start };
+  }
+
   function isScheduledInMonth(r, monthStr) {
     return isActiveReminder(r) && !!r.next_fire && nextFireDateStr(r.next_fire).startsWith(monthStr);
   }
@@ -276,5 +291,6 @@
     isScheduledInMonth,
     dateStr,
     addDays,
+    resolveWhenFromExisting,
   };
 })();

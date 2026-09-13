@@ -50,6 +50,19 @@ assert.equal(
   false,
 );
 
+assert.deepEqual(
+  C.resolveWhenFromExisting({ start_date: '2026-09-25', next_fire: '2026-09-25T10:00:00' }, now),
+  { when: 'custom', startDate: '2026-09-25' },
+);
+assert.deepEqual(
+  C.resolveWhenFromExisting({ start_date: '2026-09-14' }, now),
+  { when: 'tomorrow', startDate: '2026-09-14' },
+);
+assert.deepEqual(
+  C.resolveWhenFromExisting({ next_fire: '2026-09-13T09:00:00' }, now),
+  { when: 'today', startDate: '2026-09-13' },
+);
+
 const { execSync } = require('child_process');
 for (const file of ['capture-ui.js', 'inquiry-ui.js', 'app.js']) {
   execSync(`node --check ${path.join(__dirname, '..', 'src', file)}`, { stdio: 'pipe' });
