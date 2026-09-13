@@ -7,8 +7,9 @@ const {
   DEFAULT_STAGES,
   getStage,
   isClosedStage,
-  STAGE_FOLLOW_UP_DAYS,
+  getStageAutomation,
 } = require('./inquiry-pipeline');
+const { loadStagesFromDb, saveAllStagesToDb } = require('./inquiry-stage-store');
 
 function nextInquiryNumber(db) {
   const row = db.prepare("SELECT value FROM settings WHERE key = 'inquiry_counter'").get();
@@ -196,11 +197,13 @@ function changeInquiryStage(db, inquiryId, newStageKey, options = {}, now = new 
   const inquiry = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
   if (!inquiry) return { success: false, error: 'Inquiry not found' };
 
-  const stage = getStage(newStageKey);
+  const stages = loadStagesFromDb(db);
+  const stage = getStage(newStageKey, stages);
   if (!stage) return { success: false, error: 'Invalid stage' };
+  const automation = getStageAutomation(newStageKey, stages);
 
   const oldKey = inquiry.stage_key;
-  const outcome = isClosedStage(newStageKey) ? 'closed_lost' : (newStageKey === 'delivered' ? 'closed_won' : 'active');
+  const outcome = isClosedStage(newStageKey, stages) ? 'closed_lost' : (newStageKey === 'delivered' ? 'closed_won' : 'active');
 
   db.prepare(`
     UPDATE inquiries SET stage_key = ?, outcome_status = ?, closed_reason = ?,
@@ -211,7 +214,7 @@ function changeInquiryStage(db, inquiryId, newStageKey, options = {}, now = new 
   `).run(
     newStageKey,
     outcome,
-    options.closedReason || (isClosedStage(newStageKey) ? stage.display : ''),
+    options.closedReason || (isClosedStage(newStageKey, stages) ? stage.display : ''),
     options.quotationAmount ?? null,
     options.paymentStatus ?? null,
     inquiryId,
@@ -222,8 +225,9 @@ function changeInquiryStage(db, inquiryId, newStageKey, options = {}, now = new 
     newStage: newStageKey,
   });
 
-  const followDays = options.followUpDays ?? STAGE_FOLLOW_UP_DAYS[newStageKey];
-  if (followDays && !isClosedStage(newStageKey)) {
+  const followDays = options.followUpDays ?? automation.followUpDays;
+  const autoNextAction = options.nextAction || automation.nextAction;
+  if (followDays && !isClosedStage(newStageKey, stages)) {
     const d = new Date(now);
     d.setDate(d.getDate() + followDays);
     const dateStr = localDateStr(d);
@@ -235,7 +239,7 @@ function changeInquiryStage(db, inquiryId, newStageKey, options = {}, now = new 
       now,
     });
     db.prepare(`UPDATE inquiries SET next_follow_up = ?, next_follow_up_time = ?, next_action = ? WHERE id = ?`).run(
-      dateStr, timeStr, options.nextAction || 'Follow up with client', inquiryId,
+      dateStr, timeStr, autoNextAction || 'Follow up with client', inquiryId,
     );
     logActivity(db, inquiryId, 'follow_up', 'Auto follow-up scheduled', `${dateStr} ${timeStr}`, {});
   }
@@ -344,13 +348,13 @@ function reopenInquiry(db, inquiryId, stageKey = 'follow_up') {
 }
 
 function seedInquiryStages(db) {
-  const insert = db.prepare(`
-    INSERT OR IGNORE INTO inquiry_stages (key, display_name, category, sort_order, is_closed)
-    VALUES (?, ?, ?, ?, ?)
-  `);
-  for (const s of DEFAULT_STAGES) {
-    insert.run(s.key, s.display, s.category, s.sort, s.closed ? 1 : 0);
-  }
+  const { getStageFields, getStageAutomation } = require('./inquiry-pipeline');
+  const stages = DEFAULT_STAGES.map((s) => ({
+    ...s,
+    fields: getStageFields(s.key),
+    automation: getStageAutomation(s.key),
+  }));
+  saveAllStagesToDb(db, stages);
 }
 
 module.exports = {

@@ -131,7 +131,11 @@
           <div class="page-title">📊 Inquiry Pipeline</div>
           <div class="page-subtitle">${visibleCount} active · table view by stage</div>
         </div>
-        <button class="btn btn-primary" onclick="showInquirySheet()">＋ New Inquiry</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" onclick="navigate('pipeline-settings')">⚙️ Setup</button>
+          <button class="btn btn-ghost" onclick="navigate('work-reports')">📈 Analytics</button>
+          <button class="btn btn-primary" onclick="showInquirySheet()">＋ New Inquiry</button>
+        </div>
       </div>
       <div class="smart-tabs pipeline-filters">
         ${categoryTabs.map(([key, label]) =>
@@ -341,6 +345,25 @@
     }
   }
 
+  function renderStageFieldsHtml(stageKey, inq) {
+    const fields = P()?.getStageFields?.(stageKey) || [];
+    if (!fields.length) return '';
+    return fields.map((f) => {
+      const val = f.key === 'quotationAmount' ? inq.quotation_amount
+        : f.key === 'paymentStatus' ? inq.payment_status
+        : f.key === 'nextAction' ? inq.next_action : '';
+      if (f.type === 'select') {
+        return `<label class="form-label">${f.label}${f.required ? ' *' : ''}</label>
+          <select class="form-select stage-field" data-field="${f.key}">
+            ${(f.options || []).map((o) => `<option value="${o}" ${val === o ? 'selected' : ''}>${o}</option>`).join('')}
+          </select>`;
+      }
+      return `<label class="form-label">${f.label}${f.required ? ' *' : ''}</label>
+        <input type="${f.type || 'text'}" class="form-input stage-field" data-field="${f.key}"
+          value="${val || ''}" placeholder="${f.placeholder || ''}" />`;
+    }).join('');
+  }
+
   function showStageChangeModal(id) {
     const inq = (App.inquiries || []).find((i) => i.id === id);
     if (!inq) return;
@@ -362,6 +385,8 @@
         <select class="form-select" id="stage-change-select" style="margin-bottom:12px">
           ${stages.map((s) => `<option value="${s.key}" ${s.key === inq.stage_key ? 'selected' : ''}>${s.display}</option>`).join('')}
         </select>
+        <div id="stage-change-fields">${renderStageFieldsHtml(inq.stage_key, inq)}</div>
+        <div id="stage-automation-hint" class="stage-automation-hint"></div>
         <label class="form-label">Note (optional)</label>
         <textarea class="form-textarea" id="stage-change-note" rows="2" placeholder="Reason or context"></textarea>
         <div class="capture-actions">
@@ -371,11 +396,35 @@
       </div>`;
     overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
     document.body.appendChild(overlay);
+
+    const updateFields = () => {
+      const key = document.getElementById('stage-change-select')?.value;
+      const fieldsEl = document.getElementById('stage-change-fields');
+      const hintEl = document.getElementById('stage-automation-hint');
+      if (fieldsEl) fieldsEl.innerHTML = renderStageFieldsHtml(key, inq);
+      const auto = pipeline?.getStageAutomation?.(key) || {};
+      if (hintEl) {
+        hintEl.innerHTML = auto.followUpDays
+          ? `<span class="chip selected">Auto: follow-up in ${auto.followUpDays} day(s)${auto.nextAction ? ' · ' + auto.nextAction : ''}</span>`
+          : '';
+      }
+    };
+    overlay.querySelector('#stage-change-select')?.addEventListener('change', updateFields);
+    updateFields();
+
     overlay.querySelector('#stage-change-save')?.addEventListener('click', async () => {
       const key = document.getElementById('stage-change-select')?.value;
       const note = document.getElementById('stage-change-note')?.value.trim();
+      const options = { note };
+      overlay.querySelectorAll('.stage-field').forEach((el) => {
+        const k = el.dataset.field;
+        const v = el.value;
+        if (k === 'quotationAmount') options.quotationAmount = parseFloat(v) || 0;
+        else if (k === 'paymentStatus') options.paymentStatus = v;
+        else if (k === 'nextAction') options.nextAction = v;
+      });
       overlay.remove();
-      const result = await window.ilrs?.changeInquiryStage?.(id, key, { note });
+      const result = await window.ilrs?.changeInquiryStage?.(id, key, options);
       if (!result?.success) {
         toast(result?.error || 'Could not change stage', 'warning');
         return;

@@ -10,6 +10,7 @@ const {
   changeInquiryStage,
   findPossibleDuplicates,
   computeInquiryHealth,
+  seedInquiryStages,
 } = require('../inquiry-actions');
 
 function test(name, fn) {
@@ -43,6 +44,10 @@ function makeDb() {
       id TEXT PRIMARY KEY, inquiry_id TEXT, activity_type TEXT, title TEXT, body TEXT,
       old_stage_key TEXT, new_stage_key TEXT, metadata TEXT, created_at TEXT
     );
+    CREATE TABLE inquiry_stages (
+      key TEXT PRIMARY KEY, display_name TEXT, category TEXT, sort_order INTEGER,
+      is_closed INTEGER, color TEXT, fields_json TEXT DEFAULT '[]', automation_json TEXT DEFAULT '{}'
+    );
     CREATE TABLE reminders (
       id TEXT PRIMARY KEY, title TEXT, task_type TEXT, category TEXT, why_it_matters TEXT,
       repeat_type TEXT, reminder_time TEXT, start_date TEXT, priority TEXT, alert_style TEXT,
@@ -50,6 +55,7 @@ function makeDb() {
       workflow_status TEXT, created_at TEXT, updated_at TEXT
     );
   `);
+  seedInquiryStages(db);
   return { db, dbPath };
 }
 

@@ -60,6 +60,7 @@ function checkInquiryAlerts(db, showNotification, now = new Date()) {
     const reasons = [];
     if (inq.health === 'at_risk') reasons.push('at risk');
     if (inq.health === 'stale') reasons.push('stale');
+    if (inq.health === 'needs_attention') reasons.push('needs attention');
     if (inq.next_follow_up && inq.next_follow_up < today) reasons.push('overdue follow-up');
 
     if (!reasons.length) continue;

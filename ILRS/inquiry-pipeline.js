@@ -41,6 +41,45 @@ const STAGE_FOLLOW_UP_DAYS = {
   feasibility_check_required: 2,
 };
 
+/** Fields shown when entering a stage (stage change modal). */
+const STAGE_FIELDS = {
+  quotation_to_be_sent: [
+    { key: 'quotationAmount', label: 'Quotation amount (₹)', type: 'number', required: false },
+  ],
+  quotation_sent: [
+    { key: 'quotationAmount', label: 'Quotation amount (₹)', type: 'number', required: true },
+  ],
+  awaiting_client_decision: [
+    { key: 'quotationAmount', label: 'Quotation amount (₹)', type: 'number', required: false },
+  ],
+  payment_received: [
+    { key: 'quotationAmount', label: 'Amount received (₹)', type: 'number', required: true },
+    { key: 'paymentStatus', label: 'Payment status', type: 'select', options: ['received', 'partial'], required: true },
+  ],
+  payment_received_work_not_started: [
+    { key: 'paymentStatus', label: 'Payment status', type: 'select', options: ['received', 'partial'], required: false },
+  ],
+  waiting_for_docs: [
+    { key: 'nextAction', label: 'Docs requested', type: 'text', required: false, placeholder: 'Ask client for passport copy' },
+  ],
+  documents_received: [
+    { key: 'nextAction', label: 'Next step', type: 'text', required: false },
+  ],
+  delivered: [
+    { key: 'nextAction', label: 'Delivery notes', type: 'text', required: false },
+  ],
+};
+
+/** Automation rules applied on stage entry. */
+const STAGE_AUTOMATION = {
+  quotation_sent: { followUpDays: 2, nextAction: 'Follow up on quotation' },
+  awaiting_client_decision: { followUpDays: 3, nextAction: 'Check client decision' },
+  waiting_for_docs: { followUpDays: 3, nextAction: 'Remind client for documents' },
+  feasibility_check_required: { followUpDays: 2, nextAction: 'Complete feasibility check' },
+  payment_received: { followUpDays: 1, nextAction: 'Assign work to team' },
+  assigned_in_progress: { followUpDays: 2, nextAction: 'Check work progress' },
+};
+
 const ACTIVITY_TYPES = [
   'call', 'whatsapp', 'sms', 'email', 'meeting', 'note', 'follow_up',
   'stage_change', 'quotation', 'payment', 'document_received', 'document_requested',
@@ -72,14 +111,33 @@ function isClosedStage(key, stages = DEFAULT_STAGES) {
   return Boolean(getStage(key, stages)?.closed);
 }
 
+function getStageFields(key, stages = DEFAULT_STAGES) {
+  const fromStage = stages.find((s) => s.key === key)?.fields;
+  if (fromStage?.length) return fromStage;
+  return STAGE_FIELDS[key] || [];
+}
+
+function getStageAutomation(key, stages = DEFAULT_STAGES) {
+  const fromStage = stages.find((s) => s.key === key)?.automation;
+  if (fromStage && Object.keys(fromStage).length) return fromStage;
+  const days = STAGE_FOLLOW_UP_DAYS[key];
+  const base = STAGE_AUTOMATION[key] || {};
+  if (days && !base.followUpDays) return { ...base, followUpDays: days };
+  return base;
+}
+
 module.exports = {
   STAGE_CATEGORIES,
   DEFAULT_STAGES,
   STAGE_FOLLOW_UP_DAYS,
+  STAGE_FIELDS,
+  STAGE_AUTOMATION,
   ACTIVITY_TYPES,
   getStage,
   getActiveStages,
   getClosedStages,
   getStagesByCategory,
   isClosedStage,
+  getStageFields,
+  getStageAutomation,
 };

@@ -15,6 +15,8 @@ const App = {
   family: [],
   inquiries: [],
   clients: [],
+  inquiryTemplates: [],
+  pipelineStages: [],
   settings: {},
   pausedUntil: null,
   focusMode: false,
@@ -177,8 +179,16 @@ function applyTheme(theme) {
 }
 
 // ── Data Loaders ───────────────────────────────────────────────────
+async function syncPipelineStages() {
+  const result = await api.getPipelineStages?.();
+  if (result?.success && result.stages?.length) {
+    App.pipelineStages = result.stages;
+    window.ILRSInquiryPipeline?.setStages?.(result.stages);
+  }
+}
+
 async function loadAllData() {
-  const [reminders, medicines, bills, habits, family, inquiries, clients] = await Promise.all([
+  const [reminders, medicines, bills, habits, family, inquiries, clients, templates] = await Promise.all([
     db("SELECT * FROM reminders WHERE status != 'deleted' AND (source_type IS NULL OR source_type = '') ORDER BY priority DESC, next_fire ASC"),
     db("SELECT * FROM medicines WHERE status = 'active' ORDER BY name"),
     db("SELECT * FROM bills WHERE status = 'active' ORDER BY due_day"),
@@ -186,6 +196,7 @@ async function loadAllData() {
     db('SELECT * FROM family_members ORDER BY name'),
     db("SELECT * FROM inquiries ORDER BY updated_at DESC"),
     db('SELECT * FROM clients ORDER BY name'),
+    api.getInquiryTemplates?.().then((r) => r?.templates || []).catch(() => []),
   ]);
   App.reminders = reminders || [];
   App.medicines = medicines || [];
@@ -194,6 +205,8 @@ async function loadAllData() {
   App.family = family || [];
   App.inquiries = inquiries || [];
   App.clients = clients || [];
+  App.inquiryTemplates = templates || [];
+  await syncPipelineStages();
 }
 
 // ── Navigation ─────────────────────────────────────────────────────
@@ -222,6 +235,8 @@ const PAGES = {
   'inquiry-followups': renderInquiryFollowups,
   'inquiry-detail': renderInquiryDetail,
   clients: renderClients,
+  'pipeline-settings': renderPipelineSettings,
+  'work-reports': renderWorkReports,
 };
 
 function dismissPageModals() {
@@ -303,6 +318,8 @@ function renderShell() {
       ${navItem('inquiries', '📥', 'Inquiries')}
       ${navItem('inquiry-followups', '📞', 'Follow-ups')}
       ${navItem('clients', '👤', 'Clients')}
+      ${navItem('work-reports', '📈', 'Work Analytics')}
+      ${navItem('pipeline-settings', '⚙️', 'Pipeline Setup')}
 
       <div class="sidebar-section-label">Life</div>
       ${navItem('medicine', '💊', 'Medicine')}
@@ -2268,6 +2285,13 @@ async function renderSettings(el) {
             </div>
             <span style="font-size:12px;color:var(--normal);font-weight:700">✓ Enabled</span>
           </div>
+          <div class="setting-row">
+            <div class="setting-info">
+              <div class="setting-label">Inquiry health alerts</div>
+              <div class="setting-desc">Desktop notifications for stale, at-risk, and overdue inquiry follow-ups</div>
+            </div>
+            <div class="toggle ${s.inquiry_alerts_enabled==='1'?'on':''}" id="t-inquiry-alerts" onclick="this.classList.toggle('on')"></div>
+          </div>
         </div>
 
         <div class="card">
@@ -2382,6 +2406,7 @@ async function saveSettings() {
     rewards_enabled: document.getElementById('t-rewards')?.classList.contains('on') ? '1' : '0',
     auto_start: document.getElementById('t-autostart')?.classList.contains('on') ? '1' : '0',
     voice_announcements: document.getElementById('t-voice')?.classList.contains('on') ? '1' : '0',
+    inquiry_alerts_enabled: document.getElementById('t-inquiry-alerts')?.classList.contains('on') ? '1' : '0',
   };
 
   for (const [k, v] of Object.entries(updates)) {
@@ -2771,6 +2796,11 @@ function setupListeners() {
 
 function openReminderFromNotificationClick(reminder) {
   if (!reminder) return;
+  if (reminder._type === 'inquiry' || reminder.inquiry_id) {
+    App.selectedInquiryId = reminder.inquiry_id || reminder.id;
+    navigate('inquiry-detail');
+    return;
+  }
   App.isProcessingAlert = false;
   showInAppAlert(reminder);
   App.isProcessingAlert = true;

@@ -23,6 +23,10 @@ const {
   reopenInquiry,
   seedInquiryStages,
 } = require('./inquiry-actions');
+const { loadStagesFromDb, saveStageToDb } = require('./inquiry-stage-store');
+const { listTemplates, createTemplate, deleteTemplate, seedDefaultTemplates } = require('./inquiry-templates');
+const { getWorkAnalytics } = require('./inquiry-analytics');
+const { checkInquiryAlerts, refreshAllInquiryHealth } = require('./inquiry-health-monitor');
 const { getWeeklyAnchorDay, recalculateAllHabitStreaks } = require('./habit-streak');
 const { createTrayIcon, ensureWindowsToastSupport, showFatalError } = require('./windows-support');
 const { playAlertSound } = require('./sound-player');
@@ -464,6 +468,71 @@ function setupIPC() {
     }
   });
 
+  ipcMain.handle('get-pipeline-stages', async () => {
+    try {
+      return { success: true, stages: loadStagesFromDb(db) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('save-pipeline-stage', async (_event, { stage }) => {
+    try {
+      if (!stage?.key) return { success: false, error: 'Missing stage key' };
+      saveStageToDb(db, stage);
+      notifyRendererDataChanged();
+      return { success: true, stages: loadStagesFromDb(db) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('get-inquiry-templates', async () => {
+    try {
+      return { success: true, templates: listTemplates(db) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('create-inquiry-template', async (_event, data) => {
+    try {
+      const result = createTemplate(db, data || {});
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('delete-inquiry-template', async (_event, { id }) => {
+    try {
+      const result = deleteTemplate(db, id);
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('get-work-analytics', async () => {
+    try {
+      return { success: true, analytics: getWorkAnalytics(db) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('refresh-inquiry-health', async () => {
+    try {
+      const updated = refreshAllInquiryHealth(db);
+      notifyRendererDataChanged();
+      return { success: true, updated };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('get-system-clock', async () => getSystemClockInfo());
 
   ipcMain.handle('compute-next-fire', async (_event, { startDate, time, repeatType, repeatValue }) => {
@@ -753,7 +822,23 @@ function initDatabase() {
       category TEXT NOT NULL,
       sort_order INTEGER DEFAULT 0,
       is_closed INTEGER DEFAULT 0,
-      color TEXT DEFAULT ''
+      color TEXT DEFAULT '',
+      fields_json TEXT DEFAULT '[]',
+      automation_json TEXT DEFAULT '{}'
+    );
+
+    CREATE TABLE IF NOT EXISTS inquiry_templates (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      requirement TEXT DEFAULT '',
+      service_category TEXT DEFAULT '',
+      stage_key TEXT DEFAULT 'follow_up',
+      next_action TEXT DEFAULT '',
+      source TEXT DEFAULT '',
+      expected_value REAL DEFAULT 0,
+      notes TEXT DEFAULT '',
+      sort_order INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
     );
 
     CREATE TABLE IF NOT EXISTS inquiries (
@@ -837,6 +922,7 @@ function initDatabase() {
     urgency_matrix_widget: '0',
     auto_start: '1',
     voice_announcements: '1',
+    inquiry_alerts_enabled: '1',
     onboarding_done: '0',
     app_pin: '',
   };
@@ -883,8 +969,40 @@ function repairReminderSchedules() {
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '11')").run();
       console.log('Inquiry workflow migration v11 complete');
     }
+    if (version < 12) {
+      runInquiryWorkflowMigrationV12();
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '12')").run();
+      console.log('Inquiry workflow migration v12 complete');
+    }
   } catch (err) {
     console.error('repairReminderSchedules error:', err.message);
+  }
+}
+
+function runInquiryWorkflowMigrationV12() {
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS inquiry_templates (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        requirement TEXT DEFAULT '',
+        service_category TEXT DEFAULT '',
+        stage_key TEXT DEFAULT 'follow_up',
+        next_action TEXT DEFAULT '',
+        source TEXT DEFAULT '',
+        expected_value REAL DEFAULT 0,
+        notes TEXT DEFAULT '',
+        sort_order INTEGER DEFAULT 0,
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+    `);
+    try { db.exec("ALTER TABLE inquiry_stages ADD COLUMN fields_json TEXT DEFAULT '[]'"); } catch (_) { /* exists */ }
+    try { db.exec("ALTER TABLE inquiry_stages ADD COLUMN automation_json TEXT DEFAULT '{}'"); } catch (_) { /* exists */ }
+    seedInquiryStages(db);
+    seedDefaultTemplates(db);
+    db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('inquiry_alerts_enabled', '1')").run();
+  } catch (err) {
+    console.error('Inquiry workflow migration v12 error:', err.message);
   }
 }
 
@@ -1118,6 +1236,20 @@ function checkDueHabits(now = new Date()) {
   }
 }
 
+function showInquiryAlertNotification(data) {
+  const inqId = data.inquiry_id;
+  showDesktopNotification(db, {
+    title: data.title || 'Inquiry needs attention',
+    why_it_matters: data.why_it_matters || '',
+    priority: data.priority || 'important',
+    alert_style: data.alert_style || 'sound-popup',
+  }, {
+    type: 'inquiry',
+    force: data.priority === 'critical',
+    onClick: () => openReminderFromNotification({ id: inqId, inquiry_id: inqId }, 'inquiry'),
+  });
+}
+
 function runSchedulerTick() {
   if (!db) return;
   try {
@@ -1126,12 +1258,18 @@ function runSchedulerTick() {
     checkDueMedicines(now);
     checkDueBills(now);
     checkDueHabits(now);
+    inquiryAlertCounter += 1;
+    if (inquiryAlertCounter >= 300) {
+      inquiryAlertCounter = 0;
+      checkInquiryAlerts(db, showInquiryAlertNotification, now);
+    }
   } catch (err) {
     console.error('Scheduler error:', err.message);
   }
 }
 
 let syncCounter = 0;
+let inquiryAlertCounter = 0;
 
 function startScheduler() {
   if (schedulerTimer) clearInterval(schedulerTimer);

@@ -40,6 +40,13 @@
           <h2>${isEdit ? 'Edit' : 'New'} Inquiry</h2>
           <button type="button" class="modal-close" id="inq-close">✕</button>
         </div>
+        ${!isEdit && (App.inquiryTemplates || []).length ? `
+        <label class="form-label">Start from template</label>
+        <div class="chip-row" id="inq-template-chips" style="margin-bottom:12px">
+          ${(App.inquiryTemplates || []).map((t) =>
+            `<button type="button" class="chip" data-template="${t.id}">${t.name}</button>`
+          ).join('')}
+        </div>` : ''}
         <label class="form-label">Client / Contact *</label>
         <input type="text" class="form-input capture-input-lg" id="inq-client" value="${esc(inq.client_name)}" placeholder="Raj Kumar" autocomplete="off" />
 
@@ -103,6 +110,29 @@
         default: return cap.dateStr(cap.addDays(now, 1));
       }
     };
+
+    overlay.querySelector('#inq-template-chips')?.addEventListener('click', (e) => {
+      const chip = e.target.closest('[data-template]');
+      if (!chip) return;
+      const t = (App.inquiryTemplates || []).find((x) => x.id === chip.dataset.template);
+      if (!t) return;
+      document.getElementById('inq-requirement').value = t.requirement || '';
+      document.getElementById('inq-stage').value = t.stage_key || 'follow_up';
+      document.getElementById('inq-next-action').value = t.next_action || 'Follow up';
+      if (t.source) {
+        document.getElementById('inq-source').value = t.source;
+        overlay.querySelectorAll('#inq-source-chips .chip').forEach((c) =>
+          c.classList.toggle('selected', c.dataset.source === t.source));
+      }
+      if (t.expected_value) document.getElementById('inq-value').value = t.expected_value;
+      overlay.querySelectorAll('#inq-template-chips .chip').forEach((c) =>
+        c.classList.toggle('selected', c === chip));
+      const more = document.getElementById('inq-more');
+      if (more && t.notes) {
+        more.style.display = 'block';
+        document.getElementById('inq-notes').value = t.notes;
+      }
+    });
 
     overlay.querySelector('#inq-close')?.addEventListener('click', () => overlay.remove());
     overlay.querySelector('#inq-cancel')?.addEventListener('click', () => overlay.remove());
