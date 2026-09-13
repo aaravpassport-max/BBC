@@ -122,6 +122,14 @@ function refreshCurrentView() {
   if (PAGES[page]) navigate(page);
 }
 
+function openWorkflowStages(tab = 'task') {
+  App.workflowSettingsTab = tab;
+  navigate('pipeline-settings');
+}
+
+window.openWorkflowStages = openWorkflowStages;
+window.showWorkflowStageModal = showWorkflowStageModal;
+
 function stayOnLifeView(defaultPage) {
   const stay = ['today', 'overdue', 'tomorrow'];
   navigate(stay.includes(App.currentPage) ? App.currentPage : defaultPage);
@@ -345,7 +353,7 @@ function renderShell() {
       ${navItem('inquiry-followups', '📞', 'Follow-ups')}
       ${navItem('clients', '👤', 'Clients')}
       ${navItem('work-reports', '📈', 'Work Analytics')}
-      ${navItem('pipeline-settings', '⚙️', 'Pipeline Setup')}
+      ${navItem('pipeline-settings', '🏷', 'Workflow Stages')}
 
       <div class="sidebar-section-label">Life</div>
       ${navItem('medicine', '💊', 'Medicine')}
@@ -894,9 +902,10 @@ function reminderCard(r) {
   const selected = App.selectedReminderIds.has(r.id);
   const entityType = isTask ? 'task' : 'reminder';
   const W = window.ILRSWorkflowPipeline;
-  const stageKey = r.stage_key || '';
-  const stageCls = stageKey && W ? W.stageClass(entityType, stageKey) : '';
-  const stageLabel = stageKey && W ? W.stageDisplay(entityType, stageKey) : '';
+  const defaultStageKey = entityType === 'task' ? 'new' : 'scheduled';
+  const stageKey = r.stage_key || defaultStageKey;
+  const stageCls = W ? W.stageClass(entityType, stageKey) : '';
+  const stageLabel = W ? W.stageDisplay(entityType, stageKey) : stageKey;
   const taskActions = isDone ? `
         <button class="action-btn" onclick="showPostponeMenu('${r.id}')" title="Reschedule">📅</button>
       ` : isTask ? `
@@ -920,7 +929,7 @@ function reminderCard(r) {
         <div class="reminder-context ${isOverdue ? 'overdue' : ''}">${kind}${context ? ' · ' + context : ''}</div>
         ${r.why_it_matters ? `<div class="reminder-why">${r.why_it_matters}</div>` : ''}
         <div class="reminder-meta">
-          ${stageLabel ? `<span class="inquiry-stage-badge ${stageCls}" onclick="event.stopPropagation();showWorkflowStageModal('${r.id}','${entityType}')" title="Change stage">${stageLabel}</span>` : ''}
+          <span class="inquiry-stage-badge ${stageCls}" onclick="event.stopPropagation();showWorkflowStageModal('${r.id}','${entityType}')" title="Change stage">${stageLabel}</span>
           <span class="tag ${r.category}">${categoryIcon(r.category)} ${r.category}</span>
           ${r.priority !== 'normal' ? `<span class="tag ${r.priority}">${priorityLabel(r.priority)}</span>` : ''}
           ${tags.slice(0, 1).map(t => `<span class="tag">#${t}</span>`).join('')}
@@ -928,6 +937,7 @@ function reminderCard(r) {
       </div>
       <div class="reminder-actions">
         ${taskActions}
+        <button class="action-btn" onclick="event.stopPropagation();showWorkflowStageModal('${r.id}','${entityType}')" title="Change stage">🏷</button>
         <button class="action-btn" onclick="editReminder('${r.id}')">✏️</button>
         <button class="action-btn delete" onclick="deleteReminder('${r.id}')" title="Delete">🗑</button>
       </div>
@@ -1118,7 +1128,10 @@ async function renderTasks(el) {
         <div class="page-title">✅ Tasks</div>
         <div class="page-subtitle">Work items without the pressure of a timed alarm</div>
       </div>
-      <button class="btn btn-primary" onclick="showCaptureSheet({ task_type: 'task' })">＋ New Task</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="openWorkflowStages('task')">🏷 Task stages</button>
+        <button class="btn btn-primary" onclick="showCaptureSheet({ task_type: 'task' })">＋ New Task</button>
+      </div>
     </div>
     ${renderBulkSelectionBar('reminder')}
     ${active.length ? `<div class="section-label">In progress</div><div class="reminder-list">${active.map(r => reminderCard(r)).join('')}</div>` : ''}
@@ -1149,7 +1162,10 @@ async function renderReminders(el) {
   el.innerHTML = `
     <div class="page-header">
       <div><div class="page-title">🔔 All Reminders</div><div class="page-subtitle" id="reminder-count"></div></div>
-      <button class="btn btn-primary" onclick="showCaptureSheet()">＋ New</button>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="openWorkflowStages('reminder')">🏷 Reminder stages</button>
+        <button class="btn btn-primary" onclick="showCaptureSheet()">＋ New</button>
+      </div>
     </div>
     <div id="reminders-bulk-bar">${renderBulkSelectionBar('reminder')}</div>
 

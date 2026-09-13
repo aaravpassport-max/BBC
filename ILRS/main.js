@@ -1094,8 +1094,24 @@ function repairReminderSchedules() {
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '13')").run();
       console.log('Workflow stages migration v13 complete');
     }
+    if (version < 14) {
+      backfillReminderStageKeys(db);
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '14')").run();
+      console.log('Workflow stages migration v14 complete');
+    }
   } catch (err) {
     console.error('repairReminderSchedules error:', err.message);
+  }
+}
+
+function backfillReminderStageKeys(db) {
+  const { defaultStageKey } = require('./workflow-stage-pipeline');
+  for (const entityType of ['task', 'reminder']) {
+    const key = defaultStageKey(entityType);
+    db.prepare(`
+      UPDATE reminders SET stage_key = ?
+      WHERE task_type = ? AND status != 'deleted' AND (stage_key IS NULL OR stage_key = '')
+    `).run(key, entityType);
   }
 }
 

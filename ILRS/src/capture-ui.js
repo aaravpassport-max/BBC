@@ -131,6 +131,10 @@
         <div class="chip-row" id="capture-time-chips">${timeChipHtml(state.timeMode)}</div>
         <input type="time" class="form-input capture-custom-time" id="capture-time" value="${state.time}" style="display:${state.timeMode === 'custom' ? 'block' : 'none'};margin-top:8px" />
 
+        <label class="form-label">Workflow stage</label>
+        <select class="form-select" id="capture-stage"></select>
+        <p class="form-hint" style="margin-top:4px">Manage stages in sidebar → <strong>Workflow Stages</strong> (Tasks / Reminders tabs)</p>
+
         <button type="button" class="capture-more-toggle" id="capture-more-toggle">${state.moreOpen ? '▾ Less options' : '+ More options'}</button>
         <div class="capture-more" id="capture-more" style="display:${state.moreOpen ? 'block' : 'none'}">
           <div class="form-group"><label class="form-label">Why it matters</label>
@@ -160,8 +164,6 @@
               ).join('')}
             </div>
           </div>
-          <div class="form-group"><label class="form-label">Stage</label>
-            <select class="form-select" id="capture-stage"></select></div>
           <div class="form-group"><label class="form-label">Assign to</label>
             <select class="form-select" id="capture-assignee">
               <option value="me" ${state.assigned === 'me' ? 'selected' : ''}>Me</option>
@@ -389,6 +391,7 @@
     ];
 
     let ok;
+    const stageKey = document.getElementById('capture-stage')?.value || '';
     if (isEdit) {
       const existing = App?.reminders?.find((x) => x.id === id);
       const wasCompleted = existing
@@ -397,14 +400,16 @@
         ? ", status='active', workflow_status='pending', last_completed=NULL, snooze_count=0, alarm_rings=0"
         : '';
       ok = await dbRun(
-        `UPDATE reminders SET title=?,task_type=?,category=?,why_it_matters=?,repeat_type=?,repeat_value=?,reminder_time=?,start_date=?,end_date=?,priority=?,urgency_quadrant=?,alert_style=?,snooze_duration=?,assigned_to=?,is_private=?,notes=?,tags=?,next_fire=?,updated_at=?${reactivateSql} WHERE id=?`,
-        [...params.slice(1), new Date().toISOString(), id]
+        `UPDATE reminders SET title=?,task_type=?,category=?,why_it_matters=?,repeat_type=?,repeat_value=?,reminder_time=?,start_date=?,end_date=?,priority=?,urgency_quadrant=?,alert_style=?,snooze_duration=?,assigned_to=?,is_private=?,notes=?,tags=?,next_fire=?,stage_key=?,updated_at=?${reactivateSql} WHERE id=?`,
+        [...params.slice(1), stageKey, new Date().toISOString(), id]
       );
+      if (ok && stageKey && existing && stageKey !== (existing.stage_key || '')) {
+        await window.ilrs?.changeReminderStage?.(id, stageKey, {});
+      }
     } else {
       const workflowStatus = kind === 'task' ? 'pending' : 'pending';
       const sourceType = document.getElementById('capture-source-type')?.value || '';
       const sourceId = document.getElementById('capture-source-id')?.value || '';
-      const stageKey = document.getElementById('capture-stage')?.value || '';
       ok = await dbRun(
         `INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,repeat_value,reminder_time,start_date,end_date,priority,urgency_quadrant,alert_style,snooze_duration,assigned_to,is_private,notes,tags,next_fire,status,workflow_status,source_type,source_id,stage_key,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'active',?,?,?,?,datetime('now'),datetime('now'))`,
         [...params, workflowStatus, sourceType, sourceId, stageKey]
