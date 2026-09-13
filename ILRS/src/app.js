@@ -523,12 +523,12 @@ async function renderToday(el) {
             billsDue.slice(0, 4).map(({ bill, diff, overdue }) => {
               const status = overdue ? 'overdue' : diff === 0 ? 'pending' : 'pending';
               return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-                <span style="font-size:20px">${billIcon(b.bill.bill_type)}</span>
+                <span style="font-size:20px">${billIcon(bill.bill_type)}</span>
                 <div style="flex:1">
-                  <div style="font-size:13px;font-weight:600">${bill.bill.name}</div>
+                  <div style="font-size:13px;font-weight:600">${bill.name}</div>
                   <div style="font-size:11px;color:var(--text-muted)">Due ${overdue ? Math.abs(diff)+' days ago' : diff === 0 ? 'TODAY' : 'in '+diff+' days'}</div>
                 </div>
-                <button class="btn btn-sm btn-primary" onclick="markBillPaid('${bill.bill.id}')">✓</button>
+                <button class="btn btn-sm btn-primary" onclick="markBillPaid('${bill.id}')">✓</button>
               </div>`;
             }).join('')}
         </div>
@@ -1298,8 +1298,9 @@ async function renderBills(el) {
               <div class="bill-due">${label} • Day ${b.due_day} every month ${b.amount > 0 ? '• ₹' + b.amount.toLocaleString('en-IN') : ''}</div>
             </div>
             <span class="bill-status ${status}">${diff < 0 ? '🔴 Overdue' : diff === 0 ? '⚠️ Due Today' : diff <= 3 ? '⏳ Due Soon' : '✅ OK'}</span>
-            <div style="display:flex;gap:6px">
+            <div style="display:flex;gap:6px;flex-shrink:0">
               <button class="btn btn-primary btn-sm" onclick="markBillPaid('${b.id}')">✓ Paid</button>
+              <button class="action-btn" onclick="editBill('${b.id}')">✏️ Edit</button>
               <button class="action-btn" onclick="deleteBill('${b.id}')" style="color:var(--critical)">🗑</button>
             </div>
           </div>`;
@@ -1314,30 +1315,39 @@ function billIcon(type) {
 }
 
 function showAddBill() {
+  showBillModal();
+}
+
+function showBillModal(existing = null) {
+  const bill = existing || {};
+  const isEdit = !!existing?.id;
+  const types = ['electricity','water','gas','internet','phone','rent','insurance','credit','emi','subscription','other'];
+
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.id = 'bill-modal';
   overlay.innerHTML = `
     <div class="modal">
       <div class="modal-header">
-        <div class="modal-title">💸 Add Bill</div>
+        <div class="modal-title">💸 ${isEdit ? 'Edit' : 'Add'} Bill</div>
         <button class="modal-close" onclick="document.getElementById('bill-modal').remove()">✕</button>
       </div>
+      <input type="hidden" id="b-id" value="${bill.id || ''}" />
       <div class="form-grid">
-        <div class="form-group full"><label class="form-label">Bill Name *</label><input type="text" class="form-input" id="b-name" placeholder="e.g. BSES Electricity" /></div>
+        <div class="form-group full"><label class="form-label">Bill Name *</label><input type="text" class="form-input" id="b-name" value="${bill.name || ''}" placeholder="e.g. BSES Electricity" /></div>
         <div class="form-group"><label class="form-label">Bill Type</label>
           <select class="form-select" id="b-type">
-            ${['electricity','water','gas','internet','phone','rent','insurance','credit','emi','subscription','other'].map(t => `<option value="${t}">${billIcon(t)} ${t}</option>`).join('')}
+            ${types.map(t => `<option value="${t}" ${(bill.bill_type || 'other') === t ? 'selected' : ''}>${billIcon(t)} ${t}</option>`).join('')}
           </select>
         </div>
-        <div class="form-group"><label class="form-label">Amount (₹)</label><input type="number" class="form-input" id="b-amount" placeholder="0" min="0"/></div>
-        <div class="form-group"><label class="form-label">Due Day of Month</label><input type="number" class="form-input" id="b-due" value="1" min="1" max="31"/></div>
-        <div class="form-group"><label class="form-label">Warn Me (days before)</label><input type="number" class="form-input" id="b-warn" value="3" min="1" max="14"/></div>
-        <div class="form-group full"><label class="form-label">Account / Notes</label><input type="text" class="form-input" id="b-notes" placeholder="Account number, bank, etc."/></div>
+        <div class="form-group"><label class="form-label">Amount (₹)</label><input type="number" class="form-input" id="b-amount" value="${bill.amount || ''}" placeholder="0" min="0"/></div>
+        <div class="form-group"><label class="form-label">Due Day of Month</label><input type="number" class="form-input" id="b-due" value="${bill.due_day || 1}" min="1" max="31"/></div>
+        <div class="form-group"><label class="form-label">Warn Me (days before)</label><input type="number" class="form-input" id="b-warn" value="${bill.warning_days || 3}" min="1" max="14"/></div>
+        <div class="form-group full"><label class="form-label">Account / Notes</label><input type="text" class="form-input" id="b-notes" value="${bill.account_info || ''}" placeholder="Account number, bank, etc."/></div>
       </div>
       <div class="modal-footer">
         <button class="btn btn-ghost" onclick="document.getElementById('bill-modal').remove()">Cancel</button>
-        <button class="btn btn-primary" onclick="saveBill()">💾 Save Bill</button>
+        <button class="btn btn-primary" onclick="saveBill()">💾 ${isEdit ? 'Update' : 'Save'} Bill</button>
       </div>
     </div>
   `;
@@ -1345,17 +1355,38 @@ function showAddBill() {
   document.body.appendChild(overlay);
 }
 
+function editBill(id) {
+  const bill = App.bills.find(b => b.id === id);
+  if (bill) showBillModal(bill);
+}
+
 async function saveBill() {
   const name = document.getElementById('b-name').value.trim();
   if (!name) { toast('Enter bill name', 'warning'); return; }
   const dueDay = parseInt(document.getElementById('b-due').value) || 1;
-  const id = uuid();
-  if (!await dbRun(`INSERT INTO bills (id,name,bill_type,amount,due_day,warning_days,account_info,status) VALUES (?,?,?,?,?,?,?,?)`,
-    [id, name, document.getElementById('b-type').value, parseFloat(document.getElementById('b-amount').value) || 0,
-     dueDay, parseInt(document.getElementById('b-warn').value) || 3, document.getElementById('b-notes').value, 'active'])) return;
+  const params = [
+    name,
+    document.getElementById('b-type').value,
+    parseFloat(document.getElementById('b-amount').value) || 0,
+    dueDay,
+    parseInt(document.getElementById('b-warn').value) || 3,
+    document.getElementById('b-notes').value,
+  ];
+  const editId = document.getElementById('b-id')?.value;
+
+  let ok;
+  if (editId) {
+    ok = await dbRun(`UPDATE bills SET name=?,bill_type=?,amount=?,due_day=?,warning_days=?,account_info=? WHERE id=?`,
+      [...params, editId]);
+  } else {
+    ok = await dbRun(`INSERT INTO bills (id,name,bill_type,amount,due_day,warning_days,account_info,status) VALUES (?,?,?,?,?,?,?,?)`,
+      [uuid(), ...params, 'active']);
+  }
+  if (!ok) return;
 
   document.getElementById('bill-modal').remove();
-  toast(`💸 ${name} added!`);
+  toast(`💸 ${name} ${editId ? 'updated' : 'added'}!`);
+  await loadAllData();
   navigate('bills');
 }
 
