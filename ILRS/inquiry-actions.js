@@ -334,6 +334,17 @@ function updateInquiry(db, inquiryId, data, now = new Date()) {
   );
 
   logActivity(db, inquiryId, 'note', 'Inquiry updated', data.requirement || inquiry.requirement, {});
+
+  const wasClosed = inquiry.outcome_status !== 'active' && inquiry.outcome_status !== 'deleted';
+  if (wasClosed && data.nextFollowUp) {
+    return rescheduleInquiry(db, inquiryId, {
+      date: data.nextFollowUp,
+      time: data.nextFollowUpTime,
+      stageKey: data.stageKey,
+      nextAction: data.nextAction,
+    }, now);
+  }
+
   const updated = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
   const health = computeInquiryHealth(updated, now);
   db.prepare('UPDATE inquiries SET health = ? WHERE id = ?').run(health, inquiryId);
@@ -373,7 +384,62 @@ function reopenInquiry(db, inquiryId, stageKey = 'follow_up') {
     WHERE id = ?
   `).run(stageKey, inquiryId);
   logActivity(db, inquiryId, 'stage_change', 'Inquiry reopened', '', { newStage: stageKey });
-  return { success: true };
+  const updated = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
+  return { success: true, inquiry: updated };
+}
+
+function rescheduleInquiry(db, inquiryId, options = {}, now = new Date()) {
+  const inquiry = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
+  if (!inquiry) return { success: false, error: 'Inquiry not found' };
+  if (inquiry.outcome_status === 'deleted') return { success: false, error: 'Inquiry deleted' };
+
+  const date = options.date || options.nextFollowUp;
+  if (!date) return { success: false, error: 'Follow-up date required' };
+
+  const time = options.time || options.nextFollowUpTime || inquiry.next_follow_up_time || '11:00';
+  const stageKey = options.stageKey || (inquiry.outcome_status === 'active' ? inquiry.stage_key : 'follow_up');
+  const nextAction = options.nextAction || inquiry.next_action || 'Follow up with client';
+  const wasClosed = inquiry.outcome_status !== 'active';
+
+  db.prepare(`
+    UPDATE reminders SET status = 'deleted', updated_at = datetime('now')
+    WHERE source_type = 'inquiry' AND source_id = ? AND status != 'deleted'
+  `).run(inquiryId);
+
+  db.prepare(`
+    UPDATE inquiries SET
+      outcome_status = 'active',
+      stage_key = ?,
+      closed_reason = '',
+      next_follow_up = ?,
+      next_follow_up_time = ?,
+      next_action = ?,
+      stage_changed_at = datetime('now'),
+      updated_at = datetime('now')
+    WHERE id = ?
+  `).run(stageKey, date, time, nextAction, inquiryId);
+
+  const refreshed = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
+  createFollowUpReminder(db, refreshed, {
+    title: `${nextAction}: ${refreshed.client_name}`,
+    date,
+    time,
+    now,
+  });
+
+  logActivity(
+    db,
+    inquiryId,
+    wasClosed ? 'stage_change' : 'follow_up',
+    wasClosed ? 'Inquiry rescheduled & reopened' : 'Follow-up rescheduled',
+    `${date} ${time}`,
+    { newStage: stageKey },
+  );
+
+  const health = computeInquiryHealth(refreshed, now);
+  db.prepare('UPDATE inquiries SET health = ? WHERE id = ?').run(health, inquiryId);
+  refreshed.health = health;
+  return { success: true, inquiry: refreshed };
 }
 
 function seedInquiryStages(db) {
@@ -396,6 +462,7 @@ module.exports = {
   computeInquiryHealth,
   createFollowUpReminder,
   reopenInquiry,
+  rescheduleInquiry,
   deleteInquiry,
   bulkDeleteInquiries,
   seedInquiryStages,

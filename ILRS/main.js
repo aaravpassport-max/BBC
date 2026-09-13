@@ -23,6 +23,7 @@ const {
   logInquiryActivity,
   findPossibleDuplicates,
   reopenInquiry,
+  rescheduleInquiry,
   deleteInquiry,
   bulkDeleteInquiries,
   seedInquiryStages,
@@ -473,6 +474,17 @@ function setupIPC() {
   ipcMain.handle('reopen-inquiry', async (_event, { id, stageKey }) => {
     try {
       const result = reopenInquiry(db, id, stageKey || 'follow_up');
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('reschedule-inquiry', async (_event, { id, date, time, stageKey, nextAction }) => {
+    try {
+      if (!id || !date) return { success: false, error: 'Missing id or date' };
+      const result = rescheduleInquiry(db, id, { date, time, stageKey, nextAction });
       if (result.success) notifyRendererDataChanged();
       return result;
     } catch (err) {

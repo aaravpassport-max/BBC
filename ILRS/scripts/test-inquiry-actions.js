@@ -12,6 +12,7 @@ const {
   computeInquiryHealth,
   deleteInquiry,
   bulkDeleteInquiries,
+  rescheduleInquiry,
   seedInquiryStages,
 } = require('../inquiry-actions');
 
@@ -134,6 +135,45 @@ test('bulkDeleteInquiries deletes multiple inquiries', () => {
   const b = createInquiry(db, { clientName: 'B', requirement: 'Y' }, now).inquiry;
   const result = bulkDeleteInquiries(db, [a.id, b.id]);
   assert.strictEqual(result.deleted, 2);
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
+test('rescheduleInquiry reopens closed inquiry with new follow-up', () => {
+  const { db, dbPath } = makeDb();
+  const now = new Date(2026, 8, 13, 10, 0, 0);
+  const { inquiry } = createInquiry(db, { clientName: 'Closed Co', requirement: 'GST' }, now);
+  changeInquiryStage(db, inquiry.id, 'closed_no_response', { closedReason: 'No budget' }, now);
+  const closed = db.prepare('SELECT outcome_status FROM inquiries WHERE id = ?').get(inquiry.id);
+  assert.strictEqual(closed.outcome_status, 'closed_lost');
+
+  const result = rescheduleInquiry(db, inquiry.id, {
+    date: '2026-09-20',
+    time: '15:00',
+    nextAction: 'Call again',
+  }, now);
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(result.inquiry.outcome_status, 'active');
+  assert.strictEqual(result.inquiry.next_follow_up, '2026-09-20');
+  assert.strictEqual(result.inquiry.next_follow_up_time, '15:00');
+
+  const reminder = db.prepare(
+    "SELECT * FROM reminders WHERE source_type = 'inquiry' AND source_id = ? AND status = 'active'",
+  ).get(inquiry.id);
+  assert.ok(reminder);
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
+test('updateInquiry reactivates closed inquiry when follow-up is set', () => {
+  const { db, dbPath } = makeDb();
+  const now = new Date(2026, 8, 13, 10, 0, 0);
+  const { inquiry } = createInquiry(db, { clientName: 'B', requirement: 'PAN' }, now);
+  changeInquiryStage(db, inquiry.id, 'delivered', {}, now);
+  const result = updateInquiry(db, inquiry.id, { nextFollowUp: '2026-09-25', nextFollowUpTime: '10:30' }, now);
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(result.inquiry.outcome_status, 'active');
+  assert.strictEqual(result.inquiry.next_follow_up, '2026-09-25');
   db.close();
   fs.unlinkSync(dbPath);
 });

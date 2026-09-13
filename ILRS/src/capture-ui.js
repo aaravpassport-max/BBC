@@ -390,8 +390,14 @@
 
     let ok;
     if (isEdit) {
+      const existing = App?.reminders?.find((x) => x.id === id);
+      const wasCompleted = existing
+        && (existing.status === 'completed' || (existing.workflow_status || '') === 'done');
+      const reactivateSql = wasCompleted
+        ? ", status='active', workflow_status='pending', last_completed=NULL, snooze_count=0, alarm_rings=0"
+        : '';
       ok = await dbRun(
-        `UPDATE reminders SET title=?,task_type=?,category=?,why_it_matters=?,repeat_type=?,repeat_value=?,reminder_time=?,start_date=?,end_date=?,priority=?,urgency_quadrant=?,alert_style=?,snooze_duration=?,assigned_to=?,is_private=?,notes=?,tags=?,next_fire=?,updated_at=? WHERE id=?`,
+        `UPDATE reminders SET title=?,task_type=?,category=?,why_it_matters=?,repeat_type=?,repeat_value=?,reminder_time=?,start_date=?,end_date=?,priority=?,urgency_quadrant=?,alert_style=?,snooze_duration=?,assigned_to=?,is_private=?,notes=?,tags=?,next_fire=?,updated_at=?${reactivateSql} WHERE id=?`,
         [...params.slice(1), new Date().toISOString(), id]
       );
     } else {
@@ -423,11 +429,18 @@
     }
 
     const kind = document.querySelector('.kind-btn.active')?.dataset.kind || 'reminder';
-    if (typeof toast === 'function') toast(isEdit ? 'Updated!' : 'Created!');
+    const existing = isEdit ? App?.reminders?.find((x) => x.id === savedId) : null;
+    const wasCompleted = existing
+      && (existing.status === 'completed' || (existing.workflow_status || '') === 'done');
+    if (typeof toast === 'function') {
+      toast(wasCompleted ? 'Rescheduled — item is active again' : (isEdit ? 'Updated!' : 'Created!'));
+    }
     onClose();
     if (typeof loadAllData === 'function') await loadAllData();
     if (typeof updateBadges === 'function') updateBadges();
-    if (typeof refreshCurrentView === 'function') {
+    if (wasCompleted && App?.currentPage === 'completed' && typeof navigate === 'function') {
+      navigate(kind === 'task' ? 'tasks' : 'reminders');
+    } else if (typeof refreshCurrentView === 'function') {
       refreshCurrentView();
     } else if (typeof navigate === 'function') {
       navigate(kind === 'task' ? 'tasks' : (App?.currentPage || 'today'));

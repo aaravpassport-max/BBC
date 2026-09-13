@@ -327,8 +327,10 @@
           <button class="btn btn-ghost btn-sm" onclick="editInquiry('${id}')">Edit</button>
           <button class="btn btn-ghost btn-sm" onclick="deleteInquiryItem('${id}')">🗑 Delete</button>
           ${inq.outcome_status !== 'active'
-            ? `<button class="btn btn-ghost btn-sm" onclick="reopenInquiryConfirm('${id}')">↩ Reopen</button>`
-            : `<button class="btn btn-primary btn-sm" onclick="showStageChangeModal('${id}')">Change Stage</button>`}
+            ? `<button class="btn btn-ghost btn-sm" onclick="showInquiryRescheduleMenu('${id}')">📅 Reschedule</button>
+               <button class="btn btn-ghost btn-sm" onclick="reopenInquiryConfirm('${id}')">↩ Reopen</button>`
+            : `<button class="btn btn-primary btn-sm" onclick="showStageChangeModal('${id}')">Change Stage</button>
+               <button class="btn btn-ghost btn-sm" onclick="showInquiryRescheduleMenu('${id}')">📅 Reschedule</button>`}
         </div>
       </div>
 
@@ -522,6 +524,64 @@
     navigate('inquiry-detail');
   }
 
+  function showInquiryRescheduleMenu(id) {
+    const inq = (App.inquiries || []).find((i) => i.id === id);
+    if (!inq) return;
+    document.getElementById('inq-reschedule-menu')?.remove();
+    const defaultTime = inq.next_follow_up_time || '11:00';
+    const wasClosed = inq.outcome_status !== 'active';
+    const menu = document.createElement('div');
+    menu.id = 'inq-reschedule-menu';
+    menu.className = 'modal-overlay';
+    menu.style.zIndex = '1050';
+    menu.innerHTML = `
+      <div class="capture-sheet" style="width:min(400px,94vw)">
+        <div class="capture-header">
+          <h2>${wasClosed ? 'Reschedule & reopen' : 'Reschedule follow-up'}</h2>
+          <button class="modal-close" onclick="document.getElementById('inq-reschedule-menu').remove()">✕</button>
+        </div>
+        <p style="font-size:13px;color:var(--text-secondary);margin:0 0 12px">${inq.client_name} · ${inq.requirement}</p>
+        <label class="form-label">Follow-up date</label>
+        <input type="date" class="form-input" id="inq-reschedule-date" value="${inq.next_follow_up || ''}" />
+        <label class="form-label" style="margin-top:8px">Time</label>
+        <input type="time" class="form-input" id="inq-reschedule-time" value="${defaultTime}" />
+        <label class="form-label" style="margin-top:8px">Next action</label>
+        <input type="text" class="form-input" id="inq-reschedule-action" value="${inq.next_action || 'Follow up with client'}" />
+        <div class="capture-actions" style="margin-top:16px">
+          <button class="btn btn-ghost" onclick="document.getElementById('inq-reschedule-menu').remove()">Cancel</button>
+          <button class="btn btn-primary" id="inq-reschedule-confirm">Confirm</button>
+        </div>
+      </div>`;
+    if (typeof attachModalDismiss === 'function') attachModalDismiss(menu);
+    menu.querySelector('.capture-sheet')?.addEventListener('click', (e) => e.stopPropagation());
+    document.body.appendChild(menu);
+
+    menu.querySelector('#inq-reschedule-confirm')?.addEventListener('click', async () => {
+      const dateStr = menu.querySelector('#inq-reschedule-date')?.value;
+      const timeStr = menu.querySelector('#inq-reschedule-time')?.value || defaultTime;
+      const nextAction = menu.querySelector('#inq-reschedule-action')?.value?.trim() || 'Follow up with client';
+      if (!dateStr) {
+        toast('Pick a follow-up date', 'warning');
+        return;
+      }
+      menu.remove();
+      const result = await window.ilrs?.rescheduleInquiry?.(id, dateStr, timeStr, 'follow_up', nextAction);
+      if (!result?.success) {
+        toast(result?.error || 'Could not reschedule', 'warning');
+        return;
+      }
+      toast(wasClosed ? 'Inquiry rescheduled and reopened' : 'Follow-up rescheduled');
+      await loadAllData();
+      if (wasClosed && App.inquiryListFilter === 'closed') {
+        App.inquiryListFilter = 'active';
+        navigate('inquiries');
+      } else {
+        App.selectedInquiryId = id;
+        navigate('inquiry-detail');
+      }
+    });
+  }
+
   async function renderClients(el) {
     const clients = App.clients || [];
     const inquiries = App.inquiries || [];
@@ -591,6 +651,7 @@
   window.showInquiryLinkedTask = showInquiryLinkedTask;
   window.showStageChangeModal = showStageChangeModal;
   window.reopenInquiryConfirm = reopenInquiryConfirm;
+  window.showInquiryRescheduleMenu = showInquiryRescheduleMenu;
   window.logInquiryQuick = logInquiryQuick;
   window.promptInquiryNote = promptInquiryNote;
 })();

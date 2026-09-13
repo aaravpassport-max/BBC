@@ -40,6 +40,8 @@ contextBridge.exposeInMainWorld('ilrs', {
   logInquiryActivity: (id, type, title, body) => ipcRenderer.invoke('log-inquiry-activity', { id, type, title, body }),
   findInquiryDuplicates: (data) => ipcRenderer.invoke('find-inquiry-duplicates', data),
   reopenInquiry: (id, stageKey) => ipcRenderer.invoke('reopen-inquiry', { id, stageKey }),
+  rescheduleInquiry: (id, date, time, stageKey, nextAction) =>
+    ipcRenderer.invoke('reschedule-inquiry', { id, date, time, stageKey, nextAction }),
   deleteInquiry: (id) => ipcRenderer.invoke('delete-inquiry', { id }),
   bulkDeleteInquiries: (ids) => ipcRenderer.invoke('bulk-delete-inquiries', { ids }),
   getPipelineStages: () => ipcRenderer.invoke('get-pipeline-stages'),

@@ -1417,12 +1417,26 @@ function showPostponeMenu(id) {
   });
 }
 
+function isReminderCompleted(r) {
+  return !!r && (r.status === 'completed' || (r.workflow_status || '') === 'done');
+}
+
+function pageAfterReschedule(r) {
+  if (App.currentPage === 'completed') {
+    return r.task_type === 'task' ? 'tasks' : (r.task_type === 'reminder' ? 'reminders' : 'today');
+  }
+  return App.currentPage;
+}
+
 async function postponeTo(id, dateStr, timeStr) {
   const r = App.reminders.find(x => x.id === id);
   if (!r) return;
 
+  const wasCompleted = isReminderCompleted(r);
+  const resolvedTime = timeStr || r.reminder_time || '09:00';
+
   const result = api.postponeReminder
-    ? await api.postponeReminder(id, dateStr, timeStr || r.reminder_time || '09:00')
+    ? await api.postponeReminder(id, dateStr, resolvedTime)
     : null;
 
   if (result && !result.success) {
@@ -1431,16 +1445,20 @@ async function postponeTo(id, dateStr, timeStr) {
   }
 
   if (!result) {
-    const nextFire = await computeNextFireForSave(dateStr, timeStr || r.reminder_time || '09:00', r.repeat_type || 'once');
-    await db("UPDATE reminders SET start_date=?, reminder_time=?, next_fire=?, alarm_rings=0, updated_at=? WHERE id=?",
-      [dateStr, timeStr || r.reminder_time, nextFire, new Date().toISOString(), id]);
+    const nextFire = await computeNextFireForSave(dateStr, resolvedTime, r.repeat_type || 'once');
+    const workflowStatus = wasCompleted ? 'pending' : 'postponed';
+    await db(
+      `UPDATE reminders SET start_date=?, reminder_time=?, next_fire=?, alarm_rings=0, snooze_count=0,
+        status='active', workflow_status=?, last_completed=NULL, updated_at=? WHERE id=?`,
+      [dateStr, resolvedTime, nextFire, workflowStatus, new Date().toISOString(), id],
+    );
     await db("INSERT INTO reminder_logs (id,reminder_id,action,timestamp) VALUES (?,?,'postponed',datetime('now'))", [uuid(), id]);
   }
 
-  toast('📅 Postponed');
+  toast(wasCompleted ? '📅 Rescheduled — item is active again' : '📅 Postponed');
   await loadAllData();
   updateBadges();
-  if (PAGES[App.currentPage]) navigate(App.currentPage);
+  navigate(pageAfterReschedule(r));
 }
 
 async function postponeTomorrow(id) {

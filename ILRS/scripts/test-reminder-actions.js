@@ -103,6 +103,22 @@ test('snoozeReminder allows unlimited snoozes', () => {
   fs.unlinkSync(dbPath);
 });
 
+test('postponeReminder reactivates completed reminder', () => {
+  const { db, dbPath } = makeDb();
+  db.prepare(`INSERT INTO reminders (id, title, task_type, status, workflow_status, reminder_time, start_date, next_fire)
+    VALUES (?, ?, 'reminder', 'completed', 'done', '09:00', '2026-09-10', '2026-09-10T09:00:00')`)
+    .run('r4b', 'Done reminder');
+
+  const result = postponeReminder(db, 'r4b', '2026-09-20', '14:00', new Date(2026, 8, 13, 10, 0, 0));
+  assert.strictEqual(result.success, true);
+  const row = db.prepare('SELECT status, workflow_status, last_completed FROM reminders WHERE id = ?').get('r4b');
+  assert.strictEqual(row.status, 'active');
+  assert.strictEqual(row.workflow_status, 'pending');
+  assert.strictEqual(row.last_completed, null);
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
 test('postponeReminder reactivates completed task', () => {
   const { db, dbPath } = makeDb();
   db.prepare(`INSERT INTO reminders (id, title, task_type, status, workflow_status, reminder_time, start_date, next_fire)
