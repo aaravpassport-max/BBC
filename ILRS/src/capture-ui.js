@@ -422,12 +422,16 @@
       return;
     }
 
+    const kind = document.querySelector('.kind-btn.active')?.dataset.kind || 'reminder';
     if (typeof toast === 'function') toast(isEdit ? 'Updated!' : 'Created!');
     onClose();
     if (typeof loadAllData === 'function') await loadAllData();
     if (typeof updateBadges === 'function') updateBadges();
-    const page = App?.currentPage || 'today';
-    if (typeof navigate === 'function' && PAGES?.[page]) navigate(page);
+    if (typeof refreshCurrentView === 'function') {
+      refreshCurrentView();
+    } else if (typeof navigate === 'function') {
+      navigate(kind === 'task' ? 'tasks' : (App?.currentPage || 'today'));
+    }
   }
 
   window.showCaptureSheet = showCaptureSheet;
