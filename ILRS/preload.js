@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld('ilrs', {
   bulkDeleteInquiries: (ids) => ipcRenderer.invoke('bulk-delete-inquiries', { ids }),
   getPipelineStages: () => ipcRenderer.invoke('get-pipeline-stages'),
   savePipelineStage: (stage) => ipcRenderer.invoke('save-pipeline-stage', { stage }),
+  deleteInquiryStage: (key, reassignTo) => ipcRenderer.invoke('delete-inquiry-stage', { key, reassignTo }),
   getInquiryTemplates: () => ipcRenderer.invoke('get-inquiry-templates'),
   createInquiryTemplate: (data) => ipcRenderer.invoke('create-inquiry-template', data),
   deleteInquiryTemplate: (id) => ipcRenderer.invoke('delete-inquiry-template', { id }),

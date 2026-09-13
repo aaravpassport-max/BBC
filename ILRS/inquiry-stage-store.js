@@ -65,10 +65,34 @@ function getStageFromDb(db, key) {
   return rowToStage(row);
 }
 
+function countInquiryStageUsage(db, key) {
+  const row = db.prepare(
+    'SELECT COUNT(*) as c FROM inquiries WHERE stage_key = ? AND outcome_status != ?',
+  ).get(key, 'deleted');
+  return row?.c || 0;
+}
+
+function deleteInquiryStage(db, key, reassignTo = null) {
+  const inUse = countInquiryStageUsage(db, key);
+  if (inUse > 0 && !reassignTo) {
+    return { success: false, error: 'stage_in_use', count: inUse };
+  }
+  if (inUse > 0 && reassignTo) {
+    db.prepare(`
+      UPDATE inquiries SET stage_key = ?, updated_at = datetime('now')
+      WHERE stage_key = ? AND outcome_status != ?
+    `).run(reassignTo, key, 'deleted');
+  }
+  db.prepare('DELETE FROM inquiry_stages WHERE key = ?').run(key);
+  return { success: true };
+}
+
 module.exports = {
   loadStagesFromDb,
   saveStageToDb,
   saveAllStagesToDb,
   getStageFromDb,
   rowToStage,
+  countInquiryStageUsage,
+  deleteInquiryStage,
 };

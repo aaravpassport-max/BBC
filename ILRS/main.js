@@ -28,7 +28,7 @@ const {
   bulkDeleteInquiries,
   seedInquiryStages,
 } = require('./inquiry-actions');
-const { loadStagesFromDb, saveStageToDb } = require('./inquiry-stage-store');
+const { loadStagesFromDb, saveStageToDb, deleteInquiryStage } = require('./inquiry-stage-store');
 const { listTemplates, createTemplate, deleteTemplate, seedDefaultTemplates } = require('./inquiry-templates');
 const { getWorkAnalytics } = require('./inquiry-analytics');
 const { checkInquiryAlerts, refreshAllInquiryHealth } = require('./inquiry-health-monitor');
@@ -506,6 +506,17 @@ function setupIPC() {
       saveStageToDb(db, stage);
       notifyRendererDataChanged();
       return { success: true, stages: loadStagesFromDb(db) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('delete-inquiry-stage', async (_event, { key, reassignTo }) => {
+    try {
+      if (!key) return { success: false, error: 'Missing stage key' };
+      const result = deleteInquiryStage(db, key, reassignTo || null);
+      if (result.success) notifyRendererDataChanged();
+      return { ...result, stages: loadStagesFromDb(db) };
     } catch (err) {
       return { success: false, error: err.message };
     }

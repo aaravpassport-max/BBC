@@ -31,7 +31,7 @@
       ${workflowStageHelp(entityType)}
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
         <div class="section-title">${entityType === 'task' ? '✅ Task' : '🔔 Reminder'} stages (${stages.length})</div>
-        <button class="btn btn-primary btn-sm" onclick="showAddWorkflowStageForm('${entityType}')">＋ Add stage</button>
+        <button class="btn btn-primary btn-sm" onclick="showWorkflowStageForm('${entityType}')">＋ Add stage</button>
       </div>
       <div class="pipeline-table-wrap card" style="margin-bottom:20px">
         <table class="pipeline-table">
@@ -54,6 +54,7 @@
                   <input type="checkbox" class="wf-stage-closed" data-type="${entityType}" data-key="${s.key}" ${s.closed ? 'checked' : ''} />
                 </td>
                 <td style="white-space:nowrap">
+                  <button class="btn btn-ghost btn-sm" onclick="showWorkflowStageForm('${entityType}','${s.key}')">Edit</button>
                   <button class="btn btn-ghost btn-sm" onclick="saveWorkflowStageRow('${entityType}','${s.key}')">Save</button>
                   <button class="btn btn-ghost btn-sm" onclick="deleteWorkflowStageRow('${entityType}','${s.key}')" title="Delete">🗑</button>
                 </td>
@@ -87,12 +88,21 @@
         <button class="smart-tab ${tab === 'reminder' ? 'active' : ''}" onclick="setWorkflowSettingsTab('reminder')">Reminders</button>
       </div>
       ${tab === 'inquiry' ? `
-      <p style="font-size:13px;color:var(--text-secondary);margin-bottom:16px">
-        Edit display names and sort order. Stage keys are fixed; automation rules are defined per stage in the database.
-      </p>
+      <div class="card" style="padding:16px;margin-bottom:16px">
+        <div style="font-weight:600;margin-bottom:8px">Inquiry pipeline stages</div>
+        <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--text-secondary);line-height:1.6">
+          <li>Create custom stages for your sales/service pipeline</li>
+          <li>Changes appear in inquiry forms, pipeline view, and stage-change modal</li>
+          <li>Closed stages mark inquiries as won/lost when selected</li>
+        </ul>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px">
+        <div class="section-title">📥 Inquiry stages (${stages.length})</div>
+        <button class="btn btn-primary btn-sm" onclick="showInquiryStageForm()">＋ Add stage</button>
+      </div>
       <div class="pipeline-table-wrap card">
         <table class="pipeline-table">
-          <thead><tr><th>Order</th><th>Key</th><th>Display name</th><th>Category</th><th>Closed</th><th></th></tr></thead>
+          <thead><tr><th>Order</th><th>Key</th><th>Display name</th><th>Category</th><th>Follow-up (days)</th><th>Closed</th><th></th></tr></thead>
           <tbody>
             ${stages.map((s) => `
               <tr>
@@ -106,8 +116,13 @@
                     ).join('')}
                   </select>
                 </td>
-                <td>${s.closed ? 'Yes' : 'No'}</td>
-                <td><button class="btn btn-ghost btn-sm" onclick="savePipelineStage('${s.key}')">Save</button></td>
+                <td><input type="number" class="form-input stage-follow-days" data-key="${s.key}" value="${s.automation?.followUpDays || 0}" min="0" max="365" style="width:70px" /></td>
+                <td><input type="checkbox" class="stage-closed" data-key="${s.key}" ${s.closed ? 'checked' : ''} /></td>
+                <td style="white-space:nowrap">
+                  <button class="btn btn-ghost btn-sm" onclick="showInquiryStageForm('${s.key}')">Edit</button>
+                  <button class="btn btn-ghost btn-sm" onclick="savePipelineStage('${s.key}')">Save</button>
+                  <button class="btn btn-ghost btn-sm" onclick="deleteInquiryStageRow('${s.key}')">🗑</button>
+                </td>
               </tr>`).join('')}
           </tbody>
         </table>
@@ -151,68 +166,174 @@
     navigate('pipeline-settings');
   }
 
-  function showAddWorkflowStageForm(entityType) {
-    document.getElementById('wf-add-stage-modal')?.remove();
+  async function showWorkflowStageForm(entityType, existingKey = null) {
+    document.getElementById('wf-stage-form-modal')?.remove();
+    const isEdit = !!existingKey;
+    const stages = (await window.ilrs?.getWorkflowStages?.(entityType))?.stages || [];
+    const existing = isEdit ? stages.find((s) => s.key === existingKey) : null;
+    if (isEdit && !existing) {
+      toast('Stage not found', 'warning');
+      return;
+    }
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
-    overlay.id = 'wf-add-stage-modal';
+    overlay.id = 'wf-stage-form-modal';
     overlay.innerHTML = `
       <div class="capture-sheet" style="width:min(420px,94vw)">
         <div class="capture-header">
-          <h2>Add ${entityType === 'task' ? 'task' : 'reminder'} stage</h2>
-          <button class="modal-close" onclick="document.getElementById('wf-add-stage-modal').remove()">✕</button>
+          <h2>${isEdit ? 'Edit' : 'Add'} ${entityType === 'task' ? 'task' : 'reminder'} stage</h2>
+          <button class="modal-close" onclick="document.getElementById('wf-stage-form-modal').remove()">✕</button>
         </div>
         <label class="form-label">Stage key (unique id)</label>
-        <input type="text" class="form-input" id="wf-new-key" placeholder="e.g. review_pending" />
+        <input type="text" class="form-input" id="wf-form-key" value="${existing?.key || ''}" ${isEdit ? 'readonly style="opacity:0.7"' : ''} placeholder="e.g. review_pending" />
         <label class="form-label" style="margin-top:8px">Display name</label>
-        <input type="text" class="form-input" id="wf-new-display" placeholder="e.g. Review Pending" />
+        <input type="text" class="form-input" id="wf-form-display" value="${existing?.display || ''}" placeholder="e.g. Review Pending" />
+        <label class="form-label" style="margin-top:8px">Sort order</label>
+        <input type="number" class="form-input" id="wf-form-sort" value="${existing?.sort ?? (stages.reduce((m, s) => Math.max(m, s.sort || 0), 0) + 1)}" min="0" />
         <label class="form-label" style="margin-top:8px">Category</label>
-        <select class="form-select" id="wf-new-category">
-          ${Object.entries(WF_CATEGORIES).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}
+        <select class="form-select" id="wf-form-category">
+          ${Object.entries(WF_CATEGORIES).map(([k, v]) =>
+            `<option value="${k}" ${(existing?.category || 'general') === k ? 'selected' : ''}>${v}</option>`
+          ).join('')}
         </select>
         <label class="form-label" style="margin-top:8px">Auto-reminder after (days, 0 = off)</label>
-        <input type="number" class="form-input" id="wf-new-follow-days" value="0" min="0" max="365" />
+        <input type="number" class="form-input" id="wf-form-follow-days" value="${existing?.automation?.followUpDays || 0}" min="0" max="365" />
         <label class="setting-row" style="margin-top:12px;padding:8px 0">
           <span class="form-label">Closed stage (marks item done)</span>
-          <input type="checkbox" id="wf-new-closed" />
+          <input type="checkbox" id="wf-form-closed" ${existing?.closed ? 'checked' : ''} />
         </label>
         <div class="capture-actions">
-          <button class="btn btn-ghost" onclick="document.getElementById('wf-add-stage-modal').remove()">Cancel</button>
-          <button class="btn btn-primary" id="wf-new-save">Create stage</button>
+          <button class="btn btn-ghost" onclick="document.getElementById('wf-stage-form-modal').remove()">Cancel</button>
+          <button class="btn btn-primary" id="wf-form-save">${isEdit ? 'Save changes' : 'Create stage'}</button>
         </div>
       </div>`;
     if (typeof attachModalDismiss === 'function') attachModalDismiss(overlay);
     document.body.appendChild(overlay);
-    overlay.querySelector('#wf-new-save')?.addEventListener('click', async () => {
-      const rawKey = overlay.querySelector('#wf-new-key')?.value.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
-      const display = overlay.querySelector('#wf-new-display')?.value.trim();
+    overlay.querySelector('#wf-form-save')?.addEventListener('click', async () => {
+      const rawKey = (overlay.querySelector('#wf-form-key')?.value || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+      const display = overlay.querySelector('#wf-form-display')?.value.trim();
       if (!rawKey || !display) {
         toast('Key and display name are required', 'warning');
         return;
       }
-      const followDays = parseInt(overlay.querySelector('#wf-new-follow-days')?.value, 10) || 0;
-      const stages = (await window.ilrs?.getWorkflowStages?.(entityType))?.stages || [];
-      const maxSort = stages.reduce((m, s) => Math.max(m, s.sort || 0), 0);
+      const followDays = parseInt(overlay.querySelector('#wf-form-follow-days')?.value, 10) || 0;
       const result = await window.ilrs?.saveWorkflowStage?.({
         key: rawKey,
         entityType,
         display,
-        category: overlay.querySelector('#wf-new-category')?.value || 'general',
-        sort: maxSort + 1,
-        closed: overlay.querySelector('#wf-new-closed')?.checked || false,
+        category: overlay.querySelector('#wf-form-category')?.value || 'general',
+        sort: parseInt(overlay.querySelector('#wf-form-sort')?.value, 10) || 0,
+        closed: overlay.querySelector('#wf-form-closed')?.checked || false,
         automation: { followUpDays: followDays, reminderEnabled: followDays > 0 },
       });
       if (!result?.success) {
-        toast(result?.error || 'Could not create stage', 'warning');
+        toast(result?.error || 'Could not save stage', 'warning');
         return;
       }
       overlay.remove();
       W()?.setStages?.(entityType, result.stages);
-      toast('Stage created');
+      toast(isEdit ? 'Stage updated' : 'Stage created');
       App.workflowSettingsTab = entityType;
       await loadAllData();
       navigate('pipeline-settings');
     });
+  }
+
+  async function showInquiryStageForm(existingKey = null) {
+    document.getElementById('inq-stage-form-modal')?.remove();
+    const isEdit = !!existingKey;
+    const stages = (await window.ilrs?.getPipelineStages?.())?.stages || P()?.getStages?.() || [];
+    const existing = isEdit ? stages.find((s) => s.key === existingKey) : null;
+    if (isEdit && !existing) {
+      toast('Stage not found', 'warning');
+      return;
+    }
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'inq-stage-form-modal';
+    overlay.innerHTML = `
+      <div class="capture-sheet" style="width:min(420px,94vw)">
+        <div class="capture-header">
+          <h2>${isEdit ? 'Edit' : 'Add'} inquiry stage</h2>
+          <button class="modal-close" onclick="document.getElementById('inq-stage-form-modal').remove()">✕</button>
+        </div>
+        <label class="form-label">Stage key (unique id)</label>
+        <input type="text" class="form-input" id="inq-form-key" value="${existing?.key || ''}" ${isEdit ? 'readonly style="opacity:0.7"' : ''} placeholder="e.g. custom_review" />
+        <label class="form-label" style="margin-top:8px">Display name</label>
+        <input type="text" class="form-input" id="inq-form-display" value="${existing?.display || ''}" />
+        <label class="form-label" style="margin-top:8px">Sort order</label>
+        <input type="number" class="form-input" id="inq-form-sort" value="${existing?.sort ?? (stages.reduce((m, s) => Math.max(m, s.sort || 0), 0) + 1)}" min="0" />
+        <label class="form-label" style="margin-top:8px">Category</label>
+        <select class="form-select" id="inq-form-category">
+          ${Object.entries(cats()).map(([k, v]) =>
+            `<option value="${k}" ${(existing?.category || 'qualification') === k ? 'selected' : ''}>${v}</option>`
+          ).join('')}
+        </select>
+        <label class="form-label" style="margin-top:8px">Auto follow-up after (days, 0 = off)</label>
+        <input type="number" class="form-input" id="inq-form-follow-days" value="${existing?.automation?.followUpDays || 0}" min="0" max="365" />
+        <label class="setting-row" style="margin-top:12px;padding:8px 0">
+          <span class="form-label">Closed / lost stage</span>
+          <input type="checkbox" id="inq-form-closed" ${existing?.closed ? 'checked' : ''} />
+        </label>
+        <div class="capture-actions">
+          <button class="btn btn-ghost" onclick="document.getElementById('inq-stage-form-modal').remove()">Cancel</button>
+          <button class="btn btn-primary" id="inq-form-save">${isEdit ? 'Save changes' : 'Create stage'}</button>
+        </div>
+      </div>`;
+    if (typeof attachModalDismiss === 'function') attachModalDismiss(overlay);
+    document.body.appendChild(overlay);
+    overlay.querySelector('#inq-form-save')?.addEventListener('click', async () => {
+      const rawKey = (overlay.querySelector('#inq-form-key')?.value || '').trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+      const display = overlay.querySelector('#inq-form-display')?.value.trim();
+      if (!rawKey || !display) {
+        toast('Key and display name are required', 'warning');
+        return;
+      }
+      const followDays = parseInt(overlay.querySelector('#inq-form-follow-days')?.value, 10) || 0;
+      const result = await window.ilrs?.savePipelineStage?.({
+        key: rawKey,
+        display,
+        category: overlay.querySelector('#inq-form-category')?.value || 'qualification',
+        sort: parseInt(overlay.querySelector('#inq-form-sort')?.value, 10) || 0,
+        closed: overlay.querySelector('#inq-form-closed')?.checked || false,
+        automation: { followUpDays: followDays, reminderEnabled: followDays > 0 },
+      });
+      if (!result?.success) {
+        toast(result?.error || 'Could not save stage', 'warning');
+        return;
+      }
+      overlay.remove();
+      P()?.setStages?.(result.stages);
+      toast(isEdit ? 'Inquiry stage updated' : 'Inquiry stage created');
+      App.workflowSettingsTab = 'inquiry';
+      await loadAllData();
+      navigate('pipeline-settings');
+    });
+  }
+
+  async function deleteInquiryStageRow(key) {
+    if (!confirm(`Delete inquiry stage "${key}"?`)) return;
+    let reassignTo = null;
+    const tryDelete = async () => {
+      const result = await window.ilrs?.deleteInquiryStage?.(key, reassignTo);
+      if (result?.error === 'stage_in_use') {
+        const stages = (await window.ilrs?.getPipelineStages?.())?.stages || [];
+        const options = stages.filter((s) => s.key !== key).map((s) => s.key).join(', ');
+        reassignTo = prompt(`${result.count} inquiry(ies) use this stage. Reassign to which stage?\nOptions: ${options}`);
+        if (!reassignTo) return;
+        await tryDelete();
+        return;
+      }
+      if (!result?.success) {
+        toast(result?.error || 'Could not delete', 'warning');
+        return;
+      }
+      toast('Inquiry stage deleted');
+      P()?.setStages?.(result.stages || []);
+      await loadAllData();
+      navigate('pipeline-settings');
+    };
+    await tryDelete();
   }
 
   async function deleteWorkflowStageRow(entityType, key) {
@@ -260,6 +381,9 @@
     stage.display = document.querySelector(`.stage-display[data-key="${key}"]`)?.value || stage.display;
     stage.sort = parseInt(document.querySelector(`.stage-sort[data-key="${key}"]`)?.value, 10) || stage.sort;
     stage.category = document.querySelector(`.stage-category[data-key="${key}"]`)?.value || stage.category;
+    stage.closed = document.querySelector(`.stage-closed[data-key="${key}"]`)?.checked || false;
+    const followDays = parseInt(document.querySelector(`.stage-follow-days[data-key="${key}"]`)?.value, 10) || 0;
+    stage.automation = { ...(stage.automation || {}), followUpDays: followDays, reminderEnabled: followDays > 0 };
     const result = await window.ilrs?.savePipelineStage?.(stage);
     if (!result?.success) {
       toast(result?.error || 'Could not save stage', 'warning');
@@ -312,6 +436,8 @@
   window.deleteInquiryTemplate = deleteInquiryTemplate;
   window.setWorkflowSettingsTab = setWorkflowSettingsTab;
   window.saveWorkflowStageRow = saveWorkflowStageRow;
-  window.showAddWorkflowStageForm = showAddWorkflowStageForm;
+  window.showWorkflowStageForm = showWorkflowStageForm;
+  window.showInquiryStageForm = showInquiryStageForm;
   window.deleteWorkflowStageRow = deleteWorkflowStageRow;
+  window.deleteInquiryStageRow = deleteInquiryStageRow;
 })();
