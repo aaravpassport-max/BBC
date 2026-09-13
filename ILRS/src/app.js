@@ -1515,8 +1515,18 @@ async function deleteReminder(id) {
 
 function editReminder(id) {
   const r = App.reminders.find(x => x.id === id);
-  if (r) showCaptureSheet(r);
+  if (!r) {
+    toast('Item not found', 'warning');
+    return;
+  }
+  if (typeof showCaptureSheet !== 'function') {
+    toast('Edit form failed to load — please restart the app', 'critical');
+    return;
+  }
+  showCaptureSheet(r);
 }
+
+window.editReminder = editReminder;
 
 // ── Medicine Module ────────────────────────────────────────────────
 async function renderMedicine(el) {

@@ -428,7 +428,7 @@
       return;
     }
 
-    const kind = document.querySelector('.kind-btn.active')?.dataset.kind || 'reminder';
+    const savedKind = document.querySelector('.kind-btn.active')?.dataset.kind || 'reminder';
     const existing = isEdit ? App?.reminders?.find((x) => x.id === savedId) : null;
     const wasCompleted = existing
       && (existing.status === 'completed' || (existing.workflow_status || '') === 'done');
@@ -439,11 +439,11 @@
     if (typeof loadAllData === 'function') await loadAllData();
     if (typeof updateBadges === 'function') updateBadges();
     if (wasCompleted && App?.currentPage === 'completed' && typeof navigate === 'function') {
-      navigate(kind === 'task' ? 'tasks' : 'reminders');
+      navigate(savedKind === 'task' ? 'tasks' : 'reminders');
     } else if (typeof refreshCurrentView === 'function') {
       refreshCurrentView();
     } else if (typeof navigate === 'function') {
-      navigate(kind === 'task' ? 'tasks' : (App?.currentPage || 'today'));
+      navigate(savedKind === 'task' ? 'tasks' : (App?.currentPage || 'today'));
     }
   }
 

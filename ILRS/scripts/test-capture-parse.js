@@ -50,4 +50,9 @@ assert.equal(
   false,
 );
 
+const { execSync } = require('child_process');
+for (const file of ['capture-ui.js', 'inquiry-ui.js', 'app.js']) {
+  execSync(`node --check ${path.join(__dirname, '..', 'src', file)}`, { stdio: 'pipe' });
+}
+
 console.log('✅ capture parse tests passed');
