@@ -32,6 +32,11 @@ contextBridge.exposeInMainWorld('ilrs', {
   showWindow: () => ipcRenderer.send('show-window'),
   openBackupFolder: (path) => ipcRenderer.send('open-backup-folder', path),
   performBackup: (force = false) => ipcRenderer.invoke('perform-backup', { force }),
+  createInquiry: (data) => ipcRenderer.invoke('create-inquiry', data),
+  changeInquiryStage: (id, stageKey, options) => ipcRenderer.invoke('change-inquiry-stage', { id, stageKey, options }),
+  logInquiryActivity: (id, type, title, body) => ipcRenderer.invoke('log-inquiry-activity', { id, type, title, body }),
+  findInquiryDuplicates: (data) => ipcRenderer.invoke('find-inquiry-duplicates', data),
+  reopenInquiry: (id, stageKey) => ipcRenderer.invoke('reopen-inquiry', { id, stageKey }),
 
   // Listeners
   onNavigate: (callback) => ipcRenderer.on('navigate', (_, page) => callback(page)),

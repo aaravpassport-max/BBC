@@ -52,7 +52,10 @@ function logHabitAction(db, habitId, now = new Date()) {
     return { success: true, habitId, streak: stats.streak, alreadyLogged: true };
   }
 
-  const logId = randomUUID();
+  const existingRow = db.prepare(`
+    SELECT id FROM habit_logs WHERE habit_id = ? AND log_date = ?
+  `).get(habitId, today);
+  const logId = existingRow?.id || randomUUID();
   db.prepare(`
     INSERT OR REPLACE INTO habit_logs (id, habit_id, log_date, completed)
     VALUES (?, ?, ?, 1)

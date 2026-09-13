@@ -14,6 +14,14 @@ const {
   markBillPaidAction,
   logHabitAction,
 } = require('./module-actions');
+const {
+  createInquiry,
+  changeInquiryStage,
+  logInquiryActivity,
+  findPossibleDuplicates,
+  reopenInquiry,
+  seedInquiryStages,
+} = require('./inquiry-actions');
 const { getWeeklyAnchorDay, recalculateAllHabitStreaks } = require('./habit-streak');
 const { createTrayIcon, ensureWindowsToastSupport, showFatalError } = require('./windows-support');
 const { playAlertSound } = require('./sound-player');
@@ -397,6 +405,54 @@ function setupIPC() {
     return performBackup(Boolean(force));
   });
 
+  ipcMain.handle('create-inquiry', async (_event, data) => {
+    try {
+      const result = createInquiry(db, data || {});
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('change-inquiry-stage', async (_event, { id, stageKey, options }) => {
+    try {
+      const result = changeInquiryStage(db, id, stageKey, options || {});
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('log-inquiry-activity', async (_event, { id, type, title, body }) => {
+    try {
+      const result = logInquiryActivity(db, id, { type, title, body });
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('find-inquiry-duplicates', async (_event, data) => {
+    try {
+      return { success: true, matches: findPossibleDuplicates(db, data || {}) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('reopen-inquiry', async (_event, { id, stageKey }) => {
+    try {
+      const result = reopenInquiry(db, id, stageKey || 'follow_up');
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('get-system-clock', async () => getSystemClockInfo());
 
   ipcMain.handle('compute-next-fire', async (_event, { startDate, time, repeatType, repeatValue }) => {
@@ -670,6 +726,77 @@ function initDatabase() {
       FOREIGN KEY (checklist_id) REFERENCES checklists(id)
     );
 
+    CREATE TABLE IF NOT EXISTS clients (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      company TEXT DEFAULT '',
+      mobile TEXT DEFAULT '',
+      email TEXT DEFAULT '',
+      notes TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS inquiry_stages (
+      key TEXT PRIMARY KEY,
+      display_name TEXT NOT NULL,
+      category TEXT NOT NULL,
+      sort_order INTEGER DEFAULT 0,
+      is_closed INTEGER DEFAULT 0,
+      color TEXT DEFAULT ''
+    );
+
+    CREATE TABLE IF NOT EXISTS inquiries (
+      id TEXT PRIMARY KEY,
+      inquiry_number TEXT UNIQUE,
+      client_id TEXT,
+      client_name TEXT NOT NULL,
+      company TEXT DEFAULT '',
+      mobile TEXT DEFAULT '',
+      email TEXT DEFAULT '',
+      requirement TEXT NOT NULL,
+      service_category TEXT DEFAULT '',
+      source TEXT DEFAULT '',
+      stage_key TEXT DEFAULT 'follow_up',
+      priority TEXT DEFAULT 'normal',
+      assigned_to TEXT DEFAULT 'me',
+      next_action TEXT DEFAULT '',
+      next_follow_up TEXT DEFAULT '',
+      next_follow_up_time TEXT DEFAULT '',
+      expected_value REAL DEFAULT 0,
+      quotation_amount REAL DEFAULT 0,
+      payment_status TEXT DEFAULT '',
+      outcome_status TEXT DEFAULT 'active',
+      closed_reason TEXT DEFAULT '',
+      health TEXT DEFAULT 'healthy',
+      stage_changed_at TEXT DEFAULT (datetime('now')),
+      last_activity_at TEXT DEFAULT (datetime('now')),
+      notes TEXT DEFAULT '',
+      internal_notes TEXT DEFAULT '',
+      tags TEXT DEFAULT '[]',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (client_id) REFERENCES clients(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS inquiry_activities (
+      id TEXT PRIMARY KEY,
+      inquiry_id TEXT NOT NULL,
+      activity_type TEXT DEFAULT 'note',
+      title TEXT NOT NULL,
+      body TEXT DEFAULT '',
+      old_stage_key TEXT DEFAULT '',
+      new_stage_key TEXT DEFAULT '',
+      metadata TEXT DEFAULT '{}',
+      created_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (inquiry_id) REFERENCES inquiries(id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_inquiries_stage ON inquiries(stage_key);
+    CREATE INDEX IF NOT EXISTS idx_inquiries_outcome ON inquiries(outcome_status);
+    CREATE INDEX IF NOT EXISTS idx_inquiries_follow_up ON inquiries(next_follow_up);
+    CREATE INDEX IF NOT EXISTS idx_inquiry_activities_inquiry ON inquiry_activities(inquiry_id);
+    CREATE INDEX IF NOT EXISTS idx_clients_mobile ON clients(mobile);
+
     CREATE INDEX IF NOT EXISTS idx_reminders_next_fire ON reminders(next_fire);
     CREATE INDEX IF NOT EXISTS idx_reminders_status ON reminders(status);
     CREATE INDEX IF NOT EXISTS idx_medicine_logs_date ON medicine_logs(log_date);
@@ -739,8 +866,30 @@ function repairReminderSchedules() {
       runHabitLogDedupMigrationV10();
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '10')").run();
     }
+    if (version < 11) {
+      seedInquiryStages(db);
+      db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('inquiry_counter', '1000')").run();
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '11')").run();
+      console.log('Inquiry workflow migration v11 complete');
+    }
   } catch (err) {
     console.error('repairReminderSchedules error:', err.message);
+  }
+}
+
+function runHabitLogDedupMigrationV10() {
+  try {
+    db.exec(`
+      DELETE FROM habit_logs
+      WHERE rowid NOT IN (
+        SELECT MIN(rowid) FROM habit_logs GROUP BY habit_id, log_date
+      )
+    `);
+    db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_habit_logs_habit_day ON habit_logs(habit_id, log_date)');
+    recalculateAllHabitStreaks(db);
+    console.log('Habit log dedup migration v10 complete');
+  } catch (err) {
+    console.error('Habit log dedup migration v10 error:', err.message);
   }
 }
 

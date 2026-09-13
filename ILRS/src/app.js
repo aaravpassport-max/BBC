@@ -13,6 +13,8 @@ const App = {
   bills: [],
   habits: [],
   family: [],
+  inquiries: [],
+  clients: [],
   settings: {},
   pausedUntil: null,
   focusMode: false,
@@ -150,18 +152,22 @@ function applyTheme(theme) {
 
 // ── Data Loaders ───────────────────────────────────────────────────
 async function loadAllData() {
-  const [reminders, medicines, bills, habits, family] = await Promise.all([
+  const [reminders, medicines, bills, habits, family, inquiries, clients] = await Promise.all([
     db("SELECT * FROM reminders WHERE status != 'deleted' AND (source_type IS NULL OR source_type = '') ORDER BY priority DESC, next_fire ASC"),
     db("SELECT * FROM medicines WHERE status = 'active' ORDER BY name"),
     db("SELECT * FROM bills WHERE status = 'active' ORDER BY due_day"),
     db("SELECT * FROM habits WHERE status = 'active' ORDER BY name"),
     db('SELECT * FROM family_members ORDER BY name'),
+    db("SELECT * FROM inquiries ORDER BY updated_at DESC"),
+    db('SELECT * FROM clients ORDER BY name'),
   ]);
   App.reminders = reminders || [];
   App.medicines = medicines || [];
   App.bills = bills || [];
   App.habits = habits || [];
   App.family = family || [];
+  App.inquiries = inquiries || [];
+  App.clients = clients || [];
 }
 
 // ── Navigation ─────────────────────────────────────────────────────
@@ -185,10 +191,14 @@ const PAGES = {
   reports: renderReports,
   settings: renderSettings,
   rewards: renderRewards,
+  pipeline: renderPipeline,
+  inquiries: renderInquiries,
+  'inquiry-followups': renderInquiryFollowups,
+  'inquiry-detail': renderInquiryDetail,
 };
 
 function dismissPageModals() {
-  ['med-modal', 'bill-modal', 'fam-modal', 'famr-modal', 'hab-modal', 'cl-modal', 'onboard-modal', 'capture-sheet', 'search-palette', 'shortcuts-help'].forEach((id) => {
+  ['med-modal', 'bill-modal', 'fam-modal', 'famr-modal', 'hab-modal', 'cl-modal', 'onboard-modal', 'capture-sheet', 'search-palette', 'shortcuts-help', 'inquiry-sheet', 'quick-add-menu'].forEach((id) => {
     document.getElementById(id)?.remove();
   });
   document.querySelectorAll('.modal-overlay').forEach((el) => {
@@ -249,7 +259,7 @@ function renderShell() {
 
     <!-- Sidebar -->
     <nav class="sidebar">
-      <button class="btn btn-primary sidebar-add-btn" onclick="showCaptureSheet()">＋ New Reminder</button>
+      <button class="btn btn-primary sidebar-add-btn" onclick="typeof showQuickAddMenu==='function'?showQuickAddMenu():showCaptureSheet()">＋ New</button>
       <div class="sidebar-section-label">Focus</div>
       ${navItem('today', '☀️', 'Today')}
       ${navItem('tomorrow', '🌅', 'Tomorrow')}
@@ -260,6 +270,11 @@ function renderShell() {
       ${navItem('reminders', '📋', 'All')}
       ${navItem('tasks', '✅', 'Tasks')}
       ${navItem('calendar', '📅', 'Calendar')}
+
+      <div class="sidebar-section-label">Work</div>
+      ${navItem('pipeline', '📊', 'Pipeline')}
+      ${navItem('inquiries', '📥', 'Inquiries')}
+      ${navItem('inquiry-followups', '📞', 'Follow-ups')}
 
       <div class="sidebar-section-label">Life</div>
       ${navItem('medicine', '💊', 'Medicine')}
@@ -302,7 +317,7 @@ function renderShell() {
     fab.className = 'fab-add';
     fab.title = 'New reminder (Ctrl+N)';
     fab.textContent = '+';
-    fab.onclick = () => showCaptureSheet();
+    fab.onclick = () => (typeof showQuickAddMenu === 'function' ? showQuickAddMenu() : showCaptureSheet());
     document.body.appendChild(fab);
   }
 }
@@ -2498,6 +2513,20 @@ function buildSearchResults(query) {
     results.push({ id: f.id, type: 'family', page: 'family', icon: '👨‍👩‍👧', title: f.name, subtitle: f.role || 'Family', action: () => navigate('family') });
   });
 
+  (App.inquiries || []).forEach((inq) => {
+    const hay = `${inq.client_name} ${inq.requirement || ''} ${inq.inquiry_number || ''} ${inq.mobile || ''}`.toLowerCase();
+    if (!hay.includes(q)) return;
+    results.push({
+      id: inq.id,
+      type: 'inquiry',
+      page: 'inquiry-detail',
+      icon: '📥',
+      title: `${inq.client_name} — ${inq.requirement}`,
+      subtitle: `Inquiry · ${inq.inquiry_number || ''}`,
+      action: () => { App.selectedInquiryId = inq.id; navigate('inquiry-detail'); },
+    });
+  });
+
   return results.slice(0, 12);
 }
 
@@ -2511,7 +2540,7 @@ function showSearchPalette() {
   overlay.id = 'search-palette';
   overlay.innerHTML = `
     <div class="search-palette" role="dialog" aria-label="Search">
-      <input type="text" class="form-input search-palette-input" id="search-input" placeholder="Search reminders, tasks, medicine, bills…" autocomplete="off" />
+      <input type="text" class="form-input search-palette-input" id="search-input" placeholder="Search reminders, tasks, inquiries, medicine, bills…" autocomplete="off" />
       <div class="search-hint">↑↓ navigate · Enter open · Esc close</div>
       <div id="search-results" class="search-results"></div>
     </div>
@@ -2587,8 +2616,8 @@ function showShortcutsHelp() {
   overlay.id = 'shortcuts-help';
   const shortcuts = [
     ['Ctrl+K', 'Search everything'],
-    ['Ctrl+N', 'New reminder / task'],
-    ['Ctrl+Shift+A', 'New reminder / task'],
+    ['Ctrl+N', 'New reminder / task / inquiry'],
+    ['Ctrl+Shift+A', 'New reminder / task / inquiry'],
     ['Enter', 'Submit quick-add bar'],
     ['Esc', 'Close modal or search'],
     ['?', 'Show this help'],
@@ -2625,12 +2654,14 @@ function setupListeners() {
     }
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'n' && !isTypingInField(e.target)) {
       e.preventDefault();
-      showCaptureSheet();
+      if (typeof showQuickAddMenu === 'function') showQuickAddMenu();
+      else showCaptureSheet();
       return;
     }
     if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {
       e.preventDefault();
-      showCaptureSheet();
+      if (typeof showQuickAddMenu === 'function') showQuickAddMenu();
+      else showCaptureSheet();
       return;
     }
     if (e.key !== 'Escape') return;
