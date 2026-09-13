@@ -29,4 +29,22 @@ assert.equal(C.isDueToday({ status: 'active', next_fire: '2026-09-13T10:00:00' }
 assert.equal(C.isDueTomorrow({ status: 'active', next_fire: '2026-09-14T09:00:00' }, now), true);
 assert.equal(C.isOverdueItem({ status: 'active', next_fire: '2026-09-12T09:00:00' }, now), true);
 
+assert.equal(C.nextFireDateStr('2026-09-14T10:00:00'), '2026-09-14');
+assert.equal(
+  C.isScheduledOnDate({ status: 'active', next_fire: '2026-09-14T10:00:00', start_date: '2026-09-01' }, '2026-09-14'),
+  true,
+);
+assert.equal(
+  C.isScheduledOnDate({ status: 'active', next_fire: '2026-09-14T10:00:00', start_date: '2026-09-01' }, '2026-09-01'),
+  false,
+);
+assert.equal(
+  C.isScheduledInMonth({ status: 'active', next_fire: '2026-09-20T09:00:00' }, '2026-09'),
+  true,
+);
+assert.equal(
+  C.isScheduledOnDate({ status: 'completed', next_fire: '2026-09-14T10:00:00' }, '2026-09-14'),
+  false,
+);
+
 console.log('✅ capture parse tests passed');

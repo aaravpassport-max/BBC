@@ -1403,9 +1403,9 @@ async function renderCalendar(el) {
     const startWeekday = firstDay.getDay();
     const monthName = firstDay.toLocaleString('default', { month: 'long' });
 
-    // Get events for this month
+    const C = cap();
     const monthStr = `${viewYear}-${String(viewMonth + 1).padStart(2, '0')}`;
-    const monthReminders = App.reminders.filter(r => r.start_date && r.start_date.startsWith(monthStr));
+    const monthReminders = App.reminders.filter(r => C?.isScheduledInMonth(r, monthStr));
 
     let calHtml = '';
     // Header days
@@ -1418,7 +1418,7 @@ async function renderCalendar(el) {
     for (let d = 1; d <= lastDay.getDate(); d++) {
       const isToday = d === now.getDate() && viewMonth === now.getMonth() && viewYear === now.getFullYear();
       const dayStr = `${monthStr}-${String(d).padStart(2, '0')}`;
-      const dayReminders = monthReminders.filter(r => r.start_date === dayStr);
+      const dayReminders = monthReminders.filter(r => C?.isScheduledOnDate(r, dayStr));
       calHtml += `
         <div class="calendar-day ${isToday ? 'today' : ''}" onclick="showDayEvents('${dayStr}')">
           <div style="font-size:13px;font-weight:${isToday ? '700' : '400'}">${d}</div>
@@ -1432,7 +1432,7 @@ async function renderCalendar(el) {
 
   el.innerHTML = `
     <div class="page-header">
-      <div><div class="page-title">📅 Calendar</div></div>
+      <div><div class="page-title">📅 Calendar</div><div class="page-subtitle">Scheduled by next fire time</div></div>
       <div style="display:flex;gap:8px">
         <button class="btn btn-ghost btn-sm" onclick="viewMonth--;if(viewMonth<0){viewMonth=11;viewYear--;}renderCal()">◀</button>
         <span id="cal-title" style="font-size:15px;font-weight:700;padding:6px 12px"></span>
@@ -1452,12 +1452,15 @@ async function renderCalendar(el) {
 }
 
 function showDayEvents(dateStr) {
-  const dayReminders = App.reminders.filter(r => r.start_date === dateStr);
+  const C = cap();
+  const dayReminders = App.reminders
+    .filter(r => C?.isScheduledOnDate(r, dateStr))
+    .sort((a, b) => String(a.next_fire).localeCompare(String(b.next_fire)));
   const container = document.getElementById('day-events');
   container.innerHTML = `
     <div class="section-header"><div class="section-title">📋 ${formatDate(dateStr)}</div><button class="btn btn-primary btn-sm" onclick="navigate('add')">+ Add</button></div>
     ${dayReminders.length === 0
-      ? `<p style="color:var(--text-muted)">No reminders on this day. <a href="#" onclick="navigate('add')" style="color:var(--accent)">Add one?</a></p>`
+      ? `<p style="color:var(--text-muted)">Nothing scheduled to fire on this day. <a href="#" onclick="navigate('add')" style="color:var(--accent)">Add one?</a></p>`
       : dayReminders.map(r => reminderCard(r)).join('')}
   `;
 }

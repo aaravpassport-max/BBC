@@ -225,6 +225,24 @@
     return formatDateShort(nextFire);
   }
 
+  function nextFireDateStr(nextFire) {
+    if (!nextFire) return '';
+    const clean = String(nextFire).trim().replace(' ', 'T');
+    if (clean.includes('Z') || /[+-]\d{2}:\d{2}$/.test(clean)) {
+      const d = new Date(clean);
+      if (!Number.isNaN(d.getTime())) return dateStr(d);
+    }
+    return clean.slice(0, 10);
+  }
+
+  function isScheduledOnDate(r, dateStr) {
+    return isActiveReminder(r) && !!r.next_fire && nextFireDateStr(r.next_fire) === dateStr;
+  }
+
+  function isScheduledInMonth(r, monthStr) {
+    return isActiveReminder(r) && !!r.next_fire && nextFireDateStr(r.next_fire).startsWith(monthStr);
+  }
+
   function formatDateShort(nextFire) {
     const d = parseLocalDateTime(nextFire);
     if (!d) return '';
@@ -248,6 +266,9 @@
     isOverdueItem,
     relativeTimeLabel,
     formatDateShort,
+    nextFireDateStr,
+    isScheduledOnDate,
+    isScheduledInMonth,
     dateStr,
     addDays,
   };
