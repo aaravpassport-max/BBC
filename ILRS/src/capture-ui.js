@@ -19,6 +19,54 @@
     ).join('');
   }
 
+  function parseRepeatValue(repeatType, repeatValue) {
+    if (repeatType !== 'custom') return { mode: 'days', interval: 3, days: [1, 2, 3, 4, 5] };
+    try {
+      const parsed = JSON.parse(repeatValue || '{}');
+      if (parsed.mode === 'weekdays' && Array.isArray(parsed.days)) {
+        return { mode: 'weekdays', interval: 3, days: parsed.days };
+      }
+      if (parsed.mode === 'days') {
+        return { mode: 'days', interval: parseInt(parsed.interval, 10) || 3, days: [1, 2, 3, 4, 5] };
+      }
+    } catch (_) {
+      const n = parseInt(repeatValue, 10);
+      if (!Number.isNaN(n) && n > 0) return { mode: 'days', interval: n, days: [1, 2, 3, 4, 5] };
+    }
+    return { mode: 'days', interval: 3, days: [1, 2, 3, 4, 5] };
+  }
+
+  function customRepeatHtml(repeatType, repeatValue) {
+    const cfg = parseRepeatValue(repeatType, repeatValue);
+    const weekdays = [
+      { id: 0, label: 'Sun' }, { id: 1, label: 'Mon' }, { id: 2, label: 'Tue' },
+      { id: 3, label: 'Wed' }, { id: 4, label: 'Thu' }, { id: 5, label: 'Fri' }, { id: 6, label: 'Sat' },
+    ];
+    return `
+      <div id="capture-custom-repeat" style="display:${repeatType === 'custom' ? 'block' : 'none'};margin-top:8px">
+        <div class="form-group">
+          <label class="form-label">Custom pattern</label>
+          <select class="form-select" id="capture-custom-mode">
+            <option value="days" ${cfg.mode === 'days' ? 'selected' : ''}>Every N days</option>
+            <option value="weekdays" ${cfg.mode === 'weekdays' ? 'selected' : ''}>Specific weekdays</option>
+          </select>
+        </div>
+        <div class="form-group" id="capture-custom-days-wrap" style="display:${cfg.mode === 'days' ? 'block' : 'none'}">
+          <label class="form-label">Every</label>
+          <input type="number" class="form-input" id="capture-custom-interval" min="2" max="365" value="${cfg.interval}" />
+          <span class="form-hint">days</span>
+        </div>
+        <div class="form-group" id="capture-custom-weekdays-wrap" style="display:${cfg.mode === 'weekdays' ? 'block' : 'none'}">
+          <label class="form-label">On days</label>
+          <div class="chip-row" id="capture-weekday-chips">
+            ${weekdays.map((d) =>
+              `<button type="button" class="chip ${cfg.days.includes(d.id) ? 'selected' : ''}" data-weekday="${d.id}">${d.label}</button>`
+            ).join('')}
+          </div>
+        </div>
+      </div>`;
+  }
+
   function timeChipHtml(selected) {
     const chips = ['09:00', '10:00', '14:00', '18:00'];
     return chips.map((t) =>
@@ -42,6 +90,7 @@
       category: r.category || 'general',
       priority: r.priority || 'normal',
       repeat: r.repeat_type || 'once',
+      repeatValue: r.repeat_value || '',
       why: r.why_it_matters || '',
       notes: r.notes || '',
       tags: JSON.parse(r.tags || '[]').join(', '),
@@ -96,7 +145,10 @@
                 <option value="daily" ${state.repeat === 'daily' ? 'selected' : ''}>Daily</option>
                 <option value="weekly" ${state.repeat === 'weekly' ? 'selected' : ''}>Weekly</option>
                 <option value="monthly" ${state.repeat === 'monthly' ? 'selected' : ''}>Monthly</option>
-              </select></div>
+                <option value="custom" ${state.repeat === 'custom' ? 'selected' : ''}>Custom…</option>
+              </select>
+              ${customRepeatHtml(state.repeat, state.repeatValue)}
+            </div>
           </div>
           <div class="form-group"><label class="form-label">Priority</label>
             <div class="chip-row" id="capture-priority-chips">
@@ -213,6 +265,25 @@
       }
     });
 
+    overlay.querySelector('#capture-repeat')?.addEventListener('change', (e) => {
+      const custom = document.getElementById('capture-custom-repeat');
+      if (custom) custom.style.display = e.target.value === 'custom' ? 'block' : 'none';
+    });
+
+    overlay.querySelector('#capture-custom-mode')?.addEventListener('change', (e) => {
+      const mode = e.target.value;
+      const daysWrap = document.getElementById('capture-custom-days-wrap');
+      const weekdaysWrap = document.getElementById('capture-custom-weekdays-wrap');
+      if (daysWrap) daysWrap.style.display = mode === 'days' ? 'block' : 'none';
+      if (weekdaysWrap) weekdaysWrap.style.display = mode === 'weekdays' ? 'block' : 'none';
+    });
+
+    overlay.querySelector('#capture-weekday-chips')?.addEventListener('click', (e) => {
+      const chip = e.target.closest('[data-weekday]');
+      if (!chip) return;
+      chip.classList.toggle('selected');
+    });
+
     overlay.querySelector('#capture-priority-chips')?.addEventListener('click', (e) => {
       const chip = e.target.closest('[data-priority]');
       if (!chip) return;
@@ -244,12 +315,29 @@
     const startDate = resolveWhenDate(when);
     const time = document.getElementById('capture-time')?.value || (when === 'evening' ? '18:00' : '');
     const repeatType = document.getElementById('capture-repeat')?.value || 'once';
+    let repeatValue = '';
+    if (repeatType === 'custom') {
+      const mode = document.getElementById('capture-custom-mode')?.value || 'days';
+      if (mode === 'weekdays') {
+        const days = [...document.querySelectorAll('#capture-weekday-chips .chip.selected')]
+          .map((c) => parseInt(c.dataset.weekday, 10))
+          .filter((d) => !Number.isNaN(d));
+        if (!days.length) {
+          if (typeof toast === 'function') toast('Pick at least one weekday', 'warning');
+          return;
+        }
+        repeatValue = JSON.stringify({ mode: 'weekdays', days });
+      } else {
+        const interval = Math.min(365, Math.max(2, parseInt(document.getElementById('capture-custom-interval')?.value, 10) || 3));
+        repeatValue = JSON.stringify({ mode: 'days', interval });
+      }
+    }
     const id = document.getElementById('capture-id')?.value;
     const isEdit = document.getElementById('capture-is-edit')?.value === '1';
 
     let nextFire;
     if (typeof computeNextFireForSave === 'function') {
-      nextFire = await computeNextFireForSave(startDate, time || '09:00', repeatType);
+      nextFire = await computeNextFireForSave(startDate, time || '09:00', repeatType, repeatValue);
     } else {
       nextFire = C().parseNextFireLocal(startDate, time || '09:00', repeatType);
     }
@@ -262,6 +350,7 @@
       document.getElementById('capture-category')?.value || 'general',
       document.getElementById('capture-why')?.value || '',
       repeatType,
+      repeatValue,
       time,
       startDate,
       '',
@@ -279,13 +368,13 @@
     let ok;
     if (isEdit) {
       ok = await dbRun(
-        `UPDATE reminders SET title=?,task_type=?,category=?,why_it_matters=?,repeat_type=?,reminder_time=?,start_date=?,end_date=?,priority=?,urgency_quadrant=?,alert_style=?,snooze_duration=?,assigned_to=?,is_private=?,notes=?,tags=?,next_fire=?,updated_at=? WHERE id=?`,
+        `UPDATE reminders SET title=?,task_type=?,category=?,why_it_matters=?,repeat_type=?,repeat_value=?,reminder_time=?,start_date=?,end_date=?,priority=?,urgency_quadrant=?,alert_style=?,snooze_duration=?,assigned_to=?,is_private=?,notes=?,tags=?,next_fire=?,updated_at=? WHERE id=?`,
         [...params.slice(1), new Date().toISOString(), id]
       );
     } else {
       const workflowStatus = kind === 'task' ? 'pending' : 'pending';
       ok = await dbRun(
-        `INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,reminder_time,start_date,end_date,priority,urgency_quadrant,alert_style,snooze_duration,assigned_to,is_private,notes,tags,next_fire,status,workflow_status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'active',?,datetime('now'),datetime('now'))`,
+        `INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,repeat_value,reminder_time,start_date,end_date,priority,urgency_quadrant,alert_style,snooze_duration,assigned_to,is_private,notes,tags,next_fire,status,workflow_status,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'active',?,datetime('now'),datetime('now'))`,
         [...params, workflowStatus]
       );
     }

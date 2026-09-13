@@ -75,9 +75,9 @@ function computeNextFireLocal(startDate, time, repeatType = 'once') {
   return toLocalFireISO(fire);
 }
 
-async function computeNextFireForSave(startDate, time, repeatType = 'once') {
+async function computeNextFireForSave(startDate, time, repeatType = 'once', repeatValue = '') {
   if (api.computeNextFire) {
-    const result = await api.computeNextFire(startDate, time, repeatType);
+    const result = await api.computeNextFire(startDate, time, repeatType, repeatValue);
     if (result?.nextFire) return result.nextFire;
   }
   return computeNextFireLocal(startDate, time, repeatType);
@@ -357,6 +357,11 @@ function getBillsNeedingAttention(todayDay = new Date().getDate()) {
 
 function getHabitsDueToday(habitLogs) {
   const day = new Date().getDay();
+  return getHabitsDueOnDate(new Date(), habitLogs);
+}
+
+function getHabitsDueOnDate(date, habitLogs) {
+  const day = date.getDay();
   return App.habits.filter(h => {
     const freq = h.frequency || 'daily';
     if (freq === 'weekdays' && (day === 0 || day === 6)) return false;
@@ -364,6 +369,86 @@ function getHabitsDueToday(habitLogs) {
     const done = habitLogs.some(l => l.habit_id === h.id && Number(l.completed) === 1);
     return !done;
   });
+}
+
+function getBillsDueOnDay(dayOfMonth) {
+  return App.bills
+    .filter(b => parseInt(b.due_day) === dayOfMonth)
+    .map(b => ({ bill: b, diff: 0, overdue: false, dueToday: false }));
+}
+
+function getMedDosesForDate(medLogs, dateLabel = 'Today') {
+  const items = [];
+  for (const med of App.medicines) {
+    const times = JSON.parse(med.dose_times || '[]');
+    for (const time of times) {
+      const log = medLogs.find(l => l.medicine_id === med.id && l.dose_time === time);
+      if (log?.status === 'taken') continue;
+      items.push({ med, time, dateLabel });
+    }
+  }
+  return items.sort((a, b) => a.time.localeCompare(b.time));
+}
+
+function lifePreviewCard(type, id, { title, subtitle, icon }) {
+  return `
+    <div class="reminder-card normal" id="life-${type}-${id}">
+      <div class="reminder-check">${icon}</div>
+      <div class="reminder-body">
+        <div class="reminder-title">${title}</div>
+        <div class="reminder-context">${subtitle}</div>
+      </div>
+    </div>`;
+}
+
+function buildLifeCardsForView(mode, { medLogs, habitLogs, nowT, todayDay, tomorrowDate, tomorrowDay, tomorrowMedLogs, tomorrowHabitLogs }) {
+  const cards = [];
+  if (mode === 'overdue') {
+    getPendingMedDoses(medLogs, nowT).filter(d => d.overdue).forEach(d => {
+      cards.push(lifeAttentionCard('med', `${d.med.id}-${d.time}`, {
+        icon: '💊', title: `Take ${d.med.name}`,
+        subtitle: `Medicine · ${formatTime(d.time)} · overdue`,
+        overdue: true, primaryLabel: '✓',
+        primaryAction: `markDoseTaken('${d.med.id}','${d.time}')`,
+      }));
+    });
+    getBillsNeedingAttention(todayDay).filter(b => b.overdue).forEach(({ bill, diff }) => {
+      cards.push(lifeAttentionCard('bill', bill.id, {
+        icon: '💸', title: `Pay ${bill.name}`,
+        subtitle: `Bill · Overdue ${Math.abs(diff)}d`,
+        overdue: true, primaryLabel: '✓',
+        primaryAction: `markBillPaid('${bill.id}')`,
+      }));
+    });
+    getHabitsDueToday(habitLogs).filter(h => h.target_time && h.target_time <= nowT).forEach(h => {
+      cards.push(lifeAttentionCard('habit', h.id, {
+        icon: '🔁', title: h.name,
+        subtitle: `Habit · ${formatTime(h.target_time)} · overdue today`,
+        overdue: true, primaryLabel: '✓',
+        primaryAction: `logHabit('${h.id}')`,
+      }));
+    });
+  } else if (mode === 'tomorrow') {
+    getMedDosesForDate(tomorrowMedLogs || [], 'Tomorrow').forEach(d => {
+      cards.push(lifePreviewCard('med', `${d.med.id}-${d.time}-tmr`, {
+        icon: '💊', title: `Take ${d.med.name}`,
+        subtitle: `Medicine · ${formatTime(d.time)} · Tomorrow`,
+      }));
+    });
+    getBillsDueOnDay(tomorrowDay).forEach(({ bill }) => {
+      cards.push(lifePreviewCard('bill', `${bill.id}-tmr`, {
+        icon: '💸', title: `Pay ${bill.name}`,
+        subtitle: `Bill · Due tomorrow · Day ${bill.due_day}`,
+      }));
+    });
+    getHabitsDueOnDate(tomorrowDate, tomorrowHabitLogs || []).forEach(h => {
+      cards.push(lifePreviewCard('habit', `${h.id}-tmr`, {
+        icon: '🔁', title: h.name,
+        subtitle: `Habit · ${formatTime(h.target_time)} · Tomorrow`,
+      }));
+    });
+  }
+  return cards;
 }
 
 function lifeAttentionCard(type, id, { title, subtitle, overdue, primaryAction, primaryLabel, icon }) {
@@ -564,10 +649,36 @@ async function renderSmartList(mode) {
   const el = document.getElementById('content');
   const C = cap();
   const now = new Date();
+  const today = todayStr();
+  const nowT = nowTimeStr();
+  const todayDay = now.getDate();
+  const tomorrowDate = C ? C.addDays(now, 1) : new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const tomorrowStr = C ? C.dateStr(tomorrowDate) : today;
+  const tomorrowDay = tomorrowDate.getDate();
   const schedulable = (r) => r.task_type !== 'task' || (r.reminder_time && r.next_fire);
   let items = [];
   let title = '';
   let subtitle = '';
+  let lifeCards = [];
+
+  if (mode === 'overdue' || mode === 'tomorrow') {
+    const [medLogs, habitLogs, tomorrowMedLogs, tomorrowHabitLogs] = await Promise.all([
+      db('SELECT * FROM medicine_logs WHERE log_date=?', [today]),
+      db('SELECT * FROM habit_logs WHERE log_date=?', [today]),
+      mode === 'tomorrow' ? db('SELECT * FROM medicine_logs WHERE log_date=?', [tomorrowStr]) : [],
+      mode === 'tomorrow' ? db('SELECT * FROM habit_logs WHERE log_date=?', [tomorrowStr]) : [],
+    ]);
+    lifeCards = buildLifeCardsForView(mode, {
+      medLogs: medLogs || [],
+      habitLogs: habitLogs || [],
+      nowT,
+      todayDay,
+      tomorrowDate,
+      tomorrowDay,
+      tomorrowMedLogs: tomorrowMedLogs || [],
+      tomorrowHabitLogs: tomorrowHabitLogs || [],
+    });
+  }
 
   switch (mode) {
     case 'tomorrow':
@@ -597,12 +708,14 @@ async function renderSmartList(mode) {
   }
 
   const postponedCount = App.reminders.filter(r => C?.isPostponedItem(r)).length;
+  const totalCount = items.length + lifeCards.length;
+  const lifeNote = lifeCards.length > 0 ? ` · ${lifeCards.length} from Life` : '';
 
   el.innerHTML = `
     <div class="page-header">
       <div>
         <div class="page-title">${title}</div>
-        <div class="page-subtitle">${subtitle} · ${items.length} item${items.length !== 1 ? 's' : ''}</div>
+        <div class="page-subtitle">${subtitle} · ${totalCount} item${totalCount !== 1 ? 's' : ''}${lifeNote}</div>
       </div>
       <button class="btn btn-primary" onclick="showCaptureSheet()">＋ New</button>
     </div>
@@ -613,10 +726,18 @@ async function renderSmartList(mode) {
       <button class="smart-tab ${mode === 'overdue' ? 'active' : ''}" onclick="navigate('overdue')">Overdue</button>
       <button class="smart-tab ${mode === 'postponed' ? 'active' : ''}" onclick="navigate('postponed')">Postponed · ${postponedCount}</button>
     </div>
+    ${lifeCards.length > 0 ? `
+    <div class="section-header" style="margin-top:8px">
+      <div class="section-title">🌿 Life ${mode === 'overdue' ? 'Overdue' : 'Tomorrow'}</div>
+      <button class="btn btn-ghost btn-sm" onclick="navigate('medicine')">Life modules</button>
+    </div>
+    <div class="reminder-list" style="margin-bottom:16px">${lifeCards.join('')}</div>` : ''}
     <div class="reminder-list">
-      ${items.length === 0
+      ${items.length === 0 && lifeCards.length === 0
         ? `<div class="empty-state"><div class="empty-icon">✨</div><h3>Nothing here</h3><p>You're clear for this view.</p></div>`
-        : items.map(r => reminderCard(r)).join('')}
+        : items.length === 0
+          ? `<div class="empty-state" style="padding:24px 0"><p style="color:var(--text-muted)">No reminders in this view.</p></div>`
+          : items.map(r => reminderCard(r)).join('')}
     </div>
   `;
 }

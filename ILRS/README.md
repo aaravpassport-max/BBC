@@ -55,12 +55,13 @@ Output goes to the `dist/` folder.
 ### Focus views (smart inbox)
 - **Today** — due reminders plus a **Life Today** section (medicine doses, bills, habits)
 - **Tomorrow**, **Upcoming** (7 days), **Overdue**, **Postponed**, **Completed**, **All**
+- **Overdue** and **Tomorrow** also surface Life module items (medicine, bills, habits)
 - Quick-add bar with natural-language parsing (e.g. `Call John tomorrow at 10am`)
 - **Capture sheet** for full reminder/task entry with assignee, repeat, and priority
 
 ### Reminders & tasks
 - Reminders and tasks share one list; tasks use workflow status (pending → in progress → done)
-- Repeat: once, daily, weekly, monthly
+- Repeat: once, daily, weekly, monthly, or **custom** (every N days or specific weekdays)
 - Snooze, complete, postpone (tonight / tomorrow / next week)
 - OS toast notifications with **Done** and **Snooze** actions
 - Assign to family members; optional private mode (hide title in notification)
@@ -159,4 +160,4 @@ ILRS/
 
 ---
 
-*ILRS v1.0.20 — Electron + SQLite*
+*ILRS v1.0.21 — Electron + SQLite*

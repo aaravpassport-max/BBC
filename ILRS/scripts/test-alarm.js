@@ -6,6 +6,8 @@ const {
   computeNextFire,
   planAfterFire,
   parseLocalDateTime,
+  parseRepeatConfig,
+  advanceRecurring,
 } = require('../alarm');
 
 function test(name, fn) {
@@ -53,6 +55,33 @@ test('planAfterFire advances daily reminders', () => {
   const plan = planAfterFire(reminder, now);
   assert.strictEqual(plan.alarmRings, 0);
   assert.ok(plan.nextFire.includes('T08:00:00'));
+});
+
+test('parseRepeatConfig supports every-N-days', () => {
+  const cfg = parseRepeatConfig('custom', JSON.stringify({ mode: 'days', interval: 3 }));
+  assert.strictEqual(cfg.mode, 'days');
+  assert.strictEqual(cfg.interval, 3);
+});
+
+test('computeNextFire advances custom every-3-days', () => {
+  const now = new Date(2026, 8, 13, 10, 0, 0);
+  const repeatValue = JSON.stringify({ mode: 'days', interval: 3 });
+  const next = computeNextFire('2026-09-10', '09:00', 'custom', now, repeatValue);
+  const parsed = parseLocalDateTime(next);
+  assert.ok(parsed.getTime() > now.getTime());
+  assert.strictEqual(parsed.getHours(), 9);
+});
+
+test('advanceRecurring handles custom weekdays', () => {
+  const now = new Date(2026, 8, 13, 9, 0, 0); // Sunday
+  const reminder = {
+    repeat_type: 'custom',
+    repeat_value: JSON.stringify({ mode: 'weekdays', days: [1, 3, 5] }),
+    reminder_time: '09:00',
+  };
+  const next = advanceRecurring(reminder, now);
+  const parsed = parseLocalDateTime(next);
+  assert.strictEqual(parsed.getDay(), 1); // Monday
 });
 
 console.log('\nAlarm tests finished.');

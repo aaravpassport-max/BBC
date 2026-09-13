@@ -394,10 +394,10 @@ function setupIPC() {
 
   ipcMain.handle('get-system-clock', async () => getSystemClockInfo());
 
-  ipcMain.handle('compute-next-fire', async (_event, { startDate, time, repeatType }) => {
+  ipcMain.handle('compute-next-fire', async (_event, { startDate, time, repeatType, repeatValue }) => {
     const now = new Date();
     const start = startDate && !String(startDate).includes('Z') ? startDate : localDateStr(now);
-    return { nextFire: computeNextFire(start, time, repeatType || 'once', now) };
+    return { nextFire: computeNextFire(start, time, repeatType || 'once', now, repeatValue || '') };
   });
 
   ipcMain.handle('complete-reminder', async (_event, { id }) => {

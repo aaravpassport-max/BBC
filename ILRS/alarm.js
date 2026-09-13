@@ -36,11 +36,69 @@ function normalizeNextFire(value) {
   return raw.replace(' ', 'T');
 }
 
+function parseRepeatConfig(repeatType, repeatValue) {
+  if (repeatType !== 'custom') return null;
+  if (!repeatValue) return { mode: 'days', interval: 2 };
+
+  try {
+    const parsed = typeof repeatValue === 'string' ? JSON.parse(repeatValue) : repeatValue;
+    if (parsed.mode === 'days') {
+      const interval = Math.min(365, Math.max(1, parseInt(parsed.interval, 10) || 2));
+      return { mode: 'days', interval };
+    }
+    if (parsed.mode === 'weekdays' && Array.isArray(parsed.days) && parsed.days.length) {
+      const days = parsed.days.map(Number).filter((d) => d >= 0 && d <= 6);
+      if (days.length) return { mode: 'weekdays', days };
+    }
+  } catch (_) {
+    const n = parseInt(repeatValue, 10);
+    if (!Number.isNaN(n) && n > 0) return { mode: 'days', interval: Math.min(365, n) };
+  }
+  return { mode: 'days', interval: 2 };
+}
+
+function daysSinceStart(startDateStr, date = new Date()) {
+  const start = parseLocalDateTime(`${startDateStr}T12:00:00`);
+  if (!start) return 0;
+  const target = new Date(date);
+  target.setHours(12, 0, 0, 0);
+  return Math.round((target.getTime() - start.getTime()) / 86400000);
+}
+
+function nextAllowedWeekday(from, allowedDays, h, m) {
+  for (let i = 0; i <= 14; i++) {
+    const candidate = new Date(from);
+    candidate.setDate(candidate.getDate() + i);
+    candidate.setHours(h, m || 0, 0, 0);
+    if (allowedDays.includes(candidate.getDay()) && candidate.getTime() > from.getTime()) {
+      return candidate;
+    }
+  }
+  const fallback = new Date(from);
+  fallback.setDate(fallback.getDate() + 1);
+  fallback.setHours(h, m || 0, 0, 0);
+  return fallback;
+}
+
+function shouldFireCustom(reminder, now = new Date()) {
+  const config = parseRepeatConfig('custom', reminder.repeat_value);
+  if (!config) return false;
+  if (reminder.reminder_time !== localTimeStr(now)) return false;
+
+  if (config.mode === 'days') {
+    if (!reminder.start_date) return true;
+    const elapsed = daysSinceStart(reminder.start_date, now);
+    return elapsed >= 0 && elapsed % config.interval === 0;
+  }
+
+  return config.days.includes(now.getDay());
+}
+
 function computeNextFireFromReminder(row, now = new Date()) {
   const startDate = row.start_date && !String(row.start_date).includes('Z')
     ? row.start_date
     : localDateStr(now);
-  return computeNextFire(startDate, row.reminder_time, row.repeat_type || 'once', now);
+  return computeNextFire(startDate, row.reminder_time, row.repeat_type || 'once', now, row.repeat_value);
 }
 
 function alreadyFiredThisMinute(reminder, now = new Date()) {
@@ -91,6 +149,7 @@ function shouldFireNow(reminder, now = new Date()) {
     const day = Number(reminder.start_date.split('-')[2]);
     return now.getDate() === day;
   }
+  if (repeat === 'custom') return shouldFireCustom(reminder, now);
   return true;
 }
 
@@ -102,7 +161,7 @@ function syncNextFireWithSystemClock(reminder, now = new Date()) {
   const startDate = reminder.start_date && !String(reminder.start_date).includes('Z')
     ? reminder.start_date
     : localDateStr(now);
-  return computeNextFire(startDate, reminder.reminder_time, reminder.repeat_type || 'once', now);
+  return computeNextFire(startDate, reminder.reminder_time, reminder.repeat_type || 'once', now, reminder.repeat_value);
 }
 
 function getSystemClockInfo(now = new Date()) {
@@ -145,7 +204,7 @@ function isDue(nextFire, now = new Date()) {
   return target.getTime() <= now.getTime();
 }
 
-function computeNextFire(startDate, time, repeatType = 'once', now = new Date()) {
+function computeNextFire(startDate, time, repeatType = 'once', now = new Date(), repeatValue = '') {
   if (!startDate || !time) return '';
   const [h, m] = time.split(':').map(Number);
   const [y, mo, d] = startDate.split('-').map(Number);
@@ -162,10 +221,27 @@ function computeNextFire(startDate, time, repeatType = 'once', now = new Date())
       case 'monthly':
         fire.setMonth(fire.getMonth() + 1);
         break;
+      case 'custom': {
+        const config = parseRepeatConfig('custom', repeatValue);
+        if (config?.mode === 'weekdays') {
+          fire = nextAllowedWeekday(now, config.days, h, m);
+        } else {
+          const interval = config?.interval || 2;
+          while (fire.getTime() <= now.getTime()) {
+            fire.setDate(fire.getDate() + interval);
+          }
+        }
+        break;
+      }
       default:
         // One-time reminder in the past: ring in 30 seconds so user still gets alerted.
         fire = new Date(now.getTime() + 30000);
         break;
+    }
+  } else if (repeatType === 'custom') {
+    const config = parseRepeatConfig('custom', repeatValue);
+    if (config?.mode === 'weekdays' && !config.days.includes(fire.getDay())) {
+      fire = nextAllowedWeekday(now, config.days, h, m);
     }
   }
 
@@ -190,6 +266,17 @@ function advanceRecurring(reminder, now = new Date()) {
       next.setMonth(next.getMonth() + 1);
       next.setHours(h, m || 0, 0, 0);
       break;
+    case 'custom': {
+      const config = parseRepeatConfig('custom', reminder.repeat_value);
+      if (!config) return null;
+      if (config.mode === 'weekdays') {
+        const advanced = nextAllowedWeekday(now, config.days, h, m);
+        return toLocalISO(advanced);
+      }
+      next.setDate(next.getDate() + (config.interval || 2));
+      next.setHours(h, m || 0, 0, 0);
+      break;
+    }
     default:
       return null;
   }
@@ -263,6 +350,7 @@ module.exports = {
   getSystemClockInfo,
   advanceRecurring,
   planAfterFire,
+  parseRepeatConfig,
   resolveSoundId,
   SOUND_MAP,
 };

@@ -9,8 +9,8 @@ contextBridge.exposeInMainWorld('ilrs', {
   testNotification: () => ipcRenderer.invoke('test-notification'),
   scheduleTestAlarm: () => ipcRenderer.invoke('schedule-test-alarm'),
   getSystemClock: () => ipcRenderer.invoke('get-system-clock'),
-  computeNextFire: (startDate, time, repeatType) =>
-    ipcRenderer.invoke('compute-next-fire', { startDate, time, repeatType }),
+  computeNextFire: (startDate, time, repeatType, repeatValue) =>
+    ipcRenderer.invoke('compute-next-fire', { startDate, time, repeatType, repeatValue }),
   completeReminder: (id) => ipcRenderer.invoke('complete-reminder', { id }),
   snoozeReminder: (id, minutes) => ipcRenderer.invoke('snooze-reminder', { id, minutes }),
   postponeReminder: (id, dateStr, timeStr) =>

@@ -132,6 +132,7 @@ function postponeReminder(db, id, dateStr, timeStr, now = new Date()) {
     timeStr || reminder.reminder_time || '09:00',
     reminder.repeat_type || 'once',
     now,
+    reminder.repeat_value,
   );
 
   db.prepare(`
