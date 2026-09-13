@@ -31,6 +31,7 @@ contextBridge.exposeInMainWorld('ilrs', {
   minimizeToTray: () => ipcRenderer.send('minimize-to-tray'),
   showWindow: () => ipcRenderer.send('show-window'),
   openBackupFolder: (path) => ipcRenderer.send('open-backup-folder', path),
+  performBackup: (force = false) => ipcRenderer.invoke('perform-backup', { force }),
 
   // Listeners
   onNavigate: (callback) => ipcRenderer.on('navigate', (_, page) => callback(page)),

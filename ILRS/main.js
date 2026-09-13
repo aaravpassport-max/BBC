@@ -14,6 +14,7 @@ const {
   markBillPaidAction,
   logHabitAction,
 } = require('./module-actions');
+const { getWeeklyAnchorDay, recalculateAllHabitStreaks } = require('./habit-streak');
 const { createTrayIcon, ensureWindowsToastSupport, showFatalError } = require('./windows-support');
 const { playAlertSound } = require('./sound-player');
 const { announceReminder, shouldAnnounceVoice } = require('./voice-announcer');
@@ -392,6 +393,10 @@ function setupIPC() {
     shell.openPath(folderPath);
   });
 
+  ipcMain.handle('perform-backup', async (_event, { force } = {}) => {
+    return performBackup(Boolean(force));
+  });
+
   ipcMain.handle('get-system-clock', async () => getSystemClockInfo());
 
   ipcMain.handle('compute-next-fire', async (_event, { startDate, time, repeatType, repeatValue }) => {
@@ -726,6 +731,14 @@ function repairReminderSchedules() {
       runModuleUnifyMigrationV8();
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '8')").run();
     }
+    if (version < 9) {
+      recalculateAllHabitStreaks(db);
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '9')").run();
+    }
+    if (version < 10) {
+      runHabitLogDedupMigrationV10();
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '10')").run();
+    }
   } catch (err) {
     console.error('repairReminderSchedules error:', err.message);
   }
@@ -933,6 +946,7 @@ function checkDueHabits(now = new Date()) {
     const freq = habit.frequency || 'daily';
     if (freq === 'weekdays' && (day === 0 || day === 6)) continue;
     if (freq === 'weekends' && day !== 0 && day !== 6) continue;
+    if (freq === 'weekly' && day !== getWeeklyAnchorDay(habit)) continue;
 
     const done = db.prepare(`
       SELECT id FROM habit_logs
@@ -986,16 +1000,25 @@ function scheduleBackup() {
   }, msUntil2AM);
 }
 
-function performBackup() {
+function isLocalBackupEnabled() {
+  return getSetting(db, 'local_backup', '1') === '1';
+}
+
+function performBackup(force = false) {
   try {
-    if (!db) return;
+    if (!db) return { success: false, error: 'Database not ready' };
+    if (!force && !isLocalBackupEnabled()) {
+      return { success: false, skipped: true, reason: 'local_backup_disabled' };
+    }
     const backupDir = path.join(app.getPath('userData'), 'backups');
     if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
-    const backupFile = path.join(backupDir, `ilrs-backup-${new Date().toISOString().split('T')[0]}.db`);
+    const backupFile = path.join(backupDir, `ilrs-backup-${localDateStr()}.db`);
     db.backup(backupFile);
     console.log('Backup created:', backupFile);
+    return { success: true, path: backupFile };
   } catch (err) {
     console.error('Backup error:', err.message);
+    return { success: false, error: err.message };
   }
 }
 

@@ -3,6 +3,7 @@
  */
 const { randomUUID } = require('crypto');
 const { localDateStr, localTimeStr } = require('./alarm');
+const { recalculateHabitStats } = require('./habit-streak');
 
 function markMedicineDoseTaken(db, medId, doseTime, now = new Date()) {
   const med = db.prepare('SELECT * FROM medicines WHERE id = ?').get(medId);
@@ -43,23 +44,22 @@ function logHabitAction(db, habitId, now = new Date()) {
   if (!habit) return { success: false, error: 'Habit not found' };
 
   const today = localDateStr(now);
-  const logId = randomUUID();
+  const existing = db.prepare(`
+    SELECT id FROM habit_logs WHERE habit_id = ? AND log_date = ? AND completed = 1
+  `).get(habitId, today);
+  if (existing) {
+    const stats = recalculateHabitStats(db, habit, now);
+    return { success: true, habitId, streak: stats.streak, alreadyLogged: true };
+  }
 
+  const logId = randomUUID();
   db.prepare(`
     INSERT OR REPLACE INTO habit_logs (id, habit_id, log_date, completed)
     VALUES (?, ?, ?, 1)
   `).run(logId, habitId, today);
 
-  const newStreak = (Number(habit.streak) || 0) + 1;
-  const bestStreak = Math.max(newStreak, Number(habit.best_streak) || 0);
-  db.prepare(`
-    UPDATE habits
-    SET streak = ?, best_streak = ?, last_completed = ?,
-        completion_rate = MIN(100, completion_rate + 3)
-    WHERE id = ?
-  `).run(newStreak, bestStreak, today, habitId);
-
-  return { success: true, habitId, streak: newStreak };
+  const stats = recalculateHabitStats(db, habit, now);
+  return { success: true, habitId, streak: stats.streak, completionRate: stats.completionRate };
 }
 
 module.exports = {

@@ -31,7 +31,7 @@ function makeDb() {
     );
     CREATE TABLE bills (id TEXT PRIMARY KEY, name TEXT, amount REAL, status TEXT DEFAULT 'active', payment_status TEXT);
     CREATE TABLE bill_history (id TEXT PRIMARY KEY, bill_id TEXT, paid_date TEXT, amount REAL);
-    CREATE TABLE habits (id TEXT PRIMARY KEY, name TEXT, streak INTEGER DEFAULT 0, best_streak INTEGER DEFAULT 0, completion_rate INTEGER DEFAULT 0, last_completed TEXT, status TEXT DEFAULT 'active');
+    CREATE TABLE habits (id TEXT PRIMARY KEY, name TEXT, frequency TEXT DEFAULT 'daily', streak INTEGER DEFAULT 0, best_streak INTEGER DEFAULT 0, completion_rate INTEGER DEFAULT 0, last_completed TEXT, created_at TEXT, status TEXT DEFAULT 'active');
     CREATE TABLE habit_logs (id TEXT PRIMARY KEY, habit_id TEXT, log_date TEXT, completed INTEGER);
   `);
   return { db, dbPath };
@@ -59,12 +59,25 @@ test('markBillPaidAction records payment', () => {
   fs.unlinkSync(dbPath);
 });
 
-test('logHabitAction increments streak', () => {
+test('logHabitAction builds streak from consecutive logs', () => {
   const { db, dbPath } = makeDb();
-  db.prepare("INSERT INTO habits (id, name, streak) VALUES ('h1', 'Walk', 2)").run();
+  db.prepare("INSERT INTO habits (id, name, streak, frequency) VALUES ('h1', 'Walk', 0, 'daily')").run();
+  db.prepare("INSERT INTO habit_logs (id, habit_id, log_date, completed) VALUES ('l1', 'h1', '2026-09-11', 1)").run();
+  db.prepare("INSERT INTO habit_logs (id, habit_id, log_date, completed) VALUES ('l2', 'h1', '2026-09-12', 1)").run();
   const result = logHabitAction(db, 'h1', new Date(2026, 8, 13, 7, 0, 0));
   assert.strictEqual(result.success, true);
   assert.strictEqual(result.streak, 3);
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
+test('logHabitAction rejects duplicate same-day log', () => {
+  const { db, dbPath } = makeDb();
+  db.prepare("INSERT INTO habits (id, name, streak, frequency) VALUES ('h1', 'Walk', 1, 'daily')").run();
+  logHabitAction(db, 'h1', new Date(2026, 8, 13, 7, 0, 0));
+  const again = logHabitAction(db, 'h1', new Date(2026, 8, 13, 18, 0, 0));
+  assert.strictEqual(again.success, true);
+  assert.strictEqual(again.alreadyLogged, true);
   db.close();
   fs.unlinkSync(dbPath);
 });

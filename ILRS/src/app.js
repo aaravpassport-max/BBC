@@ -360,12 +360,21 @@ function getHabitsDueToday(habitLogs) {
   return getHabitsDueOnDate(new Date(), habitLogs);
 }
 
+function getHabitWeeklyAnchor(h) {
+  if (h.created_at) {
+    const d = new Date(String(h.created_at).replace(' ', 'T'));
+    if (!Number.isNaN(d.getTime())) return d.getDay();
+  }
+  return 1;
+}
+
 function getHabitsDueOnDate(date, habitLogs) {
   const day = date.getDay();
   return App.habits.filter(h => {
     const freq = h.frequency || 'daily';
     if (freq === 'weekdays' && (day === 0 || day === 6)) return false;
     if (freq === 'weekends' && day !== 0 && day !== 6) return false;
+    if (freq === 'weekly' && day !== getHabitWeeklyAnchor(h)) return false;
     const done = habitLogs.some(l => l.habit_id === h.id && Number(l.completed) === 1);
     return !done;
   });
@@ -1740,18 +1749,12 @@ async function logHabit(id) {
     toast(result.error || 'Could not log habit', 'warning');
     return;
   }
-  if (!result) {
-    const logId = uuid();
-    await db(`INSERT OR REPLACE INTO habit_logs (id,habit_id,log_date,completed) VALUES (?,?,?,1)`, [logId, id, todayStr()]);
-    const habit = App.habits.find(h => h.id === id);
-    if (habit) {
-      const newStreak = (habit.streak || 0) + 1;
-      const bestStreak = Math.max(newStreak, habit.best_streak || 0);
-      await db(`UPDATE habits SET streak=?,best_streak=?,last_completed=?,completion_rate=MIN(100,completion_rate+3) WHERE id=?`,
-        [newStreak, bestStreak, todayStr(), id]);
-    }
+  if (result?.alreadyLogged) {
+    toast('Already logged today', 'warning');
+    return;
   }
-  toast('🔥 Habit logged! Streak growing!');
+  const streakMsg = result?.streak ? ` · 🔥 ${result.streak}d streak` : '';
+  toast(`🔥 Habit logged!${streakMsg}`);
   await loadAllData();
   navigate(App.currentPage === 'today' ? 'today' : 'habits');
 }
@@ -2360,9 +2363,16 @@ function previewVoiceAnnouncement() {
 }
 
 async function performManualBackup() {
+  const result = await api.performBackup?.(true);
   const paths = await api.getAppPath();
   api.openBackupFolder(paths.userData + '/backups');
-  toast('📦 Backup folder opened');
+  if (result?.success) {
+    toast('📦 Backup saved and folder opened');
+  } else if (result?.error) {
+    toast(`Backup failed: ${result.error}`, 'warning');
+  } else {
+    toast('📦 Backup folder opened');
+  }
 }
 
 async function exportAllData() {

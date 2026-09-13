@@ -72,7 +72,7 @@ Life items are managed in their own modules — they do **not** duplicate into t
 
 - **Medicine** — dose schedule, food timing, mark taken, edit, dose history
 - **Bills** — recurring bills, due-day alerts, mark paid, edit
-- **Habits** — daily/weekday/weekend frequency, streak tracking, one-click logging
+- **Habits** — daily/weekday/weekend/weekly frequency, consecutive-day streaks, completion rate, one-click logging
 - **Family** — members, assignee on capture, emergency contact flag
 - **Checklists** — named lists with progress tracking
 
@@ -95,6 +95,7 @@ Life items are managed in their own modules — they do **not** duplicate into t
 - Quiet hours (suppress non-critical alerts)
 - Snooze duration and limit
 - Light / dark theme
+- Auto local backup at 2 AM (toggle in settings; manual backup always available)
 - Export all data (JSON)
 - App lock (PIN)
 - Insights / reports (completion stats, medicine adherence, habit activity)
@@ -160,4 +161,4 @@ ILRS/
 
 ---
 
-*ILRS v1.0.21 — Electron + SQLite*
+*ILRS v1.0.22 — Electron + SQLite*
