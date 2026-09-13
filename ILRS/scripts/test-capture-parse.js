@@ -28,6 +28,9 @@ assert.equal(p3.startDate, '2026-09-20');
 assert.equal(C.isDueToday({ status: 'active', next_fire: '2026-09-13T10:00:00' }, now), true);
 assert.equal(C.isDueTomorrow({ status: 'active', next_fire: '2026-09-14T09:00:00' }, now), true);
 assert.equal(C.isOverdueItem({ status: 'active', next_fire: '2026-09-12T09:00:00' }, now), true);
+assert.equal(C.isPostponedItem({ status: 'active', workflow_status: 'postponed', next_fire: '2026-09-20T09:00:00' }), true);
+assert.equal(C.isPostponedItem({ status: 'active', workflow_status: 'pending', next_fire: '2026-09-20T09:00:00' }), false);
+assert.equal(C.isPostponedItem({ status: 'completed', workflow_status: 'postponed' }), false);
 
 assert.equal(C.nextFireDateStr('2026-09-14T10:00:00'), '2026-09-14');
 assert.equal(

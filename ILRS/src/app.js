@@ -171,6 +171,7 @@ const PAGES = {
   tomorrow: () => renderSmartList('tomorrow'),
   upcoming: () => renderSmartList('upcoming'),
   overdue: () => renderSmartList('overdue'),
+  postponed: () => renderSmartList('postponed'),
   completed: renderCompleted,
   reminders: renderReminders,
   tasks: renderTasks,
@@ -254,6 +255,7 @@ function renderShell() {
       ${navItem('tomorrow', '🌅', 'Tomorrow')}
       ${navItem('upcoming', '📆', 'Upcoming')}
       ${navItem('overdue', '⚠️', 'Overdue', '')}
+      ${navItem('postponed', '📅', 'Postponed')}
       ${navItem('completed', '✅', 'Completed')}
       ${navItem('reminders', '📋', 'All')}
       ${navItem('tasks', '✅', 'Tasks')}
@@ -298,7 +300,7 @@ function renderShell() {
     const fab = document.createElement('button');
     fab.id = 'fab-add';
     fab.className = 'fab-add';
-    fab.title = 'New reminder (Ctrl+Shift+A)';
+    fab.title = 'New reminder (Ctrl+N)';
     fab.textContent = '+';
     fab.onclick = () => showCaptureSheet();
     document.body.appendChild(fab);
@@ -400,6 +402,7 @@ async function renderToday(el) {
   const dueToday = App.reminders.filter(r => schedulable(r) && (C?.isDueToday(r, now) || (r.status === 'active' && !r.next_fire && r.start_date === today)));
   const overdue = App.reminders.filter(r => schedulable(r) && (C?.isOverdueItem(r, now) || isReminderOverdue(r.next_fire)));
   const dueTomorrow = App.reminders.filter(r => schedulable(r) && C?.isDueTomorrow(r, now));
+  const postponedItems = App.reminders.filter(r => C?.isPostponedItem(r));
 
   const pendingMeds = getPendingMedDoses(medLogs || [], nowT);
   const billsAttention = getBillsNeedingAttention(todayDay);
@@ -429,6 +432,7 @@ async function renderToday(el) {
       <button class="smart-tab active" onclick="navigate('today')">Today · ${dueToday.length}</button>
       <button class="smart-tab" onclick="navigate('tomorrow')">Tomorrow · ${dueTomorrow.length}</button>
       <button class="smart-tab" onclick="navigate('overdue')">Overdue · ${overdue.length}</button>
+      <button class="smart-tab" onclick="navigate('postponed')">Postponed · ${postponedItems.length}</button>
       <button class="smart-tab" onclick="navigate('upcoming')">Upcoming</button>
     </div>
 
@@ -581,9 +585,18 @@ async function renderSmartList(mode) {
       title = '⚠️ Overdue';
       subtitle = 'Needs your attention';
       break;
+    case 'postponed':
+      items = App.reminders
+        .filter(r => C?.isPostponedItem(r))
+        .sort((a, b) => (a.next_fire || '').localeCompare(b.next_fire || ''));
+      title = '📅 Postponed';
+      subtitle = 'Rescheduled for later';
+      break;
     default:
       items = [];
   }
+
+  const postponedCount = App.reminders.filter(r => C?.isPostponedItem(r)).length;
 
   el.innerHTML = `
     <div class="page-header">
@@ -598,6 +611,7 @@ async function renderSmartList(mode) {
       <button class="smart-tab ${mode === 'tomorrow' ? 'active' : ''}" onclick="navigate('tomorrow')">Tomorrow</button>
       <button class="smart-tab ${mode === 'upcoming' ? 'active' : ''}" onclick="navigate('upcoming')">Upcoming</button>
       <button class="smart-tab ${mode === 'overdue' ? 'active' : ''}" onclick="navigate('overdue')">Overdue</button>
+      <button class="smart-tab ${mode === 'postponed' ? 'active' : ''}" onclick="navigate('postponed')">Postponed · ${postponedCount}</button>
     </div>
     <div class="reminder-list">
       ${items.length === 0
@@ -2442,6 +2456,7 @@ function showShortcutsHelp() {
   overlay.id = 'shortcuts-help';
   const shortcuts = [
     ['Ctrl+K', 'Search everything'],
+    ['Ctrl+N', 'New reminder / task'],
     ['Ctrl+Shift+A', 'New reminder / task'],
     ['Enter', 'Submit quick-add bar'],
     ['Esc', 'Close modal or search'],
@@ -2475,6 +2490,11 @@ function setupListeners() {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
       e.preventDefault();
       showSearchPalette();
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === 'n' && !isTypingInField(e.target)) {
+      e.preventDefault();
+      showCaptureSheet();
       return;
     }
     if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {

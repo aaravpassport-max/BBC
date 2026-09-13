@@ -212,6 +212,10 @@
     return d && d.getTime() < now.getTime();
   }
 
+  function isPostponedItem(r) {
+    return isActiveReminder(r) && (r.workflow_status || 'pending') === 'postponed';
+  }
+
   function relativeTimeLabel(nextFire, now = new Date()) {
     const d = parseLocalDateTime(nextFire);
     if (!d) return '';
@@ -264,6 +268,7 @@
     isDueTomorrow,
     isUpcoming,
     isOverdueItem,
+    isPostponedItem,
     relativeTimeLabel,
     formatDateShort,
     nextFireDateStr,
