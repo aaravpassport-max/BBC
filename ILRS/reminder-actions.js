@@ -134,11 +134,10 @@ function postponeReminder(db, id, dateStr, timeStr, now = new Date()) {
     now,
   );
 
-  const workflowClause = reminder.task_type === 'task' ? ", workflow_status = 'postponed'" : '';
   db.prepare(`
     UPDATE reminders
     SET start_date = ?, reminder_time = ?, next_fire = ?, alarm_rings = 0, snooze_count = 0,
-        updated_at = ?${workflowClause}
+        workflow_status = 'postponed', updated_at = ?
     WHERE id = ?
   `).run(dateStr, timeStr || reminder.reminder_time, nextFire, toLocalISO(now), id);
   db.prepare(`

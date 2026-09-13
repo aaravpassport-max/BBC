@@ -17,6 +17,8 @@ contextBridge.exposeInMainWorld('ilrs', {
     ipcRenderer.invoke('postpone-reminder', { id, dateStr, timeStr }),
   updateWorkflowStatus: (id, workflowStatus) =>
     ipcRenderer.invoke('update-workflow-status', { id, workflowStatus }),
+  completeModuleAction: (type, id, doseTime) =>
+    ipcRenderer.invoke('complete-module-action', { type, id, doseTime }),
   applyAutoStart: (enable) => ipcRenderer.invoke('apply-auto-start', enable),
 
   // Export

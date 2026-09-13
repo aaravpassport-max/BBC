@@ -18,6 +18,8 @@ const App = {
   focusMode: false,
   alertQueue: [],
   isProcessingAlert: false,
+  currentAlert: null,
+  searchIndex: 0,
 };
 
 // ── Utilities ─────────────────────────────────────────────────────
@@ -169,6 +171,7 @@ const PAGES = {
   tomorrow: () => renderSmartList('tomorrow'),
   upcoming: () => renderSmartList('upcoming'),
   overdue: () => renderSmartList('overdue'),
+  completed: renderCompleted,
   reminders: renderReminders,
   tasks: renderTasks,
   add: renderAddReminder,
@@ -184,7 +187,7 @@ const PAGES = {
 };
 
 function dismissPageModals() {
-  ['med-modal', 'bill-modal', 'fam-modal', 'famr-modal', 'hab-modal', 'cl-modal', 'onboard-modal', 'capture-sheet'].forEach((id) => {
+  ['med-modal', 'bill-modal', 'fam-modal', 'famr-modal', 'hab-modal', 'cl-modal', 'onboard-modal', 'capture-sheet', 'search-palette'].forEach((id) => {
     document.getElementById(id)?.remove();
   });
   document.querySelectorAll('.modal-overlay').forEach((el) => {
@@ -251,6 +254,7 @@ function renderShell() {
       ${navItem('tomorrow', '🌅', 'Tomorrow')}
       ${navItem('upcoming', '📆', 'Upcoming')}
       ${navItem('overdue', '⚠️', 'Overdue', '')}
+      ${navItem('completed', '✅', 'Completed')}
       ${navItem('reminders', '📋', 'All')}
       ${navItem('tasks', '✅', 'Tasks')}
       ${navItem('calendar', '📅', 'Calendar')}
@@ -525,6 +529,12 @@ async function renderSmartList(mode) {
 }
 
 // ── Reminder Card ──────────────────────────────────────────────────
+function assigneeLabel(id) {
+  if (!id || id === 'me') return '';
+  const member = App.family.find(f => f.id === id);
+  return member ? member.name : '';
+}
+
 function workflowLabel(status) {
   const labels = {
     pending: 'Pending',
@@ -545,7 +555,18 @@ function reminderCard(r) {
   const timeLabel = r.reminder_time ? formatTime(r.reminder_time) : '';
   const rel = C?.relativeTimeLabel(r.next_fire) || '';
   const dateShort = C?.formatDateShort(r.next_fire) || '';
-  const context = [isTask ? workflowLabel(wf) : null, dateShort, timeLabel, rel].filter(Boolean).join(' · ');
+  const assignee = assigneeLabel(r.assigned_to);
+  const postponed = wf === 'postponed' && r.next_fire
+    ? `Postponed → ${C?.formatDateShort(r.next_fire) || formatDate(r.next_fire?.slice(0, 10))}`
+    : '';
+  const context = [
+    isTask ? workflowLabel(wf) : null,
+    postponed || null,
+    dateShort,
+    timeLabel,
+    rel,
+    assignee ? `👤 ${assignee}` : null,
+  ].filter(Boolean).join(' · ');
   const taskActions = isTask ? `
         ${wf === 'pending' || wf === 'postponed' ? `<button class="action-btn" onclick="startTask('${r.id}')" title="Start">▶</button>` : ''}
         ${wf === 'in_progress' ? `<button class="action-btn done" onclick="completeReminder('${r.id}')">✓</button>` : ''}
@@ -591,6 +612,27 @@ function habitMiniCard(h) {
       </div>
       <div class="progress-bar"><div class="progress-fill green" style="width:${pct}%"></div></div>
     </div>`;
+}
+
+// ── Completed Page ─────────────────────────────────────────────────
+async function renderCompleted(el) {
+  const items = App.reminders
+    .filter(r => r.status === 'completed' || r.workflow_status === 'done')
+    .sort((a, b) => String(b.last_completed || b.updated_at).localeCompare(String(a.last_completed || a.updated_at)));
+
+  el.innerHTML = `
+    <div class="page-header">
+      <div>
+        <div class="page-title">✅ Completed</div>
+        <div class="page-subtitle">${items.length} finished item${items.length !== 1 ? 's' : ''}</div>
+      </div>
+    </div>
+    <div class="reminder-list">
+      ${items.length === 0
+        ? `<div class="empty-state"><div class="empty-icon">🎉</div><h3>Nothing completed yet</h3><p>Finished reminders and tasks appear here.</p></div>`
+        : items.map(r => reminderCard(r)).join('')}
+    </div>
+  `;
 }
 
 // ── Tasks Page ─────────────────────────────────────────────────────
@@ -1002,9 +1044,18 @@ function switchMedTab(btn, tab) {
 }
 
 async function markDoseTaken(medId, doseTime) {
-  const logId = uuid();
-  await db(`INSERT OR REPLACE INTO medicine_logs (id,medicine_id,dose_time,scheduled_time,status,taken_at,log_date) VALUES (?,?,?,?,?,?,?)`,
-    [logId, medId, doseTime, doseTime, 'taken', new Date().toISOString(), todayStr()]);
+  const result = api.completeModuleAction
+    ? await api.completeModuleAction('medicine', medId, doseTime || nowTimeStr())
+    : null;
+  if (!result?.success && result) {
+    toast(result.error || 'Could not mark dose', 'warning');
+    return;
+  }
+  if (!result) {
+    const logId = uuid();
+    await db(`INSERT OR REPLACE INTO medicine_logs (id,medicine_id,dose_time,scheduled_time,status,taken_at,log_date) VALUES (?,?,?,?,?,?,?)`,
+      [logId, medId, doseTime, doseTime, 'taken', new Date().toISOString(), todayStr()]);
+  }
   toast('💊 Dose marked as taken!');
   navigate('medicine');
 }
@@ -1172,9 +1223,18 @@ async function saveBill() {
 }
 
 async function markBillPaid(id) {
-  const logId = uuid();
-  await db(`INSERT INTO bill_history (id,bill_id,paid_date,amount) VALUES (?,?,?,0)`, [logId, id, todayStr()]);
-  await db(`UPDATE bills SET payment_status='paid' WHERE id=?`, [id]);
+  const result = api.completeModuleAction
+    ? await api.completeModuleAction('bill', id)
+    : null;
+  if (!result?.success && result) {
+    toast(result.error || 'Could not mark bill paid', 'warning');
+    return;
+  }
+  if (!result) {
+    const logId = uuid();
+    await db(`INSERT INTO bill_history (id,bill_id,paid_date,amount) VALUES (?,?,?,0)`, [logId, id, todayStr()]);
+    await db(`UPDATE bills SET payment_status='paid' WHERE id=?`, [id]);
+  }
   toast('✅ Bill marked as paid!');
   navigate('bills');
 }
@@ -1369,16 +1429,23 @@ async function saveHabit() {
 }
 
 async function logHabit(id) {
-  const logId = uuid();
-  await db(`INSERT OR REPLACE INTO habit_logs (id,habit_id,log_date,completed) VALUES (?,?,?,1)`, [logId, id, todayStr()]);
-
-  // Update streak
-  const habit = App.habits.find(h => h.id === id);
-  if (habit) {
-    const newStreak = (habit.streak || 0) + 1;
-    const bestStreak = Math.max(newStreak, habit.best_streak || 0);
-    await db(`UPDATE habits SET streak=?,best_streak=?,last_completed=?,completion_rate=MIN(100,completion_rate+3) WHERE id=?`,
-      [newStreak, bestStreak, todayStr(), id]);
+  const result = api.completeModuleAction
+    ? await api.completeModuleAction('habit', id)
+    : null;
+  if (!result?.success && result) {
+    toast(result.error || 'Could not log habit', 'warning');
+    return;
+  }
+  if (!result) {
+    const logId = uuid();
+    await db(`INSERT OR REPLACE INTO habit_logs (id,habit_id,log_date,completed) VALUES (?,?,?,1)`, [logId, id, todayStr()]);
+    const habit = App.habits.find(h => h.id === id);
+    if (habit) {
+      const newStreak = (habit.streak || 0) + 1;
+      const bestStreak = Math.max(newStreak, habit.best_streak || 0);
+      await db(`UPDATE habits SET streak=?,best_streak=?,last_completed=?,completion_rate=MIN(100,completion_rate+3) WHERE id=?`,
+        [newStreak, bestStreak, todayStr(), id]);
+    }
   }
   toast('🔥 Habit logged! Streak growing!');
   navigate('habits');
@@ -2074,9 +2141,132 @@ function taskTypeIcon(t) {
   return icons[t] || '🔔';
 }
 
+// ── Global Search (Ctrl+K) ─────────────────────────────────────────
+function buildSearchResults(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+
+  const results = [];
+
+  App.reminders.forEach((r) => {
+    const hay = `${r.title} ${r.why_it_matters || ''} ${r.category || ''} ${r.tags || ''}`.toLowerCase();
+    if (!hay.includes(q)) return;
+    const kind = r.task_type === 'task' ? 'Task' : 'Reminder';
+    results.push({
+      id: r.id,
+      type: 'reminder',
+      page: r.task_type === 'task' ? 'tasks' : 'reminders',
+      icon: r.task_type === 'task' ? '✅' : '🔔',
+      title: r.title,
+      subtitle: `${kind} · ${r.status}${r.next_fire ? ' · ' + (cap()?.formatDateShort(r.next_fire) || '') : ''}`,
+      action: () => editReminder(r.id),
+    });
+  });
+
+  App.medicines.forEach((m) => {
+    if (!`${m.name} ${m.condition || ''}`.toLowerCase().includes(q)) return;
+    results.push({ id: m.id, type: 'medicine', page: 'medicine', icon: '💊', title: m.name, subtitle: 'Medicine', action: () => navigate('medicine') });
+  });
+
+  App.bills.forEach((b) => {
+    if (!`${b.name} ${b.bill_type || ''}`.toLowerCase().includes(q)) return;
+    results.push({ id: b.id, type: 'bill', page: 'bills', icon: '💸', title: b.name, subtitle: 'Bill', action: () => navigate('bills') });
+  });
+
+  App.habits.forEach((h) => {
+    if (!h.name.toLowerCase().includes(q)) return;
+    results.push({ id: h.id, type: 'habit', page: 'habits', icon: '🔁', title: h.name, subtitle: `Habit · ${h.streak || 0}d streak`, action: () => navigate('habits') });
+  });
+
+  App.family.forEach((f) => {
+    if (!`${f.name} ${f.role || ''}`.toLowerCase().includes(q)) return;
+    results.push({ id: f.id, type: 'family', page: 'family', icon: '👨‍👩‍👧', title: f.name, subtitle: f.role || 'Family', action: () => navigate('family') });
+  });
+
+  return results.slice(0, 12);
+}
+
+function showSearchPalette() {
+  dismissPageModals();
+  document.getElementById('search-palette')?.remove();
+  App.searchIndex = 0;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay search-overlay';
+  overlay.id = 'search-palette';
+  overlay.innerHTML = `
+    <div class="search-palette" role="dialog" aria-label="Search">
+      <input type="text" class="form-input search-palette-input" id="search-input" placeholder="Search reminders, tasks, medicine, bills…" autocomplete="off" />
+      <div class="search-hint">↑↓ navigate · Enter open · Esc close</div>
+      <div id="search-results" class="search-results"></div>
+    </div>
+  `;
+
+  const renderResults = () => {
+    const input = document.getElementById('search-input');
+    const list = document.getElementById('search-results');
+    if (!input || !list) return;
+    const results = buildSearchResults(input.value);
+    App.searchResults = results;
+    if (results.length === 0) {
+      list.innerHTML = `<div class="search-empty">${input.value.trim() ? 'No matches' : 'Type to search everything'}</div>`;
+      return;
+    }
+    list.innerHTML = results.map((r, i) => `
+      <button type="button" class="search-result ${i === App.searchIndex ? 'active' : ''}" data-idx="${i}">
+        <span class="search-result-icon">${r.icon}</span>
+        <span class="search-result-body">
+          <span class="search-result-title">${r.title}</span>
+          <span class="search-result-sub">${r.subtitle}</span>
+        </span>
+      </button>
+    `).join('');
+    list.querySelectorAll('.search-result').forEach((btn) => {
+      btn.addEventListener('click', () => runSearchResult(parseInt(btn.dataset.idx, 10)));
+    });
+  };
+
+  const runSearchResult = (idx) => {
+    const item = App.searchResults?.[idx];
+    if (!item) return;
+    overlay.remove();
+    item.action();
+  };
+
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  document.body.appendChild(overlay);
+
+  const input = document.getElementById('search-input');
+  input.addEventListener('input', () => { App.searchIndex = 0; renderResults(); });
+  input.addEventListener('keydown', (e) => {
+    const count = App.searchResults?.length || 0;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      App.searchIndex = Math.min(App.searchIndex + 1, Math.max(0, count - 1));
+      renderResults();
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      App.searchIndex = Math.max(App.searchIndex - 1, 0);
+      renderResults();
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      runSearchResult(App.searchIndex);
+    } else if (e.key === 'Escape') {
+      overlay.remove();
+    }
+  });
+  setTimeout(() => input.focus(), 30);
+  renderResults();
+}
+
 // ── IPC Listeners ──────────────────────────────────────────────────
 function setupListeners() {
   document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      showSearchPalette();
+      return;
+    }
     if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'a') {
       e.preventDefault();
       showCaptureSheet();
@@ -2159,30 +2349,36 @@ function showInAppAlert(reminder) {
   const existing = document.getElementById('alert-popup');
   if (existing) existing.remove();
 
+  App.currentAlert = reminder;
   const isPrivate = Number(reminder.is_private) === 1;
-  const title = isPrivate ? 'Private Reminder' : reminder.title;
   const type = reminder._type || reminder.task_type || 'reminder';
+  const title = isPrivate ? 'Private Reminder' : (reminder.title || reminder.name || 'Reminder');
   const body = isPrivate
     ? 'You have a scheduled reminder.'
     : (window.ILRSVoiceText?.display(reminder, type) || reminder.why_it_matters || 'Time for action!');
-  const isAlarm = reminder.priority === 'critical' || reminder._type === 'reminder';
+  const isModule = type === 'medicine' || type === 'bill' || type === 'habit';
+  const isAlarm = !isModule && (reminder.priority === 'critical' || type === 'reminder');
+  const doneLabel = type === 'medicine' ? '💊 Taken' : type === 'bill' ? '✓ Paid' : type === 'habit' ? '✅ Done' : '✅ Done';
+  const snoozeBtn = isModule
+    ? ''
+    : `<button class="btn btn-ghost" onclick="snoozeFromAlert()">💤 Snooze</button>`;
 
   const overlay = document.createElement('div');
   overlay.className = reminder.priority === 'critical' ? 'alert-popup' : 'modal-overlay';
   overlay.id = 'alert-popup';
   overlay.innerHTML = `
     <div class="alert-box${isAlarm ? ' alarm-active' : ''}">
-      <div class="alert-icon">${reminder.priority === 'critical' ? '🚨' : '⏰'}</div>
+      <div class="alert-icon">${reminder.priority === 'critical' ? '🚨' : type === 'medicine' ? '💊' : type === 'bill' ? '💸' : type === 'habit' ? '🔁' : '⏰'}</div>
       <h2>${title}</h2>
       <p>${body}</p>
       <p style="font-size:12px;color:var(--text-muted);margin-top:8px">${isAlarm ? 'Alarm active — mark done or snooze to stop alerts.' : ''}</p>
       <div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-bottom:16px">
-        <span class="tag ${reminder.category}">${categoryIcon(reminder.category)} ${reminder.category}</span>
-        <span class="tag ${reminder.priority}">${priorityLabel(reminder.priority)}</span>
+        ${reminder.category ? `<span class="tag ${reminder.category}">${categoryIcon(reminder.category)} ${reminder.category}</span>` : ''}
+        ${reminder.priority ? `<span class="tag ${reminder.priority}">${priorityLabel(reminder.priority)}</span>` : ''}
       </div>
       <div class="alert-buttons">
-        <button class="btn btn-primary" onclick="completeFromAlert('${reminder.id}')">✅ Done</button>
-        <button class="btn btn-ghost" onclick="snoozeFromAlert('${reminder.id}')">💤 Snooze</button>
+        <button class="btn btn-primary" onclick="completeFromAlert()">${doneLabel}</button>
+        ${snoozeBtn}
         <button class="btn btn-ghost" onclick="dismissAlert()">✕ Dismiss</button>
       </div>
     </div>
@@ -2190,13 +2386,31 @@ function showInAppAlert(reminder) {
   document.body.appendChild(overlay);
 }
 
-async function completeFromAlert(id) {
-  await completeReminder(id);
+async function completeFromAlert() {
+  const item = App.currentAlert;
+  if (!item) return;
+  const type = item._type || item.task_type || 'reminder';
+
+  if (type === 'medicine') {
+    await markDoseTaken(item.id, item._doseTime || nowTimeStr());
+  } else if (type === 'bill') {
+    await markBillPaid(item.id);
+  } else if (type === 'habit') {
+    await logHabit(item.id);
+  } else {
+    await completeReminder(item.id);
+  }
+  App.currentAlert = null;
   dismissAlert();
+  await loadAllData();
+  updateBadges();
 }
 
-async function snoozeFromAlert(id) {
-  await snoozeReminder(id);
+async function snoozeFromAlert() {
+  const item = App.currentAlert;
+  if (!item?.id) return;
+  await snoozeReminder(item.id);
+  App.currentAlert = null;
   dismissAlert();
 }
 

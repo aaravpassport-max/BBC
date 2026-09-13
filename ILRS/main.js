@@ -9,6 +9,11 @@ const {
   updateWorkflowStatus,
   parseNotificationAction,
 } = require('./reminder-actions');
+const {
+  markMedicineDoseTaken,
+  markBillPaidAction,
+  logHabitAction,
+} = require('./module-actions');
 const { createTrayIcon, ensureWindowsToastSupport, showFatalError } = require('./windows-support');
 const { playAlertSound } = require('./sound-player');
 const { announceReminder, shouldAnnounceVoice } = require('./voice-announcer');
@@ -216,16 +221,26 @@ function openReminderFromNotification(item, type = 'reminder') {
 }
 
 function handleNotificationAction(item, actionLabel, type = 'reminder') {
-  if (type !== 'reminder' || !item?.id || !db) return;
+  if (!item?.id || !db) return;
 
   const action = parseNotificationAction(actionLabel);
   if (!action) return;
 
   if (action === 'done') {
-    completeOccurrence(db, item.id);
+    if (type === 'medicine') {
+      markMedicineDoseTaken(db, item.id, item._doseTime || localTimeStr());
+    } else if (type === 'bill') {
+      markBillPaidAction(db, item.id);
+    } else if (type === 'habit') {
+      logHabitAction(db, item.id);
+    } else {
+      completeOccurrence(db, item.id);
+    }
     notifyRendererDataChanged();
     return;
   }
+
+  if (type !== 'reminder') return;
 
   if (action === 'snooze') {
     const minutes = parseInt(getSetting(db, 'snooze_duration', '10'), 10) || 10;
@@ -422,6 +437,21 @@ function setupIPC() {
     try {
       if (!id || !workflowStatus) return { success: false, error: 'Missing id or status' };
       const result = updateWorkflowStatus(db, id, workflowStatus);
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('complete-module-action', async (_event, { type, id, doseTime }) => {
+    try {
+      if (!type || !id) return { success: false, error: 'Missing type or id' };
+      let result;
+      if (type === 'medicine') result = markMedicineDoseTaken(db, id, doseTime);
+      else if (type === 'bill') result = markBillPaidAction(db, id);
+      else if (type === 'habit') result = logHabitAction(db, id);
+      else return { success: false, error: 'Unknown module type' };
       if (result.success) notifyRendererDataChanged();
       return result;
     } catch (err) {
@@ -867,7 +897,7 @@ function checkDueMedicines(now = new Date()) {
     `).get(med.id, today, timeStr);
     if (taken) continue;
 
-    dispatchDueItem(med, 'medicine');
+    dispatchDueItem({ ...med, title: med.name, _doseTime: timeStr }, 'medicine');
   }
 }
 

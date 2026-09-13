@@ -46,6 +46,7 @@
       notes: r.notes || '',
       tags: JSON.parse(r.tags || '[]').join(', '),
       assigned: r.assigned_to || 'me',
+      family: (typeof App !== 'undefined' && App.family) ? App.family : [],
       alert: r.alert_style || 'sound-popup',
       private: Number(r.is_private) === 1,
       endDate: r.end_date || '',
@@ -104,6 +105,13 @@
               ).join('')}
             </div>
           </div>
+          <div class="form-group"><label class="form-label">Assign to</label>
+            <select class="form-select" id="capture-assignee">
+              <option value="me" ${state.assigned === 'me' ? 'selected' : ''}>Me</option>
+              ${state.family.map((f) =>
+                `<option value="${f.id}" ${state.assigned === f.id ? 'selected' : ''}>${esc(f.name)} (${f.role || 'family'})</option>`
+              ).join('')}
+            </select></div>
           <div class="form-group"><label class="form-label">Notes</label>
             <textarea class="form-textarea" id="capture-notes" rows="2">${esc(state.notes)}</textarea></div>
           <div class="form-group"><label class="form-label">Tags</label>
@@ -261,7 +269,7 @@
       'important-not-urgent',
       document.getElementById('capture-alert')?.value || 'sound-popup',
       parseInt(App?.settings?.snooze_duration) || 10,
-      'me',
+      document.getElementById('capture-assignee')?.value || 'me',
       parseInt(document.getElementById('capture-private')?.value) || 0,
       document.getElementById('capture-notes')?.value || '',
       JSON.stringify(tags),

@@ -291,7 +291,13 @@ async function showDesktopNotification(db, item, {
   const silent = style === 'popup-only';
   const icon = getNotificationIcon();
   const clickKey = `ilrs-${item?.id || 'general'}-${Date.now()}`;
-  const actions = (type === 'reminder' && item?.id && onAction) ? REMINDER_TOAST_ACTIONS : undefined;
+  let actions;
+  if (item?.id && onAction) {
+    if (type === 'reminder') actions = REMINDER_TOAST_ACTIONS;
+    else if (type === 'medicine' || type === 'bill' || type === 'habit') {
+      actions = [{ type: 'button', text: 'Done' }];
+    }
+  }
 
   if (process.platform === 'win32') {
     app.setAppUserModelId(APP_ID);
