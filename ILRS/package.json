@@ -1,6 +1,6 @@
 {
   "name": "ilrs",
-  "version": "1.0.34",
+  "version": "1.0.35",
   "description": "ILRS — Intelligent Life Reminder System",
   "author": {
     "name": "Business OS",
@@ -77,6 +77,8 @@
       "inquiry-stage-store.js",
       "inquiry-templates.js",
       "inquiry-analytics.js",
+      "work-scheduling.js",
+      "completion-monitor.js",
       "workflow-stage-pipeline.js",
       "workflow-stage-store.js",
       "workflow-stage-actions.js",
