@@ -345,9 +345,11 @@ function migrateTradingControlsSchema(stored) {
     try { localStorage.removeItem('fno_threshold_override_v1'); } catch (e) { /* honest no-op */ }
   }
   if (schema < 9) {
+    const legacyMode = merged.scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'conservative';
     merged = {
       ...merged,
-      scalpingTradingMode: merged.scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'conservative',
+      scalpingTradingMode: (merged.scalpingTradingMode && typeof merged.scalpingTradingMode === 'string')
+        ? merged.scalpingTradingMode : legacyMode,
     };
   }
   try {
@@ -371,8 +373,14 @@ const fnoSettings = {
         ...FNO_SETTINGS_DEFAULTS, ...stored,
         tradingTypes: { ...FNO_SETTINGS_DEFAULTS.tradingTypes, ...(stored.tradingTypes || {}) },
         scalpingFmSafetyProfile: stored.scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'strict',
-        scalpingTradingMode: (stored.scalpingTradingMode && typeof stored.scalpingTradingMode === 'string')
-          ? stored.scalpingTradingMode : (stored.scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'conservative'),
+        scalpingTradingMode: (typeof normalizeTradingModeId === 'function')
+          ? normalizeTradingModeId(
+            (stored.scalpingTradingMode && typeof stored.scalpingTradingMode === 'string')
+              ? stored.scalpingTradingMode
+              : (stored.scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'conservative')
+          )
+          : ((stored.scalpingTradingMode && typeof stored.scalpingTradingMode === 'string')
+            ? stored.scalpingTradingMode : (stored.scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'conservative')),
         defaultLots: Math.max(1, Math.round(stored.defaultLots != null ? stored.defaultLots : FNO_SETTINGS_DEFAULTS.defaultLots)),
       };
     } catch (e) { return { ...FNO_SETTINGS_DEFAULTS }; } // real, honest fallback - a genuinely corrupted stored value must never crash the whole app, just fall back to real, safe defaults
@@ -15277,8 +15285,11 @@ function render(){
     const profileStatus = document.getElementById('scalpingProfitProfileStatusLabel');
     if (profileStatus) profileStatus.textContent = s.scalpingProfitProfileEnabled ? 'ON' : 'OFF';
     const fmSafetyEl = document.getElementById('settingScalpingTradingMode');
-    if (fmSafetyEl) fmSafetyEl.value = (s.scalpingTradingMode && typeof s.scalpingTradingMode === 'string')
-      ? s.scalpingTradingMode : (s.scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'conservative');
+    if (fmSafetyEl) {
+      const modeId = typeof resolveScalpingTradingMode === 'function'
+        ? resolveScalpingTradingMode() : s.scalpingTradingMode;
+      fmSafetyEl.value = modeId;
+    }
     const modeHint = document.getElementById('settingScalpingTradingModeHint');
     if (modeHint && typeof getActiveTradingModeProfile === 'function') {
       const mp = getActiveTradingModeProfile();
@@ -15378,11 +15389,7 @@ function render(){
   const tradingModeSelect = document.getElementById('settingScalpingTradingMode');
   if (tradingModeSelect) {
     tradingModeSelect.addEventListener('change', (e) => {
-      if (typeof applyScalpingTradingModePreset === 'function') {
-        applyScalpingTradingModePreset(e.target.value);
-      } else {
-        fnoSettings.set({ scalpingTradingMode: e.target.value, scalpingFmSafetyProfile: e.target.value === 'balanced' ? 'balanced' : 'strict' });
-      }
+      applyScalpingTradingModePreset(e.target.value);
       loadSettingsIntoModal();
       updateEffectiveTradingTypeBadge();
       if (localStorage.getItem('fno_autonomous_mode_enabled') === 'true' && typeof stopAutonomousMode === 'function' && typeof startAutonomousMode === 'function') {

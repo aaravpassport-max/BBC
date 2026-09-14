@@ -930,11 +930,9 @@ window.FNO_FACTORS_CATALOG = <?php echo $json ? wp_json_encode($json) : '[]'; ?>
 <script>
 <?php include __DIR__ . '/greeks-engine.js'; ?>
 </script>
-<script>
-<?php include __DIR__ . '/trading-modes-engine.js'; ?>
-</script>
 <script type="module">
 <?php include __DIR__ . '/fno-lab-core.js'; ?>
+<?php include __DIR__ . '/trading-modes-engine.js'; ?>
 <?php include __DIR__ . '/liquidity-behaviour-engine.js'; ?>
 <?php include __DIR__ . '/strategy-diagnostic-report.js'; ?>
 </script>
