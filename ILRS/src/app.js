@@ -1108,6 +1108,7 @@ function reminderCard(r) {
       </div>
       <div class="reminder-actions">
         ${taskActions}
+        ${typeof canConvertReminderToInquiry === 'function' && canConvertReminderToInquiry(r) ? `<button class="action-btn" onclick="event.stopPropagation();convertReminderToInquiry('${r.id}')" title="Convert to inquiry">📥</button>` : ''}
         <button class="action-btn" onclick="event.stopPropagation();showWorkflowStageModal('${r.id}','${entityType}')" title="Change stage">🏷</button>
         <button class="action-btn" onclick="editReminder('${r.id}')">✏️</button>
         <button class="action-btn delete" onclick="deleteReminder('${r.id}')" title="Delete">🗑</button>

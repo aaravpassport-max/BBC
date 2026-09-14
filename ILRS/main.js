@@ -18,6 +18,7 @@ const {
 } = require('./module-actions');
 const {
   createInquiry,
+  convertReminderToInquiry,
   updateInquiry,
   changeInquiryStage,
   logInquiryActivity,
@@ -436,6 +437,16 @@ function setupIPC() {
   ipcMain.handle('create-inquiry', async (_event, data) => {
     try {
       const result = createInquiry(db, data || {});
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('convert-reminder-to-inquiry', async (_event, { reminderId, data }) => {
+    try {
+      const result = convertReminderToInquiry(db, reminderId, data || {});
       if (result.success) notifyRendererDataChanged();
       return result;
     } catch (err) {

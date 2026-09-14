@@ -120,6 +120,8 @@
           <button type="button" class="modal-close" id="capture-close" aria-label="Close">✕</button>
         </div>
         ${state.sourceType === 'inquiry' && state.sourceId ? `<div class="capture-linked-banner">📥 Linked to inquiry</div>` : ''}
+        ${isEdit && !state.sourceType && !['medicine', 'bills', 'habit'].includes(state.category) ? `
+        <button type="button" class="btn btn-ghost btn-sm" id="capture-convert-inquiry" style="width:100%;margin-bottom:12px">📥 Convert to inquiry</button>` : ''}
 
         <div class="kind-toggle">
           <button type="button" class="kind-btn ${state.kind === 'reminder' ? 'active' : ''}" data-kind="reminder">🔔 Reminder</button>
@@ -328,6 +330,12 @@
     });
 
     overlay.querySelector('#capture-save')?.addEventListener('click', () => saveCaptureSheet(close));
+
+    overlay.querySelector('#capture-convert-inquiry')?.addEventListener('click', () => {
+      if (typeof convertReminderToInquiry !== 'function') return;
+      close();
+      convertReminderToInquiry(existing.id);
+    });
 
     const refreshStageOptions = async () => {
       const kind = overlay.querySelector('.kind-btn.active')?.dataset.kind || 'reminder';

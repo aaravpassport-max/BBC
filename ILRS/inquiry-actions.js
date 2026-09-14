@@ -198,7 +198,7 @@ function createInquiry(db, data, now = new Date()) {
 
   logActivity(db, id, 'inquiry_created', 'Inquiry created', `${client.name} — ${data.requirement}`, { newStage: stageKey });
 
-  if (data.nextFollowUp) {
+  if (data.nextFollowUp && !data.skipFollowUpReminder) {
     createFollowUpReminder(db, { id, client_name: client.name, requirement: data.requirement, assigned_to: data.assignedTo }, {
       title: data.nextAction ? `${data.nextAction}: ${client.name}` : undefined,
       date: data.nextFollowUp,
@@ -213,6 +213,83 @@ function createInquiry(db, data, now = new Date()) {
   db.prepare('UPDATE inquiries SET health = ? WHERE id = ?').run(inquiry.health, id);
 
   return { success: true, inquiry, client };
+}
+
+const NON_CONVERTIBLE_CATEGORIES = new Set(['medicine', 'bills', 'habit']);
+
+function convertReminderToInquiry(db, reminderId, data, now = new Date()) {
+  const reminder = db.prepare("SELECT * FROM reminders WHERE id = ? AND status != 'deleted'").get(reminderId);
+  if (!reminder) return { success: false, error: 'Reminder or task not found' };
+  if (reminder.source_type) return { success: false, error: 'Already linked to an inquiry' };
+  if (NON_CONVERTIBLE_CATEGORIES.has(reminder.category)) {
+    return { success: false, error: 'Life module items cannot be converted to inquiries' };
+  }
+  if (!data?.clientName?.trim()) return { success: false, error: 'Client name is required' };
+  if (!data?.requirement?.trim()) return { success: false, error: 'Requirement is required' };
+
+  const followDate = data.nextFollowUp
+    || String(reminder.next_fire || reminder.start_date || '').slice(0, 10);
+  const followTime = data.nextFollowUpTime || reminder.reminder_time || '11:00';
+  const createData = {
+    ...data,
+    nextFollowUp: followDate,
+    nextFollowUpTime: followTime,
+    skipFollowUpReminder: true,
+  };
+
+  const result = createInquiry(db, createData, now);
+  if (!result.success) return result;
+
+  const inquiryId = result.inquiry.id;
+  const reminderTitle = data.nextAction && data.clientName
+    ? `${data.nextAction}: ${data.clientName}`
+    : (data.requirement || reminder.title);
+  const nextFire = followDate
+    ? computeNextFire(followDate, followTime, 'once', now)
+    : reminder.next_fire;
+
+  db.prepare(`
+    UPDATE reminders SET
+      source_type = 'inquiry',
+      source_id = ?,
+      category = 'work',
+      title = ?,
+      why_it_matters = COALESCE(?, why_it_matters),
+      start_date = COALESCE(?, start_date),
+      reminder_time = COALESCE(?, reminder_time),
+      next_fire = COALESCE(?, next_fire),
+      work_start_date = COALESCE(?, work_start_date),
+      expected_completion_date = COALESCE(?, expected_completion_date),
+      assigned_to = COALESCE(?, assigned_to),
+      updated_at = datetime('now')
+    WHERE id = ?
+  `).run(
+    inquiryId,
+    reminderTitle,
+    data.requirement || null,
+    followDate || null,
+    followTime || null,
+    nextFire || null,
+    data.workStartDate || null,
+    data.expectedCompletionDate || null,
+    data.assignedTo || null,
+    reminderId,
+  );
+
+  logActivity(
+    db,
+    inquiryId,
+    'note',
+    'Converted from reminder/task',
+    reminder.title,
+    { extra: { reminderId, taskType: reminder.task_type } },
+  );
+
+  const inquiry = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
+  inquiry.health = computeInquiryHealth(inquiry, now);
+  db.prepare('UPDATE inquiries SET health = ? WHERE id = ?').run(inquiry.health, inquiryId);
+
+  return { success: true, inquiry, linkedReminderId: reminderId };
 }
 
 function changeInquiryStage(db, inquiryId, newStageKey, options = {}, now = new Date()) {
@@ -477,6 +554,7 @@ function seedInquiryStages(db) {
 
 module.exports = {
   createInquiry,
+  convertReminderToInquiry,
   updateInquiry,
   changeInquiryStage,
   logInquiryActivity,

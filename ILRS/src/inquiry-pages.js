@@ -461,6 +461,63 @@
     }
   }
 
+  function canConvertReminderToInquiry(r) {
+    if (!r || r.source_type) return false;
+    if (['medicine', 'bills', 'habit'].includes(r.category)) return false;
+    return true;
+  }
+
+  function reminderToInquiryPrefill(r) {
+    const cap = window.ILRSCapture;
+    const followDate = cap?.nextFireDateStr?.(r.next_fire)
+      || String(r.start_date || '').slice(0, 10);
+    const title = String(r.title || '').trim();
+    let clientName = '';
+    let requirement = title;
+    const callMatch = title.match(
+      /^(?:call|follow up with|contact|meet)\s+([^—\-:]+?)(?:\s+(?:about|re:|regarding|for)\s+(.+))?$/i,
+    );
+    if (callMatch) {
+      clientName = callMatch[1].trim();
+      if (callMatch[2]) requirement = callMatch[2].trim();
+    }
+    const notes = [r.notes, r.why_it_matters ? `Context: ${r.why_it_matters}` : '']
+      .filter(Boolean)
+      .join('\n\n');
+    return {
+      client_name: clientName,
+      requirement,
+      next_action: r.why_it_matters || (r.task_type === 'task' ? 'Complete task' : 'Follow up'),
+      next_follow_up: followDate,
+      next_follow_up_time: r.reminder_time || '11:00',
+      work_start_date: r.work_start_date || r.start_date || '',
+      expected_completion_date: r.expected_completion_date || r.end_date || '',
+      assigned_to: r.assigned_to || 'me',
+      priority: r.priority || 'normal',
+      service_category: r.category === 'work' ? 'work' : '',
+      notes,
+      _convertFromReminderId: r.id,
+      _convertKind: r.task_type === 'task' ? 'task' : 'reminder',
+    };
+  }
+
+  function convertReminderToInquiry(id) {
+    const r = (App.reminders || []).find((x) => x.id === id);
+    if (!r) {
+      if (typeof toast === 'function') toast('Reminder not found', 'warning');
+      return;
+    }
+    if (!canConvertReminderToInquiry(r)) {
+      if (typeof toast === 'function') toast('This item cannot be converted to an inquiry', 'warning');
+      return;
+    }
+    if (typeof showInquirySheet !== 'function') {
+      if (typeof toast === 'function') toast('Inquiry form is not available', 'critical');
+      return;
+    }
+    showInquirySheet(reminderToInquiryPrefill(r));
+  }
+
   function renderStageFieldsHtml(stageKey, inq) {
     const fields = P()?.getStageFields?.(stageKey) || [];
     if (!fields.length) return '';
@@ -690,6 +747,8 @@
   window.setInquiryFilter = setInquiryFilter;
   window.editInquiry = editInquiry;
   window.showInquiryLinkedTask = showInquiryLinkedTask;
+  window.canConvertReminderToInquiry = canConvertReminderToInquiry;
+  window.convertReminderToInquiry = convertReminderToInquiry;
   window.showStageChangeModal = showStageChangeModal;
   window.reopenInquiryConfirm = reopenInquiryConfirm;
   window.showInquiryRescheduleMenu = showInquiryRescheduleMenu;

@@ -13,7 +13,7 @@ const {
   deleteInquiry,
   bulkDeleteInquiries,
   rescheduleInquiry,
-  syncInquiryFollowUpReminder,
+  convertReminderToInquiry,
   seedInquiryStages,
 } = require('../inquiry-actions');
 
@@ -57,7 +57,8 @@ function makeDb() {
       id TEXT PRIMARY KEY, title TEXT, task_type TEXT, category TEXT, why_it_matters TEXT,
       repeat_type TEXT, reminder_time TEXT, start_date TEXT, priority TEXT, alert_style TEXT,
       assigned_to TEXT, source_type TEXT, source_id TEXT, next_fire TEXT, status TEXT,
-      workflow_status TEXT, created_at TEXT, updated_at TEXT
+      workflow_status TEXT, work_start_date TEXT, expected_completion_date TEXT,
+      created_at TEXT, updated_at TEXT
     );
   `);
   seedInquiryStages(db);
@@ -208,6 +209,69 @@ test('updateInquiry reschedules linked follow-up reminder', () => {
   assert.strictEqual(activeReminders.length, 1);
   assert.strictEqual(activeReminders[0].start_date, '2026-09-20');
   assert.strictEqual(activeReminders[0].reminder_time, '15:30');
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
+test('convertReminderToInquiry links original reminder without duplicate follow-up', () => {
+  const { db, dbPath } = makeDb();
+  const now = new Date(2026, 8, 13, 10, 0, 0);
+  const reminderId = 'rem-1';
+  db.prepare(`
+    INSERT INTO reminders (
+      id, title, task_type, category, why_it_matters, repeat_type, reminder_time,
+      start_date, priority, alert_style, assigned_to, source_type, source_id,
+      next_fire, status, workflow_status, created_at, updated_at
+    ) VALUES (?, 'Call Raj about passport', 'task', 'work', 'Discuss documents', 'once', '10:00',
+      '2026-09-15', 'normal', 'sound-popup', 'me', '', '', '2026-09-15T10:00:00', 'active', 'pending',
+      datetime('now'), datetime('now'))
+  `).run(reminderId);
+
+  const result = convertReminderToInquiry(db, reminderId, {
+    clientName: 'Raj Kumar',
+    requirement: 'Passport',
+    nextAction: 'Call client',
+    nextFollowUp: '2026-09-15',
+    nextFollowUpTime: '10:00',
+  }, now);
+  assert.strictEqual(result.success, true);
+  assert.ok(result.inquiry.inquiry_number.startsWith('INQ-'));
+  assert.strictEqual(result.linkedReminderId, reminderId);
+
+  const linked = db.prepare('SELECT * FROM reminders WHERE id = ?').get(reminderId);
+  assert.strictEqual(linked.source_type, 'inquiry');
+  assert.strictEqual(linked.source_id, result.inquiry.id);
+  assert.strictEqual(linked.task_type, 'task');
+
+  const followUps = db.prepare(
+    "SELECT * FROM reminders WHERE source_type = 'inquiry' AND source_id = ? AND status = 'active'",
+  ).all(result.inquiry.id);
+  assert.strictEqual(followUps.length, 1);
+  assert.strictEqual(followUps[0].id, reminderId);
+
+  const activity = db.prepare(
+    "SELECT title FROM inquiry_activities WHERE inquiry_id = ? AND title = 'Converted from reminder/task'",
+  ).get(result.inquiry.id);
+  assert.ok(activity);
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
+test('convertReminderToInquiry rejects life module reminders', () => {
+  const { db, dbPath } = makeDb();
+  const now = new Date(2026, 8, 13, 10, 0, 0);
+  db.prepare(`
+    INSERT INTO reminders (
+      id, title, task_type, category, repeat_type, reminder_time, start_date,
+      status, workflow_status, created_at, updated_at
+    ) VALUES ('med-1', 'Take aspirin', 'reminder', 'medicine', 'once', '09:00', '2026-09-13',
+      'active', 'pending', datetime('now'), datetime('now'))
+  `).run();
+  const result = convertReminderToInquiry(db, 'med-1', {
+    clientName: 'A',
+    requirement: 'Medicine',
+  }, now);
+  assert.strictEqual(result.success, false);
   db.close();
   fs.unlinkSync(dbPath);
 });

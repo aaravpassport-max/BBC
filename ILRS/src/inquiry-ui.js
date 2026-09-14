@@ -29,6 +29,7 @@
 
     const pipeline = P();
     const isEdit = !!existing?.id;
+    const isConvert = !!existing?._convertFromReminderId;
     const inq = existing || {};
     const activeStages = pipeline?.getActiveStages() || [];
     const closedStages = pipeline?.getClosedStages() || [];
@@ -39,7 +40,7 @@
     const cap = window.ILRSCapture;
     const followDate = String(inq.next_follow_up || '').slice(0, 10);
     let whenInfo = { when: 'tomorrow', startDate: '' };
-    if (isEdit && followDate) {
+    if ((isEdit || isConvert) && followDate) {
       whenInfo = cap?.resolveWhenFromExisting
         ? cap.resolveWhenFromExisting({ start_date: followDate })
         : { when: 'custom', startDate: followDate };
@@ -61,9 +62,10 @@
     overlay.innerHTML = `
       <div class="capture-sheet" role="dialog">
         <div class="capture-header">
-          <h2>${isEdit ? 'Edit' : 'New'} Inquiry</h2>
+          <h2>${isConvert ? 'Convert to Inquiry' : isEdit ? 'Edit' : 'New'} Inquiry</h2>
           <button type="button" class="modal-close" id="inq-close">✕</button>
         </div>
+        ${isConvert ? `<div class="capture-linked-banner">🔔 Converting ${inq._convertKind === 'task' ? 'task' : 'reminder'} — the original item will be linked to this inquiry</div>` : ''}
         ${!isEdit && (App.inquiryTemplates || []).length ? `
         <label class="form-label">Start from template</label>
         <div class="chip-row" id="inq-template-chips" style="margin-bottom:12px">
@@ -126,11 +128,12 @@
 
         <div class="capture-actions">
           <button type="button" class="btn btn-ghost" id="inq-cancel">Cancel</button>
-          <button type="button" class="btn btn-primary capture-create-btn" id="inq-save">${isEdit ? 'Save Changes' : 'Create Inquiry'}</button>
+          <button type="button" class="btn btn-primary capture-create-btn" id="inq-save">${isConvert ? 'Convert to Inquiry' : isEdit ? 'Save Changes' : 'Create Inquiry'}</button>
         </div>
         <input type="hidden" id="inq-when" value="${whenInfo.when}" />
         <input type="hidden" id="inq-source" value="${esc(inq.source || '')}" />
         <input type="hidden" id="inq-edit-id" value="${esc(inq.id || '')}" />
+        <input type="hidden" id="inq-convert-reminder-id" value="${esc(inq._convertFromReminderId || '')}" />
       </div>`;
 
     if (typeof attachModalDismiss === 'function') attachModalDismiss(overlay);
@@ -198,7 +201,7 @@
       overlay.querySelectorAll('#inq-source-chips .chip').forEach((c) => c.classList.toggle('selected', c === chip));
     });
 
-    if (!isEdit) {
+    if (!isEdit && !isConvert) {
       const tomorrowChip = overlay.querySelector('[data-when="tomorrow"]');
       if (tomorrowChip) {
         tomorrowChip.classList.add('selected');
@@ -206,6 +209,8 @@
       }
     } else if (whenInfo.when !== 'custom') {
       document.getElementById('inq-follow-date').value = whenInfo.startDate || resolveWhen(whenInfo.when);
+    } else if (isConvert && whenInfo.startDate) {
+      document.getElementById('inq-follow-date').value = whenInfo.startDate;
     }
 
     overlay.querySelector('#inq-save')?.addEventListener('click', async () => {
@@ -246,9 +251,15 @@
       }
 
       const editId = document.getElementById('inq-edit-id')?.value || inq.id;
-      const result = isEdit
-        ? await window.ilrs?.updateInquiry?.(editId, data)
-        : await window.ilrs?.createInquiry?.(data);
+      const convertReminderId = document.getElementById('inq-convert-reminder-id')?.value;
+      let result;
+      if (convertReminderId && !isEdit) {
+        result = await window.ilrs?.convertReminderToInquiry?.(convertReminderId, data);
+      } else {
+        result = isEdit
+          ? await window.ilrs?.updateInquiry?.(editId, data)
+          : await window.ilrs?.createInquiry?.(data);
+      }
       if (!result?.success) {
         if (typeof toast === 'function') toast(result?.error || `Could not ${isEdit ? 'update' : 'create'} inquiry`, 'warning');
         return;
@@ -267,7 +278,14 @@
         return;
       }
       overlay.remove();
-      if (typeof toast === 'function') toast(isEdit ? '📥 Inquiry updated' : `📥 Inquiry ${result.inquiry.inquiry_number} created`);
+      if (typeof toast === 'function') {
+        const msg = isEdit
+          ? '📥 Inquiry updated'
+          : convertReminderId
+            ? `📥 Converted to inquiry ${result.inquiry.inquiry_number}`
+            : `📥 Inquiry ${result.inquiry.inquiry_number} created`;
+        toast(msg);
+      }
       if (typeof navigate === 'function') {
         App.selectedInquiryId = result.inquiry.id;
         navigate('inquiry-detail');
