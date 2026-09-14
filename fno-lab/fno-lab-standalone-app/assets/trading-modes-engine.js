@@ -172,23 +172,20 @@ function applyScalpingTradingModePreset(modeId) {
   if (!mode || typeof fnoSettings === 'undefined') return mode;
   try { localStorage.removeItem('fno_threshold_override_v1'); } catch (e) { /* no-op */ }
   const cur = fnoSettings.get();
-  fnoSettings.set({
+  const next = {
     scalpingTradingMode: mode.id,
     scalpingProfitProfileEnabled: true,
     scalpingFmSafetyProfile: mode.scalpingFmSafetyProfile,
     tradingTypes: { intraday: false, scalping: true, swing: !!(cur.tradingTypes && cur.tradingTypes.swing) },
-    tradeTypeTargetSlEnabled: true,
-    tradeTypeSizingEnabled: false,
-    autoCalibrateThresholdEnabled: mode.experimental ? false : true,
-    autoCalibrateTargetWinRatePct: FNO_SCALPING_PROFIT_PROFILE.autoCalibrateTargetWinRatePct,
-    scalpingCapitalPreservationEnabled: mode.capitalPreservation.enabled,
     maxLosingTradesPerDay: mode.capitalPreservation.maxLosingTradesPerDay,
     maxDailyLossPctPreservation: mode.capitalPreservation.maxDailyLossPctPreservation,
     scalpingTrailingEnabled: true,
     scalpingPartialExitEnabled: true,
     defaultLots: 2,
     scalpingBracketPreset: cur.scalpingBracketPreset || 'standard',
-  });
+  };
+  if (mode.experimental) next.autoCalibrateThresholdEnabled = false;
+  fnoSettings.set(next);
   if (typeof applyScalpingExecutionControlsFromSettings === 'function') applyScalpingExecutionControlsFromSettings();
   if (typeof syncTargetSlUiFromPreset === 'function') syncTargetSlUiFromPreset();
   if (typeof updateLotQtyHint === 'function') updateLotQtyHint();

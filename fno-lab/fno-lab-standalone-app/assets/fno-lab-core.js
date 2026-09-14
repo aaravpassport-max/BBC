@@ -218,30 +218,63 @@ function fnoThemePalette() {
   };
 }
 
+/** User checkbox is the master ON/OFF for capital preservation gates. */
+function isScalpingCapitalPreservationActive() {
+  if (!isScalpingProfitProfileActive()) return false;
+  return fnoSettings.get().scalpingCapitalPreservationEnabled !== false;
+}
+
+/** Active preservation params: mode profile when ON, else null. */
+function getScalpingCapitalPreservationConfig() {
+  if (!isScalpingCapitalPreservationActive()) return null;
+  const s = fnoSettings.get();
+  const mode = typeof getActiveTradingModeProfile === 'function' ? getActiveTradingModeProfile() : null;
+  const cp = mode && mode.capitalPreservation ? mode.capitalPreservation : null;
+  if (cp) {
+    return {
+      minConfidence: cp.minConfidence || 'High',
+      blockWeightedScoreWait: cp.blockWeightedScoreWait !== false,
+      blockTrapWarnings: cp.blockTrapWarnings !== false,
+      maxLosingTradesPerDay: typeof cp.maxLosingTradesPerDay === 'number'
+        ? cp.maxLosingTradesPerDay
+        : ((typeof s.maxLosingTradesPerDay === 'number') ? s.maxLosingTradesPerDay : 1),
+      maxDailyLossPctPreservation: typeof cp.maxDailyLossPctPreservation === 'number'
+        ? cp.maxDailyLossPctPreservation
+        : ((typeof s.maxDailyLossPctPreservation === 'number') ? s.maxDailyLossPctPreservation : 1.5),
+    };
+  }
+  return {
+    minConfidence: 'High',
+    blockWeightedScoreWait: true,
+    blockTrapWarnings: true,
+    maxLosingTradesPerDay: (typeof s.maxLosingTradesPerDay === 'number') ? s.maxLosingTradesPerDay : 1,
+    maxDailyLossPctPreservation: (typeof s.maxDailyLossPctPreservation === 'number') ? s.maxDailyLossPctPreservation : 1.5,
+  };
+}
+
+function formatScalpingCapitalPreservationStatusText() {
+  const cfg = getScalpingCapitalPreservationConfig();
+  if (!cfg) return 'Capital preservation OFF';
+  return `🛡️ Capital preservation ON (${cfg.minConfidence}+ confidence, trap blocks, ${cfg.maxLosingTradesPerDay} loss/day cap)`;
+}
+
 /**
  * Scalping capital preservation — extra entry gates (measurement-safe, hard blocks only
  * when enabled). Goal: fewer but higher-quality entries; cannot eliminate losses entirely.
  */
 function checkScalpingCapitalPreservation(brain, ctx, opts) {
   opts = opts || {};
-  if (!isScalpingProfitProfileActive()) return { allowed: true };
-  const mode = typeof getActiveTradingModeProfile === 'function' ? getActiveTradingModeProfile() : null;
-  const cp = mode && mode.capitalPreservation ? mode.capitalPreservation : null;
-  const s = fnoSettings.get();
-  if (cp && cp.enabled === false) return { allowed: true };
-  if (!cp && s.scalpingCapitalPreservationEnabled === false) return { allowed: true };
+  const cfg = getScalpingCapitalPreservationConfig();
+  if (!cfg) return { allowed: true };
   const reasons = [];
-  const minConf = cp ? cp.minConfidence : 'High';
   const confRank = c => c === 'High' ? 3 : (c === 'Medium' ? 2 : 1);
-  if (confRank(brain.confidence || 'Low') < confRank(minConf)) {
-    reasons.push(`Requires ${minConf} confidence (current: ${brain.confidence || 'Low'})`);
+  if (confRank(brain.confidence || 'Low') < confRank(cfg.minConfidence)) {
+    reasons.push(`Requires ${cfg.minConfidence} confidence (current: ${brain.confidence || 'Low'})`);
   }
-  const blockWeighted = cp ? cp.blockWeightedScoreWait : true;
-  if (blockWeighted && brain.tradeTypeWeightingAdjustment) {
+  if (cfg.blockWeightedScoreWait && brain.tradeTypeWeightingAdjustment) {
     reasons.push('Weighted-score safety active — setup downgraded from raw signal');
   }
-  const blockTraps = cp ? cp.blockTrapWarnings !== false : true;
-  if (blockTraps && brain.pretradeGateCheck) {
+  if (cfg.blockTrapWarnings && brain.pretradeGateCheck) {
     const fa = brain.pretradeGateCheck.finalAction;
     const ids = (brain.pretradeGateCheck.triggered || []).map(t => t.id);
     if (fa === 'block' || fa === 'reject') {
@@ -252,20 +285,14 @@ function checkScalpingCapitalPreservation(brain, ctx, opts) {
   }
   const journalToday = opts.journalToday || [];
   const lossCount = journalToday.filter(t => typeof t.pnl === 'number' && t.pnl < 0).length;
-  const maxLosses = cp && typeof cp.maxLosingTradesPerDay === 'number'
-    ? cp.maxLosingTradesPerDay
-    : ((typeof s.maxLosingTradesPerDay === 'number') ? s.maxLosingTradesPerDay : 1);
-  if (lossCount >= maxLosses) {
-    reasons.push(`${lossCount} losing trade(s) today (cap ${maxLosses}) — no new entries until tomorrow`);
+  if (lossCount >= cfg.maxLosingTradesPerDay) {
+    reasons.push(`${lossCount} losing trade(s) today (cap ${cfg.maxLosingTradesPerDay}) — no new entries until tomorrow`);
   }
   const todayPnL = ctx && ctx.todayPnL;
   const capital = (ctx && Number.isFinite(ctx.accountCurrentBalance)) ? ctx.accountCurrentBalance
     : ((ctx && Number.isFinite(ctx.accountAvailableCapital)) ? ctx.accountAvailableCapital : 100000);
-  const maxLossPct = cp && typeof cp.maxDailyLossPctPreservation === 'number'
-    ? cp.maxDailyLossPctPreservation
-    : ((typeof s.maxDailyLossPctPreservation === 'number') ? s.maxDailyLossPctPreservation : 1.5);
-  if (Number.isFinite(todayPnL) && todayPnL <= -(capital * maxLossPct / 100)) {
-    reasons.push(`Daily loss Rs${todayPnL.toFixed(0)} reached ${maxLossPct}% preservation limit`);
+  if (Number.isFinite(todayPnL) && todayPnL <= -(capital * cfg.maxDailyLossPctPreservation / 100)) {
+    reasons.push(`Daily loss Rs${todayPnL.toFixed(0)} reached ${cfg.maxDailyLossPctPreservation}% preservation limit`);
   }
   if (reasons.length) {
     return { allowed: false, reason: `Capital preservation: ${reasons.join('; ')}`, reasons };
@@ -821,11 +848,7 @@ function renderScalpingSessionReadiness(brain, ctx) {
   const sym = (ctx && ctx.sym) || (document.getElementById('sym') && document.getElementById('sym').value) || 'NIFTY';
   const lotTxt = formatLotQtyLabel(sym, getLotCountFromUi());
   const modeProfile = typeof getActiveTradingModeProfile === 'function' ? getActiveTradingModeProfile() : null;
-  const preserveTxt = modeProfile && modeProfile.capitalPreservation
-    ? `🛡️ Capital preservation ON (${modeProfile.capitalPreservation.minConfidence}+ confidence, trap blocks, ${modeProfile.capitalPreservation.maxLosingTradesPerDay} loss/day cap)`
-    : (fnoSettings.get().scalpingCapitalPreservationEnabled !== false
-      ? '🛡️ Capital preservation ON (High confidence, operator/trap blocks, 1 loss/day cap)'
-      : 'Capital preservation OFF');
+  const preserveTxt = formatScalpingCapitalPreservationStatusText();
   const sizeMult = modeProfile && brain ? resolveModePositionSizeMultiplier(brain.confidence, modeProfile) : 1;
   const sizeTxt = sizeMult < 1 ? `${lotTxt} (mode size ×${sizeMult})` : lotTxt;
   const decayPct = computeValueDecayCriticalPct(ctx || {});
@@ -15403,6 +15426,9 @@ function render(){
       fnoSettings.set({ scalpingCapitalPreservationEnabled: e.target.checked });
       const lbl = document.getElementById('scalpingCapitalPreservationStatusLabel');
       if (lbl) lbl.textContent = e.target.checked ? 'ON' : 'OFF';
+      if (typeof renderScalpingSessionReadiness === 'function' && window.FNO_LAST_BRAIN) {
+        renderScalpingSessionReadiness(window.FNO_LAST_BRAIN, window.FNO_LAST_CTX || {});
+      }
     });
   }
   const maxLossInput = document.getElementById('settingMaxLosingTradesPerDay');
@@ -16177,6 +16203,8 @@ function render(){
 
       const brain=evaluateBrain(refreshCtx);
       lastBrain=brain;
+      window.FNO_LAST_BRAIN = brain;
+      window.FNO_LAST_CTX = refreshCtx;
       try {
         if (typeof computeLiquidityTrapEngine === 'function') {
           const liqEngine = computeLiquidityTrapEngine(refreshCtx, brain, refreshCtx.liquidityInputs);
@@ -19830,6 +19858,9 @@ document.addEventListener('fnoSettingsChanged', (e) => {
   updateEffectiveTradingTypeBadge();
   const readinessBox = document.getElementById('scalpingSessionReadinessBox');
   if (readinessBox && !isScalpingProfitProfileActive()) readinessBox.style.display = 'none';
+  else if (readinessBox && typeof renderScalpingSessionReadiness === 'function' && window.FNO_LAST_BRAIN) {
+    renderScalpingSessionReadiness(window.FNO_LAST_BRAIN, window.FNO_LAST_CTX || {});
+  }
 });
 
 render();

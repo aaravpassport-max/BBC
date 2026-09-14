@@ -7,7 +7,7 @@ const coreSrc = fs.readFileSync(path.join(__dirname, '../assets/fno-lab-core.js'
 
 const bootStart = coreSrc.indexOf('const FNO_EXCHANGE_LOT_SIZES');
 const bootEnd = coreSrc.indexOf('/** One-time schema migrations', bootStart);
-const preservationStart = coreSrc.indexOf('function checkScalpingCapitalPreservation');
+const preservationStart = coreSrc.indexOf('/** User checkbox is the master ON/OFF for capital preservation gates. */');
 const preservationEnd = coreSrc.indexOf('/** One-time schema migrations', preservationStart);
 
 const bootSrc = [
@@ -15,6 +15,7 @@ const bootSrc = [
   coreSrc.slice(preservationStart, preservationEnd),
   'var fnoSettings = { get(){ return { scalpingCapitalPreservationEnabled: true, maxLosingTradesPerDay: 1, maxDailyLossPctPreservation: 1.5, scalpingProfitProfileEnabled: true, tradingTypes: { scalping: true } }; } };',
   'function isScalpingProfitProfileActive(){ return true; }',
+  'function getActiveTradingModeProfile(){ return null; }',
   'return { normalizeUnderlyingSymbol, getExchangeLotSize, lotsToQty, qtyToLots, isValidExchangeQty, resolveOrderQuantity, formatLotQtyLabel, checkScalpingCapitalPreservation };',
 ].join('\n');
 
@@ -46,7 +47,7 @@ const afterLoss = api.checkScalpingCapitalPreservation(
 assert.ok(!afterLoss.allowed);
 assert.ok(/losing trade/i.test(afterLoss.reason));
 
-assert.ok(/FNO_SETTINGS_SCHEMA_VERSION = 7/.test(coreSrc));
+assert.ok(/FNO_SETTINGS_SCHEMA_VERSION = 9/.test(coreSrc));
 assert.ok(/defaultLots: 2/.test(coreSrc));
 assert.ok(/scalpingCapitalPreservationEnabled: true/.test(coreSrc));
 assert.ok(/function getLotCountFromUi/.test(coreSrc));
