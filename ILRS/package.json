@@ -1,6 +1,6 @@
 {
   "name": "ilrs",
-  "version": "1.0.35",
+  "version": "1.0.36",
   "description": "ILRS — Intelligent Life Reminder System",
   "author": {
     "name": "Business OS",
@@ -29,6 +29,7 @@
     "test:workflow-stages": "node scripts/test-workflow-stages.js",
     "test:inquiry-stages": "node scripts/test-inquiry-stages.js",
     "test:work-scheduling": "node scripts/test-work-scheduling.js",
+    "test:payments": "node scripts/test-payments.js",
     "test:db": "node scripts/test-db-ops.js",
     "test:e2e": "electron scripts/e2e-ipc-test.js --no-sandbox",
     "dev": "electron . --dev --no-sandbox",
@@ -79,6 +80,8 @@
       "inquiry-analytics.js",
       "work-scheduling.js",
       "completion-monitor.js",
+      "payment-manager.js",
+      "payment-monitor.js",
       "workflow-stage-pipeline.js",
       "workflow-stage-store.js",
       "workflow-stage-actions.js",

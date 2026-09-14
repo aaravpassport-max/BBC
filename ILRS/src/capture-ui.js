@@ -152,6 +152,8 @@
           </div>
         </div>
 
+        ${window.ILRSPayment?.paymentFormSection ? window.ILRSPayment.paymentFormSection('reminder', r) : ''}
+
         <button type="button" class="capture-more-toggle" id="capture-more-toggle">${state.moreOpen ? '▾ Less options' : '+ More options'}</button>
         <div class="capture-more" id="capture-more" style="display:${state.moreOpen ? 'block' : 'none'}">
           <div class="form-group"><label class="form-label">Why it matters</label>
@@ -222,6 +224,7 @@
     document.body.appendChild(overlay);
 
     wireCaptureSheet(overlay, r, isEdit);
+    window.ILRSPayment?.wirePaymentFormToggle?.(overlay);
     setTimeout(() => document.getElementById('capture-title')?.focus(), 50);
   }
 
@@ -459,6 +462,10 @@
     }
 
     if (!ok) return;
+
+    if (window.ILRSPayment?.savePaymentSettingsFromForm) {
+      await window.ILRSPayment.savePaymentSettingsFromForm('reminder', id);
+    }
 
     const savedId = id;
     const verify = await db(

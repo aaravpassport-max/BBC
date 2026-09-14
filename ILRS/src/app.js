@@ -242,7 +242,7 @@ async function syncWorkflowStages() {
 }
 
 async function loadAllData() {
-  const [reminders, medicines, bills, habits, family, inquiries, clients, templates] = await Promise.all([
+  const [reminders, medicines, bills, habits, family, inquiries, clients, templates, paymentsResult] = await Promise.all([
     db("SELECT * FROM reminders WHERE status != 'deleted' AND (source_type IS NULL OR source_type = '') ORDER BY priority DESC, next_fire ASC"),
     db("SELECT * FROM medicines WHERE status = 'active' ORDER BY name"),
     db("SELECT * FROM bills WHERE status = 'active' ORDER BY due_day"),
@@ -251,6 +251,7 @@ async function loadAllData() {
     db("SELECT * FROM inquiries WHERE outcome_status != 'deleted' ORDER BY updated_at DESC"),
     db('SELECT * FROM clients ORDER BY name'),
     api.getInquiryTemplates?.().then((r) => r?.templates || []).catch(() => []),
+    window.ilrs?.getWorkPayments?.().catch(() => ({ payments: [] })),
   ]);
   App.reminders = reminders || [];
   App.medicines = medicines || [];
@@ -260,6 +261,13 @@ async function loadAllData() {
   App.inquiries = inquiries || [];
   App.clients = clients || [];
   App.inquiryTemplates = templates || [];
+  const payIndex = {};
+  for (const p of (paymentsResult?.payments || [])) {
+    const key = `${p.entity_type}:${p.entity_id}`;
+    if (!payIndex[key]) payIndex[key] = [];
+    payIndex[key].push(p);
+  }
+  App.workPayments = payIndex;
   await syncPipelineStages();
   await syncWorkflowStages();
 }
@@ -1033,6 +1041,7 @@ function reminderCard(r) {
         ${WS?.scheduleDatesHtml ? WS.scheduleDatesHtml(r) : ''}
         ${r.why_it_matters ? `<div class="reminder-why">${r.why_it_matters}</div>` : ''}
         ${WS?.notePreviewHtml ? WS.notePreviewHtml(r, 'rcard') : ''}
+        ${window.ILRSPayment?.paymentCardHtml ? window.ILRSPayment.paymentCardHtml(r, 'reminder', 'rcard') : ''}
         <div class="reminder-meta">
           <span class="inquiry-stage-badge ${stageCls}" onclick="event.stopPropagation();showWorkflowStageModal('${r.id}','${entityType}')" title="Change stage">${stageLabel}</span>
           <span class="tag ${r.category}">${categoryIcon(r.category)} ${r.category}</span>
@@ -3212,7 +3221,9 @@ function processAlertQueue() {
     return;
   }
 
-  if (reminder._type === 'completion_check' || reminder._completionDue) {
+  if (reminder._type === 'payment_due') {
+    showPaymentDuePopup(reminder);
+  } else if (reminder._type === 'completion_check' || reminder._completionDue) {
     showCompletionCheckPopup(reminder);
   } else if (reminder.priority === 'critical') {
     showInAppAlert(reminder);
@@ -3299,6 +3310,38 @@ function postponeDueNotification(popupId, id) {
   App.isProcessingAlert = false;
   showPostponeMenu(id);
   processAlertQueue();
+}
+
+function showPaymentDuePopup(reminder) {
+  if (!reminder) return;
+  let stack = document.getElementById('due-notification-stack');
+  if (!stack) {
+    stack = document.createElement('div');
+    stack.id = 'due-notification-stack';
+    document.body.appendChild(stack);
+  }
+  const isInquiry = reminder.inquiry_id || reminder.requirement;
+  const entityType = isInquiry ? 'inquiry' : 'reminder';
+  const entityId = isInquiry ? (reminder.inquiry_id || reminder.id) : reminder.id;
+  const popupId = `payment-due-${entityId}-${Date.now()}`;
+  const el = document.createElement('div');
+  el.className = `due-notification completion-check ${reminder.priority === 'critical' ? 'critical' : 'important'}`;
+  el.id = popupId;
+  el.innerHTML = `
+    <button class="due-notification-close" onclick="dismissDueNotification('${popupId}')">✕</button>
+    <div class="due-notification-icon">💰</div>
+    <div class="due-notification-body">
+      <div class="due-notification-title">${reminder.title || 'Payment due'}</div>
+      <div class="due-notification-text">${reminder.why_it_matters || 'A payment is due for this work item.'}</div>
+    </div>
+    <div class="due-notification-actions completion-actions">
+      <button class="btn btn-primary btn-sm" onclick="dismissDueNotification('${popupId}');showRecordPaymentModal('${entityType}','${entityId}')">+ Record Payment</button>
+      <button class="btn btn-ghost btn-sm" onclick="dismissDueNotification('${popupId}');${isInquiry ? `editInquiry('${entityId}')` : `editReminder('${entityId}')`}">Update Payment Plan</button>
+      <button class="btn btn-ghost btn-sm" onclick="dismissDueNotification('${popupId}')">Dismiss</button>
+    </div>`;
+  stack.appendChild(el);
+  App.currentAlert = reminder;
+  setTimeout(() => document.getElementById(popupId)?.classList.add('due-notification-visible'), 10);
 }
 
 function showCompletionCheckPopup(reminder) {

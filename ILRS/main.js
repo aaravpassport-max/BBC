@@ -34,6 +34,15 @@ const { getWorkAnalytics } = require('./inquiry-analytics');
 const { checkInquiryAlerts, refreshAllInquiryHealth } = require('./inquiry-health-monitor');
 const { checkCompletionDueAlerts, handleCompletionAction } = require('./completion-monitor');
 const {
+  getPayments,
+  getAllPayments,
+  recordPayment,
+  deletePayment,
+  updatePaymentSettings,
+  computePaymentSummary,
+} = require('./payment-manager');
+const { checkPaymentDueAlerts } = require('./payment-monitor');
+const {
   loadWorkflowStages,
   saveWorkflowStage,
   deleteWorkflowStage,
@@ -701,6 +710,47 @@ function setupIPC() {
     }
   });
 
+  ipcMain.handle('get-work-payments', async (_event, { entityType, entityId }) => {
+    try {
+      if (entityType && entityId) {
+        return { success: true, payments: getPayments(db, entityType, entityId) };
+      }
+      return { success: true, payments: getAllPayments(db) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('record-work-payment', async (_event, payload) => {
+    try {
+      const result = recordPayment(db, payload || {});
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('delete-work-payment', async (_event, { paymentId }) => {
+    try {
+      const result = deletePayment(db, paymentId);
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('update-payment-settings', async (_event, payload) => {
+    try {
+      const result = updatePaymentSettings(db, payload || {});
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('handle-completion-action', async (_event, payload) => {
     try {
       const result = handleCompletionAction(db, payload || {});
@@ -1126,8 +1176,44 @@ function repairReminderSchedules() {
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '15')").run();
       console.log('Work scheduling migration v15 complete');
     }
+    if (version < 16) {
+      runPaymentTrackingMigrationV16();
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '16')").run();
+      console.log('Payment tracking migration v16 complete');
+    }
   } catch (err) {
     console.error('repairReminderSchedules error:', err.message);
+  }
+}
+
+function runPaymentTrackingMigrationV16() {
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS work_payments (
+        id TEXT PRIMARY KEY,
+        entity_type TEXT NOT NULL,
+        entity_id TEXT NOT NULL,
+        amount REAL NOT NULL DEFAULT 0,
+        received_date TEXT NOT NULL,
+        note TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_work_payments_entity ON work_payments(entity_type, entity_id);
+    `);
+    for (const table of ['reminders', 'inquiries']) {
+      try { db.exec(`ALTER TABLE ${table} ADD COLUMN payment_tracking_enabled INTEGER DEFAULT 0`); } catch (_) { /* exists */ }
+      try { db.exec(`ALTER TABLE ${table} ADD COLUMN payment_total REAL DEFAULT 0`); } catch (_) { /* exists */ }
+      try { db.exec(`ALTER TABLE ${table} ADD COLUMN next_payment_due_date TEXT DEFAULT ''`); } catch (_) { /* exists */ }
+      try { db.exec(`ALTER TABLE ${table} ADD COLUMN next_payment_amount REAL DEFAULT 0`); } catch (_) { /* exists */ }
+      try { db.exec(`ALTER TABLE ${table} ADD COLUMN payment_track_status TEXT DEFAULT ''`); } catch (_) { /* exists */ }
+    }
+    db.prepare(`
+      UPDATE inquiries SET payment_total = quotation_amount, payment_tracking_enabled = 1
+      WHERE quotation_amount > 0 AND (payment_total IS NULL OR payment_total = 0)
+    `).run();
+    db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('payment_alerts_enabled', '1')").run();
+  } catch (err) {
+    console.error('Payment tracking migration v16 error:', err.message);
   }
 }
 
@@ -1476,6 +1562,11 @@ function runSchedulerTick() {
       completionCheckCounter = 0;
       checkCompletionDueAlerts(db, (item) => dispatchDueItem(item, item._type || 'completion_check'), now);
     }
+    paymentCheckCounter += 1;
+    if (paymentCheckCounter >= 60) {
+      paymentCheckCounter = 0;
+      checkPaymentDueAlerts(db, (item) => dispatchDueItem(item, item._type || 'payment_due'), now);
+    }
   } catch (err) {
     console.error('Scheduler error:', err.message);
   }
@@ -1484,6 +1575,7 @@ function runSchedulerTick() {
 let syncCounter = 0;
 let inquiryAlertCounter = 0;
 let completionCheckCounter = 0;
+let paymentCheckCounter = 0;
 
 function startScheduler() {
   if (schedulerTimer) clearInterval(schedulerTimer);

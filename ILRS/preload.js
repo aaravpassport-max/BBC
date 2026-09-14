@@ -61,6 +61,11 @@ contextBridge.exposeInMainWorld('ilrs', {
   setInitialReminderStage: (id, entityType, stageKey) =>
     ipcRenderer.invoke('set-initial-reminder-stage', { id, entityType, stageKey }),
   handleCompletionAction: (payload) => ipcRenderer.invoke('handle-completion-action', payload),
+  getWorkPayments: (entityType, entityId) =>
+    ipcRenderer.invoke('get-work-payments', { entityType, entityId }),
+  recordWorkPayment: (payload) => ipcRenderer.invoke('record-work-payment', payload),
+  deleteWorkPayment: (paymentId) => ipcRenderer.invoke('delete-work-payment', { paymentId }),
+  updatePaymentSettings: (payload) => ipcRenderer.invoke('update-payment-settings', payload),
 
   // Listeners
   onNavigate: (callback) => ipcRenderer.on('navigate', (_, page) => callback(page)),

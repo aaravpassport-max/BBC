@@ -30,7 +30,8 @@
         ${WS?.scheduleDatesHtml ? WS.scheduleDatesHtml(inq, compact) : ''}
         <div class="inquiry-stage-badge ${stageCls}">${stageDisplay(inq.stage_key)}</div>
         ${WS?.notePreviewHtml ? WS.notePreviewHtml(inq, 'inq') : ''}
-        ${inq.quotation_amount > 0 ? `<div class="inquiry-amount">₹${Number(inq.quotation_amount).toLocaleString('en-IN')}</div>` : ''}
+        ${window.ILRSPayment?.paymentCardHtml ? window.ILRSPayment.paymentCardHtml(inq, 'inquiry', 'inq') : ''}
+        ${!Number(inq.payment_tracking_enabled) && inq.quotation_amount > 0 ? `<div class="inquiry-amount">₹${Number(inq.quotation_amount).toLocaleString('en-IN')}</div>` : ''}
         <div class="inquiry-next-action">
           <span class="next-action-label">Next:</span> ${inq.next_action || 'Follow up'}
           <div class="next-action-when">${followLabel}</div>
@@ -359,6 +360,12 @@
             </div>
             ${inq.notes ? `<p style="margin-top:12px;font-size:13px;color:var(--text-secondary)">${inq.notes}</p>` : ''}
           </div>
+
+          ${window.ILRSPayment?.paymentCardHtml ? `
+          <div class="section-header"><div class="section-title">💰 Payments</div>
+            <button class="btn btn-ghost btn-sm" onclick="showRecordPaymentModal('inquiry','${id}')">+ Record Payment</button>
+          </div>
+          <div style="margin-bottom:16px">${window.ILRSPayment.paymentCardHtml(inq, 'inquiry', 'inq-detail')}</div>` : ''}
 
           <div class="section-header"><div class="section-title">📋 Linked Tasks & Reminders</div></div>
           <div class="reminder-list" style="margin-bottom:16px">

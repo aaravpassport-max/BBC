@@ -89,6 +89,8 @@
           </div>
         </div>
 
+        ${window.ILRSPayment?.paymentFormSection ? window.ILRSPayment.paymentFormSection('inquiry', inq) : ''}
+
         <button type="button" class="capture-more-toggle" id="inq-more-toggle">+ More Details</button>
         <div class="capture-more" id="inq-more" style="display:none">
           <div class="form-grid">
@@ -116,6 +118,7 @@
 
     if (typeof attachModalDismiss === 'function') attachModalDismiss(overlay);
     document.body.appendChild(overlay);
+    window.ILRSPayment?.wirePaymentFormToggle?.(overlay);
 
     const resolveWhen = (when) => {
       const now = new Date();
@@ -231,6 +234,9 @@
       if (!result?.success) {
         if (typeof toast === 'function') toast(result?.error || `Could not ${isEdit ? 'update' : 'create'} inquiry`, 'warning');
         return;
+      }
+      if (window.ILRSPayment?.savePaymentSettingsFromForm && result.inquiry?.id) {
+        await window.ILRSPayment.savePaymentSettingsFromForm('inquiry', result.inquiry.id);
       }
       if (!result.inquiry?.id) {
         if (typeof toast === 'function') toast('Save failed: inquiry was not created.', 'critical');
