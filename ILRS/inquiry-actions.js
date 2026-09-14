@@ -107,6 +107,25 @@ function computeInquiryHealth(inquiry, now = new Date()) {
   return 'healthy';
 }
 
+function syncInquiryFollowUpReminder(db, inquiryId, now = new Date()) {
+  const inquiry = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
+  if (!inquiry || inquiry.outcome_status !== 'active') return;
+
+  db.prepare(`
+    UPDATE reminders SET status = 'deleted', updated_at = datetime('now')
+    WHERE source_type = 'inquiry' AND source_id = ? AND status != 'deleted'
+  `).run(inquiryId);
+
+  if (!inquiry.next_follow_up) return;
+
+  createFollowUpReminder(db, inquiry, {
+    title: inquiry.next_action ? `${inquiry.next_action}: ${inquiry.client_name}` : undefined,
+    date: inquiry.next_follow_up,
+    time: inquiry.next_follow_up_time || '09:00',
+    now,
+  });
+}
+
 function createFollowUpReminder(db, inquiry, { title, date, time, now = new Date() }) {
   const reminderId = randomUUID();
   const fireTime = time || '09:00';
@@ -352,6 +371,13 @@ function updateInquiry(db, inquiryId, data, now = new Date()) {
     }, now);
   }
 
+  const followUpChanged = data.nextFollowUp != null && data.nextFollowUp !== inquiry.next_follow_up;
+  const followUpTimeChanged = data.nextFollowUpTime != null && data.nextFollowUpTime !== inquiry.next_follow_up_time;
+  const nextActionChanged = data.nextAction != null && data.nextAction !== inquiry.next_action;
+  if (followUpChanged || followUpTimeChanged || nextActionChanged) {
+    syncInquiryFollowUpReminder(db, inquiryId, now);
+  }
+
   const updated = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
   const health = computeInquiryHealth(updated, now);
   db.prepare('UPDATE inquiries SET health = ? WHERE id = ?').run(health, inquiryId);
@@ -409,11 +435,6 @@ function rescheduleInquiry(db, inquiryId, options = {}, now = new Date()) {
   const wasClosed = inquiry.outcome_status !== 'active';
 
   db.prepare(`
-    UPDATE reminders SET status = 'deleted', updated_at = datetime('now')
-    WHERE source_type = 'inquiry' AND source_id = ? AND status != 'deleted'
-  `).run(inquiryId);
-
-  db.prepare(`
     UPDATE inquiries SET
       outcome_status = 'active',
       stage_key = ?,
@@ -426,13 +447,8 @@ function rescheduleInquiry(db, inquiryId, options = {}, now = new Date()) {
     WHERE id = ?
   `).run(stageKey, date, time, nextAction, inquiryId);
 
+  syncInquiryFollowUpReminder(db, inquiryId, now);
   const refreshed = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
-  createFollowUpReminder(db, refreshed, {
-    title: `${nextAction}: ${refreshed.client_name}`,
-    date,
-    time,
-    now,
-  });
 
   logActivity(
     db,
@@ -468,6 +484,7 @@ module.exports = {
   findOrCreateClient,
   computeInquiryHealth,
   createFollowUpReminder,
+  syncInquiryFollowUpReminder,
   reopenInquiry,
   rescheduleInquiry,
   deleteInquiry,

@@ -13,6 +13,7 @@ const {
   deleteInquiry,
   bulkDeleteInquiries,
   rescheduleInquiry,
+  syncInquiryFollowUpReminder,
   seedInquiryStages,
 } = require('../inquiry-actions');
 
@@ -40,6 +41,7 @@ function makeDb() {
       company TEXT, mobile TEXT, email TEXT, requirement TEXT, service_category TEXT, source TEXT,
       stage_key TEXT, priority TEXT, assigned_to TEXT, next_action TEXT, next_follow_up TEXT,
       next_follow_up_time TEXT, expected_value REAL, quotation_amount REAL, payment_status TEXT,
+      work_start_date TEXT, expected_completion_date TEXT,
       outcome_status TEXT, closed_reason TEXT, health TEXT, stage_changed_at TEXT, last_activity_at TEXT,
       notes TEXT, internal_notes TEXT, tags TEXT, created_at TEXT, updated_at TEXT
     );
@@ -174,6 +176,38 @@ test('updateInquiry reactivates closed inquiry when follow-up is set', () => {
   assert.strictEqual(result.success, true);
   assert.strictEqual(result.inquiry.outcome_status, 'active');
   assert.strictEqual(result.inquiry.next_follow_up, '2026-09-25');
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
+test('updateInquiry reschedules linked follow-up reminder', () => {
+  const { db, dbPath } = makeDb();
+  const now = new Date(2026, 8, 13, 10, 0, 0);
+  const { inquiry } = createInquiry(db, {
+    clientName: 'Schedule Co',
+    requirement: 'License',
+    nextFollowUp: '2026-09-14',
+    nextFollowUpTime: '11:00',
+  }, now);
+  const before = db.prepare(
+    "SELECT start_date, reminder_time FROM reminders WHERE source_type = 'inquiry' AND source_id = ? AND status = 'active'",
+  ).get(inquiry.id);
+  assert.strictEqual(before.start_date, '2026-09-14');
+  assert.strictEqual(before.reminder_time, '11:00');
+
+  const result = updateInquiry(db, inquiry.id, {
+    nextFollowUp: '2026-09-20',
+    nextFollowUpTime: '15:30',
+  }, now);
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(result.inquiry.next_follow_up, '2026-09-20');
+
+  const activeReminders = db.prepare(
+    "SELECT * FROM reminders WHERE source_type = 'inquiry' AND source_id = ? AND status = 'active'",
+  ).all(inquiry.id);
+  assert.strictEqual(activeReminders.length, 1);
+  assert.strictEqual(activeReminders[0].start_date, '2026-09-20');
+  assert.strictEqual(activeReminders[0].reminder_time, '15:30');
   db.close();
   fs.unlinkSync(dbPath);
 });

@@ -24,6 +24,45 @@ function effectiveFollowUpDate(item) {
   return '';
 }
 
+function effectiveInquiryScheduleDate(inq) {
+  return dateOnly(inq?.next_follow_up);
+}
+
+function isActiveInquiry(inq) {
+  return Boolean(inq && inq.outcome_status === 'active');
+}
+
+function tomorrowStr(now = new Date()) {
+  const d = new Date(now);
+  d.setDate(d.getDate() + 1);
+  return localDateStr(d);
+}
+
+function isInquiryDueToday(inq, now = new Date()) {
+  if (!isActiveInquiry(inq)) return false;
+  const d = effectiveInquiryScheduleDate(inq);
+  return Boolean(d && d === localDateStr(now));
+}
+
+function isInquiryDueTomorrow(inq, now = new Date()) {
+  if (!isActiveInquiry(inq)) return false;
+  const d = effectiveInquiryScheduleDate(inq);
+  return Boolean(d && d === tomorrowStr(now));
+}
+
+function isInquiryUpcoming(inq, now = new Date()) {
+  if (!isActiveInquiry(inq)) return false;
+  const d = effectiveInquiryScheduleDate(inq);
+  if (!d) return false;
+  return d > tomorrowStr(now);
+}
+
+function isInquiryFollowUpOverdue(inq, now = new Date()) {
+  if (!isActiveInquiry(inq)) return false;
+  const d = effectiveInquiryScheduleDate(inq);
+  return Boolean(d && d < localDateStr(now));
+}
+
 function isWorkItemActive(item) {
   if (!item) return false;
   if (item.outcome_status) return item.outcome_status === 'active';
@@ -195,6 +234,12 @@ module.exports = {
   effectiveWorkStart,
   effectiveCompletionDate,
   effectiveFollowUpDate,
+  effectiveInquiryScheduleDate,
+  isActiveInquiry,
+  isInquiryDueToday,
+  isInquiryDueTomorrow,
+  isInquiryUpcoming,
+  isInquiryFollowUpOverdue,
   isWorkItemActive,
   isCompletionOverdue,
   isCompletionDueToday,

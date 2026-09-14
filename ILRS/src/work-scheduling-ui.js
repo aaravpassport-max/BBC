@@ -20,6 +20,46 @@
     return '';
   }
 
+  /** Canonical tab-classification date for inquiries (saved follow-up, not created_at). */
+  function effectiveInquiryScheduleDate(inq) {
+    return dateOnly(inq?.next_follow_up);
+  }
+
+  function isActiveInquiry(inq) {
+    return Boolean(inq && inq.outcome_status === 'active');
+  }
+
+  function tomorrowStr(now = new Date()) {
+    const cap = window.ILRSCapture;
+    return cap?.dateStr?.(cap.addDays(now, 1)) || todayStr(now);
+  }
+
+  function isInquiryDueToday(inq, now = new Date()) {
+    if (!isActiveInquiry(inq)) return false;
+    const d = effectiveInquiryScheduleDate(inq);
+    return Boolean(d && d === todayStr(now));
+  }
+
+  function isInquiryDueTomorrow(inq, now = new Date()) {
+    if (!isActiveInquiry(inq)) return false;
+    const d = effectiveInquiryScheduleDate(inq);
+    return Boolean(d && d === tomorrowStr(now));
+  }
+
+  function isInquiryUpcoming(inq, now = new Date()) {
+    if (!isActiveInquiry(inq)) return false;
+    const d = effectiveInquiryScheduleDate(inq);
+    if (!d) return false;
+    const tomorrow = tomorrowStr(now);
+    return d > tomorrow;
+  }
+
+  function isInquiryFollowUpOverdue(inq, now = new Date()) {
+    if (!isActiveInquiry(inq)) return false;
+    const d = effectiveInquiryScheduleDate(inq);
+    return Boolean(d && d < todayStr(now));
+  }
+
   function isWorkItemActive(item) {
     if (!item) return false;
     if (item.outcome_status) return item.outcome_status === 'active';
@@ -224,6 +264,12 @@
     effectiveWorkStart,
     effectiveCompletionDate,
     effectiveFollowUpDate,
+    effectiveInquiryScheduleDate,
+    isActiveInquiry,
+    isInquiryDueToday,
+    isInquiryDueTomorrow,
+    isInquiryUpcoming,
+    isInquiryFollowUpOverdue,
     isWorkItemActive,
     isCompletionOverdue,
     isCompletionDueToday,

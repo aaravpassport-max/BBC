@@ -126,6 +126,58 @@ function isCompletionOverdueInquiry(inq, now = new Date()) {
   return Boolean(WS?.isCompletionOverdue?.(inq, now));
 }
 
+function getActiveInquiries() {
+  return (App.inquiries || []).filter((i) => i.outcome_status === 'active');
+}
+
+function filterInquiriesForScheduleView(mode, now = new Date()) {
+  const WS = window.ILRSWorkScheduling;
+  const items = getActiveInquiries();
+  switch (mode) {
+    case 'today':
+      return items.filter((i) => WS?.isInquiryDueToday?.(i, now));
+    case 'tomorrow':
+      return items.filter((i) => WS?.isInquiryDueTomorrow?.(i, now));
+    case 'upcoming':
+      return items.filter((i) => WS?.isInquiryUpcoming?.(i, now));
+    case 'overdue':
+      return getOverdueInquiries(now);
+    default:
+      return [];
+  }
+}
+
+function getOverdueInquiries(now = new Date()) {
+  const WS = window.ILRSWorkScheduling;
+  const seen = new Set();
+  const result = [];
+  getActiveInquiries().forEach((inq) => {
+    if (!WS?.isInquiryFollowUpOverdue?.(inq, now) && !isCompletionOverdueInquiry(inq, now)) return;
+    if (seen.has(inq.id)) return;
+    seen.add(inq.id);
+    result.push(inq);
+  });
+  return result.sort((a, b) => {
+    const da = WS?.effectiveInquiryScheduleDate?.(a) || '0000-00-00';
+    const db = WS?.effectiveInquiryScheduleDate?.(b) || '0000-00-00';
+    return da.localeCompare(db);
+  });
+}
+
+function sortInquiriesByScheduleDate(items, now = new Date()) {
+  const WS = window.ILRSWorkScheduling;
+  return [...items].sort((a, b) => {
+    const da = WS?.effectiveInquiryScheduleDate?.(a) || '9999-12-31';
+    const db = WS?.effectiveInquiryScheduleDate?.(b) || '9999-12-31';
+    return da.localeCompare(db);
+  });
+}
+
+function renderInquiryCards(inquiries, compact = false) {
+  if (!inquiries.length || typeof inquiryCard !== 'function') return '';
+  return inquiries.map((i) => inquiryCard(i, compact)).join('');
+}
+
 function collectWorkScheduleItems() {
   const items = [];
   (App.reminders || []).forEach((r) => {
@@ -619,15 +671,24 @@ async function renderToday(el) {
     db("SELECT COUNT(*) as c FROM habit_logs WHERE completed=1 AND log_date >= date('now', '-7 days')"),
   ]);
 
-  const dueToday = App.reminders.filter(r => isActiveSchedulableReminder(r) && isSchedulableReminder(r) && (C?.isDueToday(r, now) || (!r.next_fire && r.start_date === today)));
-  const overdue = App.reminders.filter(r => isOverdueReminder(r, now));
-  const dueTomorrow = App.reminders.filter(r => isActiveSchedulableReminder(r) && isSchedulableReminder(r) && C?.isDueTomorrow(r, now));
+  const dueTodayReminders = App.reminders.filter(r => isActiveSchedulableReminder(r) && isSchedulableReminder(r) && (C?.isDueToday(r, now) || (!r.next_fire && r.start_date === today)));
+  const overdueReminders = App.reminders.filter(r => isOverdueReminder(r, now));
+  const dueTomorrowReminders = App.reminders.filter(r => isActiveSchedulableReminder(r) && isSchedulableReminder(r) && C?.isDueTomorrow(r, now));
   const postponedItems = App.reminders.filter(r => C?.isPostponedItem(r));
 
-  const activeInquiries = (App.inquiries || []).filter(i => i.outcome_status === 'active');
-  const inquiryFollowUpsToday = activeInquiries.filter(i => i.next_follow_up === today);
-  const inquiryFollowUpsOverdue = activeInquiries.filter(i => i.next_follow_up && i.next_follow_up < today);
+  const inquiryFollowUpsToday = sortInquiriesByScheduleDate(filterInquiriesForScheduleView('today', now), now);
+  const inquiryFollowUpsOverdue = sortInquiriesByScheduleDate(
+    getActiveInquiries().filter((i) => window.ILRSWorkScheduling?.isInquiryFollowUpOverdue?.(i, now)),
+    now,
+  );
+  const inquiryDueTomorrow = sortInquiriesByScheduleDate(filterInquiriesForScheduleView('tomorrow', now), now);
+  const dueToday = dueTodayReminders;
+  const overdue = overdueReminders;
+  const dueTomorrow = dueTomorrowReminders;
   const inquiryAttention = inquiryFollowUpsToday.length + inquiryFollowUpsOverdue.length;
+  const todayCount = dueToday.length + inquiryFollowUpsToday.length;
+  const tomorrowCount = dueTomorrow.length + inquiryDueTomorrow.length;
+  const overdueCount = overdue.length + getOverdueInquiries(now).length;
 
   const pendingMeds = getPendingMedDoses(medLogs || [], nowT);
   const billsAttention = getBillsNeedingAttention(todayDay);
@@ -654,50 +715,43 @@ async function renderToday(el) {
     <div class="greeting-sub">${attention === 0 ? 'You\'re all caught up!' : `${attention} thing${attention !== 1 ? 's' : ''} need your attention`}${lifeCount > 0 ? ` · ${lifeCount} from Life` : ''}</div>
 
     <div class="smart-tabs">
-      <button class="smart-tab active" onclick="navigate('today')">Today · ${dueToday.length}</button>
-      <button class="smart-tab" onclick="navigate('tomorrow')">Tomorrow · ${dueTomorrow.length}</button>
-      <button class="smart-tab" onclick="navigate('overdue')">Overdue · ${overdue.length}</button>
+      <button class="smart-tab active" onclick="navigate('today')">Today · ${todayCount}</button>
+      <button class="smart-tab" onclick="navigate('tomorrow')">Tomorrow · ${tomorrowCount}</button>
+      <button class="smart-tab" onclick="navigate('overdue')">Overdue · ${overdueCount}</button>
       <button class="smart-tab" onclick="navigate('postponed')">Postponed · ${postponedItems.length}</button>
       <button class="smart-tab" onclick="navigate('upcoming')">Upcoming</button>
     </div>
 
-    ${overdue.length > 0 ? `
+    ${overdueCount > 0 ? `
     <div class="attention-banner">
       <span style="font-size:24px">🚨</span>
       <div>
-        <strong style="color:var(--critical)">${overdue.length} overdue reminder${overdue.length > 1 ? 's' : ''}</strong>
-        <div style="font-size:12px;color:var(--text-secondary);margin-top:2px">${overdue.map(r => r.title).slice(0, 3).join(', ')}${overdue.length > 3 ? '...' : ''}</div>
+        <strong style="color:var(--critical)">${overdueCount} overdue item${overdueCount > 1 ? 's' : ''}</strong>
+        <div style="font-size:12px;color:var(--text-secondary);margin-top:2px">${[...overdue.map(r => r.title), ...inquiryFollowUpsOverdue.map(i => i.client_name)].slice(0, 3).join(', ')}${overdueCount > 3 ? '...' : ''}</div>
       </div>
-      <button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="navigate('reminders')">View All</button>
+      <button class="btn btn-danger btn-sm" style="margin-left:auto" onclick="navigate('overdue')">View All</button>
     </div>` : ''}
 
     <div class="dashboard-grid">
       <div>
-        ${overdue.length > 0 ? `
+        ${overdueCount > 0 ? `
         <div class="section-header">
           <div class="section-title">⚠️ Overdue</div>
+          <button class="btn btn-ghost btn-sm" onclick="navigate('overdue')">View all</button>
         </div>
-        <div class="reminder-list" style="margin-bottom:20px">${overdue.slice(0, 5).map(r => reminderCard(r)).join('')}</div>` : ''}
+        <div class="reminder-list" style="margin-bottom:12px">${overdue.slice(0, 5).map(r => reminderCard(r)).join('')}</div>
+        ${inquiryFollowUpsOverdue.length > 0 ? `<div class="inquiry-list" style="margin-bottom:20px">${renderInquiryCards(inquiryFollowUpsOverdue.slice(0, 5), true)}</div>` : ''}` : ''}
 
         <div class="section-header">
           <div class="section-title">☀️ Due Today</div>
           <button class="btn btn-primary btn-sm" onclick="showCaptureSheet()">+ Add</button>
         </div>
         <div class="reminder-list" id="dashboard-reminders">
-          ${dueToday.length === 0 ? `<div class="empty-state"><div class="empty-icon">🎉</div><h3>Nothing due today</h3><p>Press <strong>＋ New Reminder</strong> or type in the quick-add bar.</p></div>` :
+          ${todayCount === 0 ? `<div class="empty-state"><div class="empty-icon">🎉</div><h3>Nothing due today</h3><p>Press <strong>＋ New Reminder</strong> or type in the quick-add bar.</p></div>` :
             dueToday.slice(0, 8).map(r => reminderCard(r)).join('')}
         </div>
-        ${dueToday.length > 8 ? `<div style="text-align:center;margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="navigate('reminders')">View all ${dueToday.length}</button></div>` : ''}
-
-        ${inquiryAttention > 0 ? `
-        <div class="section-header" style="margin-top:24px">
-          <div class="section-title">📥 Work Follow-ups</div>
-          <button class="btn btn-ghost btn-sm" onclick="navigate('inquiry-followups')">All follow-ups</button>
-        </div>
-        <div class="inquiry-list" style="margin-bottom:16px">
-          ${inquiryFollowUpsOverdue.slice(0, 3).map(i => typeof inquiryCard === 'function' ? inquiryCard(i, true) : '').join('')}
-          ${inquiryFollowUpsToday.slice(0, 3).map(i => typeof inquiryCard === 'function' ? inquiryCard(i, true) : '').join('')}
-        </div>` : ''}
+        ${inquiryFollowUpsToday.length > 0 ? `<div class="inquiry-list" style="margin-top:12px;margin-bottom:16px">${renderInquiryCards(inquiryFollowUpsToday.slice(0, 8), true)}</div>` : ''}
+        ${todayCount > 8 ? `<div style="text-align:center;margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="navigate('today')">View all ${todayCount}</button></div>` : ''}
 
         ${lifeCount > 0 ? `
         <div class="section-header" style="margin-top:24px">
@@ -829,19 +883,23 @@ async function renderSmartList(mode) {
     });
   }
 
+  let scheduleInquiries = [];
   switch (mode) {
     case 'tomorrow':
       items = App.reminders.filter(r => isActiveSchedulableReminder(r) && isSchedulableReminder(r) && C?.isDueTomorrow(r, now));
+      scheduleInquiries = sortInquiriesByScheduleDate(filterInquiriesForScheduleView('tomorrow', now), now);
       title = '🌅 Tomorrow';
       subtitle = 'What is coming tomorrow';
       break;
     case 'upcoming':
       items = App.reminders.filter(r => isActiveSchedulableReminder(r) && isSchedulableReminder(r) && (C?.isUpcoming(r, now) || C?.isFutureWorkItem?.(r, now)));
+      scheduleInquiries = sortInquiriesByScheduleDate(filterInquiriesForScheduleView('upcoming', now), now);
       title = '📆 Upcoming';
       subtitle = 'Future work — all months';
       break;
     case 'overdue':
       items = App.reminders.filter(r => isOverdueReminder(r, now));
+      scheduleInquiries = getOverdueInquiries(now);
       title = '⚠️ Overdue';
       subtitle = 'Needs your attention';
       break;
@@ -857,12 +915,9 @@ async function renderSmartList(mode) {
   }
 
   const postponedCount = App.reminders.filter(r => C?.isPostponedItem(r)).length;
-  const overdueInquiries = mode === 'overdue'
-    ? (App.inquiries || []).filter((i) => isCompletionOverdueInquiry(i, now))
-    : [];
-  const totalCount = items.length + lifeCards.length + overdueInquiries.length;
+  const totalCount = items.length + lifeCards.length + scheduleInquiries.length;
   const lifeNote = lifeCards.length > 0 ? ` · ${lifeCards.length} from Life` : '';
-  const inquiryNote = overdueInquiries.length > 0 ? ` · ${overdueInquiries.length} inquiries` : '';
+  const inquiryNote = scheduleInquiries.length > 0 ? ` · ${scheduleInquiries.length} inquiries` : '';
 
   el.innerHTML = `
     <div class="page-header">
@@ -886,14 +941,14 @@ async function renderSmartList(mode) {
       <button class="btn btn-ghost btn-sm" onclick="navigate('medicine')">Life modules</button>
     </div>
     <div class="reminder-list" style="margin-bottom:16px">${lifeCards.join('')}</div>` : ''}
-    ${overdueInquiries.length > 0 ? `
+    ${scheduleInquiries.length > 0 ? `
     <div class="section-header" style="margin-top:8px">
-      <div class="section-title">📥 Overdue Inquiries</div>
-      <button class="btn btn-ghost btn-sm" onclick="navigate('work-schedule');setWorkScheduleFilter('overdue')">Work Schedule</button>
+      <div class="section-title">📥 ${mode === 'overdue' ? 'Overdue' : mode === 'tomorrow' ? 'Tomorrow' : 'Upcoming'} Inquiries</div>
+      <button class="btn btn-ghost btn-sm" onclick="navigate('inquiries')">All inquiries</button>
     </div>
-    <div class="inquiry-list" style="margin-bottom:16px">${overdueInquiries.map((i) => typeof inquiryCard === 'function' ? inquiryCard(i) : '').join('')}</div>` : ''}
+    <div class="inquiry-list" style="margin-bottom:16px">${renderInquiryCards(scheduleInquiries)}</div>` : ''}
     <div class="reminder-list">
-      ${items.length === 0 && lifeCards.length === 0 && overdueInquiries.length === 0
+      ${items.length === 0 && lifeCards.length === 0 && scheduleInquiries.length === 0
         ? `<div class="empty-state"><div class="empty-icon">✨</div><h3>Nothing here</h3><p>You're clear for this view.</p></div>`
         : items.length === 0
           ? `<div class="empty-state" style="padding:24px 0"><p style="color:var(--text-muted)">No reminders in this view.</p></div>`
