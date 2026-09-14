@@ -241,6 +241,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
   color:var(--muted-text)!important;
 }
 [data-theme="light"] #scalpingSessionReadinessBox,
+[data-theme="light"] #pullbackContinuationBox,
 [data-theme="light"] #settingsModalOverlay [style*="background:#422006"],
 [data-theme="light"] #settingsModalOverlay [style*="background: #422006"]{
   background:#fef3c7!important;
@@ -316,6 +317,8 @@ body.fno-nse-disabled .nse-only-section{display:none}
     <div style="margin-bottom:18px;padding:12px;background:#422006;border:1px solid #92400e;border-radius:10px">
       <div style="font-size:12px;font-weight:700;color:#fde68a;margin-bottom:8px">⚡ Scalping Profit Profile <span id="scalpingProfitProfileStatusLabel" style="margin-left:8px;color:#94a3b8;font-weight:400">OFF</span></div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingScalpingProfitProfile"> Enable profile — more scalp entries with safety rails (spread block, weighted-score gate, tight target/SL, 65% auto-cal)</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingPullbackContinuation"> ↩️ Pullback Continuation engine (dynamic 10/15/20pt targets) <span id="pullbackContinuationStatusLabel" style="margin-left:auto;color:#64748b">ON</span></label>
+      <div style="font-size:10px;color:#64748b;margin-bottom:6px">Classifies movement speed (fast/medium/slow) each refresh and selects 10, 15, or 20 index-point targets. Requires trend → impulse → retrace → continuation before entry.</div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingScalpingCapitalPreservation"> 🛡️ Capital preservation mode <span id="scalpingCapitalPreservationStatusLabel" style="margin-left:auto;color:#64748b">ON</span></label>
       <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px 8px 8px;flex-wrap:wrap">
         <span>Max losing trades/day:</span>
@@ -526,6 +529,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
         </div>
         <div style="font-size:10px;color:#64748b;margin-bottom:8px">While ON, this tab automatically re-runs the full observe-analyse-decide-monitor-exit cycle every 15 seconds (Scalping) or 60 seconds (Intraday) during real NSE market hours (9:15am-3:30pm IST, Mon-Fri) - no manual clicking needed. Honest limit: this only runs while this browser tab stays open; closing it pauses everything until you return.</div>
         <div id="scalpingSessionReadinessBox" style="display:none;margin-bottom:10px;padding:10px;background:#422006;border:1px solid #92400e;border-radius:10px"></div>
+        <div id="pullbackContinuationBox" style="display:none;margin-bottom:10px;padding:10px;background:#422006;border:1px solid #92400e;border-radius:10px"></div>
         <div id="eligibilityFunnelBox" style="margin-bottom:10px;padding:10px;background:#0c1a2e;border:1px solid #1e3a5f;border-radius:10px;font-size:11px;color:#94a3b8">Loading eligibility funnel...</div>
         <div id="modeComparisonDashboard" style="display:none;margin-bottom:10px;padding:10px;background:#0f172a;border:1px solid #334155;border-radius:10px;font-size:11px;color:#94a3b8">Mode comparison dashboard loads when Scalping Profit Profile is ON.</div>
         <div id="brainDecision" style="font-size:18px;font-weight:800;padding:12px;border-radius:12px;background:#020617;text-align:center">Loading brain...</div>
@@ -934,6 +938,7 @@ window.FNO_FACTORS_CATALOG = <?php echo $json ? wp_json_encode($json) : '[]'; ?>
 <?php include __DIR__ . '/fno-lab-core.js'; ?>
 <?php include __DIR__ . '/trading-modes-engine.js'; ?>
 <?php include __DIR__ . '/liquidity-behaviour-engine.js'; ?>
+<?php include __DIR__ . '/pullback-continuation-engine.js'; ?>
 <?php include __DIR__ . '/strategy-diagnostic-report.js'; ?>
 </script>
 <?php endif; ?>

@@ -115,6 +115,8 @@ const FNO_SETTINGS_DEFAULTS = {
   defaultLots: 2,
   // Scalping capital preservation — stricter entry gates to minimize losses (never removes all risk).
   scalpingCapitalPreservationEnabled: true,
+  // Pullback Continuation Setup Engine — dynamic 10/15/20pt spot targets from live movement speed.
+  pullbackContinuationEnabled: true,
   maxLosingTradesPerDay: 1,
   maxDailyLossPctPreservation: 1.5,
   // Scalping bracket preset: standard 20% (default) | balanced 25% | manual (save your own %)
@@ -626,9 +628,13 @@ function computeBracketPrices(optPrice, cfg) {
   };
 }
 
-function resolveTradeBracketForEntry(optPrice, tradingType) {
+function resolveTradeBracketForEntry(optPrice, tradingType, ctx, brain, optionType) {
   if (typeof optPrice !== 'number' || !Number.isFinite(optPrice) || optPrice <= 0) {
     return { target: null, sl: null, source: 'invalid_price' };
+  }
+  if (tradingType === 'scalping' && typeof resolvePullbackContinuationBracket === 'function') {
+    const pbce = resolvePullbackContinuationBracket(optPrice, ctx, brain, tradingType, optionType);
+    if (pbce && pbce.target && pbce.sl) return pbce;
   }
   if (tradingType === 'scalping' && isScalpingProfitProfileActive() && fnoSettings.get().tradeTypeTargetSlEnabled) {
     const cfg = getScalpingBracketConfig();
@@ -849,6 +855,10 @@ function renderScalpingSessionReadiness(brain, ctx) {
   const lotTxt = formatLotQtyLabel(sym, getLotCountFromUi());
   const modeProfile = typeof getActiveTradingModeProfile === 'function' ? getActiveTradingModeProfile() : null;
   const preserveTxt = formatScalpingCapitalPreservationStatusText();
+  const pbSetup = (ctx && ctx.pullbackContinuation) || (typeof computePullbackContinuationSetup === 'function' ? computePullbackContinuationSetup(ctx, brain) : null);
+  const pbTargetTxt = (pbSetup && pbSetup.active)
+    ? `Dynamic spot target: ${pbSetup.spotTargetPoints}pt (${pbSetup.movementTier}) — ${pbSetup.selectionReason}${pbSetup.feasibility && pbSetup.feasibility.feasible ? ' · feasible' : ' · not feasible'}`
+    : null;
   const sizeMult = modeProfile && brain ? resolveModePositionSizeMultiplier(brain.confidence, modeProfile) : 1;
   const sizeTxt = sizeMult < 1 ? `${lotTxt} (mode size ×${sizeMult})` : lotTxt;
   const decayPct = computeValueDecayCriticalPct(ctx || {});
@@ -869,7 +879,8 @@ function renderScalpingSessionReadiness(brain, ctx) {
     `Size: ${sizeTxt}`,
     decayPolicyTxt,
     preserveTxt,
-  ].map(line => `<div style="padding:3px 0;font-size:11px;color:${tp.text}">${line}</div>`).join('');
+    pbTargetTxt,
+  ].filter(Boolean).map(line => `<div style="padding:3px 0;font-size:11px;color:${tp.text}">${line}</div>`).join('');
 }
 
 /**
@@ -10147,6 +10158,11 @@ function buildEntrySnapshot(brain, ctx, sym) {
     rawTickLink: sym ? { symbol: sym, rangeStartTs: snapshotTs - 5*60*1000, rangeEndTs: snapshotTs } : null,
     modeAttribution: (typeof buildModeTradeAttribution === 'function') ? buildModeTradeAttribution(brain, ctx, {}) : null,
     tradingMode: typeof resolveScalpingTradingMode === 'function' ? resolveScalpingTradingMode() : null,
+    pullbackContinuation: (typeof buildPullbackContinuationAttribution === 'function' && brain && brain.pullbackContinuation)
+      ? buildPullbackContinuationAttribution(brain.pullbackContinuation)
+      : (typeof buildPullbackContinuationAttribution === 'function' && typeof computePullbackContinuationSetup === 'function')
+        ? buildPullbackContinuationAttribution(computePullbackContinuationSetup(ctx, brain))
+        : null,
   };
 }
 const FNO_STRATEGY_VERSION = 'v1.0-baseline'; // Master Prompt §34: every strategy change must create a new version and be stored on every trade this version influenced - bump this string (and log the change in PROJECT_STATUS.md) whenever evaluateBrain's decision logic, thresholds, or factor weights actually change
@@ -15322,6 +15338,10 @@ function render(){
     if (preserveEl) preserveEl.checked = s.scalpingCapitalPreservationEnabled !== false;
     const preserveLbl = document.getElementById('scalpingCapitalPreservationStatusLabel');
     if (preserveLbl) preserveLbl.textContent = s.scalpingCapitalPreservationEnabled !== false ? 'ON' : 'OFF';
+    const pbEl = document.getElementById('settingPullbackContinuation');
+    if (pbEl) pbEl.checked = s.pullbackContinuationEnabled !== false;
+    const pbLbl = document.getElementById('pullbackContinuationStatusLabel');
+    if (pbLbl) pbLbl.textContent = s.pullbackContinuationEnabled !== false ? 'ON' : 'OFF';
     const maxLossEl = document.getElementById('settingMaxLosingTradesPerDay');
     if (maxLossEl) maxLossEl.value = (typeof s.maxLosingTradesPerDay === 'number') ? s.maxLosingTradesPerDay : 1;
     const maxLossPctEl = document.getElementById('settingMaxDailyLossPctPreservation');
@@ -15428,6 +15448,17 @@ function render(){
       if (lbl) lbl.textContent = e.target.checked ? 'ON' : 'OFF';
       if (typeof renderScalpingSessionReadiness === 'function' && window.FNO_LAST_BRAIN) {
         renderScalpingSessionReadiness(window.FNO_LAST_BRAIN, window.FNO_LAST_CTX || {});
+      }
+    });
+  }
+  const pbCheckbox = document.getElementById('settingPullbackContinuation');
+  if (pbCheckbox) {
+    pbCheckbox.addEventListener('change', (e) => {
+      fnoSettings.set({ pullbackContinuationEnabled: e.target.checked });
+      const lbl = document.getElementById('pullbackContinuationStatusLabel');
+      if (lbl) lbl.textContent = e.target.checked ? 'ON' : 'OFF';
+      if (typeof renderPullbackContinuationPanel === 'function' && window.FNO_LAST_CTX && window.FNO_LAST_CTX.pullbackContinuation) {
+        renderPullbackContinuationPanel(window.FNO_LAST_CTX.pullbackContinuation);
       }
     });
   }
@@ -16228,6 +16259,17 @@ function render(){
         generateAndLogHypothesisIfDue(operatorIntel, rec && rec.data, spot, sym, refreshCtx.liquidityInputs ? refreshCtx.liquidityInputs.trapSignal : null, refreshCtx.strikeShift);
         renderCurrentHypothesisBox(refreshCtx.liquidityInputs ? refreshCtx.liquidityInputs.trapSignal : null, refreshCtx.strikeShift);
       }
+      try {
+        if (typeof computePullbackContinuationSetup === 'function') {
+          const pbSetup = computePullbackContinuationSetup(refreshCtx, brain);
+          applyPullbackContinuationInfluence(brain, pbSetup);
+          refreshCtx.pullbackContinuation = pbSetup;
+          logPullbackContinuationObservation(pbSetup, sym, brain);
+          renderPullbackContinuationPanel(pbSetup);
+        }
+      } catch (pbErr) {
+        console.warn('Pullback Continuation engine failed (non-critical):', pbErr);
+      }
       // Real, NEW this pass (Advanced Trading Intelligence spec §3/§16) -
       // cached to a window global, same real pattern as
       // window.FNO_SUGGESTED_OBSERVATIONS, so renderDecisionIntelligence()
@@ -16296,11 +16338,12 @@ function render(){
           const autoLeg = autoOptionType === 'PE' ? (refreshCtx.ocRow && refreshCtx.ocRow.PE) : (refreshCtx.ocRow && refreshCtx.ocRow.CE);
           if (!autoLeg || typeof autoLeg.lastPrice !== 'number') { decisionLogBlockReason = 'No live premium available for the signaled leg this refresh.'; }
           if (autoLeg && typeof autoLeg.lastPrice === 'number') {
-            const useTradeTypeDefaults = fnoSettings.get().tradeTypeTargetSlEnabled;
+            const useTradeTypeDefaults = fnoSettings.get().tradeTypeTargetSlEnabled
+              || (typeof isPullbackContinuationActive === 'function' && isPullbackContinuationActive());
             let autoTarget;
             let autoSl;
             if (useTradeTypeDefaults) {
-              const bracket = resolveTradeBracketForEntry(autoLeg.lastPrice, resolveDecisionTradingType());
+              const bracket = resolveTradeBracketForEntry(autoLeg.lastPrice, resolveDecisionTradingType(), refreshCtx, brain, autoOptionType);
               autoTarget = bracket.target != null ? bracket.target : +(autoLeg.lastPrice * 1.3).toFixed(2);
               autoSl = bracket.sl != null ? bracket.sl : +(autoLeg.lastPrice * 0.85).toFixed(2);
             } else {
@@ -17837,6 +17880,14 @@ function render(){
     if (existing && existing.id) { return { opened: false, reason: 'Position already open' }; } // real, honest no-op for the autonomous path - not an error, just nothing to do this cycle
     if (!target || !sl || sl>=leg.lastPrice || target<=leg.lastPrice) { reportFn('Target must be above, and SL below, the current live premium.'); return { opened: false }; }
 
+    if (typeof checkPullbackContinuationEntryGate === 'function' && timeSufficiencyType === 'scalping') {
+      const pbGate = checkPullbackContinuationEntryGate(lastBrain, curCtx, optionType);
+      if (!pbGate.allowed) {
+        reportFn(pbGate.reason);
+        return { opened: false, reason: pbGate.reason, rejectionCategory: FNO_EXEC_REJECTION.STRATEGY_RULE, rejectionSubcategory: 'pullback_continuation' };
+      }
+    }
+
     // User's own explicit requirement - "the system should evaluate
     // the applicable Failure-Mode Library before every simulated
     // trade." Reuses the same real, already-computed lastBrain/curCtx
@@ -18244,8 +18295,8 @@ function render(){
     const entryPrice = (liveLeg && typeof liveLeg.lastPrice === 'number') ? liveLeg.lastPrice : (parseFloat(document.getElementById('optPrice').value) || null);
     let target = null;
     let sl = null;
-    if (entryPrice && fnoSettings.get().tradeTypeTargetSlEnabled) {
-      const bracket = resolveTradeBracketForEntry(entryPrice, resolveDecisionTradingType());
+    if (entryPrice && (fnoSettings.get().tradeTypeTargetSlEnabled || (typeof isPullbackContinuationActive === 'function' && isPullbackContinuationActive()))) {
+      const bracket = resolveTradeBracketForEntry(entryPrice, resolveDecisionTradingType(), curCtx, lastBrain, optionType);
       target = bracket.target;
       sl = bracket.sl;
     } else {
@@ -19860,6 +19911,11 @@ document.addEventListener('fnoSettingsChanged', (e) => {
   if (readinessBox && !isScalpingProfitProfileActive()) readinessBox.style.display = 'none';
   else if (readinessBox && typeof renderScalpingSessionReadiness === 'function' && window.FNO_LAST_BRAIN) {
     renderScalpingSessionReadiness(window.FNO_LAST_BRAIN, window.FNO_LAST_CTX || {});
+  }
+  const pbBox = document.getElementById('pullbackContinuationBox');
+  if (pbBox && typeof isPullbackContinuationActive === 'function' && !isPullbackContinuationActive()) pbBox.style.display = 'none';
+  else if (pbBox && typeof renderPullbackContinuationPanel === 'function' && window.FNO_LAST_CTX && window.FNO_LAST_CTX.pullbackContinuation) {
+    renderPullbackContinuationPanel(window.FNO_LAST_CTX.pullbackContinuation);
   }
 });
 
