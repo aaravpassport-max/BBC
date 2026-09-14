@@ -342,7 +342,7 @@
           <button class="btn btn-ghost btn-sm" onclick="logInquiryQuick('${id}','call')">📞 Call</button>
           <button class="btn btn-ghost btn-sm" onclick="logInquiryQuick('${id}','whatsapp')">💬 WhatsApp</button>
           <button class="btn btn-ghost btn-sm" onclick="showInquiryLinkedTask('${id}')">＋ Task</button>
-          <button class="btn btn-ghost btn-sm" onclick="editInquiry('${id}')">Edit</button>
+          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editInquiry('${id}')">Edit</button>
           <button class="btn btn-ghost btn-sm" onclick="deleteInquiryItem('${id}')">🗑 Delete</button>
           ${inq.outcome_status !== 'active'
             ? `<button class="btn btn-ghost btn-sm" onclick="showInquiryRescheduleMenu('${id}')">📅 Reschedule</button>
@@ -428,8 +428,22 @@
   }
 
   function editInquiry(id) {
-    const inq = (App.inquiries || []).find((i) => i.id === id);
-    if (inq && typeof showInquirySheet === 'function') showInquirySheet(inq);
+    const lookupId = id || App.selectedInquiryId;
+    const inq = (App.inquiries || []).find((i) => i.id === lookupId);
+    if (!inq) {
+      if (typeof toast === 'function') toast('Inquiry not found — try refreshing the list', 'warning');
+      return;
+    }
+    if (typeof window.showInquirySheet !== 'function') {
+      if (typeof toast === 'function') toast('Edit form failed to load — please restart the app', 'critical');
+      return;
+    }
+    try {
+      window.showInquirySheet(inq);
+    } catch (err) {
+      console.error('editInquiry:', err);
+      if (typeof toast === 'function') toast('Could not open edit form', 'critical');
+    }
   }
 
   function showInquiryLinkedTask(id) {

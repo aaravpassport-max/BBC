@@ -25,6 +25,8 @@
 
   function showInquirySheet(existing = null) {
     if (typeof dismissPageModals === 'function') dismissPageModals();
+    document.getElementById('inquiry-sheet')?.remove();
+
     const pipeline = P();
     const isEdit = !!existing?.id;
     const inq = existing || {};
@@ -35,9 +37,23 @@
       : activeStages;
     const sources = pipeline?.SOURCE_CHIPS || [];
     const cap = window.ILRSCapture;
-    const whenInfo = isEdit && inq.next_follow_up && cap?.resolveWhenFromExisting
-      ? cap.resolveWhenFromExisting({ start_date: inq.next_follow_up })
-      : { when: 'tomorrow', startDate: '' };
+    const followDate = String(inq.next_follow_up || '').slice(0, 10);
+    let whenInfo = { when: 'tomorrow', startDate: '' };
+    if (isEdit && followDate) {
+      whenInfo = cap?.resolveWhenFromExisting
+        ? cap.resolveWhenFromExisting({ start_date: followDate })
+        : { when: 'custom', startDate: followDate };
+    }
+    const hasMoreDetails = !!(inq.mobile || inq.email || inq.company || inq.notes || inq.service_category || inq.expected_value);
+
+    let paymentFormHtml = '';
+    try {
+      paymentFormHtml = window.ILRSPayment?.paymentFormSection
+        ? window.ILRSPayment.paymentFormSection('inquiry', inq)
+        : '';
+    } catch (err) {
+      console.error('Inquiry payment form:', err);
+    }
 
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay capture-overlay';
@@ -89,10 +105,10 @@
           </div>
         </div>
 
-        ${window.ILRSPayment?.paymentFormSection ? window.ILRSPayment.paymentFormSection('inquiry', inq) : ''}
+        ${paymentFormHtml}
 
-        <button type="button" class="capture-more-toggle" id="inq-more-toggle">+ More Details</button>
-        <div class="capture-more" id="inq-more" style="display:none">
+        <button type="button" class="capture-more-toggle" id="inq-more-toggle">${hasMoreDetails ? '▾ Less Details' : '+ More Details'}</button>
+        <div class="capture-more" id="inq-more" style="display:${hasMoreDetails ? 'block' : 'none'}">
           <div class="form-grid">
             <div class="form-group"><label class="form-label">Mobile</label><input type="tel" class="form-input" id="inq-mobile" value="${esc(inq.mobile)}" /></div>
             <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="inq-email" value="${esc(inq.email)}" /></div>
@@ -114,6 +130,7 @@
         </div>
         <input type="hidden" id="inq-when" value="${whenInfo.when}" />
         <input type="hidden" id="inq-source" value="${esc(inq.source || '')}" />
+        <input type="hidden" id="inq-edit-id" value="${esc(inq.id || '')}" />
       </div>`;
 
     if (typeof attachModalDismiss === 'function') attachModalDismiss(overlay);
@@ -228,8 +245,9 @@
         }
       }
 
+      const editId = document.getElementById('inq-edit-id')?.value || inq.id;
       const result = isEdit
-        ? await window.ilrs?.updateInquiry?.(inq.id, data)
+        ? await window.ilrs?.updateInquiry?.(editId, data)
         : await window.ilrs?.createInquiry?.(data);
       if (!result?.success) {
         if (typeof toast === 'function') toast(result?.error || `Could not ${isEdit ? 'update' : 'create'} inquiry`, 'warning');

@@ -29,6 +29,7 @@ const App = {
   pipelineStageFilter: 'all',
   inquiryStageFilter: 'all',
 };
+window.App = App;
 
 // ── Utilities ─────────────────────────────────────────────────────
 function uuid() {

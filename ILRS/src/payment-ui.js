@@ -16,9 +16,15 @@
     return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   }
 
+  function appData() {
+    if (typeof App !== 'undefined') return App;
+    if (typeof window !== 'undefined' && window.App) return window.App;
+    return { workPayments: {} };
+  }
+
   function getPaymentsFor(entityType, entityId) {
     const key = `${entityType}:${entityId}`;
-    return (App.workPayments || {})[key] || [];
+    return (appData().workPayments || {})[key] || [];
   }
 
   function computeSummary(item, entityType) {

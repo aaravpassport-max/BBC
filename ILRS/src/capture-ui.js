@@ -152,7 +152,7 @@
           </div>
         </div>
 
-        ${window.ILRSPayment?.paymentFormSection ? window.ILRSPayment.paymentFormSection('reminder', r) : ''}
+        ${(() => { try { return window.ILRSPayment?.paymentFormSection ? window.ILRSPayment.paymentFormSection('reminder', r) : ''; } catch (_) { return ''; } })()}
 
         <button type="button" class="capture-more-toggle" id="capture-more-toggle">${state.moreOpen ? '▾ Less options' : '+ More options'}</button>
         <div class="capture-more" id="capture-more" style="display:${state.moreOpen ? 'block' : 'none'}">
