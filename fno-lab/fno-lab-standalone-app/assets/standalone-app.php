@@ -242,6 +242,8 @@ body.fno-nse-disabled .nse-only-section{display:none}
 }
 [data-theme="light"] #scalpingSessionReadinessBox,
 [data-theme="light"] #pullbackContinuationBox,
+[data-theme="light"] #tradeSetupPerformanceBox,
+[data-theme="light"] #tradeSetupValidationBox,
 [data-theme="light"] #settingsModalOverlay [style*="background:#422006"],
 [data-theme="light"] #settingsModalOverlay [style*="background: #422006"]{
   background:#fef3c7!important;
@@ -330,6 +332,9 @@ body.fno-nse-disabled .nse-only-section{display:none}
           <label>10pt target <input type="number" id="settingTargetPointsSlow" min="5" max="15" step="1" value="10" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
           <label>15pt target <input type="number" id="settingTargetPointsMedium" min="10" max="20" step="1" value="15" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
           <label>20pt target <input type="number" id="settingTargetPointsFast" min="15" max="30" step="1" value="20" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
+          <label>Min impulse pt <input type="number" id="settingMinImpulsePoints" min="3" max="30" step="1" value="8" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
+          <label>Min EMA slope <input type="number" id="settingMinEmaSlopePoints" min="0.05" max="2" step="0.05" value="0.15" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
+          <label>OR minutes <input type="number" id="settingOpeningRangeMinutes" min="5" max="60" step="5" value="15" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
         </div>
       </div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingScalpingCapitalPreservation"> 🛡️ Capital preservation mode <span id="scalpingCapitalPreservationStatusLabel" style="margin-left:auto;color:#64748b">ON</span></label>
@@ -543,6 +548,8 @@ body.fno-nse-disabled .nse-only-section{display:none}
         <div style="font-size:10px;color:#64748b;margin-bottom:8px">While ON, this tab automatically re-runs the full observe-analyse-decide-monitor-exit cycle every 15 seconds (Scalping) or 60 seconds (Intraday) during real NSE market hours (9:15am-3:30pm IST, Mon-Fri) - no manual clicking needed. Honest limit: this only runs while this browser tab stays open; closing it pauses everything until you return.</div>
         <div id="scalpingSessionReadinessBox" style="display:none;margin-bottom:10px;padding:10px;background:#422006;border:1px solid #92400e;border-radius:10px"></div>
         <div id="pullbackContinuationBox" style="display:none;margin-bottom:10px;padding:10px;background:#422006;border:1px solid #92400e;border-radius:10px"></div>
+        <div id="tradeSetupPerformanceBox" style="display:none;margin-bottom:10px;padding:10px;background:#0c1a2e;border:1px solid #1e3a5f;border-radius:10px;font-size:11px"></div>
+        <div id="tradeSetupValidationBox" style="display:none;margin-bottom:10px;padding:10px;background:#0f172a;border:1px solid #334155;border-radius:10px;font-size:11px"></div>
         <div id="eligibilityFunnelBox" style="margin-bottom:10px;padding:10px;background:#0c1a2e;border:1px solid #1e3a5f;border-radius:10px;font-size:11px;color:#94a3b8">Loading eligibility funnel...</div>
         <div id="modeComparisonDashboard" style="display:none;margin-bottom:10px;padding:10px;background:#0f172a;border:1px solid #334155;border-radius:10px;font-size:11px;color:#94a3b8">Mode comparison dashboard loads when Scalping Profit Profile is ON.</div>
         <div id="brainDecision" style="font-size:18px;font-weight:800;padding:12px;border-radius:12px;background:#020617;text-align:center">Loading brain...</div>

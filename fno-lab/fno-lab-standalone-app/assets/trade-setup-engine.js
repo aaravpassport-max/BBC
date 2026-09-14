@@ -6,7 +6,11 @@ const FNO_TSE_LOG_KEY = 'fno_trade_setup_decision_log_v1';
 const FNO_TSE_LOG_MAX = 3000;
 const FNO_TSE_PERF_KEY = 'fno_trade_setup_perf_v1';
 const FNO_TSE_STATE_KEY = 'fno_trade_setup_state_v1';
+const FNO_TSE_VALIDATION_KEY = 'fno_trade_setup_paper_validation_v1';
+const FNO_TSE_VALIDATION_MAX = 2000;
 const FNO_TSE_TARGET_POINTS = { slow: 10, medium: 15, fast: 20 };
+const FNO_TSE_MIN_SAMPLE_FOR_STATS = 10;
+const FNO_TSE_TRAIN_SPLIT = 0.7;
 
 const FNO_TSE_SETUP_TYPES = {
   EMA_PULLBACK: 'ema_pullback_continuation',
@@ -56,7 +60,28 @@ function getTradeSetupSettings() {
     targetSlow: typeof s.targetPointsSlow === 'number' ? s.targetPointsSlow : 10,
     minEmaSlopePts: typeof s.minEmaSlopePoints === 'number' ? s.minEmaSlopePoints : 0.15,
     minImpulsePts: typeof s.minImpulsePoints === 'number' ? s.minImpulsePoints : 8,
+    openingRangeMinutes: typeof s.openingRangeMinutes === 'number' ? s.openingRangeMinutes : 15,
+    candleIntervalMinutes: typeof s.candleIntervalMinutes === 'number' ? s.candleIntervalMinutes : 1,
   };
+}
+
+function computeOpeningRange(candles, minutes, barMinutes) {
+  minutes = minutes || 15;
+  barMinutes = barMinutes || 1;
+  if (!candles || !candles.length) return { high: null, low: null, method: 'none' };
+  const closes = candles.map(c => c.c).filter(Number.isFinite);
+  if (!closes.length) return { high: null, low: null, method: 'none' };
+  const firstT = candles[0].t;
+  if (Number.isFinite(firstT) && firstT > 1e9) {
+    const orEnd = firstT + minutes * 60 * 1000;
+    const orCloses = candles.filter(c => Number.isFinite(c.t) && c.t <= orEnd).map(c => c.c).filter(Number.isFinite);
+    if (orCloses.length) {
+      return { high: Math.max(...orCloses), low: Math.min(...orCloses), method: 'time_' + minutes + 'min', bars: orCloses.length };
+    }
+  }
+  const barCount = Math.max(1, Math.round(minutes / barMinutes));
+  const slice = closes.slice(0, Math.min(barCount, closes.length));
+  return { high: Math.max(...slice), low: Math.min(...slice), method: 'bars_' + barCount, bars: slice.length };
 }
 
 function isTradeSetupEngineActive() {
@@ -97,9 +122,11 @@ function buildMarketState(ctx, brain) {
   ms.sessionHigh = Math.max(...closes);
   ms.sessionLow = Math.min(...closes);
   ms.sessionOpen = closes[0];
-  const orWin = closes.slice(0, Math.min(5, closes.length));
-  ms.openingRangeHigh = orWin.length ? Math.max(...orWin) : ms.sessionOpen;
-  ms.openingRangeLow = orWin.length ? Math.min(...orWin) : ms.sessionOpen;
+  const cfg = getTradeSetupSettings();
+  const or = computeOpeningRange(candles, cfg.openingRangeMinutes, cfg.candleIntervalMinutes);
+  ms.openingRangeHigh = or.high;
+  ms.openingRangeLow = or.low;
+  ms.openingRangeMethod = or.method;
   const ranges = [];
   for (let i = Math.max(1, last - 13); i <= last; i++) ranges.push(Math.abs(closes[i] - closes[i - 1]));
   ms.atr = ranges.length ? ranges.reduce((a, b) => a + b, 0) / ranges.length : null;
@@ -848,53 +875,271 @@ function getTradeSetupDecisionLog() {
 function computeSetupPerformanceStats(log) {
   log = log || getTradeSetupDecisionLog();
   const bySetup = {};
-  const byMovement = { FAST: { n: 0, wins: 0, pnl: 0 }, MEDIUM: { n: 0, wins: 0, pnl: 0 }, SLOW: { n: 0, wins: 0, pnl: 0 } };
-  const byDirection = { bullish: { n: 0, wins: 0 }, bearish: { n: 0, wins: 0 } };
-  const targetSuccess = { t10: { n: 0, hit: 0 }, t15: { n: 0, hit: 0 }, t20: { n: 0, hit: 0 } };
+  const byMovement = { FAST: { n: 0, wins: 0, pnl: 0, losses: 0 }, MEDIUM: { n: 0, wins: 0, pnl: 0, losses: 0 }, SLOW: { n: 0, wins: 0, pnl: 0, losses: 0 } };
+  const byDirection = { bullish: { n: 0, wins: 0, pnl: 0 }, bearish: { n: 0, wins: 0, pnl: 0 } };
+  const byRegime = {};
+  const targetSuccess = { t10: { n: 0, hit: 0, pnl: 0 }, t15: { n: 0, hit: 0, pnl: 0 }, t20: { n: 0, hit: 0, pnl: 0 } };
   let totalPnl = 0, grossWins = 0, grossLosses = 0, winCount = 0, lossCount = 0;
-  log.filter(e => e.outcome && typeof e.outcome.pnl === 'number').forEach(e => {
+  const equityCurve = [];
+  let peak = 0, maxDrawdown = 0, runningPnl = 0;
+  const completed = log.filter(e => e.outcome && typeof e.outcome.pnl === 'number').sort((a, b) => (a.ts || 0) - (b.ts || 0));
+
+  completed.forEach(e => {
     const k = e.setupType || 'unknown';
     if (!bySetup[k]) bySetup[k] = {
-      trades: 0, wins: 0, losses: 0, pnl: 0, target10: 0, target15: 0, target20: 0,
-      target10Hit: 0, target15Hit: 0, target20Hit: 0, avgMfe: 0, avgMae: 0, mfeSum: 0, maeSum: 0,
+      trades: 0, wins: 0, losses: 0, pnl: 0, winPnl: 0, lossPnl: 0,
+      target10: 0, target15: 0, target20: 0, target10Hit: 0, target15Hit: 0, target20Hit: 0,
+      mfeSum: 0, maeSum: 0, holdMsSum: 0,
     };
     const b = bySetup[k];
     b.trades++;
-    if (e.outcome.pnl > 0) { b.wins++; winCount++; grossWins += e.outcome.pnl; }
-    else { b.losses++; lossCount++; grossLosses += Math.abs(e.outcome.pnl); }
+    if (e.outcome.pnl > 0) { b.wins++; b.winPnl += e.outcome.pnl; winCount++; grossWins += e.outcome.pnl; }
+    else { b.losses++; b.lossPnl += Math.abs(e.outcome.pnl); lossCount++; grossLosses += Math.abs(e.outcome.pnl); }
     b.pnl += e.outcome.pnl;
     totalPnl += e.outcome.pnl;
-    if (e.targetPoints === 10) { b.target10++; targetSuccess.t10.n++; if (e.outcome.reachedTarget) { b.target10Hit++; targetSuccess.t10.hit++; } }
-    if (e.targetPoints === 15) { b.target15++; targetSuccess.t15.n++; if (e.outcome.reachedTarget) { b.target15Hit++; targetSuccess.t15.hit++; } }
-    if (e.targetPoints === 20) { b.target20++; targetSuccess.t20.n++; if (e.outcome.reachedTarget) { b.target20Hit++; targetSuccess.t20.hit++; } }
-    if (typeof e.outcome.mfe === 'number') { b.mfeSum += e.outcome.mfe; }
-    if (typeof e.outcome.mae === 'number') { b.maeSum += e.outcome.mae; }
+    runningPnl += e.outcome.pnl;
+    peak = Math.max(peak, runningPnl);
+    maxDrawdown = Math.max(maxDrawdown, peak - runningPnl);
+    equityCurve.push({ ts: e.ts, pnl: runningPnl });
+    if (e.targetPoints === 10) { b.target10++; targetSuccess.t10.n++; targetSuccess.t10.pnl += e.outcome.pnl; if (e.outcome.reachedTarget) { b.target10Hit++; targetSuccess.t10.hit++; } }
+    if (e.targetPoints === 15) { b.target15++; targetSuccess.t15.n++; targetSuccess.t15.pnl += e.outcome.pnl; if (e.outcome.reachedTarget) { b.target15Hit++; targetSuccess.t15.hit++; } }
+    if (e.targetPoints === 20) { b.target20++; targetSuccess.t20.n++; targetSuccess.t20.pnl += e.outcome.pnl; if (e.outcome.reachedTarget) { b.target20Hit++; targetSuccess.t20.hit++; } }
+    if (typeof e.outcome.mfe === 'number') b.mfeSum += e.outcome.mfe;
+    if (typeof e.outcome.mae === 'number') b.maeSum += e.outcome.pnl < 0 ? e.outcome.mae : e.outcome.mae;
+    if (typeof e.outcome.holdingMs === 'number') b.holdMsSum += e.outcome.holdingMs;
     const mc = e.movementClass || 'SLOW';
-    if (byMovement[mc]) { byMovement[mc].n++; byMovement[mc].pnl += e.outcome.pnl; if (e.outcome.pnl > 0) byMovement[mc].wins++; }
+    if (byMovement[mc]) { byMovement[mc].n++; byMovement[mc].pnl += e.outcome.pnl; if (e.outcome.pnl > 0) byMovement[mc].wins++; else byMovement[mc].losses++; }
     const dir = e.direction || 'bullish';
-    if (byDirection[dir]) { byDirection[dir].n++; if (e.outcome.pnl > 0) byDirection[dir].wins++; }
+    if (byDirection[dir]) { byDirection[dir].n++; byDirection[dir].pnl += e.outcome.pnl; if (e.outcome.pnl > 0) byDirection[dir].wins++; }
+    const reg = e.regime || 'Unknown';
+    if (!byRegime[reg]) byRegime[reg] = { n: 0, wins: 0, pnl: 0 };
+    byRegime[reg].n++;
+    byRegime[reg].pnl += e.outcome.pnl;
+    if (e.outcome.pnl > 0) byRegime[reg].wins++;
   });
+
   Object.keys(bySetup).forEach(k => {
     const b = bySetup[k];
     b.winRate = b.trades ? +((b.wins / b.trades) * 100).toFixed(1) : null;
     b.expectancy = b.trades ? +(b.pnl / b.trades).toFixed(2) : null;
-    b.avgWin = b.wins ? +((b.pnl > 0 ? b.pnl : 0) / b.wins).toFixed(2) : null;
-    b.profitFactor = grossLosses > 0 ? +((grossWins / grossLosses).toFixed(2)) : null;
+    b.avgWin = b.wins ? +(b.winPnl / b.wins).toFixed(2) : null;
+    b.avgLoss = b.losses ? +(b.lossPnl / b.losses).toFixed(2) : null;
+    b.profitFactor = b.lossPnl > 0 ? +((b.winPnl / b.lossPnl).toFixed(2)) : null;
     b.avgMfe = b.trades && b.mfeSum ? +(b.mfeSum / b.trades).toFixed(2) : null;
     b.avgMae = b.trades && b.maeSum ? +(b.maeSum / b.trades).toFixed(2) : null;
+    b.avgTimeToTargetMs = b.trades && b.holdMsSum ? Math.round(b.holdMsSum / b.trades) : null;
     b.target10Success = b.target10 ? +((b.target10Hit / b.target10) * 100).toFixed(1) : null;
     b.target15Success = b.target15 ? +((b.target15Hit / b.target15) * 100).toFixed(1) : null;
     b.target20Success = b.target20 ? +((b.target20Hit / b.target20) * 100).toFixed(1) : null;
+    b.sampleSufficient = b.trades >= FNO_TSE_MIN_SAMPLE_FOR_STATS;
   });
+
+  ['t10', 't15', 't20'].forEach(k => {
+    const t = targetSuccess[k];
+    t.successRate = t.n ? +((t.hit / t.n) * 100).toFixed(1) : null;
+    t.expectancy = t.n ? +(t.pnl / t.n).toFixed(2) : null;
+  });
+
+  Object.keys(byMovement).forEach(k => {
+    const m = byMovement[k];
+    m.winRate = m.n ? +((m.wins / m.n) * 100).toFixed(1) : null;
+    m.expectancy = m.n ? +(m.pnl / m.n).toFixed(2) : null;
+  });
+
   return {
-    bySetup, byMovement, byDirection, targetSuccess, totalLogged: log.length,
+    bySetup, byMovement, byDirection, byRegime, targetSuccess, totalLogged: log.length,
+    completedTrades: completed.length,
     overall: {
       trades: winCount + lossCount,
       winRate: (winCount + lossCount) ? +((winCount / (winCount + lossCount)) * 100).toFixed(1) : null,
       expectancy: (winCount + lossCount) ? +(totalPnl / (winCount + lossCount)).toFixed(2) : null,
       profitFactor: grossLosses > 0 ? +((grossWins / grossLosses).toFixed(2)) : null,
+      maxDrawdown: +(maxDrawdown.toFixed(2)),
+      avgWin: winCount ? +(grossWins / winCount).toFixed(2) : null,
+      avgLoss: lossCount ? +(grossLosses / lossCount).toFixed(2) : null,
+      totalPnl: +(totalPnl.toFixed(2)),
+    },
+    sampleWarning: (winCount + lossCount) < FNO_TSE_MIN_SAMPLE_FOR_STATS
+      ? `Only ${winCount + lossCount} completed trades — need ${FNO_TSE_MIN_SAMPLE_FOR_STATS}+ for reliable stats`
+      : null,
+  };
+}
+
+function computeTargetExpectancyAnalysis(log) {
+  log = log || getTradeSetupDecisionLog();
+  const completed = log.filter(e => e.outcome && typeof e.outcome.pnl === 'number').sort((a, b) => (a.ts || 0) - (b.ts || 0));
+  const splitIdx = Math.floor(completed.length * FNO_TSE_TRAIN_SPLIT);
+  const train = completed.slice(0, splitIdx || completed.length);
+  const validation = splitIdx > 0 ? completed.slice(splitIdx) : [];
+
+  function analyzeSubset(entries, label) {
+    const byTarget = { 10: { n: 0, wins: 0, pnl: 0, hit: 0 }, 15: { n: 0, wins: 0, pnl: 0, hit: 0 }, 20: { n: 0, wins: 0, pnl: 0, hit: 0 } };
+    entries.forEach(e => {
+      const tp = e.targetPoints;
+      if (!byTarget[tp]) return;
+      byTarget[tp].n++;
+      byTarget[tp].pnl += e.outcome.pnl;
+      if (e.outcome.pnl > 0) byTarget[tp].wins++;
+      if (e.outcome.reachedTarget) byTarget[tp].hit++;
+    });
+    [10, 15, 20].forEach(tp => {
+      const b = byTarget[tp];
+      b.winRate = b.n ? +((b.wins / b.n) * 100).toFixed(1) : null;
+      b.expectancy = b.n ? +(b.pnl / b.n).toFixed(2) : null;
+      b.targetHitRate = b.n ? +((b.hit / b.n) * 100).toFixed(1) : null;
+      b.sampleSufficient = b.n >= FNO_TSE_MIN_SAMPLE_FOR_STATS;
+    });
+    let bestTarget = null, bestExpectancy = -Infinity;
+    [10, 15, 20].forEach(tp => {
+      if (byTarget[tp].n >= 3 && byTarget[tp].expectancy != null && byTarget[tp].expectancy > bestExpectancy) {
+        bestExpectancy = byTarget[tp].expectancy;
+        bestTarget = tp;
+      }
+    });
+    return { label, byTarget, bestTarget, bestExpectancy: bestTarget ? bestExpectancy : null, sampleSize: entries.length };
+  }
+
+  const trainAnalysis = analyzeSubset(train, 'train');
+  const validationAnalysis = analyzeSubset(validation, 'validation');
+  const fullAnalysis = analyzeSubset(completed, 'full');
+
+  const byMovementTarget = {};
+  ['FAST', 'MEDIUM', 'SLOW'].forEach(mc => {
+    byMovementTarget[mc] = { 10: { n: 0, pnl: 0 }, 15: { n: 0, pnl: 0 }, 20: { n: 0, pnl: 0 } };
+    completed.filter(e => (e.movementClass || 'SLOW') === mc).forEach(e => {
+      const tp = e.targetPoints;
+      if (byMovementTarget[mc][tp]) { byMovementTarget[mc][tp].n++; byMovementTarget[mc][tp].pnl += e.outcome.pnl; }
+    });
+    [10, 15, 20].forEach(tp => {
+      const b = byMovementTarget[mc][tp];
+      b.expectancy = b.n ? +(b.pnl / b.n).toFixed(2) : null;
+    });
+    let best = null, bestExp = -Infinity;
+    [10, 15, 20].forEach(tp => {
+      if (byMovementTarget[mc][tp].n >= 2 && byMovementTarget[mc][tp].expectancy > bestExp) {
+        bestExp = byMovementTarget[mc][tp].expectancy;
+        best = tp;
+      }
+    });
+    byMovementTarget[mc].recommendedTarget = best;
+    byMovementTarget[mc].recommendedExpectancy = best != null ? bestExp : null;
+  });
+
+  let overfitWarning = null;
+  if (trainAnalysis.bestTarget && validationAnalysis.bestTarget && trainAnalysis.bestTarget !== validationAnalysis.bestTarget
+    && validation.length >= 5) {
+    overfitWarning = `Train favours ${trainAnalysis.bestTarget}pt but validation favours ${validationAnalysis.bestTarget}pt — possible overfit`;
+  }
+
+  return {
+    full: fullAnalysis,
+    train: trainAnalysis,
+    validation: validationAnalysis,
+    byMovementTarget,
+    overfitWarning,
+    recommendation: {
+      overall: fullAnalysis.bestTarget,
+      FAST: byMovementTarget.FAST.recommendedTarget || 20,
+      MEDIUM: byMovementTarget.MEDIUM.recommendedTarget || 15,
+      SLOW: byMovementTarget.SLOW.recommendedTarget || 10,
     },
   };
+}
+
+function getPaperValidationLog() {
+  try { return JSON.parse(localStorage.getItem(FNO_TSE_VALIDATION_KEY) || '[]'); } catch (e) { return []; }
+}
+
+function recordPaperValidationSignal(tsd, sym, brain, tradeId) {
+  if (!tsd || !tsd.active) return;
+  try {
+    const log = getPaperValidationLog();
+    log.push({
+      ts: tsd.ts || Date.now(),
+      sym,
+      tradeId: tradeId || null,
+      setupType: tsd.bestSetupType,
+      direction: tsd.setup ? tsd.setup.direction : null,
+      movementClass: tsd.movementClass,
+      targetPoints: tsd.spotTargetPoints,
+      stopLossPoints: tsd.spotTargetPoints ? tsd.spotTargetPoints * 0.5 : null,
+      spotTargetPrice: tsd.spotTargetPrice,
+      entrySpot: tsd.spotTargetPrice && tsd.spotTargetPoints && tsd.setup
+        ? +(tsd.spotTargetPrice - (tsd.setup.direction === 'bullish' ? 1 : -1) * tsd.spotTargetPoints).toFixed(2) : null,
+      entryAllowed: tsd.entryAllowed,
+      engineStatus: tsd.engineStatus,
+      setupScore: tsd.setupScore ? tsd.setupScore.normalized : null,
+      targetFeasible: !!(tsd.targetInfo && tsd.targetInfo.feasible),
+      blockReason: tsd.blockReason,
+      validated: false,
+      outcome: null,
+    });
+    while (log.length > FNO_TSE_VALIDATION_MAX) log.shift();
+    localStorage.setItem(FNO_TSE_VALIDATION_KEY, JSON.stringify(log));
+  } catch (e) { /* quota */ }
+}
+
+function computePaperValidationReport(log) {
+  log = log || getPaperValidationLog();
+  const withOutcome = log.filter(e => e.outcome);
+  const entries = log.filter(e => e.entryAllowed);
+  let reachedTarget = 0, hitStop = 0, targetFeasibleCorrect = 0, targetFeasibleTotal = 0;
+
+  withOutcome.forEach(e => {
+    if (e.outcome.reachedTarget) reachedTarget++;
+    if (e.outcome.hitStop) hitStop++;
+    if (e.targetFeasible != null) {
+      targetFeasibleTotal++;
+      const wasFeasible = e.targetFeasible;
+      const actuallyReached = e.outcome.reachedTarget || (e.outcome.maxFavorablePoints && e.targetPoints && e.outcome.maxFavorablePoints >= e.targetPoints * 0.8);
+      if (wasFeasible === !!actuallyReached || (wasFeasible && e.outcome.reachedTarget)) targetFeasibleCorrect++;
+    }
+  });
+
+  const recent = log.slice(-20).reverse();
+  return {
+    totalSignals: log.length,
+    entryAllowedCount: entries.length,
+    completedValidations: withOutcome.length,
+    targetHitRate: withOutcome.length ? +((reachedTarget / withOutcome.length) * 100).toFixed(1) : null,
+    stopHitRate: withOutcome.length ? +((hitStop / withOutcome.length) * 100).toFixed(1) : null,
+    feasibilityAccuracy: targetFeasibleTotal ? +((targetFeasibleCorrect / targetFeasibleTotal) * 100).toFixed(1) : null,
+    recent,
+    pendingValidation: log.filter(e => e.entryAllowed && !e.outcome).length,
+  };
+}
+
+function updatePaperValidationOutcome(tradeId, outcome, tsd) {
+  try {
+    const log = getPaperValidationLog();
+    for (let i = log.length - 1; i >= 0; i--) {
+      if ((tradeId && log[i].tradeId === tradeId) || (!log[i].outcome && log[i].entryAllowed && !log[i].validated)) {
+        log[i].outcome = outcome;
+        log[i].validated = true;
+        log[i].validatedAt = Date.now();
+        if (tsd) {
+          log[i].actualTargetPoints = tsd.spotTargetPoints;
+          log[i].actualSetupType = tsd.bestSetupType;
+        }
+        break;
+      }
+    }
+    localStorage.setItem(FNO_TSE_VALIDATION_KEY, JSON.stringify(log));
+  } catch (e) { /* no-op */ }
+}
+
+function linkPaperValidationTradeId(tradeId) {
+  if (!tradeId) return;
+  try {
+    const log = getPaperValidationLog();
+    for (let i = log.length - 1; i >= 0; i--) {
+      if (log[i].entryAllowed && !log[i].tradeId) {
+        log[i].tradeId = tradeId;
+        break;
+      }
+    }
+    localStorage.setItem(FNO_TSE_VALIDATION_KEY, JSON.stringify(log));
+  } catch (e) { /* no-op */ }
 }
 
 function buildPullbackContinuationAttribution(setup) {
@@ -959,5 +1204,107 @@ function recordTradeSetupOutcome(tradeId, outcome) {
       }
     }
     localStorage.setItem(FNO_TSE_LOG_KEY, JSON.stringify(log));
+    updatePaperValidationOutcome(tradeId, outcome);
   } catch (e) { /* no-op */ }
+}
+
+function renderTradeSetupPerformanceDashboard(stats, targetAnalysis) {
+  if (typeof document === 'undefined') return;
+  const box = document.getElementById('tradeSetupPerformanceBox');
+  if (!box) return;
+  if (!isTradeSetupEngineActive()) { box.style.display = 'none'; return; }
+  stats = stats || computeSetupPerformanceStats();
+  targetAnalysis = targetAnalysis || computeTargetExpectancyAnalysis();
+  box.style.display = 'block';
+  const tp = typeof fnoThemePalette === 'function' ? fnoThemePalette() : {
+    panel: '#0c1a2e', line: '#1e3a5f', text: '#e2e8f0', muted: '#94a3b8', pass: '#4ade80', fail: '#f87171', warn: '#fde68a',
+  };
+  box.style.background = tp.panel;
+  box.style.borderColor = tp.line;
+  box.style.color = tp.text;
+
+  const o = stats.overall || {};
+  const setupRows = Object.keys(stats.bySetup || {}).map(k => {
+    const b = stats.bySetup[k];
+    const short = k.replace(/_/g, ' ').slice(0, 22);
+    return `<tr><td>${fnoTseEscapeHtml(short)}</td><td>${b.trades}</td><td>${b.winRate != null ? b.winRate + '%' : '—'}</td><td>${b.expectancy != null ? b.expectancy : '—'}</td><td>${b.profitFactor != null ? b.profitFactor : '—'}</td><td>${b.target10Success != null ? b.target10Success + '%' : '—'}</td><td>${b.target15Success != null ? b.target15Success + '%' : '—'}</td><td>${b.target20Success != null ? b.target20Success + '%' : '—'}</td></tr>`;
+  }).join('') || '<tr><td colspan="8" style="color:' + tp.muted + '">No completed trades yet</td></tr>';
+
+  const movRows = ['FAST', 'MEDIUM', 'SLOW'].map(mc => {
+    const m = (stats.byMovement || {})[mc] || {};
+    const rec = (targetAnalysis.byMovementTarget || {})[mc] || {};
+    return `<div style="font-size:10px">${mc}: ${m.n || 0} trades · WR ${m.winRate != null ? m.winRate + '%' : '—'} · exp ${m.expectancy != null ? m.expectancy : '—'} · best target <b>${rec.recommendedTarget != null ? rec.recommendedTarget + 'pt' : '—'}</b></div>`;
+  }).join('');
+
+  const ta = targetAnalysis.full && targetAnalysis.full.byTarget ? targetAnalysis.full.byTarget : {};
+  const targetCompare = [10, 15, 20].map(tp2 => {
+    const t = ta[tp2] || {};
+    return `<div style="font-size:10px">${tp2}pt: n=${t.n || 0} · WR ${t.winRate != null ? t.winRate + '%' : '—'} · exp ${t.expectancy != null ? t.expectancy : '—'} · hit ${t.targetHitRate != null ? t.targetHitRate + '%' : '—'}</div>`;
+  }).join('');
+
+  box.innerHTML = [
+    `<b style="color:${tp.warn}">📈 Trade Setup Performance</b>`,
+    stats.sampleWarning ? `<div style="font-size:10px;color:${tp.warn};margin-top:4px">${fnoTseEscapeHtml(stats.sampleWarning)}</div>` : '',
+    `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;font-size:10px">`,
+    `<div>Trades<b style="display:block;font-size:14px">${o.trades || 0}</b></div>`,
+    `<div>Win rate<b style="display:block;font-size:14px;color:${tp.pass}">${o.winRate != null ? o.winRate + '%' : '—'}</b></div>`,
+    `<div>Expectancy<b style="display:block;font-size:14px">${o.expectancy != null ? o.expectancy : '—'}</b></div>`,
+    `<div>Max DD<b style="display:block;font-size:14px;color:${tp.fail}">${o.maxDrawdown != null ? o.maxDrawdown : '—'}</b></div>`,
+    `</div>`,
+    `<div style="font-size:11px;margin-top:8px"><b>BY SETUP TYPE</b></div>`,
+    `<table style="width:100%;font-size:9px;border-collapse:collapse;margin-top:4px"><tr style="color:${tp.muted}"><th align="left">Setup</th><th>N</th><th>WR</th><th>Exp</th><th>PF</th><th>10%</th><th>15%</th><th>20%</th></tr>${setupRows}</table>`,
+    `<div style="font-size:11px;margin-top:8px"><b>BY MOVEMENT → RECOMMENDED TARGET</b></div>`,
+    movRows,
+    `<div style="font-size:11px;margin-top:8px"><b>10 / 15 / 20 POINT TARGET COMPARISON</b></div>`,
+    targetCompare,
+    targetAnalysis.overfitWarning ? `<div style="font-size:10px;color:${tp.warn};margin-top:6px">⚠ ${fnoTseEscapeHtml(targetAnalysis.overfitWarning)}</div>` : '',
+    `<div style="font-size:10px;color:${tp.muted};margin-top:6px">Train/validation split ${Math.round(FNO_TSE_TRAIN_SPLIT * 100)}/${Math.round((1 - FNO_TSE_TRAIN_SPLIT) * 100)} · min sample ${FNO_TSE_MIN_SAMPLE_FOR_STATS}</div>`,
+  ].join('');
+}
+
+function renderPaperValidationReport(report) {
+  if (typeof document === 'undefined') return;
+  const box = document.getElementById('tradeSetupValidationBox');
+  if (!box) return;
+  if (!isTradeSetupEngineActive()) { box.style.display = 'none'; return; }
+  report = report || computePaperValidationReport();
+  box.style.display = 'block';
+  const tp = typeof fnoThemePalette === 'function' ? fnoThemePalette() : {
+    panel: '#0f172a', line: '#334155', text: '#e2e8f0', muted: '#94a3b8', pass: '#4ade80', fail: '#f87171', warn: '#fde68a',
+  };
+  box.style.background = tp.panel;
+  box.style.borderColor = tp.line;
+  box.style.color = tp.text;
+
+  const recentHtml = (report.recent || []).slice(0, 8).map(r => {
+    const oc = r.outcome;
+    const status = oc ? (oc.reachedTarget ? tp.pass : oc.hitStop ? tp.fail : tp.warn) : tp.muted;
+    const label = oc
+      ? (oc.reachedTarget ? 'TARGET' : oc.hitStop ? 'STOP' : 'CLOSED')
+      : (r.entryAllowed ? 'PENDING' : 'BLOCKED');
+    return `<div style="font-size:10px;padding:3px 0;border-bottom:1px solid ${tp.line}"><span style="color:${status}">${label}</span> · ${fnoTseEscapeHtml(r.setupType || '—')} · ${r.targetPoints || '—'}pt · ${r.movementClass || '—'} · score ${r.setupScore != null ? r.setupScore : '—'}${oc && oc.pnl != null ? ' · PnL ' + oc.pnl.toFixed(0) : ''}</div>`;
+  }).join('') || `<div style="color:${tp.muted};font-size:10px">No validation signals yet — paper trades will populate this log</div>`;
+
+  box.innerHTML = [
+    `<b style="color:${tp.warn}">🧪 Paper Trading Validation</b>`,
+    `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;font-size:10px">`,
+    `<div>Signals<b style="display:block;font-size:13px">${report.totalSignals || 0}</b></div>`,
+    `<div>Entries<b style="display:block;font-size:13px">${report.entryAllowedCount || 0}</b></div>`,
+    `<div>Target hit<b style="display:block;font-size:13px;color:${tp.pass}">${report.targetHitRate != null ? report.targetHitRate + '%' : '—'}</b></div>`,
+    `<div>Feasibility<b style="display:block;font-size:13px">${report.feasibilityAccuracy != null ? report.feasibilityAccuracy + '%' : '—'}</b></div>`,
+    `</div>`,
+    `<div style="font-size:10px;color:${tp.muted};margin-top:4px">Pending: ${report.pendingValidation || 0} · Completed: ${report.completedValidations || 0} · Stop rate: ${report.stopHitRate != null ? report.stopHitRate + '%' : '—'}</div>`,
+    `<div style="font-size:11px;margin-top:8px"><b>RECENT SIGNALS</b></div>`,
+    recentHtml,
+  ].join('');
+}
+
+function renderTradeSetupAnalytics() {
+  if (!isTradeSetupEngineActive()) return;
+  const stats = computeSetupPerformanceStats();
+  const targetAnalysis = computeTargetExpectancyAnalysis();
+  const validation = computePaperValidationReport();
+  renderTradeSetupPerformanceDashboard(stats, targetAnalysis);
+  renderPaperValidationReport(validation);
+  try { localStorage.setItem(FNO_TSE_PERF_KEY, JSON.stringify({ stats, targetAnalysis, ts: Date.now() })); } catch (e) { /* quota */ }
 }

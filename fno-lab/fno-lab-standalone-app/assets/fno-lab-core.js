@@ -64,7 +64,7 @@ let fnoAutoTradeCloseInProgress = false;
  */
 const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
-const FNO_SETTINGS_SCHEMA_VERSION = 10; // v10 (16.33.0): Trade Setup Engine thresholds wired to runtime
+const FNO_SETTINGS_SCHEMA_VERSION = 11; // v11 (16.34.0): TSE opening range + impulse/slope settings
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -129,6 +129,8 @@ const FNO_SETTINGS_DEFAULTS = {
   targetPointsSlow: 10,
   minImpulsePoints: 8,
   minEmaSlopePoints: 0.15,
+  openingRangeMinutes: 15,
+  candleIntervalMinutes: 1,
   maxLosingTradesPerDay: 1,
   maxDailyLossPctPreservation: 1.5,
   // Scalping bracket preset: standard 20% (default) | balanced 25% | manual (save your own %)
@@ -407,6 +409,15 @@ function migrateTradingControlsSchema(stored) {
       targetPointsFast: merged.targetPointsFast != null ? merged.targetPointsFast : 20,
       targetPointsMedium: merged.targetPointsMedium != null ? merged.targetPointsMedium : 15,
       targetPointsSlow: merged.targetPointsSlow != null ? merged.targetPointsSlow : 10,
+      minImpulsePoints: merged.minImpulsePoints != null ? merged.minImpulsePoints : 8,
+      minEmaSlopePoints: merged.minEmaSlopePoints != null ? merged.minEmaSlopePoints : 0.15,
+    };
+  }
+  if (schema < 11) {
+    merged = {
+      ...merged,
+      openingRangeMinutes: merged.openingRangeMinutes != null ? merged.openingRangeMinutes : 15,
+      candleIntervalMinutes: merged.candleIntervalMinutes != null ? merged.candleIntervalMinutes : 1,
       minImpulsePoints: merged.minImpulsePoints != null ? merged.minImpulsePoints : 8,
       minEmaSlopePoints: merged.minEmaSlopePoints != null ? merged.minEmaSlopePoints : 0.15,
     };
@@ -15389,6 +15400,9 @@ function render(){
       ['settingTargetPointsFast', 'targetPointsFast', 20],
       ['settingTargetPointsMedium', 'targetPointsMedium', 15],
       ['settingTargetPointsSlow', 'targetPointsSlow', 10],
+      ['settingMinImpulsePoints', 'minImpulsePoints', 8],
+      ['settingMinEmaSlopePoints', 'minEmaSlopePoints', 0.15],
+      ['settingOpeningRangeMinutes', 'openingRangeMinutes', 15],
     ];
     tseFields.forEach(([id, key, fallback]) => {
       const el = document.getElementById(id);
@@ -15527,6 +15541,9 @@ function render(){
     ['settingTargetPointsFast', 'targetPointsFast', 15, 30],
     ['settingTargetPointsMedium', 'targetPointsMedium', 10, 20],
     ['settingTargetPointsSlow', 'targetPointsSlow', 5, 15],
+    ['settingMinImpulsePoints', 'minImpulsePoints', 3, 30],
+    ['settingMinEmaSlopePoints', 'minEmaSlopePoints', 0.05, 2],
+    ['settingOpeningRangeMinutes', 'openingRangeMinutes', 5, 60],
   ];
   tseSettingBindings.forEach(([id, key, min, max]) => {
     const el = document.getElementById(id);
@@ -16341,7 +16358,9 @@ function render(){
           refreshCtx.tradeSetupDecision = tsd;
           refreshCtx.pullbackContinuation = brain.pullbackContinuation;
           logTradeSetupDecision(tsd, sym, brain);
+          if (typeof recordPaperValidationSignal === 'function') recordPaperValidationSignal(tsd, sym, brain);
           renderTradeSetupMonitor(tsd);
+          if (typeof renderTradeSetupAnalytics === 'function') renderTradeSetupAnalytics();
         } else if (typeof computePullbackContinuationSetup === 'function') {
           const pbSetup = computePullbackContinuationSetup(refreshCtx, brain);
           applyPullbackContinuationInfluence(brain, pbSetup);
@@ -17749,9 +17768,14 @@ function render(){
         exitPrice,
         entryPrice: open.entryPrice,
         reachedTarget: exitReason === 'target',
-        hitStop: exitReason === 'sl' || exitReason === 'auto_sl',
+        hitStop: exitReason === 'sl' || exitReason === 'auto_sl' || exitReason === 'square_off',
         holdingMs: open.openedAt ? (Date.now() - open.openedAt) : null,
+        maxFavorablePoints: (open.entrySpot != null && curCtx && typeof curCtx.spot === 'number')
+          ? Math.abs(curCtx.spot - open.entrySpot) : null,
+        maxAdversePoints: (open.entrySpot != null && open.mae != null && open.entryPrice != null)
+          ? null : null,
       });
+      if (typeof renderTradeSetupAnalytics === 'function') renderTradeSetupAnalytics();
     }
     notifyTradeExecution({
       kind: 'exit',
@@ -18284,6 +18308,7 @@ function render(){
     const entryCandleTs = (curCtx && Array.isArray(curCtx.candles) && curCtx.candles.length) ? curCtx.candles[curCtx.candles.length - 1].t : null;
     const openTradeId = Date.now();
     save(STORAGE.autoTrades, {id:openTradeId, strike, optionType, entryPrice:fill.price, fillIsRealistic:fill.isRealistic, executionMode:execMode, qty:filledLotSize, requestedQty: lotSize, fillIsPartial: partialFillInfo.isPartial, decisionTimePrice, entrySlippagePct: slippageCheck.slippagePct, target, sl, openedAt:Date.now(), entrySnapshot: entrySnapshotWithFailureCheck, trailingEnabled, trailingSl: sl, partialExitEnabled, partialTaken:false, mfe:fill.price, mae:fill.price, entryIV: (curCtx && curCtx.decay && curCtx.decay.snapshot && typeof curCtx.decay.snapshot.iv === 'number') ? curCtx.decay.snapshot.iv : null, failureModeCheck: fmResult, tradingType: effectiveTradingType, entrySpot, entryCandleTs});
+    if (typeof linkPaperValidationTradeId === 'function') linkPaperValidationTradeId(openTradeId);
     if (typeof logModeTradeOpen === 'function' && lastBrain) {
       logModeTradeOpen(openTradeId, lastBrain, curCtx, {
         sym,
@@ -20020,6 +20045,9 @@ document.addEventListener('fnoSettingsChanged', (e) => {
     renderTradeSetupMonitor(window.FNO_LAST_CTX.tradeSetupDecision);
   } else if (pbBox && typeof renderPullbackContinuationPanel === 'function' && window.FNO_LAST_CTX && window.FNO_LAST_CTX.pullbackContinuation) {
     renderPullbackContinuationPanel(window.FNO_LAST_CTX.pullbackContinuation);
+  }
+  if (typeof renderTradeSetupAnalytics === 'function' && typeof isTradeSetupEngineActive === 'function' && isTradeSetupEngineActive()) {
+    renderTradeSetupAnalytics();
   }
 });
 

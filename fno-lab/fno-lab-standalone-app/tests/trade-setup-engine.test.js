@@ -37,7 +37,7 @@ const bootSrc = [
   'function checkScalpingCapitalPreservation(brain, ctx, opts){ opts=opts||{}; const j=opts.journalToday||[]; const losses=j.filter(t=>typeof t.pnl==="number"&&t.pnl<0).length; if(losses>=1) return {allowed:false,reason:"Capital preservation: 1 losing trade(s) today (cap 1)"}; return {allowed:true}; }',
   'function fnoThemePalette(){ return { panel:"#000", line:"#333", text:"#eee", muted:"#888", pass:"#0f0", fail:"#f00", warn:"#ff0" }; }',
   tseSrc,
-  'return { fnoSettings, isTradeSetupEngineActive, classifyMovement, determineProfitTarget, makeTradeDecision, evaluateTradeEligibility, findAllSetups, buildMarketState, detectEmaPullbackSetup, detectBreakoutRetestSetup, detectStructureContinuationSetup, detectVwapSetup, detectConsolidationBreakoutSetup, detectEmaCompressionSetup, detectMomentumExpansionSetup, detectKeyLevels, applyTradeSetupInfluence, checkTradeSetupEntryGate, resolveTradeSetupBracket, convertSpotTargetToOptionBracket, calculateSetupScore, computeSetupPerformanceStats, applySetupExpiration, invalidateSetup, FNO_TSE_SETUP_TYPES, FNO_TSE_SETUP_STATE, FNO_TSE_DECISION, FNO_TSE_TARGET_POINTS, logTradeSetupDecision, getTradeSetupDecisionLog, recordTradeSetupOutcome };',
+  'return { fnoSettings, isTradeSetupEngineActive, classifyMovement, determineProfitTarget, makeTradeDecision, evaluateTradeEligibility, findAllSetups, buildMarketState, detectEmaPullbackSetup, detectBreakoutRetestSetup, detectStructureContinuationSetup, detectVwapSetup, detectConsolidationBreakoutSetup, detectEmaCompressionSetup, detectMomentumExpansionSetup, detectKeyLevels, computeOpeningRange, applyTradeSetupInfluence, checkTradeSetupEntryGate, resolveTradeSetupBracket, convertSpotTargetToOptionBracket, calculateSetupScore, computeSetupPerformanceStats, computeTargetExpectancyAnalysis, computePaperValidationReport, recordPaperValidationSignal, updatePaperValidationOutcome, linkPaperValidationTradeId, renderTradeSetupAnalytics, applySetupExpiration, invalidateSetup, FNO_TSE_SETUP_TYPES, FNO_TSE_SETUP_STATE, FNO_TSE_DECISION, FNO_TSE_TARGET_POINTS, logTradeSetupDecision, getTradeSetupDecisionLog, recordTradeSetupOutcome, getPaperValidationLog };',
 ].join('\n');
 
 const api = new Function(bootSrc)();
@@ -288,5 +288,42 @@ assert.ok(/checkTradeSetupEntryGate/.test(coreSrc));
 assert.ok(/tradeSetupDecision/.test(coreSrc));
 assert.ok(/settingFastMovementThreshold/.test(phpSrc));
 assert.ok(/renderTradeSetupMonitor/.test(tseSrc));
+assert.ok(/renderTradeSetupPerformanceDashboard/.test(tseSrc));
+assert.ok(/renderPaperValidationReport/.test(tseSrc));
+assert.ok(/computeTargetExpectancyAnalysis/.test(tseSrc));
+assert.ok(/tradeSetupPerformanceBox/.test(phpSrc));
+assert.ok(/tradeSetupValidationBox/.test(phpSrc));
+assert.ok(/settingMinImpulsePoints/.test(phpSrc));
+
+// --- Performance stats with max drawdown ---
+api.logTradeSetupDecision({ active: true, ts: Date.now(), entryAllowed: true, setupType: 'ema_pullback_continuation', movementClass: 'FAST', targetPoints: 20, setup: { direction: 'bullish' }, setupScore: { normalized: 80 }, targetInfo: { feasible: true }, spotTargetPoints: 20, regime: 'Bullish' }, 'NIFTY', bullBrain);
+api.recordTradeSetupOutcome('t1', { pnl: 200, reachedTarget: true, hitStop: false, holdingMs: 60000, mfe: 105 });
+api.logTradeSetupDecision({ active: true, ts: Date.now() + 1, entryAllowed: true, setupType: 'ema_pullback_continuation', movementClass: 'MEDIUM', targetPoints: 15, setup: { direction: 'bullish' }, setupScore: { normalized: 70 }, targetInfo: { feasible: true }, spotTargetPoints: 15, regime: 'Bullish' }, 'NIFTY', bullBrain);
+api.recordTradeSetupOutcome('t2', { pnl: -100, reachedTarget: false, hitStop: true, holdingMs: 30000, mfe: 98 });
+const perfStats = api.computeSetupPerformanceStats();
+assert.ok(perfStats.overall.maxDrawdown >= 100, 'max drawdown should be computed');
+assert.ok(perfStats.overall.trades >= 2);
+
+// --- Target expectancy analysis ---
+const targetAnalysis = api.computeTargetExpectancyAnalysis();
+assert.ok(targetAnalysis.full);
+assert.ok(targetAnalysis.byMovementTarget);
+assert.ok(targetAnalysis.recommendation);
+assert.ok([10, 15, 20].includes(targetAnalysis.recommendation.SLOW) || targetAnalysis.recommendation.SLOW == null);
+
+// --- Paper validation ---
+api.recordPaperValidationSignal({ active: true, ts: Date.now(), entryAllowed: true, bestSetupType: 'ema_pullback_continuation', setup: { direction: 'bullish' }, movementClass: 'FAST', spotTargetPoints: 20, spotTargetPrice: 24020, setupScore: { normalized: 85 }, targetInfo: { feasible: true }, engineStatus: 'TRADE_ALLOWED' }, 'NIFTY', bullBrain);
+api.linkPaperValidationTradeId('paper-1');
+api.updatePaperValidationOutcome('paper-1', { pnl: 150, reachedTarget: true, hitStop: false });
+const valReport = api.computePaperValidationReport();
+assert.ok(valReport.totalSignals >= 1);
+assert.ok(valReport.completedValidations >= 1);
+
+// --- Time-based opening range ---
+const tsBase = Date.now();
+const orCandles = Array.from({ length: 20 }, (_, i) => ({ c: 24000 + i * 0.5, t: tsBase + i * 60000 }));
+const or = api.computeOpeningRange(orCandles, 15, 1);
+assert.ok(or.high != null && or.low != null);
+assert.ok(or.method.startsWith('time_'));
 
 console.log('All trade-setup-engine tests passed.');

@@ -28,7 +28,7 @@ Always use **`fno-lab-standalone-app.zip`** at the **repository root** (not a co
 ## Download (v16.31.3 — use GitHub Release, not stale branch links)
 
 **Recommended (pinned release asset):**  
-https://github.com/aaravpassport-max/BBC/releases/download/v16.33.0/fno-lab-standalone-app.zip
+https://github.com/aaravpassport-max/BBC/releases/download/v16.34.0/fno-lab-standalone-app.zip
 
 **Alternate (commit-pinned raw):**  
 https://raw.githubusercontent.com/aaravpassport-max/BBC/cursor/liquidity-trap-engine-439c/fno-lab-standalone-app.zip
