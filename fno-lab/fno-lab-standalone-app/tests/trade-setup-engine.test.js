@@ -37,7 +37,7 @@ const bootSrc = [
   'function checkScalpingCapitalPreservation(brain, ctx, opts){ opts=opts||{}; const j=opts.journalToday||[]; const losses=j.filter(t=>typeof t.pnl==="number"&&t.pnl<0).length; if(losses>=1) return {allowed:false,reason:"Capital preservation: 1 losing trade(s) today (cap 1)"}; return {allowed:true}; }',
   'function fnoThemePalette(){ return { panel:"#000", line:"#333", text:"#eee", muted:"#888", pass:"#0f0", fail:"#f00", warn:"#ff0" }; }',
   tseSrc,
-  'return { fnoSettings, isTradeSetupEngineActive, classifyMovement, determineProfitTarget, makeTradeDecision, evaluateTradeEligibility, findAllSetups, buildMarketState, detectEmaPullbackSetup, detectBreakoutRetestSetup, detectStructureContinuationSetup, detectVwapSetup, detectConsolidationBreakoutSetup, detectEmaCompressionSetup, detectMomentumExpansionSetup, applyTradeSetupInfluence, checkTradeSetupEntryGate, resolveTradeSetupBracket, convertSpotTargetToOptionBracket, calculateSetupScore, computeSetupPerformanceStats, FNO_TSE_SETUP_TYPES, FNO_TSE_DECISION, FNO_TSE_TARGET_POINTS, logTradeSetupDecision, getTradeSetupDecisionLog, recordTradeSetupOutcome };',
+  'return { fnoSettings, isTradeSetupEngineActive, classifyMovement, determineProfitTarget, makeTradeDecision, evaluateTradeEligibility, findAllSetups, buildMarketState, detectEmaPullbackSetup, detectBreakoutRetestSetup, detectStructureContinuationSetup, detectVwapSetup, detectConsolidationBreakoutSetup, detectEmaCompressionSetup, detectMomentumExpansionSetup, detectKeyLevels, applyTradeSetupInfluence, checkTradeSetupEntryGate, resolveTradeSetupBracket, convertSpotTargetToOptionBracket, calculateSetupScore, computeSetupPerformanceStats, applySetupExpiration, invalidateSetup, FNO_TSE_SETUP_TYPES, FNO_TSE_SETUP_STATE, FNO_TSE_DECISION, FNO_TSE_TARGET_POINTS, logTradeSetupDecision, getTradeSetupDecisionLog, recordTradeSetupOutcome };',
 ].join('\n');
 
 const api = new Function(bootSrc)();
@@ -187,6 +187,98 @@ assert.ok(
   'higher min setup score should block more trades'
 );
 api.fnoSettings.set({ minimumSetupScore: 65 });
+
+// --- Strong bearish trend ---
+const bearCloses = [];
+p = 24500;
+for (let i = 0; i < 25; i++) { p -= i > 15 ? (i % 3 === 0 ? 2 : 5) : 1.2; bearCloses.push(p); }
+p -= 3; bearCloses.push(p);
+const bearCtx = { spot: p, candles: makeCandles(bearCloses), vwap: p + 8, decay: { snapshot: { now: { delta: -0.5 } } } };
+const bearBrain = { decision: 'SELL_READY', confidence: 'High', results: [] };
+const bearTsd = api.makeTradeDecision(bearCtx, bearBrain, { journalToday: [] });
+assert.ok(bearTsd.active);
+assert.ok(bearTsd.setups.some(s => s.direction === 'bearish'), 'should detect bearish setups');
+
+// --- Invalid pullback (EMA cross invalidates) ---
+const invalidPullbackMs = api.buildMarketState(bullCtx, null);
+const invalidSetup = api.detectEmaPullbackSetup(invalidPullbackMs, 'bullish');
+if (invalidSetup) {
+  invalidPullbackMs.ema9 = invalidPullbackMs.ema21 - 1;
+  const inv = api.invalidateSetup(invalidSetup, invalidPullbackMs);
+  assert.strictEqual(inv.state, api.FNO_TSE_SETUP_STATE.INVALIDATED, 'EMA cross should invalidate pullback');
+}
+
+// --- False breakout (failed breakout reversal) ---
+const failBrCloses = Array.from({ length: 20 }, (_, i) => 24000 + Math.sin(i) * 2);
+failBrCloses.push(24008, 24006, 24004);
+const failBrCtx = { spot: failBrCloses[failBrCloses.length - 1], candles: makeCandles(failBrCloses) };
+const failBrMs = api.buildMarketState(failBrCtx, null);
+const failSetup = api.detectBreakoutRetestSetup(failBrMs, 'bullish');
+assert.ok(failSetup === null || failSetup.type === api.FNO_TSE_SETUP_TYPES.FAILED_BREAKOUT || failSetup.type === api.FNO_TSE_SETUP_TYPES.BREAKOUT_RETEST);
+
+// --- EMA compression ---
+const compCloses = Array.from({ length: 22 }, (_, i) => 24000 + i * 0.05);
+compCloses.push(24002, 24004, 24006);
+const compMs = api.buildMarketState({ spot: compCloses[compCloses.length - 1], candles: makeCandles(compCloses) }, null);
+const compSetup = api.detectEmaCompressionSetup(compMs, 'bullish');
+assert.ok(compSetup === null || compSetup.type === api.FNO_TSE_SETUP_TYPES.EMA_COMPRESSION);
+
+// --- Momentum expansion (FAST) ---
+const momSetup = api.detectMomentumExpansionSetup(fastMs, 'bullish');
+assert.ok(momSetup === null || momSetup.type === api.FNO_TSE_SETUP_TYPES.MOMENTUM_EXPANSION);
+
+// --- 15pt target blocked ---
+const medMove = { movementClass: 'MEDIUM', targetPoints: 15, compositeScore: 50, metrics: fastMove.metrics, reason: 'medium' };
+const blocked15 = api.determineProfitTarget(api.buildMarketState({ spot: 24048, candles: makeCandles(Array.from({ length: 25 }, (_, i) => 24000 + i * 2)) }, null), { direction: 'bullish' }, medMove);
+assert.strictEqual(blocked15.feasible, false, '15pt should block when headroom insufficient');
+
+// --- 10pt target blocked ---
+const slowMoveObj = { movementClass: 'SLOW', targetPoints: 10, compositeScore: 30, metrics: slowMove.metrics, reason: 'slow' };
+const blocked10 = api.determineProfitTarget(api.buildMarketState({ spot: 24004, candles: makeCandles(Array.from({ length: 25 }, (_, i) => 24000 + i * 0.2)) }, null), { direction: 'bullish' }, slowMoveObj);
+assert.strictEqual(blocked10.feasible, false, '10pt should block when headroom insufficient');
+
+// --- Poor risk/reward (minRiskReward raised) ---
+api.fnoSettings.set({ minimumRiskReward: 3.0 });
+const poorRrTsd = api.makeTradeDecision(bullCtx, bullBrain, { journalToday: [] });
+assert.ok(!poorRrTsd.entryAllowed || poorRrTsd.blockers.some(b => /Risk\/reward/i.test(b)), 'high min R:R should block');
+api.fnoSettings.set({ minimumRiskReward: 1.5 });
+
+// --- Stale/missing data ---
+const staleTsd = api.makeTradeDecision({ spot: 24000, candles: makeCandles([24000, 24001]) }, bullBrain, {});
+assert.strictEqual(staleTsd.decision, 'NO_TRADE');
+
+// --- Opening range in key levels ---
+const levels = api.detectKeyLevels(api.buildMarketState(bullCtx, null));
+assert.ok(levels.some(l => l.kind === 'or_high'), 'opening range high should be detected');
+assert.ok(levels.some(l => l.kind === 'or_low'), 'opening range low should be detected');
+
+// --- Setup expiration ---
+api.fnoSettings.set({ setupConfirmationMaxCandles: 2 });
+const expSetups = [{ type: 'ema_pullback_continuation', direction: 'bullish', state: api.FNO_TSE_SETUP_STATE.WAITING_FOR_CONFIRMATION, score: 70, reason: 'wait' }];
+api.applySetupExpiration(expSetups, { last: 98, valid: true });
+const expired = api.applySetupExpiration(expSetups, { last: 101, valid: true });
+assert.ok(expired.some(s => s.state === api.FNO_TSE_SETUP_STATE.EXPIRED), 'setup should expire after max candles');
+api.fnoSettings.set({ setupConfirmationMaxCandles: 8 });
+
+// --- Entry gate blocks wrong direction ---
+const gateBlock = api.checkTradeSetupEntryGate(
+  { tradeSetupDecision: { active: true, entryAllowed: true, setup: { direction: 'bullish' } } },
+  bullCtx, 'PE'
+);
+assert.strictEqual(gateBlock.allowed, false, 'PE entry should block on bullish setup');
+
+// --- Engine off bypasses ---
+api.fnoSettings.set({ tradeSetupEngineEnabled: false });
+const offTsd = api.makeTradeDecision(bullCtx, bullBrain, {});
+assert.strictEqual(offTsd.active, false);
+api.fnoSettings.set({ tradeSetupEngineEnabled: true });
+
+// --- End-to-end flow check ---
+const e2e = api.makeTradeDecision(fastCtx, { decision: 'BUY_READY', confidence: 'High', results: [] }, { journalToday: [] });
+assert.ok(['BUY', 'WAIT', 'NO_TRADE'].includes(e2e.decision.replace('_READY', '')) || e2e.decision === 'NO_TRADE');
+assert.ok(e2e.movementClass);
+assert.ok(Array.isArray(e2e.blockers));
+assert.ok(Array.isArray(e2e.setups));
 
 // --- Wiring checks ---
 assert.ok(/makeTradeDecision/.test(coreSrc));

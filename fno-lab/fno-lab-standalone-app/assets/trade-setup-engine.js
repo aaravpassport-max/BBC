@@ -97,6 +97,9 @@ function buildMarketState(ctx, brain) {
   ms.sessionHigh = Math.max(...closes);
   ms.sessionLow = Math.min(...closes);
   ms.sessionOpen = closes[0];
+  const orWin = closes.slice(0, Math.min(5, closes.length));
+  ms.openingRangeHigh = orWin.length ? Math.max(...orWin) : ms.sessionOpen;
+  ms.openingRangeLow = orWin.length ? Math.min(...orWin) : ms.sessionOpen;
   const ranges = [];
   for (let i = Math.max(1, last - 13); i <= last; i++) ranges.push(Math.abs(closes[i] - closes[i - 1]));
   ms.atr = ranges.length ? ranges.reduce((a, b) => a + b, 0) / ranges.length : null;
@@ -125,6 +128,8 @@ function detectKeyLevels(ms) {
   add('Session high', ms.sessionHigh, 'swing_high');
   add('Session low', ms.sessionLow, 'swing_low');
   add('Session open', ms.sessionOpen, 'open');
+  add('Opening range high', ms.openingRangeHigh, 'or_high');
+  add('Opening range low', ms.openingRangeLow, 'or_low');
   if (ms.rangeHigh != null) add('Range high', ms.rangeHigh, 'range_high');
   if (ms.rangeLow != null) add('Range low', ms.rangeLow, 'range_low');
   if (ms.vwap != null) add('VWAP proxy', ms.vwap, 'vwap');
@@ -187,10 +192,27 @@ function computeMovementMetrics(ms) {
   } else if (sessionRange > 0) {
     out.volatilityScore = ((sessionRange / ms.spot) * 100) >= 0.8 ? 75 : 45;
   }
-  out.compositeScore = Math.round(
-    out.velocityScore * 0.30 + out.momentumScore * 0.25 + out.trendStrengthScore * 0.15
-    + out.candleStructureScore * 0.15 + out.volatilityScore * 0.15
-  );
+  out.volumeScore = 0;
+  if (ms.candles && ms.candles.length >= 3) {
+    const vols = ms.candles.slice(-5).map(c => c.v || c.volume).filter(Number.isFinite);
+    if (vols.length >= 2) {
+      const avgVol = vols.reduce((a, b) => a + b, 0) / vols.length;
+      const lastVol = vols[vols.length - 1];
+      if (avgVol > 0) {
+        const volRatio = lastVol / avgVol;
+        out.volumeScore = volRatio >= 1.5 ? 85 : volRatio >= 1.1 ? 65 : volRatio >= 0.8 ? 45 : 25;
+      }
+    }
+  }
+  out.compositeScore = out.volumeScore
+    ? Math.round(
+      out.velocityScore * 0.28 + out.momentumScore * 0.23 + out.trendStrengthScore * 0.14
+      + out.candleStructureScore * 0.14 + out.volatilityScore * 0.14 + out.volumeScore * 0.07
+    )
+    : Math.round(
+      out.velocityScore * 0.30 + out.momentumScore * 0.25 + out.trendStrengthScore * 0.15
+      + out.candleStructureScore * 0.15 + out.volatilityScore * 0.15
+    );
   return out;
 }
 
@@ -462,7 +484,68 @@ function invalidateSetup(setup, ms) {
       setup.reason = 'Bearish structure or EMA relationship invalidated';
     }
   }
+  if (setup.type === FNO_TSE_SETUP_TYPES.BREAKOUT_RETEST && setup.level != null) {
+    const failed = bull ? ms.spot < setup.level : ms.spot > setup.level;
+    if (failed) {
+      setup.state = FNO_TSE_SETUP_STATE.INVALIDATED;
+      setup.reason = 'Breakout level failed — price back inside';
+    }
+  }
+  if (setup.type === FNO_TSE_SETUP_TYPES.STRUCTURE_CONTINUATION) {
+    if (bull && ms.ema9 <= ms.ema21) {
+      setup.state = FNO_TSE_SETUP_STATE.INVALIDATED;
+      setup.reason = 'Structure trend invalidated';
+    }
+    if (!bull && ms.ema9 >= ms.ema21) {
+      setup.state = FNO_TSE_SETUP_STATE.INVALIDATED;
+      setup.reason = 'Structure trend invalidated';
+    }
+  }
+  if (setup.type === FNO_TSE_SETUP_TYPES.VWAP_RECLAIM && Number.isFinite(ms.vwap)) {
+    if (bull && ms.spot < ms.vwap - (ms.atr || 6)) {
+      setup.state = FNO_TSE_SETUP_STATE.INVALIDATED;
+      setup.reason = 'Lost VWAP support after reclaim attempt';
+    }
+    if (!bull && ms.spot > ms.vwap + (ms.atr || 6)) {
+      setup.state = FNO_TSE_SETUP_STATE.INVALIDATED;
+      setup.reason = 'Rejected VWAP rejection — back above VWAP';
+    }
+  }
   return setup;
+}
+
+function getTseSetupWaitState() {
+  try { return JSON.parse(localStorage.getItem(FNO_TSE_STATE_KEY) || '{}'); } catch (e) { return {}; }
+}
+
+function saveTseSetupWaitState(state) {
+  try { localStorage.setItem(FNO_TSE_STATE_KEY, JSON.stringify(state)); } catch (e) { /* quota */ }
+}
+
+function applySetupExpiration(setups, ms) {
+  const cfg = getTradeSetupSettings();
+  const state = getTseSetupWaitState();
+  const candleIdx = ms.last;
+  setups.forEach(setup => {
+    if (setup.state !== FNO_TSE_SETUP_STATE.WAITING_FOR_CONFIRMATION
+      && setup.state !== FNO_TSE_SETUP_STATE.DETECTED) return;
+    const key = setup.type + '_' + setup.direction;
+    if (!state[key]) state[key] = { firstCandle: candleIdx, ts: Date.now() };
+    const waited = candleIdx - state[key].firstCandle;
+    if (waited >= cfg.confirmMaxCandles) {
+      setup.state = FNO_TSE_SETUP_STATE.EXPIRED;
+      setup.reason = `Setup expired after ${waited} candles (max ${cfg.confirmMaxCandles})`;
+      delete state[key];
+    }
+  });
+  Object.keys(state).forEach(k => {
+    if (!setups.some(s => (s.type + '_' + s.direction) === k
+      && (s.state === FNO_TSE_SETUP_STATE.WAITING_FOR_CONFIRMATION || s.state === FNO_TSE_SETUP_STATE.DETECTED))) {
+      delete state[k];
+    }
+  });
+  saveTseSetupWaitState(state);
+  return setups;
 }
 
 function calculateSetupScore(setup, ms, targetInfo, riskReward) {
@@ -489,6 +572,7 @@ function evaluateHardBlocks(ms, setup, targetInfo, brain, ctx, opts) {
   if (ms.choppy) blockers.push('Market classified as choppy/range-bound');
   if (!setup) blockers.push('No valid setup');
   else if (setup.state === FNO_TSE_SETUP_STATE.INVALIDATED) blockers.push('Setup invalidated: ' + setup.reason);
+  else if (setup.state === FNO_TSE_SETUP_STATE.EXPIRED) blockers.push('Setup expired: ' + setup.reason);
   else if (setup.state !== FNO_TSE_SETUP_STATE.CONFIRMED) blockers.push('Setup not confirmed (' + setup.state + ')');
   if (!targetInfo || !targetInfo.feasible || !targetInfo.target_points) blockers.push(targetInfo ? targetInfo.reason : 'No feasible target');
   const movement = classifyMovement(ms);
@@ -510,7 +594,7 @@ function evaluateTradeEligibility(ctx, brain, opts) {
   if (!ms.valid) return { action: 'BLOCK', reason: 'Invalid market data', blockers: ['Insufficient candles'] };
 
   const brainDir = brain && brain.decision === 'BUY_READY' ? 'bullish' : brain && brain.decision === 'SELL_READY' ? 'bearish' : null;
-  const setups = findAllSetups(ms).map(s => invalidateSetup(s, ms));
+  const setups = applySetupExpiration(findAllSetups(ms).map(s => invalidateSetup(s, ms)), ms);
   const confirmed = setups.filter(s => s.state === FNO_TSE_SETUP_STATE.CONFIRMED);
   const waiting = setups.filter(s => s.state === FNO_TSE_SETUP_STATE.WAITING_FOR_CONFIRMATION);
 
@@ -723,6 +807,8 @@ function checkPullbackContinuationEntryGate(brain, ctx, optionType) {
 function logTradeSetupDecision(tsd, sym, brain, outcome) {
   if (!tsd || !tsd.active) return;
   try {
+    const stopPts = tsd.spotTargetPoints ? tsd.spotTargetPoints * 0.5 : null;
+    const rr = stopPts && tsd.spotTargetPoints ? +(tsd.spotTargetPoints / stopPts).toFixed(2) : null;
     const log = JSON.parse(localStorage.getItem(FNO_TSE_LOG_KEY) || '[]');
     log.push({
       ts: tsd.ts, sym, instrument: sym,
@@ -730,10 +816,20 @@ function logTradeSetupDecision(tsd, sym, brain, outcome) {
       decision: tsd.decision, engineStatus: tsd.engineStatus,
       regime: tsd.regime, setupType: tsd.bestSetupType,
       movementClass: tsd.movementClass, movementScore: tsd.movementScore,
+      trendScore: tsd.setupScore ? tsd.setupScore.trend : null,
+      momentumScore: tsd.setupScore ? tsd.setupScore.momentum : null,
+      volatilityScore: tsd.setupScore ? tsd.setupScore.volatility : null,
+      structureScore: tsd.setupScore ? tsd.setupScore.structure : null,
       setupScore: tsd.setupScore, targetPoints: tsd.spotTargetPoints,
+      stopLossPoints: stopPts,
+      spotTargetPrice: tsd.spotTargetPrice,
+      entryPrice: tsd.spotTargetPrice && tsd.spotTargetPoints
+        ? +(tsd.spotTargetPrice - (tsd.setup && tsd.setup.direction === 'bullish' ? 1 : -1) * tsd.spotTargetPoints).toFixed(2) : null,
+      riskReward: rr,
       targetFeasibility: tsd.targetInfo, targetConfidence: tsd.targetConfidence,
       brainDecision: brain ? brain.decision : null,
       blockers: tsd.blockers, reasons: tsd.reasons, entryAllowed: tsd.entryAllowed,
+      blockingReasons: tsd.blockers,
       outcome: outcome || null,
     });
     while (log.length > FNO_TSE_LOG_MAX) log.shift();
@@ -752,26 +848,53 @@ function getTradeSetupDecisionLog() {
 function computeSetupPerformanceStats(log) {
   log = log || getTradeSetupDecisionLog();
   const bySetup = {};
-  const byMovement = { FAST: { n: 0, wins: 0 }, MEDIUM: { n: 0, wins: 0 }, SLOW: { n: 0, wins: 0 } };
+  const byMovement = { FAST: { n: 0, wins: 0, pnl: 0 }, MEDIUM: { n: 0, wins: 0, pnl: 0 }, SLOW: { n: 0, wins: 0, pnl: 0 } };
+  const byDirection = { bullish: { n: 0, wins: 0 }, bearish: { n: 0, wins: 0 } };
+  const targetSuccess = { t10: { n: 0, hit: 0 }, t15: { n: 0, hit: 0 }, t20: { n: 0, hit: 0 } };
+  let totalPnl = 0, grossWins = 0, grossLosses = 0, winCount = 0, lossCount = 0;
   log.filter(e => e.outcome && typeof e.outcome.pnl === 'number').forEach(e => {
     const k = e.setupType || 'unknown';
-    if (!bySetup[k]) bySetup[k] = { trades: 0, wins: 0, losses: 0, pnl: 0, target10: 0, target15: 0, target20: 0 };
+    if (!bySetup[k]) bySetup[k] = {
+      trades: 0, wins: 0, losses: 0, pnl: 0, target10: 0, target15: 0, target20: 0,
+      target10Hit: 0, target15Hit: 0, target20Hit: 0, avgMfe: 0, avgMae: 0, mfeSum: 0, maeSum: 0,
+    };
     const b = bySetup[k];
     b.trades++;
-    if (e.outcome.pnl > 0) b.wins++; else b.losses++;
+    if (e.outcome.pnl > 0) { b.wins++; winCount++; grossWins += e.outcome.pnl; }
+    else { b.losses++; lossCount++; grossLosses += Math.abs(e.outcome.pnl); }
     b.pnl += e.outcome.pnl;
-    if (e.targetPoints === 10) b.target10++;
-    if (e.targetPoints === 15) b.target15++;
-    if (e.targetPoints === 20) b.target20++;
+    totalPnl += e.outcome.pnl;
+    if (e.targetPoints === 10) { b.target10++; targetSuccess.t10.n++; if (e.outcome.reachedTarget) { b.target10Hit++; targetSuccess.t10.hit++; } }
+    if (e.targetPoints === 15) { b.target15++; targetSuccess.t15.n++; if (e.outcome.reachedTarget) { b.target15Hit++; targetSuccess.t15.hit++; } }
+    if (e.targetPoints === 20) { b.target20++; targetSuccess.t20.n++; if (e.outcome.reachedTarget) { b.target20Hit++; targetSuccess.t20.hit++; } }
+    if (typeof e.outcome.mfe === 'number') { b.mfeSum += e.outcome.mfe; }
+    if (typeof e.outcome.mae === 'number') { b.maeSum += e.outcome.mae; }
     const mc = e.movementClass || 'SLOW';
-    if (byMovement[mc]) { byMovement[mc].n++; if (e.outcome.pnl > 0) byMovement[mc].wins++; }
+    if (byMovement[mc]) { byMovement[mc].n++; byMovement[mc].pnl += e.outcome.pnl; if (e.outcome.pnl > 0) byMovement[mc].wins++; }
+    const dir = e.direction || 'bullish';
+    if (byDirection[dir]) { byDirection[dir].n++; if (e.outcome.pnl > 0) byDirection[dir].wins++; }
   });
   Object.keys(bySetup).forEach(k => {
     const b = bySetup[k];
     b.winRate = b.trades ? +((b.wins / b.trades) * 100).toFixed(1) : null;
     b.expectancy = b.trades ? +(b.pnl / b.trades).toFixed(2) : null;
+    b.avgWin = b.wins ? +((b.pnl > 0 ? b.pnl : 0) / b.wins).toFixed(2) : null;
+    b.profitFactor = grossLosses > 0 ? +((grossWins / grossLosses).toFixed(2)) : null;
+    b.avgMfe = b.trades && b.mfeSum ? +(b.mfeSum / b.trades).toFixed(2) : null;
+    b.avgMae = b.trades && b.maeSum ? +(b.maeSum / b.trades).toFixed(2) : null;
+    b.target10Success = b.target10 ? +((b.target10Hit / b.target10) * 100).toFixed(1) : null;
+    b.target15Success = b.target15 ? +((b.target15Hit / b.target15) * 100).toFixed(1) : null;
+    b.target20Success = b.target20 ? +((b.target20Hit / b.target20) * 100).toFixed(1) : null;
   });
-  return { bySetup, byMovement, totalLogged: log.length };
+  return {
+    bySetup, byMovement, byDirection, targetSuccess, totalLogged: log.length,
+    overall: {
+      trades: winCount + lossCount,
+      winRate: (winCount + lossCount) ? +((winCount / (winCount + lossCount)) * 100).toFixed(1) : null,
+      expectancy: (winCount + lossCount) ? +(totalPnl / (winCount + lossCount)).toFixed(2) : null,
+      profitFactor: grossLosses > 0 ? +((grossWins / grossLosses).toFixed(2)) : null,
+    },
+  };
 }
 
 function buildPullbackContinuationAttribution(setup) {
