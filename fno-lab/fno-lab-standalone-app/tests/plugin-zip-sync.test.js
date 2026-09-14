@@ -27,4 +27,14 @@ const zipCoreCheck = spawnSync(
 );
 assert.strictEqual(zipCoreCheck.status, 0, 'zip core JS includes light-mode readiness fix');
 
-console.log(`Canonical zip OK: v${version}`);
+const zipSize = fs.statSync(zipPath).size;
+assert.ok(zipSize > 1_500_000, `zip too small (${zipSize} bytes) — full plugin should be ~1.8–2.0 MB; rebuild from complete source tree`);
+
+const zipModesCheck = spawnSync(
+  'bash',
+  ['-c', `unzip -p "${zipPath}" fno-lab-standalone-app/assets/trading-modes-engine.js | grep -q 'fnoEscapeHtml' && unzip -p "${zipPath}" fno-lab-standalone-app/assets/greeks-engine.js | grep -q 'function'`],
+  { stdio: 'ignore' }
+);
+assert.strictEqual(zipModesCheck.status, 0, 'zip must include trading-modes-engine.js and greeks-engine.js');
+
+console.log(`Canonical zip OK: v${version} (${zipSize} bytes)`);

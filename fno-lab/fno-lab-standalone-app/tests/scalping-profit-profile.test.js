@@ -27,7 +27,7 @@ const bootSrc = [
     .replace(/const FNO_SCALPING_PROFIT_PROFILE/g, 'var FNO_SCALPING_PROFIT_PROFILE'),
   modesSrc,
   coreSrc.slice(simStart, simEnd + 2),
-  'syncTargetSlUiFromPreset = function(){}; applyScalpingExecutionControlsFromSettings = function(){}; updateLotQtyHint = function(){};',
+  'function syncTargetSlUiFromPreset(){} function applyScalpingExecutionControlsFromSettings(){} function updateLotQtyHint(){}',
   'return { fnoSettings, getEffectiveDecisionThresholds, isScalpingProfitProfileActive, applyScalpingProfitProfilePreset, simulateOrderRejection, getSimulateOrderRejectionOpts, getModeSpreadHardBlockPct, FNO_SCALPING_PROFIT_PROFILE };',
 ].join('\n');
 
