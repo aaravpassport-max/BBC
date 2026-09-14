@@ -244,13 +244,26 @@
     else if (filter === 'mine') items = items.filter((i) => i.assigned_to === 'me' || !i.assigned_to);
     const stageFilter = App.inquiryStageFilter || 'all';
     if (stageFilter !== 'all') items = items.filter((i) => i.stage_key === stageFilter);
+    const searchQ = App.inquirySearchQuery || '';
+    const GS = window.ILRSGlobalSearch;
+    if (searchQ.trim() && GS?.matchesInquiry) {
+      items = items.filter((i) => GS.matchesInquiry(i, searchQ));
+    }
     const clientFilter = App.clientFilterId ? (App.clients || []).find((c) => c.id === App.clientFilterId) : null;
 
     el.innerHTML = `
       <div class="page-header">
         <div><div class="page-title">📥 Inquiries</div>
           <div class="page-subtitle">${clientFilter ? `${clientFilter.name} · ` : ''}${items.length} inquiries</div></div>
-        <button class="btn btn-primary" onclick="showInquirySheet()">＋ New Inquiry</button>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" onclick="showSearchPalette()" title="Ctrl+K">🔍 Search</button>
+          <button class="btn btn-primary" onclick="showInquirySheet()">＋ New Inquiry</button>
+        </div>
+      </div>
+      <div class="filter-bar" style="margin-bottom:12px">
+        <input type="text" class="form-input" style="max-width:360px" placeholder="🔍 Search client, notes, stage, tags…"
+          value="${searchQ.replace(/"/g, '&quot;')}"
+          oninput="App.inquirySearchQuery=this.value;navigate('inquiries')" />
       </div>
       ${clientFilter ? `<div style="margin-bottom:12px"><button class="btn btn-ghost btn-sm" onclick="App.clientFilterId=null;navigate('inquiries')">✕ Clear client filter</button></div>` : ''}
       <div class="smart-tabs">

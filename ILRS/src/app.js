@@ -355,6 +355,7 @@ function renderShell() {
         <div class="quick-add-preview" id="quick-add-preview"></div>
       </div>
       <div class="topbar-actions">
+        <button class="topbar-btn" onclick="showSearchPalette()" title="Search everything (Ctrl+K)">🔍 Search</button>
         <button class="topbar-btn" id="focus-btn" onclick="toggleFocusMode()" title="Focus Mode">🎯 Focus</button>
         <button class="topbar-btn" onclick="showAlertCount()" title="Pending Alerts">
           🔔 <span id="alert-badge" class="notif-badge" style="display:none">0</span>
@@ -1229,9 +1230,14 @@ async function renderCompleted(el) {
 
 // ── Tasks Page ─────────────────────────────────────────────────────
 async function renderTasks(el) {
-  const tasks = App.reminders.filter(r =>
+  const q = App.taskSearchQuery || '';
+  const GS = window.ILRSGlobalSearch;
+  let tasks = App.reminders.filter(r =>
     r.task_type === 'task' && r.status !== 'completed' && (r.workflow_status || 'pending') !== 'done'
   );
+  if (q.trim() && GS?.matchesReminder) {
+    tasks = tasks.filter((t) => GS.matchesReminder(t, q));
+  }
   const pending = tasks.filter(t => (t.workflow_status || 'pending') === 'pending');
   const active = tasks.filter(t => t.workflow_status === 'in_progress');
   const postponed = tasks.filter(t => t.workflow_status === 'postponed');
@@ -1243,15 +1249,21 @@ async function renderTasks(el) {
         <div class="page-subtitle">Work items without the pressure of a timed alarm</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost" onclick="showSearchPalette()" title="Ctrl+K">🔍 Search</button>
         <button class="btn btn-ghost" onclick="openWorkflowStages('task')">🏷 Task stages</button>
         <button class="btn btn-primary" onclick="showCaptureSheet({ task_type: 'task' })">＋ New Task</button>
       </div>
+    </div>
+    <div class="filter-bar" style="margin-bottom:12px">
+      <input type="text" class="form-input" style="max-width:320px" placeholder="🔍 Search tasks (title, notes, tags, stage…)"
+        value="${q.replace(/"/g, '&quot;')}"
+        oninput="App.taskSearchQuery=this.value;navigate('tasks')" />
     </div>
     ${renderBulkSelectionBar('reminder')}
     ${active.length ? `<div class="section-label">In progress</div><div class="reminder-list">${active.map(r => reminderCard(r)).join('')}</div>` : ''}
     ${pending.length ? `<div class="section-label">Pending</div><div class="reminder-list">${pending.map(r => reminderCard(r)).join('')}</div>` : ''}
     ${postponed.length ? `<div class="section-label">Postponed</div><div class="reminder-list">${postponed.map(r => reminderCard(r)).join('')}</div>` : ''}
-    ${tasks.length === 0 ? `<div class="empty-state"><div class="empty-icon">✅</div><h3>No open tasks</h3><p>Create a task for things to do without a strict reminder time.</p></div>` : ''}
+    ${tasks.length === 0 ? `<div class="empty-state"><div class="empty-icon">✅</div><h3>${q ? 'No matching tasks' : 'No open tasks'}</h3><p>${q ? 'Try different keywords or use Ctrl+K for global search.' : 'Create a task for things to do without a strict reminder time.'}</p></div>` : ''}
   `;
 }
 
@@ -1320,8 +1332,10 @@ async function renderReminders(el) {
 }
 
 function searchReminders(query, reminders, renderFn) {
-  const q = query.toLowerCase();
-  const filtered = reminders.filter(r => r.title.toLowerCase().includes(q) || (r.why_it_matters || '').toLowerCase().includes(q) || (r.category || '').toLowerCase().includes(q));
+  const GS = window.ILRSGlobalSearch;
+  const filtered = !query.trim()
+    ? reminders
+    : reminders.filter((r) => (GS?.matchesReminder ? GS.matchesReminder(r, query) : r.title.toLowerCase().includes(query.toLowerCase())));
   renderFn(filtered);
 }
 
@@ -2946,75 +2960,9 @@ function taskTypeIcon(t) {
 
 // ── Global Search (Ctrl+K) ─────────────────────────────────────────
 function buildSearchResults(query) {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-
-  const results = [];
-
-  App.reminders.forEach((r) => {
-    const hay = `${r.title} ${r.why_it_matters || ''} ${r.category || ''} ${r.tags || ''}`.toLowerCase();
-    if (!hay.includes(q)) return;
-    const kind = r.task_type === 'task' ? 'Task' : 'Reminder';
-    results.push({
-      id: r.id,
-      type: 'reminder',
-      page: r.task_type === 'task' ? 'tasks' : 'reminders',
-      icon: r.task_type === 'task' ? '✅' : '🔔',
-      title: r.title,
-      subtitle: `${kind} · ${r.status}${r.next_fire ? ' · ' + (cap()?.formatDateShort(r.next_fire) || '') : ''}`,
-      action: () => editReminder(r.id),
-    });
-  });
-
-  App.medicines.forEach((m) => {
-    if (!`${m.name} ${m.condition || ''}`.toLowerCase().includes(q)) return;
-    results.push({ id: m.id, type: 'medicine', page: 'medicine', icon: '💊', title: m.name, subtitle: 'Medicine', action: () => navigate('medicine') });
-  });
-
-  App.bills.forEach((b) => {
-    if (!`${b.name} ${b.bill_type || ''}`.toLowerCase().includes(q)) return;
-    results.push({ id: b.id, type: 'bill', page: 'bills', icon: '💸', title: b.name, subtitle: 'Bill', action: () => navigate('bills') });
-  });
-
-  App.habits.forEach((h) => {
-    if (!h.name.toLowerCase().includes(q)) return;
-    results.push({ id: h.id, type: 'habit', page: 'habits', icon: '🔁', title: h.name, subtitle: `Habit · ${h.streak || 0}d streak`, action: () => navigate('habits') });
-  });
-
-  App.family.forEach((f) => {
-    if (!`${f.name} ${f.role || ''}`.toLowerCase().includes(q)) return;
-    results.push({ id: f.id, type: 'family', page: 'family', icon: '👨‍👩‍👧', title: f.name, subtitle: f.role || 'Family', action: () => navigate('family') });
-  });
-
-  (App.clients || []).forEach((c) => {
-    const hay = `${c.name} ${c.company || ''} ${c.mobile || ''} ${c.email || ''}`.toLowerCase();
-    if (!hay.includes(q)) return;
-    results.push({
-      id: c.id,
-      type: 'client',
-      page: 'clients',
-      icon: '👤',
-      title: c.name,
-      subtitle: `Client · ${c.company || c.mobile || 'contact'}`,
-      action: () => { App.clientFilterId = c.id; navigate('inquiries'); },
-    });
-  });
-
-  (App.inquiries || []).forEach((inq) => {
-    const hay = `${inq.client_name} ${inq.requirement || ''} ${inq.inquiry_number || ''} ${inq.mobile || ''}`.toLowerCase();
-    if (!hay.includes(q)) return;
-    results.push({
-      id: inq.id,
-      type: 'inquiry',
-      page: 'inquiry-detail',
-      icon: '📥',
-      title: `${inq.client_name} — ${inq.requirement}`,
-      subtitle: `Inquiry · ${inq.inquiry_number || ''}`,
-      action: () => { App.selectedInquiryId = inq.id; navigate('inquiry-detail'); },
-    });
-  });
-
-  return results.slice(0, 12);
+  const GS = window.ILRSGlobalSearch;
+  if (GS?.searchGlobal) return GS.searchGlobal(query, 40);
+  return [];
 }
 
 function showSearchPalette() {
@@ -3027,8 +2975,9 @@ function showSearchPalette() {
   overlay.id = 'search-palette';
   overlay.innerHTML = `
     <div class="search-palette" role="dialog" aria-label="Search">
-      <input type="text" class="form-input search-palette-input" id="search-input" placeholder="Search reminders, tasks, inquiries, medicine, bills…" autocomplete="off" />
-      <div class="search-hint">↑↓ navigate · Enter open · Esc close</div>
+      <input type="text" class="form-input search-palette-input" id="search-input"
+        placeholder="Search title, notes, client, stage, tags, payments…" autocomplete="off" />
+      <div class="search-hint">Search tasks, reminders, inquiries & more · ↑↓ navigate · Enter open · Esc close</div>
       <div id="search-results" class="search-results"></div>
     </div>
   `;
@@ -3043,12 +2992,14 @@ function showSearchPalette() {
       list.innerHTML = `<div class="search-empty">${input.value.trim() ? 'No matches' : 'Type to search everything'}</div>`;
       return;
     }
+    const GS = window.ILRSGlobalSearch;
     list.innerHTML = results.map((r, i) => `
       <button type="button" class="search-result ${i === App.searchIndex ? 'active' : ''}" data-idx="${i}">
         <span class="search-result-icon">${r.icon}</span>
         <span class="search-result-body">
           <span class="search-result-title">${r.title}</span>
           <span class="search-result-sub">${r.subtitle}</span>
+          ${r.matchSnippet ? `<span class="search-result-match">${GS?.fieldLabel?.(r.matchField) || r.matchField}: ${r.highlightedSnippet || r.matchSnippet}</span>` : ''}
         </span>
       </button>
     `).join('');
