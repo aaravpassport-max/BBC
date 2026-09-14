@@ -7,6 +7,7 @@ Every release uses the **same zip name** and **same folder name** so updates rep
 | Zip file | `fno-lab-standalone-app.zip` |
 | Folder after extract | `wp-content/plugins/fno-lab-standalone-app/` |
 | Version | shown in WordPress Plugins list and in the app header (not in the folder name) |
+| **Expected zip size (v16.31.3+)** | **~1.9 MB (1,927,000+ bytes)** — if you see ~610 KB, the download is incomplete; use the release link below |
 
 ## Upgrade steps
 
@@ -24,7 +25,14 @@ Every release uses the **same zip name** and **same folder name** so updates rep
 
 Always use **`fno-lab-standalone-app.zip`** at the **repository root** (not a copy under `fno-lab/`) and keep a **single** folder: **`fno-lab-standalone-app`**.
 
-Download (feature branch):  
-`https://github.com/aaravpassport-max/BBC/raw/cursor/scalping-ready-eligibility-funnel-439c/fno-lab-standalone-app.zip`
+## Download (v16.31.3 — use GitHub Release, not stale branch links)
 
-After install, WordPress **Plugins** and the app header must show the **same** version (e.g. **16.29.7**). If they differ, you installed an old zip — delete all `fno-lab-standalone-app*` folders and reinstall from the link above.
+**Recommended (pinned release asset):**  
+https://github.com/aaravpassport-max/BBC/releases/download/v16.31.3/fno-lab-standalone-app.zip
+
+**Alternate (commit-pinned raw):**  
+https://raw.githubusercontent.com/aaravpassport-max/BBC/cursor/liquidity-trap-engine-439c/fno-lab-standalone-app.zip
+
+Before installing, confirm the downloaded file is **~1.9 MB**. A ~610 KB file is a broken partial build and will miss `greeks-engine.js`, `fno-data-layer.php`, the autonomous driver, and other required components.
+
+After install, WordPress **Plugins** and the app header must show the **same** version (e.g. **16.31.3**). If they differ, you installed an old zip — delete all `fno-lab-standalone-app*` folders and reinstall from the release link above.
