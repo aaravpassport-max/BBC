@@ -317,8 +317,21 @@ body.fno-nse-disabled .nse-only-section{display:none}
     <div style="margin-bottom:18px;padding:12px;background:#422006;border:1px solid #92400e;border-radius:10px">
       <div style="font-size:12px;font-weight:700;color:#fde68a;margin-bottom:8px">⚡ Scalping Profit Profile <span id="scalpingProfitProfileStatusLabel" style="margin-left:8px;color:#94a3b8;font-weight:400">OFF</span></div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingScalpingProfitProfile"> Enable profile — more scalp entries with safety rails (spread block, weighted-score gate, tight target/SL, 65% auto-cal)</label>
-      <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingPullbackContinuation"> ↩️ Pullback Continuation engine (dynamic 10/15/20pt targets) <span id="pullbackContinuationStatusLabel" style="margin-left:auto;color:#64748b">ON</span></label>
-      <div style="font-size:10px;color:#64748b;margin-bottom:6px">Classifies movement speed (fast/medium/slow) each refresh and selects 10, 15, or 20 index-point targets. Requires trend → impulse → retrace → continuation before entry.</div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingPullbackContinuation"> 📊 Trade Setup Engine (8 setups · dynamic 10/15/20pt targets) <span id="pullbackContinuationStatusLabel" style="margin-left:auto;color:#64748b">ON</span></label>
+      <div style="font-size:10px;color:#64748b;margin-bottom:6px">Detects EMA pullback, breakout retest, structure, VWAP, consolidation, compression, failed breakout, and momentum setups. Movement FAST/MEDIUM/SLOW selects 20/15/10pt targets; INSUFFICIENT = no trade. Every setting below changes runtime decisions.</div>
+      <div id="tradeSetupEngineSettings" style="font-size:11px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <label>Fast threshold <input type="number" id="settingFastMovementThreshold" min="40" max="95" step="1" value="65" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
+          <label>Medium threshold <input type="number" id="settingMediumMovementThreshold" min="20" max="80" step="1" value="40" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
+          <label>Min movement <input type="number" id="settingInsufficientMovementThreshold" min="10" max="50" step="1" value="25" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
+          <label>Min setup score <input type="number" id="settingMinimumSetupScore" min="40" max="95" step="1" value="65" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
+          <label>Min R:R <input type="number" id="settingMinimumRiskReward" min="1" max="4" step="0.1" value="1.5" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
+          <label>Confirm candles <input type="number" id="settingSetupConfirmationMaxCandles" min="3" max="20" step="1" value="8" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
+          <label>10pt target <input type="number" id="settingTargetPointsSlow" min="5" max="15" step="1" value="10" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
+          <label>15pt target <input type="number" id="settingTargetPointsMedium" min="10" max="20" step="1" value="15" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
+          <label>20pt target <input type="number" id="settingTargetPointsFast" min="15" max="30" step="1" value="20" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
+        </div>
+      </div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingScalpingCapitalPreservation"> 🛡️ Capital preservation mode <span id="scalpingCapitalPreservationStatusLabel" style="margin-left:auto;color:#64748b">ON</span></label>
       <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:4px 8px 8px 8px;flex-wrap:wrap">
         <span>Max losing trades/day:</span>
@@ -938,7 +951,7 @@ window.FNO_FACTORS_CATALOG = <?php echo $json ? wp_json_encode($json) : '[]'; ?>
 <?php include __DIR__ . '/fno-lab-core.js'; ?>
 <?php include __DIR__ . '/trading-modes-engine.js'; ?>
 <?php include __DIR__ . '/liquidity-behaviour-engine.js'; ?>
-<?php include __DIR__ . '/pullback-continuation-engine.js'; ?>
+<?php include __DIR__ . '/trade-setup-engine.js'; ?>
 <?php include __DIR__ . '/strategy-diagnostic-report.js'; ?>
 </script>
 <?php endif; ?>

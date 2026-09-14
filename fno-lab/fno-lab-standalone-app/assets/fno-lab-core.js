@@ -64,7 +64,7 @@ let fnoAutoTradeCloseInProgress = false;
  */
 const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
-const FNO_SETTINGS_SCHEMA_VERSION = 9; // v9 (16.31.0): unified scalpingTradingMode ladder (6 entry modes)
+const FNO_SETTINGS_SCHEMA_VERSION = 10; // v10 (16.33.0): Trade Setup Engine thresholds wired to runtime
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -115,8 +115,20 @@ const FNO_SETTINGS_DEFAULTS = {
   defaultLots: 2,
   // Scalping capital preservation — stricter entry gates to minimize losses (never removes all risk).
   scalpingCapitalPreservationEnabled: true,
-  // Pullback Continuation Setup Engine — dynamic 10/15/20pt spot targets from live movement speed.
-  pullbackContinuationEnabled: true,
+  // Trade Setup Engine — 8 setup types, dynamic 10/15/20pt spot targets from live movement speed.
+  tradeSetupEngineEnabled: true,
+  pullbackContinuationEnabled: true, // legacy alias — kept in sync with tradeSetupEngineEnabled
+  fastMovementThreshold: 65,
+  mediumMovementThreshold: 40,
+  insufficientMovementThreshold: 25,
+  minimumSetupScore: 65,
+  minimumRiskReward: 1.5,
+  setupConfirmationMaxCandles: 8,
+  targetPointsFast: 20,
+  targetPointsMedium: 15,
+  targetPointsSlow: 10,
+  minImpulsePoints: 8,
+  minEmaSlopePoints: 0.15,
   maxLosingTradesPerDay: 1,
   maxDailyLossPctPreservation: 1.5,
   // Scalping bracket preset: standard 20% (default) | balanced 25% | manual (save your own %)
@@ -381,6 +393,24 @@ function migrateTradingControlsSchema(stored) {
         ? merged.scalpingTradingMode : legacyMode,
     };
   }
+  if (schema < 10) {
+    merged = {
+      ...merged,
+      tradeSetupEngineEnabled: merged.tradeSetupEngineEnabled !== false && merged.pullbackContinuationEnabled !== false,
+      pullbackContinuationEnabled: merged.pullbackContinuationEnabled !== false,
+      fastMovementThreshold: merged.fastMovementThreshold != null ? merged.fastMovementThreshold : 65,
+      mediumMovementThreshold: merged.mediumMovementThreshold != null ? merged.mediumMovementThreshold : 40,
+      insufficientMovementThreshold: merged.insufficientMovementThreshold != null ? merged.insufficientMovementThreshold : 25,
+      minimumSetupScore: merged.minimumSetupScore != null ? merged.minimumSetupScore : 65,
+      minimumRiskReward: merged.minimumRiskReward != null ? merged.minimumRiskReward : 1.5,
+      setupConfirmationMaxCandles: merged.setupConfirmationMaxCandles != null ? merged.setupConfirmationMaxCandles : 8,
+      targetPointsFast: merged.targetPointsFast != null ? merged.targetPointsFast : 20,
+      targetPointsMedium: merged.targetPointsMedium != null ? merged.targetPointsMedium : 15,
+      targetPointsSlow: merged.targetPointsSlow != null ? merged.targetPointsSlow : 10,
+      minImpulsePoints: merged.minImpulsePoints != null ? merged.minImpulsePoints : 8,
+      minEmaSlopePoints: merged.minEmaSlopePoints != null ? merged.minEmaSlopePoints : 0.15,
+    };
+  }
   try {
     localStorage.setItem(FNO_SETTINGS_SCHEMA_KEY, String(FNO_SETTINGS_SCHEMA_VERSION));
     localStorage.setItem(FNO_SETTINGS_KEY, JSON.stringify(merged));
@@ -631,6 +661,10 @@ function computeBracketPrices(optPrice, cfg) {
 function resolveTradeBracketForEntry(optPrice, tradingType, ctx, brain, optionType) {
   if (typeof optPrice !== 'number' || !Number.isFinite(optPrice) || optPrice <= 0) {
     return { target: null, sl: null, source: 'invalid_price' };
+  }
+  if (tradingType === 'scalping' && typeof resolveTradeSetupBracket === 'function') {
+    const tse = resolveTradeSetupBracket(optPrice, ctx, brain, tradingType, optionType);
+    if (tse && tse.target && tse.sl) return tse;
   }
   if (tradingType === 'scalping' && typeof resolvePullbackContinuationBracket === 'function') {
     const pbce = resolvePullbackContinuationBracket(optPrice, ctx, brain, tradingType, optionType);
@@ -10163,6 +10197,9 @@ function buildEntrySnapshot(brain, ctx, sym) {
       : (typeof buildPullbackContinuationAttribution === 'function' && typeof computePullbackContinuationSetup === 'function')
         ? buildPullbackContinuationAttribution(computePullbackContinuationSetup(ctx, brain))
         : null,
+    tradeSetupDecision: (brain && brain.tradeSetupDecision)
+      ? brain.tradeSetupDecision
+      : (typeof makeTradeDecision === 'function' ? makeTradeDecision(ctx, brain, {}) : null),
   };
 }
 const FNO_STRATEGY_VERSION = 'v1.0-baseline'; // Master Prompt §34: every strategy change must create a new version and be stored on every trade this version influenced - bump this string (and log the change in PROJECT_STATUS.md) whenever evaluateBrain's decision logic, thresholds, or factor weights actually change
@@ -15339,9 +15376,24 @@ function render(){
     const preserveLbl = document.getElementById('scalpingCapitalPreservationStatusLabel');
     if (preserveLbl) preserveLbl.textContent = s.scalpingCapitalPreservationEnabled !== false ? 'ON' : 'OFF';
     const pbEl = document.getElementById('settingPullbackContinuation');
-    if (pbEl) pbEl.checked = s.pullbackContinuationEnabled !== false;
+    if (pbEl) pbEl.checked = s.tradeSetupEngineEnabled !== false && s.pullbackContinuationEnabled !== false;
     const pbLbl = document.getElementById('pullbackContinuationStatusLabel');
-    if (pbLbl) pbLbl.textContent = s.pullbackContinuationEnabled !== false ? 'ON' : 'OFF';
+    if (pbLbl) pbLbl.textContent = (s.tradeSetupEngineEnabled !== false && s.pullbackContinuationEnabled !== false) ? 'ON' : 'OFF';
+    const tseFields = [
+      ['settingFastMovementThreshold', 'fastMovementThreshold', 65],
+      ['settingMediumMovementThreshold', 'mediumMovementThreshold', 40],
+      ['settingInsufficientMovementThreshold', 'insufficientMovementThreshold', 25],
+      ['settingMinimumSetupScore', 'minimumSetupScore', 65],
+      ['settingMinimumRiskReward', 'minimumRiskReward', 1.5],
+      ['settingSetupConfirmationMaxCandles', 'setupConfirmationMaxCandles', 8],
+      ['settingTargetPointsFast', 'targetPointsFast', 20],
+      ['settingTargetPointsMedium', 'targetPointsMedium', 15],
+      ['settingTargetPointsSlow', 'targetPointsSlow', 10],
+    ];
+    tseFields.forEach(([id, key, fallback]) => {
+      const el = document.getElementById(id);
+      if (el) el.value = (typeof s[key] === 'number') ? s[key] : fallback;
+    });
     const maxLossEl = document.getElementById('settingMaxLosingTradesPerDay');
     if (maxLossEl) maxLossEl.value = (typeof s.maxLosingTradesPerDay === 'number') ? s.maxLosingTradesPerDay : 1;
     const maxLossPctEl = document.getElementById('settingMaxDailyLossPctPreservation');
@@ -15454,14 +15506,37 @@ function render(){
   const pbCheckbox = document.getElementById('settingPullbackContinuation');
   if (pbCheckbox) {
     pbCheckbox.addEventListener('change', (e) => {
-      fnoSettings.set({ pullbackContinuationEnabled: e.target.checked });
+      const on = e.target.checked;
+      fnoSettings.set({ tradeSetupEngineEnabled: on, pullbackContinuationEnabled: on });
       const lbl = document.getElementById('pullbackContinuationStatusLabel');
-      if (lbl) lbl.textContent = e.target.checked ? 'ON' : 'OFF';
-      if (typeof renderPullbackContinuationPanel === 'function' && window.FNO_LAST_CTX && window.FNO_LAST_CTX.pullbackContinuation) {
+      if (lbl) lbl.textContent = on ? 'ON' : 'OFF';
+      if (typeof renderTradeSetupMonitor === 'function' && window.FNO_LAST_CTX && window.FNO_LAST_CTX.tradeSetupDecision) {
+        renderTradeSetupMonitor(window.FNO_LAST_CTX.tradeSetupDecision);
+      } else if (typeof renderPullbackContinuationPanel === 'function' && window.FNO_LAST_CTX && window.FNO_LAST_CTX.pullbackContinuation) {
         renderPullbackContinuationPanel(window.FNO_LAST_CTX.pullbackContinuation);
       }
     });
   }
+  const tseSettingBindings = [
+    ['settingFastMovementThreshold', 'fastMovementThreshold', 40, 95],
+    ['settingMediumMovementThreshold', 'mediumMovementThreshold', 20, 80],
+    ['settingInsufficientMovementThreshold', 'insufficientMovementThreshold', 10, 50],
+    ['settingMinimumSetupScore', 'minimumSetupScore', 40, 95],
+    ['settingMinimumRiskReward', 'minimumRiskReward', 1, 4],
+    ['settingSetupConfirmationMaxCandles', 'setupConfirmationMaxCandles', 3, 20],
+    ['settingTargetPointsFast', 'targetPointsFast', 15, 30],
+    ['settingTargetPointsMedium', 'targetPointsMedium', 10, 20],
+    ['settingTargetPointsSlow', 'targetPointsSlow', 5, 15],
+  ];
+  tseSettingBindings.forEach(([id, key, min, max]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', (e) => {
+      const v = parseFloat(e.target.value);
+      if (Number.isFinite(v) && v >= min && v <= max) fnoSettings.set({ [key]: v });
+      else e.target.value = fnoSettings.get()[key];
+    });
+  });
   const maxLossInput = document.getElementById('settingMaxLosingTradesPerDay');
   if (maxLossInput) {
     maxLossInput.addEventListener('change', (e) => {
@@ -16260,15 +16335,22 @@ function render(){
         renderCurrentHypothesisBox(refreshCtx.liquidityInputs ? refreshCtx.liquidityInputs.trapSignal : null, refreshCtx.strikeShift);
       }
       try {
-        if (typeof computePullbackContinuationSetup === 'function') {
+        if (typeof makeTradeDecision === 'function') {
+          const tsd = makeTradeDecision(refreshCtx, brain, { journalToday: todayTrades });
+          applyTradeSetupInfluence(brain, tsd);
+          refreshCtx.tradeSetupDecision = tsd;
+          refreshCtx.pullbackContinuation = brain.pullbackContinuation;
+          logTradeSetupDecision(tsd, sym, brain);
+          renderTradeSetupMonitor(tsd);
+        } else if (typeof computePullbackContinuationSetup === 'function') {
           const pbSetup = computePullbackContinuationSetup(refreshCtx, brain);
           applyPullbackContinuationInfluence(brain, pbSetup);
           refreshCtx.pullbackContinuation = pbSetup;
           logPullbackContinuationObservation(pbSetup, sym, brain);
           renderPullbackContinuationPanel(pbSetup);
         }
-      } catch (pbErr) {
-        console.warn('Pullback Continuation engine failed (non-critical):', pbErr);
+      } catch (tseErr) {
+        console.warn('Trade Setup Engine failed (non-critical):', tseErr);
       }
       // Real, NEW this pass (Advanced Trading Intelligence spec §3/§16) -
       // cached to a window global, same real pattern as
@@ -17658,6 +17740,19 @@ function render(){
         mfe: open.mfe,
       });
     }
+    if (typeof recordTradeSetupOutcome === 'function' && open.entrySnapshot && open.entrySnapshot.tradeSetupDecision) {
+      recordTradeSetupOutcome(open.id, {
+        pnl: costs.netPnl,
+        exitReason,
+        mfe: open.mfe,
+        mae: open.mae,
+        exitPrice,
+        entryPrice: open.entryPrice,
+        reachedTarget: exitReason === 'target',
+        hitStop: exitReason === 'sl' || exitReason === 'auto_sl',
+        holdingMs: open.openedAt ? (Date.now() - open.openedAt) : null,
+      });
+    }
     notifyTradeExecution({
       kind: 'exit',
       symbol: sym,
@@ -17880,7 +17975,13 @@ function render(){
     if (existing && existing.id) { return { opened: false, reason: 'Position already open' }; } // real, honest no-op for the autonomous path - not an error, just nothing to do this cycle
     if (!target || !sl || sl>=leg.lastPrice || target<=leg.lastPrice) { reportFn('Target must be above, and SL below, the current live premium.'); return { opened: false }; }
 
-    if (typeof checkPullbackContinuationEntryGate === 'function' && timeSufficiencyType === 'scalping') {
+    if (typeof checkTradeSetupEntryGate === 'function' && timeSufficiencyType === 'scalping') {
+      const tseGate = checkTradeSetupEntryGate(lastBrain, curCtx, optionType);
+      if (!tseGate.allowed) {
+        reportFn(tseGate.reason);
+        return { opened: false, reason: tseGate.reason, rejectionCategory: FNO_EXEC_REJECTION.STRATEGY_RULE, rejectionSubcategory: 'trade_setup_engine' };
+      }
+    } else if (typeof checkPullbackContinuationEntryGate === 'function' && timeSufficiencyType === 'scalping') {
       const pbGate = checkPullbackContinuationEntryGate(lastBrain, curCtx, optionType);
       if (!pbGate.allowed) {
         reportFn(pbGate.reason);
@@ -19913,8 +20014,11 @@ document.addEventListener('fnoSettingsChanged', (e) => {
     renderScalpingSessionReadiness(window.FNO_LAST_BRAIN, window.FNO_LAST_CTX || {});
   }
   const pbBox = document.getElementById('pullbackContinuationBox');
-  if (pbBox && typeof isPullbackContinuationActive === 'function' && !isPullbackContinuationActive()) pbBox.style.display = 'none';
-  else if (pbBox && typeof renderPullbackContinuationPanel === 'function' && window.FNO_LAST_CTX && window.FNO_LAST_CTX.pullbackContinuation) {
+  if (pbBox && typeof isTradeSetupEngineActive === 'function' && !isTradeSetupEngineActive()) pbBox.style.display = 'none';
+  else if (pbBox && typeof isPullbackContinuationActive === 'function' && !isPullbackContinuationActive()) pbBox.style.display = 'none';
+  else if (pbBox && typeof renderTradeSetupMonitor === 'function' && window.FNO_LAST_CTX && window.FNO_LAST_CTX.tradeSetupDecision) {
+    renderTradeSetupMonitor(window.FNO_LAST_CTX.tradeSetupDecision);
+  } else if (pbBox && typeof renderPullbackContinuationPanel === 'function' && window.FNO_LAST_CTX && window.FNO_LAST_CTX.pullbackContinuation) {
     renderPullbackContinuationPanel(window.FNO_LAST_CTX.pullbackContinuation);
   }
 });
