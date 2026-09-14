@@ -77,7 +77,7 @@ assert.strictEqual(log[log.length - 1].balancedRejectRelaxedAccept, true);
 
 api.applyScalpingTradingModePreset('opportunity');
 assert.strictEqual(api.resolveScalpingTradingMode(), 'opportunity');
-assert.strictEqual(JSON.parse(localStorage.getItem('fno_trading_controls_v1')).scalpingTradingMode, 'opportunity');
+assert.strictEqual(api.fnoSettings.get().scalpingTradingMode, 'opportunity');
 api.applyScalpingTradingModePreset('relaxed');
 assert.strictEqual(api.resolveScalpingTradingMode(), 'relaxed');
 assert.notStrictEqual(api.resolveScalpingTradingMode(), 'balanced');

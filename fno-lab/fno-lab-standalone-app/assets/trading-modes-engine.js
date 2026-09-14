@@ -6,6 +6,15 @@
 const FNO_MODE_TRADE_LOG_KEY = 'fno_mode_trade_log_v1';
 const FNO_MODE_TRADE_LOG_MAX = 2000;
 
+function fnoEscapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 const FNO_SCALPING_TRADING_MODES = {
   conservative: {
     id: 'conservative',
@@ -555,7 +564,7 @@ function renderModeComparisonDashboard(sym) {
     if (!m) return '';
     const isActive = id === dash.activeMode;
     return `<tr style="${isActive ? 'background:' + palette.warnBg : ''}">
-      <td style="padding:4px;white-space:nowrap">${escapeHtml(m.mode.shortLabel)}${isActive ? ' ✓' : ''}</td>
+      <td style="padding:4px;white-space:nowrap">${fnoEscapeHtml(m.mode.shortLabel)}${isActive ? ' ✓' : ''}</td>
       <td style="padding:4px;text-align:right">${m.opportunitiesDetected}</td>
       <td style="padding:4px;text-align:right">${m.tradesTaken}</td>
       <td style="padding:4px;text-align:right">${m.tradesRejected}</td>
@@ -577,12 +586,12 @@ function renderModeComparisonDashboard(sym) {
       : r.outcome === 'trap' ? 'Trap'
       : r.outcome === 'opened_pending' ? 'Opened (pending)'
       : r.outcome === 'not_taken' ? 'Not taken' : (r.outcome || '?');
-    return `<div style="font-size:10px;padding:3px 0;border-bottom:1px solid ${palette.line}">${new Date(r.ts).toLocaleTimeString()} ${escapeHtml(r.sym)} ${r.decision} score ${r.score != null ? r.score.toFixed(1) : '?'} — Balanced REJECT / Relaxed ACCEPT · <span style="color:${outcomeColor}">${outcomeLabel}${r.pnl != null ? ' (₹' + r.pnl.toFixed(0) + ')' : ''}</span></div>`;
+    return `<div style="font-size:10px;padding:3px 0;border-bottom:1px solid ${palette.line}">${new Date(r.ts).toLocaleTimeString()} ${fnoEscapeHtml(r.sym)} ${r.decision} score ${r.score != null ? r.score.toFixed(1) : '?'} — Balanced REJECT / Relaxed ACCEPT · <span style="color:${outcomeColor}">${outcomeLabel}${r.pnl != null ? ' (₹' + r.pnl.toFixed(0) + ')' : ''}</span></div>`;
   }).join('') || `<span style="color:${palette.muted}">No Balanced-reject / Relaxed-accept cases in log yet.</span>`;
 
   const activeStats = dash.byMode[dash.activeMode] || {};
   box.innerHTML = `
-    <div style="font-size:11px;margin-bottom:8px"><b>Active:</b> ${escapeHtml(active.label)} — ${escapeHtml(active.description)}</div>
+    <div style="font-size:11px;margin-bottom:8px"><b>Active:</b> ${fnoEscapeHtml(active.label)} — ${fnoEscapeHtml(active.description)}</div>
     <div style="overflow:auto">
       <table style="width:100%;font-size:10px;border-collapse:collapse">
         <thead><tr style="color:${palette.muted}">

@@ -16968,10 +16968,11 @@ function render(){
     }catch(e){
       const brainLogEl = document.getElementById('brainLog');
       const decEl = document.getElementById('brainDecision');
-      if (brainLogEl) brainLogEl.textContent += '\n❌ ' + e.message;
+      const errMsg = e && e.message ? String(e.message) : String(e);
+      if (brainLogEl) brainLogEl.textContent += '\n❌ ' + errMsg;
       if (decEl && /Loading brain/i.test(decEl.textContent)) {
         const ver = typeof FNO_PLUGIN_VERSION !== 'undefined' ? FNO_PLUGIN_VERSION : '?';
-        decEl.innerHTML = '❌ Brain refresh failed — ' + escapeHtml(e.message) + ` <span style="font-size:10px;opacity:0.85">(plugin v${escapeHtml(ver)} — reinstall from PR #17 branch zip if not v16.30.3+)</span>`;
+        decEl.textContent = `❌ Brain refresh failed — ${errMsg} (plugin v${ver} — reinstall from PR #17 zip if not v16.31.2+)`;
         decEl.style.background = '#450a0a';
         decEl.style.color = '#fca5a5';
       }
