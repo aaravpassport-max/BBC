@@ -32,6 +32,7 @@ const { loadStagesFromDb, saveStageToDb, deleteInquiryStage } = require('./inqui
 const { listTemplates, createTemplate, deleteTemplate, seedDefaultTemplates } = require('./inquiry-templates');
 const { getWorkAnalytics } = require('./inquiry-analytics');
 const { checkInquiryAlerts, refreshAllInquiryHealth } = require('./inquiry-health-monitor');
+const { checkCompletionDueAlerts, handleCompletionAction } = require('./completion-monitor');
 const {
   loadWorkflowStages,
   saveWorkflowStage,
@@ -700,6 +701,16 @@ function setupIPC() {
     }
   });
 
+  ipcMain.handle('handle-completion-action', async (_event, payload) => {
+    try {
+      const result = handleCompletionAction(db, payload || {});
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('update-workflow-status', async (_event, { id, workflowStatus }) => {
     try {
       if (!id || !workflowStatus) return { success: false, error: 'Missing id or status' };
@@ -1110,8 +1121,33 @@ function repairReminderSchedules() {
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '14')").run();
       console.log('Workflow stages migration v14 complete');
     }
+    if (version < 15) {
+      runWorkSchedulingMigrationV15();
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '15')").run();
+      console.log('Work scheduling migration v15 complete');
+    }
   } catch (err) {
     console.error('repairReminderSchedules error:', err.message);
+  }
+}
+
+function runWorkSchedulingMigrationV15() {
+  try {
+    try { db.exec("ALTER TABLE reminders ADD COLUMN work_start_date TEXT DEFAULT ''"); } catch (_) { /* exists */ }
+    try { db.exec("ALTER TABLE reminders ADD COLUMN expected_completion_date TEXT DEFAULT ''"); } catch (_) { /* exists */ }
+    try { db.exec("ALTER TABLE inquiries ADD COLUMN work_start_date TEXT DEFAULT ''"); } catch (_) { /* exists */ }
+    try { db.exec("ALTER TABLE inquiries ADD COLUMN expected_completion_date TEXT DEFAULT ''"); } catch (_) { /* exists */ }
+    db.prepare(`
+      UPDATE reminders SET work_start_date = start_date
+      WHERE (work_start_date IS NULL OR work_start_date = '') AND start_date != ''
+    `).run();
+    db.prepare(`
+      UPDATE reminders SET expected_completion_date = end_date
+      WHERE (expected_completion_date IS NULL OR expected_completion_date = '') AND end_date != ''
+    `).run();
+    db.prepare("INSERT OR IGNORE INTO settings (key, value) VALUES ('completion_alerts_enabled', '1')").run();
+  } catch (err) {
+    console.error('Work scheduling migration v15 error:', err.message);
   }
 }
 
@@ -1435,6 +1471,11 @@ function runSchedulerTick() {
       inquiryAlertCounter = 0;
       checkInquiryAlerts(db, showInquiryAlertNotification, now);
     }
+    completionCheckCounter += 1;
+    if (completionCheckCounter >= 60) {
+      completionCheckCounter = 0;
+      checkCompletionDueAlerts(db, (item) => dispatchDueItem(item, item._type || 'completion_check'), now);
+    }
   } catch (err) {
     console.error('Scheduler error:', err.message);
   }
@@ -1442,6 +1483,7 @@ function runSchedulerTick() {
 
 let syncCounter = 0;
 let inquiryAlertCounter = 0;
+let completionCheckCounter = 0;
 
 function startScheduler() {
   if (schedulerTimer) clearInterval(schedulerTimer);

@@ -8,15 +8,17 @@
 
   function inquiryCard(inq, compact = false) {
     const pipeline = P();
+    const WS = window.ILRSWorkScheduling;
     const health = pipeline?.healthClass(inq.health) || '';
     const stageCls = pipeline?.stageCategoryClass?.(inq.stage_key) || '';
+    const completionOverdue = WS?.isCompletionOverdue?.(inq);
     const selected = App.selectedInquiryIds?.has(inq.id);
     const followLabel = inq.next_follow_up
       ? `${formatDate(inq.next_follow_up)}${inq.next_follow_up_time ? ' · ' + formatTime(inq.next_follow_up_time) : ''}`
       : 'No follow-up set';
     const assignee = typeof assigneeLabel === 'function' ? assigneeLabel(inq.assigned_to) : '';
     return `
-      <div class="inquiry-card ${health} ${stageCls}" onclick="openInquiryDetail('${inq.id}')">
+      <div class="inquiry-card ${health} ${stageCls} ${completionOverdue ? 'completion-overdue' : ''}" onclick="openInquiryDetail('${inq.id}')">
         <input type="checkbox" class="item-select-checkbox" ${selected ? 'checked' : ''}
           onclick="event.stopPropagation();toggleInquirySelection('${inq.id}', this.checked)" title="Select" />
         <div class="inquiry-card-top">
@@ -25,7 +27,9 @@
           <button class="action-btn delete btn-sm" onclick="event.stopPropagation();deleteInquiryItem('${inq.id}')" title="Delete">🗑</button>
         </div>
         <div class="inquiry-requirement">${inq.requirement}</div>
+        ${WS?.scheduleDatesHtml ? WS.scheduleDatesHtml(inq, compact) : ''}
         <div class="inquiry-stage-badge ${stageCls}">${stageDisplay(inq.stage_key)}</div>
+        ${WS?.notePreviewHtml ? WS.notePreviewHtml(inq, 'inq') : ''}
         ${inq.quotation_amount > 0 ? `<div class="inquiry-amount">₹${Number(inq.quotation_amount).toLocaleString('en-IN')}</div>` : ''}
         <div class="inquiry-next-action">
           <span class="next-action-label">Next:</span> ${inq.next_action || 'Follow up'}
@@ -343,9 +347,12 @@
           </div>
 
           <div class="card" style="padding:16px;margin-bottom:16px">
+            ${window.ILRSWorkScheduling?.scheduleDatesHtml ? window.ILRSWorkScheduling.scheduleDatesHtml(inq) : ''}
             <div class="form-grid">
               <div><span class="form-label">Stage</span><div>${stageDisplay(inq.stage_key)}</div></div>
               <div><span class="form-label">Health</span><div class="inquiry-health-pill ${pipeline?.healthClass(inq.health)}">${pipeline?.healthLabel(inq.health)}</div></div>
+              ${inq.work_start_date ? `<div><span class="form-label">Work start</span><div>${formatDate(inq.work_start_date)}</div></div>` : ''}
+              ${inq.expected_completion_date ? `<div><span class="form-label">Expected completion</span><div>${formatDate(inq.expected_completion_date)}</div></div>` : ''}
               ${inq.mobile ? `<div><span class="form-label">Mobile</span><div>${inq.mobile}</div></div>` : ''}
               ${inq.email ? `<div><span class="form-label">Email</span><div>${inq.email}</div></div>` : ''}
               ${inq.quotation_amount > 0 ? `<div><span class="form-label">Quotation</span><div>₹${Number(inq.quotation_amount).toLocaleString('en-IN')}</div></div>` : ''}

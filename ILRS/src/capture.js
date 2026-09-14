@@ -198,12 +198,31 @@
   }
 
   function isUpcoming(r, now = new Date()) {
-    if (!isActiveReminder(r) || !r.next_fire) return false;
+    if (!isActiveReminder(r)) return false;
+    const today = dateStr(now);
+    const WS = window.ILRSWorkScheduling;
+    const completionDue = WS?.effectiveCompletionDate?.(r) || String(r.expected_completion_date || '').slice(0, 10);
+    if (completionDue && completionDue > today) {
+      if (!r.next_fire) return true;
+    }
+    if (!r.next_fire) return false;
     const d = parseLocalDateTime(r.next_fire);
-    if (!d || d.getTime() <= now.getTime()) return false;
-    const end = addDays(now, 7);
-    end.setHours(23, 59, 59, 999);
-    return d.getTime() <= end.getTime() && !isDueToday(r, now) && !isDueTomorrow(r, now);
+    if (!d || d.getTime() <= now.getTime()) {
+      return Boolean(completionDue && completionDue > today);
+    }
+    if (isDueToday(r, now) || isDueTomorrow(r, now)) return false;
+    return true;
+  }
+
+  function isFutureWorkItem(r, now = new Date()) {
+    if (!isActiveReminder(r)) return false;
+    const today = dateStr(now);
+    const WS = window.ILRSWorkScheduling;
+    const completionDue = WS?.effectiveCompletionDate?.(r) || String(r.expected_completion_date || '').slice(0, 10);
+    if (completionDue && completionDue >= today) return true;
+    if (!r.next_fire) return false;
+    const fireDate = nextFireDateStr(r.next_fire);
+    return fireDate && fireDate > today;
   }
 
   function isOverdueItem(r, now = new Date()) {
@@ -282,6 +301,7 @@
     isDueToday,
     isDueTomorrow,
     isUpcoming,
+    isFutureWorkItem,
     isOverdueItem,
     isPostponedItem,
     relativeTimeLabel,

@@ -60,6 +60,7 @@ contextBridge.exposeInMainWorld('ilrs', {
     ipcRenderer.invoke('change-reminder-stage', { id, stageKey, options }),
   setInitialReminderStage: (id, entityType, stageKey) =>
     ipcRenderer.invoke('set-initial-reminder-stage', { id, entityType, stageKey }),
+  handleCompletionAction: (payload) => ipcRenderer.invoke('handle-completion-action', payload),
 
   // Listeners
   onNavigate: (callback) => ipcRenderer.on('navigate', (_, page) => callback(page)),

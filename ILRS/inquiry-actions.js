@@ -150,8 +150,9 @@ function createInquiry(db, data, now = new Date()) {
       id, inquiry_number, client_id, client_name, company, mobile, email,
       requirement, service_category, source, stage_key, priority, assigned_to,
       next_action, next_follow_up, next_follow_up_time, expected_value, quotation_amount,
+      work_start_date, expected_completion_date,
       outcome_status, health, stage_changed_at, last_activity_at, notes, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'healthy', datetime('now'), datetime('now'), ?, datetime('now'), datetime('now'))
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'healthy', datetime('now'), datetime('now'), ?, datetime('now'), datetime('now'))
   `).run(
     id,
     inquiryNumber,
@@ -171,6 +172,8 @@ function createInquiry(db, data, now = new Date()) {
     data.nextFollowUpTime || '',
     parseFloat(data.expectedValue) || 0,
     parseFloat(data.quotationAmount) || 0,
+    data.workStartDate || today,
+    data.expectedCompletionDate || '',
     data.notes || '',
   );
 
@@ -311,6 +314,8 @@ function updateInquiry(db, inquiryId, data, now = new Date()) {
       next_follow_up_time = COALESCE(?, next_follow_up_time),
       expected_value = COALESCE(?, expected_value),
       quotation_amount = COALESCE(?, quotation_amount),
+      work_start_date = COALESCE(?, work_start_date),
+      expected_completion_date = COALESCE(?, expected_completion_date),
       notes = COALESCE(?, notes),
       updated_at = datetime('now')
     WHERE id = ?
@@ -329,6 +334,8 @@ function updateInquiry(db, inquiryId, data, now = new Date()) {
     data.nextFollowUpTime ?? null,
     data.expectedValue != null ? parseFloat(data.expectedValue) : null,
     data.quotationAmount != null ? parseFloat(data.quotationAmount) : null,
+    data.workStartDate ?? null,
+    data.expectedCompletionDate ?? null,
     data.notes ?? null,
     inquiryId,
   );

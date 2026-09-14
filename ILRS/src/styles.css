@@ -1405,3 +1405,101 @@ textarea.form-input {
 .inquiry-stage-badge.wf-stage-cat-active { background: rgba(34, 197, 94, 0.25); color: #4ade80; }
 .inquiry-stage-badge.wf-stage-cat-hold { background: rgba(234, 179, 8, 0.25); color: #facc15; }
 .inquiry-stage-badge.wf-stage-cat-closed { background: rgba(100, 116, 139, 0.25); color: #94a3b8; }
+
+/* Work scheduling */
+.card-schedule {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: center;
+  margin: 6px 0 4px;
+  font-size: 12px;
+}
+.card-schedule.compact { margin: 4px 0; }
+.schedule-date {
+  color: var(--text-secondary);
+  background: var(--bg-hover);
+  padding: 2px 8px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+.schedule-date.overdue { color: var(--critical); background: var(--critical-dim); }
+.schedule-date.follow { color: var(--info); }
+.schedule-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.schedule-badge.overdue { background: var(--critical-dim); color: var(--critical); }
+.schedule-badge.due-today { background: var(--important-dim); color: var(--important); }
+.schedule-badge.approaching { background: var(--info-dim); color: var(--info); }
+.card-note-preview {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  margin: 6px 0 4px;
+  padding: 8px 10px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+.card-note-preview .note-label { flex-shrink: 0; }
+.card-note-preview .note-text.truncated {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.card-note-preview.expanded .note-text { -webkit-line-clamp: unset; }
+.note-expand-btn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--accent-light);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0 4px;
+}
+.schedule-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.schedule-filter-chip {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.schedule-filter-chip:hover { border-color: var(--accent); color: var(--text-primary); }
+.schedule-filter-chip.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent-light);
+  font-weight: 600;
+}
+.schedule-custom-range {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+}
+.schedule-custom-range .form-input { max-width: 160px; }
+.inquiry-card.completion-overdue { border-left: 3px solid var(--critical); background: var(--overdue-bg); }
+.due-notification.completion-check { min-width: 320px; }
+.due-notification-actions.completion-actions {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+.due-notification-actions.completion-actions .btn { width: 100%; justify-content: center; }

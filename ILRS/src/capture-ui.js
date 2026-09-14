@@ -103,6 +103,8 @@
       alert: r.alert_style || 'sound-popup',
       private: Number(r.is_private) === 1,
       endDate: r.end_date || '',
+      workStartDate: r.work_start_date || r.start_date || '',
+      expectedCompletionDate: r.expected_completion_date || r.end_date || '',
       sourceType: r.source_type || '',
       sourceId: r.source_id || '',
       moreOpen: isEdit || !!(r.source_type && r.source_id),
@@ -138,6 +140,17 @@
         <label class="form-label">Workflow stage</label>
         <select class="form-select" id="capture-stage"></select>
         <p class="form-hint" style="margin-top:4px">Manage stages in sidebar → <strong>Workflow Stages</strong> (Tasks / Reminders tabs)</p>
+
+        <div class="form-grid" style="margin-top:12px">
+          <div class="form-group">
+            <label class="form-label">Work starting date</label>
+            <input type="date" class="form-input" id="capture-work-start" value="${state.workStartDate || state.startDate}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Expected completion date</label>
+            <input type="date" class="form-input" id="capture-completion-date" value="${state.expectedCompletionDate}" />
+          </div>
+        </div>
 
         <button type="button" class="capture-more-toggle" id="capture-more-toggle">${state.moreOpen ? '▾ Less options' : '+ More options'}</button>
         <div class="capture-more" id="capture-more" style="display:${state.moreOpen ? 'block' : 'none'}">
@@ -390,6 +403,8 @@
     }
 
     const tags = (document.getElementById('capture-tags')?.value || '').split(',').map((t) => t.trim()).filter(Boolean);
+    const workStartDate = document.getElementById('capture-work-start')?.value || startDate;
+    const expectedCompletionDate = document.getElementById('capture-completion-date')?.value || '';
     const params = [
       id,
       title,
@@ -400,7 +415,7 @@
       repeatValue,
       time,
       startDate,
-      '',
+      expectedCompletionDate,
       document.getElementById('capture-priority')?.value || 'normal',
       'important-not-urgent',
       document.getElementById('capture-alert')?.value || 'sound-popup',
@@ -422,8 +437,8 @@
         ? ", status='active', workflow_status='pending', last_completed=NULL, snooze_count=0, alarm_rings=0"
         : '';
       ok = await dbRun(
-        `UPDATE reminders SET title=?,task_type=?,category=?,why_it_matters=?,repeat_type=?,repeat_value=?,reminder_time=?,start_date=?,end_date=?,priority=?,urgency_quadrant=?,alert_style=?,snooze_duration=?,assigned_to=?,is_private=?,notes=?,tags=?,next_fire=?,stage_key=?,updated_at=?${reactivateSql} WHERE id=?`,
-        [...params.slice(1), stageKey, new Date().toISOString(), id]
+        `UPDATE reminders SET title=?,task_type=?,category=?,why_it_matters=?,repeat_type=?,repeat_value=?,reminder_time=?,start_date=?,end_date=?,priority=?,urgency_quadrant=?,alert_style=?,snooze_duration=?,assigned_to=?,is_private=?,notes=?,tags=?,next_fire=?,work_start_date=?,expected_completion_date=?,stage_key=?,updated_at=?${reactivateSql} WHERE id=?`,
+        [...params.slice(1), workStartDate, expectedCompletionDate, stageKey, new Date().toISOString(), id]
       );
       if (ok && stageKey && existing && stageKey !== (existing.stage_key || '')) {
         await window.ilrs?.changeReminderStage?.(id, stageKey, {});
@@ -433,8 +448,8 @@
       const sourceType = document.getElementById('capture-source-type')?.value || '';
       const sourceId = document.getElementById('capture-source-id')?.value || '';
       ok = await dbRun(
-        `INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,repeat_value,reminder_time,start_date,end_date,priority,urgency_quadrant,alert_style,snooze_duration,assigned_to,is_private,notes,tags,next_fire,status,workflow_status,source_type,source_id,stage_key,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'active',?,?,?,?,datetime('now'),datetime('now'))`,
-        [...params, workflowStatus, sourceType, sourceId, stageKey]
+        `INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,repeat_value,reminder_time,start_date,end_date,priority,urgency_quadrant,alert_style,snooze_duration,assigned_to,is_private,notes,tags,next_fire,work_start_date,expected_completion_date,status,workflow_status,source_type,source_id,stage_key,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'active',?,?,?,?,datetime('now'),datetime('now'))`,
+        [...params, workStartDate, expectedCompletionDate, workflowStatus, sourceType, sourceId, stageKey]
       );
       if (ok && stageKey) {
         await window.ilrs?.setInitialReminderStage?.(id, kind, stageKey);

@@ -114,7 +114,28 @@ function isSchedulableReminder(r) {
 function isOverdueReminder(r, now = new Date()) {
   if (!isActiveSchedulableReminder(r) || !isSchedulableReminder(r)) return false;
   const C = cap();
-  return Boolean(C?.isOverdueItem(r, now) || isReminderOverdue(r.next_fire));
+  const WS = window.ILRSWorkScheduling;
+  const completionOverdue = WS?.isCompletionOverdue?.(r, now);
+  return Boolean(completionOverdue || C?.isOverdueItem(r, now) || isReminderOverdue(r.next_fire));
+}
+
+function isCompletionOverdueInquiry(inq, now = new Date()) {
+  if (!inq || inq.outcome_status !== 'active') return false;
+  const WS = window.ILRSWorkScheduling;
+  return Boolean(WS?.isCompletionOverdue?.(inq, now));
+}
+
+function collectWorkScheduleItems() {
+  const items = [];
+  (App.reminders || []).forEach((r) => {
+    if (!isActiveSchedulableReminder(r)) return;
+    if (['medicine', 'bill', 'habit'].includes(r.category)) return;
+    items.push({ ...r, _scheduleKind: r.task_type === 'task' ? 'task' : 'reminder' });
+  });
+  (App.inquiries || []).filter((i) => i.outcome_status === 'active').forEach((i) => {
+    items.push({ ...i, _scheduleKind: 'inquiry' });
+  });
+  return items;
 }
 
 function refreshCurrentView() {
@@ -271,6 +292,7 @@ const PAGES = {
   clients: renderClients,
   'pipeline-settings': renderPipelineSettings,
   'work-reports': renderWorkReports,
+  'work-schedule': renderWorkSchedule,
 };
 
 function dismissPageModals() {
@@ -351,6 +373,7 @@ function renderShell() {
       ${navItem('pipeline', '📊', 'Pipeline')}
       ${navItem('inquiries', '📥', 'Inquiries')}
       ${navItem('inquiry-followups', '📞', 'Follow-ups')}
+      ${navItem('work-schedule', '🗓', 'Work Schedule')}
       ${navItem('clients', '👤', 'Clients')}
       ${navItem('work-reports', '📈', 'Work Analytics')}
       ${navItem('pipeline-settings', '🏷', 'Workflow Stages')}
@@ -803,9 +826,9 @@ async function renderSmartList(mode) {
       subtitle = 'What is coming tomorrow';
       break;
     case 'upcoming':
-      items = App.reminders.filter(r => isActiveSchedulableReminder(r) && isSchedulableReminder(r) && C?.isUpcoming(r, now));
+      items = App.reminders.filter(r => isActiveSchedulableReminder(r) && isSchedulableReminder(r) && (C?.isUpcoming(r, now) || C?.isFutureWorkItem?.(r, now)));
       title = '📆 Upcoming';
-      subtitle = 'Next 7 days';
+      subtitle = 'Future work — all months';
       break;
     case 'overdue':
       items = App.reminders.filter(r => isOverdueReminder(r, now));
@@ -824,14 +847,18 @@ async function renderSmartList(mode) {
   }
 
   const postponedCount = App.reminders.filter(r => C?.isPostponedItem(r)).length;
-  const totalCount = items.length + lifeCards.length;
+  const overdueInquiries = mode === 'overdue'
+    ? (App.inquiries || []).filter((i) => isCompletionOverdueInquiry(i, now))
+    : [];
+  const totalCount = items.length + lifeCards.length + overdueInquiries.length;
   const lifeNote = lifeCards.length > 0 ? ` · ${lifeCards.length} from Life` : '';
+  const inquiryNote = overdueInquiries.length > 0 ? ` · ${overdueInquiries.length} inquiries` : '';
 
   el.innerHTML = `
     <div class="page-header">
       <div>
         <div class="page-title">${title}</div>
-        <div class="page-subtitle">${subtitle} · ${totalCount} item${totalCount !== 1 ? 's' : ''}${lifeNote}</div>
+        <div class="page-subtitle">${subtitle} · ${totalCount} item${totalCount !== 1 ? 's' : ''}${lifeNote}${inquiryNote}</div>
       </div>
       <button class="btn btn-primary" onclick="showCaptureSheet()">＋ New</button>
     </div>
@@ -849,8 +876,14 @@ async function renderSmartList(mode) {
       <button class="btn btn-ghost btn-sm" onclick="navigate('medicine')">Life modules</button>
     </div>
     <div class="reminder-list" style="margin-bottom:16px">${lifeCards.join('')}</div>` : ''}
+    ${overdueInquiries.length > 0 ? `
+    <div class="section-header" style="margin-top:8px">
+      <div class="section-title">📥 Overdue Inquiries</div>
+      <button class="btn btn-ghost btn-sm" onclick="navigate('work-schedule');setWorkScheduleFilter('overdue')">Work Schedule</button>
+    </div>
+    <div class="inquiry-list" style="margin-bottom:16px">${overdueInquiries.map((i) => typeof inquiryCard === 'function' ? inquiryCard(i) : '').join('')}</div>` : ''}
     <div class="reminder-list">
-      ${items.length === 0 && lifeCards.length === 0
+      ${items.length === 0 && lifeCards.length === 0 && overdueInquiries.length === 0
         ? `<div class="empty-state"><div class="empty-icon">✨</div><h3>Nothing here</h3><p>You're clear for this view.</p></div>`
         : items.length === 0
           ? `<div class="empty-state" style="padding:24px 0"><p style="color:var(--text-muted)">No reminders in this view.</p></div>`
@@ -858,6 +891,74 @@ async function renderSmartList(mode) {
     </div>
   `;
 }
+
+async function renderWorkSchedule(el) {
+  const target = el || document.getElementById('content');
+  const WS = window.ILRSWorkScheduling;
+  if (!WS) {
+    target.innerHTML = '<div class="empty-state"><p>Work scheduling module not loaded.</p></div>';
+    return;
+  }
+  const filter = App.workScheduleFilter || 'upcoming';
+  const custom = App.workScheduleCustom || {};
+  const now = new Date();
+  let items = collectWorkScheduleItems();
+  if (filter && filter !== 'all') {
+    items = items.filter((item) => WS.matchesCompletionFilter(item, filter, now, custom));
+  }
+  items = WS.sortByCompletionDate(items);
+  const overdueCount = collectWorkScheduleItems().filter((i) => WS.isCompletionOverdue(i, now)).length;
+
+  target.innerHTML = `
+    <div class="page-header">
+      <div>
+        <div class="page-title">🗓 Work Schedule</div>
+        <div class="page-subtitle">Track start dates, expected completion, and follow-ups · ${items.length} item${items.length !== 1 ? 's' : ''}${overdueCount ? ` · ${overdueCount} overdue` : ''}</div>
+      </div>
+      <button class="btn btn-primary" onclick="typeof showQuickAddMenu==='function'?showQuickAddMenu():showCaptureSheet()">＋ New</button>
+    </div>
+    <div class="schedule-filters">
+      ${WS.DATE_FILTERS.map((f) =>
+        `<button type="button" class="schedule-filter-chip ${filter === f.id ? 'active' : ''}" onclick="setWorkScheduleFilter('${f.id}')">${f.label}</button>`
+      ).join('')}
+    </div>
+    <div id="work-schedule-custom" class="schedule-custom-range" style="display:${filter === 'custom' ? 'flex' : 'none'}">
+      <input type="date" class="form-input" id="ws-custom-start" value="${custom.start || ''}" onchange="setWorkScheduleCustomRange()" />
+      <span>to</span>
+      <input type="date" class="form-input" id="ws-custom-end" value="${custom.end || ''}" onchange="setWorkScheduleCustomRange()" />
+    </div>
+    <div class="reminder-list" style="margin-top:16px">
+      ${items.length === 0
+        ? '<div class="empty-state"><div class="empty-icon">📅</div><h3>No work in this range</h3><p>Try a different filter or add expected completion dates to your items.</p></div>'
+        : items.map((item) => workScheduleCard(item)).join('')}
+    </div>`;
+}
+
+function workScheduleCard(item) {
+  const WS = window.ILRSWorkScheduling;
+  const kind = item._scheduleKind || WS?.workItemKind?.(item) || 'reminder';
+  if (kind === 'inquiry' && typeof inquiryCard === 'function') {
+    return inquiryCard(item);
+  }
+  return reminderCard(item);
+}
+
+function setWorkScheduleFilter(filter) {
+  App.workScheduleFilter = filter;
+  navigate('work-schedule');
+}
+
+function setWorkScheduleCustomRange() {
+  App.workScheduleCustom = {
+    start: document.getElementById('ws-custom-start')?.value || '',
+    end: document.getElementById('ws-custom-end')?.value || '',
+  };
+  App.workScheduleFilter = 'custom';
+  navigate('work-schedule');
+}
+
+window.setWorkScheduleFilter = setWorkScheduleFilter;
+window.setWorkScheduleCustomRange = setWorkScheduleCustomRange;
 
 // ── Reminder Card ──────────────────────────────────────────────────
 function assigneeLabel(id) {
@@ -878,10 +979,12 @@ function workflowLabel(status) {
 
 function reminderCard(r) {
   const C = cap();
+  const WS = window.ILRSWorkScheduling;
   const isTask = r.task_type === 'task';
   const wf = r.workflow_status || 'pending';
   const isDone = r.status === 'completed' || wf === 'done';
-  const isOverdue = !isTask && !isDone && isOverdueReminder(r);
+  const completionOverdue = !isDone && WS?.isCompletionOverdue?.(r);
+  const isOverdue = !isDone && (completionOverdue || (!isTask && isOverdueReminder(r)));
   const tags = JSON.parse(r.tags || '[]');
   const kind = isTask ? '✅ Task' : '🔔 Reminder';
   const timeLabel = r.reminder_time ? formatTime(r.reminder_time) : '';
@@ -927,7 +1030,9 @@ function reminderCard(r) {
       <div class="reminder-body">
         <div class="reminder-title">${r.title}</div>
         <div class="reminder-context ${isOverdue ? 'overdue' : ''}">${kind}${context ? ' · ' + context : ''}</div>
+        ${WS?.scheduleDatesHtml ? WS.scheduleDatesHtml(r) : ''}
         ${r.why_it_matters ? `<div class="reminder-why">${r.why_it_matters}</div>` : ''}
+        ${WS?.notePreviewHtml ? WS.notePreviewHtml(r, 'rcard') : ''}
         <div class="reminder-meta">
           <span class="inquiry-stage-badge ${stageCls}" onclick="event.stopPropagation();showWorkflowStageModal('${r.id}','${entityType}')" title="Change stage">${stageLabel}</span>
           <span class="tag ${r.category}">${categoryIcon(r.category)} ${r.category}</span>
@@ -3107,7 +3212,9 @@ function processAlertQueue() {
     return;
   }
 
-  if (reminder.priority === 'critical') {
+  if (reminder._type === 'completion_check' || reminder._completionDue) {
+    showCompletionCheckPopup(reminder);
+  } else if (reminder.priority === 'critical') {
     showInAppAlert(reminder);
   } else {
     showDueNotificationPopup(reminder);
@@ -3193,6 +3300,97 @@ function postponeDueNotification(popupId, id) {
   showPostponeMenu(id);
   processAlertQueue();
 }
+
+function showCompletionCheckPopup(reminder) {
+  if (!reminder) return;
+  let stack = document.getElementById('due-notification-stack');
+  if (!stack) {
+    stack = document.createElement('div');
+    stack.id = 'due-notification-stack';
+    document.body.appendChild(stack);
+  }
+  const isInquiry = reminder._type === 'completion_check' && (reminder.inquiry_id || reminder.requirement);
+  const itemType = isInquiry ? 'inquiry' : 'reminder';
+  const itemId = isInquiry ? (reminder.inquiry_id || reminder.id) : reminder.id;
+  const WS = window.ILRSWorkScheduling;
+  const due = WS?.effectiveCompletionDate?.(reminder) || '';
+  const title = reminder.title || 'Work completion check';
+  const body = reminder.why_it_matters || `Expected completion: ${due || 'today'} — has this been completed?`;
+  const popupId = `completion-check-${itemId}-${Date.now()}`;
+
+  const el = document.createElement('div');
+  el.className = `due-notification completion-check ${reminder._overdue ? 'critical' : 'important'}`;
+  el.id = popupId;
+  el.innerHTML = `
+    <button class="due-notification-close" onclick="dismissDueNotification('${popupId}')">✕</button>
+    <div class="due-notification-icon">${reminder._overdue ? '⏰' : '📋'}</div>
+    <div class="due-notification-body">
+      <div class="due-notification-title">${title}</div>
+      <div class="due-notification-text">${body}</div>
+    </div>
+    <div class="due-notification-actions completion-actions">
+      <button class="btn btn-primary btn-sm" onclick="handleCompletionCheckAction('${popupId}', '${itemType}', '${itemId}', 'complete')">✓ Mark Done</button>
+      <button class="btn btn-ghost btn-sm" onclick="handleCompletionCheckAction('${popupId}', '${itemType}', '${itemId}', 'follow_up')">↪ Not Done — Follow Up</button>
+      <button class="btn btn-ghost btn-sm" onclick="showCompletionReschedule('${popupId}', '${itemType}', '${itemId}')">📅 Reschedule</button>
+      <button class="btn btn-ghost btn-sm" onclick="showCompletionFollowUpNote('${popupId}', '${itemType}', '${itemId}')">📝 Add Follow-Up</button>
+    </div>`;
+  stack.appendChild(el);
+  App.currentAlert = reminder;
+  setTimeout(() => document.getElementById(popupId)?.classList.add('due-notification-visible'), 10);
+}
+
+async function handleCompletionCheckAction(popupId, type, id, action, extra = {}) {
+  document.getElementById(popupId)?.remove();
+  const result = await window.ilrs?.handleCompletionAction?.({
+    type,
+    id,
+    action,
+    date: extra.date,
+    time: extra.time,
+    note: extra.note,
+  });
+  if (!result?.success && typeof toast === 'function') {
+    toast(result?.error || 'Action failed', 'warning');
+  } else if (typeof toast === 'function') {
+    const labels = { complete: 'Marked complete', follow_up: 'Follow-up scheduled', reschedule: 'Completion rescheduled' };
+    toast(labels[action] || 'Updated');
+  }
+  await loadAllData();
+  updateBadges();
+  if (typeof refreshCurrentView === 'function') refreshCurrentView();
+  App.isProcessingAlert = false;
+  processAlertQueue();
+}
+
+function showCompletionReschedule(popupId, type, id) {
+  document.getElementById(popupId)?.remove();
+  const tomorrow = cap()?.dateStr?.(cap().addDays(new Date(), 1)) || todayStr();
+  const date = prompt('New expected completion date (YYYY-MM-DD):', tomorrow);
+  if (!date) {
+    App.isProcessingAlert = false;
+    processAlertQueue();
+    return;
+  }
+  const time = type === 'inquiry' ? '11:00' : '09:00';
+  handleCompletionCheckAction(popupId, type, id, 'reschedule', { date, time });
+}
+
+function showCompletionFollowUpNote(popupId, type, id) {
+  document.getElementById(popupId)?.remove();
+  const note = prompt('Follow-up note (optional):', 'Not completed — scheduling follow-up');
+  const tomorrow = cap()?.dateStr?.(cap().addDays(new Date(), 1)) || todayStr();
+  const date = prompt('Follow-up date (YYYY-MM-DD):', tomorrow);
+  if (!date) {
+    App.isProcessingAlert = false;
+    processAlertQueue();
+    return;
+  }
+  handleCompletionCheckAction(popupId, type, id, 'follow_up', { date, time: type === 'inquiry' ? '11:00' : '09:00', note: note || '' });
+}
+
+window.handleCompletionCheckAction = handleCompletionCheckAction;
+window.showCompletionReschedule = showCompletionReschedule;
+window.showCompletionFollowUpNote = showCompletionFollowUpNote;
 
 function showInAppAlert(reminder) {
   const existing = document.getElementById('alert-popup');

@@ -78,6 +78,17 @@
         <input type="date" class="form-input" id="inq-follow-date" value="${whenInfo.startDate || ''}" style="display:${whenInfo.when === 'custom' ? 'block' : 'none'};margin-top:8px" />
         <input type="time" class="form-input" id="inq-follow-time" value="${inq.next_follow_up_time || '11:00'}" style="margin-top:8px" />
 
+        <div class="form-grid" style="margin-top:12px">
+          <div class="form-group">
+            <label class="form-label">Work starting date</label>
+            <input type="date" class="form-input" id="inq-work-start" value="${inq.work_start_date || (typeof todayStr === 'function' ? todayStr() : '')}" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Expected completion date</label>
+            <input type="date" class="form-input" id="inq-completion-date" value="${inq.expected_completion_date || ''}" />
+          </div>
+        </div>
+
         <button type="button" class="capture-more-toggle" id="inq-more-toggle">+ More Details</button>
         <div class="capture-more" id="inq-more" style="display:none">
           <div class="form-grid">
@@ -201,6 +212,8 @@
         serviceCategory: document.getElementById('inq-category')?.value.trim(),
         source: document.getElementById('inq-source')?.value,
         expectedValue: document.getElementById('inq-value')?.value,
+        workStartDate: document.getElementById('inq-work-start')?.value || '',
+        expectedCompletionDate: document.getElementById('inq-completion-date')?.value || '',
         notes: document.getElementById('inq-notes')?.value.trim(),
       };
 
