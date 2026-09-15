@@ -39,7 +39,7 @@ const bootSrc = [
   'function checkOptionChainFreshness(ts, now){ return { stale: false, ageMinutes: 0 }; }',
   tseSrc,
   speSrc,
-  'return { fnoSettings, isScalpingProfitEngineActive, isScalpingProfitEngineEntryBlocking, getScalpingProfitSettings, computeScalpingProfitEngine, applyScalpingProfitInfluence, checkScalpingProfitEntryGate, evaluateMarketSafety, detectSpeRegime, evaluateSpeDirection, detectSpeSetups, evaluateAntiChase, evaluateTradeQuality, evaluateExpectedMove, computeScalpingProfitStatistics, classifySpeFailureMode, FNO_SPE_MODE, FNO_SPE_NO_TRADE, FNO_SPE_REGIME, FNO_SPE_SETUP, buildSpeMarketState, evaluateScalpingProfitExit, computeTradeHealth, FNO_SPE_SETTING_META };',
+  'return { fnoSettings, isScalpingProfitEngineActive, isScalpingProfitEngineEntryBlocking, getScalpingProfitSettings, computeScalpingProfitEngine, applyScalpingProfitInfluence, checkScalpingProfitEntryGate, evaluateMarketSafety, detectSpeRegime, evaluateSpeDirection, detectSpeSetups, evaluateAntiChase, evaluateTradeQuality, evaluateExpectedMove, computeScalpingProfitStatistics, classifySpeFailureMode, FNO_SPE_MODE, FNO_SPE_NO_TRADE, FNO_SPE_REGIME, FNO_SPE_SETUP, buildSpeMarketState, evaluateScalpingProfitExit, computeTradeHealth, FNO_SPE_SETTING_META, computeSpeWalkForwardReport, computeSpeMonteCarloAnalysis, computeSpeRegimeSetupMatrix, computeSpeParameterCandidates, computeSpeLearningReport, getScalpingProfitLog, FNO_SPE_MIN_SAMPLE_WF, FNO_SPE_FAILURE };',
 ].join('\n');
 
 const api = new Function(bootSrc)();
@@ -118,5 +118,44 @@ assert.ok(/scalpingProfitEngineBox/.test(phpSrc));
 assert.ok(/settingScalpingProfitEngine/.test(phpSrc));
 assert.ok(/scalpingProfitEngineEnabled/.test(coreSrc));
 assert.ok(Object.keys(api.FNO_SPE_SETTING_META).length >= 15);
+
+const syntheticLog = [];
+for (let i = 0; i < 20; i++) {
+  syntheticLog.push({
+    ts: Date.now() - (20 - i) * 600000,
+    decision: 'ENTER',
+    setupType: i % 2 === 0 ? 'pullback_entry' : 'momentum_continuation',
+    regime: i % 3 === 0 ? 'CHOP' : 'TREND_UP',
+    spotTargetPoints: i % 3 === 0 ? 10 : i % 3 === 1 ? 15 : 20,
+    tradeQualityScore: 72 + (i % 10),
+    outcome: { pnl: i % 4 === 0 ? -120 : 180, exitReason: i % 4 === 0 ? 'STOP_HIT' : 'TARGET_HIT' },
+    failureMode: i % 4 === 0 && i % 8 === 0 ? api.FNO_SPE_FAILURE.CHASING : null,
+  });
+}
+const wf = api.computeSpeWalkForwardReport(syntheticLog);
+assert.strictEqual(wf.sufficient, true);
+assert.ok(wf.train && wf.train.n >= 1);
+assert.ok(wf.validation);
+assert.ok(Array.isArray(wf.folds));
+
+const mc = api.computeSpeMonteCarloAnalysis(syntheticLog, { simulations: 100 });
+assert.strictEqual(mc.sufficient, true);
+assert.ok(mc.baseline.medianMaxDrawdown >= 0);
+assert.ok(Array.isArray(mc.costStress));
+
+const matrix = api.computeSpeRegimeSetupMatrix(syntheticLog);
+assert.ok(matrix.rows.length >= 1);
+
+const candidates = api.computeSpeParameterCandidates(syntheticLog, wf, mc, matrix);
+assert.ok(Array.isArray(candidates));
+candidates.forEach(c => assert.strictEqual(c.autoApply, false));
+
+const learning = api.computeSpeLearningReport(syntheticLog);
+assert.ok(learning.wf && learning.mc && learning.candidates);
+
+assert.ok(/renderScalpingProfitLearningPanel/.test(speSrc));
+assert.ok(/computeSpeWalkForwardReport/.test(speSrc));
+assert.ok(/computeSpeMonteCarloAnalysis/.test(speSrc));
+assert.ok(/scalpingProfitLearningBox/.test(phpSrc));
 
 console.log('scalping-profit-engine.test.js: all tests passed');

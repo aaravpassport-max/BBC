@@ -16469,6 +16469,9 @@ function render(){
           window.FNO_LAST_SPE = spe;
           logScalpingProfitDecision(spe, sym, brain);
           renderScalpingProfitDashboard(spe);
+          if (typeof renderScalpingProfitLearningPanel === 'function') {
+            renderScalpingProfitLearningPanel(computeSpeLearningReport());
+          }
         }
       } catch (speErr) {
         console.warn('Scalping Profit Engine failed (non-critical):', speErr);
@@ -17899,6 +17902,7 @@ function render(){
       });
       if (typeof renderScalpingProfitAnalytics === 'function') renderScalpingProfitAnalytics();
     }
+    if (typeof renderScalpingProfitLearningAnalytics === 'function') renderScalpingProfitLearningAnalytics();
     notifyTradeExecution({
       kind: 'exit',
       symbol: sym,

@@ -561,6 +561,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
         <div style="font-size:10px;color:#64748b;margin-bottom:8px">While ON, this tab automatically re-runs the full observe-analyse-decide-monitor-exit cycle every 15 seconds (Scalping) or 60 seconds (Intraday) during real NSE market hours (9:15am-3:30pm IST, Mon-Fri) - no manual clicking needed. Honest limit: this only runs while this browser tab stays open; closing it pauses everything until you return.</div>
         <div id="scalpingSessionReadinessBox" style="display:none;margin-bottom:10px;padding:10px;background:#422006;border:1px solid #92400e;border-radius:10px"></div>
         <div id="scalpingProfitEngineBox" style="display:none;margin-bottom:10px;padding:10px;background:#1a1a2e;border:1px solid #4c1d95;border-radius:10px;font-size:11px"></div>
+        <div id="scalpingProfitLearningBox" style="display:none;margin-bottom:10px;padding:10px;background:#0f0a1e;border:1px solid #6d28d9;border-radius:10px;font-size:11px"></div>
         <div id="pullbackContinuationBox" style="display:none;margin-bottom:10px;padding:10px;background:#422006;border:1px solid #92400e;border-radius:10px"></div>
         <div id="tradeSetupPerformanceBox" style="display:none;margin-bottom:10px;padding:10px;background:#0c1a2e;border:1px solid #1e3a5f;border-radius:10px;font-size:11px"></div>
         <div id="tradeSetupValidationBox" style="display:none;margin-bottom:10px;padding:10px;background:#0f172a;border:1px solid #334155;border-radius:10px;font-size:11px"></div>

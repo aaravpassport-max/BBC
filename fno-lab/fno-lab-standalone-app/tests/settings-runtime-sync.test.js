@@ -96,5 +96,6 @@ assert.ok(/speMinTradeQualityScore/.test(coreSrc));
 assert.ok(/FNO_SETTINGS_SCHEMA_VERSION = 12/.test(coreSrc));
 assert.ok(/applyScalpingProfitInfluence/.test(coreSrc));
 assert.ok(/checkScalpingProfitEntryGate/.test(coreSrc));
+assert.ok(/renderScalpingProfitLearningPanel/.test(coreSrc));
 
 console.log('All settings-runtime-sync tests passed.');

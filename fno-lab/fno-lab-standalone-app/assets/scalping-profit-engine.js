@@ -10,6 +10,11 @@ const FNO_SPE_STATS_KEY = 'fno_scalping_profit_stats_v1';
 const FNO_SPE_STATE_KEY = 'fno_scalping_profit_session_v1';
 const FNO_SPE_MISSED_KEY = 'fno_scalping_profit_missed_v1';
 const FNO_SPE_LEARNING_KEY = 'fno_scalping_profit_learning_v1';
+const FNO_SPE_MIN_SAMPLE_WF = 12;
+const FNO_SPE_MIN_SAMPLE_MC = 8;
+const FNO_SPE_TRAIN_SPLIT = 0.6;
+const FNO_SPE_VALIDATION_SPLIT = 0.2;
+const FNO_SPE_MC_SIMULATIONS = 500;
 
 const FNO_SPE_MODE = { OFF: 'OFF', ON: 'ON', PAPER_ONLY: 'PAPER_ONLY', SIGNAL_ONLY: 'SIGNAL_ONLY' };
 
@@ -841,6 +846,9 @@ function renderScalpingProfitDashboard(spe, stats) {
 function renderScalpingProfitAnalytics() {
   const stats = computeScalpingProfitStatistics();
   renderScalpingProfitDashboard(window.FNO_LAST_SPE || null, stats);
+  if (typeof renderScalpingProfitLearningPanel === 'function') {
+    renderScalpingProfitLearningPanel(computeSpeLearningReport());
+  }
 }
 
 function buildScalpingProfitAttribution(spe) {
@@ -858,4 +866,421 @@ function notifyScalpingProfitAlert(kind, spe, extra) {
     LOCKED: 'SCALP ENGINE LOCKED', COOLDOWN: 'SCALP ENGINE COOLDOWN',
   };
   if (kind === 'OPPORTUNITY' && spe && spe.decision !== 'ENTER') return;
+}
+
+// --- Phase 8: Learning Engine (observation only — never auto-applies) ---
+
+function getSpeCompletedTrades(log) {
+  log = log || getScalpingProfitLog();
+  return log.filter(e => e.outcome && typeof e.outcome.pnl === 'number').sort((a, b) => (a.ts || 0) - (b.ts || 0));
+}
+
+function summarizeSpeTradeSubset(entries, label) {
+  let wins = 0, grossW = 0, grossL = 0, total = 0, peak = 0, run = 0, maxDd = 0;
+  entries.forEach(e => {
+    const pnl = e.outcome.pnl;
+    total += pnl;
+    run += pnl;
+    if (run > peak) peak = run;
+    const dd = peak - run;
+    if (dd > maxDd) maxDd = dd;
+    if (pnl >= 0) { wins++; grossW += pnl; } else grossL += Math.abs(pnl);
+  });
+  const n = entries.length;
+  const winRate = n ? (wins / n) * 100 : 0;
+  const avgWin = wins ? grossW / wins : 0;
+  const avgLoss = (n - wins) ? grossL / (n - wins) : 0;
+  const expectancy = n ? (winRate / 100 * avgWin) - ((100 - winRate) / 100 * avgLoss) : 0;
+  const profitFactor = grossL > 0 ? grossW / grossL : grossW > 0 ? Infinity : 0;
+  return {
+    label, n, wins, losses: n - wins, winRate: +winRate.toFixed(1),
+    expectancy: +expectancy.toFixed(2), profitFactor: profitFactor === Infinity ? null : +profitFactor.toFixed(2),
+    totalPnl: +total.toFixed(2), maxDrawdown: +maxDd.toFixed(2),
+    sampleSufficient: n >= FNO_SPE_MIN_SAMPLE_WF,
+  };
+}
+
+function computeSpeWalkForwardReport(log) {
+  const completed = getSpeCompletedTrades(log);
+  const n = completed.length;
+  if (n < FNO_SPE_MIN_SAMPLE_WF) {
+    return {
+      sufficient: false,
+      warning: `Need at least ${FNO_SPE_MIN_SAMPLE_WF} completed SPE trades (have ${n}). Run paper mode to accumulate data.`,
+      train: null, validation: null, outOfSample: null, folds: [], overfitWarning: null,
+    };
+  }
+  const trainEnd = Math.floor(n * FNO_SPE_TRAIN_SPLIT);
+  const valEnd = Math.floor(n * (FNO_SPE_TRAIN_SPLIT + FNO_SPE_VALIDATION_SPLIT));
+  const train = completed.slice(0, trainEnd);
+  const validation = completed.slice(trainEnd, valEnd);
+  const outOfSample = completed.slice(valEnd);
+
+  const trainSum = summarizeSpeTradeSubset(train, 'train');
+  const valSum = summarizeSpeTradeSubset(validation, 'validation');
+  const oosSum = summarizeSpeTradeSubset(outOfSample, 'out_of_sample');
+
+  const foldCount = Math.min(4, Math.max(2, Math.floor(n / 6)));
+  const foldSize = Math.floor(n / foldCount);
+  const folds = [];
+  for (let i = 0; i < foldCount; i++) {
+    const slice = completed.slice(i * foldSize, (i + 1) * foldSize);
+    if (slice.length >= 3) folds.push(summarizeSpeTradeSubset(slice, 'fold_' + (i + 1)));
+  }
+
+  let overfitWarning = null;
+  if (trainSum.sampleSufficient && valSum.n >= 3) {
+    if (trainSum.expectancy > 0 && valSum.expectancy <= 0) {
+      overfitWarning = 'Train expectancy positive but validation negative — possible overfit';
+    } else if (trainSum.expectancy > valSum.expectancy * 2 && valSum.expectancy > 0) {
+      overfitWarning = 'Train expectancy much higher than validation — review parameter stability';
+    }
+  }
+  if (oosSum.n >= 3 && valSum.n >= 3 && valSum.expectancy > 0 && oosSum.expectancy <= 0) {
+    overfitWarning = (overfitWarning ? overfitWarning + '; ' : '') + 'Validation positive but out-of-sample negative — fragile edge';
+  }
+
+  const stable = folds.length >= 2 && folds.every(f => f.expectancy >= 0 || f.n < 4);
+  return {
+    sufficient: true, train: trainSum, validation: valSum, outOfSample: oosSum,
+    folds, overfitWarning, stable, totalTrades: n,
+  };
+}
+
+function shuffleArray(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+
+function computeSpeMonteCarloAnalysis(log, opts) {
+  opts = opts || {};
+  const sims = opts.simulations || FNO_SPE_MC_SIMULATIONS;
+  const completed = getSpeCompletedTrades(log);
+  const pnls = completed.map(e => e.outcome.pnl);
+  if (pnls.length < FNO_SPE_MIN_SAMPLE_MC) {
+    return {
+      sufficient: false,
+      warning: `Need at least ${FNO_SPE_MIN_SAMPLE_MC} completed trades for Monte Carlo (have ${pnls.length}).`,
+      simulations: 0,
+    };
+  }
+
+  function runMcSeries(pnlSeries) {
+    const drawdowns = [];
+    const finals = [];
+    const streaks = [];
+    for (let s = 0; s < sims; s++) {
+      const seq = shuffleArray(pnlSeries);
+      let equity = 0, peak = 0, maxDd = 0, lossStreak = 0, maxLossStreak = 0;
+      seq.forEach(p => {
+        equity += p;
+        if (equity > peak) peak = equity;
+        const dd = peak - equity;
+        if (dd > maxDd) maxDd = dd;
+        if (p < 0) { lossStreak++; if (lossStreak > maxLossStreak) maxLossStreak = lossStreak; }
+        else lossStreak = 0;
+      });
+      drawdowns.push(maxDd);
+      finals.push(equity);
+      streaks.push(maxLossStreak);
+    }
+    drawdowns.sort((a, b) => a - b);
+    finals.sort((a, b) => a - b);
+    streaks.sort((a, b) => a - b);
+    const pct = (arr, p) => arr[Math.min(arr.length - 1, Math.floor(arr.length * p))];
+    return {
+      medianMaxDrawdown: +pct(drawdowns, 0.5).toFixed(2),
+      p95MaxDrawdown: +pct(drawdowns, 0.95).toFixed(2),
+      medianFinalPnl: +pct(finals, 0.5).toFixed(2),
+      p5FinalPnl: +pct(finals, 0.05).toFixed(2),
+      p95FinalPnl: +pct(finals, 0.95).toFixed(2),
+      medianMaxLossStreak: pct(streaks, 0.5),
+      p95MaxLossStreak: pct(streaks, 0.95),
+      ruinRatePct: +((finals.filter(f => f < -Math.abs(pct(finals, 0.5)) * 2).length / sims) * 100).toFixed(1),
+    };
+  }
+
+  const baseline = runMcSeries(pnls);
+  const costStress = [1, 1.5, 2].map(mult => {
+    const stressed = pnls.map(p => p - (mult - 1) * Math.abs(p) * 0.08);
+    const r = runMcSeries(stressed);
+    return { multiplier: mult, medianFinalPnl: r.medianFinalPnl, p5FinalPnl: r.p5FinalPnl, fragile: r.p5FinalPnl < 0 };
+  });
+  const fragile = costStress.some(c => c.fragile);
+
+  return {
+    sufficient: true, simulations: sims, sampleSize: pnls.length, baseline, costStress, fragile,
+    warning: fragile ? 'Edge may collapse under modest cost increase (×1.5 slippage stress)' : null,
+  };
+}
+
+function computeSpeRegimeSetupMatrix(log) {
+  log = log || getScalpingProfitLog();
+  const completed = getSpeCompletedTrades(log);
+  const matrix = {};
+  completed.forEach(e => {
+    const setup = e.setupType || 'unknown';
+    const regime = e.regime || 'UNKNOWN';
+    const key = setup + '|' + regime;
+    if (!matrix[key]) matrix[key] = { setup, regime, n: 0, wins: 0, pnl: 0 };
+    matrix[key].n++;
+    matrix[key].pnl += e.outcome.pnl;
+    if (e.outcome.pnl >= 0) matrix[key].wins++;
+  });
+  const rows = Object.values(matrix).map(r => {
+    r.winRate = r.n ? +((r.wins / r.n) * 100).toFixed(1) : 0;
+    r.expectancy = r.n ? +(r.pnl / r.n).toFixed(2) : 0;
+    r.grade = r.n < 3 ? '--' : r.expectancy > 50 ? '++' : r.expectancy > 0 ? '+' : r.expectancy > -50 ? '-' : '--';
+    r.sampleSufficient = r.n >= 5;
+    return r;
+  }).sort((a, b) => b.expectancy - a.expectancy);
+  return { rows, sufficient: completed.length >= FNO_SPE_MIN_SAMPLE_WF };
+}
+
+function computeSpeMissedTradeAnalysis() {
+  try {
+    const missed = JSON.parse(localStorage.getItem(FNO_SPE_MISSED_KEY) || '[]');
+    const validated = missed.filter(m => m.validated != null);
+    const pending = missed.length - validated.length;
+    let wouldWin = 0, wouldLose = 0;
+    validated.forEach(m => {
+      if (m.wouldHaveWon) wouldWin++;
+      else wouldLose++;
+    });
+    const byReason = {};
+    missed.forEach(m => {
+      const r = m.reason || 'unknown';
+      byReason[r] = (byReason[r] || 0) + 1;
+    });
+    return {
+      total: missed.length, pending, validated: validated.length,
+      wouldWin, wouldLose, byReason,
+      filterBeneficial: wouldLose >= wouldWin,
+      note: pending > 0 ? `${pending} high-quality rejections not yet back-tested against subsequent price action` : null,
+    };
+  } catch (e) {
+    return { total: 0, pending: 0, validated: 0, wouldWin: 0, wouldLose: 0, byReason: {} };
+  }
+}
+
+function computeSpeFilterCalibration(log) {
+  log = log || getScalpingProfitLog();
+  const noTrades = log.filter(e => e.decision === 'NO_TRADE');
+  const byFilter = {};
+  noTrades.forEach(e => {
+    (e.noTradeReasons || [e.noTradeReason || 'unknown']).forEach(r => {
+      if (!byFilter[r]) byFilter[r] = { count: 0, avgQuality: 0, _q: 0 };
+      byFilter[r].count++;
+      byFilter[r]._q += e.tradeQualityScore || 0;
+    });
+  });
+  Object.keys(byFilter).forEach(r => {
+    byFilter[r].avgQuality = byFilter[r].count ? Math.round(byFilter[r]._q / byFilter[r].count) : 0;
+    delete byFilter[r]._q;
+  });
+  return { totalNoTrade: noTrades.length, byFilter };
+}
+
+function computeSpeTargetBucketAnalysis(log) {
+  const completed = getSpeCompletedTrades(log);
+  const buckets = { 10: { n: 0, pnl: 0, wins: 0 }, 15: { n: 0, pnl: 0, wins: 0 }, 20: { n: 0, pnl: 0, wins: 0 } };
+  completed.forEach(e => {
+    const tp = e.spotTargetPoints;
+    const b = tp <= 12 ? 10 : tp <= 17 ? 15 : 20;
+    buckets[b].n++;
+    buckets[b].pnl += e.outcome.pnl;
+    if (e.outcome.pnl >= 0) buckets[b].wins++;
+  });
+  [10, 15, 20].forEach(b => {
+    buckets[b].expectancy = buckets[b].n ? +(buckets[b].pnl / buckets[b].n).toFixed(2) : null;
+    buckets[b].winRate = buckets[b].n ? +((buckets[b].wins / buckets[b].n) * 100).toFixed(1) : null;
+  });
+  return buckets;
+}
+
+function computeSpeParameterCandidates(log, wf, mc, matrix) {
+  log = log || getScalpingProfitLog();
+  wf = wf || computeSpeWalkForwardReport(log);
+  mc = mc || computeSpeMonteCarloAnalysis(log);
+  matrix = matrix || computeSpeRegimeSetupMatrix(log);
+  const cfg = getScalpingProfitSettings();
+  const candidates = [];
+  const now = Date.now();
+
+  if (wf.overfitWarning) {
+    candidates.push({
+      id: 'wf_overfit_' + now, status: 'CANDIDATE', parameter: 'multiple',
+      oldValue: 'current', newValue: 'tighten filters', reason: wf.overfitWarning,
+      dataset: 'walk_forward', performanceBefore: wf.train && wf.train.expectancy,
+      performanceAfter: wf.validation && wf.validation.expectancy,
+      oosPerformance: wf.outOfSample && wf.outOfSample.expectancy,
+      autoApply: false,
+    });
+  }
+  if (mc.fragile) {
+    candidates.push({
+      id: 'mc_fragile_' + now, status: 'CANDIDATE', parameter: 'speSlippageEstimatePts',
+      oldValue: cfg.slippageEstimate, newValue: +(cfg.slippageEstimate * 1.25).toFixed(2),
+      reason: mc.warning || 'Cost stress test shows fragile edge',
+      dataset: 'monte_carlo', autoApply: false,
+    });
+  }
+  matrix.rows.filter(r => r.sampleSufficient && r.expectancy < 0).forEach(r => {
+    candidates.push({
+      id: 'disable_' + r.setup + '_' + r.regime + '_' + now, status: 'CANDIDATE',
+      parameter: 'setup_regime_allowlist', oldValue: 'allowed',
+      newValue: 'disable ' + r.setup + ' in ' + r.regime,
+      reason: `${r.setup} during ${r.regime}: ${r.n} trades, expectancy ₹${r.expectancy}`,
+      dataset: 'regime_setup_matrix', performanceBefore: r.expectancy, autoApply: false,
+    });
+  });
+
+  const completed = getSpeCompletedTrades(log);
+  const chasingLosses = completed.filter(e => e.failureMode === FNO_SPE_FAILURE.CHASING).length;
+  if (chasingLosses >= 2) {
+    candidates.push({
+      id: 'anti_chase_' + now, status: 'CANDIDATE', parameter: 'speAntiChaseThresholdPct',
+      oldValue: cfg.antiChasePct, newValue: Math.max(50, cfg.antiChasePct - 5),
+      reason: `${chasingLosses} losses classified as Chasing`,
+      dataset: 'failure_library', autoApply: false,
+    });
+  }
+
+  const lowScoreLosses = completed.filter(e => e.outcome.pnl < 0 && (e.tradeQualityScore || 0) < cfg.minTradeQuality + 5);
+  if (lowScoreLosses.length >= 2) {
+    candidates.push({
+      id: 'min_quality_' + now, status: 'CANDIDATE', parameter: 'speMinTradeQualityScore',
+      oldValue: cfg.minTradeQuality, newValue: Math.min(95, cfg.minTradeQuality + 3),
+      reason: `${lowScoreLosses.length} losses entered near minimum quality threshold`,
+      dataset: 'trade_quality', autoApply: false,
+    });
+  }
+
+  const chopRows = matrix.rows.filter(r => r.regime === FNO_SPE_REGIME.CHOP && r.sampleSufficient && r.expectancy < 0);
+  if (chopRows.length) {
+    candidates.push({
+      id: 'chop_boost_' + now, status: 'CANDIDATE', parameter: 'speChopMinScoreBoost',
+      oldValue: cfg.chopScoreBoost, newValue: Math.min(30, cfg.chopScoreBoost + 5),
+      reason: 'Negative expectancy setups in CHOP regime',
+      dataset: 'regime_setup_matrix', autoApply: false,
+    });
+  }
+
+  return candidates;
+}
+
+function saveSpeLearningCandidates(candidates) {
+  try {
+    const existing = JSON.parse(localStorage.getItem(FNO_SPE_LEARNING_KEY) || '[]');
+    const merged = existing.concat(candidates).slice(-100);
+    localStorage.setItem(FNO_SPE_LEARNING_KEY, JSON.stringify(merged));
+  } catch (e) { /* quota */ }
+}
+
+function getSpeLearningCandidates() {
+  try { return JSON.parse(localStorage.getItem(FNO_SPE_LEARNING_KEY) || '[]'); } catch (e) { return []; }
+}
+
+function computeSpeLearningReport(log) {
+  log = log || getScalpingProfitLog();
+  const wf = computeSpeWalkForwardReport(log);
+  const mc = computeSpeMonteCarloAnalysis(log);
+  const matrix = computeSpeRegimeSetupMatrix(log);
+  const missed = computeSpeMissedTradeAnalysis();
+  const filters = computeSpeFilterCalibration(log);
+  const targets = computeSpeTargetBucketAnalysis(log);
+  const stats = computeScalpingProfitStatistics(log);
+  const candidates = computeSpeParameterCandidates(log, wf, mc, matrix);
+  saveSpeLearningCandidates(candidates.filter(c => c.status === 'CANDIDATE'));
+  return { wf, mc, matrix, missed, filters, targets, stats, candidates, generatedAt: Date.now() };
+}
+
+function renderScalpingProfitLearningPanel(report) {
+  const box = typeof document !== 'undefined' ? document.getElementById('scalpingProfitLearningBox') : null;
+  if (!box) return;
+  if (typeof isScalpingProfitProfileActive === 'function' && !isScalpingProfitProfileActive()) {
+    box.style.display = 'none';
+    return;
+  }
+  if (!isScalpingProfitEngineActive()) {
+    box.style.display = 'none';
+    return;
+  }
+  box.style.display = 'block';
+  report = report || computeSpeLearningReport();
+  const { wf, mc, matrix, missed, filters, targets, candidates, stats } = report;
+
+  let html = `<div style="font-weight:700;color:#c4b5fd;margin-bottom:6px">🧠 SPE Learning Engine <span style="color:#64748b;font-weight:400">(Phase 8 — observation only, never auto-applies)</span></div>`;
+
+  if (!wf.sufficient) {
+    html += `<div style="color:#94a3b8;font-size:10px;margin-bottom:8px">${fnoSpeEscapeHtml(wf.warning)}</div>`;
+  } else {
+    html += `<div style="font-size:10px;margin-bottom:8px"><b style="color:#fde68a">Walk-forward</b> `;
+    html += `Train ${wf.train.n}t · ₹${wf.train.expectancy} exp · `;
+    html += `Val ${wf.validation.n}t · ₹${wf.validation.expectancy} exp · `;
+    html += `OOS ${wf.outOfSample.n}t · ₹${wf.outOfSample.expectancy} exp`;
+    if (wf.overfitWarning) html += `<br><span style="color:#fbbf24">⚠ ${fnoSpeEscapeHtml(wf.overfitWarning)}</span>`;
+    html += `</div>`;
+  }
+
+  if (!mc.sufficient) {
+    html += `<div style="color:#64748b;font-size:10px;margin-bottom:8px">${fnoSpeEscapeHtml(mc.warning)}</div>`;
+  } else {
+    html += `<div style="font-size:10px;margin-bottom:8px"><b style="color:#fde68a">Monte Carlo</b> (${mc.simulations} sims, n=${mc.sampleSize}) · `;
+    html += `Med DD ₹${mc.baseline.medianMaxDrawdown} · P95 DD ₹${mc.baseline.p95MaxDrawdown} · `;
+    html += `Med final ₹${mc.baseline.medianFinalPnl} · P5 ₹${mc.baseline.p5FinalPnl}`;
+    if (mc.fragile) html += `<br><span style="color:#f87171">⚠ ${fnoSpeEscapeHtml(mc.warning)}</span>`;
+    html += `</div>`;
+    html += `<div style="font-size:10px;color:#64748b;margin-bottom:8px">Cost stress: `;
+    html += mc.costStress.map(c => `×${c.multiplier} → P5 ₹${c.p5FinalPnl}${c.fragile ? ' ⚠' : ''}`).join(' · ');
+    html += `</div>`;
+  }
+
+  if (matrix.sufficient && matrix.rows.length) {
+    html += `<div style="font-size:10px;margin-bottom:6px"><b style="color:#fde68a">Setup × Regime</b> (top rows)</div>`;
+    html += `<div style="font-size:10px;color:#94a3b8;margin-bottom:8px">`;
+    matrix.rows.slice(0, 6).forEach(r => {
+      html += `<div>${fnoSpeEscapeHtml(r.setup)} / ${fnoSpeEscapeHtml(r.regime)}: ${r.n}t ${r.grade} exp ₹${r.expectancy}</div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `<div style="font-size:10px;margin-bottom:6px"><b style="color:#fde68a">Target buckets</b> `;
+  html += [10, 15, 20].map(b => `${b}pt: ${targets[b].n}t exp ₹${targets[b].expectancy != null ? targets[b].expectancy : '—'}`).join(' · ');
+  html += `</div>`;
+
+  if (filters.totalNoTrade > 0) {
+    const topFilters = Object.entries(filters.byFilter).sort((a, b) => b[1].count - a[1].count).slice(0, 4);
+    html += `<div style="font-size:10px;margin-bottom:6px"><b style="color:#fde68a">No-trade filters</b> (${filters.totalNoTrade} total): `;
+    html += topFilters.map(([k, v]) => `${fnoSpeEscapeHtml(k)}×${v.count}`).join(', ');
+    html += `</div>`;
+  }
+
+  if (missed.total > 0) {
+    html += `<div style="font-size:10px;margin-bottom:6px"><b style="color:#fde68a">Missed trades</b> ${missed.total} logged`;
+    if (missed.validated > 0) html += ` · validated ${missed.wouldWin}W/${missed.wouldLose}L`;
+    if (missed.note) html += `<br><span style="color:#64748b">${fnoSpeEscapeHtml(missed.note)}</span>`;
+    html += `</div>`;
+  }
+
+  if (candidates.length) {
+    html += `<div style="font-size:10px;margin-top:8px;padding-top:8px;border-top:1px solid #4c1d95"><b style="color:#fde68a">Parameter candidates</b> (require manual approval — never auto-applied)</div>`;
+    candidates.slice(0, 5).forEach(c => {
+      html += `<div style="padding:4px 0;font-size:10px;color:#cbd5e1">`;
+      html += `<span style="color:#a78bfa">CANDIDATE</span> ${fnoSpeEscapeHtml(c.parameter)}: ${fnoSpeEscapeHtml(String(c.oldValue))} → ${fnoSpeEscapeHtml(String(c.newValue))}`;
+      html += `<br><span style="color:#64748b">${fnoSpeEscapeHtml(c.reason)}</span></div>`;
+    });
+  } else if (stats.n >= FNO_SPE_MIN_SAMPLE_WF) {
+    html += `<div style="font-size:10px;color:#4ade80;margin-top:6px">No parameter changes suggested — current settings appear stable on available sample.</div>`;
+  }
+
+  box.innerHTML = html;
+}
+
+function renderScalpingProfitLearningAnalytics() {
+  renderScalpingProfitLearningPanel(computeSpeLearningReport());
 }
