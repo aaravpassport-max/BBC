@@ -11,7 +11,49 @@ const TRAY_ICON_PATH = path.join(__dirname, 'assets', 'tray-icon.png');
 const pendingClickHandlers = new Map();
 /** @type {Map<string, (action: string) => void>} */
 const pendingActionHandlers = new Map();
+/** @type {Map<string, Set<{ notification?: object, clickKey: string }>>} */
+const activeByItemId = new Map();
 let notifierHooksReady = false;
+
+function trackNotification(itemId, entry) {
+  if (!itemId || !entry?.clickKey) return;
+  if (!activeByItemId.has(itemId)) activeByItemId.set(itemId, new Set());
+  activeByItemId.get(itemId).add(entry);
+}
+
+function untrackNotification(itemId, clickKey) {
+  if (!itemId || !activeByItemId.has(itemId)) return;
+  const set = activeByItemId.get(itemId);
+  for (const entry of set) {
+    if (entry.clickKey === clickKey) set.delete(entry);
+  }
+  if (set.size === 0) activeByItemId.delete(itemId);
+}
+
+function dismissNotificationsForItem(itemId) {
+  if (!itemId || !activeByItemId.has(itemId)) return 0;
+  const set = activeByItemId.get(itemId);
+  let count = 0;
+  for (const entry of [...set]) {
+    try {
+      entry.notification?.close?.();
+    } catch (_) { /* ignore */ }
+    pendingClickHandlers.delete(entry.clickKey);
+    pendingActionHandlers.delete(entry.clickKey);
+    set.delete(entry);
+    count += 1;
+  }
+  activeByItemId.delete(itemId);
+  return count;
+}
+
+function dismissAllNotifications() {
+  let total = 0;
+  for (const itemId of [...activeByItemId.keys()]) {
+    total += dismissNotificationsForItem(itemId);
+  }
+  return total;
+}
 
 const REMINDER_TOAST_ACTIONS = [
   { type: 'button', text: 'Done' },
@@ -229,7 +271,9 @@ function showWithNodeNotifier(content, { onClick, onAction, silent, clickKey, ac
   });
 }
 
-function showWithElectronNotification(content, { onClick, onAction, silent, type, icon, clickKey, actions }) {
+function showWithElectronNotification(content, {
+  onClick, onAction, onDismiss, silent, type, icon, clickKey, actions, itemId,
+}) {
   if (!Notification.isSupported()) return false;
 
   const key = clickKey || `${content.title}|${content.body}`;
@@ -267,7 +311,14 @@ function showWithElectronNotification(content, { onClick, onAction, silent, type
     notification.on('close', () => {
       pendingClickHandlers.delete(key);
       pendingActionHandlers.delete(key);
+      untrackNotification(itemId, key);
+      if (onDismiss) {
+        try { onDismiss(); } catch (err) {
+          console.error('Notification dismiss handler error:', err.message);
+        }
+      }
     });
+    if (itemId) trackNotification(itemId, { notification, clickKey: key });
     notification.show();
     return true;
   } catch (err) {
@@ -281,6 +332,7 @@ function showWithElectronNotification(content, { onClick, onAction, silent, type
 async function showDesktopNotification(db, item, {
   onClick,
   onAction,
+  onDismiss,
   type = 'reminder',
   force = false,
 } = {}) {
@@ -291,6 +343,7 @@ async function showDesktopNotification(db, item, {
   const silent = style === 'popup-only';
   const icon = getNotificationIcon();
   const clickKey = `ilrs-${item?.id || 'general'}-${Date.now()}`;
+  const itemId = item?.id || '';
   let actions;
   if (item?.id && onAction) {
     if (type === 'reminder') actions = REMINDER_TOAST_ACTIONS;
@@ -303,7 +356,9 @@ async function showDesktopNotification(db, item, {
     app.setAppUserModelId(APP_ID);
   }
 
-  const opts = { onClick, onAction, silent, type, icon, clickKey, actions };
+  const opts = {
+    onClick, onAction, onDismiss, silent, type, icon, clickKey, actions, itemId,
+  };
 
   // Electron native notifications — reliable click-to-focus when app is in tray
   const electronOk = showWithElectronNotification(content, opts);
@@ -322,6 +377,8 @@ async function showDesktopNotification(db, item, {
 
 module.exports = {
   showDesktopNotification,
+  dismissNotificationsForItem,
+  dismissAllNotifications,
   shouldNotify,
   shouldPlaySound,
   getEffectiveStyle,

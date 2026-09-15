@@ -10,9 +10,11 @@ const {
   postponeReminder,
   deleteReminder,
   bulkDeleteReminders,
+  acknowledgeReminder,
+  dismissAllRingingReminders,
   parseNotificationAction,
 } = require('../reminder-actions');
-const { parseLocalDateTime } = require('../alarm');
+const { parseLocalDateTime, ALARM_MAX_RINGS, shouldFireNow } = require('../alarm');
 
 function test(name, fn) {
   try {
@@ -36,12 +38,14 @@ function makeDb() {
       start_date TEXT,
       status TEXT DEFAULT 'active',
       next_fire TEXT,
-      alarm_rings INTEGER DEFAULT 0,
+      alarm_rings INTEGER DEFAULT 0, missed_count INTEGER DEFAULT 0,
       snooze_count INTEGER DEFAULT 0,
       snooze_duration INTEGER DEFAULT 10,
       last_completed TEXT,
       workflow_status TEXT DEFAULT 'pending',
       task_type TEXT DEFAULT 'reminder',
+      category TEXT DEFAULT 'general',
+      source_type TEXT DEFAULT '',
       updated_at TEXT
     );
     CREATE TABLE reminder_logs (
@@ -176,7 +180,62 @@ test('parseNotificationAction maps toast button labels', () => {
   assert.strictEqual(parseNotificationAction('Done'), 'done');
   assert.strictEqual(parseNotificationAction('Snooze'), 'snooze');
   assert.strictEqual(parseNotificationAction('Snooze 10m'), 'snooze');
-  assert.strictEqual(parseNotificationAction('dismissed'), null);
+  assert.strictEqual(parseNotificationAction('dismissed'), 'dismiss');
+  assert.strictEqual(parseNotificationAction('Dismiss'), 'dismiss');
+});
+
+test('acknowledgeReminder suppresses repeat alerts', () => {
+  const { db, dbPath } = makeDb();
+  const now = new Date(2026, 8, 15, 22, 0, 0);
+  db.prepare(`
+    INSERT INTO reminders (id, title, task_type, category, repeat_type, reminder_time, start_date,
+      status, workflow_status, next_fire, alarm_rings, missed_count, updated_at)
+    VALUES ('r-ack', 'Overdue task', 'reminder', 'work', 'once', '09:00', '2026-09-15',
+      'active', 'pending', '2026-09-15T09:00:00', 3, 0, datetime('now'))
+  `).run();
+
+  const result = acknowledgeReminder(db, 'r-ack', now);
+  assert.strictEqual(result.success, true);
+
+  const row = db.prepare('SELECT alarm_rings, missed_count FROM reminders WHERE id = ?').get('r-ack');
+  assert.strictEqual(row.alarm_rings, ALARM_MAX_RINGS);
+  assert.strictEqual(row.missed_count, 1);
+  assert.strictEqual(shouldFireNow({
+    ...row,
+    id: 'r-ack',
+    reminder_time: '09:00',
+    repeat_type: 'once',
+    start_date: '2026-09-15',
+    next_fire: '2026-09-15T09:00:00',
+    last_fired: '2026-09-15T21:58:00',
+  }, now), false);
+
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
+test('dismissAllRingingReminders acknowledges overdue active reminders', () => {
+  const { db, dbPath } = makeDb();
+  const now = new Date(2026, 8, 15, 22, 0, 0);
+  db.prepare(`
+    INSERT INTO reminders (id, title, task_type, category, repeat_type, reminder_time, start_date,
+      status, workflow_status, next_fire, alarm_rings, missed_count, updated_at)
+    VALUES ('r1', 'A', 'reminder', 'work', 'once', '09:00', '2026-09-15',
+      'active', 'pending', '2026-09-15T09:00:00', 2, 0, datetime('now')),
+      ('r2', 'B', 'reminder', 'work', 'once', '10:00', '2026-09-16',
+      'active', 'pending', '2026-09-16T10:00:00', 0, 0, datetime('now'))
+  `).run();
+
+  const result = dismissAllRingingReminders(db, now);
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(result.count, 1);
+
+  const r1 = db.prepare('SELECT alarm_rings FROM reminders WHERE id = ?').get('r1');
+  const r2 = db.prepare('SELECT alarm_rings FROM reminders WHERE id = ?').get('r2');
+  assert.strictEqual(r1.alarm_rings, ALARM_MAX_RINGS);
+  assert.strictEqual(r2.alarm_rings, 0);
+  db.close();
+  fs.unlinkSync(dbPath);
 });
 
 console.log('\nReminder action tests finished.');

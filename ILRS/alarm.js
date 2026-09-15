@@ -122,6 +122,15 @@ function shouldFireNow(reminder, now = new Date()) {
   if (reminder.end_date && reminder.end_date < today) return false;
   if (alreadyFiredThisMinute(reminder, now)) return false;
 
+  const rings = Number(reminder.alarm_rings || 0);
+  if (rings >= ALARM_MAX_RINGS) {
+    // Repeat cycle exhausted until user completes, snoozes, or acknowledges.
+    if (reminder.next_fire && isSnoozedFire(reminder.next_fire, reminder.reminder_time, now)) {
+      return isDue(reminder.next_fire, now);
+    }
+    return false;
+  }
+
   // Snoozed to a custom future time — only fire when that exact time arrives.
   if (reminder.next_fire && isSnoozedFire(reminder.next_fire, reminder.reminder_time, now)) {
     return isDue(reminder.next_fire, now);

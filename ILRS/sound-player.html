@@ -3,6 +3,14 @@
 <script>
   const { ipcRenderer } = require('electron');
   let current = null;
+  ipcRenderer.on('stop-sound', () => {
+    if (current) {
+      current.pause();
+      current.currentTime = 0;
+      current = null;
+    }
+  });
+
   ipcRenderer.on('play-sound', async (_, payload) => {
     const { url, repeat, requestId } = payload;
     const finish = (ok, err) => ipcRenderer.send('sound-playback-result', { requestId, ok, err: err || null, method: 'electron-file' });

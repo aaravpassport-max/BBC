@@ -2,7 +2,7 @@
  * Shared reminder actions for renderer (via IPC) and main-process notification buttons.
  */
 const { randomUUID } = require('crypto');
-const { toLocalISO, advanceRecurring } = require('./alarm');
+const { toLocalISO, advanceRecurring, ALARM_MAX_RINGS, isDue } = require('./alarm');
 
 function getSetting(db, key, defaultValue = '') {
   if (!db) return defaultValue;
@@ -177,11 +177,53 @@ function bulkDeleteReminders(db, ids, now = new Date()) {
 function parseNotificationAction(response) {
   if (response == null) return null;
   const value = String(response).toLowerCase().trim();
-  if (!value || value === 'dismissed' || value === 'timedout') return null;
+  if (!value || value === 'timedout') return null;
+  if (value === 'dismissed' || value.includes('dismiss')) return 'dismiss';
   if (value === 'done' || value.includes('done') || value.includes('complete')) return 'done';
   if (value.includes('snooze') || value.includes('later')) return 'snooze';
   if (value.includes('tomorrow')) return 'tomorrow';
   return null;
+}
+
+/**
+ * Stop repeat alerts for the current occurrence without completing the reminder.
+ * Keeps the item overdue in lists but suppresses further beeps until snooze/done.
+ */
+function acknowledgeReminder(db, id, now = new Date()) {
+  const reminder = getReminder(db, id);
+  if (!reminder) return { success: false, error: 'Reminder not found' };
+  if (reminder.status === 'deleted') return { success: false, error: 'Reminder deleted' };
+
+  db.prepare(`
+    UPDATE reminders
+    SET alarm_rings = ?, missed_count = COALESCE(missed_count, 0) + 1, updated_at = ?
+    WHERE id = ?
+  `).run(ALARM_MAX_RINGS, toLocalISO(now), id);
+  db.prepare(`
+    INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
+    VALUES (?, ?, 'acknowledged', datetime('now'))
+  `).run(randomUUID(), id);
+
+  return { success: true };
+}
+
+function dismissAllRingingReminders(db, now = new Date()) {
+  const rows = db.prepare(`
+    SELECT id, next_fire, alarm_rings FROM reminders
+    WHERE status = 'active'
+    AND (source_type IS NULL OR source_type = '')
+    AND next_fire != ''
+  `).all();
+
+  let count = 0;
+  for (const row of rows) {
+    const ringing = Number(row.alarm_rings || 0) > 0;
+    const overdue = row.next_fire && isDue(row.next_fire, now);
+    if (!ringing && !overdue) continue;
+    const result = acknowledgeReminder(db, row.id, now);
+    if (result.success) count += 1;
+  }
+  return { success: true, count };
 }
 
 module.exports = {
@@ -191,6 +233,8 @@ module.exports = {
   deleteReminder,
   bulkDeleteReminders,
   updateWorkflowStatus,
+  acknowledgeReminder,
+  dismissAllRingingReminders,
   parseNotificationAction,
   getSetting,
 };

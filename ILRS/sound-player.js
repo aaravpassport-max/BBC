@@ -171,8 +171,23 @@ function getLastPlayback() {
   return lastPlayback;
 }
 
+function stopAlertSound(mainWindowRef = null) {
+  if (mainWindowRef
+    && !mainWindowRef.isDestroyed()
+    && mainWindowRef.webContents
+    && !mainWindowRef.webContents.isDestroyed()) {
+    mainWindowRef.webContents.send('stop-alert-sound');
+  }
+  if (soundWindow && !soundWindow.isDestroyed()) {
+    try {
+      soundWindow.webContents.send('stop-sound');
+    } catch (_) { /* ignore */ }
+  }
+}
+
 module.exports = {
   playAlertSound,
+  stopAlertSound,
   getLastPlayback,
   getSoundPath,
   resolvePlayableSoundPath,

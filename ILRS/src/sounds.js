@@ -51,4 +51,12 @@ function previewSound(soundId) {
   playAlertSound(soundId, { repeat: 1 });
 }
 
-window.ILRSSounds = { playAlertSound, previewSound, resolveSoundId, SOUND_MAP };
+function stopAlertSound() {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio.currentTime = 0;
+    currentAudio = null;
+  }
+}
+
+window.ILRSSounds = { playAlertSound, stopAlertSound, previewSound, resolveSoundId, SOUND_MAP };

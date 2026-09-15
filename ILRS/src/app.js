@@ -23,6 +23,7 @@ const App = {
   alertQueue: [],
   isProcessingAlert: false,
   currentAlert: null,
+  activeDuePopups: new Map(),
   searchIndex: 0,
   selectedReminderIds: new Set(),
   selectedInquiryIds: new Set(),
@@ -1483,6 +1484,8 @@ async function completeReminder(id) {
       [new Date().toISOString(), new Date().toISOString(), id]);
     await db("INSERT INTO reminder_logs (id,reminder_id,action,timestamp) VALUES (?,?,'completed',datetime('now'))",
       [uuid(), id]);
+    clearDuePopupsForItem(id);
+    window.ILRSSounds?.stopAlertSound?.();
   }
 
   const r = App.reminders.find(x => x.id === id);
@@ -3197,6 +3200,97 @@ function setupListeners() {
     if (PAGES[App.currentPage]) navigate(App.currentPage);
     dismissAlert();
   });
+
+  api.onNotificationsCleared?.((payload) => {
+    if (payload?.all) {
+      clearAllDuePopups();
+    } else if (payload?.itemId) {
+      clearDuePopupsForItem(payload.itemId);
+    }
+    window.ILRSSounds?.stopAlertSound?.();
+  });
+
+  api.onStopAlertSound?.(() => {
+    window.ILRSSounds?.stopAlertSound?.();
+  });
+}
+
+function getDuePopupItemId(reminder) {
+  if (!reminder) return '';
+  if (reminder._type === 'payment_due') {
+    return reminder.inquiry_id || reminder.id || '';
+  }
+  if (reminder._type === 'completion_check') {
+    return reminder.inquiry_id || reminder.id || '';
+  }
+  return reminder.id || '';
+}
+
+function registerDuePopup(reminderId, popupId) {
+  if (!reminderId || !popupId) return;
+  if (!App.activeDuePopups.has(reminderId)) App.activeDuePopups.set(reminderId, new Set());
+  App.activeDuePopups.get(reminderId).add(popupId);
+  updateDismissAllBar();
+}
+
+function clearDuePopupsForItem(reminderId) {
+  if (!reminderId || !App.activeDuePopups.has(reminderId)) return;
+  for (const popupId of App.activeDuePopups.get(reminderId)) {
+    document.getElementById(popupId)?.remove();
+  }
+  App.activeDuePopups.delete(reminderId);
+  updateDismissAllBar();
+}
+
+function clearAllDuePopups() {
+  for (const popupIds of App.activeDuePopups.values()) {
+    popupIds.forEach((popupId) => document.getElementById(popupId)?.remove());
+  }
+  App.activeDuePopups.clear();
+  App.alertQueue = [];
+  App.isProcessingAlert = false;
+  document.getElementById('due-notification-dismiss-bar')?.remove();
+}
+
+function countDuePopups() {
+  let total = 0;
+  App.activeDuePopups.forEach((set) => { total += set.size; });
+  return total;
+}
+
+function updateDismissAllBar() {
+  const stack = document.getElementById('due-notification-stack');
+  const count = countDuePopups();
+  let bar = document.getElementById('due-notification-dismiss-bar');
+  if (count < 2) {
+    bar?.remove();
+    return;
+  }
+  if (!stack) return;
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'due-notification-dismiss-bar';
+    bar.className = 'due-notification-dismiss-bar';
+    bar.innerHTML = `
+      <span id="due-notification-dismiss-count">${count} notifications</span>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="dismissAllDueNotifications()">Dismiss All</button>`;
+    stack.prepend(bar);
+  } else {
+    const label = bar.querySelector('#due-notification-dismiss-count');
+    if (label) label.textContent = `${count} notifications`;
+  }
+}
+
+async function dismissAllDueNotifications() {
+  clearAllDuePopups();
+  dismissAlert();
+  window.ILRSSounds?.stopAlertSound?.();
+  const result = await api.dismissAllNotifications?.();
+  if (typeof toast === 'function') {
+    const n = result?.count || 0;
+    toast(n > 0 ? `🔕 Dismissed ${n} reminder alert${n !== 1 ? 's' : ''}` : '🔕 All notifications dismissed');
+  }
+  App.isProcessingAlert = false;
 }
 
 function openReminderFromNotificationClick(reminder) {
@@ -3214,35 +3308,60 @@ function openReminderFromNotificationClick(reminder) {
   }
 }
 
-function processAlertQueue() {
-  if (App.alertQueue.length === 0) { App.isProcessingAlert = false; return; }
-  App.isProcessingAlert = true;
-  const reminder = App.alertQueue.shift();
-
-  if (App.pausedUntil && Date.now() < App.pausedUntil && reminder.priority !== 'critical') {
-    processAlertQueue();
-    return;
-  }
-
-  if (App.focusMode && reminder.priority !== 'critical') {
-    processAlertQueue();
-    return;
-  }
-
-  if (reminder._type === 'payment_due') {
-    showPaymentDuePopup(reminder);
-  } else if (reminder._type === 'completion_check' || reminder._completionDue) {
-    showCompletionCheckPopup(reminder);
-  } else if (reminder.priority === 'critical') {
-    showInAppAlert(reminder);
-  } else {
-    showDueNotificationPopup(reminder);
-  }
+function playAlertSoundForReminder(reminder) {
   const tone = reminder.alert_tone || App.settings.reminder_tone || 'loud-chime';
   const repeats = reminder.priority === 'critical' ? 4 : 3;
   if (reminder.alert_style !== 'silent' && reminder.alert_style !== 'popup-only') {
     window.ILRSSounds?.playAlertSound(tone, { repeat: repeats });
   }
+}
+
+function processAlertQueue() {
+  if (App.alertQueue.length === 0) {
+    App.isProcessingAlert = false;
+    return;
+  }
+  if (document.getElementById('alert-popup')) {
+    App.isProcessingAlert = true;
+    return;
+  }
+
+  App.isProcessingAlert = true;
+  let playedSound = false;
+  let showedAny = false;
+
+  while (App.alertQueue.length > 0) {
+    const reminder = App.alertQueue[0];
+    if (App.pausedUntil && Date.now() < App.pausedUntil && reminder.priority !== 'critical') {
+      App.alertQueue.shift();
+      continue;
+    }
+    if (App.focusMode && reminder.priority !== 'critical') {
+      App.alertQueue.shift();
+      continue;
+    }
+
+    if (reminder.priority === 'critical') {
+      App.alertQueue.shift();
+      showInAppAlert(reminder);
+      if (!playedSound) {
+        playAlertSoundForReminder(reminder);
+        playedSound = true;
+      }
+      return;
+    }
+
+    App.alertQueue.shift();
+    if (reminder._type === 'payment_due') showPaymentDuePopup(reminder);
+    else if (reminder._type === 'completion_check' || reminder._completionDue) showCompletionCheckPopup(reminder);
+    else showDueNotificationPopup(reminder);
+    showedAny = true;
+  }
+
+  if (showedAny && !playedSound) {
+    // Sound is usually played by main process; avoid double-play when batching in-app toasts.
+  }
+  App.isProcessingAlert = false;
 }
 
 function showDueNotificationPopup(reminder) {
@@ -3267,8 +3386,9 @@ function showDueNotificationPopup(reminder) {
   const el = document.createElement('div');
   el.className = `due-notification ${reminder.priority || 'normal'}`;
   el.id = popupId;
+  el.dataset.reminderId = getDuePopupItemId(reminder);
   el.innerHTML = `
-    <button class="due-notification-close" onclick="dismissDueNotification('${popupId}')">✕</button>
+    <button class="due-notification-close" onclick="dismissDueNotification('${popupId}', '${getDuePopupItemId(reminder)}')">✕</button>
     <div class="due-notification-icon">${reminder.priority === 'critical' ? '🚨' : '🔔'}</div>
     <div class="due-notification-body">
       <div class="due-notification-title">${title}</div>
@@ -3281,6 +3401,7 @@ function showDueNotificationPopup(reminder) {
     </div>`;
   stack.appendChild(el);
   App.currentAlert = reminder;
+  registerDuePopup(getDuePopupItemId(reminder), popupId);
 
   setTimeout(() => {
     const node = document.getElementById(popupId);
@@ -3288,14 +3409,25 @@ function showDueNotificationPopup(reminder) {
   }, 10);
 }
 
-function dismissDueNotification(popupId) {
-  document.getElementById(popupId)?.remove();
+async function dismissDueNotification(popupId, reminderId = '') {
+  const el = document.getElementById(popupId);
+  const itemId = reminderId || el?.dataset?.reminderId || '';
+  if (itemId) {
+    clearDuePopupsForItem(itemId);
+    if (api.acknowledgeReminder) await api.acknowledgeReminder(itemId);
+  } else {
+    el?.remove();
+  }
+  updateDismissAllBar();
+  window.ILRSSounds?.stopAlertSound?.();
   App.isProcessingAlert = false;
   processAlertQueue();
 }
 
 async function completeDueNotification(popupId, id, type) {
+  clearDuePopupsForItem(id);
   document.getElementById(popupId)?.remove();
+  window.ILRSSounds?.stopAlertSound?.();
   App.currentAlert = App.reminders.find((r) => r.id === id) || App.currentAlert;
   if (type === 'medicine' || type === 'bill' || type === 'habit') {
     await completeFromAlert();
@@ -3307,14 +3439,18 @@ async function completeDueNotification(popupId, id, type) {
 }
 
 async function snoozeDueNotification(popupId, id) {
+  clearDuePopupsForItem(id);
   document.getElementById(popupId)?.remove();
+  window.ILRSSounds?.stopAlertSound?.();
   await snoozeReminder(id);
   App.isProcessingAlert = false;
   processAlertQueue();
 }
 
 function postponeDueNotification(popupId, id) {
+  clearDuePopupsForItem(id);
   document.getElementById(popupId)?.remove();
+  window.ILRSSounds?.stopAlertSound?.();
   App.isProcessingAlert = false;
   showPostponeMenu(id);
   processAlertQueue();
@@ -3335,8 +3471,9 @@ function showPaymentDuePopup(reminder) {
   const el = document.createElement('div');
   el.className = `due-notification completion-check ${reminder.priority === 'critical' ? 'critical' : 'important'}`;
   el.id = popupId;
+  el.dataset.reminderId = entityId;
   el.innerHTML = `
-    <button class="due-notification-close" onclick="dismissDueNotification('${popupId}')">✕</button>
+    <button class="due-notification-close" onclick="dismissDueNotification('${popupId}', '${entityId}')">✕</button>
     <div class="due-notification-icon">💰</div>
     <div class="due-notification-body">
       <div class="due-notification-title">${reminder.title || 'Payment due'}</div>
@@ -3349,6 +3486,7 @@ function showPaymentDuePopup(reminder) {
     </div>`;
   stack.appendChild(el);
   App.currentAlert = reminder;
+  registerDuePopup(entityId, popupId);
   setTimeout(() => document.getElementById(popupId)?.classList.add('due-notification-visible'), 10);
 }
 
@@ -3372,8 +3510,9 @@ function showCompletionCheckPopup(reminder) {
   const el = document.createElement('div');
   el.className = `due-notification completion-check ${reminder._overdue ? 'critical' : 'important'}`;
   el.id = popupId;
+  el.dataset.reminderId = itemId;
   el.innerHTML = `
-    <button class="due-notification-close" onclick="dismissDueNotification('${popupId}')">✕</button>
+    <button class="due-notification-close" onclick="dismissDueNotification('${popupId}', '${itemId}')">✕</button>
     <div class="due-notification-icon">${reminder._overdue ? '⏰' : '📋'}</div>
     <div class="due-notification-body">
       <div class="due-notification-title">${title}</div>
@@ -3387,11 +3526,14 @@ function showCompletionCheckPopup(reminder) {
     </div>`;
   stack.appendChild(el);
   App.currentAlert = reminder;
+  registerDuePopup(itemId, popupId);
   setTimeout(() => document.getElementById(popupId)?.classList.add('due-notification-visible'), 10);
 }
 
 async function handleCompletionCheckAction(popupId, type, id, action, extra = {}) {
+  clearDuePopupsForItem(id);
   document.getElementById(popupId)?.remove();
+  window.ILRSSounds?.stopAlertSound?.();
   const result = await window.ilrs?.handleCompletionAction?.({
     type,
     id,
@@ -3442,6 +3584,11 @@ function showCompletionFollowUpNote(popupId, type, id) {
 window.handleCompletionCheckAction = handleCompletionCheckAction;
 window.showCompletionReschedule = showCompletionReschedule;
 window.showCompletionFollowUpNote = showCompletionFollowUpNote;
+window.dismissDueNotification = dismissDueNotification;
+window.dismissAllDueNotifications = dismissAllDueNotifications;
+window.completeDueNotification = completeDueNotification;
+window.snoozeDueNotification = snoozeDueNotification;
+window.postponeDueNotification = postponeDueNotification;
 
 function showInAppAlert(reminder) {
   const existing = document.getElementById('alert-popup');
@@ -3488,6 +3635,10 @@ async function completeFromAlert() {
   const item = App.currentAlert;
   if (!item) return;
   const type = item._type || item.task_type || 'reminder';
+  const itemId = getDuePopupItemId(item);
+
+  if (itemId) clearDuePopupsForItem(itemId);
+  window.ILRSSounds?.stopAlertSound?.();
 
   if (type === 'medicine') {
     await markDoseTaken(item.id, item._doseTime || nowTimeStr());
@@ -3507,15 +3658,26 @@ async function completeFromAlert() {
 async function snoozeFromAlert() {
   const item = App.currentAlert;
   if (!item?.id) return;
+  const itemId = getDuePopupItemId(item);
+  if (itemId) clearDuePopupsForItem(itemId);
+  window.ILRSSounds?.stopAlertSound?.();
   await snoozeReminder(item.id);
   App.currentAlert = null;
   dismissAlert();
 }
 
-function dismissAlert() {
+async function dismissAlert() {
+  const item = App.currentAlert;
+  const itemId = item ? getDuePopupItemId(item) : '';
   const el = document.getElementById('alert-popup');
   if (el) el.remove();
-  setTimeout(processAlertQueue, 500);
+  if (itemId) {
+    clearDuePopupsForItem(itemId);
+    if (api.acknowledgeReminder) await api.acknowledgeReminder(itemId);
+  }
+  window.ILRSSounds?.stopAlertSound?.();
+  App.currentAlert = null;
+  setTimeout(processAlertQueue, 300);
 }
 
 // ── Bootstrap ──────────────────────────────────────────────────────

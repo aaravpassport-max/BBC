@@ -1,7 +1,13 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
-const { showDesktopNotification, getSetting, shouldPlaySound } = require('./notifications');
+const {
+  showDesktopNotification,
+  dismissNotificationsForItem,
+  dismissAllNotifications,
+  getSetting,
+  shouldPlaySound,
+} = require('./notifications');
 const {
   completeOccurrence,
   snoozeReminder: snoozeReminderAction,
@@ -9,6 +15,8 @@ const {
   deleteReminder: deleteReminderAction,
   bulkDeleteReminders,
   updateWorkflowStatus,
+  acknowledgeReminder,
+  dismissAllRingingReminders,
   parseNotificationAction,
 } = require('./reminder-actions');
 const {
@@ -53,7 +61,7 @@ const {
 const { changeReminderStage, setInitialReminderStage } = require('./workflow-stage-actions');
 const { getWeeklyAnchorDay, recalculateAllHabitStreaks } = require('./habit-streak');
 const { createTrayIcon, ensureWindowsToastSupport, showFatalError } = require('./windows-support');
-const { playAlertSound } = require('./sound-player');
+const { playAlertSound, stopAlertSound } = require('./sound-player');
 const { announceReminder, shouldAnnounceVoice } = require('./voice-announcer');
 const {
   toLocalISO,
@@ -248,6 +256,19 @@ function notifyRendererDataChanged() {
   }
 }
 
+function notifyNotificationsCleared(payload = {}) {
+  if (mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+    mainWindow.webContents.send('notifications-cleared', payload);
+  }
+}
+
+function clearReminderNotifications(itemId) {
+  if (!itemId) return;
+  dismissNotificationsForItem(itemId);
+  stopAlertSound(mainWindow);
+  notifyNotificationsCleared({ itemId });
+}
+
 function openReminderFromNotification(item, type = 'reminder') {
   focusMainWindow();
   flushPendingDueEvents();
@@ -264,7 +285,17 @@ function handleNotificationAction(item, actionLabel, type = 'reminder') {
   const action = parseNotificationAction(actionLabel);
   if (!action) return;
 
+  if (action === 'dismiss') {
+    if (type === 'reminder') {
+      acknowledgeReminder(db, item.id);
+      notifyRendererDataChanged();
+    }
+    clearReminderNotifications(item.id);
+    return;
+  }
+
   if (action === 'done') {
+    clearReminderNotifications(item.id);
     if (type === 'medicine') {
       markMedicineDoseTaken(db, item.id, item._doseTime || localTimeStr());
     } else if (type === 'bill') {
@@ -281,6 +312,7 @@ function handleNotificationAction(item, actionLabel, type = 'reminder') {
   if (type !== 'reminder') return;
 
   if (action === 'snooze') {
+    clearReminderNotifications(item.id);
     const minutes = parseInt(getSetting(db, 'snooze_duration', '10'), 10) || 10;
     snoozeReminderAction(db, item.id, minutes);
     notifyRendererDataChanged();
@@ -288,6 +320,7 @@ function handleNotificationAction(item, actionLabel, type = 'reminder') {
   }
 
   if (action === 'tomorrow') {
+    clearReminderNotifications(item.id);
     const now = new Date();
     const tomorrow = new Date(now);
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -354,6 +387,7 @@ function dispatchDueItem(item, type = 'reminder') {
   showDesktopNotification(db, item, {
     onClick: () => openReminderFromNotification(item, type),
     onAction: (action) => handleNotificationAction(item, action, type),
+    onDismiss: () => handleNotificationAction(item, 'dismiss', type),
     type,
   });
 
@@ -650,7 +684,10 @@ function setupIPC() {
     try {
       if (!id) return { success: false, error: 'Missing id' };
       const result = completeOccurrence(db, id);
-      if (result.success) notifyRendererDataChanged();
+      if (result.success) {
+        clearReminderNotifications(id);
+        notifyRendererDataChanged();
+      }
       return result;
     } catch (err) {
       return { success: false, error: err.message };
@@ -661,7 +698,10 @@ function setupIPC() {
     try {
       if (!id) return { success: false, error: 'Missing id' };
       const result = snoozeReminderAction(db, id, minutes);
-      if (result.success) notifyRendererDataChanged();
+      if (result.success) {
+        clearReminderNotifications(id);
+        notifyRendererDataChanged();
+      }
       return result;
     } catch (err) {
       return { success: false, error: err.message };
@@ -672,7 +712,37 @@ function setupIPC() {
     try {
       if (!id || !dateStr) return { success: false, error: 'Missing id or date' };
       const result = postponeReminder(db, id, dateStr, timeStr);
-      if (result.success) notifyRendererDataChanged();
+      if (result.success) {
+        clearReminderNotifications(id);
+        notifyRendererDataChanged();
+      }
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('acknowledge-reminder', async (_event, { id }) => {
+    try {
+      if (!id) return { success: false, error: 'Missing id' };
+      const result = acknowledgeReminder(db, id);
+      if (result.success) {
+        clearReminderNotifications(id);
+        notifyRendererDataChanged();
+      }
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('dismiss-all-notifications', async () => {
+    try {
+      const result = dismissAllRingingReminders(db);
+      dismissAllNotifications();
+      stopAlertSound(mainWindow);
+      notifyRendererDataChanged();
+      notifyNotificationsCleared({ all: true });
       return result;
     } catch (err) {
       return { success: false, error: err.message };

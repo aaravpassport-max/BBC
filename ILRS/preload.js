@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld('ilrs', {
   postponeReminder: (id, dateStr, timeStr) =>
     ipcRenderer.invoke('postpone-reminder', { id, dateStr, timeStr }),
   deleteReminder: (id) => ipcRenderer.invoke('delete-reminder', { id }),
+  acknowledgeReminder: (id) => ipcRenderer.invoke('acknowledge-reminder', { id }),
+  dismissAllNotifications: () => ipcRenderer.invoke('dismiss-all-notifications'),
   bulkDeleteReminders: (ids) => ipcRenderer.invoke('bulk-delete-reminders', { ids }),
   updateWorkflowStatus: (id, workflowStatus) =>
     ipcRenderer.invoke('update-workflow-status', { id, workflowStatus }),
@@ -77,6 +79,8 @@ contextBridge.exposeInMainWorld('ilrs', {
   onSpeakReminder: (callback) => ipcRenderer.on('speak-reminder', (_, payload) => callback(payload)),
   onNotificationClicked: (callback) => ipcRenderer.on('notification-clicked', (_, reminder) => callback(reminder)),
   onReminderUpdated: (callback) => ipcRenderer.on('reminder-updated', () => callback()),
+  onNotificationsCleared: (callback) => ipcRenderer.on('notifications-cleared', (_, payload) => callback(payload)),
+  onStopAlertSound: (callback) => ipcRenderer.on('stop-alert-sound', () => callback()),
 
   // Remove listeners
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel)
