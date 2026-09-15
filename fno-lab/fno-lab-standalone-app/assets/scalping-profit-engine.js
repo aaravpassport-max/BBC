@@ -177,30 +177,42 @@ function saveSpeSessionState(st) {
 
 function evaluateMarketSafety(ms, ctx, cfg) {
   const out = {
-    safe: false, liquidityScore: 0, spreadPts: null, spreadPct: null, spreadOk: false,
+    safe: true, liquidityScore: null, spreadPts: null, spreadPct: null, spreadOk: null, spreadSkipped: false,
+    liquiditySkipped: false, staleDataSkipped: false, skippedLayers: [], unavailableInputs: [],
     slippageEstimate: cfg.slippageEstimate, volatilityClass: 'NORMAL', eventRisk: false,
     reasons: [], blockers: [],
   };
   if (!ms.valid) {
-    out.blockers.push('Missing or stale candle data');
+    out.skippedLayers.push('marketSafety');
+    out.unavailableInputs.push('candles');
+    out.reasons.push('Candle data unavailable — market safety skipped (not scored as fail)');
     return out;
   }
   const leg = ctx && ctx.ocRow && ctx.ocRow.CE;
   const bid = leg && Number.isFinite(leg.bidprice) ? leg.bidprice : null;
   const ask = leg && Number.isFinite(leg.askPrice) ? leg.askPrice : null;
-  const bidQty = leg && Number.isFinite(leg.bidQty) ? leg.bidQty : 0;
-  const askQty = leg && Number.isFinite(leg.askQty) ? leg.askQty : 0;
+  const hasDepth = leg && (Number.isFinite(leg.bidQty) || Number.isFinite(leg.askQty));
+  const bidQty = hasDepth && Number.isFinite(leg.bidQty) ? leg.bidQty : null;
+  const askQty = hasDepth && Number.isFinite(leg.askQty) ? leg.askQty : null;
   if (bid != null && ask != null && ask >= bid) {
     out.spreadPts = +(ask - bid).toFixed(4);
     out.spreadPct = bid > 0 ? +((out.spreadPts / bid) * 100).toFixed(3) : null;
     out.spreadOk = out.spreadPct == null || out.spreadPct <= cfg.spreadThresholdPct;
     if (!out.spreadOk) out.blockers.push(FNO_SPE_NO_TRADE.WIDE_SPREAD);
   } else {
-    out.spreadOk = true;
+    out.spreadSkipped = true;
+    out.unavailableInputs.push('bidAsk');
+    out.reasons.push('Bid/ask unavailable — spread check skipped (not treated as pass or fail)');
   }
-  const depthScore = Math.min(100, Math.round((bidQty + askQty) / 100));
-  out.liquidityScore = Math.max(depthScore, ms.atr && ms.atr > 0 ? 55 : 40);
-  if (out.liquidityScore < cfg.minLiquidityScore) out.blockers.push(FNO_SPE_NO_TRADE.INSUFFICIENT_LIQUIDITY);
+  if (bidQty != null || askQty != null) {
+    const depthScore = Math.min(100, Math.round(((bidQty || 0) + (askQty || 0)) / 100));
+    out.liquidityScore = Math.max(depthScore, ms.atr && ms.atr > 0 ? 55 : 40);
+    if (out.liquidityScore < cfg.minLiquidityScore) out.blockers.push(FNO_SPE_NO_TRADE.INSUFFICIENT_LIQUIDITY);
+  } else {
+    out.liquiditySkipped = true;
+    out.unavailableInputs.push('orderBookDepth');
+    out.reasons.push('Order-book depth unavailable — liquidity check skipped');
+  }
   let volClass = 'NORMAL';
   if (typeof computeMarketRegime === 'function' && ms.regime) {
     if (ms.regime.volatility === 'High Vol') volClass = 'HIGH';
@@ -214,6 +226,10 @@ function evaluateMarketSafety(ms, ctx, cfg) {
   if (ctx && typeof ctx.ocFetchedAt === 'number' && typeof checkOptionChainFreshness === 'function') {
     const fresh = checkOptionChainFreshness(ctx.ocFetchedAt, Date.now());
     if (fresh.stale) out.blockers.push(FNO_SPE_NO_TRADE.STALE_DATA);
+  } else if (ctx && ctx.ocRow && typeof ctx.ocFetchedAt !== 'number') {
+    out.staleDataSkipped = true;
+    out.unavailableInputs.push('ocFetchedAt');
+    out.reasons.push('Option-chain freshness timestamp unavailable — stale-data check skipped');
   }
   out.safe = out.blockers.length === 0;
   return out;
@@ -223,7 +239,7 @@ function detectSpeRegime(ms, ctx) {
   let regime = FNO_SPE_REGIME.UNKNOWN;
   let confidence = 40;
   let strength = 'LOW';
-  if (!ms.valid) return { regime, confidence, strength, label: regime };
+  if (!ms.valid) return { regime, confidence, strength, label: regime, skipped: true, unavailableInputs: ['candles'] };
   const br = ms.choppy ? 'choppy' : null;
   if (br || ms.choppy) {
     regime = FNO_SPE_REGIME.CHOP;
@@ -256,7 +272,7 @@ function evaluateSpeDirection(ms, regimeInfo, brain) {
   let direction = 'NEUTRAL';
   let confidence = 40;
   const reasons = [];
-  if (!ms.valid) return { direction, confidence, reasons };
+  if (!ms.valid) return { direction, confidence, reasons, skipped: true, unavailableInputs: ['candles'] };
   if (brain && brain.decision === 'BUY_READY') { direction = 'BULLISH'; confidence += 25; reasons.push('Brain BUY_READY'); }
   else if (brain && brain.decision === 'SELL_READY') { direction = 'BEARISH'; confidence += 25; reasons.push('Brain SELL_READY'); }
   if (ms.ema9 != null && ms.ema21 != null) {
@@ -386,39 +402,94 @@ function evaluateTradeQuality(layers, cfg) {
     marketSafety: 12, regime: 10, direction: 12, setup: 15, timing: 12,
     momentum: 8, room: 8, expectedMove: 10, execution: 8, session: 5,
   };
-  const totalW = Object.values(weights).reduce((a, b) => a + b, 0);
-  let sum = 0;
   const breakdown = {};
-  breakdown.marketSafety = layers.safety ? (layers.safety.safe ? 90 : 30) : 50;
-  breakdown.regime = layers.regime ? layers.regime.confidence : 40;
-  breakdown.direction = layers.direction ? layers.direction.confidence : 40;
-  breakdown.setup = layers.setup ? layers.setup.score : 0;
-  breakdown.timing = layers.timing ? layers.timing.timingScore : 50;
-  breakdown.momentum = layers.timing && layers.timing.velocityPtsMin >= 1 ? 70 : 40;
-  breakdown.room = layers.room && layers.room.sufficient ? 85 : 25;
-  breakdown.expectedMove = layers.expectedMove && layers.expectedMove.netEdgePositive ? 80 : 35;
-  breakdown.execution = layers.execution ? layers.execution.score : 60;
-  breakdown.session = layers.session && layers.session.state !== FNO_SPE_SESSION.LOCKED ? 75 : 20;
-  Object.keys(weights).forEach(k => { sum += (breakdown[k] || 0) * weights[k]; });
-  const normalized = Math.round(sum / totalW);
+  const usedLayers = [];
+  const skippedLayers = [];
+  const scoreFor = (key, val) => {
+    if (val == null) { skippedLayers.push(key); return null; }
+    usedLayers.push(key);
+    return val;
+  };
+  const safetySkipped = layers.safety && layers.safety.skippedLayers && layers.safety.skippedLayers.includes('marketSafety');
+  breakdown.marketSafety = safetySkipped ? null : scoreFor('marketSafety', layers.safety ? (layers.safety.safe ? 90 : 30) : null);
+  breakdown.regime = scoreFor('regime', layers.regime && !layers.regime.skipped ? layers.regime.confidence : null);
+  breakdown.direction = scoreFor('direction', layers.direction && !layers.direction.skipped ? layers.direction.confidence : null);
+  breakdown.setup = scoreFor('setup', layers.setup ? layers.setup.score : null);
+  breakdown.timing = scoreFor('timing', layers.timing ? layers.timing.timingScore : null);
+  breakdown.momentum = scoreFor('momentum', layers.timing ? (layers.timing.velocityPtsMin >= 1 ? 70 : 40) : null);
+  breakdown.room = scoreFor('room', layers.room ? (layers.room.sufficient ? 85 : 25) : null);
+  breakdown.expectedMove = scoreFor('expectedMove', layers.expectedMove ? (layers.expectedMove.netEdgePositive ? 80 : 35) : null);
+  breakdown.execution = scoreFor('execution', layers.execution && !layers.execution.skipped ? layers.execution.score : null);
+  breakdown.session = scoreFor('session', layers.session && layers.session.state !== FNO_SPE_SESSION.LOCKED ? 75 : (layers.session ? 20 : null));
+  let sum = 0;
+  let totalW = 0;
+  Object.keys(weights).forEach(k => {
+    if (breakdown[k] == null) return;
+    sum += breakdown[k] * weights[k];
+    totalW += weights[k];
+  });
+  const normalized = totalW > 0 ? Math.round(sum / totalW) : null;
   let grade = 'No Trade';
-  if (normalized >= 90) grade = 'Exceptional';
+  if (normalized == null) grade = 'Insufficient Data';
+  else if (normalized >= 90) grade = 'Exceptional';
   else if (normalized >= 80) grade = 'High Quality';
   else if (normalized >= 70) grade = 'Acceptable';
   else if (normalized >= 60) grade = 'Selective';
-  return { normalized, grade, breakdown, weights };
+  return {
+    normalized, grade, breakdown, weights, usedLayers, skippedLayers,
+    layersUsedCount: usedLayers.length, layersSkippedCount: skippedLayers.length,
+    recalculatedFromAvailableOnly: skippedLayers.length > 0,
+  };
+}
+
+function buildSpeFactorDataAvailability(ms, layers, quality, safety, execution) {
+  const unavailable = [];
+  const used = [];
+  const layerMap = [
+    ['marketSafety', layers.safety, layers.safety && layers.safety.skippedLayers && layers.safety.skippedLayers.includes('marketSafety')],
+    ['regime', layers.regime, layers.regime && layers.regime.skipped],
+    ['direction', layers.direction, layers.direction && layers.direction.skipped],
+    ['setup', layers.setup, !layers.setup],
+    ['timing', layers.timing, !ms.valid || !layers.setup],
+    ['execution', layers.execution, layers.execution && layers.execution.skipped],
+  ];
+  layerMap.forEach(([name, layer, skipped]) => {
+    if (skipped) unavailable.push(name);
+    else if (layer) used.push(name);
+  });
+  (safety && safety.unavailableInputs || []).forEach(u => { if (!unavailable.includes(u)) unavailable.push(u); });
+  const skippedCount = unavailable.length;
+  const usedCount = used.length;
+  const total = skippedCount + usedCount;
+  const coveragePct = total > 0 ? +(usedCount / total * 100).toFixed(1) : 0;
+  let missingDataImpact = 'none';
+  if (!ms.valid || coveragePct < 35) missingDataImpact = 'high';
+  else if (coveragePct < 60 || skippedCount >= 2) missingDataImpact = 'low';
+  return {
+    unavailableInputs: unavailable,
+    usedLayers: used,
+    coveragePct,
+    tradeQualityScoreAvailableOnly: quality && quality.normalized != null ? quality.normalized : null,
+    missingDataImpact,
+    decisionAffectedByMissingData: skippedCount > 0,
+    summary: `${usedCount} SPE layers used, ${skippedCount} skipped — unavailable inputs never scored as fail`,
+  };
 }
 
 function evaluateExecutionQuality(ctx, expectedMove, cfg) {
-  let score = 75;
   const leg = ctx && ctx.ocRow && ctx.ocRow.CE;
   const spreadPct = leg && leg.bidprice > 0 && leg.askPrice > leg.bidprice
     ? ((leg.askPrice - leg.bidprice) / leg.bidprice) * 100 : null;
-  if (spreadPct != null && spreadPct > cfg.spreadThresholdPct) score -= 30;
+  if (spreadPct == null) {
+    return { score: null, spreadPct: null, slippageVsProfit: null, acceptable: true, skipped: true,
+      reason: 'Spread data unavailable — execution quality skipped (not scored as fail)' };
+  }
+  let score = 75;
+  if (spreadPct > cfg.spreadThresholdPct) score -= 30;
   const slippageVsProfit = expectedMove && expectedMove.favorablePts > 0
     ? (cfg.slippageEstimate / expectedMove.favorablePts) * 100 : 0;
   if (slippageVsProfit > 25) score -= 20;
-  return { score: Math.max(0, score), spreadPct, slippageVsProfit, acceptable: score >= 55 };
+  return { score: Math.max(0, score), spreadPct, slippageVsProfit, acceptable: score >= 55, skipped: false };
 }
 
 function evaluateSpeSessionState(journalToday, regimeInfo, cfg) {
@@ -513,25 +584,26 @@ function computeScalpingProfitEngine(ctx, brain, opts) {
 
   const layers = { safety, regime, direction, setup: bestSetup, timing, expectedMove, room, execution, session };
   const quality = evaluateTradeQuality(layers, cfg);
+  const factorDataAvailability = buildSpeFactorDataAvailability(ms, layers, quality, safety, execution);
   const minScore = cfg.minTradeQuality + session.minScoreBoost;
 
   const blockers = [];
   const noTradeReasons = [];
 
-  if (!safety.safe) { blockers.push(...safety.blockers); noTradeReasons.push(...safety.blockers); }
-  if (regime.confidence < cfg.minRegimeConfidence) { blockers.push(FNO_SPE_NO_TRADE.LOW_REGIME_CONFIDENCE); noTradeReasons.push(FNO_SPE_NO_TRADE.LOW_REGIME_CONFIDENCE); }
-  if (direction.confidence < cfg.minDirectionConfidence) { blockers.push(FNO_SPE_NO_TRADE.WEAK_DIRECTION); noTradeReasons.push(FNO_SPE_NO_TRADE.WEAK_DIRECTION); }
-  if (!bestSetup) { blockers.push(FNO_SPE_NO_TRADE.NO_SETUP); noTradeReasons.push(FNO_SPE_NO_TRADE.NO_SETUP); }
-  if (antiChase.blocked) { blockers.push(FNO_SPE_NO_TRADE.EXCESSIVE_EXTENSION); noTradeReasons.push(FNO_SPE_NO_TRADE.EXCESSIVE_EXTENSION); }
-  if (!room.sufficient && bestSetup && bestSetup.type !== FNO_SPE_SETUP.BREAKOUT) {
+  if (!safety.skippedLayers.includes('marketSafety') && !safety.safe) { blockers.push(...safety.blockers); noTradeReasons.push(...safety.blockers); }
+  if (!regime.skipped && regime.confidence < cfg.minRegimeConfidence) { blockers.push(FNO_SPE_NO_TRADE.LOW_REGIME_CONFIDENCE); noTradeReasons.push(FNO_SPE_NO_TRADE.LOW_REGIME_CONFIDENCE); }
+  if (!direction.skipped && direction.confidence < cfg.minDirectionConfidence) { blockers.push(FNO_SPE_NO_TRADE.WEAK_DIRECTION); noTradeReasons.push(FNO_SPE_NO_TRADE.WEAK_DIRECTION); }
+  if (ms.valid && !bestSetup) { blockers.push(FNO_SPE_NO_TRADE.NO_SETUP); noTradeReasons.push(FNO_SPE_NO_TRADE.NO_SETUP); }
+  if (ms.valid && antiChase.blocked) { blockers.push(FNO_SPE_NO_TRADE.EXCESSIVE_EXTENSION); noTradeReasons.push(FNO_SPE_NO_TRADE.EXCESSIVE_EXTENSION); }
+  if (ms.valid && !room.sufficient && bestSetup && bestSetup.type !== FNO_SPE_SETUP.BREAKOUT) {
     blockers.push(FNO_SPE_NO_TRADE.INSUFFICIENT_ROOM); noTradeReasons.push(FNO_SPE_NO_TRADE.INSUFFICIENT_ROOM);
   }
-  if (expectedMove.favorablePts < cfg.minExpectedMove) { blockers.push(FNO_SPE_NO_TRADE.EXPECTED_MOVE_TOO_SMALL); noTradeReasons.push(FNO_SPE_NO_TRADE.EXPECTED_MOVE_TOO_SMALL); }
-  if (expectedMove.riskReward < cfg.minRiskReward) { blockers.push(FNO_SPE_NO_TRADE.POOR_RR); noTradeReasons.push(FNO_SPE_NO_TRADE.POOR_RR); }
-  if (!expectedMove.netEdgePositive) { blockers.push(FNO_SPE_NO_TRADE.POOR_RR); }
-  if (!execution.acceptable) { blockers.push(FNO_SPE_NO_TRADE.EXCESSIVE_SLIPPAGE); noTradeReasons.push(FNO_SPE_NO_TRADE.EXCESSIVE_SLIPPAGE); }
-  if (quality.normalized < minScore) { blockers.push(FNO_SPE_NO_TRADE.LOW_SCORE); noTradeReasons.push(FNO_SPE_NO_TRADE.LOW_SCORE); }
-  if (regime.regime === FNO_SPE_REGIME.CHOP && quality.normalized < minScore + cfg.chopScoreBoost) {
+  if (ms.valid && expectedMove.favorablePts < cfg.minExpectedMove) { blockers.push(FNO_SPE_NO_TRADE.EXPECTED_MOVE_TOO_SMALL); noTradeReasons.push(FNO_SPE_NO_TRADE.EXPECTED_MOVE_TOO_SMALL); }
+  if (ms.valid && expectedMove.riskReward < cfg.minRiskReward) { blockers.push(FNO_SPE_NO_TRADE.POOR_RR); noTradeReasons.push(FNO_SPE_NO_TRADE.POOR_RR); }
+  if (ms.valid && !expectedMove.netEdgePositive) { blockers.push(FNO_SPE_NO_TRADE.POOR_RR); }
+  if (!execution.skipped && !execution.acceptable) { blockers.push(FNO_SPE_NO_TRADE.EXCESSIVE_SLIPPAGE); noTradeReasons.push(FNO_SPE_NO_TRADE.EXCESSIVE_SLIPPAGE); }
+  if (quality.normalized != null && quality.normalized < minScore) { blockers.push(FNO_SPE_NO_TRADE.LOW_SCORE); noTradeReasons.push(FNO_SPE_NO_TRADE.LOW_SCORE); }
+  if (ms.valid && regime.regime === FNO_SPE_REGIME.CHOP && quality.normalized != null && quality.normalized < minScore + cfg.chopScoreBoost) {
     blockers.push(FNO_SPE_NO_TRADE.CHOP); noTradeReasons.push(FNO_SPE_NO_TRADE.CHOP);
   }
   if (!overtrade.allowed) { blockers.push(...overtrade.blockers); noTradeReasons.push(...overtrade.blockers); }
@@ -598,6 +670,8 @@ function computeScalpingProfitEngine(ctx, brain, opts) {
     settings: cfg,
     optionType: dirOpt,
     layers,
+    factorDataAvailability,
+    decisionAffectedByMissingData: factorDataAvailability.decisionAffectedByMissingData,
   };
 }
 

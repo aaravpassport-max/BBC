@@ -616,6 +616,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
         <div style="font-size:10px;color:#64748b;margin-bottom:8px">Every catalogued factor's REAL implementation status this refresh - never fabricated as neutral when unavailable.</div>
         <div id="factorRegistrySummary" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-size:11px"></div>
         <div id="factorRegistryCoverage" style="margin-top:8px;font-size:12px;font-weight:700;text-align:center;padding:8px;border-radius:8px;background:#020617"></div>
+        <div id="factorDataAvailabilityBox" style="margin-top:8px;font-size:11px;padding:8px;border-radius:8px;background:#0c1a2e;border:1px solid #1e3a5f"></div>
         <div id="factorActivationRoadmap" style="margin-top:8px"></div>
         <div id="categoriesNotEvaluated"></div>
       </div>

@@ -595,7 +595,7 @@ function calculateSetupScore(setup, ms, targetInfo, riskReward) {
 function evaluateHardBlocks(ms, setup, targetInfo, brain, ctx, opts) {
   opts = opts || {};
   const blockers = [];
-  if (!ms.valid) blockers.push('Missing or stale candle data');
+  if (!ms.valid) return blockers;
   if (ms.choppy) blockers.push('Market classified as choppy/range-bound');
   if (!setup) blockers.push('No valid setup');
   else if (setup.state === FNO_TSE_SETUP_STATE.INVALIDATED) blockers.push('Setup invalidated: ' + setup.reason);
@@ -618,7 +618,20 @@ function evaluateTradeEligibility(ctx, brain, opts) {
     return { action: 'ALLOW', reason: 'Trade Setup Engine disabled', bypass: true };
   }
   const ms = buildMarketState(ctx, brain);
-  if (!ms.valid) return { action: 'BLOCK', reason: 'Invalid market data', blockers: ['Insufficient candles'] };
+  if (!ms.valid) {
+    return {
+      action: 'BYPASS', bypass: true,
+      reason: 'Insufficient candles — TSE skipped (unavailable data not scored as block)',
+      blockers: [], setups: [], movement: classifyMovement(ms),
+      factorDataAvailability: {
+        unavailableInputs: ['candles'],
+        usedLayers: [],
+        missingDataImpact: 'high',
+        decisionAffectedByMissingData: true,
+        summary: 'TSE bypassed — candle data unavailable, not auto-failed',
+      },
+    };
+  }
 
   const brainDir = brain && brain.decision === 'BUY_READY' ? 'bullish' : brain && brain.decision === 'SELL_READY' ? 'bearish' : null;
   const setups = applySetupExpiration(findAllSetups(ms).map(s => invalidateSetup(s, ms)), ms);
@@ -719,9 +732,12 @@ function makeTradeDecision(ctx, brain, opts) {
     targetConfidence: targetInfo ? targetInfo.target_confidence : 0,
     blockers: eligibility.blockers || [],
     reasons: [eligibility.reason].filter(Boolean),
-    entryAllowed: engineStatus === FNO_TSE_DECISION.TRADE_ALLOWED
-      && brain && (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY'),
+    entryAllowed: (engineStatus === 'BYPASS' && brain && (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY'))
+      || (engineStatus === FNO_TSE_DECISION.TRADE_ALLOWED
+        && brain && (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY')),
     blockReason: eligibility.action === 'BLOCK' ? eligibility.reason : (eligibility.action === 'WAIT' ? eligibility.reason : null),
+    factorDataAvailability: eligibility.factorDataAvailability || null,
+    decisionAffectedByMissingData: !!(eligibility.factorDataAvailability && eligibility.factorDataAvailability.decisionAffectedByMissingData),
     settings: cfg,
   };
 }
@@ -822,6 +838,7 @@ function checkTradeSetupEntryGate(brain, ctx, optionType) {
   if (!isTradeSetupEngineActive()) return { allowed: true };
   const tsd = (brain && brain.tradeSetupDecision) ? brain.tradeSetupDecision : makeTradeDecision(ctx, brain, {});
   if (!tsd.active) return { allowed: true };
+  if (tsd.engineStatus === 'BYPASS') return { allowed: true, tsd, bypass: true };
   const dir = optionType === 'PE' ? 'bearish' : 'bullish';
   if (tsd.entryAllowed && tsd.setup && tsd.setup.direction === dir) return { allowed: true, tsd };
   return { allowed: false, reason: `Trade Setup Engine: ${tsd.blockReason || (tsd.reasons && tsd.reasons[0]) || tsd.engineStatus}`, tsd };

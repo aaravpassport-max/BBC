@@ -135,9 +135,12 @@ assert.ok(
   'daily loss limit should hard block'
 );
 
-// --- Invalid data ---
+// --- Invalid data: bypass (skip), never auto-fail ---
 const badTsd = api.makeTradeDecision({ spot: null, candles: [] }, bullBrain, {});
-assert.strictEqual(badTsd.decision, 'NO_TRADE');
+assert.strictEqual(badTsd.engineStatus, 'BYPASS');
+assert.strictEqual(badTsd.decision, 'BUY_READY');
+assert.strictEqual(badTsd.entryAllowed, true);
+assert.ok(badTsd.factorDataAvailability && badTsd.factorDataAvailability.decisionAffectedByMissingData);
 
 // --- applyTradeSetupInfluence downgrades BUY_READY ---
 const blockedInfluence = api.applyTradeSetupInfluence(
@@ -243,9 +246,10 @@ const poorRrTsd = api.makeTradeDecision(bullCtx, bullBrain, { journalToday: [] }
 assert.ok(!poorRrTsd.entryAllowed || poorRrTsd.blockers.some(b => /Risk\/reward/i.test(b)), 'high min R:R should block');
 api.fnoSettings.set({ minimumRiskReward: 1.5 });
 
-// --- Stale/missing data ---
+// --- Stale/missing data: bypass, not auto-fail ---
 const staleTsd = api.makeTradeDecision({ spot: 24000, candles: makeCandles([24000, 24001]) }, bullBrain, {});
-assert.strictEqual(staleTsd.decision, 'NO_TRADE');
+assert.strictEqual(staleTsd.engineStatus, 'BYPASS');
+assert.strictEqual(staleTsd.decision, 'BUY_READY');
 
 // --- Opening range in key levels ---
 const levels = api.detectKeyLevels(api.buildMarketState(bullCtx, null));

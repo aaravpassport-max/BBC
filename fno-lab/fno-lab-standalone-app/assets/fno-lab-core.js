@@ -4747,6 +4747,141 @@ function buildFactorRegistry(results, catalog, factorPerfMap) {
   return { byId, counts, coveragePct, totalCatalogued: catalog.length };
 }
 
+const FNO_DIRECTIONAL_FACTOR_CATS = new Set(['Market', 'Flow', 'Tech', 'Vol', 'Decay', 'Fundamental', 'Greeks Deep', 'Operator Intel']);
+
+/** Real ctx guard mirror — which whole factor categories were skipped this refresh (not scored as fail). */
+function buildCategoriesNotEvaluated(ctx) {
+  const categoriesNotEvaluated = [];
+  if (!(ctx && ctx.decay && ctx.decay.snapshot)) {
+    categoriesNotEvaluated.push({ cat: 'Decay', why: 'ctx.decay.snapshot unavailable this refresh (Black-Scholes snapshot not computed) - Decay factors were skipped, not scored as bearish/bullish' });
+    categoriesNotEvaluated.push({ cat: 'Greeks Deep', why: 'ctx.decay.snapshot unavailable this refresh - Greeks Deep factors were skipped, not scored as bearish/bullish' });
+  }
+  if (!(ctx && ctx.candles && ctx.candles.length)) {
+    categoriesNotEvaluated.push({ cat: 'Tech', why: 'ctx.candles empty/unavailable this refresh - Tech factors were skipped' });
+    categoriesNotEvaluated.push({ cat: 'Market', why: 'ctx.candles empty/unavailable this refresh - most Market factors were skipped' });
+    categoriesNotEvaluated.push({ cat: 'Regulatory', why: 'ctx.candles empty/unavailable this refresh - circuit-breaker factor was skipped' });
+  } else if (!(ctx.decay && ctx.decay.snapshot)) {
+    categoriesNotEvaluated.push({ cat: 'Vol', why: 'ctx.decay.snapshot unavailable this refresh - Vol factors were skipped' });
+  }
+  if (!(ctx && ctx.optPrice && ctx.lotSize && ctx.spot)) {
+    categoriesNotEvaluated.push({ cat: 'Costs', why: 'ctx.optPrice/lotSize/spot missing this refresh - Costs factors were skipped' });
+  }
+  if (!(ctx && ctx.ocRows)) {
+    categoriesNotEvaluated.push({ cat: 'Flow', why: 'ctx.ocRows unavailable this refresh - Flow factors were skipped' });
+    categoriesNotEvaluated.push({ cat: 'Fundamental', why: 'ctx.ocRows unavailable this refresh - rollover factor was skipped' });
+  }
+  if (!(ctx && ctx.fullJournal)) {
+    categoriesNotEvaluated.push({ cat: 'Psychology', why: 'ctx.fullJournal unavailable this refresh - Psychology factors were skipped' });
+  }
+  return categoriesNotEvaluated;
+}
+
+function computeSeparatedScoresAvailableOnly(results, directionalCats) {
+  directionalCats = directionalCats || FNO_DIRECTIONAL_FACTOR_CATS;
+  const roundScore = n => Math.round(n * 10000) / 10000;
+  const sum = results.reduce((acc, r) => {
+    if (!r || !directionalCats.has(r.cat)) return acc;
+    if (r.pass !== true && r.pass !== false) return acc;
+    return Number.isFinite(r.score) ? acc + r.score : acc;
+  }, 0);
+  return roundScore(sum);
+}
+
+/**
+ * Records which factors were unavailable vs actually used, directional coverage,
+ * and whether missing inputs affected confidence/decision. Never treats missing
+ * data as score 0 / fail unless a factor explicitly defines that behavior.
+ */
+function computeFactorDataAvailability(registry, results, categoriesNotEvaluated, opts) {
+  opts = opts || {};
+  const directionalCats = opts.directionalCats || FNO_DIRECTIONAL_FACTOR_CATS;
+  const unavailableFactors = [];
+  const usedFactors = [];
+  const notComputedFactors = [];
+  const notApplicableFactors = [];
+
+  if (registry && registry.byId) {
+    registry.byId.forEach((entry) => {
+      const row = {
+        id: entry.id, cat: entry.cat, factor: entry.factor, status: entry.status,
+        reason: entry.resultRow ? entry.resultRow.reason : null,
+        pass: entry.resultRow ? entry.resultRow.pass : null,
+        score: entry.resultRow ? entry.resultRow.score : null,
+      };
+      if (entry.status === 'COMPUTED') usedFactors.push(row);
+      else if (entry.status === 'UNAVAILABLE') unavailableFactors.push(row);
+      else if (entry.status === 'NOT_COMPUTED') notComputedFactors.push(row);
+      else if (entry.status === 'NOT_APPLICABLE') notApplicableFactors.push(row);
+    });
+  }
+
+  const dirUsed = usedFactors.filter(f => directionalCats.has(f.cat));
+  const dirUnavailable = unavailableFactors.filter(f => directionalCats.has(f.cat));
+  const dirNotComputed = notComputedFactors.filter(f => directionalCats.has(f.cat));
+  const directionalEligible = dirUsed.length + dirUnavailable.length + dirNotComputed.length;
+  const directionalCoveragePct = directionalEligible > 0 ? (dirUsed.length / directionalEligible * 100) : 0;
+  const directionalScoreAvailableOnly = computeSeparatedScoresAvailableOnly(results || [], directionalCats);
+  const skippedCategories = (categoriesNotEvaluated || []).map(c => c.cat);
+
+  let missingDataImpact = 'none';
+  if (directionalCoveragePct < 35 || skippedCategories.length >= 3) missingDataImpact = 'high';
+  else if (directionalCoveragePct < 60 || skippedCategories.length >= 1 || dirUnavailable.length >= 8) missingDataImpact = 'low';
+
+  return {
+    unavailableFactors,
+    usedFactors,
+    notComputedFactors,
+    notApplicableFactors,
+    skippedCategories,
+    categoriesNotEvaluated: categoriesNotEvaluated || [],
+    directionalCoveragePct: +directionalCoveragePct.toFixed(1),
+    catalogCoveragePct: registry ? registry.coveragePct : null,
+    directionalUsedCount: dirUsed.length,
+    directionalUnavailableCount: dirUnavailable.length,
+    directionalNotComputedCount: dirNotComputed.length,
+    directionalScoreAvailableOnly,
+    missingDataImpact,
+    summary: `${dirUsed.length} directional factors used, ${dirUnavailable.length} unavailable (skipped), ${dirNotComputed.length} not computed, ${skippedCategories.length} whole categories skipped`,
+  };
+}
+
+function applyFactorAvailabilityToConfidence(rawConfidence, availability) {
+  const before = rawConfidence;
+  let confidence = applyCoverageToConfidence(rawConfidence, availability.directionalCoveragePct);
+  if (availability.missingDataImpact === 'high' && confidence === 'High') confidence = 'Medium';
+  const adjusted = confidence !== before;
+  return {
+    confidence,
+    confidenceBeforeMissingDataAdjustment: before,
+    confidenceAdjustedForMissingData: adjusted,
+    decisionAffectedByMissingData: adjusted || availability.missingDataImpact !== 'none',
+  };
+}
+
+function renderFactorDataAvailabilityPanel(brain) {
+  const box = typeof document !== 'undefined' ? document.getElementById('factorDataAvailabilityBox') : null;
+  if (!box || !brain || !brain.factorDataAvailability) return;
+  const a = brain.factorDataAvailability;
+  const impactColor = a.missingDataImpact === 'high' ? '#f87171' : a.missingDataImpact === 'low' ? '#fde68a' : '#4ade80';
+  let html = `<div style="font-weight:700;margin-bottom:6px;color:#93c5fd">Factor data resilience</div>`;
+  html += `<div style="font-size:10px;margin-bottom:6px">Directional coverage: <b>${a.directionalCoveragePct}%</b> (${a.directionalUsedCount} used / ${a.directionalUnavailableCount} unavailable / ${a.directionalNotComputedCount} not computed) · Impact: <span style="color:${impactColor};font-weight:700">${a.missingDataImpact.toUpperCase()}</span>`;
+  if (a.decisionAffectedByMissingData) html += ` · <span style="color:#fde68a">confidence adjusted for missing data</span>`;
+  html += `</div>`;
+  html += `<div style="font-size:10px;color:#94a3b8;margin-bottom:4px">Decision score (available factors only): <b>${typeof brain.directionalScoreAvailableOnly === 'number' ? brain.directionalScoreAvailableOnly.toFixed(1) : '—'}</b>${typeof brain.directionalScore === 'number' && brain.directionalScore !== brain.directionalScoreAvailableOnly ? ` · catalog sum incl. skipped rows: ${brain.directionalScore.toFixed(1)}` : ''} — unavailable factors are skipped, never counted as 0/fail</div>`;
+  if (a.skippedCategories && a.skippedCategories.length) {
+    html += `<div style="font-size:10px;color:#64748b;margin-bottom:4px">Skipped categories: ${a.skippedCategories.map(c => escapeHtml(c)).join(', ')}</div>`;
+  }
+  const topUsed = (a.usedFactors || []).filter(f => FNO_DIRECTIONAL_FACTOR_CATS.has(f.cat)).slice(0, 5);
+  if (topUsed.length) {
+    html += `<div style="font-size:10px;color:#64748b">Used (sample): ${topUsed.map(f => escapeHtml(f.factor)).join('; ')}</div>`;
+  }
+  const topUnavail = (a.unavailableFactors || []).filter(f => FNO_DIRECTIONAL_FACTOR_CATS.has(f.cat)).slice(0, 4);
+  if (topUnavail.length) {
+    html += `<div style="font-size:10px;color:#64748b;margin-top:4px">Unavailable (skipped, sample): ${topUnavail.map(f => escapeHtml(f.factor)).join('; ')}</div>`;
+  }
+  box.innerHTML = html;
+}
+
 /**
  * TRACE: Master Development Prompt §52 (Factor Heatmap - "visual
  * heatmap showing factor, category, current direction, contribution,
@@ -10284,6 +10419,13 @@ function buildEntrySnapshot(brain, ctx, sym) {
     scalpingProfitDecision: (brain && brain.scalpingProfitDecision)
       ? brain.scalpingProfitDecision
       : (typeof computeScalpingProfitEngine === 'function' ? computeScalpingProfitEngine(ctx, brain, {}) : null),
+    factorDataAvailability: brain.factorDataAvailability || null,
+    factorsUsed: brain.factorDataAvailability ? brain.factorDataAvailability.usedFactors : null,
+    factorsUnavailable: brain.factorDataAvailability ? brain.factorDataAvailability.unavailableFactors : null,
+    directionalCoveragePct: brain.factorDataAvailability ? brain.factorDataAvailability.directionalCoveragePct : null,
+    directionalScoreAvailableOnly: brain.directionalScoreAvailableOnly != null ? brain.directionalScoreAvailableOnly : null,
+    decisionAffectedByMissingData: !!brain.decisionAffectedByMissingData,
+    confidenceAdjustedForMissingData: !!brain.confidenceAdjustedForMissingData,
   };
 }
 const FNO_STRATEGY_VERSION = 'v1.0-baseline'; // Master Prompt §34: every strategy change must create a new version and be stored on every trade this version influenced - bump this string (and log the change in PROJECT_STATUS.md) whenever evaluateBrain's decision logic, thresholds, or factor weights actually change
@@ -14365,7 +14507,7 @@ function summarizeTopDirectionalFactors(results, directionalCats, direction, lim
   const wantPositive = direction === 'bullish';
   const wantNegative = direction === 'bearish';
   const candidates = results.filter(r =>
-    r && directionalCats.has(r.cat) && Number.isFinite(r.score) && r.score !== 0 &&
+    r && directionalCats.has(r.cat) && (r.pass === true || r.pass === false) && Number.isFinite(r.score) && r.score !== 0 &&
     (direction === 'neutral' || (wantPositive && r.score > 0) || (wantNegative && r.score < 0))
   );
   if (!candidates.length) return '';
@@ -15017,6 +15159,9 @@ function evaluateBrain(ctx){
   // belongs to, which is already true information sitting on every
   // result row.
   const { directionalScore, tradeQualityScore, modelQualityScore, humanOperatorScore, riskScore } = computeSeparatedScores(results);
+  const categoriesNotEvaluated = buildCategoriesNotEvaluated(ctx);
+  const directionalScoreAvailableOnly = computeSeparatedScoresAvailableOnly(results);
+  const decisionDirectionalScore = directionalScoreAvailableOnly;
 
   // Master Development Prompt §5/§6 - real, catalogued threshold on
   // the AUTHORITATIVE decision-driving score - real, not the
@@ -15057,20 +15202,20 @@ function evaluateBrain(ctx){
   const DIRECTIONAL_CATS_FOR_REASON = new Set(['Market','Flow','Tech','Vol','Decay','Fundamental','Greeks Deep','Operator Intel']);
   let decision='WAIT', reason='';
   if(critFails.length>0){ decision='NO_TRADE'; reason=`Critical: ${critFails.map(f=>f.factor).join(', ')}`; }
-  else if(directionalScore>=BUY_THRESHOLD){
+  else if(decisionDirectionalScore>=BUY_THRESHOLD){
     decision='BUY_READY';
     const topFactors = summarizeTopDirectionalFactors(results, DIRECTIONAL_CATS_FOR_REASON, 'bullish', 4);
-    reason=`Directional score ${directionalScore.toFixed(1)} (>= ${BUY_THRESHOLD}) bullish - operator bias ${opIntel.bias} (${opIntel.confidence} confidence)${topFactors ? ` - top contributing factors: ${topFactors}` : ''}`;
+    reason=`Directional score ${decisionDirectionalScore.toFixed(1)} from available factors only (>= ${BUY_THRESHOLD}) bullish - operator bias ${opIntel.bias} (${opIntel.confidence} confidence)${topFactors ? ` - top contributing factors: ${topFactors}` : ''}`;
   }
-  else if(directionalScore<=SELL_THRESHOLD){
+  else if(decisionDirectionalScore<=SELL_THRESHOLD){
     decision='SELL_READY';
     const topFactors = summarizeTopDirectionalFactors(results, DIRECTIONAL_CATS_FOR_REASON, 'bearish', 4);
-    reason=`Directional score ${directionalScore.toFixed(1)} (<= ${SELL_THRESHOLD}) bearish - operator bias ${opIntel.bias} (${opIntel.confidence} confidence)${topFactors ? ` - top contributing factors: ${topFactors}` : ''}`;
+    reason=`Directional score ${decisionDirectionalScore.toFixed(1)} from available factors only (<= ${SELL_THRESHOLD}) bearish - operator bias ${opIntel.bias} (${opIntel.confidence} confidence)${topFactors ? ` - top contributing factors: ${topFactors}` : ''}`;
   }
   else {
     decision='WAIT';
     const topFactors = summarizeTopDirectionalFactors(results, DIRECTIONAL_CATS_FOR_REASON, 'neutral', 4);
-    reason=`Directional score ${directionalScore.toFixed(1)} neutral (between ${SELL_THRESHOLD} and ${BUY_THRESHOLD}) - operator bias ${opIntel.bias} (${opIntel.confidence} confidence)${topFactors ? ` - largest-magnitude factors (offsetting each other): ${topFactors}` : ''}`;
+    reason=`Directional score ${decisionDirectionalScore.toFixed(1)} from available factors only (between ${SELL_THRESHOLD} and ${BUY_THRESHOLD}) - operator bias ${opIntel.bias} (${opIntel.confidence} confidence)${topFactors ? ` - largest-magnitude factors (offsetting each other): ${topFactors}` : ''}`;
   }
 
   // Master Prompt §23 - real 7-tier output, additive to `decision`
@@ -15079,20 +15224,33 @@ function evaluateBrain(ctx){
   // real tier state regardless of the underlying score - a strong
   // directional score doesn't get to override a compliance block, the
   // same real principle §13 already establishes for `decision`.
-  const decisionTier = critFails.length > 0 ? 'NO_TRADE' : computeDecisionTier(directionalScore, BUY_THRESHOLD, SELL_THRESHOLD);
+  const decisionTier = critFails.length > 0 ? 'NO_TRADE' : computeDecisionTier(decisionDirectionalScore, BUY_THRESHOLD, SELL_THRESHOLD);
 
   const registry = (typeof window !== 'undefined' && Array.isArray(window.FNO_FACTORS_CATALOG) && window.FNO_FACTORS_CATALOG.length)
     ? buildFactorRegistry(results, window.FNO_FACTORS_CATALOG)
     : null;
 
-  // Master Development Prompt Section 55: overall decision confidence
-  // must be downgraded when factor coverage is low - a "Strong Bullish"
-  // score computed from a third of the framework should never be
-  // presented with the same confidence as one computed from most of it.
-  const scoreMagnitude = Math.abs(directionalScore);
+  const factorDataAvailability = registry
+    ? computeFactorDataAvailability(registry, results, categoriesNotEvaluated)
+    : null;
+  if (factorDataAvailability) factorDataAvailability.directionalScoreAvailableOnly = directionalScoreAvailableOnly;
+
+  // Master Development Prompt Section 55: confidence uses DIRECTIONAL
+  // coverage (factors actually attempted this refresh), not whole-catalog
+  // coverage — missing/unavailable factors are skipped, never scored as 0/fail.
+  const scoreMagnitude = Math.abs(decisionDirectionalScore);
   const rangeSpan = Math.max(BUY_THRESHOLD, Math.abs(SELL_THRESHOLD));
-  const rawConfidence = scoreMagnitude >= rangeSpan*0.7 ? 'High' : (scoreMagnitude >= rangeSpan*0.35 ? 'Medium' : 'Low');
-  let confidence = registry ? applyCoverageToConfidence(rawConfidence, registry.coveragePct) : rawConfidence;
+  const rawConfidence = scoreMagnitude >= rangeSpan * 0.7 ? 'High' : (scoreMagnitude >= rangeSpan * 0.35 ? 'Medium' : 'Low');
+  const confFromAvailability = factorDataAvailability
+    ? applyFactorAvailabilityToConfidence(rawConfidence, factorDataAvailability)
+    : { confidence: rawConfidence, confidenceAdjustedForMissingData: false, decisionAffectedByMissingData: false };
+  let confidence = confFromAvailability.confidence;
+  if (factorDataAvailability) {
+    factorDataAvailability.confidenceAdjustedForMissingData = confFromAvailability.confidenceAdjustedForMissingData;
+    factorDataAvailability.decisionAffectedByMissingData = confFromAvailability.decisionAffectedByMissingData;
+    factorDataAvailability.rawConfidence = rawConfidence;
+    factorDataAvailability.adjustedConfidence = confidence;
+  }
 
   // FOUND AND FIXED this session, via a direct, careful audit: this
   // real, regime-based historical track record already existed
@@ -15163,44 +15321,8 @@ function evaluateBrain(ctx){
   decision = tradeTypeWeightingResult.decision; confidence = tradeTypeWeightingResult.confidence; reason = tradeTypeWeightingResult.reason;
   const tradeTypeWeightingAdjustment = tradeTypeWeightingResult.tradeTypeWeightingAdjustment;
 
-  // Phase 6 report-accuracy audit FIX (docs/REPORT_ACCURACY_AUDIT.md):
-  // Phase 4 found that when a whole category's real input (ctx.candles,
-  // ctx.ocRows, ctx.decay.snapshot, etc.) is absent this refresh, the
-  // corresponding compute*Factors() call above is simply skipped by its
-  // real `if (...)` guard - producing ZERO rows for that category, not
-  // even honest pass:null placeholders. buildFactorRegistry() (see its
-  // own TRACE) DOES catch the resulting gap at the individual-factor
-  // level (status NOT_COMPUTED, counted in the panel), but every one of
-  // those entries carries resultRow:null - so a viewer sees a raw count
-  // ("14 Not Computed") with NO explanation of WHY, which is exactly the
-  // silent-report gap this phase's task called out. REAL FIX: mirror the
-  // SAME real guard conditions already used above (not new, not guessed -
-  // literally the same `if` conditions gating each compute*Factors call)
-  // to build an honest, explicit list of which categories were skipped
-  // this refresh and which real ctx field was missing/falsy that caused
-  // it, using only genuinely available information (the real ctx object
-  // this exact call received) - never fabricating a reason.
-  const categoriesNotEvaluated = [];
-  if (!(ctx.decay && ctx.decay.snapshot)) {
-    categoriesNotEvaluated.push({cat:'Decay', why:'ctx.decay.snapshot unavailable this refresh (Black-Scholes snapshot not computed - see calculateDecay/buildGreeksSnapshot) - Decay (f121-f135) factors were not evaluated'});
-    categoriesNotEvaluated.push({cat:'Greeks Deep', why:'ctx.decay.snapshot unavailable this refresh (same Black-Scholes snapshot Decay needs) - Greeks Deep (f156-f165) factors were not evaluated'});
-  }
-  if (!(ctx.candles && ctx.candles.length)) {
-    categoriesNotEvaluated.push({cat:'Tech', why:'ctx.candles empty/unavailable this refresh (NSE chart endpoint) - Tech (f41-f60) factors were not evaluated'});
-    categoriesNotEvaluated.push({cat:'Market', why:'ctx.candles empty/unavailable this refresh (NSE chart endpoint) - most Market factors were not evaluated'});
-    categoriesNotEvaluated.push({cat:'Regulatory', why:'ctx.candles empty/unavailable this refresh - Market-Wide Circuit Breaker (Trading Halt) factor was not evaluated'});
-  } else if (!(ctx.decay && ctx.decay.snapshot)) {
-    categoriesNotEvaluated.push({cat:'Vol', why:'ctx.decay.snapshot unavailable this refresh (Vol needs both ctx.candles and the Black-Scholes snapshot) - Vol (f61-f70) factors were not evaluated'});
-  }
-  if (!(ctx.optPrice && ctx.lotSize && ctx.spot)) {
-    categoriesNotEvaluated.push({cat:'Costs', why:'one or more of ctx.optPrice/ctx.lotSize/ctx.spot missing this refresh - Costs (f71-f85) factors were not evaluated'});
-  }
-  if (!ctx.ocRows) {
-    categoriesNotEvaluated.push({cat:'Flow', why:'ctx.ocRows (full option-chain rows) unavailable this refresh - Flow (f21-f40) factors were not evaluated'});
-    categoriesNotEvaluated.push({cat:'Fundamental', why:'ctx.ocRows unavailable this refresh - OI Rollover % factor was not evaluated'});
-  }
-  if (!ctx.fullJournal) {
-    categoriesNotEvaluated.push({cat:'Psychology', why:'ctx.fullJournal (all-time trade journal) unavailable this refresh - Psychology (f176-f185) factors were not evaluated'});
+  if (factorDataAvailability && factorDataAvailability.decisionAffectedByMissingData) {
+    reason += ` [Data: ${factorDataAvailability.directionalCoveragePct}% directional factors available; ${factorDataAvailability.missingDataImpact} missing-data impact — unavailable inputs skipped, not scored as fail]`;
   }
 
   // PHASE 7 hidden-inconsistency audit FIX: evaluatePreTradeFailureModes
@@ -15248,7 +15370,7 @@ function evaluateBrain(ctx){
   const pseudoBrainForGateCheck = { results, regime, decision, confidence, regimeAdjustment, criticalFails: critFails, factorRegistry: registry };
   const pretradeGateCheck = computePretradeGateCheck(decision, pseudoBrainForGateCheck, ctx, currentEffectiveTradingType);
 
-  return {results, totalScore, directionalScore, tradeQualityScore, modelQualityScore, humanOperatorScore, riskScore, passCount:pass, failCount:fail, criticalFails:critFails, decision, decisionTier, reason, operatorIntel:opIntel, factorRegistry:registry, confidence, rawConfidence, regimeAdjustment, failureLibraryAdjustment, tradeTypeWeighting, tradeTypeWeightingAdjustment, tradeTypeAdjustment, categoriesNotEvaluated, regime, pretradeGateCheck,
+  return {results, totalScore, directionalScore, directionalScoreAvailableOnly, tradeQualityScore, modelQualityScore, humanOperatorScore, riskScore, passCount:pass, failCount:fail, criticalFails:critFails, decision, decisionTier, reason, operatorIntel:opIntel, factorRegistry:registry, factorDataAvailability, decisionAffectedByMissingData: !!(factorDataAvailability && factorDataAvailability.decisionAffectedByMissingData), confidenceAdjustedForMissingData: !!(factorDataAvailability && factorDataAvailability.confidenceAdjustedForMissingData), confidence, rawConfidence, regimeAdjustment, failureLibraryAdjustment, tradeTypeWeighting, tradeTypeWeightingAdjustment, tradeTypeAdjustment, categoriesNotEvaluated, regime, pretradeGateCheck,
     // Real, NEW, additive fields (Decision Intelligence system, this
     // pass) - both were already computed a few lines above for the
     // trade-type-weighting adjustment stage but never actually
@@ -16860,9 +16982,14 @@ function render(){
         const covEl = document.getElementById('factorRegistryCoverage');
         if (covEl) {
           const pct = brain.factorRegistry.coveragePct;
-          covEl.textContent = `Data Availability Score: ${pct.toFixed(1)}% (${brain.factorRegistry.counts.COMPUTED} of ${brain.factorRegistry.totalCatalogued} catalogued factors genuinely computed this refresh)`;
-          covEl.style.color = pct>=70?'#4ade80':pct>=30?'#fde68a':'#f87171';
+          const dirPct = brain.factorDataAvailability ? brain.factorDataAvailability.directionalCoveragePct : null;
+          covEl.textContent = dirPct != null
+            ? `Directional data available: ${dirPct.toFixed(1)}% (${brain.factorDataAvailability.directionalUsedCount} used) · Catalog computed: ${pct.toFixed(1)}% (${brain.factorRegistry.counts.COMPUTED}/${brain.factorRegistry.totalCatalogued})`
+            : `Data Availability Score: ${pct.toFixed(1)}% (${brain.factorRegistry.counts.COMPUTED} of ${brain.factorRegistry.totalCatalogued} catalogued factors genuinely computed this refresh)`;
+          const displayPct = dirPct != null ? dirPct : pct;
+          covEl.style.color = displayPct >= 70 ? '#4ade80' : displayPct >= 30 ? '#fde68a' : '#f87171';
         }
+        renderFactorDataAvailabilityPanel(brain);
         // Phase 6 report-accuracy audit fix - the counts above told a
         // viewer HOW MANY factors were NOT_COMPUTED but never WHY. This
         // panel makes the real, per-category reason (derived from the
