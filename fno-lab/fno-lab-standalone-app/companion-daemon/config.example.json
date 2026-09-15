@@ -1,0 +1,9 @@
+{
+  "kiteApiKey": "your_kite_api_key_here",
+  "kiteAccessToken": "your_kite_access_token_here",
+  "wpSiteUrl": "https://your-site.example.com",
+  "ingestSecret": "paste_from_wp-admin_Settings_F&O_Lab_Providers",
+  "symbol": "NIFTY",
+  "tickSize": 0.05,
+  "postIntervalMs": 5000
+}
