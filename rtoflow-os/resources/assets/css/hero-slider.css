@@ -1,0 +1,225 @@
+/*
+ * Home Hero Section Slider — frontend styles.
+ *
+ * Height, per-slide fit/position/overlay/content-placement are all applied
+ * as inline styles from PHP (resources/views/public/home.php) since they
+ * are admin-configured per slide/per device — this stylesheet only carries
+ * the structural/animation rules that are the same for every site.
+ * --hs-d-height / --hs-m-height (and min/max) custom properties are set on
+ * .hs-hero itself from the saved Desktop/Mobile settings.
+ */
+.hs-hero {
+  position: relative;
+  overflow: hidden;
+  background: #EEF3FB;
+  width: 100%;
+  /* Reserve space up front so nothing shifts while the first image loads. */
+  height: clamp(var(--hs-d-min, 320px), var(--hs-d-height, 640px), var(--hs-d-max, 900px));
+}
+@media (max-width: 760px) {
+  .hs-hero { height: clamp(var(--hs-m-min, 360px), var(--hs-m-height, 560px), var(--hs-m-max, 900px)); }
+}
+
+.hs-track {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.hs-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity var(--hs-speed, 600ms) ease;
+}
+.hs-slide.hs-active {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  z-index: 2;
+}
+/* "slide" transition: active slide is translated in from the right/left
+   instead of only cross-fading. Applied via a data attribute set in JS so
+   the CSS-only fade above still works as the safe default/fallback. */
+.hs-hero[data-effect="slide"] .hs-slide {
+  transition: opacity var(--hs-speed, 600ms) ease, transform var(--hs-speed, 600ms) ease;
+  transform: translateX(0);
+}
+.hs-hero[data-effect="slide"] .hs-slide:not(.hs-active) { transform: translateX(0); }
+
+.hs-slide-media {
+  /* NOTE: deliberately no `display` here. This class is shared by BOTH the
+     .hs-slide-desktop-media and .hs-slide-mobile-media elements on every
+     slide; the actual show/hide decision belongs entirely to those two
+     device-specific classes (set in home.php's inline <style>, from the
+     admin-configured breakpoint). Setting `display:block` on THIS shared
+     class used to win the cascade over that toggle — same specificity,
+     loaded later than the inline <style> — so both the desktop and mobile
+     image were forced visible at every viewport, stacked on top of each
+     other; whichever one is later in the DOM (mobile) visually covered the
+     other on every device, which is exactly the "mobile image visible on
+     desktop, desktop image not visible anywhere" bug this fixes. */
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  /* Base/default display (unconditional, same as the desktop default) and
+     the breakpoint-gated override both live ONLY in home.php's inline
+     <style> (generated from the admin-configured breakpoint) — not
+     redeclared here, so there is exactly one place that decides which
+     device's image shows, and it always loads before this stylesheet. */
+}
+.hs-slide-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* object-fit / object-position are set inline per-slide, per-device by PHP */
+}
+
+.hs-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.hs-content {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: flex;
+  padding: 32px 5vw;
+  pointer-events: none;
+}
+.hs-content-inner {
+  max-width: 560px;
+  pointer-events: auto;
+  color: #fff;
+  text-shadow: 0 2px 12px rgba(0,0,0,.35);
+}
+.hs-content-inner h2 {
+  font-size: clamp(22px, 3.4vw, 40px);
+  font-weight: 900;
+  line-height: 1.2;
+  margin: 0 0 10px;
+}
+.hs-content-inner p {
+  font-size: 14.5px;
+  line-height: 1.6;
+  margin: 0 0 18px;
+  opacity: .95;
+}
+.hs-content-inner .hs-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 26px;
+  border-radius: 999px;
+  background: #fff;
+  color: #1B2A6B;
+  font-weight: 800;
+  font-size: 14px;
+  text-decoration: none;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.hs-content-inner .hs-cta:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,.2); }
+
+/* content position helpers — desktop/mobile picked independently in PHP
+   via .hs-cp-{device}-{position} classes on .hs-content */
+.hs-cp-center            { align-items: center; justify-content: center; text-align: center; }
+.hs-cp-center-left       { align-items: center; justify-content: flex-start; text-align: left; }
+.hs-cp-center-right      { align-items: center; justify-content: flex-end; text-align: right; }
+.hs-cp-top-left          { align-items: flex-start; justify-content: flex-start; text-align: left; }
+.hs-cp-top-center        { align-items: flex-start; justify-content: center; text-align: center; }
+.hs-cp-top-right         { align-items: flex-start; justify-content: flex-end; text-align: right; }
+.hs-cp-bottom-left       { align-items: flex-end; justify-content: flex-start; text-align: left; }
+.hs-cp-bottom-center     { align-items: flex-end; justify-content: center; text-align: center; }
+.hs-cp-bottom-right      { align-items: flex-end; justify-content: flex-end; text-align: right; }
+
+/* Navigation arrows */
+.hs-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 4;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,.85);
+  color: #1B2A6B;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background .15s ease, transform .15s ease;
+}
+.hs-arrow:hover { background: #fff; transform: translateY(-50%) scale(1.06); }
+.hs-arrow-prev { left: 18px; }
+.hs-arrow-next { right: 18px; }
+@media (max-width: 760px) { .hs-arrow { width: 36px; height: 36px; font-size: 15px; } .hs-arrow-prev{left:10px} .hs-arrow-next{right:10px} }
+
+/* Pagination dots */
+.hs-dots {
+  position: absolute;
+  bottom: 16px;
+  left: 0; right: 0;
+  z-index: 4;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.hs-dot {
+  pointer-events: auto;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(255,255,255,.55);
+  cursor: pointer;
+  padding: 0;
+  transition: background .15s ease, transform .15s ease;
+}
+.hs-dot.hs-active { background: #fff; transform: scale(1.25); }
+
+/* Single-slide sites: no controls needed, avoids dead UI. */
+.hs-hero[data-single="1"] .hs-arrow,
+.hs-hero[data-single="1"] .hs-dots { display: none; }
+
+/* Respect reduced-motion preference — no auto transition animation. */
+@media (prefers-reduced-motion: reduce) {
+  .hs-slide, .hs-hero[data-effect="slide"] .hs-slide { transition: none !important; }
+}
+
+/* ---------- transition effect variants (set via [data-effect] on .hs-hero, applied by JS from the active device's setting) ---------- */
+.hs-track { perspective: 1400px; }
+
+.hs-hero[data-effect="slide"] .hs-slide {
+  transform: translateX(3%);
+  transition: transform var(--hs-speed, 600ms) ease, opacity var(--hs-speed, 600ms) ease;
+}
+.hs-hero[data-effect="slide"] .hs-slide.hs-active { transform: translateX(0); }
+.hs-hero[data-effect="slide"] .hs-slide.hs-leaving { transform: translateX(-3%); }
+
+.hs-hero[data-effect="cube"] .hs-slide {
+  transform: rotateY(12deg);
+  transform-origin: right center;
+  transition: transform var(--hs-speed, 600ms) ease, opacity var(--hs-speed, 600ms) ease;
+}
+.hs-hero[data-effect="cube"] .hs-slide.hs-active { transform: rotateY(0deg); }
+.hs-hero[data-effect="cube"] .hs-slide.hs-leaving { transform: rotateY(-12deg); transform-origin: left center; }
+
+.hs-hero[data-effect="coverflow"] .hs-slide {
+  transform: scale(.92) translateX(2%);
+  transition: transform var(--hs-speed, 600ms) ease, opacity var(--hs-speed, 600ms) ease;
+}
+.hs-hero[data-effect="coverflow"] .hs-slide.hs-active { transform: scale(1) translateX(0); }
+.hs-hero[data-effect="coverflow"] .hs-slide.hs-leaving { transform: scale(.92) translateX(-2%); }
+
+/* fade (default) needs no transform — plain opacity cross-fade already
+   defined on the base .hs-slide rule above. */

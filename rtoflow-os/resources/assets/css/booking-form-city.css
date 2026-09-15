@@ -1,0 +1,499 @@
+/* ============================================================
+   RTOFLOW — City-Style 2-Step Booking Form
+   Matches the rto-card dimensions on city pages (max-width:760px)
+   Prefix: .rtocf__ prevents collisions
+   ============================================================ */
+
+/* ── Wrapper ────────────────────────────────────────────────── */
+.rtocf-wrap {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+.rtocf-wrap *, .rtocf-wrap *::before, .rtocf-wrap *::after {
+  box-sizing: border-box;
+}
+
+/* ── Card shell — identical to .rto-card on city pages ─────── */
+.rtocf-card {
+  background: #fff;
+  border-radius: 10px;
+  border: 1px solid #E2E8F0;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+  overflow: hidden;
+}
+
+/* ── Gradient header — exact match to city page card header ── */
+.rtocf-head {
+  background: linear-gradient(135deg, #1B2A6B 0%, #2563EB 100%);
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rtocf-head__title {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.rtocf-head__sub {
+  color: rgba(255,255,255,.7);
+  font-size: 11px;
+  margin-top: 2px;
+  font-weight: 500;
+}
+
+/* ── Step indicator pills ───────────────────────────────────── */
+.rtocf-steps {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-shrink: 0;
+}
+.rtocf-dot {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid rgba(255,255,255,.35);
+  background: rgba(255,255,255,.15);
+  color: rgba(255,255,255,.55);
+  font-size: 11px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .25s;
+}
+.rtocf-dot--active {
+  background: #fff;
+  border-color: #fff;
+  color: #1B2A6B;
+  box-shadow: 0 0 0 3px rgba(255,255,255,.2);
+}
+.rtocf-dot--done {
+  background: #10B981;
+  border-color: #10B981;
+  color: #fff;
+}
+.rtocf-line {
+  width: 22px;
+  height: 2px;
+  background: rgba(255,255,255,.2);
+  margin: 0 2px;
+  transition: background .25s;
+}
+.rtocf-line--done { background: #10B981; }
+
+/* ── Body ────────────────────────────────────────────────────── */
+.rtocf-body {
+  padding: 20px 22px 22px;
+  position: relative;
+  /* Fixed height so both steps occupy same card space */
+  min-height: 340px;
+}
+
+/* ── Step panels ─────────────────────────────────────────────── */
+.rtocf-step {
+  display: none;
+  animation: rtocf-slide-in .22s cubic-bezier(.34,1.56,.64,1) both;
+}
+.rtocf-step--active { display: block; }
+.rtocf-step--out {
+  display: block;
+  animation: rtocf-slide-out .18s ease forwards;
+}
+@keyframes rtocf-slide-in {
+  from { opacity: 0; transform: translateX(18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes rtocf-slide-out {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(-18px); }
+}
+@keyframes rtocf-slide-back-in {
+  from { opacity: 0; transform: translateX(-18px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.rtocf-step--back { animation: rtocf-slide-back-in .22s cubic-bezier(.34,1.56,.64,1) both; }
+
+/* ── Step label above fields ─────────────────────────────────── */
+.rtocf-step-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: .6px;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.rtocf-step-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: #E2E8F0;
+  margin-left: 4px;
+}
+
+/* ── Summary pill (top of step 2) ───────────────────────────── */
+.rtocf-summary {
+  background: #EFF6FF;
+  border: 1px solid #BFDBFE;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: #1e40af;
+}
+.rtocf-summary strong { font-weight: 700; }
+
+/* ── Form fields ─────────────────────────────────────────────── */
+.rtocf-field { margin-bottom: 12px; }
+.rtocf-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  margin-bottom: 5px;
+}
+.rtocf-label span {
+  color: #ef4444;
+  margin-left: 2px;
+}
+.rtocf-input {
+  width: 100%;
+  padding: 10px 13px;
+  border: 1.5px solid #E2E8F0;
+  border-radius: 7px;
+  font-size: 14px;
+  color: #1e293b;
+  background: #fff;
+  transition: border-color .15s, box-shadow .15s;
+  outline: none;
+  font-family: inherit;
+}
+.rtocf-input::placeholder { color: #94a3b8; }
+.rtocf-input:focus {
+  border-color: #2563EB;
+  box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+}
+
+/* ── Two-column row for step 2 fields ──────────────────────── */
+.rtocf-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+@media (max-width: 540px) {
+  .rtocf-row { grid-template-columns: 1fr; }
+}
+
+/* ── Service search & list (Step 1 left panel) ──────────────── */
+.rtocf-2col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 560px) {
+  .rtocf-2col { grid-template-columns: 1fr; }
+}
+
+.rtocf-svc-box,
+.rtocf-city-box {
+  border: 1.5px solid #E2E8F0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.rtocf-svc-box__search,
+.rtocf-city-box__search {
+  padding: 8px 10px;
+  border-bottom: 1px solid #E2E8F0;
+  background: #F8FAFC;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.rtocf-svc-box__search svg,
+.rtocf-city-box__search svg { flex-shrink: 0; color: #94a3b8; }
+.rtocf-svc-box__search input,
+.rtocf-city-box__search input {
+  width: 100%;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 13px;
+  color: #1e293b;
+  font-family: inherit;
+}
+.rtocf-svc-box__search input::placeholder,
+.rtocf-city-box__search input::placeholder { color: #94a3b8; }
+
+/* Service list */
+.rtocf-svc-list {
+  max-height: 190px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.rtocf-svc-list::-webkit-scrollbar { width: 4px; }
+.rtocf-svc-list::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+
+.rtocf-cat-label {
+  padding: 6px 10px 3px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  background: #F8FAFC;
+  border-bottom: 1px solid #F1F5F9;
+}
+.rtocf-svc-item {
+  padding: 8px 10px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
+  border-bottom: 1px solid #F8FAFC;
+  transition: background .12s;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.rtocf-svc-item:hover { background: #EFF6FF; }
+.rtocf-svc-item--selected { background: #DBEAFE; color: #1D4ED8; font-weight: 600; }
+.rtocf-svc-item--hidden { display: none; }
+.rtocf-svc-item__price {
+  font-size: 11px;
+  font-weight: 600;
+  color: #2563EB;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.rtocf-svc-item--selected .rtocf-svc-item__price { color: #1D4ED8; }
+
+/* Selected pill */
+.rtocf-selected-pill {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  background: #DBEAFE;
+  border: 1.5px solid #93C5FD;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #1D4ED8;
+  cursor: pointer;
+  gap: 8px;
+  width: 100%;
+}
+.rtocf-selected-pill__clear {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(29,78,216,.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 11px;
+  transition: background .15s;
+}
+.rtocf-selected-pill__clear:hover { background: rgba(29,78,216,.3); }
+
+/* City dropdown */
+.rtocf-city-drop {
+  max-height: 190px;
+  overflow-y: auto;
+  display: none;
+  overscroll-behavior: contain;
+}
+.rtocf-city-drop::-webkit-scrollbar { width: 4px; }
+.rtocf-city-drop::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 4px; }
+.rtocf-city-item {
+  padding: 8px 11px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #F8FAFC;
+  font-size: 13px;
+  transition: background .12s;
+}
+.rtocf-city-item:hover { background: #EFF6FF; }
+.rtocf-city-item__state {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+.rtocf-city-placeholder {
+  padding: 10px 11px;
+  font-size: 12px;
+  color: #94a3b8;
+  text-align: center;
+}
+.rtocf-city-empty {
+  padding: 10px 11px;
+  font-size: 12px;
+  color: #94a3b8;
+  text-align: center;
+  font-style: italic;
+}
+
+/* ── Error banner ────────────────────────────────────────────── */
+.rtocf-err {
+  display: none;
+  background: #FEE2E2;
+  color: #DC2626;
+  border-radius: 7px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+.rtocf-err--show { display: flex; align-items: center; gap: 7px; }
+
+/* ── Action buttons ──────────────────────────────────────────── */
+.rtocf-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+  align-items: center;
+}
+.rtocf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 11px 22px;
+  border-radius: 7px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  transition: opacity .15s, transform .1s, box-shadow .15s;
+  font-family: inherit;
+  white-space: nowrap;
+}
+.rtocf-btn:active { transform: scale(.98); }
+.rtocf-btn--primary {
+  background: linear-gradient(135deg, #1B2A6B, #2563EB);
+  color: #fff;
+  flex: 1;
+  box-shadow: 0 2px 8px rgba(37,99,235,.3);
+}
+.rtocf-btn--primary:hover { box-shadow: 0 4px 14px rgba(37,99,235,.4); }
+.rtocf-btn--primary:disabled { opacity: .6; cursor: not-allowed; transform: none; }
+.rtocf-btn--back {
+  background: #F1F5F9;
+  color: #475569;
+  border: 1.5px solid #E2E8F0;
+  padding: 11px 16px;
+}
+.rtocf-btn--back:hover { background: #E2E8F0; }
+
+/* ── Spinner ─────────────────────────────────────────────────── */
+.rtocf-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: rtocf-spin .65s linear infinite;
+  display: inline-block;
+  flex-shrink: 0;
+}
+@keyframes rtocf-spin { to { transform: rotate(360deg); } }
+
+/* ── Success screen ──────────────────────────────────────────── */
+.rtocf-success {
+  display: none;
+  text-align: center;
+  padding: 28px 20px;
+  animation: rtocf-slide-in .3s cubic-bezier(.34,1.56,.64,1) both;
+}
+.rtocf-success__icon {
+  font-size: 44px;
+  margin-bottom: 10px;
+  line-height: 1;
+}
+.rtocf-success__title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1B2A6B;
+  margin: 0 0 6px;
+}
+.rtocf-success__ref {
+  font-size: 13px;
+  color: #64748b;
+  margin: 0 0 4px;
+}
+.rtocf-success__ref strong {
+  color: #2563EB;
+  font-weight: 700;
+  font-size: 15px;
+}
+.rtocf-success__redirect {
+  font-size: 12px;
+  color: #94a3b8;
+  margin-top: 8px;
+}
+
+/* ── Trust badge row beneath form ───────────────────────────── */
+.rtocf-trust {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+  padding: 12px 20px 14px;
+  border-top: 1px solid #F1F5F9;
+  background: #FAFBFF;
+}
+.rtocf-trust__item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+/* ── Select (RTO + Vehicle type dropdowns) ──────────────────── */
+.rtocf-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 34px;
+  cursor: pointer;
+}
+
+/* ── Body min-height override for full form ──────────────────── */
+.rtocf-body {
+  min-height: 380px;
+}
+
+/* ── Textarea inherits input style ───────────────────────────── */
+.rtocf-input[rows] {
+  height: auto;
+  display: block;
+  padding-top: 9px;
+  padding-bottom: 9px;
+  line-height: 1.5;
+}

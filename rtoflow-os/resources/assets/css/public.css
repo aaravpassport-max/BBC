@@ -1,0 +1,322 @@
+/* ═══════════════════════════════════════════════════
+   RTOFLOW OS — Client / Public Stylesheet
+   ═══════════════════════════════════════════════════ */
+
+/* P4-CSS-014 FIX: scoped box-sizing reset */
+.rto-client-wrap *, .rto-client-wrap *::before, .rto-client-wrap *::after,
+.rto-apply-card *, .rto-apply-card *::before, .rto-apply-card *::after { box-sizing: border-box; }
+
+:root {
+  --navy:    #1E3A5F;
+  --navy-lt: #2E5480;
+  --green:   #1A7A4A;
+  --red:     #C0392B;
+  --orange:  #E67E22;
+  --blue:    #2980B9;
+  --gold:    #D4AC0D;
+  --gray-50: #f8fafc;
+  --gray-100:#f1f5f9;
+  --gray-200:#e2e8f0;
+  --gray-400:#94a3b8;
+  --gray-600:#475569;
+  --gray-800:#1e293b;
+  --white:   #ffffff;
+  --radius:  8px;
+  --shadow:  0 1px 4px rgba(0,0,0,0.08);
+  --shadow-md:0 4px 16px rgba(0,0,0,0.12);
+}
+
+body { font-family: -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; font-size: 15px; color: var(--gray-800); background: var(--gray-50); line-height: 1.6; }
+
+/* ── Client / Vendor layout ──────────────────────────── */
+.rto-client-wrap  { min-height: 100vh; display: flex; flex-direction: column; }
+.rto-client-main  { flex: 1; max-width: 1100px; margin: 0 auto; padding: 24px 20px; width: 100%; }
+
+/* ── Header ──────────────────────────────────────────── */
+.rto-client-header { background: var(--navy); color: #fff; padding: 0 20px; height: 60px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,.2); }
+.rto-client-header-inner { max-width: 1100px; margin: 0 auto; height: 100%; display: flex; align-items: center; gap: 20px; }
+.rto-client-logo  { font-size: 20px; font-weight: 700; color: #fff; text-decoration: none; margin-right: auto; }
+.rto-client-nav   { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+.rto-client-nav a { color: rgba(255,255,255,.8); text-decoration: none; font-size: 14px; }
+.rto-client-nav a:hover, .rto-client-nav a.active { color: #fff; }
+.rto-client-user  { font-size: 13px; background: rgba(255,255,255,.15); padding: 4px 10px; border-radius: 20px; }
+.rto-logout-link  { font-size: 13px; color: rgba(255,255,255,.6) !important; }
+.rto-vendor-header .rto-client-header { background: #1A3520; }
+
+/* ── KPI row ─────────────────────────────────────────── */
+.rto-client-kpi-row { display: grid; grid-template-columns: repeat(auto-fit,minmax(160px,1fr)); gap: 16px; margin-bottom: 24px; }
+.rto-client-kpi     { background: #fff; border-radius: var(--radius); padding: 20px 16px; text-align: center; box-shadow: var(--shadow); }
+.rto-client-kpi-action { display: flex; align-items: center; justify-content: center; }
+.rto-client-kpi-value { font-size: 26px; font-weight: 700; color: var(--navy); }
+.rto-client-kpi-label { font-size: 12px; color: var(--gray-muted, #64748b); margin-top: 4px; }
+
+/* ── Client cards ─────────────────────────────────────── */
+.rto-client-card  { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 20px; overflow: hidden; }
+.rto-client-card-header { padding: 16px 20px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; }
+.rto-client-card-header h2, .rto-client-card-header h3 { font-size: 16px; font-weight: 600; color: var(--navy); }
+.rto-client-card-body { padding: 20px; }
+
+/* ── Order cards ─────────────────────────────────────── */
+.rto-client-orders    { display: flex; flex-direction: column; gap: 16px; padding: 16px 20px; }
+.rto-order-card       { border: 1.5px solid var(--gray-200); border-radius: var(--radius); overflow: hidden; }
+.rto-order-card-header{ padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; background: var(--gray-50); border-bottom: 1px solid var(--gray-200); }
+.rto-order-number     { font-size: 15px; font-weight: 600; }
+.rto-order-number a   { color: var(--navy); text-decoration: none; }
+.rto-order-card-body  { padding: 14px 16px; }
+.rto-order-meta       { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; font-size: 13.5px; color: var(--gray-600); }
+.rto-order-meta span:first-child { color: var(--gray-800); font-weight: 500; }
+.rto-order-card-footer{ padding: 10px 16px; background: var(--gray-50); border-top: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.rto-order-actions    { display: flex; gap: 8px; }
+
+/* ── Progress steps ──────────────────────────────────── */
+.rto-order-progress   { height: 6px; background: var(--gray-200); border-radius: 3px; overflow: hidden; margin-bottom: 8px; }
+.rto-order-progress-bar { height: 100%; background: var(--navy); border-radius: 3px; transition: width .4s; }
+.rto-order-steps      { display: flex; justify-content: space-between; gap: 4px; }
+.rto-order-step       { font-size: 10px; color: var(--gray-muted, #64748b); text-align: center; flex: 1; }
+.rto-order-step.done  { color: var(--navy); font-weight: 500; }
+
+/* ── Order detail ────────────────────────────────────── */
+.rto-order-detail-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+.rto-order-detail-header h2 { font-size: 22px; font-weight: 700; color: var(--navy); }
+.rto-order-detail-grid   { display: grid; grid-template-columns: 1fr 380px; gap: 20px; }
+.rto-order-detail-left   { min-width: 0; }
+.rto-order-detail-right  { display: flex; flex-direction: column; }
+@media(max-width:900px){ .rto-order-detail-grid { grid-template-columns: 1fr; } }
+
+/* ── Progress tracker ─────────────────────────────────── */
+.rto-progress-tracker .rto-client-card-body { padding: 24px 20px; }
+/* BUG FIX (broken order-tracker stepper — screenshot showed steps 1-2 then
+   a huge blank gap then 3-6 stacked vertically): resources/views/client/
+   orders/show.php had a mismatched </div> where </li> was meant, the
+   connector line was a stray <div> as a direct child of <ol> (invalid — a
+   div can never be a valid child of ol/ul, only li can), and the <ol> itself
+   was closed with </div> instead of </ol>. Browsers "fix" that invalid
+   markup by re-parenting/closing elements in ways that vary by engine,
+   which broke the flex layout below. The markup is now valid (line
+   connectors are <li> too), so margin/padding:0 is added here to strip the
+   browser's default <ol> list indent (~40px, previously irrelevant because
+   the flex children were never actually valid list items). */
+.rto-tracker-steps  { display: flex; align-items: flex-start; justify-content: space-between; margin: 0; padding: 0; list-style: none; }
+.rto-tracker-step   { display: flex; flex-direction: column; align-items: center; gap: 6px; flex: 1; position: relative; min-width: 70px; }
+.rto-tracker-dot    { width: 32px; height: 32px; border-radius: 50%; background: var(--gray-200); color: var(--gray-muted, #64748b); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; z-index: 1; }
+.rto-tracker-step.done .rto-tracker-dot   { background: var(--green); color: #fff; }
+.rto-tracker-step.active .rto-tracker-dot { background: var(--navy); color: #fff; }
+.rto-tracker-label  { font-size: 10px; text-align: center; color: var(--gray-muted, #64748b); }
+.rto-tracker-step.done .rto-tracker-label, .rto-tracker-step.active .rto-tracker-label { color: var(--gray-800); }
+.rto-tracker-line   { flex: 1; height: 2px; background: var(--gray-200); margin-top: 15px; }
+.rto-tracker-line.done { background: var(--green); }
+
+/* ── Detail items ─────────────────────────────────────── */
+.rto-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.rto-detail-item { display: flex; flex-direction: column; gap: 2px; }
+.rto-detail-item > span   { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--gray-muted, #64748b); font-weight: 600; }
+.rto-detail-item > strong { font-size: 14px; color: var(--gray-800); }
+
+/* ── Pay card ─────────────────────────────────────────── */
+.rto-pay-card { border: 2px solid var(--navy); }
+.rto-pay-card .rto-client-card-header { background: var(--navy); }
+.rto-pay-card .rto-client-card-header h3 { color: #fff; }
+
+/* ── Messages ─────────────────────────────────────────── */
+.rto-messages-card    { height: 100%; }
+.rto-messages         { max-height: 320px; min-height: 80px; overflow-y: auto; /* P4-CSS-010 FIX */ display: flex; flex-direction: column; gap: 12px; }
+.rto-message          { padding: 10px 14px; border-radius: 8px; max-width: 88%; }
+.rto-message-client   { background: var(--gray-100); align-self: flex-start; }
+.rto-message-staff, .rto-message-vendor { background: #dbeafe; align-self: flex-end; }
+.rto-message-meta     { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; font-size: 12px; }
+.rto-message-meta strong { font-size: 13px; }
+.rto-message-body     { font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.rto-message-compose  { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--gray-200); padding-top: 12px; }
+
+/* ── Apply form ──────────────────────────────────────── */
+.rto-public-body { background: linear-gradient(135deg, var(--navy) 0%, #2E5480 100%); min-height: 100vh; }
+.rto-public-header { padding: 20px; max-width: 600px; margin: 0 auto; }
+.rto-public-main { max-width: 600px; margin: 0 auto; padding: 0 20px 40px; }
+.rto-apply-card  { background: #fff; border-radius: 12px; padding: 32px; box-shadow: var(--shadow-md); }
+.rto-apply-card h2 { font-size: 22px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
+.rto-apply-form  { display: flex; flex-direction: column; gap: 16px; margin-top: 24px; }
+.rto-form-group  { display: flex; flex-direction: column; gap: 6px; }
+.rto-form-footer-note { font-size: 13px; text-align: center; color: var(--gray-600); margin-top: 8px; }
+.rto-form-footer-note a { color: var(--navy); }
+
+/* ── Price box ───────────────────────────────────────── */
+.rto-price-box   { background: var(--gray-50); border: 1.5px solid var(--gray-200); border-radius: var(--radius); padding: 16px; }
+.rto-price-row   { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; border-bottom: 1px solid var(--gray-200); }
+.rto-price-row:last-child { border-bottom: none; }
+.rto-price-total { font-size: 16px; font-weight: 700; color: var(--navy); border-top: 2px solid var(--navy); margin-top: 4px; padding-top: 10px; border-bottom: none; }
+
+/* ── Vendor job cards ─────────────────────────────────── */
+.rto-vendor-job-card { border: 1.5px solid var(--gray-200); border-radius: var(--radius); padding: 14px 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; flex-wrap: wrap; }
+.rto-vendor-job-pending { border-color: var(--orange); background: #fef9c3; }
+.rto-vendor-job-info    { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; font-size: 14px; }
+.rto-vendor-job-actions { display: flex; gap: 8px; }
+.rto-card-highlight .rto-client-card-header { background: #fef9c3; border-color: #fde68a; }
+
+/* ── Shared ───────────────────────────────────────────── */
+.rto-btn      { display: inline-flex; align-items: center; gap: 6px; padding: 9px 18px; border-radius: 6px; font-size: 14px; font-weight: 500; cursor: pointer; border: none; text-decoration: none; transition: all .15s; white-space: nowrap; }
+.rto-btn:disabled { opacity: .6; cursor: not-allowed; }
+.rto-btn-primary { background: var(--navy); color: #fff; }
+.rto-btn-primary:hover { background: var(--navy-lt); color: #fff; }
+.rto-btn-success { background: var(--green); color: #fff; }
+.rto-btn-success:hover { background: #155f39; color:#fff; }
+.rto-btn-danger  { background: var(--red); color: #fff; }
+.rto-btn-danger:hover  { background: #a03020; color: #fff; }
+.rto-btn-warning { background: var(--orange); color: #fff; }
+.rto-btn-outline { background: transparent; border: 1.5px solid var(--gray-200); color: var(--gray-600); }
+.rto-btn-outline:hover { border-color: var(--navy); color: var(--navy); }
+.rto-btn-sm  { padding: 6px 12px; font-size: 13px; }
+.rto-btn-lg  { padding: 12px 24px; font-size: 16px; }
+.rto-btn-full{ width: 100%; justify-content: center; }
+
+.rto-input,.rto-select,.rto-textarea { padding: 9px 12px; border: 1.5px solid var(--gray-200); border-radius: 6px; font-size: 14px; color: var(--gray-800); background: #fff; width: 100%; transition: border-color .15s; }
+.rto-input:focus,.rto-select:focus,.rto-textarea:focus { outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px rgba(30,58,95,.1); }
+.rto-label { display: block; font-size: 12px; font-weight: 600; color: var(--gray-600); margin-bottom: 5px; text-transform: uppercase; letter-spacing: .4px; }
+.rto-textarea { resize: vertical; min-height: 80px; }
+
+.rto-badge         { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.rto-badge-lg      { padding: 4px 14px; font-size: 13px; }
+.rto-badge-xs      { padding: 1px 6px; font-size: 10px; }
+.rto-badge-primary { background: #dbeafe; color: #1d4ed8; }
+.rto-badge-success { background: #dcfce7; color: #166534; }
+.rto-badge-warning { background: #fef9c3; color: #854d0e; }
+.rto-badge-danger  { background: #fee2e2; color: #991b1b; }
+.rto-badge-info    { background: #e0f2fe; color: #075985; }
+.rto-badge-secondary { background: var(--gray-100); color: var(--gray-600); }
+
+.rto-table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.rto-table th { padding: 10px 14px; background: var(--gray-50); color: var(--gray-600); font-weight: 600; text-align: left; border-bottom: 2px solid var(--gray-200); }
+.rto-table td { padding: 10px 14px; border-bottom: 1px solid var(--gray-100); vertical-align: middle; }
+
+.rto-msg         { padding: 12px 16px; border-radius: 6px; font-size: 13.5px; }
+.rto-msg-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+.rto-msg-error   { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+.rto-msg-info    { background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; }
+
+.rto-link    { color: var(--navy); text-decoration: none; }
+.rto-link:hover { text-decoration: underline; }
+.rto-muted   { color: var(--gray-muted, #64748b); }
+.rto-small   { font-size: 12px; }
+.rto-success { color: var(--green); }
+.rto-warning { color: var(--orange); }
+.rto-danger  { color: var(--red); }
+.rto-mt-1    { margin-top: 8px; }
+.rto-mt-2    { margin-top: 16px; }
+.rto-client-empty { text-align: center; padding: 48px 24px; color: var(--gray-muted, #64748b); }
+.rto-client-empty-icon { font-size: 48px; margin-bottom: 12px; }
+.rto-empty-small  { text-align: center; padding: 20px; color: var(--gray-muted, #64748b); font-size: 13px; }
+
+.rto-doc-row  { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--gray-100); flex-wrap: wrap; }
+.rto-doc-row:last-child { border-bottom: none; }
+.rto-doc-icon { font-size: 22px; }
+.rto-doc-type { font-weight: 500; font-size: 13.5px; }
+.rto-doc-name { font-size: 12px; color: var(--gray-muted, #64748b); }
+.rto-doc-reject-reason { width: 100%; }
+
+.rto-client-footer { background: var(--navy); color: rgba(255,255,255,.6); text-align: center; padding: 16px; font-size: 13px; margin-top: auto; }
+
+@media(max-width: 600px){
+  .rto-client-nav { gap: 12px; }
+  .rto-client-kpi-row { grid-template-columns: 1fr 1fr; }
+  .rto-order-card-footer { flex-direction: column; }
+  .rto-tracker-label { display: none; }
+  /* P4-CSS-005 FIX: tracker wraps on tiny screens instead of overflowing */
+  .rto-tracker-steps { flex-wrap: wrap; gap: 8px; justify-content: flex-start; }
+  .rto-tracker-step  { flex: 0 0 calc(33.333% - 8px); min-width: unset; }
+  .rto-tracker-line  { display: none; }
+  .rto-detail-grid { grid-template-columns: 1fr; }
+}
+
+/* === ACCESSIBILITY FIXES (Phase 8) === */
+
+/* Skip navigation link */
+.rto-skip-link {
+  position: absolute;
+  top: -48px;
+  left: 8px;
+  background: var(--navy);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 0 0 4px 4px;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 9999;
+  text-decoration: none;
+  transition: top 0.15s;
+}
+.rto-skip-link:focus {
+  top: 0;
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+
+/* Visually hidden utility */
+.rto-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Focus visible on all interactive elements */
+:focus-visible {
+  outline: 3px solid var(--navy);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.rto-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.4);
+}
+.rto-nav-item:focus-visible {
+  outline: 2px solid rgba(255,255,255,.85);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+.rto-page-link:focus-visible {
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(30,58,95,.2);
+}
+
+/* Fix .rto-btn-warning missing hover (P4-CSS-002) */
+.rto-btn-warning:hover { background: #ca6f1e; color: #fff; }
+
+/* Fix transition:all anti-pattern (P4-CSS-009) */
+.rto-btn { transition: background-color .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease; }
+.rto-nav-item { transition: background-color .15s ease, color .15s ease; }
+
+/* Loading state spinner (P4-CSS-007) */
+@keyframes rto-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.rto-btn-loading {
+  position: relative; color: transparent !important; pointer-events: none;
+}
+.rto-btn-loading::after {
+  content: ''; position: absolute; width: 14px; height: 14px;
+  top: 50%; left: 50%; margin: -7px 0 0 -7px;
+  border: 2px solid rgba(255,255,255,.5); border-top-color: #fff;
+  border-radius: 50%; animation: rto-spin .6s linear infinite;
+}
+
+/* Form error state (P4-CSS-008) */
+.rto-input.rto-error, .rto-select.rto-error, .rto-textarea.rto-error {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(192,57,43,.12);
+}
+
+/* Status badge shape differentiation (P4-CSS-013) */
+.rto-badge-success::before { content: '✓ '; }
+.rto-badge-danger::before  { content: '✕ '; }
+.rto-badge-warning::before { content: '⚠ '; }
+
+/* Print styles (P4-CSS-011) */
+@media print {
+  .rto-sidebar, .rto-topbar, .rto-sidebar-toggle { display: none !important; }
+  .rto-main { margin-left: 0 !important; }
+  .rto-content { padding: 0 !important; }
+  .rto-card { box-shadow: none !important; border: 1px solid #ddd !important; }
+  .rto-messages { max-height: none !important; overflow: visible !important; }
+}

@@ -1,0 +1,318 @@
+/*
+ * Mobile app-shell styles shared by the Admin, Vendor, and Client
+ * dashboards: fixed bottom navigation, plus general small-screen fixes
+ * (tables, modals, forms, touch targets) that apply across all three
+ * portals wherever their existing CSS (admin.css / public.css) doesn't
+ * already handle a case well.
+ *
+ * DESIGN PRINCIPLE: everything in this file is scoped behind
+ * `@media (max-width: 782px)` (WordPress's own mobile breakpoint, so it
+ * lines up with wp-admin's responsive behaviour too) unless explicitly
+ * noted otherwise. Nothing here changes desktop or tablet rendering — the
+ * existing desktop layout in admin.css/public.css is untouched.
+ */
+
+:root {
+  --rto-bn-height: 60px;
+  --rto-bn-safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ── Fixed bottom navigation (Admin / Vendor / Client) ─────────────────── */
+.rto-bottom-nav {
+  display: none; /* shown only on mobile, below */
+}
+
+@media (max-width: 782px) {
+  .rto-bottom-nav {
+    display: flex;
+    align-items: stretch;
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    z-index: 500;
+    height: calc(var(--rto-bn-height) + var(--rto-bn-safe-bottom));
+    padding-bottom: var(--rto-bn-safe-bottom);
+    background: rgba(255,255,255,.92);
+    -webkit-backdrop-filter: saturate(180%) blur(14px);
+    backdrop-filter: saturate(180%) blur(14px);
+    border-top: 1px solid rgba(15,23,42,.06);
+    box-shadow: 0 -8px 24px rgba(15,23,42,.09), 0 -1px 0 rgba(15,23,42,.03);
+  }
+  .rto-bn-item {
+    flex: 1 1 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    height: var(--rto-bn-height);
+    min-width: 44px; /* touch target */
+    min-height: 44px;
+    padding: 6px 2px;
+    color: #64748b;
+    text-decoration: none;
+    background: none;
+    border: none;
+    font-family: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+    transition: color .18s ease, transform .12s ease;
+  }
+  .rto-bn-item:active { transform: scale(.94); }
+  .rto-bn-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 12px;
+    font-size: 20px;
+    line-height: 1;
+    color: inherit;
+    transition: background-color .18s ease, color .18s ease, transform .18s ease;
+  }
+  .rto-bn-icon svg {
+    width: 22px;
+    height: 22px;
+    display: block;
+  }
+  .rto-bn-label {
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: .01em;
+    transition: color .18s ease, font-weight .18s ease;
+  }
+  /* Active state: one cohesive treatment — a soft tinted pill behind the
+     icon plus the brand color on icon + label + a bolder label weight. */
+  .rto-bn-item.active {
+    color: var(--rto-primary, #1B2A6B);
+  }
+  .rto-bn-item.active .rto-bn-icon {
+    background: rgba(27,42,107,.12);
+    background: color-mix(in srgb, var(--rto-primary, #1B2A6B) 12%, transparent);
+    color: var(--rto-primary, #1B2A6B);
+    transform: translateY(-1px);
+  }
+  .rto-bn-item.active .rto-bn-label { font-weight: 700; }
+  /* The "Apply" tab is the primary action — give it a filled, elevated
+     treatment so it reads as the standout CTA of the bar, app-store style. */
+  .rto-bn-icon--apply {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--rto-primary, #1B2A6B);
+    color: #fff;
+    margin-top: -10px;
+    box-shadow: 0 6px 14px rgba(27,42,107,.4);
+    box-shadow: 0 6px 14px color-mix(in srgb, var(--rto-primary, #1B2A6B) 45%, transparent);
+  }
+  .rto-bn-icon--apply svg { width: 20px; height: 20px; }
+  .rto-bn-item.active .rto-bn-icon--apply,
+  .rto-bn-item:not(.active) .rto-bn-icon--apply {
+    background: var(--rto-primary, #1B2A6B);
+    color: #fff;
+    transform: none;
+  }
+  .rto-bn-item.rto-bn-loading .rto-bn-icon { opacity: .5; }
+  .rto-bottom-nav.rto-bn-busy { opacity: .75; }
+
+  /* Anything with its own fixed/sticky footer action bar (e.g. a form's
+     Save button docked to the bottom) must sit ABOVE the bottom nav, not
+     under it — this is the single rule every such component should use. */
+  .rto-fixed-bottom-bar {
+    bottom: calc(var(--rto-bn-height) + var(--rto-bn-safe-bottom)) !important;
+  }
+
+  /* Make room at the bottom of the scrollable content area so the last
+     card/row/button in any dashboard page is never hidden behind the nav. */
+  .rto-content,
+  .rto-client-main {
+    padding-bottom: calc(var(--rto-bn-height) + var(--rto-bn-safe-bottom) + 16px) !important;
+  }
+
+  /* Same accommodation for the public/marketing site: its shared layout
+     (layouts/website-header.php + website-footer.php) wraps page content
+     in a plain <main>, and the standalone public pages (home, apply,
+     apply-dynamic, track, rto-login) each add this class to their own
+     content wrapper — so the footer's last CTA/button is never hidden
+     behind the fixed bottom nav on a phone. */
+  body.rto-website {
+    padding-bottom: calc(var(--rto-bn-height) + var(--rto-bn-safe-bottom) + 16px) !important;
+  }
+
+  /* On mobile the bottom nav replaces the desktop sidebar as primary
+     navigation, so the sidebar becomes an off-canvas "More" sheet instead
+     of a column that eats horizontal space. */
+  .rto-sidebar {
+    position: fixed;
+    top: 0; bottom: 0; left: 0;
+    width: 82vw;
+    max-width: 320px;
+    transform: translateX(-100%);
+    transition: transform .2s ease;
+    z-index: 600;
+    box-shadow: 2px 0 24px rgba(0,0,0,.18);
+  }
+  .rto-sidebar.open { transform: translateX(0); }
+  .rto-wrap.rto-sidebar-scrim::before {
+    content: '';
+    position: fixed; inset: 0;
+    background: rgba(15,23,42,.45);
+    z-index: 550;
+  }
+  .rto-main { margin-left: 0 !important; width: 100%; }
+}
+
+/* ── App-shell page transition (used by mobile-nav.js when swapping
+     content via fetch, so it feels immediate rather than an abrupt swap) */
+.rto-content-transitioning {
+  opacity: .4;
+  pointer-events: none;
+  transition: opacity .12s ease;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   GENERAL MOBILE FIXES — tables, modals, forms, touch targets.
+   Applied across Admin, Vendor, Client, AND the public site.
+   ══════════════════════════════════════════════════════════════════════ */
+@media (max-width: 782px) {
+
+  /* No horizontal scroll anywhere by accident — anything that legitimately
+     needs to scroll sideways (a wide table we haven't converted to cards
+     yet) does so in its own contained box, never the whole page. */
+  html, body { max-width: 100%; overflow-x: hidden; }
+  * { min-width: 0; } /* prevents flex/grid children forcing page-level overflow */
+
+  /* Touch targets: every clickable control gets a real 44px hit area,
+     even if its visual box is smaller (padding, not just min-height, so
+     text doesn't look oversized). */
+  a, button, .btn, input[type="submit"], input[type="button"],
+  select, input[type="checkbox"], input[type="radio"] {
+    min-height: 40px;
+  }
+  input[type="checkbox"], input[type="radio"] { min-height: 20px; min-width: 20px; }
+
+  /* Inputs at 16px prevents iOS Safari's automatic zoom-on-focus, which is
+     one of the most common "feels broken on mobile" complaints. */
+  input, select, textarea { font-size: 16px !important; }
+
+  /* Real, existing class used across ~40 admin table instances
+     (.rto-table-scroll, defined in admin.css) already wraps most tables in
+     a horizontal-scroll container — this just makes that scroll smooth on
+     iOS. Any table.rto-table NOT already wrapped in .rto-table-scroll
+     still gets contained horizontal scroll here as a safety net, so a
+     missed wrapper never causes a page-wide horizontal scroll. */
+  .rto-table-scroll { -webkit-overflow-scrolling: touch; }
+  table.rto-table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Card-based responsive table pattern: any table opting in with
+     data-rto-responsive="cards" (see mobile-nav.js's auto-upgrade for
+     tables that don't) collapses each row into a labeled card instead of
+     scrolling sideways — the "redesign, don't just shrink" pattern the
+     desktop table can't satisfy on a small screen. */
+  table[data-rto-responsive="cards"],
+  table[data-rto-responsive="cards"] thead,
+  table[data-rto-responsive="cards"] tbody,
+  table[data-rto-responsive="cards"] th,
+  table[data-rto-responsive="cards"] td,
+  table[data-rto-responsive="cards"] tr {
+    display: block;
+    width: 100%;
+  }
+  table[data-rto-responsive="cards"] thead { display: none; }
+  table[data-rto-responsive="cards"] tr {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  table[data-rto-responsive="cards"] td {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 6px 0;
+    border: none;
+    text-align: right;
+  }
+  table[data-rto-responsive="cards"] td[data-label]::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: #64748b;
+    font-size: 12px;
+    text-align: left;
+    flex-shrink: 0;
+  }
+
+  /* Modals/popups become full-height bottom sheets on mobile instead of a
+     small centered box that's awkward to tap around on a phone. Opt in
+     with the existing modal wrapper plus this marker class (added by JS
+     for any .rto-modal already in the DOM — see mobile-nav.js), or apply
+     it directly on new markup going forward. */
+  .rto-modal-overlay, .rto-modal-backdrop, .rfb-modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  .rto-modal, .rto-modal-box, .rto-modal-content, .rfb-modal {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: 88vh !important;
+    border-radius: 16px 16px 0 0 !important;
+    margin: 0 !important;
+    overflow-y: auto;
+  }
+  /* Form Builder's own modal (.rfb-modal-*) has tabs across the top that
+     need to stay usable at full width on a phone rather than cramming
+     into the desktop's fixed tab-bar width. */
+  .rfb-modal-tabs { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+  /* A handful of screens (Send Test Email/SMS on Email Templates, Add RTO,
+     Mark Payout Paid, vendor's Upload Document) build their own one-off
+     confirmation/quick-action modal directly with an inline
+     style="position:fixed;inset:0;..." overlay instead of the shared
+     .rto-modal-overlay class — so the rule above never reaches them. Left
+     alone, "Add New RTO" is the worst case: its box is set to
+     min-width:420px, wider than a 375px phone viewport, causing real
+     horizontal overflow/clipping. This converts all of them to the same
+     bottom-sheet treatment and removes the fixed min-width. */
+  [style*="position:fixed;inset:0"] {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+  [style*="position:fixed;inset:0"] > div {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    max-height: 88vh !important;
+    border-radius: 16px 16px 0 0 !important;
+    margin: 0 !important;
+    overflow-y: auto;
+  }
+
+  /* Cards/grids: collapse any auto-fit/auto-fill multi-column grid to a
+     single column so cards never get squeezed unreadably narrow. (Inline
+     style="grid-template-columns:..." grids — the dominant pattern across
+     this codebase's forms/detail screens — are handled more thoroughly by
+     mobile-nav.js's collapseGridsForMobile(), which reads the actual
+     computed track count instead of guessing from the literal string; the
+     rules below exist for this codebase's few *class-based* fixed grids,
+     which an inline-style-only JS scan can't see.) */
+  [style*="grid-template-columns:repeat(2"],
+  [style*="grid-template-columns:repeat(3"],
+  [style*="grid-template-columns:repeat(4"] {
+    grid-template-columns: 1fr !important;
+  }
+  .rfb-row2, .rfb-row3, .rfb-condline-grid,
+  .g2, .g3 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Long images/media never overflow their container. */
+  img, video, canvas, svg { max-width: 100%; height: auto; }
+}
