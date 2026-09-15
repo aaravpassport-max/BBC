@@ -2,8 +2,14 @@
 if (!defined('ABSPATH')) exit;
 $co  = $company    ?? get_option('rtoflow_company_name', 'RTOASSIST');
 $tel = $phone      ?? get_option('rtoflow_company_phone', '');
-$lc  = $lead_count ?? 0;
-$cc  = $city_count ?? 0;
+$by_cat      = $by_cat ?? [];
+$services    = $services ?? [];
+$lead_count  = $lead_count ?? 0;
+$city_count  = $city_count ?? 0;
+$city_list   = $city_list ?? [];
+$testimonials = $testimonials ?? [];
+$lc  = $lead_count;
+$cc  = $city_count;
 // CORRECTED (service-claims audit): $rating_avg/$rating_count come from a
 // real query against rto_ratings (see Router::routeSomething() above the
 // view dispatch). Neither is padded with a fake floor — if there isn't
@@ -325,6 +331,31 @@ $dockCities = $city_list ?? [];
       <?php if (!empty($slide['overlay_enabled'])): ?>
       <div class="hs-overlay" style="background:<?= esc_attr($slide['overlay_color']) ?>;opacity:<?= (float)$slide['overlay_opacity'] / 100 ?>"></div>
       <?php endif; ?>
+      <?php if ($slide['heading'] !== '' || $slide['description'] !== '' || $slide['cta_text'] !== ''): ?>
+      <div class="hs-content">
+        <div class="hs-content-inner hs-cp-<?= esc_attr($slide['content_position_desktop']) ?> hs-cp-mobile-<?= esc_attr($slide['content_position_mobile']) ?>">
+          <?php if ($slide['heading'] !== ''): ?><h2><?= esc_html($slide['heading']) ?></h2><?php endif; ?>
+          <?php if ($slide['description'] !== ''): ?><p><?= esc_html($slide['description']) ?></p><?php endif; ?>
+          <?php if ($slide['cta_text'] !== '' && $slide['cta_url'] !== ''): ?>
+          <a href="<?= esc_url($slide['cta_url']) ?>" class="hs-cta"><?= esc_html($slide['cta_text']) ?></a>
+          <?php endif; ?>
+        </div>
+      </div>
+      <?php endif; ?>
+    </div>
+    <?php endforeach; ?>
+  </div>
+  <?php if (count($heroSlides) > 1): ?>
+  <button type="button" class="hs-arrow hs-arrow-prev" aria-label="Previous slide">&#8249;</button>
+  <button type="button" class="hs-arrow hs-arrow-next" aria-label="Next slide">&#8250;</button>
+  <div class="hs-dots" role="tablist" aria-label="Hero slides">
+    <?php foreach ($heroSlides as $si => $slide): ?>
+    <button type="button" class="hs-dot<?= $si === 0 ? ' hs-active' : '' ?>" data-index="<?= (int)$si ?>" role="tab" aria-selected="<?= $si === 0 ? 'true' : 'false' ?>" aria-label="Go to slide <?= (int)$si + 1 ?>"></button>
+    <?php endforeach; ?>
+  </div>
+  <?php endif; ?>
+</section>
+<?php endif; ?>
 
 <main id="rfh-main">
 
