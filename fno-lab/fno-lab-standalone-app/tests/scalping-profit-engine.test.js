@@ -105,7 +105,15 @@ assert.ok(safety.liquidityScore >= 0);
 const regime = api.detectSpeRegime(ms, ctx);
 assert.ok(regime.regime);
 const direction = api.evaluateSpeDirection(ms, regime, brain);
-assert.strictEqual(direction.direction, 'BULLISH');
+assert.strictEqual(direction.direction, 'bullish');
+
+const bearBrain = { decision: 'SELL_READY', confidence: 'High', reason: 'test bear' };
+const bearDirection = api.evaluateSpeDirection(ms, regime, bearBrain);
+assert.strictEqual(bearDirection.direction, 'bearish');
+const bearSpe = api.computeScalpingProfitEngine(ctx, bearBrain, { journalToday: [] });
+assert.strictEqual(bearSpe.optionType, 'PE');
+const peSafety = api.evaluateMarketSafety(ms, Object.assign({}, ctx, { ocRow: { CE: ctx.ocRow.CE, PE: { bidprice: 95, askPrice: 95.12, bidQty: 4000, askQty: 4000, lastPrice: 95.06 } } }), api.getScalpingProfitSettings(), 'PE');
+assert.ok(peSafety.liquidityScore >= 0 || peSafety.liquiditySkipped);
 
 const stats = api.computeScalpingProfitStatistics([]);
 assert.strictEqual(stats.n, 0);

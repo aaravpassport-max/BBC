@@ -757,6 +757,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
         <div style="display:grid;gap:6px;font-size:12px">
           <label>Strike <input id="strike" type="number" value="23200" class="input" style="width:100px"></label>
           <label>Type <select id="optType" class="input" style="width:70px" aria-label="Option type CE or PE"><option value="CE">CE</option><option value="PE">PE</option></select></label>
+          <span style="font-size:10px;color:#64748b;display:block;margin:-2px 0 4px 0">BUY READY → CE (bullish) · SELL READY → PE (bearish) — auto-synced on refresh</span>
           <label>Price <input id="optPrice" type="number" value="100" class="input" style="width:80px"></label>
           <label>IV <input id="iv" type="number" value="18" class="input" style="width:60px">%</label>
           <label>Days Exp <input id="daysExp" type="number" value="2" class="input" style="width:60px"></label>

@@ -696,6 +696,21 @@ function computeBracketPrices(optPrice, cfg) {
   };
 }
 
+/** BUY_READY → CE (bullish), SELL_READY → PE (bearish). This app buys options only — never shorts. */
+function expectedOptionTypeForBrainDecision(decision) {
+  if (decision === 'BUY_READY') return 'CE';
+  if (decision === 'SELL_READY') return 'PE';
+  return null;
+}
+
+function syncUiOptionTypeFromBrainDecision(brain) {
+  const expected = brain && expectedOptionTypeForBrainDecision(brain.decision);
+  const optEl = typeof document !== 'undefined' ? document.getElementById('optType') : null;
+  if (!expected || !optEl) return expected;
+  optEl.value = expected;
+  return expected;
+}
+
 function resolveTradeBracketForEntry(optPrice, tradingType, ctx, brain, optionType) {
   if (typeof optPrice !== 'number' || !Number.isFinite(optPrice) || optPrice <= 0) {
     return { target: null, sl: null, source: 'invalid_price' };
@@ -16952,10 +16967,15 @@ function render(){
         gateWarningHtml = `<div style="margin-top:6px;padding:6px;background:#422006;border-radius:6px;color:#fde68a;font-size:12px"><b>⚠️ Would need confirmation if opened right now:</b> ${escapeHtml(gateDetail)}</div>`;
       }
 
+      syncUiOptionTypeFromBrainDecision(brain);
+
       const tpDec = fnoThemePalette();
       if(brain.decision==='BUY_READY'){
-        decEl.innerHTML=`🟢 BUY READY - ${escapeHtml(brain.reason)} [${mode.toUpperCase()}]${confBadge}${modelBadge}${gateWarningHtml}`;
+        decEl.innerHTML=`🟢 BUY READY → CE - ${escapeHtml(brain.reason)} [${mode.toUpperCase()}]${confBadge}${modelBadge}${gateWarningHtml}`;
         decEl.style.background=tpDec.passBg; decEl.style.color=tpDec.pass;
+      } else if(brain.decision==='SELL_READY'){
+        decEl.innerHTML=`🔴 SELL READY → PE - ${escapeHtml(brain.reason)} [${mode.toUpperCase()}]${confBadge}${modelBadge}${gateWarningHtml}`;
+        decEl.style.background=tpDec.failBg || '#450a0a'; decEl.style.color=tpDec.fail || '#f87171';
       } else if(brain.decision==='NO_TRADE'){
         decEl.innerHTML=`⛔ NO_TRADE - ${escapeHtml(brain.reason)}${confBadge}${modelBadge}`;
         decEl.style.background=tpDec.warnBg; decEl.style.color=tpDec.warn;
@@ -18293,6 +18313,15 @@ function render(){
     const existing = loadObj(STORAGE.autoTrades);
     if (existing && existing.id) { return { opened: false, reason: 'Position already open' }; } // real, honest no-op for the autonomous path - not an error, just nothing to do this cycle
     if (!target || !sl || sl>=leg.lastPrice || target<=leg.lastPrice) { reportFn('Target must be above, and SL below, the current live premium.'); return { opened: false }; }
+
+    if (lastBrain && lastBrain.decision === 'BUY_READY' && optionType !== 'CE') {
+      reportFn('Blocked: BUY_READY is bullish — buy CE for this signal (or wait for SELL_READY to buy PE).');
+      return { opened: false, reason: 'Option type must be CE for BUY_READY', rejectionCategory: FNO_EXEC_REJECTION.STRATEGY_RULE, rejectionSubcategory: 'option_type_mismatch' };
+    }
+    if (lastBrain && lastBrain.decision === 'SELL_READY' && optionType !== 'PE') {
+      reportFn('Blocked: SELL_READY is bearish — buy PE for this signal (or wait for BUY_READY to buy CE).');
+      return { opened: false, reason: 'Option type must be PE for SELL_READY', rejectionCategory: FNO_EXEC_REJECTION.STRATEGY_RULE, rejectionSubcategory: 'option_type_mismatch' };
+    }
 
     if (typeof checkScalpingProfitEntryGate === 'function' && timeSufficiencyType === 'scalping') {
       const speGate = checkScalpingProfitEntryGate(lastBrain, curCtx, optionType);

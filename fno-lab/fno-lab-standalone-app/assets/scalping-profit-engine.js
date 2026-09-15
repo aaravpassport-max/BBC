@@ -175,7 +175,29 @@ function saveSpeSessionState(st) {
   try { localStorage.setItem(FNO_SPE_STATE_KEY, JSON.stringify(st)); } catch (e) { /* quota */ }
 }
 
-function evaluateMarketSafety(ms, ctx, cfg) {
+/** Normalize SPE/TSE direction strings — BULLISH/bullish/BUY_READY → 'bullish'. */
+function speDirectionToTradeDir(dir) {
+  if (!dir) return null;
+  const d = String(dir).toUpperCase();
+  if (d === 'BULLISH' || d === 'BUY_READY' || d === 'BUY') return 'bullish';
+  if (d === 'BEARISH' || d === 'SELL_READY' || d === 'SELL') return 'bearish';
+  return null;
+}
+
+function speDirectionToOptionType(dir) {
+  const t = speDirectionToTradeDir(dir);
+  return t === 'bearish' ? 'PE' : t === 'bullish' ? 'CE' : null;
+}
+
+function resolveSpeOptionLeg(ctx, optionTypeOrDirection) {
+  if (!ctx || !ctx.ocRow) return null;
+  if (optionTypeOrDirection === 'PE') return ctx.ocRow.PE || null;
+  if (optionTypeOrDirection === 'CE') return ctx.ocRow.CE || null;
+  const t = speDirectionToTradeDir(optionTypeOrDirection);
+  return t === 'bearish' ? (ctx.ocRow.PE || null) : t === 'bullish' ? (ctx.ocRow.CE || null) : null;
+}
+
+function evaluateMarketSafety(ms, ctx, cfg, optionType) {
   const out = {
     safe: true, liquidityScore: null, spreadPts: null, spreadPct: null, spreadOk: null, spreadSkipped: false,
     liquiditySkipped: false, staleDataSkipped: false, skippedLayers: [], unavailableInputs: [],
@@ -188,7 +210,7 @@ function evaluateMarketSafety(ms, ctx, cfg) {
     out.reasons.push('Candle data unavailable — market safety skipped (not scored as fail)');
     return out;
   }
-  const leg = ctx && ctx.ocRow && ctx.ocRow.CE;
+  const leg = resolveSpeOptionLeg(ctx, optionType);
   const bid = leg && Number.isFinite(leg.bidprice) ? leg.bidprice : null;
   const ask = leg && Number.isFinite(leg.askPrice) ? leg.askPrice : null;
   const hasDepth = leg && (Number.isFinite(leg.bidQty) || Number.isFinite(leg.askQty));
@@ -283,13 +305,16 @@ function evaluateSpeDirection(ms, regimeInfo, brain) {
   if (regimeInfo.regime === FNO_SPE_REGIME.TREND_DOWN && direction === 'BEARISH') confidence += 10;
   if (regimeInfo.regime === FNO_SPE_REGIME.CHOP) confidence -= 15;
   confidence = Math.max(0, Math.min(100, confidence));
+  if (direction === 'BULLISH') direction = 'bullish';
+  else if (direction === 'BEARISH') direction = 'bearish';
+  else if (direction === 'NEUTRAL') direction = 'neutral';
   return { direction, confidence, reasons };
 }
 
 function detectSpeSetups(ms, directionInfo, regimeInfo) {
   const setups = [];
-  if (!ms.valid || directionInfo.direction === 'NEUTRAL') return setups;
-  const dir = directionInfo.direction;
+  if (!ms.valid || directionInfo.direction === 'neutral' || directionInfo.direction === 'NEUTRAL') return setups;
+  const dir = speDirectionToTradeDir(directionInfo.direction) || directionInfo.direction;
   const look = ms.closes.slice(Math.max(0, ms.last - 8), ms.last + 1);
   const impulse = look.length >= 2 ? look[look.length - 1] - look[0] : 0;
   const pullback = look.length >= 4 ? look[look.length - 2] - look[look.length - 1] : 0;
@@ -476,8 +501,8 @@ function buildSpeFactorDataAvailability(ms, layers, quality, safety, execution) 
   };
 }
 
-function evaluateExecutionQuality(ctx, expectedMove, cfg) {
-  const leg = ctx && ctx.ocRow && ctx.ocRow.CE;
+function evaluateExecutionQuality(ctx, expectedMove, cfg, optionType) {
+  const leg = resolveSpeOptionLeg(ctx, optionType);
   const spreadPct = leg && leg.bidprice > 0 && leg.askPrice > leg.bidprice
     ? ((leg.askPrice - leg.bidprice) / leg.bidprice) * 100 : null;
   if (spreadPct == null) {
@@ -538,7 +563,8 @@ function evaluateAntiOvertrade(sessionInfo, cooldown, cfg) {
 function buildSpeExplanation(layers, quality, decision) {
   const lines = [];
   if (decision === 'ENTER') {
-    lines.push(`SCALP ${layers.direction && layers.direction.direction === 'bearish' ? 'SHORT' : 'LONG'}`);
+    const tradeDir = layers.direction ? speDirectionToTradeDir(layers.direction.direction) : null;
+    lines.push(`SCALP ${tradeDir === 'bearish' ? 'SHORT (PE)' : 'LONG (CE)'}`);
     lines.push(`Regime: ${layers.regime ? layers.regime.regime : '?'} (${layers.regime ? layers.regime.confidence : 0}%)`);
     lines.push(`Setup: ${layers.setup ? layers.setup.type : 'none'}`);
     lines.push(`Trade Quality: ${quality.normalized}/100 (${quality.grade})`);
@@ -568,16 +594,18 @@ function computeScalpingProfitEngine(ctx, brain, opts) {
   }
 
   const journalToday = opts.journalToday || [];
-  const safety = evaluateMarketSafety(ms, ctx, cfg);
   const regime = detectSpeRegime(ms, ctx);
   const direction = evaluateSpeDirection(ms, regime, brain);
+  const optionTypeForSpe = speDirectionToOptionType(direction.direction)
+    || (brain && brain.decision === 'SELL_READY' ? 'PE' : brain && brain.decision === 'BUY_READY' ? 'CE' : null);
+  const safety = evaluateMarketSafety(ms, ctx, cfg, optionTypeForSpe);
   const setups = detectSpeSetups(ms, direction, regime);
   const bestSetup = setups[0] || null;
   const timing = evaluateEntryTiming(ms, bestSetup, cfg);
   const expectedMove = evaluateExpectedMove(ms, timing, cfg, movement);
   const antiChase = evaluateAntiChase(ms, expectedMove, cfg);
   const room = bestSetup ? computeAvailableRoom(ms, bestSetup.direction, expectedMove.favorablePts) : { sufficient: false, roomPts: 0 };
-  const execution = evaluateExecutionQuality(ctx, expectedMove, cfg);
+  const execution = evaluateExecutionQuality(ctx, expectedMove, cfg, optionTypeForSpe);
   const session = evaluateSpeSessionState(journalToday, regime, cfg);
   const cooldown = evaluateSpeCooldown(cfg);
   const overtrade = evaluateAntiOvertrade(session, cooldown, cfg);
@@ -613,9 +641,10 @@ function computeScalpingProfitEngine(ctx, brain, opts) {
   }
 
   layers.noTradeReason = noTradeReasons[0] || null;
+  const tradeDir = speDirectionToTradeDir(direction.direction);
   const brainAligned = brain && (
-    (brain.decision === 'BUY_READY' && direction.direction === 'BULLISH') ||
-    (brain.decision === 'SELL_READY' && direction.direction === 'BEARISH')
+    (brain.decision === 'BUY_READY' && tradeDir === 'bullish') ||
+    (brain.decision === 'SELL_READY' && tradeDir === 'bearish')
   );
 
   let decision = 'NO_TRADE';
@@ -631,7 +660,7 @@ function computeScalpingProfitEngine(ctx, brain, opts) {
   if (cfg.mode === FNO_SPE_MODE.SIGNAL_ONLY && blockers.length) entryAllowed = true;
 
   const explanation = buildSpeExplanation(layers, quality, decision);
-  const dirOpt = direction.direction === 'bearish' ? 'PE' : direction.direction === 'bullish' ? 'CE' : null;
+  const dirOpt = optionTypeForSpe || speDirectionToOptionType(direction.direction);
 
   return {
     active: true,
@@ -695,7 +724,8 @@ function checkScalpingProfitEntryGate(brain, ctx, optionType) {
     : computeScalpingProfitEngine(ctx, brain, {});
   if (!spe.active) return { allowed: true };
   const dir = optionType === 'PE' ? 'bearish' : 'bullish';
-  if (spe.entryAllowed && spe.setup && spe.setup.direction === dir) return { allowed: true, spe };
+  const setupDir = spe.setup ? speDirectionToTradeDir(spe.setup.direction) : null;
+  if (spe.entryAllowed && setupDir === dir) return { allowed: true, spe };
   return {
     allowed: false,
     reason: `Scalping Profit Engine: ${spe.noTradeReason || (spe.blockers && spe.blockers[0]) || spe.engineStatus}`,
