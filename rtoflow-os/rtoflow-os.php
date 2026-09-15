@@ -3,7 +3,7 @@
  * Plugin Name:       RTOFLOW OS
  * Plugin URI:        https://rtoflow.com
  * Description:       Enterprise RTO Service Operating Platform — manages leads, vendors, payments, GST invoicing, and client communication.
- * Version:           3.7.153-20260915.1725
+ * Version:           3.7.154-20260915.1745
  * Author:            RTOFLOW
  * Author URI:        https://rtoflow.com
  * License:           GPL-2.0+
@@ -64,7 +64,7 @@ if (version_compare(PHP_VERSION, '8.1', '<')) {
 // codebase (grepped: only ever used for string equality and as a cache-
 // buster) — a build-metadata suffix like this is safe, it does not need to
 // parse as strict semver.
-define('RTOFLOW_VERSION',  '3.7.153-20260915.1725');
+define('RTOFLOW_VERSION',  '3.7.154-20260915.1745');
 define('RTOFLOW_FILE',     __FILE__);
 define('RTOFLOW_DIR',      plugin_dir_path(__FILE__));
 define('RTOFLOW_URL',      plugin_dir_url(__FILE__));
