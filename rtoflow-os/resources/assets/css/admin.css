@@ -1,0 +1,733 @@
+/* ═══════════════════════════════════════════════════
+   RTOFLOW OS — Admin Panel Stylesheet
+   ═══════════════════════════════════════════════════ */
+
+/* PLATFORM-WIDE TYPOGRAPHY SYSTEM (design-system pass): Jost, self-hosted
+   via Google Fonts' stylesheet host (fonts.googleapis.com / fonts.gstatic.com)
+   rather than bundling font files in this plugin — consistent with how
+   Tabler Icons is already loaded from a CDN link elsewhere in this admin
+   panel (see Bootstrap::enqueueAdminAssets()). A real fallback stack is
+   declared on every rule below so layout never breaks if the Google Fonts
+   request is blocked (e.g. an org network policy) — it degrades to the
+   existing system-font stack, never to an unstyled default. --font-heading
+   is applied to every h1-h6, .rto-page-title, .rto-card-header/-body h3,
+   .rto-nav-section-title, .rto-nav-card-title, .rto-kpi-value/-label,
+   .rto-stat-num/-label, and .rto-lead-header-left h2 — i.e. every major
+   heading, section heading, card heading and tile heading platform-wide,
+   per the design-system requirement, not just the pages shown broken. */
+@import url('https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700;800;900&display=swap');
+
+/* P4-CSS-014 FIX: scoped box-sizing reset — does not affect rest of WP */
+.rto-wrap *, .rto-wrap *::before, .rto-wrap *::after { box-sizing: border-box; }
+/* Keep margin/padding reset only for specific rto elements via their own rules */
+
+:root {
+  --navy:    #1E3A5F;
+  --navy-lt: #2E5480;
+  --green:   #1A7A4A;
+  --red:     #C0392B;
+  --orange:  #E67E22;
+  --blue:    #2980B9;
+  --gray-50: #f8fafc;
+  --gray-100:#f1f5f9;
+  --gray-200:#e2e8f0;
+  --gray-400:#94a3b8;
+  --gray-600:#475569;
+  --gray-800:#1e293b;
+  --white:   #ffffff;
+  --sidebar-w: 240px;
+  --topbar-h:  60px;
+  --radius:    8px;
+  --shadow:    0 1px 4px rgba(0,0,0,0.08);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.12);
+  --font-body:    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-heading: 'Jost', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body.rto-admin-body {
+  font-family: var(--font-body);
+  font-size: 15px;
+  color: var(--gray-800);
+  background: var(--gray-50);
+  line-height: 1.5;
+}
+
+/* ── Typography hierarchy (Jost) ────────────────────── */
+.rto-admin-body h1, .rto-admin-body h2, .rto-admin-body h3,
+.rto-admin-body h4, .rto-admin-body h5, .rto-admin-body h6,
+.rto-page-title, .rto-nav-section-title, .rto-nav-card-title,
+.rto-card-header h3, .rto-card__header h3,
+.rto-kpi-value, .rto-kpi-label, .rto-stat-num, .rto-stat-label,
+.rto-lead-header-left h2, .rto-logo {
+  font-family: var(--font-heading);
+}
+.rto-admin-body h1 { font-size: 28px; font-weight: 800; line-height: 1.25; letter-spacing: -.2px; margin: 0 0 8px; }
+.rto-admin-body h2 { font-size: 22px; font-weight: 700; line-height: 1.3;  margin: 0 0 6px; }
+.rto-admin-body h3 { font-size: 17px; font-weight: 600; line-height: 1.35; margin: 0 0 4px; }
+.rto-admin-body h4 { font-size: 14px; font-weight: 600; line-height: 1.4;  margin: 0 0 4px; text-transform: uppercase; letter-spacing: .3px; color: var(--gray-600); }
+
+/* ── Layout ─────────────────────────────────────────── */
+.rto-wrap   { display: flex; min-height: 100vh; }
+.rto-sidebar{ width: var(--sidebar-w); background: var(--navy); color: #fff; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100; overflow-y: auto; }
+.rto-main   { margin-left: var(--sidebar-w); flex: 1; min-height: 100vh; }
+.rto-content{ padding: 24px; }
+
+/* ── Sidebar ─────────────────────────────────────────── */
+.rto-sidebar-brand { padding: 20px 16px 12px; border-bottom: 1px solid rgba(255,255,255,.12); }
+.rto-logo     { display: block; font-size: 20px; font-weight: 700; color: #fff; letter-spacing: 0.5px; }
+.rto-logo-sub { font-size: 11px; color: rgba(255,255,255,.5); }
+
+.rto-nav      { flex: 1; padding: 12px 0; }
+.rto-nav-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; color: rgba(255,255,255,.75); text-decoration: none; font-size: 13.5px; transition: all 0.15s; border-radius: 0; }
+.rto-nav-item:hover, .rto-nav-item.active { background: rgba(255,255,255,.12); color: #fff; }
+.rto-nav-icon { font-size: 16px; width: 20px; text-align: center; flex-shrink: 0; }
+/* All-Pages CSS audit FIX (Part 5.8): .rto-nav-label existed in the markup
+   (admin-header.php:75, every sidebar item incl. "All Pages" itself) with
+   zero matching CSS rule — it inherited .rto-nav-item's flex layout but
+   had no overflow handling of its own, so a longer label ("Email
+   Templates") had no defined behaviour if the fixed 240px sidebar ever
+   got tighter (e.g. a future locale with longer label text). */
+.rto-nav-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.rto-sidebar-footer { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,.12); font-size: 12px; color: rgba(255,255,255,.6); display: flex; justify-content: space-between; align-items: center; }
+.rto-logout { color: rgba(255,255,255,.6); text-decoration: none; font-size: 11px; }
+.rto-logout:hover { color: #fff; }
+
+/* ── Topbar ──────────────────────────────────────────── */
+.rto-topbar  { background: #fff; height: var(--topbar-h); display: flex; align-items: center; padding: 0 24px; gap: 16px; border-bottom: 1px solid var(--gray-200); box-shadow: var(--shadow); position: sticky; top: 0; z-index: 50; }
+.rto-page-title { font-size: 18px; font-weight: 600; color: var(--navy); flex: 1; }
+/* All-Pages CSS audit FIX (Part 5.8): .rto-topbar-actions wraps the KPI +
+   role badge on every admin page (this "nav"/All Pages screen included,
+   since it shares admin-header.php with every other screen) but had never
+   had a layout rule of its own — its two children had no flex/gap/
+   alignment between them, so they could butt together or wrap
+   unpredictably at narrower widths. The class existed in the markup
+   (admin-header.php:91) with zero matching CSS rule anywhere in this
+   file — confirmed mechanically by a class-cross-check script (36 classes
+   referenced by admin-header/footer.php + the nav view; 3 had zero
+   matching rules before this fix: .rto-topbar-actions, .rto-topbar-kpi,
+   .rto-nav-label). */
+.rto-topbar-actions { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+.rto-topbar-kpi { display: flex; flex-direction: column; align-items: flex-end; line-height: 1.3; }
+.rto-topbar-user { font-size: 12px; background: var(--gray-100); padding: 4px 10px; border-radius: 20px; color: var(--gray-600); text-transform: capitalize; white-space: nowrap; }
+.rto-sidebar-toggle { background: none; border: none; font-size: 18px; cursor: pointer; color: var(--gray-600); }
+@media (max-width: 768px) { .rto-topbar-kpi { display: none; } }
+
+/* ── Cards ───────────────────────────────────────────── */
+/* PLATFORM-WIDE CSS AUDIT FIX: 15 admin view files (ai/index.php,
+   eligibility/index.php, cities/index.php, users/index.php+create.php,
+   rtos/index.php, orders/index.php, automation/index.php,
+   customizer/index.php, workflows/index.php+edit.php, grievance/index.php,
+   forms/index.php+edit.php, partials/config-version-history.php) markup
+   their card sections with the BEM double-underscore convention
+   `rto-card__header` / `rto-card__body`, but this stylesheet only ever
+   defined the single-hyphen `rto-card-header` / `rto-card-body` — a naming
+   mismatch, not a missing feature. Confirmed by a class-usage-vs-defined-
+   rule cross-check across every *.php file under resources/views/admin (any subfolder depth): 158
+   distinct rto- classes referenced, 10 genuinely had zero matching CSS
+   rule anywhere in this file, and rto-card__header/__body accounted for
+   the bulk of the affected screens. Effect: on all 15 of those screens,
+   every "card" rendered as an unstyled block — no padding, no header/body
+   separation, no vertical rhythm — while screens using the correct
+   rto-card-header/-body names (Dashboard, most tables) rendered fine. This
+   is the single largest concrete cause behind "these issues aren't limited
+   to one page." Rather than rewrite 15 view files (higher risk of an
+   introduced typo breaking one of them silently), the two BEM class names
+   are aliased here to the exact same rules as their canonical counterparts. */
+.rto-card { background: #fff; border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 20px; overflow: hidden; }
+.rto-card-header, .rto-card__header { padding: 16px 20px; border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; justify-content: space-between; }
+.rto-card-header h3, .rto-card__header h3 { font-size: 15px; font-weight: 600; color: var(--navy); margin: 0; font-family: var(--font-heading); }
+.rto-card-body, .rto-card__body { padding: 20px; }
+.rto-card-danger .rto-card-header, .rto-card-danger .rto-card__header { background: #fef2f2; border-color: #fecaca; }
+
+/* PLATFORM-WIDE CSS AUDIT FIX: .rto-filter-form (vendors/index.php,
+   services/index.php filter bars — the exact "unstyled filter bar" shown
+   in the user's All Leads screenshot) had zero matching rule; same
+   cross-check. (.rto-table-hover/.rto-table-sm were flagged by the same
+   check but turned out to be a false positive — both already have real
+   rules further down, under "── Tables ──"; the checker's regex just
+   doesn't match compound selectors like ".rto-table-hover tr:hover td".) */
+.rto-filter-form { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; background: #fff; border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 16px 20px; margin-bottom: 20px; }
+.rto-kpi-row { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
+.rto-date-shortcuts { display: flex; gap: 6px; flex-wrap: wrap; }
+.rto-date-shortcuts button, .rto-date-shortcuts a { background: var(--gray-100); border: 1px solid var(--gray-200); color: var(--gray-600); font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 20px; cursor: pointer; text-decoration: none; }
+.rto-date-shortcuts button:hover, .rto-date-shortcuts a:hover, .rto-date-shortcuts .active { background: var(--navy); border-color: var(--navy); color: #fff; }
+
+/* ── KPI Grid ────────────────────────────────────────── */
+.rto-kpi-grid  { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.rto-kpi-card  { background: #fff; border-radius: var(--radius); padding: 20px; display: flex; align-items: flex-start; gap: 14px; box-shadow: var(--shadow); border-left: 4px solid var(--gray-200); }
+.rto-kpi-primary  { border-color: var(--navy); }
+.rto-kpi-success  { border-color: var(--green); }
+.rto-kpi-info     { border-color: var(--blue); }
+.rto-kpi-warning  { border-color: var(--orange); }
+.rto-kpi-danger   { border-color: var(--red); }
+.rto-kpi-neutral  { border-color: var(--gray-muted, #64748b); }
+.rto-kpi-icon     { font-size: 28px; line-height: 1; }
+.rto-kpi-value    { font-size: 24px; font-weight: 700; color: var(--gray-800); line-height: 1; }
+.rto-kpi-label    { font-size: 12px; color: var(--gray-600); margin-top: 4px; }
+.rto-kpi-change   { font-size: 11px; margin-top: 4px; }
+.rto-kpi-change.positive { color: var(--green); }
+.rto-kpi-change.negative { color: var(--red); }
+.rto-kpi-change.neutral  { color: var(--gray-muted, #64748b); }
+
+/* ── Grid layouts ─────────────────────────────────────── */
+.rto-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+@media(max-width: 900px){ .rto-grid-2 { grid-template-columns: 1fr; } }
+
+/* ── Tables ──────────────────────────────────────────── */
+.rto-table-scroll { overflow-x: auto; }
+.rto-table        { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.rto-table th     { padding: 10px 12px; background: var(--gray-50); color: var(--gray-600); font-weight: 600; text-align: left; border-bottom: 2px solid var(--gray-200); white-space: nowrap; }
+.rto-table td     { padding: 10px 12px; border-bottom: 1px solid var(--gray-100); vertical-align: middle; }
+.rto-table-hover tr:hover td { background: var(--gray-50); }
+.rto-table-sm td, .rto-table-sm th { padding: 7px 10px; }
+.rto-row-danger td { background: #fef2f2; }
+
+/* ── Badges ──────────────────────────────────────────── */
+.rto-badge       { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 20px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.rto-badge-lg    { padding: 4px 14px; font-size: 13px; }
+.rto-badge-xs    { padding: 1px 6px; font-size: 10px; }
+.rto-badge-primary   { background: #dbeafe; color: #1d4ed8; }
+.rto-badge-success   { background: #dcfce7; color: #166534; }
+.rto-badge-warning   { background: #fef9c3; color: #854d0e; }
+.rto-badge-danger    { background: #fee2e2; color: #991b1b; }
+.rto-badge-info      { background: #e0f2fe; color: #075985; }
+.rto-badge-secondary { background: var(--gray-100); color: var(--gray-600); }
+
+/* ── Buttons ─────────────────────────────────────────── */
+.rto-btn        { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 6px; font-size: 13.5px; font-weight: 500; cursor: pointer; border: none; text-decoration: none; transition: all 0.15s; white-space: nowrap; }
+.rto-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.rto-btn-primary { background: var(--navy); color: #fff; }
+.rto-btn-primary:hover { background: var(--navy-lt); color: #fff; }
+.rto-btn-success { background: var(--green); color: #fff; }
+.rto-btn-success:hover { background: #155f39; color:#fff; }
+.rto-btn-danger  { background: var(--red); color: #fff; }
+.rto-btn-danger:hover { background: #a03020; color:#fff; }
+.rto-btn-warning { background: var(--orange); color: #fff; }
+.rto-btn-outline { background: transparent; border: 1.5px solid var(--gray-200); color: var(--gray-600); }
+.rto-btn-outline:hover { border-color: var(--navy); color: var(--navy); }
+.rto-btn-sm  { padding: 5px 10px; font-size: 12px; }
+.rto-btn-xs  { padding: 2px 7px; font-size: 11px; }
+.rto-btn-lg  { padding: 12px 24px; font-size: 15px; }
+.rto-btn-full{ width: 100%; justify-content: center; }
+
+/* ── Forms ───────────────────────────────────────────── */
+.rto-input, .rto-select, .rto-textarea {
+  padding: 8px 12px; border: 1.5px solid var(--gray-200); border-radius: 6px;
+  font-size: 13.5px; color: var(--gray-800); background: #fff; width: 100%;
+  transition: border-color 0.15s;
+}
+.rto-input:focus, .rto-select:focus, .rto-textarea:focus {
+  outline: none; border-color: var(--navy); box-shadow: 0 0 0 3px rgba(30,58,95,.1);
+}
+.rto-select { appearance: auto; }
+.rto-label  { display: block; font-size: 12px; font-weight: 600; color: var(--gray-600); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
+.rto-select-full { width: 100%; }
+.rto-filter-form .rto-filter-row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+.rto-filter-form .rto-input, .rto-filter-form .rto-select { width: auto; flex: 1; min-width: 140px; }
+.rto-form-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end; }
+.rto-form-row .rto-input, .rto-form-row .rto-select { flex: 1; min-width: 120px; }
+
+/* ── Pagination ──────────────────────────────────────── */
+.rto-pagination { display: flex; gap: 6px; align-items: center; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--gray-200); }
+.rto-page-link  { padding: 5px 10px; border: 1.5px solid var(--gray-200); border-radius: 4px; font-size: 13px; color: var(--gray-600); text-decoration: none; }
+.rto-page-link.active, .rto-page-link:hover { background: var(--navy); color: #fff; border-color: var(--navy); }
+.rto-page-info  { margin-left: 8px; font-size: 12px; color: var(--gray-muted, #64748b); }
+
+/* ── Lead detail ─────────────────────────────────────── */
+.rto-lead-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; flex-wrap: wrap; gap: 12px; }
+.rto-lead-header-left { display: flex; align-items: center; gap: 12px; }
+.rto-lead-header-left h2 { font-size: 22px; font-weight: 700; color: var(--navy); }
+.rto-lead-header-right { display: flex; gap: 8px; align-items: center; }
+.rto-lead-grid { display: grid; grid-template-columns: 1fr 360px; gap: 20px; }
+.rto-lead-left  { min-width: 0; }
+.rto-lead-right { display: flex; flex-direction: column; gap: 20px; }
+@media(max-width:1000px){ .rto-lead-grid { grid-template-columns: 1fr; } }
+
+.rto-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.rto-detail-item { display: flex; flex-direction: column; gap: 2px; }
+.rto-detail-item span { font-size: 11px; color: var(--gray-600); text-transform: uppercase; letter-spacing: 0.3px; }
+.rto-detail-item strong { font-size: 14px; color: var(--gray-800); }
+
+/* ── Messages ─────────────────────────────────────────── */
+.rto-messages    { max-height: 320px; min-height: 80px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding: 4px 0; }
+.rto-message     { padding: 10px 14px; border-radius: 8px; max-width: 85%; }
+.rto-message-client { background: var(--gray-100); align-self: flex-start; }
+.rto-message-staff  { background: #dbeafe; align-self: flex-end; }
+.rto-message-meta   { display: flex; gap: 8px; align-items: center; margin-bottom: 4px; }
+.rto-message-body   { font-size: 13.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
+.rto-message-input  { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.rto-textarea { resize: vertical; min-height: 80px; }
+
+/* ── Documents ────────────────────────────────────────── */
+.rto-doc-row     { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--gray-100); gap: 8px; }
+.rto-doc-row:last-child { border-bottom: none; }
+.rto-doc-type    { font-size: 13px; font-weight: 500; }
+.rto-doc-name    { margin-top: 2px; }
+.rto-doc-actions { display: flex; align-items: center; gap: 6px; }
+
+/* ── Payment rows ─────────────────────────────────────── */
+.rto-payment-row     { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--gray-100); }
+.rto-payment-row:last-child { border-bottom: none; }
+.rto-payment-info    { display: flex; gap: 8px; align-items: baseline; }
+.rto-payment-meta    { display: flex; gap: 8px; align-items: center; }
+
+/* ── Status / progress ────────────────────────────────── */
+.rto-status-row     { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.rto-progress-bar   { flex: 1; height: 8px; background: var(--gray-200); border-radius: 4px; overflow: hidden; }
+.rto-progress-fill  { height: 100%; background: var(--navy); border-radius: 4px; transition: width 0.3s; }
+.rto-status-count   { font-size: 12px; font-weight: 600; color: var(--gray-600); min-width: 30px; text-align: right; }
+
+/* ── Top services ─────────────────────────────────────── */
+.rto-top-service-row { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--gray-100); }
+.rto-rank            { font-size: 18px; font-weight: 700; color: var(--gray-muted, #64748b); min-width: 24px; }
+.rto-top-service-name{ font-size: 14px; font-weight: 500; }
+.rto-top-service-meta{ font-size: 12px; color: var(--gray-600); }
+
+/* ── Back link ────────────────────────────────────────── */
+.rto-back-link { font-size: 13px; color: var(--gray-600); text-decoration: none; }
+.rto-back-link:hover { color: var(--navy); }
+
+/* ── Utilities ────────────────────────────────────────── */
+.rto-link   { color: var(--navy); text-decoration: none; }
+.rto-link:hover { text-decoration: underline; }
+.rto-muted  { color: var(--gray-muted, #64748b); }
+.rto-small  { font-size: 12px; }
+.rto-mono   { font-family: monospace; font-size: 12.5px; }
+.rto-fw-600 { font-weight: 600; }
+.rto-success{ color: var(--green); }
+.rto-warning{ color: var(--orange); }
+.rto-danger { color: var(--red); }
+.rto-mt-1   { margin-top: 8px; }
+.rto-mt-2   { margin-top: 16px; }
+.rto-count  { background: var(--gray-100); padding: 1px 8px; border-radius: 20px; font-size: 12px; font-weight: 400; color: var(--gray-600); margin-left: 6px; }
+.rto-empty-state { text-align: center; padding: 48px 24px; color: var(--gray-muted, #64748b); }
+.rto-empty-state .rto-empty-icon { font-size: 48px; margin-bottom: 12px; }
+.rto-empty-small { text-align: center; padding: 24px; color: var(--gray-muted, #64748b); font-size: 13px; }
+
+/* ── Messages ─────────────────────────────────────────── */
+.rto-msg         { padding: 12px 16px; border-radius: 6px; font-size: 13.5px; margin-bottom: 16px; }
+.rto-msg-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+.rto-msg-error   { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+.rto-msg-info    { background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; }
+/* Added alongside the Known Limitations audit's new non-blocking
+   eligibility-warning toasts (rtoToast(msg, 'warning')) — admin.js already
+   builds a class name from whatever type string is passed, so a 'warning'
+   type with no matching rule would have rendered as unstyled plain text,
+   the exact platform-wide CSS defect class fixed in the previous round. */
+.rto-msg-warning { background: #fef9c3; color: #854d0e; border: 1px solid #fde68a; }
+
+/* ── Responsive ───────────────────────────────────────── */
+@media(max-width: 768px){
+  .rto-sidebar  { transform: translateX(-100%); transition: transform 0.25s; }
+  .rto-sidebar.open { transform: none; }
+  .rto-main     { margin-left: 0; }
+  .rto-kpi-grid { grid-template-columns: 1fr 1fr; }
+  .rto-detail-grid { grid-template-columns: 1fr; }
+}
+
+/* === ACCESSIBILITY FIXES (Phase 8) === */
+
+/* Skip navigation link */
+.rto-skip-link {
+  position: absolute;
+  top: -48px;
+  left: 8px;
+  background: var(--navy);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 0 0 4px 4px;
+  font-size: 14px;
+  font-weight: 600;
+  z-index: 9999;
+  text-decoration: none;
+  transition: top 0.15s;
+}
+.rto-skip-link:focus {
+  top: 0;
+  outline: 3px solid #fff;
+  outline-offset: 2px;
+}
+
+/* Visually hidden utility */
+.rto-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Focus visible on all interactive elements */
+:focus-visible {
+  outline: 3px solid var(--navy);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+.rto-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(30, 58, 95, 0.4);
+}
+.rto-nav-item:focus-visible {
+  outline: 2px solid rgba(255,255,255,.85);
+  outline-offset: -2px;
+  border-radius: 4px;
+}
+.rto-page-link:focus-visible {
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(30,58,95,.2);
+}
+
+/* Fix .rto-btn-warning missing hover (P4-CSS-002) */
+.rto-btn-warning:hover { background: #ca6f1e; color: #fff; }
+
+/* Fix transition:all anti-pattern (P4-CSS-009) */
+.rto-btn { transition: background-color .15s ease, color .15s ease, border-color .15s ease, box-shadow .15s ease; }
+.rto-nav-item { transition: background-color .15s ease, color .15s ease; }
+
+/* Loading state spinner (P4-CSS-007) */
+@keyframes rto-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.rto-btn-loading {
+  position: relative; color: transparent !important; pointer-events: none;
+}
+.rto-btn-loading::after {
+  content: ''; position: absolute; width: 14px; height: 14px;
+  top: 50%; left: 50%; margin: -7px 0 0 -7px;
+  border: 2px solid rgba(255,255,255,.5); border-top-color: #fff;
+  border-radius: 50%; animation: rto-spin .6s linear infinite;
+}
+
+/* Form error state (P4-CSS-008) */
+.rto-input.rto-error, .rto-select.rto-error, .rto-textarea.rto-error {
+  border-color: var(--red);
+  box-shadow: 0 0 0 3px rgba(192,57,43,.12);
+}
+
+/* Status badge shape differentiation (P4-CSS-013) */
+.rto-badge-success::before { content: '✓ '; }
+.rto-badge-danger::before  { content: '✕ '; }
+.rto-badge-warning::before { content: '⚠ '; }
+
+/* Print styles (P4-CSS-011) */
+@media print {
+  .rto-sidebar, .rto-topbar, .rto-sidebar-toggle { display: none !important; }
+  .rto-main { margin-left: 0 !important; }
+  .rto-content { padding: 0 !important; }
+  .rto-card { box-shadow: none !important; border: 1px solid #ddd !important; }
+  .rto-messages { /* P4-CSS-010 FIX: min-height added */ max-height: none !important; overflow: visible !important; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PART 5.2 — UI/UX & CSS AUDIT FIXES
+   ═══════════════════════════════════════════════════════════════════════
+   Found by cross-referencing every `rto-*` class actually used across
+   every *.php file under resources/views/admin (any subfolder depth) against what this stylesheet
+   actually defines — a real, mechanical audit (comm -23 of two sorted
+   class lists), not a visual guess. Every rule below fixes a class that
+   was used somewhere in the real admin UI with ZERO matching CSS, or was
+   only defined as a one-off duplicate inside a single view's own inline
+   <style> block (a real "component-specific CSS not centralized, at risk
+   of drifting" problem) rather than in this shared stylesheet. Each block
+   below is commented with exactly which real screens it fixes and why the
+   gap existed, per file:line references collected during the audit. */
+
+/* ── .rto-page-wrap / .rto-page-header — used in 34 admin view files,
+   defined NOWHERE before this fix. Every one of those 34 screens' own
+   outer content wrapper and title-row had ZERO layout rule: no max-width,
+   no consistent header spacing/border, and the header row's flex/space-
+   between/gap behavior (needed so a title and a right-aligned action
+   button/badge sit correctly side by side, e.g. Services' "Export CSV"
+   button or Complaints' "N New" badge) came from NOTHING — it only
+   happened to look right on screens that separately added .rto-lead-header
+   (which IS a real flex/space-between class) alongside .rto-page-header.
+   Any screen using .rto-page-header alone (e.g. city-pricing/index.php)
+   had its title and subtitle stacked with no defined spacing at all. ── */
+.rto-page-wrap   { max-width: 1400px; }
+.rto-page-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+.rto-page-header > div:first-child { min-width: 0; }
+
+/* ── h1.rto-page-title — .rto-page-title was originally designed for ONE
+   context: the fixed topbar (18px, font-weight 600, flex:1 — correct for
+   a slim bar). 34 admin screens then reused the SAME class on a real <h1>
+   page heading, which is a materially different job (the main heading of
+   the page's whole content area) — inheriting the topbar's 18px size
+   produced an undersized, visually-flat "page title" wherever it was used
+   this way, a real "existing platform styles being overridden/reused
+   incorrectly" defect, not a cosmetic nitpick: it actively undermines
+   page-level visual hierarchy on the majority of admin screens. Fixed with
+   a more specific selector scoped to the h1 usage only. ── */
+h1.rto-page-title { font-size: 24px; font-weight: 700; line-height: 1.25; margin: 0; }
+
+/* Part 5.9 CSS audit FIX (real, universal specificity conflict, found by
+   reading the actual DOM, not by class-existence check): the Part 5.2
+   comment above claimed a `.rto-topbar .rto-page-title` scoped rule
+   protected the topbar from the h1 rule above it — no such rule has ever
+   existed in this file. The topbar's own title (admin-header.php:90) is
+   ALSO a literal `<h1 class="rto-page-title">` — every one of the 27
+   admin/vendor/client view files greped above uses the exact same tag +
+   class for their page heading. Both are matched by the identical
+   selector `h1.rto-page-title` (specificity 0,1,1), which beats the
+   topbar's own bare `.rto-page-title` rule (0,1,0) above regardless of
+   where it sits in the DOM — so on literally every admin, vendor, and
+   client screen in this codebase, the 60px-tall sticky topbar's title has
+   actually been rendering at 24px/700 (the page-heading size), not the
+   18px/600 the topbar rule intends, silently since Part 5.2 shipped this
+   "fix". This is exactly the "wrong rule silently wins" class of defect
+   the deep audit was asked to find, not a missing-class case. Fixed by
+   giving the topbar's title a real scoped override with higher
+   specificity (0,2,1) than the bare h1 rule, so the topbar goes back to
+   its intended compact size while every real page heading elsewhere is
+   untouched. */
+.rto-topbar h1.rto-page-title { font-size: 18px; font-weight: 600; line-height: normal; }
+
+/* ── .rto-form-group — used in 16 admin view files (every Create/Edit form:
+   Services, Vendors, Email Templates, Settings, Masters, Complaints,
+   Payments, Ratings, Payouts, Reports, Staff) with ZERO layout rule
+   defined anywhere — a plain <div> with no margin, meaning every form
+   field on every one of those screens had inconsistent, browser-default
+   (i.e. effectively zero) spacing between fields, exactly the "incorrect
+   spacing" defect class this audit was asked to find. ── */
+.rto-form-group { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; min-width: 0; }
+.rto-form-group .rto-label { margin-bottom: 0; }
+
+/* ── .rto-btn--primary / --danger / --sm / --xs (DOUBLE-DASH BEM variant)
+   — a real, widespread naming-convention bug: this stylesheet has only
+   ever defined the SINGLE-dash convention (.rto-btn-primary, .rto-btn-sm,
+   etc.), but 13 real admin view files — Eligibility Rules, Form Builder
+   (both index and the Edit Field modal built earlier in this engagement),
+   Workflow Builder (both list and edit), Users, RTOs, Orders, Customizer,
+   Grievance, Settings → Feature Flags, and the shared Config Version
+   History partial used by BOTH Feature Flags and Settings → Matching —
+   use the double-dash variant instead. Every one of those buttons has
+   rendered as a bare, unstyled <button> (no color, no padding beyond the
+   browser default, no hover state) despite visually being marked as a
+   primary/danger/small/extra-small action. Fixed as alias rules pointing
+   at the exact same declarations as their single-dash counterparts, so
+   every one of those 40+ existing button elements is fixed immediately
+   without editing 13 separate view files (which would carry real
+   regression risk for zero benefit) — new admin UI work should still
+   prefer the established single-dash convention already used by the
+   majority of the codebase. ── */
+.rto-btn--primary { background: var(--navy); color: #fff; }
+.rto-btn--primary:hover { background: var(--navy-lt); color: #fff; }
+.rto-btn--danger  { background: var(--red); color: #fff; }
+.rto-btn--danger:hover { background: #a03020; color: #fff; }
+.rto-btn--sm { padding: 5px 10px; font-size: 12px; }
+.rto-btn--xs { padding: 2px 7px; font-size: 11px; }
+
+/* ── .rto-tabs / .rto-tab — used in Masters (Cities/RTOs), Settings, and
+   Email Templates, with NO CSS anywhere: tabs rendered as a flat row of
+   plain links with no visual separation from body content, no active-tab
+   indicator beyond an "active" class with nothing styling it, and no
+   spacing between tab items — genuinely broken tab UI on 3 real screens. ── */
+.rto-tabs { display: flex; gap: 4px; border-bottom: 2px solid var(--gray-200); margin-bottom: 20px; flex-wrap: wrap; }
+.rto-tab  { padding: 10px 16px; font-size: 13.5px; font-weight: 600; color: var(--gray-600); text-decoration: none; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: color .15s, border-color .15s; }
+.rto-tab:hover { color: var(--navy); }
+.rto-tab.active { color: var(--navy); border-bottom-color: var(--navy); }
+
+/* ── .rto-mb-1/2/3/4 — margin-bottom spacing utilities used across several
+   admin screens (e.g. Masters' tab row uses "rto-tabs rto-mb-4", this
+   engagement's own Help Centre view uses rto-mb-4 on its search card).
+   Only .rto-mt-1/.rto-mt-2 (margin-TOP) existed before this fix — every
+   rto-mb-* class was a complete no-op, silently collapsing whatever
+   spacing the layout was actually relying on. ── */
+.rto-mb-1 { margin-bottom: 8px; }
+.rto-mb-2 { margin-bottom: 16px; }
+.rto-mb-3 { margin-bottom: 20px; }
+.rto-mb-4 { margin-bottom: 24px; }
+
+/* ── .rto-kpi-body / .rto-top-service-info — the Dashboard (the very first
+   screen every admin sees) wraps its KPI value/label/change text in
+   .rto-kpi-body inside the flex .rto-kpi-card row, and wraps its Top
+   Services name/meta text in .rto-top-service-info inside the flex
+   .rto-top-service-row — neither wrapper had a flex rule, so neither
+   correctly claimed the remaining row width next to its icon/rank: long
+   content had no defined truncation/wrap behavior and the text column
+   was not guaranteed to actually fill the available space. ── */
+.rto-kpi-body, .rto-top-service-info { flex: 1; min-width: 0; }
+
+/* ── .rto-input-sm / .rto-select-sm — used on City Pricing's search box
+   and price-override inputs, and the Leads screen's bulk-status select,
+   specifically to render a visually smaller control inline with other
+   compact controls — with no CSS, "sm" had zero effect and every one of
+   these inputs rendered at full standard size, breaking the compact
+   inline layouts they were placed into. ── */
+.rto-input-sm, .rto-select-sm { padding: 5px 8px; font-size: 12.5px; }
+
+/* ── .rto-btn-icon — used on the Leads screen's CSV export button to
+   signal an icon-forward compact button; had no effect on its own before
+   this fix (the button still rendered correctly via its other classes,
+   but without the tighter icon alignment this modifier was clearly meant
+   to provide). ── */
+.rto-btn-icon { gap: 4px; }
+
+/* ── .rto-card-filters — a modifier used on the Leads screen's filter
+   .rto-card to signal it should read as a distinct, denser filter bar
+   rather than a normal content card; had no effect before this fix. ── */
+.rto-card-filters { padding: 4px 4px 0; background: var(--gray-50); }
+
+/* ── .rto-toggle / .rto-toggle-slider / .rto-toggle-disabled — a working
+   iOS-style toggle switch, but it existed ONLY as an inline <style> block
+   duplicated independently inside services/index.php AND
+   city-pricing/configure.php (byte-for-byte near-identical rules in two
+   places). This is exactly the "component-specific CSS... at risk of
+   drifting" problem this audit was asked to find: the two copies could
+   silently diverge over time, or a THIRD screen adding this same toggle
+   pattern would either duplicate it a third time or — more likely — be
+   built by someone unaware the pattern already exists, reinventing it
+   inconsistently. Centralized here; the two duplicate inline copies were
+   removed from their view files in this same fix (see below) so this
+   stylesheet is now the single source of truth for this component. ── */
+.rto-toggle { position: relative; display: inline-block; width: 40px; height: 22px; }
+.rto-toggle input { opacity: 0; width: 0; height: 0; }
+.rto-toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: #ccc; border-radius: 22px; transition: .3s; }
+.rto-toggle-slider::before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: .3s; }
+.rto-toggle input:checked + .rto-toggle-slider { background: var(--green); }
+.rto-toggle input:checked + .rto-toggle-slider::before { transform: translateX(18px); }
+.rto-toggle-disabled { opacity: .5; cursor: not-allowed; }
+.rto-toggle-disabled .rto-toggle-slider { cursor: not-allowed; }
+
+/* ── .rto-nav-card family / .rto-stat-banner family — the Navigation hub
+   screen's own "quick links" cards and KPI stat banner, previously defined
+   ONLY inside nav/index.php's own inline <style> block — the same
+   centralization problem as .rto-toggle above. Centralized here; the
+   duplicate inline copy was removed from nav/index.php in this same fix. ── */
+.rto-nav-section        { margin-bottom: 28px; }
+.rto-nav-section-title  { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--gray-600); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 12px; }
+.rto-nav-section-title::after { content: ''; flex: 1; height: 1px; background: var(--gray-200); }
+.rto-nav-grid  { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.rto-nav-card  { display: flex; align-items: center; gap: 12px; background: #fff; border: 1.5px solid var(--gray-200); border-radius: 10px; padding: 14px 16px; text-decoration: none; color: var(--gray-800); transition: border-color .15s, box-shadow .15s, transform .15s; }
+.rto-nav-card:hover { border-color: var(--navy); box-shadow: var(--shadow-md); transform: translateY(-1px); color: var(--navy); }
+.rto-nav-card-icon  { font-size: 24px; flex-shrink: 0; width: 42px; height: 42px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
+.rto-nav-card-text  { flex: 1; min-width: 0; }
+.rto-nav-card-title { font-size: 13px; font-weight: 700; margin-bottom: 2px; }
+.rto-nav-card-sub   { font-size: 11px; color: var(--gray-400); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rto-stat-banner { display: grid; grid-template-columns: repeat(6, 1fr); gap: 12px; margin-bottom: 24px; background: #fff; border-radius: 12px; border: 1px solid var(--gray-200); padding: 16px; box-shadow: var(--shadow); }
+.rto-stat-item   { text-align: center; }
+.rto-stat-num    { font-size: 22px; font-weight: 900; color: var(--navy); line-height: 1; }
+.rto-stat-label  { font-size: 11px; color: var(--gray-400); margin-top: 3px; }
+.rto-url-box     { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 8px; padding: 12px 14px; font-size: 12px; font-family: monospace; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rto-url-box a   { color: var(--navy); text-decoration: none; font-weight: 600; }
+.rto-url-box a:hover { text-decoration: underline; }
+.rto-copy-btn { background: #EFF6FF; color: #2563EB; border: none; padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; font-weight: 600; }
+/* Part 5.9 CSS audit FIX: this 600px block used to sit BEFORE the 768px
+   block below (line ~527 originally, ahead of line ~552). At any viewport
+   ≤600px BOTH media queries match at equal selector specificity, so the
+   cascade picks whichever rule is declared LAST in source order — which
+   was the 768px block's repeat(2,1fr)/1fr, silently overriding this
+   block's intended repeat(3,1fr)/"1fr 1fr" narrow-phone layout on every
+   phone-width viewport, not just tablet-width ones. This is the exact
+   "missing/wrong responsive breakpoint due to load order" defect class
+   named in the audit brief. Fixed by moving the narrower breakpoint AFTER
+   the wider one (mobile-last max-width ordering: 768px, then 600px), so
+   it correctly wins at ≤600px while 601–768px still gets the 768px rule. */
+@media (max-width: 768px) {
+  .rto-page-header { flex-direction: column; align-items: stretch; }
+  .rto-stat-banner { grid-template-columns: repeat(2, 1fr); }
+  .rto-nav-grid    { grid-template-columns: 1fr; }
+  .rto-tabs        { overflow-x: auto; flex-wrap: nowrap; }
+}
+@media (max-width: 600px) { .rto-stat-banner { grid-template-columns: repeat(3, 1fr); } .rto-nav-grid { grid-template-columns: 1fr 1fr; } }
+
+/* ── .rto-bulk-bar — the bulk-selection action bar (Leads, Vendors, and
+   others). Previously every call site repeated the full bar styling
+   inline (functional, but the exact "component-specific CSS... at risk of
+   drifting" pattern this audit was asked to eliminate) — centralized here
+   as the base look; call sites can still override spacing via their own
+   inline style where a screen genuinely needs a variant. ── */
+.rto-bulk-bar { padding: 10px 20px; background: var(--gray-50); border-bottom: 1px solid var(--gray-200); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ── .rto-config-row — City Pricing's per-city configuration row (used
+   alongside the .row-visible/.row-hidden state classes already defined
+   inline on that one screen). Only a :hover rule existed before this fix;
+   the row itself had no base layout, so its child elements' alignment
+   depended entirely on ad hoc inline styles at each usage. ── */
+.rto-config-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; border-radius: 6px; transition: background-color .15s; }
+
+/* ── .rto-grid — used as a generic auto-fill grid on the Customizer hub;
+   already fully specified via that one call site's own inline style, so
+   this is a base fallback only (keeps the class meaningful if reused
+   elsewhere without repeating the inline declaration every time). ── */
+.rto-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; }
+
+/* ── Responsive hardening for the fixes above (Part 5.9: this block was
+   moved up, directly after the 600px stat-banner/nav-grid rule it used to
+   sit before, to fix the media-query-order conflict documented there —
+   see the comment above the 600px rule). ── */
+
+/* ═══════════════════════════════════════════════════════════════════════
+   PART 5.7 — Order Details 360° follow-up: enterprise CRM layout
+   ═══════════════════════════════════════════════════════════════════════
+   Collapsible per-step groups for "Submitted Application Details" (reuses
+   the existing .rto-detail-grid two-column pattern already established by
+   the Order Details card on this same screen — not a new grid convention),
+   a lightweight action bar for Export/Edit/Archive/Copy-Link, and a
+   minimal modal for the core-fields Edit form. ── */
+
+.rto-order-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+.rto-step-group { border: 1px solid var(--gray-200, #e2e8f0); border-radius: 8px; margin-bottom: 12px; overflow: hidden; }
+.rto-step-group > summary {
+  cursor: pointer; list-style: none; padding: 10px 14px; font-weight: 700;
+  font-size: 12px; text-transform: uppercase; letter-spacing: .04em;
+  background: var(--gray-50, #f8fafc); color: #475569;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.rto-step-group > summary::-webkit-details-marker { display: none; }
+.rto-step-group > summary::after { content: '▸'; transition: transform .15s; }
+.rto-step-group[open] > summary::after { transform: rotate(90deg); }
+.rto-step-group .rto-detail-grid { padding: 12px 14px; margin: 0; }
+
+.rto-modal-overlay {
+  position: fixed; inset: 0; background: rgba(15,23,42,.45);
+  display: none; align-items: center; justify-content: center; z-index: 1000;
+}
+.rto-modal-overlay.is-open { display: flex; }
+.rto-modal { background: #fff; border-radius: 10px; width: 100%; max-width: 480px;
+  max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 60px rgba(0,0,0,.25); }
+.rto-modal-header { padding: 16px 20px; border-bottom: 1px solid var(--gray-200, #e2e8f0);
+  display: flex; align-items: center; justify-content: space-between; }
+.rto-modal-body { padding: 16px 20px; display: flex; flex-direction: column; gap: 12px; }
+.rto-modal-footer { padding: 14px 20px; border-top: 1px solid var(--gray-200, #e2e8f0);
+  display: flex; justify-content: flex-end; gap: 8px; }
+
+.rto-archived-banner { background: #FEF3C7; border: 1px solid #FDE68A; color: #92400E;
+  padding: 10px 16px; border-radius: 8px; margin-bottom: 16px; display: flex;
+  align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
+
+@media print {
+  .rto-order-actions, .rto-lead-header-right, #editLeadBtn, .rto-modal-overlay,
+  .rto-archived-banner { display: none !important; }
+  .rto-step-group { break-inside: avoid; }
+  .rto-step-group > summary::after { content: ''; }
+}
+
+/* Inline field-level (?) tooltips — see rto_field_tooltip() in
+   app/Support/helpers.php. One shared pattern used across admin forms
+   for fields whose purpose is not obvious from the label alone. */
+.rto-field-tip { position: relative; display: inline-flex; vertical-align: middle; margin-left: 6px; }
+.rto-field-tip__icon {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 1px solid var(--gray-300, #cbd5e1); background: var(--gray-100, #f1f5f9);
+  color: var(--gray-600, #475569); font-size: 10px; font-weight: 700; line-height: 1;
+  display: inline-flex; align-items: center; justify-content: center; cursor: help; padding: 0;
+}
+.rto-field-tip__icon:hover, .rto-field-tip__icon:focus, .rto-field-tip__icon:focus-visible {
+  background: var(--rto-primary, #2563eb); border-color: var(--rto-primary, #2563eb); color: #fff; outline: none;
+}
+.rto-field-tip__bubble {
+  position: absolute; z-index: 50; bottom: calc(100% + 6px); left: 50%;
+  transform: translateX(-50%) translateY(4px); min-width: 180px; max-width: 260px;
+  background: #1e293b; color: #f8fafc; font-size: 12px; font-weight: 400; line-height: 1.4;
+  padding: 8px 10px; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.2);
+  opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .12s ease, transform .12s ease;
+}
+.rto-field-tip__icon:hover + .rto-field-tip__bubble,
+.rto-field-tip__icon:focus + .rto-field-tip__bubble,
+.rto-field-tip__icon:focus-visible + .rto-field-tip__bubble {
+  opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0);
+}

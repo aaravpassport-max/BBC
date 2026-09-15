@@ -1,0 +1,30 @@
+# ENTERPRISE GAP FIX (Phase 11, item — "No CDN/cache-header strategy
+# in-app"): rto_asset_version() already busts the cache correctly by
+# appending the plugin version as a query string to every enqueued CSS/JS
+# URL (see Bootstrap::enqueuePublicAssets()/enqueueAdminAssets()), but
+# nothing previously told the browser or any CDN/origin-shield sitting in
+# front of this server how long it may cache the underlying files
+# themselves — these were served with whatever default the web server
+# happened to apply, typically no explicit Cache-Control at all. Because
+# every request for these files already carries a version-derived
+# cache-busting query string, it is always safe to mark the files
+# themselves far-future/immutable: a plugin upgrade changes the URL (new
+# ?ver=...), not the file in place, so a stale cached copy under the OLD
+# url can never be served for the NEW version. This is applied here, at
+# the asset directory itself (something the app DOES control), rather
+# than left entirely to external CDN/origin-shield configuration.
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType text/javascript "access plus 1 year"
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType font/woff "access plus 1 year"
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header set Cache-Control "public, max-age=31536000, immutable"
+</IfModule>
