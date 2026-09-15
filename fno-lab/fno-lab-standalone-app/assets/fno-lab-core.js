@@ -64,7 +64,7 @@ let fnoAutoTradeCloseInProgress = false;
  */
 const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
-const FNO_SETTINGS_SCHEMA_VERSION = 11; // v11 (16.34.0): TSE opening range + impulse/slope settings
+const FNO_SETTINGS_SCHEMA_VERSION = 12; // v12 (16.35.0): Scalping Profit Engine settings
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -131,6 +131,33 @@ const FNO_SETTINGS_DEFAULTS = {
   minEmaSlopePoints: 0.15,
   openingRangeMinutes: 15,
   candleIntervalMinutes: 1,
+  // Scalping Profit Engine — independent layered decision pipeline (paper-first default).
+  scalpingProfitEngineEnabled: true,
+  scalpingProfitEngineMode: 'PAPER_ONLY', // OFF | ON | PAPER_ONLY | SIGNAL_ONLY
+  speMinTradeQualityScore: 70,
+  speMinRegimeConfidence: 60,
+  speMinDirectionConfidence: 65,
+  speAntiChaseThresholdPct: 75,
+  speSpreadThresholdPct: 0.12,
+  speMinExpectedMovePts: 8,
+  speMinRiskReward: 1.5,
+  speMaxHoldingMinutes: 12,
+  speTimeStopMinutes: 8,
+  speMaxTradesPerSession: 8,
+  speMaxConsecutiveLosses: 3,
+  speCooldownSeconds: 90,
+  speMinLiquidityScore: 50,
+  speMinTimeBetweenTradesSec: 60,
+  speChopMinScoreBoost: 10,
+  speTargetSlow: 10,
+  speTargetMedium: 15,
+  speTargetFast: 20,
+  speProfitProtectionPct: 50,
+  speTradeHealthExitThreshold: 30,
+  speMomentumThreshold: 55,
+  speSlippageEstimatePts: 0.5,
+  speSafetyMarginPts: 1,
+  speEventRiskEnabled: false,
   maxLosingTradesPerDay: 1,
   maxDailyLossPctPreservation: 1.5,
   // Scalping bracket preset: standard 20% (default) | balanced 25% | manual (save your own %)
@@ -672,6 +699,10 @@ function computeBracketPrices(optPrice, cfg) {
 function resolveTradeBracketForEntry(optPrice, tradingType, ctx, brain, optionType) {
   if (typeof optPrice !== 'number' || !Number.isFinite(optPrice) || optPrice <= 0) {
     return { target: null, sl: null, source: 'invalid_price' };
+  }
+  if (tradingType === 'scalping' && typeof resolveScalpingProfitBracket === 'function') {
+    const spe = resolveScalpingProfitBracket(optPrice, ctx, brain, tradingType, optionType);
+    if (spe && spe.target && spe.sl) return spe;
   }
   if (tradingType === 'scalping' && typeof resolveTradeSetupBracket === 'function') {
     const tse = resolveTradeSetupBracket(optPrice, ctx, brain, tradingType, optionType);
@@ -10211,6 +10242,9 @@ function buildEntrySnapshot(brain, ctx, sym) {
     tradeSetupDecision: (brain && brain.tradeSetupDecision)
       ? brain.tradeSetupDecision
       : (typeof makeTradeDecision === 'function' ? makeTradeDecision(ctx, brain, {}) : null),
+    scalpingProfitDecision: (brain && brain.scalpingProfitDecision)
+      ? brain.scalpingProfitDecision
+      : (typeof computeScalpingProfitEngine === 'function' ? computeScalpingProfitEngine(ctx, brain, {}) : null),
   };
 }
 const FNO_STRATEGY_VERSION = 'v1.0-baseline'; // Master Prompt §34: every strategy change must create a new version and be stored on every trade this version influenced - bump this string (and log the change in PROJECT_STATUS.md) whenever evaluateBrain's decision logic, thresholds, or factor weights actually change
@@ -15390,6 +15424,24 @@ function render(){
     if (pbEl) pbEl.checked = s.tradeSetupEngineEnabled !== false && s.pullbackContinuationEnabled !== false;
     const pbLbl = document.getElementById('pullbackContinuationStatusLabel');
     if (pbLbl) pbLbl.textContent = (s.tradeSetupEngineEnabled !== false && s.pullbackContinuationEnabled !== false) ? 'ON' : 'OFF';
+    const speEl = document.getElementById('settingScalpingProfitEngine');
+    if (speEl) speEl.checked = s.scalpingProfitEngineEnabled !== false;
+    const speLbl = document.getElementById('scalpingProfitEngineStatusLabel');
+    if (speLbl) speLbl.textContent = (s.scalpingProfitEngineEnabled !== false && s.scalpingProfitEngineMode !== 'OFF') ? 'ON' : 'OFF';
+    const speModeEl = document.getElementById('settingScalpingProfitEngineMode');
+    if (speModeEl) speModeEl.value = s.scalpingProfitEngineMode || 'PAPER_ONLY';
+    const speFields = [
+      ['settingSpeMinTradeQualityScore', 'speMinTradeQualityScore', 70],
+      ['settingSpeMinRegimeConfidence', 'speMinRegimeConfidence', 60],
+      ['settingSpeAntiChaseThresholdPct', 'speAntiChaseThresholdPct', 75],
+      ['settingSpeMaxHoldingMinutes', 'speMaxHoldingMinutes', 12],
+      ['settingSpeCooldownSeconds', 'speCooldownSeconds', 90],
+      ['settingSpeMaxTradesPerSession', 'speMaxTradesPerSession', 8],
+    ];
+    speFields.forEach(([id, key, fallback]) => {
+      const el = document.getElementById(id);
+      if (el) el.value = (typeof s[key] === 'number') ? s[key] : fallback;
+    });
     const tseFields = [
       ['settingFastMovementThreshold', 'fastMovementThreshold', 65],
       ['settingMediumMovementThreshold', 'mediumMovementThreshold', 40],
@@ -15531,6 +15583,44 @@ function render(){
       }
     });
   }
+  const speCheckbox = document.getElementById('settingScalpingProfitEngine');
+  if (speCheckbox) {
+    speCheckbox.addEventListener('change', (e) => {
+      fnoSettings.set({ scalpingProfitEngineEnabled: e.target.checked });
+      const lbl = document.getElementById('scalpingProfitEngineStatusLabel');
+      const s = fnoSettings.get();
+      if (lbl) lbl.textContent = (s.scalpingProfitEngineEnabled !== false && s.scalpingProfitEngineMode !== 'OFF') ? 'ON' : 'OFF';
+      if (typeof renderScalpingProfitDashboard === 'function' && window.FNO_LAST_SPE) {
+        renderScalpingProfitDashboard(window.FNO_LAST_SPE);
+      }
+    });
+  }
+  const speModeSelect = document.getElementById('settingScalpingProfitEngineMode');
+  if (speModeSelect) {
+    speModeSelect.addEventListener('change', (e) => {
+      fnoSettings.set({ scalpingProfitEngineMode: e.target.value });
+      const lbl = document.getElementById('scalpingProfitEngineStatusLabel');
+      const s = fnoSettings.get();
+      if (lbl) lbl.textContent = (s.scalpingProfitEngineEnabled !== false && s.scalpingProfitEngineMode !== 'OFF') ? 'ON' : 'OFF';
+    });
+  }
+  const speSettingBindings = [
+    ['settingSpeMinTradeQualityScore', 'speMinTradeQualityScore', 40, 95],
+    ['settingSpeMinRegimeConfidence', 'speMinRegimeConfidence', 30, 95],
+    ['settingSpeAntiChaseThresholdPct', 'speAntiChaseThresholdPct', 50, 95],
+    ['settingSpeMaxHoldingMinutes', 'speMaxHoldingMinutes', 2, 60],
+    ['settingSpeCooldownSeconds', 'speCooldownSeconds', 0, 600],
+    ['settingSpeMaxTradesPerSession', 'speMaxTradesPerSession', 1, 30],
+  ];
+  speSettingBindings.forEach(([id, key, min, max]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', (e) => {
+      const v = parseFloat(e.target.value);
+      if (Number.isFinite(v) && v >= min && v <= max) fnoSettings.set({ [key]: v });
+      else e.target.value = fnoSettings.get()[key];
+    });
+  });
   const tseSettingBindings = [
     ['settingFastMovementThreshold', 'fastMovementThreshold', 40, 95],
     ['settingMediumMovementThreshold', 'mediumMovementThreshold', 20, 80],
@@ -16370,6 +16460,18 @@ function render(){
         }
       } catch (tseErr) {
         console.warn('Trade Setup Engine failed (non-critical):', tseErr);
+      }
+      try {
+        if (typeof computeScalpingProfitEngine === 'function') {
+          const spe = computeScalpingProfitEngine(refreshCtx, brain, { journalToday: todayTrades });
+          applyScalpingProfitInfluence(brain, spe);
+          refreshCtx.scalpingProfitDecision = spe;
+          window.FNO_LAST_SPE = spe;
+          logScalpingProfitDecision(spe, sym, brain);
+          renderScalpingProfitDashboard(spe);
+        }
+      } catch (speErr) {
+        console.warn('Scalping Profit Engine failed (non-critical):', speErr);
       }
       // Real, NEW this pass (Advanced Trading Intelligence spec §3/§16) -
       // cached to a window global, same real pattern as
@@ -17577,6 +17679,14 @@ function render(){
           closeAutoTrade(open, leg, 'invalidated', sym);
           return;
         }
+        if (typeof evaluateScalpingProfitExit === 'function' && open.scalpingProfitTrade) {
+          const speExit = evaluateScalpingProfitExit(open, curCtx, lastBrain, liveNow);
+          if (speExit && speExit.exit) {
+            document.getElementById('brainLog').textContent += `\n⚡ SPE exit: ${speExit.label}`;
+            closeAutoTrade(open, leg, speExit.reason === 'PROFIT_PROTECTION' ? 'target' : 'sl', sym);
+            return;
+          }
+        }
       }
       // Master Prompt §27: paper engine must simulate "forced square-off"
       // - real, using the same user-configured broker time already
@@ -17776,6 +17886,18 @@ function render(){
           ? null : null,
       });
       if (typeof renderTradeSetupAnalytics === 'function') renderTradeSetupAnalytics();
+    }
+    if (typeof recordScalpingProfitOutcome === 'function' && open.scalpingProfitTrade) {
+      recordScalpingProfitOutcome(open.id, {
+        pnl: costs.netPnl,
+        exitReason: exitReason || actionLabel,
+        mfe: open.mfe,
+        mae: open.mae,
+        exitPrice,
+        entryPrice: open.entryPrice,
+        holdingMs: open.openedAt ? (Date.now() - open.openedAt) : null,
+      });
+      if (typeof renderScalpingProfitAnalytics === 'function') renderScalpingProfitAnalytics();
     }
     notifyTradeExecution({
       kind: 'exit',
@@ -17999,6 +18121,13 @@ function render(){
     if (existing && existing.id) { return { opened: false, reason: 'Position already open' }; } // real, honest no-op for the autonomous path - not an error, just nothing to do this cycle
     if (!target || !sl || sl>=leg.lastPrice || target<=leg.lastPrice) { reportFn('Target must be above, and SL below, the current live premium.'); return { opened: false }; }
 
+    if (typeof checkScalpingProfitEntryGate === 'function' && timeSufficiencyType === 'scalping') {
+      const speGate = checkScalpingProfitEntryGate(lastBrain, curCtx, optionType);
+      if (!speGate.allowed) {
+        reportFn(speGate.reason);
+        return { opened: false, reason: speGate.reason, rejectionCategory: FNO_EXEC_REJECTION.STRATEGY_RULE, rejectionSubcategory: 'scalping_profit_engine' };
+      }
+    }
     if (typeof checkTradeSetupEntryGate === 'function' && timeSufficiencyType === 'scalping') {
       const tseGate = checkTradeSetupEntryGate(lastBrain, curCtx, optionType);
       if (!tseGate.allowed) {
@@ -18307,8 +18436,11 @@ function render(){
     const entrySpot = (curCtx && typeof curCtx.spot === 'number') ? curCtx.spot : null;
     const entryCandleTs = (curCtx && Array.isArray(curCtx.candles) && curCtx.candles.length) ? curCtx.candles[curCtx.candles.length - 1].t : null;
     const openTradeId = Date.now();
-    save(STORAGE.autoTrades, {id:openTradeId, strike, optionType, entryPrice:fill.price, fillIsRealistic:fill.isRealistic, executionMode:execMode, qty:filledLotSize, requestedQty: lotSize, fillIsPartial: partialFillInfo.isPartial, decisionTimePrice, entrySlippagePct: slippageCheck.slippagePct, target, sl, openedAt:Date.now(), entrySnapshot: entrySnapshotWithFailureCheck, trailingEnabled, trailingSl: sl, partialExitEnabled, partialTaken:false, mfe:fill.price, mae:fill.price, entryIV: (curCtx && curCtx.decay && curCtx.decay.snapshot && typeof curCtx.decay.snapshot.iv === 'number') ? curCtx.decay.snapshot.iv : null, failureModeCheck: fmResult, tradingType: effectiveTradingType, entrySpot, entryCandleTs});
+    const speSnap = lastBrain && lastBrain.scalpingProfitDecision ? lastBrain.scalpingProfitDecision : null;
+    const isSpeTrade = !!(speSnap && speSnap.active && speSnap.entryAllowed && isScalpingProfitEngineActive());
+    save(STORAGE.autoTrades, {id:openTradeId, strike, optionType, entryPrice:fill.price, fillIsRealistic:fill.isRealistic, executionMode:execMode, qty:filledLotSize, requestedQty: lotSize, fillIsPartial: partialFillInfo.isPartial, decisionTimePrice, entrySlippagePct: slippageCheck.slippagePct, target, sl, openedAt:Date.now(), entrySnapshot: entrySnapshotWithFailureCheck, trailingEnabled, trailingSl: sl, partialExitEnabled, partialTaken:false, mfe:fill.price, mae:fill.price, entryIV: (curCtx && curCtx.decay && curCtx.decay.snapshot && typeof curCtx.decay.snapshot.iv === 'number') ? curCtx.decay.snapshot.iv : null, failureModeCheck: fmResult, tradingType: effectiveTradingType, entrySpot, entryCandleTs, scalpingProfitTrade: isSpeTrade, scalpingProfitSnapshot: isSpeTrade ? speSnap : null});
     if (typeof linkPaperValidationTradeId === 'function') linkPaperValidationTradeId(openTradeId);
+    if (typeof linkScalpingProfitTradeId === 'function' && isSpeTrade && speSnap) linkScalpingProfitTradeId(openTradeId, speSnap);
     if (typeof logModeTradeOpen === 'function' && lastBrain) {
       logModeTradeOpen(openTradeId, lastBrain, curCtx, {
         sym,

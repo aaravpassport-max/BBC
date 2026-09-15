@@ -319,6 +319,19 @@ body.fno-nse-disabled .nse-only-section{display:none}
     <div style="margin-bottom:18px;padding:12px;background:#422006;border:1px solid #92400e;border-radius:10px">
       <div style="font-size:12px;font-weight:700;color:#fde68a;margin-bottom:8px">⚡ Scalping Profit Profile <span id="scalpingProfitProfileStatusLabel" style="margin-left:8px;color:#94a3b8;font-weight:400">OFF</span></div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingScalpingProfitProfile"> Enable profile — more scalp entries with safety rails (spread block, weighted-score gate, tight target/SL, 65% auto-cal)</label>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingScalpingProfitEngine"> 🎯 Scalping Profit Engine (layered decision pipeline) <span id="scalpingProfitEngineStatusLabel" style="margin-left:auto;color:#64748b">ON</span></label>
+      <div id="scalpingProfitEngineSettings" style="font-size:11px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px">
+        <div style="margin-bottom:6px">Mode: <select id="settingScalpingProfitEngineMode" class="input" style="max-width:200px"><option value="OFF">OFF</option><option value="ON">ON</option><option value="PAPER_ONLY" selected>PAPER ONLY</option><option value="SIGNAL_ONLY">SIGNAL ONLY</option></select></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <label>Min quality <input type="number" id="settingSpeMinTradeQualityScore" min="40" max="95" step="1" value="70" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
+          <label>Min regime % <input type="number" id="settingSpeMinRegimeConfidence" min="30" max="95" step="1" value="60" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
+          <label>Anti-chase % <input type="number" id="settingSpeAntiChaseThresholdPct" min="50" max="95" step="1" value="75" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
+          <label>Max hold min <input type="number" id="settingSpeMaxHoldingMinutes" min="2" max="60" step="1" value="12" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
+          <label>Cooldown sec <input type="number" id="settingSpeCooldownSeconds" min="0" max="600" step="10" value="90" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
+          <label>Max trades <input type="number" id="settingSpeMaxTradesPerSession" min="1" max="30" step="1" value="8" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
+        </div>
+        <div style="font-size:10px;color:#64748b;margin-top:4px">Independent scalping methodology — market safety → regime → direction → setup → entry timing → trade quality → enter/NO TRADE. Default PAPER ONLY. Every setting changes runtime behavior.</div>
+      </div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingPullbackContinuation"> 📊 Trade Setup Engine (8 setups · dynamic 10/15/20pt targets) <span id="pullbackContinuationStatusLabel" style="margin-left:auto;color:#64748b">ON</span></label>
       <div style="font-size:10px;color:#64748b;margin-bottom:6px">Detects EMA pullback, breakout retest, structure, VWAP, consolidation, compression, failed breakout, and momentum setups. Movement FAST/MEDIUM/SLOW selects 20/15/10pt targets; INSUFFICIENT = no trade. Every setting below changes runtime decisions.</div>
       <div id="tradeSetupEngineSettings" style="font-size:11px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px">
@@ -547,6 +560,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
         </div>
         <div style="font-size:10px;color:#64748b;margin-bottom:8px">While ON, this tab automatically re-runs the full observe-analyse-decide-monitor-exit cycle every 15 seconds (Scalping) or 60 seconds (Intraday) during real NSE market hours (9:15am-3:30pm IST, Mon-Fri) - no manual clicking needed. Honest limit: this only runs while this browser tab stays open; closing it pauses everything until you return.</div>
         <div id="scalpingSessionReadinessBox" style="display:none;margin-bottom:10px;padding:10px;background:#422006;border:1px solid #92400e;border-radius:10px"></div>
+        <div id="scalpingProfitEngineBox" style="display:none;margin-bottom:10px;padding:10px;background:#1a1a2e;border:1px solid #4c1d95;border-radius:10px;font-size:11px"></div>
         <div id="pullbackContinuationBox" style="display:none;margin-bottom:10px;padding:10px;background:#422006;border:1px solid #92400e;border-radius:10px"></div>
         <div id="tradeSetupPerformanceBox" style="display:none;margin-bottom:10px;padding:10px;background:#0c1a2e;border:1px solid #1e3a5f;border-radius:10px;font-size:11px"></div>
         <div id="tradeSetupValidationBox" style="display:none;margin-bottom:10px;padding:10px;background:#0f172a;border:1px solid #334155;border-radius:10px;font-size:11px"></div>
@@ -959,6 +973,7 @@ window.FNO_FACTORS_CATALOG = <?php echo $json ? wp_json_encode($json) : '[]'; ?>
 <?php include __DIR__ . '/trading-modes-engine.js'; ?>
 <?php include __DIR__ . '/liquidity-behaviour-engine.js'; ?>
 <?php include __DIR__ . '/trade-setup-engine.js'; ?>
+<?php include __DIR__ . '/scalping-profit-engine.js'; ?>
 <?php include __DIR__ . '/strategy-diagnostic-report.js'; ?>
 </script>
 <?php endif; ?>

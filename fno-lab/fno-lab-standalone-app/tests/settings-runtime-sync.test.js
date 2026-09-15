@@ -91,4 +91,10 @@ assert.ok(/renderScalpingSessionReadiness\(window\.FNO_LAST_BRAIN/.test(coreSrc)
 assert.ok(!/modeProfile && modeProfile\.capitalPreservation\s*\?\s*`🛡️ Capital preservation ON/.test(coreSrc),
   'readiness panel must not show preservation ON from mode profile alone');
 
+assert.ok(/scalpingProfitEngineEnabled/.test(coreSrc));
+assert.ok(/speMinTradeQualityScore/.test(coreSrc));
+assert.ok(/FNO_SETTINGS_SCHEMA_VERSION = 12/.test(coreSrc));
+assert.ok(/applyScalpingProfitInfluence/.test(coreSrc));
+assert.ok(/checkScalpingProfitEntryGate/.test(coreSrc));
+
 console.log('All settings-runtime-sync tests passed.');
