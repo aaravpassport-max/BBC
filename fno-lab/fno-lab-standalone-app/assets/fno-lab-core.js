@@ -824,6 +824,45 @@ function isScalpingProfitProfileActive() {
   return !!(s.scalpingProfitProfileEnabled && s.tradingTypes && s.tradingTypes.scalping);
 }
 
+/** Updates Settings modal helper text for Scalping Profit Engine mode + active-scalper recommendation. */
+function updateScalpingProfitEngineSettingsHint() {
+  if (typeof document === 'undefined') return;
+  const modeEl = document.getElementById('settingScalpingProfitEngineMode');
+  const modeHint = document.getElementById('settingScalpingProfitEngineModeHint');
+  const goalHint = document.getElementById('settingScalpingProfitEngineGoalHint');
+  const settingsBox = document.getElementById('scalpingProfitEngineSettings');
+  const enabledEl = document.getElementById('settingScalpingProfitEngine');
+  const s = fnoSettings.get();
+  const enabled = enabledEl ? enabledEl.checked : s.scalpingProfitEngineEnabled !== false;
+  const mode = modeEl ? modeEl.value : (s.scalpingProfitEngineMode || 'PAPER_ONLY');
+  if (settingsBox) settingsBox.style.display = enabled ? 'block' : 'none';
+  const modeTexts = {
+    OFF: 'OFF — SPE is asleep. No analysis, no dashboard, no blocking. Brain + Trade Setup Engine run without this extra layer.',
+    PAPER_ONLY: 'PAPER ONLY — SPE runs the full check (spread, timing, quality, regime) and can block bad scalps in paper trading. Good default while proving the rules work. Most refreshes will still be NO TRADE — that protects you from junk fills, not “missed opportunity” by itself.',
+    ON: 'ON — Same enforcement as Paper Only in this app today: SPE can block entries that fail its quality bar. Use when you trust the rules after paper validation. Does not bypass brain, TSE, or failure-mode gates.',
+    SIGNAL_ONLY: 'SIGNAL ONLY — SPE shows regime, score, setup, and why it would skip — but never blocks a trade. Best when you want maximum entries while you compare SPE’s opinion to your own scalping eye.',
+  };
+  if (modeHint) {
+    modeHint.textContent = modeTexts[mode] || modeTexts.PAPER_ONLY;
+    modeHint.style.color = mode === 'SIGNAL_ONLY' ? '#a5b4fc' : mode === 'OFF' ? '#64748b' : '#86efac';
+  }
+  if (goalHint) {
+    const showGoal = enabled && mode !== 'OFF';
+    goalHint.style.display = showGoal ? 'block' : 'none';
+    if (showGoal) {
+      goalHint.innerHTML = '<div style="font-weight:700;color:#fde68a;margin-bottom:4px">Recommended for active short-term scalping (many quick trades)</div>'
+        + '<div style="line-height:1.45">Real scalpers take <b>good</b> moves often — not every tick. SPE skips wide spread, late chase, and chop; that raises net P&amp;L even if trade count drops.</div>'
+        + '<ul style="margin:6px 0 0 16px;padding:0;line-height:1.45">'
+        + '<li><b>Week 1:</b> Mode <b>SIGNAL ONLY</b> + Entry mode <b>Balanced</b> or <b>Opportunity</b> — watch the SPE panel; nothing blocked.</li>'
+        + '<li><b>Week 2:</b> Mode <b>PAPER ONLY</b> — lower Min quality to <b>62–65</b>, Cooldown <b>30–45s</b>, Max trades <b>12–15</b> if Learning shows filters reject more losers than winners.</li>'
+        + '<li>Keep spread block + capital preservation ON — pros skip bad fills too.</li>'
+        + '<li>Use the <b>Learning</b> panel: loosen only filters that blocked more winners than losers.</li>'
+        + '</ul>'
+        + '<div style="margin-top:6px;color:#94a3b8">Honest limit: SPE + TSE both apply on scalps — two quality layers, not “trade everything always.”</div>';
+    }
+  }
+}
+
 function getEffectiveDecisionThresholds() {
   if (isScalpingProfitProfileActive() && typeof getModeEffectiveThresholds === 'function') {
     return getModeEffectiveThresholds();
@@ -15442,6 +15481,7 @@ function render(){
       const el = document.getElementById(id);
       if (el) el.value = (typeof s[key] === 'number') ? s[key] : fallback;
     });
+    if (typeof updateScalpingProfitEngineSettingsHint === 'function') updateScalpingProfitEngineSettingsHint();
     const tseFields = [
       ['settingFastMovementThreshold', 'fastMovementThreshold', 65],
       ['settingMediumMovementThreshold', 'mediumMovementThreshold', 40],
@@ -15593,6 +15633,7 @@ function render(){
       if (typeof renderScalpingProfitDashboard === 'function' && window.FNO_LAST_SPE) {
         renderScalpingProfitDashboard(window.FNO_LAST_SPE);
       }
+      if (typeof updateScalpingProfitEngineSettingsHint === 'function') updateScalpingProfitEngineSettingsHint();
     });
   }
   const speModeSelect = document.getElementById('settingScalpingProfitEngineMode');
@@ -15602,6 +15643,7 @@ function render(){
       const lbl = document.getElementById('scalpingProfitEngineStatusLabel');
       const s = fnoSettings.get();
       if (lbl) lbl.textContent = (s.scalpingProfitEngineEnabled !== false && s.scalpingProfitEngineMode !== 'OFF') ? 'ON' : 'OFF';
+      if (typeof updateScalpingProfitEngineSettingsHint === 'function') updateScalpingProfitEngineSettingsHint();
     });
   }
   const speSettingBindings = [

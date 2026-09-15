@@ -115,7 +115,9 @@ assert.ok(/checkScalpingProfitEntryGate/.test(coreSrc));
 assert.ok(/computeScalpingProfitEngine/.test(coreSrc));
 assert.ok(/scalping-profit-engine\.js/.test(phpSrc));
 assert.ok(/scalpingProfitEngineBox/.test(phpSrc));
-assert.ok(/settingScalpingProfitEngine/.test(phpSrc));
+assert.ok(/settingScalpingProfitEngineModeHint/.test(phpSrc));
+assert.ok(/updateScalpingProfitEngineSettingsHint/.test(coreSrc));
+assert.ok(/settingScalpingProfitEngineGoalHint/.test(phpSrc));
 assert.ok(/scalpingProfitEngineEnabled/.test(coreSrc));
 assert.ok(Object.keys(api.FNO_SPE_SETTING_META).length >= 15);
 

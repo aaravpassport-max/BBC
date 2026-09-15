@@ -321,7 +321,16 @@ body.fno-nse-disabled .nse-only-section{display:none}
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingScalpingProfitProfile"> Enable profile — more scalp entries with safety rails (spread block, weighted-score gate, tight target/SL, 65% auto-cal)</label>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingScalpingProfitEngine"> 🎯 Scalping Profit Engine (layered decision pipeline) <span id="scalpingProfitEngineStatusLabel" style="margin-left:auto;color:#64748b">ON</span></label>
       <div id="scalpingProfitEngineSettings" style="font-size:11px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px">
-        <div style="margin-bottom:6px">Mode: <select id="settingScalpingProfitEngineMode" class="input" style="max-width:200px"><option value="OFF">OFF</option><option value="ON">ON</option><option value="PAPER_ONLY" selected>PAPER ONLY</option><option value="SIGNAL_ONLY">SIGNAL ONLY</option></select></div>
+        <div style="margin-bottom:6px">Mode:
+          <select id="settingScalpingProfitEngineMode" class="input" style="max-width:220px;margin-left:4px" title="How strictly SPE affects entries">
+            <option value="OFF">OFF — engine asleep</option>
+            <option value="ON">ON — enforce rules (post-validation)</option>
+            <option value="PAPER_ONLY" selected>PAPER ONLY — enforce in paper (default)</option>
+            <option value="SIGNAL_ONLY">SIGNAL ONLY — show only, never block</option>
+          </select>
+        </div>
+        <div id="settingScalpingProfitEngineModeHint" style="font-size:10px;color:#86efac;margin-bottom:8px;line-height:1.45;padding:6px;background:#0f172a;border-radius:6px;border:1px solid #1e293b">PAPER ONLY — SPE runs the full check and can block bad scalps in paper trading.</div>
+        <div id="settingScalpingProfitEngineGoalHint" style="display:none;font-size:10px;color:#cbd5e1;margin-bottom:8px;line-height:1.45;padding:8px;background:#1e1b4b;border-radius:6px;border:1px solid #4c1d95"></div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
           <label>Min quality <input type="number" id="settingSpeMinTradeQualityScore" min="40" max="95" step="1" value="70" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
           <label>Min regime % <input type="number" id="settingSpeMinRegimeConfidence" min="30" max="95" step="1" value="60" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
@@ -330,7 +339,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
           <label>Cooldown sec <input type="number" id="settingSpeCooldownSeconds" min="0" max="600" step="10" value="90" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
           <label>Max trades <input type="number" id="settingSpeMaxTradesPerSession" min="1" max="30" step="1" value="8" style="width:48px;background:#0f172a;border:1px solid #1e293b;border-radius:4px;color:#e2e8f0;padding:2px 4px"></label>
         </div>
-        <div style="font-size:10px;color:#64748b;margin-top:4px">Independent scalping methodology — market safety → regime → direction → setup → entry timing → trade quality → enter/NO TRADE. Default PAPER ONLY. Every setting changes runtime behavior.</div>
+        <div style="font-size:10px;color:#64748b;margin-top:4px">Pipeline: market safety → regime → direction → setup → entry timing → trade quality → enter or NO TRADE. Every number above changes live decisions. Modes explained in the box above.</div>
       </div>
       <label style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;cursor:pointer"><input type="checkbox" id="settingPullbackContinuation"> 📊 Trade Setup Engine (8 setups · dynamic 10/15/20pt targets) <span id="pullbackContinuationStatusLabel" style="margin-left:auto;color:#64748b">ON</span></label>
       <div style="font-size:10px;color:#64748b;margin-bottom:6px">Detects EMA pullback, breakout retest, structure, VWAP, consolidation, compression, failed breakout, and momentum setups. Movement FAST/MEDIUM/SLOW selects 20/15/10pt targets; INSUFFICIENT = no trade. Every setting below changes runtime decisions.</div>
