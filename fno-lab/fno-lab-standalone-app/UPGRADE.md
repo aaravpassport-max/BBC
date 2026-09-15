@@ -25,10 +25,10 @@ Every release uses the **same zip name** and **same folder name** so updates rep
 
 Always use **`fno-lab-standalone-app.zip`** at the **repository root** (not a copy under `fno-lab/`) and keep a **single** folder: **`fno-lab-standalone-app`**.
 
-## Download (v16.31.3 — use GitHub Release, not stale branch links)
+## Download (v16.36.0 — use GitHub Release, not stale branch links)
 
 **Recommended (pinned release asset):**  
-https://github.com/aaravpassport-max/BBC/releases/download/v16.34.0/fno-lab-standalone-app.zip
+https://github.com/aaravpassport-max/BBC/releases/download/v16.36.0/fno-lab-standalone-app.zip
 
 **Alternate (commit-pinned raw):**  
 https://raw.githubusercontent.com/aaravpassport-max/BBC/cursor/liquidity-trap-engine-439c/fno-lab-standalone-app.zip
