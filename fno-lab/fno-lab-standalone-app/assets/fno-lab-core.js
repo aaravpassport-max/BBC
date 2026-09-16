@@ -1032,6 +1032,30 @@ const FNO_EXEC_REJECTION = {
   EXECUTION_FAILED: 'valid_order_execution_failed',
   TECHNICAL: 'technical_or_data_error',
 };
+/**
+ * Raw BUY/SELL from evaluateBrain() before TSE/SPE downgrade the displayed
+ * brain.decision to WAIT. Autonomous paper opens must key off this signal so
+ * overlay engines can veto in tryOpenAutoTradePosition without silencing the
+ * auto-open path entirely.
+ */
+function resolveStrategyEntryDecision(brain) {
+  if (!brain) return null;
+  const sig = brain.strategySignalDecision;
+  if (sig === 'BUY_READY' || sig === 'SELL_READY') return sig;
+  if (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY') return brain.decision;
+  return null;
+}
+
+/** Direction for opening a position — autonomous uses strategy signal when TSE/SPE downgraded UI decision. */
+function resolveEntryDirectionDecision(brain) {
+  if (!brain) return null;
+  const autonomousOn = typeof localStorage !== 'undefined' && localStorage.getItem('fno_autonomous_mode_enabled') === 'true';
+  if (autonomousOn && (brain.strategySignalDecision === 'BUY_READY' || brain.strategySignalDecision === 'SELL_READY')) {
+    return brain.strategySignalDecision;
+  }
+  return brain.decision;
+}
+
 function classifyExecutionRejection(decision, blockReason, extra) {
   extra = extra || {};
   if (decision !== 'BUY_READY' && decision !== 'SELL_READY') {
@@ -16733,6 +16757,7 @@ function render(){
       };
 
       const brain=evaluateBrain(refreshCtx);
+      brain.strategySignalDecision = brain.decision;
       lastBrain=brain;
       window.FNO_LAST_BRAIN = brain;
       window.FNO_LAST_CTX = refreshCtx;
@@ -16851,14 +16876,15 @@ function render(){
       // real reason is known.
       let decisionLogTradeOpened = false;
       let decisionLogFailureModeResult = null;
-      let decisionLogBlockReason = (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY')
+      const strategyEntryDecision = resolveStrategyEntryDecision(brain);
+      let decisionLogBlockReason = strategyEntryDecision
         ? 'Autonomous Mode is not enabled - a real BUY/SELL signal existed this refresh but no automatic open was attempted.'
         : (brain.decision === 'NO_TRADE' ? `Critical fail: ${(brain.criticalFails||[]).map(f=>f.factor).join(', ') || 'unspecified'}` : 'No directional signal this refresh (WAIT).');
-      if (localStorage.getItem('fno_autonomous_mode_enabled') === 'true' && (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY')) {
+      if (localStorage.getItem('fno_autonomous_mode_enabled') === 'true' && strategyEntryDecision) {
         const existingPosition = loadObj(STORAGE.autoTrades);
         if (existingPosition && existingPosition.id) { decisionLogBlockReason = 'A position is already open - no new position can be opened until it closes.'; }
         if (!existingPosition || !existingPosition.id) {
-          const autoOptionType = brain.decision === 'BUY_READY' ? 'CE' : 'PE';
+          const autoOptionType = strategyEntryDecision === 'BUY_READY' ? 'CE' : 'PE';
           const autoLeg = autoOptionType === 'PE' ? (refreshCtx.ocRow && refreshCtx.ocRow.PE) : (refreshCtx.ocRow && refreshCtx.ocRow.CE);
           if (!autoLeg || typeof autoLeg.lastPrice !== 'number') { decisionLogBlockReason = 'No live premium available for the signaled leg this refresh.'; }
           if (autoLeg && typeof autoLeg.lastPrice === 'number') {
@@ -16919,11 +16945,11 @@ function render(){
       // scalping setup" - see computeMissedOpportunityAnalysis/
       // computeFalsePositiveAnalysis/computeThresholdRecommendations
       // for what actually gets built from this log.
-      const decisionRejectionMeta = decisionLogTradeOpened ? null : classifyExecutionRejection(brain.decision, decisionLogBlockReason, { failureModeResult: decisionLogFailureModeResult });
+      const decisionRejectionMeta = decisionLogTradeOpened ? null : classifyExecutionRejection(strategyEntryDecision || brain.decision, decisionLogBlockReason, { failureModeResult: decisionLogFailureModeResult });
       logDecisionSnapshot({
         ts: Date.now(), sym,
         tradingType: brain.currentEffectiveTradingType || null,
-        decision: brain.decision, decisionTier: brain.decisionTier, confidence: brain.confidence,
+        decision: brain.decision, strategySignalDecision: brain.strategySignalDecision || null, decisionTier: brain.decisionTier, confidence: brain.confidence,
         directionalScore: brain.directionalScore,
         weightedDirectionalScore: (typeof brain.weightedDirectionalScore === 'number') ? brain.weightedDirectionalScore : null,
         buyThreshold: brain.buyThreshold, sellThreshold: brain.sellThreshold,
@@ -16936,7 +16962,7 @@ function render(){
         operatorIntelConfidence: brain.operatorIntel ? brain.operatorIntel.confidence : null,
         regimeLabel: brain.regime ? brain.regime.label : null,
         strategyVersion: typeof FNO_STRATEGY_VERSION !== 'undefined' ? FNO_STRATEGY_VERSION : null,
-        signalOptionType: brain.decision === 'BUY_READY' ? 'CE' : (brain.decision === 'SELL_READY' ? 'PE' : null),
+        signalOptionType: strategyEntryDecision === 'BUY_READY' ? 'CE' : (strategyEntryDecision === 'SELL_READY' ? 'PE' : null),
         spot: (typeof refreshCtx.spot === 'number') ? refreshCtx.spot : null,
         atmStrike: (refreshCtx.ocRow && typeof refreshCtx.ocRow.strikePrice === 'number') ? refreshCtx.ocRow.strikePrice : null,
         confidenceTierFactorCoverage: (brain.categoriesNotEvaluated || []).length,
@@ -18350,7 +18376,8 @@ function render(){
       reportFn(`Blocked: order quantity ${lotSize} is not a valid multiple of ${normalizeUnderlyingSymbol(symForLot)} contract lot (${contractLot} qty/lot). Set whole lots in the Lots field (currently ${lotCount} lot(s) = ${lotsToQty(symForLot, lotCount)} qty).`);
       return { opened: false, reason: `Invalid quantity — must be a multiple of ${contractLot}`, rejectionCategory: FNO_EXEC_REJECTION.RISK_VALIDATION };
     }
-    if (typeof brain !== 'undefined' && brain && (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY')) {
+    const entryDirectionDecision = (typeof brain !== 'undefined' && brain) ? resolveEntryDirectionDecision(brain) : null;
+    if (brain && (entryDirectionDecision === 'BUY_READY' || entryDirectionDecision === 'SELL_READY')) {
       const hist = load(STORAGE.autoTrades + '_history') || [];
       const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
       const journalToday = hist.filter(t => t.ts >= dayStart.getTime());
@@ -18453,11 +18480,12 @@ function render(){
     if (existing && existing.id) { return { opened: false, reason: 'Position already open' }; } // real, honest no-op for the autonomous path - not an error, just nothing to do this cycle
     if (!target || !sl || sl>=leg.lastPrice || target<=leg.lastPrice) { reportFn('Target must be above, and SL below, the current live premium.'); return { opened: false }; }
 
-    if (lastBrain && lastBrain.decision === 'BUY_READY' && optionType !== 'CE') {
+    const openDirectionDecision = lastBrain ? resolveEntryDirectionDecision(lastBrain) : null;
+    if (lastBrain && openDirectionDecision === 'BUY_READY' && optionType !== 'CE') {
       reportFn('Blocked: BUY_READY is bullish — buy CE for this signal (or wait for SELL_READY to buy PE).');
       return { opened: false, reason: 'Option type must be CE for BUY_READY', rejectionCategory: FNO_EXEC_REJECTION.STRATEGY_RULE, rejectionSubcategory: 'option_type_mismatch' };
     }
-    if (lastBrain && lastBrain.decision === 'SELL_READY' && optionType !== 'PE') {
+    if (lastBrain && openDirectionDecision === 'SELL_READY' && optionType !== 'PE') {
       reportFn('Blocked: SELL_READY is bearish — buy PE for this signal (or wait for BUY_READY to buy CE).');
       return { opened: false, reason: 'Option type must be PE for SELL_READY', rejectionCategory: FNO_EXEC_REJECTION.STRATEGY_RULE, rejectionSubcategory: 'option_type_mismatch' };
     }
@@ -20333,9 +20361,13 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
     autonomousToggleBtn.addEventListener('click', () => {
       if (autonomousModeInterval) stopAutonomousMode(); else startAutonomousMode();
     });
-    // Real, honest restore-on-reload: only auto-resumes if the user
-    // had genuinely turned it on before (real persisted consent), not
-    // a default-on surprise.
+    // Paper mode: enable autonomous polling once (system-driven paper trades).
+    // Live mode still requires an explicit Start — real money must never auto-arm.
+    const savedTradeMode = localStorage.getItem(STORAGE.mode) || 'paper';
+    if (savedTradeMode === 'paper' && localStorage.getItem('fno_autonomous_paper_default_v16377') !== 'done') {
+      localStorage.setItem('fno_autonomous_mode_enabled', 'true');
+      localStorage.setItem('fno_autonomous_paper_default_v16377', 'done');
+    }
     if (localStorage.getItem('fno_autonomous_mode_enabled') === 'true') startAutonomousMode();
     else updateAutonomousStatusDisplay('Autonomous Mode: OFF - manual refresh only', false);
   }

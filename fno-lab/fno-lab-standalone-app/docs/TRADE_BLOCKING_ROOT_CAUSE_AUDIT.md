@@ -136,6 +136,13 @@ Applied only if decision is already `BUY_READY` / `SELL_READY`:
 
 Your log’s **0** BUY/SELL means these layers did **not** cause the session-wide silence; they would matter only after critFails/threshold issues are fixed.
 
+### 2.6 Autonomous paper execution (v16.37.7)
+
+- **`brain.strategySignalDecision`** is set immediately after `evaluateBrain()` and preserved when TSE/SPE downgrade **`brain.decision`** to WAIT for display.
+- **Autonomous Mode** attempts **`tryOpenAutoTradePosition()`** when the **strategy signal** is BUY_READY/SELL_READY, not only when the post-overlay decision still says BUY/SELL.
+- **TSE/SPE entry gates** still run inside **`tryOpenAutoTradePosition`** — bad setups can still be blocked with an explicit **`blockReason`** in the decision log.
+- **Paper mode** defaults **Autonomous Mode ON** once (live mode still requires explicit Start).
+
 ### 2.5 Execution gate (`tryOpenAutoTradePosition`)
 
 Order (simplified): capital preservation → market hours → time remaining for trade type → re-entry cooldown → CE/PE vs BUY/SELL alignment → **SPE** → **TSE** → **FM block/reject** → fill simulation.
