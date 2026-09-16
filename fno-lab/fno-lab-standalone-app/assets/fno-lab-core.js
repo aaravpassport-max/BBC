@@ -2098,7 +2098,10 @@ function closeAvgProxy(cand, period){
   });
 }
 function load(k){ try{return JSON.parse(localStorage.getItem(k)||'[]')}catch{return []} }
-function save(k,v){ localStorage.setItem(k, JSON.stringify(v)); }
+function save(k,v){
+  try { localStorage.setItem(k, JSON.stringify(v)); }
+  catch (e) { console.warn('localStorage save failed (quota or privacy mode):', k, e && e.message ? e.message : e); }
+}
 function loadObj(k){ try{return JSON.parse(localStorage.getItem(k)||'{}')}catch{return {}} }
 
 /**
@@ -2933,33 +2936,72 @@ function renderPriceChart(marketCtx) {
   }
 }
 
+const FNO_SNAP_HISTORY_KEY = 'fno_snap_history_v1';
+const FNO_SNAP_HISTORY_MAX_ENTRIES = 250;
+const FNO_SNAP_HISTORY_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+
+function slimSnapshotEntry(s) {
+  if (!s || typeof s !== 'object') return null;
+  return {
+    ts: typeof s.ts === 'number' ? s.ts : Date.now(),
+    vix: Number.isFinite(s.vix) ? s.vix : null,
+    pcr: Number.isFinite(s.pcr) ? s.pcr : null,
+    straddle: Number.isFinite(s.straddle) ? s.straddle : null,
+    iv: Number.isFinite(s.iv) ? s.iv : null,
+    volume: Number.isFinite(s.volume) ? s.volume : null,
+    ceSpreadPct: Number.isFinite(s.ceSpreadPct) ? s.ceSpreadPct : null,
+    peSpreadPct: Number.isFinite(s.peSpreadPct) ? s.peSpreadPct : null,
+  };
+}
+
+function pruneSnapshotHistory(history, maxEntries, maxAgeMs) {
+  maxEntries = maxEntries != null ? maxEntries : FNO_SNAP_HISTORY_MAX_ENTRIES;
+  maxAgeMs = maxAgeMs != null ? maxAgeMs : FNO_SNAP_HISTORY_MAX_AGE_MS;
+  const cutoff = Date.now() - maxAgeMs;
+  return (history || [])
+    .map(slimSnapshotEntry)
+    .filter(s => s && typeof s.ts === 'number' && s.ts >= cutoff)
+    .slice(-maxEntries);
+}
+
+function persistSnapshotHistory(history) {
+  let capped = pruneSnapshotHistory(history);
+  const retryLimits = [FNO_SNAP_HISTORY_MAX_ENTRIES, 150, 100, 50, 25, 10, 1];
+  for (let i = 0; i < retryLimits.length; i++) {
+    capped = capped.slice(-retryLimits[i]);
+    try {
+      localStorage.setItem(FNO_SNAP_HISTORY_KEY, JSON.stringify(capped));
+      return capped;
+    } catch (e) {
+      if (i === retryLimits.length - 1) {
+        try {
+          localStorage.removeItem(FNO_SNAP_HISTORY_KEY);
+          const last = capped.slice(-1);
+          if (last.length) localStorage.setItem(FNO_SNAP_HISTORY_KEY, JSON.stringify(last));
+        } catch (e2) { /* quota still exceeded — refresh must continue without history */ }
+      }
+    }
+  }
+  return capped;
+}
+
 /**
  * TRACE: Records ONE real market snapshot per refresh into a rolling
- * localStorage buffer (STORAGE.snapHistory) -> caps at 500 entries,
- * pruning entries older than 48 hours -> this is what unblocks VIX 15m
- * trend, PCR 30m change, IV Rank, and Straddle-vs-Yesterday, all of
- * which were previously null "no persistence layer" gaps. The history
- * only contains readings taken while the app was actually open and
- * refreshed - it is NOT a full historical backfill, and every factor
- * that reads from it says so in its reason (sample-size honesty, same
- * discipline as Psychology's Backtest Overfitting factor).
+ * localStorage buffer -> caps at 250 slim entries, pruning entries
+ * older than 48 hours -> this is what unblocks VIX 15m trend, PCR 30m
+ * change, IV Rank, and Straddle-vs-Yesterday. Never throws on quota
+ * exceeded (progressive trim + retry) so brain refresh cannot fail here.
  * Preconditions: snapshot has {ts, vix, pcr, straddle, iv}.
- * Postconditions: STORAGE.snapHistory grows by one entry (or is
- * unchanged if snapshot has no usable fields - see edge case below).
- * Edge cases handled: all fields null (e.g. total NSE outage this
- * refresh) - still records the timestamp so gap-detection is possible
- * later, but every value-reading factor below independently checks
- * for null rather than assuming a recorded snapshot has real numbers.
+ * Postconditions: history grows by one slim entry when persist succeeds.
  */
 function recordSnapshot(snapshot) {
-  const key = 'fno_snap_history_v1';
   let history;
-  try { history = JSON.parse(localStorage.getItem(key) || '[]'); } catch { history = []; }
-  history.push(snapshot);
-  const cutoff = Date.now() - 48*60*60*1000;
-  history = history.filter(s=>s.ts>=cutoff).slice(-500);
-  localStorage.setItem(key, JSON.stringify(history));
-  return history;
+  try { history = JSON.parse(localStorage.getItem(FNO_SNAP_HISTORY_KEY) || '[]'); } catch { history = []; }
+  if (!Array.isArray(history)) history = [];
+  const entry = slimSnapshotEntry(Object.assign({ ts: Date.now() }, snapshot || {}));
+  if (!entry) return history;
+  history.push(entry);
+  return persistSnapshotHistory(history);
 }
 
 // ====================================================================
@@ -4359,9 +4401,7 @@ function computeInternalNarrativeReport(dailyReport, summary, grade, backtestRes
  * "15 minutes ago" when it might really be from 2 minutes ago).
  */
 function getSnapshotNearMinutesAgo(minutesAgo) {
-  const key = 'fno_snap_history_v1';
-  let history;
-  try { history = JSON.parse(localStorage.getItem(key) || '[]'); } catch { history = []; }
+  const history = getSnapshotHistory();
   if (!history.length) return null;
   const targetTs = Date.now() - minutesAgo*60*1000;
   const oldestTs = history[0].ts;
@@ -4377,7 +4417,15 @@ function getSnapshotNearMinutesAgo(minutesAgo) {
  * point-in-time comparison.
  */
 function getSnapshotHistory() {
-  try { return JSON.parse(localStorage.getItem('fno_snap_history_v1') || '[]'); } catch { return []; }
+  let raw;
+  try { raw = JSON.parse(localStorage.getItem(FNO_SNAP_HISTORY_KEY) || '[]'); } catch { return []; }
+  if (!Array.isArray(raw)) return [];
+  const pruned = pruneSnapshotHistory(raw);
+  const rawStr = localStorage.getItem(FNO_SNAP_HISTORY_KEY) || '';
+  if (raw.length > FNO_SNAP_HISTORY_MAX_ENTRIES || rawStr.length > 350000) {
+    try { persistSnapshotHistory(pruned); } catch (e) { /* read path must not throw */ }
+  }
+  return pruned;
 }
 
 /**

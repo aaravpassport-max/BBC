@@ -227,7 +227,8 @@ console.log('\n=== Decay + Greeks Deep factor functions (loaded from fno-lab-cor
   global.TRADING_HOURS_PER_DAY = ge.TRADING_HOURS_PER_DAY;
   const src = fs.readFileSync(path.join(__dirname, '../assets/fno-lab-core.js'), 'utf8');
   global.STORAGE = {journal:'fno_journal_v8', daily:'fno_daily_v8', autoTrades:'fno_autotrades_v8', mode:'fno_mode_v8'};
-  const start = src.indexOf('function recordSnapshot');
+  const start = src.indexOf('const FNO_SNAP_HISTORY_KEY');
+  if (start === -1) throw new Error('FNO_SNAP_HISTORY_KEY block not found in fno-lab-core.js');
   const end = src.indexOf('function evaluateBrain');
   const emaStart = src.indexOf('function ema(');
   const emaEnd = src.indexOf('\n', src.indexOf('function vwapCalc('));
@@ -3561,6 +3562,14 @@ test('recordSnapshot prunes entries older than 48 hours', () => {
   __fno_recordSnapshot({ts: Date.now() - 50*60*60*1000, vix: 10, pcr: 1, straddle: 100, iv: 10});
   __fno_recordSnapshot({ts: Date.now(), vix: 14, pcr: 1, straddle: 180, iv: 14});
   assert.strictEqual(__fno_getSnapshotHistory().length, 1);
+});
+test('recordSnapshot slims entries and does not throw on oversized payloads', () => {
+  localStorage.clear();
+  __fno_recordSnapshot({ ts: Date.now(), vix: 14, pcr: 1, straddle: 180, iv: 14, accidentalBlob: 'x'.repeat(50000) });
+  const h = __fno_getSnapshotHistory();
+  assert.strictEqual(h.length, 1);
+  assert.strictEqual(h[0].accidentalBlob, undefined);
+  assert.strictEqual(h[0].vix, 14);
 });
 
 console.log('\n=== computeFuturesFactors (real NSE futures fetch) ===');
