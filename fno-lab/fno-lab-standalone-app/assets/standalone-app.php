@@ -457,11 +457,16 @@ body.fno-nse-disabled .nse-only-section{display:none}
         </select>
         <button id="testTradeAlertSoundBtn" class="btn" style="padding:4px 10px;font-size:11px">▶ Test sound</button>
       </div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;margin-bottom:6px;flex-wrap:wrap">
+        <span>Voice:</span>
+        <select id="settingTradeAlertVoiceSelect" class="input" style="flex:1;min-width:160px"></select>
+        <button type="button" id="refreshTradeAlertVoicesBtn" class="btn" style="padding:4px 8px;font-size:10px">↻ Voices</button>
+      </div>
       <div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:8px;background:#020617;border-radius:8px;flex-wrap:wrap">
         <button id="testTradeAlertVoiceEntryBtn" class="btn" style="padding:4px 10px;font-size:11px;background:#166534">▶ Test entry voice</button>
         <button id="testTradeAlertVoiceExitBtn" class="btn" style="padding:4px 10px;font-size:11px;background:#7f1d1d">▶ Test exit voice</button>
       </div>
-      <div style="font-size:10px;color:#64748b;margin-top:6px">Fires only when a real paper trade is opened or closed — not on BUY_READY/WAIT signals. Sequence: loud alert → immediate AI voice with symbol, strike, CE/PE, prices, qty, P&amp;L, and exit reason. Requires browser permission for audio; voice uses your device&apos;s speech engine (Chrome/Edge recommended).</div>
+      <div style="font-size:10px;color:#64748b;margin-top:6px">Fires only when a real paper trade is opened or closed — not on BUY_READY/WAIT signals. Sequence: loud alert → voice (Indian English when available). Enable <b>Alert on ENTRY/EXIT</b> above, plus <b>AI voice</b>. Click <b>↻ Voices</b> then pick Microsoft Neerja/Heera or Google en-IN if listed (install in Windows Settings → Time &amp; language → Speech). Chrome/Edge recommended; click Test once after opening Settings to allow audio.</div>
     </div>
 
     <button id="closeSettingsBtn" class="btn" style="width:100%">Close</button>

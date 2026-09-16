@@ -119,6 +119,8 @@ const FNO_SETTINGS_DEFAULTS = {
   tradeAlertSoundPreset: 'trading_desk', // trading_desk | telephone | urgent_chime | siren_pulse
   tradeAlertVoiceRate: 0.92,
   tradeAlertVoicePitch: 1.0,
+  /** SpeechSynthesisVoice.voiceURI — empty = auto-pick best en-IN / Indian English */
+  tradeAlertVoiceUri: '',
   // Number of exchange lots (not raw qty). 2 NIFTY lots = 150 qty at 75/lot.
   defaultLots: 2,
   // Scalping capital preservation — stricter entry gates to minimize losses (never removes all risk).
@@ -5660,7 +5662,8 @@ let _fnoTradeAlertQueue = Promise.resolve();
 
 function formatInrForTradeSpeech(n) {
   if (typeof n !== 'number' || !Number.isFinite(n)) return 'unknown price';
-  return '₹' + n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const parts = n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return parts + ' rupees';
 }
 function formatStrikeForTradeSpeech(strike) {
   if (typeof strike !== 'number' || !Number.isFinite(strike)) return String(strike != null ? strike : '');
@@ -5730,25 +5733,121 @@ function showTradeAlertVisual(event, speechText) {
   clearTimeout(showTradeAlertVisual._hideTimer);
   showTradeAlertVisual._hideTimer = setTimeout(() => { overlay.style.display = 'none'; }, 12000);
 }
-function speakTradeAlert(text, volume, rate, pitch) {
+function getTradeAlertAudioContext() {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return null;
+    if (!window._fnoTradeAlertAudioCtx) window._fnoTradeAlertAudioCtx = new AudioCtx();
+    return window._fnoTradeAlertAudioCtx;
+  } catch (e) { return null; }
+}
+/** Call once after a user click/tap so alert sound + speech are allowed by the browser. */
+function primeTradeAlertAudio() {
+  try {
+    if (window.speechSynthesis) {
+      if (typeof window.speechSynthesis.resume === 'function') window.speechSynthesis.resume();
+      window.speechSynthesis.getVoices();
+    }
+    const ctx = getTradeAlertAudioContext();
+    if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+  } catch (e) { /* no-op */ }
+}
+function getTradeAlertVoicesList() {
+  if (!window.speechSynthesis) return [];
+  return window.speechSynthesis.getVoices() || [];
+}
+function ensureTradeAlertVoicesLoaded() {
   return new Promise((resolve) => {
+    let voices = getTradeAlertVoicesList();
+    if (voices.length) { resolve(voices); return; }
+    const finish = () => {
+      try { window.speechSynthesis.removeEventListener('voiceschanged', finish); } catch (e) { /* no-op */ }
+      resolve(getTradeAlertVoicesList());
+    };
     try {
+      window.speechSynthesis.addEventListener('voiceschanged', finish);
+      window.speechSynthesis.getVoices();
+    } catch (e) { resolve([]); return; }
+    setTimeout(finish, 1200);
+  });
+}
+function scoreTradeAlertVoice(v) {
+  if (!v) return -1;
+  const name = String(v.name || '').toLowerCase();
+  const lang = String(v.lang || '').toLowerCase();
+  let s = 0;
+  if (lang === 'en-in' || lang.startsWith('en-in')) s += 120;
+  if (/neerja|heera|rishi|prabhat|ananya|monica|farah|naayf|salman|kajal|swara|veena|lekha/i.test(name)) s += 90;
+  if (/english \(india\)|india english|indian english/.test(name)) s += 85;
+  if (/natural|neural|online|premium|enhanced|wavenet/i.test(name)) s += 55;
+  if (/google/.test(name) && (lang.includes('in') || /india|hindi/.test(name))) s += 50;
+  if (/microsoft/.test(name) && (lang.includes('in') || /heera|neerja|rishi/.test(name))) s += 50;
+  if (lang === 'en-gb') s += 25;
+  if (lang === 'en-us') s += 12;
+  if (/compact|espeak|android|robos|samantha|fred|zira/i.test(name) && !/neerja|heera|natural|neural/.test(name)) s -= 35;
+  if (v.localService === false) s += 8;
+  return s;
+}
+function pickTradeAlertVoice(preferredUri) {
+  const voices = getTradeAlertVoicesList();
+  if (!voices.length) return null;
+  if (preferredUri) {
+    const exact = voices.find(v => v.voiceURI === preferredUri);
+    if (exact) return exact;
+  }
+  return voices.slice().sort((a, b) => scoreTradeAlertVoice(b) - scoreTradeAlertVoice(a))[0];
+}
+function listTradeAlertVoicesForUi() {
+  return getTradeAlertVoicesList()
+    .slice()
+    .sort((a, b) => scoreTradeAlertVoice(b) - scoreTradeAlertVoice(a))
+    .map(v => ({ uri: v.voiceURI, label: `${v.name} (${v.lang})${v.localService === false ? ' · cloud' : ''}` }));
+}
+function populateTradeAlertVoiceSelect(selectedUri) {
+  const sel = document.getElementById('settingTradeAlertVoiceSelect');
+  if (!sel) return;
+  const voices = listTradeAlertVoicesForUi();
+  sel.innerHTML = '';
+  const autoOpt = document.createElement('option');
+  autoOpt.value = '';
+  autoOpt.textContent = 'Auto — best Indian / en-IN voice';
+  sel.appendChild(autoOpt);
+  voices.forEach(v => {
+    const opt = document.createElement('option');
+    opt.value = v.uri;
+    opt.textContent = v.label;
+    sel.appendChild(opt);
+  });
+  sel.value = selectedUri && voices.some(v => v.uri === selectedUri) ? selectedUri : '';
+}
+function speakTradeAlert(text, volume, rate, pitch, preferredVoiceUri) {
+  return ensureTradeAlertVoicesLoaded().then(() => new Promise((resolve) => {
+    try {
+      primeTradeAlertAudio();
       if (!window.speechSynthesis || !text) { resolve(); return; }
       window.speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
       u.volume = Math.min(1, Math.max(0, volume));
-      u.rate = Math.min(1.4, Math.max(0.6, rate || 0.92));
-      u.pitch = Math.min(1.4, Math.max(0.7, pitch || 1));
-      u.lang = 'en-IN';
-      const voices = window.speechSynthesis.getVoices() || [];
-      const preferred = voices.find(v => /en-IN|en-GB|en-US/i.test(v.lang) && /Google|Microsoft|Natural|Neural|Samantha|Daniel/i.test(v.name))
-        || voices.find(v => /en-IN|en-GB|en-US/i.test(v.lang));
-      if (preferred) u.voice = preferred;
+      u.rate = Math.min(1.15, Math.max(0.78, rate || 0.92));
+      u.pitch = Math.min(1.1, Math.max(0.85, pitch || 1));
+      const voice = pickTradeAlertVoice(preferredVoiceUri);
+      if (voice) {
+        u.voice = voice;
+        u.lang = voice.lang || 'en-IN';
+      } else {
+        u.lang = 'en-IN';
+      }
       u.onend = () => resolve();
-      u.onerror = () => resolve();
+      u.onerror = (ev) => {
+        console.warn('Trade alert speech failed:', ev && ev.error ? ev.error : ev);
+        resolve();
+      };
       window.speechSynthesis.speak(u);
-    } catch (e) { resolve(); }
-  });
+    } catch (e) {
+      console.warn('Trade alert speech error:', e);
+      resolve();
+    }
+  }));
 }
 function playUrgentChimeAlert(ctx, startAt, volume, pulses) {
   const pulseDur = 0.22;
@@ -5815,9 +5914,9 @@ function playTradeAlertSoundPreset(preset, volume, pulseCount, onComplete) {
   pulseCount = pulseCount || 1;
   onComplete = onComplete || function () {};
   try {
-    const AudioCtx = window.AudioContext || window.webkitAudioContext;
-    if (!AudioCtx) { onComplete(); return; }
-    const ctx = new AudioCtx();
+    const ctx = getTradeAlertAudioContext();
+    if (!ctx) { onComplete(); return; }
+    const run = () => {
     const vol = Math.min(1, Math.max(0, volume));
     const start = ctx.currentTime + 0.02;
     let durationSec = 0.8;
@@ -5833,26 +5932,34 @@ function playTradeAlertSoundPreset(preset, volume, pulseCount, onComplete) {
     } else {
       durationSec = playTradingDeskAlert(ctx, start, vol, pulseCount);
     }
-    setTimeout(() => { try { ctx.close(); } catch (e) {} onComplete(); }, Math.max(200, durationSec * 1000));
+    setTimeout(() => { onComplete(); }, Math.max(200, durationSec * 1000));
+    };
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(run).catch(() => onComplete());
+    } else {
+      run();
+    }
   } catch (e) { onComplete(); }
 }
 function notifyTradeExecution(event) {
   const settings = fnoSettings.get();
-  if (!settings.tradeAlertSystemEnabled) return;
-  if (event.kind === 'entry' && !settings.soundEntryEnabled) return;
-  if ((event.kind === 'exit' || event.kind === 'partial_exit') && !settings.soundExitEnabled) return;
+  if (settings.tradeAlertSystemEnabled === false) return;
+  if (event.kind === 'entry' && settings.soundEntryEnabled === false) return;
+  if ((event.kind === 'exit' || event.kind === 'partial_exit') && settings.soundExitEnabled === false) return;
+  primeTradeAlertAudio();
   const speech = buildTradeAlertSpeech(event);
   showTradeAlertVisual(event, speech);
   const soundVol = Math.min(1, Math.max(0, (settings.tradeAlertSoundVolume != null ? settings.tradeAlertSoundVolume : 90) / 100));
   const voiceVol = Math.min(1, Math.max(0, (settings.tradeAlertVoiceVolume != null ? settings.tradeAlertVoiceVolume : 100) / 100));
   const preset = settings.tradeAlertSoundPreset || 'trading_desk';
   const pulses = (event.kind === 'exit' || event.kind === 'partial_exit') ? 2 : 1;
+  const voiceUri = settings.tradeAlertVoiceUri || '';
   _fnoTradeAlertQueue = _fnoTradeAlertQueue.then(() => new Promise((resolve) => {
     const speak = () => {
-      if (!settings.tradeAlertVoiceEnabled) { resolve(); return; }
-      speakTradeAlert(speech, voiceVol, settings.tradeAlertVoiceRate, settings.tradeAlertVoicePitch).then(resolve);
+      if (settings.tradeAlertVoiceEnabled === false) { resolve(); return; }
+      speakTradeAlert(speech, voiceVol, settings.tradeAlertVoiceRate, settings.tradeAlertVoicePitch, voiceUri).then(resolve);
     };
-    if (settings.tradeAlertSoundEnabled) {
+    if (settings.tradeAlertSoundEnabled !== false) {
       playTradeAlertSoundPreset(preset, soundVol, pulses, speak);
     } else {
       speak();
@@ -5860,14 +5967,20 @@ function notifyTradeExecution(event) {
   })).catch(() => {});
 }
 function testTradeAlertSoundPreview() {
+  primeTradeAlertAudio();
   const s = fnoSettings.get();
   playTradeAlertSoundPreset(s.tradeAlertSoundPreset || 'trading_desk', Math.min(1, (s.tradeAlertSoundVolume || 90) / 100), 1, () => {});
 }
 function testTradeAlertVoicePreview(kind) {
+  primeTradeAlertAudio();
+  const s = fnoSettings.get();
   const sample = kind === 'exit'
     ? { kind: 'exit', symbol: 'NIFTY', strike: 25000, optionType: 'CE', entryPrice: 185.5, exitPrice: 212.3, qty: 50, netPnl: 1339.5, exitReason: 'target', actionLabel: 'AUTO_TARGET_EXIT', tradingType: 'scalping' }
     : { kind: 'entry', symbol: 'NIFTY', strike: 25000, optionType: 'CE', entryPrice: 185.5, qty: 50, tradingType: 'scalping' };
-  notifyTradeExecution(sample);
+  const speech = buildTradeAlertSpeech(sample);
+  showTradeAlertVisual(sample, speech);
+  const voiceVol = Math.min(1, Math.max(0, (s.tradeAlertVoiceVolume != null ? s.tradeAlertVoiceVolume : 100) / 100));
+  speakTradeAlert(speech, voiceVol, s.tradeAlertVoiceRate, s.tradeAlertVoicePitch, s.tradeAlertVoiceUri || '');
 }
 
 function playSingleTelephoneRingBurst(ctx, startAt, burstDurationSec) {
@@ -15990,8 +16103,10 @@ function render(){
     if (taVoiceVolLbl) taVoiceVolLbl.textContent = (s.tradeAlertVoiceVolume != null ? s.tradeAlertVoiceVolume : 100) + '%';
     const taPreset = document.getElementById('settingTradeAlertSoundPreset');
     if (taPreset) taPreset.value = s.tradeAlertSoundPreset || 'trading_desk';
+    populateTradeAlertVoiceSelect(s.tradeAlertVoiceUri || '');
   }
   document.getElementById('openSettingsBtn').addEventListener('click', () => {
+    primeTradeAlertAudio();
     loadSettingsIntoModal();
     document.getElementById('settingsModalOverlay').style.display = 'flex';
   });
@@ -16202,6 +16317,17 @@ function render(){
   }
   const presetEl = document.getElementById('settingTradeAlertSoundPreset');
   if (presetEl) presetEl.addEventListener('change', (e) => fnoSettings.set({ tradeAlertSoundPreset: e.target.value }));
+  const voiceSel = document.getElementById('settingTradeAlertVoiceSelect');
+  if (voiceSel) {
+    voiceSel.addEventListener('change', (e) => fnoSettings.set({ tradeAlertVoiceUri: e.target.value || '' }));
+  }
+  const refreshVoicesBtn = document.getElementById('refreshTradeAlertVoicesBtn');
+  if (refreshVoicesBtn) {
+    refreshVoicesBtn.addEventListener('click', () => {
+      primeTradeAlertAudio();
+      ensureTradeAlertVoicesLoaded().then(() => populateTradeAlertVoiceSelect(fnoSettings.get().tradeAlertVoiceUri || ''));
+    });
+  }
   const testAlertSoundBtn = document.getElementById('testTradeAlertSoundBtn');
   if (testAlertSoundBtn) testAlertSoundBtn.addEventListener('click', () => testTradeAlertSoundPreview());
   const testVoiceEntryBtn = document.getElementById('testTradeAlertVoiceEntryBtn');
@@ -20794,8 +20920,20 @@ function updateEffectiveTradingTypeBadge() {
 }
 updateEffectiveTradingTypeBadge();
 if (typeof window !== 'undefined' && window.speechSynthesis) {
+  const refreshTradeAlertVoiceList = () => {
+    if (typeof populateTradeAlertVoiceSelect === 'function') {
+      populateTradeAlertVoiceSelect(typeof fnoSettings !== 'undefined' ? (fnoSettings.get().tradeAlertVoiceUri || '') : '');
+    }
+  };
   window.speechSynthesis.getVoices();
-  window.speechSynthesis.onvoiceschanged = function () { window.speechSynthesis.getVoices(); };
+  window.speechSynthesis.onvoiceschanged = refreshTradeAlertVoiceList;
+  refreshTradeAlertVoiceList();
+}
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', function fnoPrimeTradeAlertOnce() {
+    if (typeof primeTradeAlertAudio === 'function') primeTradeAlertAudio();
+    document.removeEventListener('click', fnoPrimeTradeAlertOnce);
+  }, { capture: true, once: true });
 }
 
 document.addEventListener('fnoSettingsChanged', (e) => {
