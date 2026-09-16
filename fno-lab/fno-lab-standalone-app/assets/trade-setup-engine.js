@@ -677,6 +677,60 @@ function evaluateTradeEligibility(ctx, brain, opts) {
   };
 }
 
+function brainDecisionMatchesSetupDirection(brain, setup) {
+  if (!brain || !setup || !setup.direction) return false;
+  if (setup.direction === 'bullish') return brain.decision === 'BUY_READY';
+  if (setup.direction === 'bearish') return brain.decision === 'SELL_READY';
+  return false;
+}
+
+function computeTseEntryAllowed(engineStatus, brain, setup) {
+  if (engineStatus === 'BYPASS') {
+    return !!(brain && (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY'));
+  }
+  if (engineStatus !== FNO_TSE_DECISION.TRADE_ALLOWED || !brain || !setup) return false;
+  return brainDecisionMatchesSetupDirection(brain, setup);
+}
+
+function describeTseEntryGate(tsd, brain) {
+  brain = brain || (typeof window !== 'undefined' && window.FNO_LAST_BRAIN) || null;
+  const brainDec = (brain && brain.decision) || tsd.brainDecision || 'unknown';
+  const setupDir = tsd.setup && tsd.setup.direction;
+  const needLabel = setupDir === 'bearish' ? 'SELL_READY (buy PE)'
+    : setupDir === 'bullish' ? 'BUY_READY (buy CE)' : 'BUY_READY or SELL_READY';
+  if (tsd.entryAllowed) {
+    return { headline: 'Entry: OPEN', detail: `Brain ${brainDec} matches ${setupDir || 'setup'} direction`, tone: 'pass' };
+  }
+  if (tsd.engineStatus === FNO_TSE_DECISION.TRADE_ALLOWED) {
+    if (brainDec === 'BUY_READY' && setupDir === 'bearish') {
+      return {
+        headline: 'Setup passed — Brain direction mismatch',
+        detail: `Confirmed bearish setup (e.g. momentum_expansion) needs SELL_READY for PE; Brain is BUY_READY (CE).`,
+        tone: 'warn',
+      };
+    }
+    if (brainDec === 'SELL_READY' && setupDir === 'bullish') {
+      return {
+        headline: 'Setup passed — Brain direction mismatch',
+        detail: `Confirmed bullish setup needs BUY_READY for CE; Brain is SELL_READY (PE).`,
+        tone: 'warn',
+      };
+    }
+    return {
+      headline: 'Setup passed — waiting on Brain',
+      detail: `TSE quality gate passed (${tsd.setup ? tsd.setup.type : 'setup'}). Brain is ${brainDec}; need ${needLabel} to open.`,
+      tone: 'warn',
+    };
+  }
+  if (tsd.engineStatus === FNO_TSE_DECISION.SETUP_WAITING || tsd.decision === 'WAIT') {
+    return { headline: 'Setup not confirmed', detail: tsd.blockReason || (tsd.reasons && tsd.reasons[0]) || 'Waiting for confirmation', tone: 'warn' };
+  }
+  if (tsd.engineStatus === FNO_TSE_DECISION.TRADE_BLOCKED || tsd.blockers && tsd.blockers.length) {
+    return { headline: 'Setup blocked', detail: (tsd.blockers && tsd.blockers[0]) || tsd.blockReason || 'Hard block', tone: 'fail' };
+  }
+  return { headline: 'No trade', detail: tsd.blockReason || 'No valid setup', tone: 'muted' };
+}
+
 function makeTradeDecision(ctx, brain, opts) {
   opts = opts || {};
   const eligibility = evaluateTradeEligibility(ctx, brain, opts);
@@ -712,6 +766,13 @@ function makeTradeDecision(ctx, brain, opts) {
   const scores = eligibility.scores || (eligibility.setup ? calculateSetupScore(eligibility.setup, ms, targetInfo, 2) : null);
   const regimeLabel = ms.regime ? ms.regime.label : (ms.choppy ? 'Choppy' : 'Unknown');
 
+  const setupForEntry = eligibility.setup || null;
+  const entryAllowed = computeTseEntryAllowed(engineStatus, brain, setupForEntry);
+  const gateCopy = describeTseEntryGate({
+    entryAllowed, engineStatus, setup: setupForEntry, blockReason: eligibility.action === 'BLOCK' ? eligibility.reason : (eligibility.action === 'WAIT' ? eligibility.reason : null),
+    blockers: eligibility.blockers || [], reasons: [eligibility.reason].filter(Boolean), decision,
+  }, brain);
+
   return {
     active: true,
     ts: Date.now(),
@@ -721,21 +782,22 @@ function makeTradeDecision(ctx, brain, opts) {
     movement,
     movementClass: movement.movementClass,
     movementScore: movement.compositeScore,
-    setup: eligibility.setup || null,
+    setup: setupForEntry,
     setups: eligibility.setups || [],
-    bestSetupType: eligibility.setup ? eligibility.setup.type : null,
+    bestSetupType: setupForEntry ? setupForEntry.type : null,
     setupScore: scores,
     targetInfo,
     spotTargetPoints: targetInfo && targetInfo.target_points,
     spotTargetPrice: targetInfo && targetInfo.target_points && Number.isFinite(ms.spot)
-      ? +(ms.spot + (eligibility.setup && eligibility.setup.direction === 'bullish' ? 1 : -1) * targetInfo.target_points).toFixed(2) : null,
+      ? +(ms.spot + (setupForEntry && setupForEntry.direction === 'bullish' ? 1 : -1) * targetInfo.target_points).toFixed(2) : null,
     targetConfidence: targetInfo ? targetInfo.target_confidence : 0,
     blockers: eligibility.blockers || [],
     reasons: [eligibility.reason].filter(Boolean),
-    entryAllowed: (engineStatus === 'BYPASS' && brain && (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY'))
-      || (engineStatus === FNO_TSE_DECISION.TRADE_ALLOWED
-        && brain && (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY')),
-    blockReason: eligibility.action === 'BLOCK' ? eligibility.reason : (eligibility.action === 'WAIT' ? eligibility.reason : null),
+    entryAllowed,
+    brainDecision: brain ? brain.decision : null,
+    entryGateHeadline: gateCopy.headline,
+    entryGateDetail: gateCopy.detail,
+    blockReason: eligibility.action === 'BLOCK' ? eligibility.reason : (eligibility.action === 'WAIT' ? eligibility.reason : (!entryAllowed && engineStatus === FNO_TSE_DECISION.TRADE_ALLOWED ? gateCopy.detail : null)),
     factorDataAvailability: eligibility.factorDataAvailability || null,
     decisionAffectedByMissingData: !!(eligibility.factorDataAvailability && eligibility.factorDataAvailability.decisionAffectedByMissingData),
     settings: cfg,
@@ -841,7 +903,11 @@ function checkTradeSetupEntryGate(brain, ctx, optionType) {
   if (tsd.engineStatus === 'BYPASS') return { allowed: true, tsd, bypass: true };
   const dir = optionType === 'PE' ? 'bearish' : 'bullish';
   if (tsd.entryAllowed && tsd.setup && tsd.setup.direction === dir) return { allowed: true, tsd };
-  return { allowed: false, reason: `Trade Setup Engine: ${tsd.blockReason || (tsd.reasons && tsd.reasons[0]) || tsd.engineStatus}`, tsd };
+  const reason = tsd.entryGateDetail
+    || tsd.blockReason
+    || (tsd.reasons && tsd.reasons[0])
+    || tsd.engineStatus;
+  return { allowed: false, reason: `Trade Setup Engine: ${reason}`, tsd };
 }
 
 function checkPullbackContinuationEntryGate(brain, ctx, optionType) {
@@ -1190,7 +1256,12 @@ function renderTradeSetupMonitor(tsd) {
     return `<div style="font-size:10px;padding:2px 0"><span style="color:${stColor}">${fnoTseEscapeHtml(s.type)}</span> ${s.score}/100 · ${fnoTseEscapeHtml(s.state)}</div>`;
   }).join('') || `<div style="color:${tp.muted};font-size:10px">No active setups</div>`;
 
-  const decColor = tsd.engineStatus === FNO_TSE_DECISION.TRADE_ALLOWED ? tp.pass : tsd.engineStatus === FNO_TSE_DECISION.SETUP_WAITING ? tp.warn : tp.fail;
+  const decColor = tsd.entryAllowed ? tp.pass
+    : (tsd.engineStatus === FNO_TSE_DECISION.TRADE_ALLOWED ? tp.warn
+      : (tsd.engineStatus === FNO_TSE_DECISION.SETUP_WAITING ? tp.warn : tp.fail));
+  const gate = describeTseEntryGate(tsd, typeof window !== 'undefined' ? window.FNO_LAST_BRAIN : null);
+  const gateColor = gate.tone === 'pass' ? tp.pass : gate.tone === 'warn' ? tp.warn : gate.tone === 'fail' ? tp.fail : tp.muted;
+  const setupDir = tsd.setup && tsd.setup.direction ? ` · ${fnoTseEscapeHtml(tsd.setup.direction)}` : '';
   box.innerHTML = [
     `<b style="color:${tp.warn}">📊 Trade Setup Engine</b>`,
     `<div style="font-size:11px;margin-top:4px"><b>CURRENT MARKET</b></div>`,
@@ -1198,11 +1269,13 @@ function renderTradeSetupMonitor(tsd) {
     `<div style="font-size:11px;margin-top:6px"><b>ACTIVE SETUPS</b></div>`,
     setupsHtml,
     `<div style="font-size:11px;margin-top:6px"><b>BEST SETUP</b></div>`,
-    tsd.setup ? `${fnoTseEscapeHtml(tsd.setup.type)} · ${fnoTseEscapeHtml(tsd.setup.state)} · score ${sc.normalized != null ? sc.normalized : '—'}/100` : 'None',
+    tsd.setup ? `${fnoTseEscapeHtml(tsd.setup.type)}${setupDir} · ${fnoTseEscapeHtml(tsd.setup.state)} · score ${sc.normalized != null ? sc.normalized : '—'}/100` : 'None',
     tsd.spotTargetPoints ? `Target: <b>${tsd.spotTargetPoints} points</b> · confidence ${((tsd.targetConfidence || 0) * 100).toFixed(0)}%` : 'Target: —',
+    tsd.brainDecision ? `Brain decision: <b>${fnoTseEscapeHtml(tsd.brainDecision)}</b>` : '',
     tsd.blockers && tsd.blockers.length ? `<span style="color:${tp.fail}">Blockers: ${fnoTseEscapeHtml(tsd.blockers.join('; '))}</span>` : '',
-    `<div style="margin-top:6px;font-size:12px;color:${decColor}"><b>Decision: ${fnoTseEscapeHtml(tsd.engineStatus)}</b>${tsd.entryAllowed ? ' — TRADE ALLOWED' : tsd.decision === 'WAIT' ? ' — WAIT' : ' — NO TRADE'}</div>`,
-    tsd.blockReason ? `<div style="font-size:10px;color:${tp.muted}">${fnoTseEscapeHtml(tsd.blockReason)}</div>` : '',
+    `<div style="margin-top:6px;font-size:12px;color:${gateColor}"><b>${fnoTseEscapeHtml(gate.headline)}</b></div>`,
+    `<div style="font-size:10px;color:${tp.muted};margin-top:2px">${fnoTseEscapeHtml(gate.detail)}</div>`,
+    `<div style="font-size:10px;color:${tp.muted};margin-top:4px">Internal: ${fnoTseEscapeHtml(tsd.engineStatus)}${tsd.entryAllowed ? ' · entry open' : ''}</div>`,
   ].join('');
 }
 
