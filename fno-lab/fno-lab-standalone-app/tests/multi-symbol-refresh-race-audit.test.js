@@ -145,10 +145,10 @@ if (end === -1) {
 // declaration - does NOT leak out of a direct eval's own lexical
 // scope into a separate eval call) resolve to the SAME real counter
 // this test also inspects.
-const RB_START_MARKER = 'async function refreshBrain(){';
+const RB_START_MARKER = '  async function refreshBrain() {';
 const rbStart = coreSource.indexOf(RB_START_MARKER);
 if (rbStart === -1) {
-  console.error('FATAL: could not locate "async function refreshBrain(){" in fno-lab-core.js.');
+  console.error('FATAL: could not locate "async function refreshBrain() {" in fno-lab-core.js.');
   process.exit(1);
 }
 const rbEnd = coreSource.indexOf('\n  }', rbStart);

@@ -27,6 +27,8 @@ let fnoRefreshGeneration = 0;
 /** Coalesces overlapping refreshBrain() calls so stale-generation exits cannot starve the UI. */
 let fnoRefreshBrainRunning = false;
 let fnoRefreshBrainQueued = false;
+/** In-flight refresh promise — callers that await refreshBrain() wait for queued work too. */
+let fnoRefreshBrainPromise = null;
 
 // TRACE: Auto-trade close/partial-close re-entrancy guard (audit pass,
 // following up on the fnoRefreshGeneration finding above). closeAutoTrade()
@@ -15740,8 +15742,10 @@ async function loadRealMoneyJournal(){
 function render(){
   const savedMode = localStorage.getItem(STORAGE.mode) || 'paper';
   syncPaperTradingModeLabels(savedMode);
-  document.getElementById('liveToggle').checked = savedMode==='live';
-  document.getElementById('liveSettingsCard').style.display = savedMode==='live'?'block':'none';
+  const liveToggleEl = document.getElementById('liveToggle');
+  if (liveToggleEl) liveToggleEl.checked = savedMode === 'live';
+  const liveSettingsCard = document.getElementById('liveSettingsCard');
+  if (liveSettingsCard) liveSettingsCard.style.display = savedMode === 'live' ? 'block' : 'none';
 
   // Real, direct fix for the user's own, direct, real report - the
   // Lot field previously had no persistence at all, silently
@@ -16312,14 +16316,20 @@ function render(){
   });
 
   async function refreshBrainImpl(){
-    const sym=document.getElementById('sym').value;
+    const symEl = document.getElementById('sym');
+    if (!symEl) {
+      clearStuckLoadingPanels('Symbol selector missing — reload the page.');
+      return;
+    }
+    const sym=symEl.value;
     // See fnoRefreshGeneration TRACE at top of file: this call's own
     // ticket. Checked after every await below - if a newer call has
     // started in the meantime, this (now-stale, possibly wrong-symbol)
     // call bails out before writing anything to the DOM.
     const myRefreshGen = ++fnoRefreshGeneration;
     const isStaleRefresh = () => myRefreshGen !== fnoRefreshGeneration;
-    document.getElementById('brainLog').textContent='Fetching NSE...';
+    const brainLogEl = document.getElementById('brainLog');
+    if (brainLogEl) brainLogEl.textContent='Fetching NSE...';
     try{
       // Enterprise Plan #13 - real Correlation Engine needs a SECOND
       // index's chart data, genuinely not already flowing through this
@@ -17746,19 +17756,23 @@ function render(){
   }
 
   async function refreshBrain() {
-    if (fnoRefreshBrainRunning) {
+    if (fnoRefreshBrainPromise) {
       fnoRefreshBrainQueued = true;
-      return;
+      return fnoRefreshBrainPromise;
     }
-    fnoRefreshBrainRunning = true;
-    try {
-      do {
-        fnoRefreshBrainQueued = false;
-        await refreshBrainImpl();
-      } while (fnoRefreshBrainQueued);
-    } finally {
-      fnoRefreshBrainRunning = false;
-    }
+    fnoRefreshBrainPromise = (async () => {
+      fnoRefreshBrainRunning = true;
+      try {
+        do {
+          fnoRefreshBrainQueued = false;
+          await refreshBrainImpl();
+        } while (fnoRefreshBrainQueued);
+      } finally {
+        fnoRefreshBrainRunning = false;
+        fnoRefreshBrainPromise = null;
+      }
+    })();
+    return fnoRefreshBrainPromise;
   }
 
   /**
@@ -18837,7 +18851,7 @@ function render(){
     const currentEffectiveType = effectiveTradingType;
     const fmResult = adjustFailureModesForTradeType(fmResultRaw, currentEffectiveType);
     const relaxFmBlocks = typeof isExperimentalTradeTriggerMode === 'function' && isExperimentalTradeTriggerMode()
-      && getActiveTradingModeProfile().relaxFailureModeBlocks;
+      && getActiveTradingModeProfile() && getActiveTradingModeProfile().relaxFailureModeBlocks;
     if (!relaxFmBlocks && (fmResult.finalAction === 'block' || fmResult.finalAction === 'reject')) {
       const topReason = fmResult.triggered.find(t => t.adjustedAction === fmResult.finalAction) || fmResult.triggered.find(t => t.action === fmResult.finalAction);
       reportFn(`Blocked by the Failure-Mode Library (${topReason ? topReason.id : ''}${topReason && topReason.typeRelevance ? `, escalated for ${topReason.typeRelevance}` : ''}): ${topReason ? topReason.reason : fmResult.summary}. ${fmResult.triggered.length} total condition(s) triggered this refresh - see the Failure-Mode panel for the full, real list.`);
@@ -20531,7 +20545,7 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
       }
       } finally { cycleInProgress = false; }
     };
-    cycle(); // first interval tick only — initial refresh runs from render() Promise.all below
+    // Initial paint is bootRefresh() → refreshBrain(); interval only after that.
     autonomousModeInterval = setInterval(cycle, getAutonomousPollMs());
   }
   const autonomousToggleBtn = document.getElementById('autonomousModeToggle');
@@ -20609,11 +20623,14 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
   renderDecisionIntelligence(); // same real "show history on page load, not just after the next refresh" fix, for the Decision Intelligence log
   renderEligibilityFunnel(document.getElementById('sym') ? document.getElementById('sym').value : null);
 
-  Promise.all([
-    reconcileOpenPositionOnLoad(),
-    loadStrategyVersions(),
-    loadHypothesisStats(),
-  ]).finally(async () => {
+  void (async function bootRefresh() {
+    void Promise.all([
+      reconcileOpenPositionOnLoad(),
+      loadStrategyVersions(),
+      loadHypothesisStats(),
+    ]).catch((bootPrepErr) => {
+      console.warn('Boot prep (reconcile/versions/hypothesis) failed:', bootPrepErr);
+    });
     try {
       await refreshBrain();
     } catch (e) {
@@ -20623,7 +20640,7 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
     if (localStorage.getItem('fno_autonomous_mode_enabled') === 'true' && !autonomousModeInterval) {
       startAutonomousMode();
     }
-  });
+  })();
 
   // FOUND via a real, direct UI/UX audit using an actual, live
   // browser: several real panels (Operator Intel, Dealer Gamma
@@ -20744,4 +20761,19 @@ document.addEventListener('fnoSettingsChanged', (e) => {
   }
 });
 
-render();
+try {
+  render();
+} catch (bootRenderErr) {
+  console.error('F&O Lab failed during startup (render):', bootRenderErr);
+  const msg = bootRenderErr && bootRenderErr.message ? bootRenderErr.message : String(bootRenderErr);
+  document.querySelectorAll('[id]').forEach(function (el) {
+    if (el.children.length === 0 && el.textContent.trim() === 'Loading...') {
+      el.textContent = 'Startup error: ' + msg;
+      el.style.color = '#f87171';
+    } else if (el.id === 'brainDecision' && /Loading brain/i.test(el.textContent)) {
+      el.textContent = 'Startup error: ' + msg;
+      el.style.background = '#450a0a';
+      el.style.color = '#fca5a5';
+    }
+  });
+}

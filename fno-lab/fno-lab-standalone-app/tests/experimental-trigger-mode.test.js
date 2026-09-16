@@ -11,7 +11,7 @@ assert.match(coreSrc, /function shouldUseRelaxedPaperExecutionLane\(\)/);
 assert.match(coreSrc, /PAPER · Kite/);
 assert.match(coreSrc, /syncPaperTradingModeLabels/);
 assert.match(coreSrc, /shouldPushValueDecayCriticalFail[\s\S]*isExperimentalTradeTriggerMode/);
-assert.match(coreSrc, /relaxFmBlocks/);
+assert.match(coreSrc, /fnoRefreshBrainPromise/);
 assert.match(modesSrc, /experimental_trigger:/);
 assert.match(modesSrc, /relaxExecutionGates: true/);
 
