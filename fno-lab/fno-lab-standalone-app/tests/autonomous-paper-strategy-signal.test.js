@@ -27,7 +27,8 @@ const coreSrc = fs.readFileSync(
   assert.ok(fnStart !== -1);
   const fnEnd = coreSrc.indexOf('\n  function ', fnStart + 50);
   const fnBody = coreSrc.slice(fnStart, fnEnd > fnStart ? fnEnd : fnStart + 12000);
-  assert.match(fnBody, /resolveEntryDirectionDecision\(lastBrain\)/);
+  assert.match(fnBody, /const entryBrain = lastBrain/);
+assert.ok(!/\n    if \(brain && \(entryDirectionDecision/.test(fnBody), 'must not reference undefined global brain in tryOpenAutoTradePosition');
 })();
 
 console.log('autonomous-paper-strategy-signal.test.js: all passed');

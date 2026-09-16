@@ -16941,10 +16941,17 @@ function render(){
               if (!preservation.allowed) {
                 decisionLogBlockReason = preservation.reason;
               } else {
-              const autoResult = tryOpenAutoTradePosition(
+              let autoResult;
+              try {
+              autoResult = tryOpenAutoTradePosition(
                 { strike: autoStrike, optionType: autoOptionType, target: autoTarget, sl: autoSl, lotSize, lotCount, execMode: autoExecMode, trailingEnabled: autoTrailing, partialExitEnabled: autoPartial },
                 (msg) => { document.getElementById('brainLog').textContent += `\n⚠️ Autonomous Mode did not open a trade this cycle: ${msg}`; }
               );
+              } catch (autoOpenErr) {
+                autoResult = { opened: false, reason: autoOpenErr && autoOpenErr.message ? autoOpenErr.message : String(autoOpenErr) };
+                const brainLogEl = document.getElementById('brainLog');
+                if (brainLogEl) brainLogEl.textContent += `\n❌ Autonomous open error (refresh continues): ${autoResult.reason}`;
+              }
               // Real, minor UI-consistency fix found alongside the
               // core fix above: the autoMode checkbox's own checked
               // state previously only ever reflected the MANUAL path -
@@ -18406,12 +18413,13 @@ function render(){
       reportFn(`Blocked: order quantity ${lotSize} is not a valid multiple of ${normalizeUnderlyingSymbol(symForLot)} contract lot (${contractLot} qty/lot). Set whole lots in the Lots field (currently ${lotCount} lot(s) = ${lotsToQty(symForLot, lotCount)} qty).`);
       return { opened: false, reason: `Invalid quantity — must be a multiple of ${contractLot}`, rejectionCategory: FNO_EXEC_REJECTION.RISK_VALIDATION };
     }
-    const entryDirectionDecision = (typeof brain !== 'undefined' && brain) ? resolveEntryDirectionDecision(brain) : null;
-    if (brain && (entryDirectionDecision === 'BUY_READY' || entryDirectionDecision === 'SELL_READY')) {
+    const entryBrain = lastBrain;
+    const entryDirectionDecision = entryBrain ? resolveEntryDirectionDecision(entryBrain) : null;
+    if (entryBrain && (entryDirectionDecision === 'BUY_READY' || entryDirectionDecision === 'SELL_READY')) {
       const hist = load(STORAGE.autoTrades + '_history') || [];
       const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
       const journalToday = hist.filter(t => t.ts >= dayStart.getTime());
-      const preservation = checkScalpingCapitalPreservation(brain, curCtx || {}, {
+      const preservation = checkScalpingCapitalPreservation(entryBrain, curCtx || {}, {
         journalToday,
         autonomousPaper: isAutonomousPaperTradingActive(),
       });
