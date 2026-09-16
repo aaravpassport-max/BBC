@@ -1126,6 +1126,11 @@ function getDecisionLogSetupDecision(entry) {
   return entry.decision;
 }
 
+function isLogSetupDecision(entry) {
+  const d = getDecisionLogSetupDecision(entry);
+  return d === 'BUY_READY' || d === 'SELL_READY';
+}
+
 function computeEligibilityFunnel(decisionLog, opts) {
   opts = opts || {};
   const limit = (typeof opts.limit === 'number' && opts.limit > 0) ? opts.limit : 100;

@@ -5,18 +5,7 @@
 
 const FNO_DIAGNOSTIC_REPORT_SCHEMA = '1.0.0';
 
-/** BUY/SELL for analytics: prefer raw evaluateBrain signal when logged (v16.37.7+). */
-function getDecisionLogSetupDecision(entry) {
-  if (!entry) return null;
-  const sig = entry.strategySignalDecision;
-  if (sig === 'BUY_READY' || sig === 'SELL_READY') return sig;
-  return entry.decision;
-}
-
-function isLogSetupDecision(entry) {
-  const d = getDecisionLogSetupDecision(entry);
-  return d === 'BUY_READY' || d === 'SELL_READY';
-}
+// getDecisionLogSetupDecision / isLogSetupDecision live in fno-lab-core.js (same module bundle).
 
 function summarizeDecisionLogBlockers(log) {
   const crit = {};
