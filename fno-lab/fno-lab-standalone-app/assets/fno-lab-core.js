@@ -1072,20 +1072,37 @@ function resolveEntryDirectionDecision(brain) {
   return brain.decision;
 }
 
-/** Paper + Autonomous Mode: system-driven opens (never live money). */
+/**
+ * Free Data (paper) and Kite Data (live) both use the virtual Auto Trade /
+ * paper account — neither toggle turns on Real Money Trading (that is wp-admin only).
+ */
+function isVirtualSimulatedAutoTradeContext() {
+  try {
+    if (typeof localStorage === 'undefined') return true;
+    const m = localStorage.getItem(STORAGE.mode) || 'paper';
+    return m === 'paper' || m === 'live';
+  } catch (e) { return true; }
+}
+
+function formatTradeModeDisplayLabel(modeKey) {
+  if (modeKey === 'live') return 'KITE SIM';
+  return 'PAPER';
+}
+
+/** Autonomous simulated opens (virtual account — not Real Money Trading). */
 function isAutonomousPaperTradingActive() {
   try {
     if (typeof localStorage === 'undefined') return false;
-    if ((localStorage.getItem(STORAGE.mode) || 'paper') !== 'paper') return false;
+    if (!isVirtualSimulatedAutoTradeContext()) return false;
     return localStorage.getItem('fno_autonomous_mode_enabled') === 'true';
   } catch (e) { return false; }
 }
 
-/** Mode 7 — Trade Trigger Test on paper (diagnostic lane, not live money). */
+/** Mode 7 — Trade Trigger Test (simulated auto-trade diagnostic, any data-source toggle). */
 function isPaperExperimentalTriggerModeActive() {
   try {
     if (typeof localStorage === 'undefined') return false;
-    if ((localStorage.getItem(STORAGE.mode) || 'paper') !== 'paper') return false;
+    if (!isVirtualSimulatedAutoTradeContext()) return false;
     return typeof isExperimentalTradeTriggerMode === 'function' && isExperimentalTradeTriggerMode();
   } catch (e) { return false; }
 }
@@ -15701,7 +15718,7 @@ async function loadRealMoneyJournal(){
 
 function render(){
   const savedMode = localStorage.getItem(STORAGE.mode) || 'paper';
-  document.getElementById('modeDisplay').textContent=savedMode.toUpperCase();
+  document.getElementById('modeDisplay').textContent = formatTradeModeDisplayLabel(savedMode);
   document.getElementById('tradesModeLabel').textContent=savedMode;
   document.getElementById('liveToggle').checked = savedMode==='live';
   document.getElementById('liveSettingsCard').style.display = savedMode==='live'?'block':'none';
@@ -16221,7 +16238,7 @@ function render(){
   document.getElementById('liveToggle').addEventListener('change', (e)=>{
     mode=e.target.checked?'live':'paper';
     localStorage.setItem(STORAGE.mode, mode);
-    document.getElementById('modeDisplay').textContent=mode.toUpperCase();
+    document.getElementById('modeDisplay').textContent = formatTradeModeDisplayLabel(mode);
     document.getElementById('tradesModeLabel').textContent=mode;
     document.getElementById('liveSettingsCard').style.display=mode==='live'?'block':'none';
     fetch(`${window.FNO_AJAX.url}?action=fno_toggle_live`, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:`enable=${mode==='live'?'yes':'no'}&nonce=${window.FNO_AJAX.nonce}`});
@@ -16953,8 +16970,8 @@ function render(){
       let decisionLogFailureModeResult = null;
       const strategyEntryDecision = resolveStrategyEntryDecision(brain);
       let decisionLogBlockReason = strategyEntryDecision
-        ? (isPaperExperimentalTriggerModeActive()
-          ? 'Paper auto-execution lane inactive — enable Paper mode and Mode 7 Trade Trigger Test (Autonomous is turned on automatically when you select Mode 7).'
+        ? (isPaperAutoExecutionEnabled()
+          ? 'Strategy signal present but open was blocked this refresh (see Brain Log).'
           : 'Autonomous Mode is not enabled - a real BUY/SELL signal existed this refresh but no automatic open was attempted.')
         : (brain.decision === 'NO_TRADE' ? `Critical fail: ${(brain.criticalFails||[]).map(f=>f.factor).join(', ') || 'unspecified'}` : 'No directional signal this refresh (WAIT).');
       if (isPaperAutoExecutionEnabled() && strategyEntryDecision) {
@@ -18483,9 +18500,9 @@ function render(){
    */
   function tryOpenAutoTradePosition(params, reportFn) {
     if (typeof isExperimentalTradeTriggerMode === 'function' && isExperimentalTradeTriggerMode()
-      && (localStorage.getItem(STORAGE.mode) || 'paper') !== 'paper') {
-      reportFn('Blocked: Mode 7 Trade Trigger Test is paper-only — switch to Paper mode.');
-      return { opened: false, reason: 'Experimental trigger mode is paper-only', rejectionCategory: FNO_EXEC_REJECTION.STRATEGY_RULE };
+      && !isVirtualSimulatedAutoTradeContext()) {
+      reportFn('Blocked: Mode 7 Trade Trigger Test requires Free Data or Kite Data simulated trading — not an unknown mode.');
+      return { opened: false, reason: 'Experimental trigger mode requires simulated auto-trade context', rejectionCategory: FNO_EXEC_REJECTION.STRATEGY_RULE };
     }
     const { strike, optionType, target, sl, execMode, trailingEnabled, partialExitEnabled } = params;
     let lotSize = params.lotSize;

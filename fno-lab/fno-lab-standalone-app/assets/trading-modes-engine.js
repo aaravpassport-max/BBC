@@ -170,7 +170,7 @@ const FNO_SCALPING_TRADING_MODES = {
       maxDailyLossPctPreservation: 5,
     },
     positionSizeMultiplier: { High: 1, Medium: 1, Low: 1 },
-    description: 'PAPER DIAGNOSTIC ONLY — eases brain thresholds and skips SPE/TSE/FM/capital-preservation blocks so you can verify CE/PE opens fire. Still uses realistic spread fill simulation + market hours. NOT for live money.',
+    description: 'PAPER DIAGNOSTIC ONLY — eases brain thresholds and skips SPE/TSE/FM/capital-preservation blocks so you can verify CE/PE simulated auto-opens fire (Free Data or Kite Data toggle). Still uses realistic spread fill simulation + market hours. NOT for Real Money Trading.',
   },
 };
 
@@ -213,9 +213,7 @@ function applyScalpingTradingModePreset(modeId) {
     next.scalpingProfitEngineMode = 'SIGNAL_ONLY';
     next.scalpingCapitalPreservationEnabled = false;
     try {
-      if ((localStorage.getItem('fno_mode_v8') || 'paper') === 'paper') {
-        localStorage.setItem('fno_autonomous_mode_enabled', 'true');
-      }
+      localStorage.setItem('fno_autonomous_mode_enabled', 'true');
     } catch (e) { /* quota */ }
   }
   fnoSettings.set(next);
