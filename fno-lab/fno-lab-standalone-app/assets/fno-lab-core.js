@@ -21,6 +21,9 @@ const STORAGE = {journal:'fno_journal_v8', daily:'fno_daily_v8', autoTrades:'fno
 // call and compared after every await to detect and discard a
 // superseded (stale-symbol) call before it can write to the DOM.
 let fnoRefreshGeneration = 0;
+/** Coalesces overlapping refreshBrain() calls so stale-generation exits cannot starve the UI. */
+let fnoRefreshBrainRunning = false;
+let fnoRefreshBrainQueued = false;
 
 // TRACE: Auto-trade close/partial-close re-entrancy guard (audit pass,
 // following up on the fnoRefreshGeneration finding above). closeAutoTrade()
@@ -16238,7 +16241,7 @@ function render(){
     }
   });
 
-  async function refreshBrain(){
+  async function refreshBrainImpl(){
     const sym=document.getElementById('sym').value;
     // See fnoRefreshGeneration TRACE at top of file: this call's own
     // ticket. Checked after every await below - if a newer call has
@@ -16274,7 +16277,9 @@ function render(){
       // started while this one's big Promise.all was still in flight -
       // discard this call rather than paint its now-stale-symbol
       // results over the newer call's.
-      if (isStaleRefresh()) return;
+      if (isStaleRefresh()) {
+        return;
+      }
 
       // Real, direct, honest data-source indicator - user's own
       // direct, explicit request to make Kite a genuine, end-to-end
@@ -16499,7 +16504,9 @@ function render(){
       try {
         kiteMarginEstimate = await fetchKiteOrderMargin(sym, strike, optionType, lotSize);
       } catch(e) { /* honest fall-through - stays unavailable */ }
-      if (isStaleRefresh()) return;
+      if (isStaleRefresh()) {
+        return;
+      }
 
       const decay=calculateDecay(spot, strike, daysExp, iv, optPrice, lotSize, optionType);
       // Real, honest intraday price-change % for trap-detection (see
@@ -16573,7 +16580,9 @@ function render(){
       })();
 
       const journal = await syncServerJournal();
-      if (isStaleRefresh()) return; // see fnoRefreshGeneration TRACE - a newer call superseded this one during the journal sync await
+      if (isStaleRefresh()) {
+        return;
+      } // see fnoRefreshGeneration TRACE - a newer call superseded this one during the journal sync await
       // Real, new: threads the real, current paper account balance into
       // refreshCtx for the first time, closing the specific "real, additional
       // architecture work, not a quick reuse" gap FM044/FM095/FM096 were
@@ -16587,7 +16596,9 @@ function render(){
       // leaves accountAvailableCapital/accountCurrentDrawdownPct as
       // null, and every consumer below is guarded accordingly.
       const paperAccountForCtx = await fetchPaperAccount();
-      if (isStaleRefresh()) return; // see fnoRefreshGeneration TRACE - a newer call superseded this one during the paper-account await
+      if (isStaleRefresh()) {
+        return;
+      } // see fnoRefreshGeneration TRACE - a newer call superseded this one during the paper-account await
       let accountAvailableCapital = null, accountCurrentDrawdownPct = null, accountCurrentBalance = null;
       if (paperAccountForCtx) {
         const eqForCtx = computeEquityCurve(journal, paperAccountForCtx, loadObj(STORAGE.autoTrades));
@@ -17644,6 +17655,37 @@ function render(){
         decEl.style.background = '#450a0a';
         decEl.style.color = '#fca5a5';
       }
+      clearStuckLoadingPanels(`Refresh error: ${errMsg}`);
+    }
+  }
+
+  function clearStuckLoadingPanels(reason) {
+    const msg = reason || 'Data unavailable this refresh.';
+    document.querySelectorAll('[id]').forEach(function(el) {
+      if (el.children.length === 0 && el.textContent.trim() === 'Loading...') {
+        el.textContent = msg;
+        el.style.color = '#64748b';
+      } else if (el.id === 'brainDecision' && /Loading brain/i.test(el.textContent)) {
+        el.textContent = msg;
+        el.style.background = '#422006';
+        el.style.color = '#fde68a';
+      }
+    });
+  }
+
+  async function refreshBrain() {
+    if (fnoRefreshBrainRunning) {
+      fnoRefreshBrainQueued = true;
+      return;
+    }
+    fnoRefreshBrainRunning = true;
+    try {
+      do {
+        fnoRefreshBrainQueued = false;
+        await refreshBrainImpl();
+      } while (fnoRefreshBrainQueued);
+    } finally {
+      fnoRefreshBrainRunning = false;
     }
   }
 
@@ -19714,7 +19756,10 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
     const previewEl = document.getElementById('diagnosticReportPreview');
     const csvLink = document.getElementById('downloadReportCsv');
     const pdfLink = document.getElementById('downloadReportPdf');
-    if (!previewEl || !window.FNO_AJAX.isLoggedIn) return;
+    if (!previewEl || !window.FNO_AJAX.isLoggedIn) {
+      if (previewEl) previewEl.innerHTML = '<i style="color:#64748b">Log in to load diagnostic preview (CSV/PDF downloads require login).</i>';
+      return;
+    }
     csvLink.href = `${window.FNO_AJAX.url}?action=fno_download_diagnostic_report_csv&nonce=${window.FNO_AJAX.nonce}`;
     pdfLink.href = `${window.FNO_AJAX.url}?action=fno_download_diagnostic_report_pdf&nonce=${window.FNO_AJAX.nonce}`;
     try {
@@ -19734,7 +19779,11 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
   async function loadTradeLedger() {
     const summaryEl = document.getElementById('tradeLedgerSummary');
     const bodyEl = document.getElementById('tradeLedgerBody');
-    if (!summaryEl || !bodyEl || !window.FNO_AJAX.isLoggedIn) return;
+    if (!summaryEl || !bodyEl || !window.FNO_AJAX.isLoggedIn) {
+      if (summaryEl) summaryEl.innerHTML = '<div style="grid-column:1/-1;color:#64748b">Log in to view the trade ledger.</div>';
+      if (bodyEl) bodyEl.innerHTML = '<tr><td colspan="13" style="padding:10px;color:#64748b">Log in to view trades.</td></tr>';
+      return;
+    }
     try {
       const r = await fetch(`${window.FNO_AJAX.url}?action=fno_journal_list&nonce=${window.FNO_AJAX.nonce}`);
       const j = await r.json();
@@ -20395,7 +20444,7 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
       }
       } finally { cycleInProgress = false; }
     };
-    cycle(); // run once immediately, real feedback without waiting a full interval
+    cycle(); // first interval tick only — initial refresh runs from render() Promise.all below
     autonomousModeInterval = setInterval(cycle, getAutonomousPollMs());
   }
   const autonomousToggleBtn = document.getElementById('autonomousModeToggle');
@@ -20410,8 +20459,9 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
       localStorage.setItem('fno_autonomous_mode_enabled', 'true');
       localStorage.setItem('fno_autonomous_paper_default_v16377', 'done');
     }
-    if (localStorage.getItem('fno_autonomous_mode_enabled') === 'true') startAutonomousMode();
-    else updateAutonomousStatusDisplay('Autonomous Mode: OFF - manual refresh only', false);
+    if (localStorage.getItem('fno_autonomous_mode_enabled') !== 'true') {
+      updateAutonomousStatusDisplay('Autonomous Mode: OFF - manual refresh only', false);
+    }
   }
 
   loadKiteSettings();
@@ -20477,7 +20527,17 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
     reconcileOpenPositionOnLoad(),
     loadStrategyVersions(),
     loadHypothesisStats(),
-  ]).finally(() => setTimeout(refreshBrain, 600));
+  ]).finally(async () => {
+    try {
+      await refreshBrain();
+    } catch (e) {
+      console.error('Initial refreshBrain failed:', e);
+      clearStuckLoadingPanels(e && e.message ? e.message : String(e));
+    }
+    if (localStorage.getItem('fno_autonomous_mode_enabled') === 'true' && !autonomousModeInterval) {
+      startAutonomousMode();
+    }
+  });
 
   // FOUND via a real, direct UI/UX audit using an actual, live
   // browser: several real panels (Operator Intel, Dealer Gamma
