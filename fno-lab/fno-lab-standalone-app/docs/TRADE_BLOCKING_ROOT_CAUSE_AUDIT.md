@@ -325,4 +325,6 @@ No evidence that **confidence calculation is mathematically broken**; it aligns 
 
 ---
 
-*Audit performed by static trace + executable fixtures; no trading thresholds were changed in code as part of this document.*
+*Audit performed by static trace + executable fixtures.*
+
+**Update (v16.37.3):** With Scalping Profit Profile enabled, `shouldPushValueDecayCriticalFail` and `shouldPushExpiryCriticalFail` no longer add hard `NO_TRADE` for expiry-day theta; decay still scores and SPE/TSE/FM/time gates apply. Non-scalping paths unchanged.

@@ -580,19 +580,26 @@ function computeValueDecayCriticalPct(ctx) {
 }
 
 /**
- * Whether Value Decay becomes a hard NO_TRADE (critFail). Scalping waives the 5% rule
- * when DTE > 1 — decay still scores via computeDecayFactors + FM022.
+ * Whether Value Decay becomes a hard NO_TRADE (critFail). Non-scalping: classic >5% of premium.
+ * Scalping profit profile: never a critFail (v16.37.3) — ATM weeklies on expiry often exceed 5%
+ * and routinely exceed 35%, which made eligibility 0% all session; decay still scores via
+ * computeDecayFactors + FM022 + SPE/TSE/time-to-square-off.
  */
 function shouldPushValueDecayCriticalFail(ctx, decayCritPct) {
   if (decayCritPct === null) return false;
-  if (isScalpingProfitProfileActive()) {
-    const days = ctx.decay && typeof ctx.decay.days === 'number' ? ctx.decay.days : null;
-    if (days !== null && days <= FNO_SCALPING_PROFIT_PROFILE.valueDecayHardBlockMaxDays) {
-      return decayCritPct > FNO_SCALPING_PROFIT_PROFILE.valueDecayCriticalPctNearExpiry;
-    }
-    return decayCritPct >= FNO_SCALPING_PROFIT_PROFILE.valueDecayExtremePct;
-  }
+  if (isScalpingProfitProfileActive()) return false;
   return decayCritPct > 5;
+}
+
+/**
+ * Expiry hard NO_TRADE (critFail). Non-scalping: DTE ≤ 1 is a full stop.
+ * Scalping profit profile: skip blanket Expiry critFail (aligned with Value Decay waiver above).
+ */
+function shouldPushExpiryCriticalFail(ctx) {
+  if (!ctx || !ctx.decay || typeof ctx.decay.days !== 'number') return false;
+  if (ctx.decay.days > 1) return false;
+  if (isScalpingProfitProfileActive()) return false;
+  return true;
 }
 
 /**
@@ -993,7 +1000,7 @@ function renderScalpingSessionReadiness(brain, ctx) {
   const sizeTxt = sizeMult < 1 ? `${lotTxt} (mode size ×${sizeMult})` : lotTxt;
   const decayPct = computeValueDecayCriticalPct(ctx || {});
   const decayPolicyTxt = decayPct !== null
-    ? `Value Decay: ${decayPct.toFixed(1)}%/day of premium — hard NO_TRADE only if DTE ≤ ${FNO_SCALPING_PROFIT_PROFILE.valueDecayHardBlockMaxDays} or ≥ ${FNO_SCALPING_PROFIT_PROFILE.valueDecayExtremePct}% (scalping policy)`
+    ? `Value Decay: ${decayPct.toFixed(1)}%/day of premium — scalping: scored + FM/SPE/TSE (no hard NO_TRADE); non-scalping: hard block if >5%`
     : 'Value Decay: premium unavailable — hard block skipped (decay still scored when data exists)';
   box.innerHTML = [
     `<b style="color:${tp.warn}">⚡ Scalping Profit Profile</b> <span style="color:${tp.muted}">(Entry mode: ${escapeHtml(fmMode)}, realistic fills, ${bracketTxt})</span>`,
@@ -14923,7 +14930,7 @@ function evaluateBrain(ctx){
   // factors in totalScore.
   const decayCritPct = computeValueDecayCriticalPct(ctx);
   if (shouldPushValueDecayCriticalFail(ctx, decayCritPct)) critFails.push({factor:'Value Decay'});
-  if (ctx.decay && ctx.decay.days <= 1) critFails.push({factor:'Expiry'});
+  if (shouldPushExpiryCriticalFail(ctx)) critFails.push({factor:'Expiry'});
 
   if(ctx.banListSource === 'unavailable'){ results.push({cat:'Regulatory',factor:'F&O Ban List - Stock in Ban?',pass:null,score:0,reason:'NSE ban-list CSV unreachable this refresh (circuit breaker or network) - empty array is NOT confirmation of "not banned", it means unverified. Never treat this as a pass.'}); }
   else if(ctx.banListSource === 'disabled'){ results.push({cat:'Regulatory',factor:'F&O Ban List - Stock in Ban?',pass:null,score:0,reason:'NSE Integration is currently OFF in Trading Controls - this real, regulatory data has no Kite equivalent, so this factor is honestly unverified, never a false "not banned" claim.'}); } // FOUND while wiring the new NSE toggle: without this real, explicit check, a deliberately-disabled NSE integration would have silently fallen through to a dishonest "verified not in ban" claim below, since an empty banList array looks identical to a genuinely-checked one

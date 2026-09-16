@@ -30,7 +30,7 @@ const boot = [
   coreSrc.slice(profileStart, evaluateEnd + 1)
     .replace(/const FNO_SCALPING_PROFIT_PROFILE/g, 'var FNO_SCALPING_PROFIT_PROFILE')
     .replace(/const FNO_TRADE_TYPE_CATEGORY_WEIGHTS/g, 'var FNO_TRADE_TYPE_CATEGORY_WEIGHTS'),
-  'return { fnoSettings, evaluateBrain, computeValueDecayCriticalPct, shouldPushValueDecayCriticalFail, isScalpingProfitProfileActive, calculateDecay };',
+  'return { fnoSettings, evaluateBrain, computeValueDecayCriticalPct, shouldPushValueDecayCriticalFail, shouldPushExpiryCriticalFail, isScalpingProfitProfileActive, calculateDecay };',
 ].join('\n');
 
 const api = new Function(boot)();
@@ -73,8 +73,28 @@ assert.strictEqual(
 
 assert.strictEqual(
   api.shouldPushValueDecayCriticalFail({ optPrice: 100, decay: { days: 0.5, snapshot: decay.snapshot } }, 8),
+  false,
+  'scalping: no Value Decay critFail on last day (v16.37.3 — scored + SPE/TSE instead)'
+);
+assert.strictEqual(
+  api.shouldPushExpiryCriticalFail({ decay: { days: 0.5, snapshot: decay.snapshot } }),
+  false,
+  'scalping: no Expiry critFail on last day'
+);
+
+api.fnoSettings.set({
+  scalpingProfitProfileEnabled: false,
+  tradingTypes: { intraday: true, scalping: false, swing: false },
+});
+assert.strictEqual(
+  api.shouldPushValueDecayCriticalFail({ optPrice: 100, decay: { days: 0.5, snapshot: decay.snapshot } }, 8),
   true,
-  'near expiry (DTE<=1) still hard-blocks when theta > 5%'
+  'non-scalping: still hard-blocks when theta > 5%'
+);
+assert.strictEqual(
+  api.shouldPushExpiryCriticalFail({ decay: { days: 0.5, snapshot: decay.snapshot } }),
+  true,
+  'non-scalping: Expiry critFail when DTE<=1'
 );
 
 assert.strictEqual(api.computeValueDecayCriticalPct({ optPrice: null, decay: { snapshot: decay.snapshot } }), null);
