@@ -143,6 +143,15 @@ Your log’s **0** BUY/SELL means these layers did **not** cause the session-wid
 - **TSE/SPE entry gates** still run inside **`tryOpenAutoTradePosition`** — bad setups can still be blocked with an explicit **`blockReason`** in the decision log.
 - **Paper mode** defaults **Autonomous Mode ON** once (live mode still requires explicit Start).
 
+### 2.7 Autonomous paper execution lane (v16.37.9)
+
+When **paper + Autonomous Mode** are both on:
+
+- **`strategySignalDecision`** uses **`preWeightingDecision`** when the brain crossed BUY/SELL before category-weighting downgraded the displayed decision to WAIT.
+- **`tryOpenAutoTradePosition`** **does not** apply SPE/TSE overlay entry gates (brain + failure-mode library + realistic fill simulation still apply).
+- **Capital preservation** on that path enforces **daily loss caps only** (not confidence / weighted-score / trap soft blocks that were stopping every open attempt).
+- Default **`maxLosingTradesPerDay`** raised to **3** (schema v13) so one loss no longer halts all paper trading for the rest of the session.
+
 ### 2.5 Execution gate (`tryOpenAutoTradePosition`)
 
 Order (simplified): capital preservation → market hours → time remaining for trade type → re-entry cooldown → CE/PE vs BUY/SELL alignment → **SPE** → **TSE** → **FM block/reject** → fill simulation.

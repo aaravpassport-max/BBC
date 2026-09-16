@@ -31,3 +31,6 @@ const coreSrc = fs.readFileSync(
 })();
 
 console.log('autonomous-paper-strategy-signal.test.js: all passed');
+
+assert.match(coreSrc, /skipOverlayEntryGates = isAutonomousPaperTradingActive\(\)/);
+assert.match(coreSrc, /preWeightingDecision/);

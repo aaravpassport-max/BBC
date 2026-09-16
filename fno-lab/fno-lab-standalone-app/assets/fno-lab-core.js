@@ -64,7 +64,7 @@ let fnoAutoTradeCloseInProgress = false;
  */
 const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
-const FNO_SETTINGS_SCHEMA_VERSION = 12; // v12 (16.35.0): Scalping Profit Engine settings
+const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -158,7 +158,7 @@ const FNO_SETTINGS_DEFAULTS = {
   speSlippageEstimatePts: 0.5,
   speSafetyMarginPts: 1,
   speEventRiskEnabled: false,
-  maxLosingTradesPerDay: 1,
+  maxLosingTradesPerDay: 3,
   maxDailyLossPctPreservation: 1.5,
   // Scalping bracket preset: standard 20% (default) | balanced 25% | manual (save your own %)
   scalpingBracketPreset: 'standard',
@@ -310,14 +310,15 @@ function checkScalpingCapitalPreservation(brain, ctx, opts) {
   const cfg = getScalpingCapitalPreservationConfig();
   if (!cfg) return { allowed: true };
   const reasons = [];
+  const autonomousPaper = opts.autonomousPaper === true || (opts.autonomousPaper !== false && isAutonomousPaperTradingActive());
   const confRank = c => c === 'High' ? 3 : (c === 'Medium' ? 2 : 1);
-  if (confRank(brain.confidence || 'Low') < confRank(cfg.minConfidence)) {
+  if (!autonomousPaper && confRank(brain.confidence || 'Low') < confRank(cfg.minConfidence)) {
     reasons.push(`Requires ${cfg.minConfidence} confidence (current: ${brain.confidence || 'Low'})`);
   }
-  if (cfg.blockWeightedScoreWait && brain.tradeTypeWeightingAdjustment) {
+  if (!autonomousPaper && cfg.blockWeightedScoreWait && brain.tradeTypeWeightingAdjustment) {
     reasons.push('Weighted-score safety active — setup downgraded from raw signal');
   }
-  if (cfg.blockTrapWarnings && brain.pretradeGateCheck) {
+  if (!autonomousPaper && cfg.blockTrapWarnings && brain.pretradeGateCheck) {
     const fa = brain.pretradeGateCheck.finalAction;
     const ids = (brain.pretradeGateCheck.triggered || []).map(t => t.id);
     if (fa === 'block' || fa === 'reject') {
@@ -447,6 +448,13 @@ function migrateTradingControlsSchema(stored) {
       candleIntervalMinutes: merged.candleIntervalMinutes != null ? merged.candleIntervalMinutes : 1,
       minImpulsePoints: merged.minImpulsePoints != null ? merged.minImpulsePoints : 8,
       minEmaSlopePoints: merged.minEmaSlopePoints != null ? merged.minEmaSlopePoints : 0.15,
+    };
+  }
+  if (schema < 13) {
+    merged = {
+      ...merged,
+      maxLosingTradesPerDay: (typeof merged.maxLosingTradesPerDay === 'number' && merged.maxLosingTradesPerDay > 1)
+        ? merged.maxLosingTradesPerDay : 3,
     };
   }
   try {
@@ -1054,6 +1062,15 @@ function resolveEntryDirectionDecision(brain) {
     return brain.strategySignalDecision;
   }
   return brain.decision;
+}
+
+/** Paper + Autonomous Mode: system-driven opens (never live money). */
+function isAutonomousPaperTradingActive() {
+  try {
+    if (typeof localStorage === 'undefined') return false;
+    if ((localStorage.getItem(STORAGE.mode) || 'paper') !== 'paper') return false;
+    return localStorage.getItem('fno_autonomous_mode_enabled') === 'true';
+  } catch (e) { return false; }
 }
 
 function classifyExecutionRejection(decision, blockReason, extra) {
@@ -15501,6 +15518,7 @@ function evaluateBrain(ctx){
   // original, default, most-tested behavior is unchanged for anyone
   // who never touches the trading-type setting.
   const weightedDirectionalScore = computeTradeTypeDirectionalWeightedScore(results, currentEffectiveTradingType);
+  const preWeightingDecision = decision;
   const tradeTypeWeightingResult = applyTradeTypeWeightingAdjustmentToDecision(decision, confidence, reason, directionalScore, weightedDirectionalScore, currentEffectiveTradingType, BUY_THRESHOLD, SELL_THRESHOLD);
   decision = tradeTypeWeightingResult.decision; confidence = tradeTypeWeightingResult.confidence; reason = tradeTypeWeightingResult.reason;
   const tradeTypeWeightingAdjustment = tradeTypeWeightingResult.tradeTypeWeightingAdjustment;
@@ -15556,7 +15574,7 @@ function evaluateBrain(ctx){
   const pseudoBrainForGateCheck = { results, regime, decision, confidence, regimeAdjustment, criticalFails: critFails, factorRegistry: registry };
   const pretradeGateCheck = computePretradeGateCheck(decision, pseudoBrainForGateCheck, ctx, currentEffectiveTradingType);
 
-  return {results, totalScore, directionalScore, directionalScoreAvailableOnly, tradeQualityScore, modelQualityScore, humanOperatorScore, riskScore, passCount:pass, failCount:fail, criticalFails:critFails, decision, decisionTier, reason, operatorIntel:opIntel, factorRegistry:registry, factorDataAvailability, decisionAffectedByMissingData: !!(factorDataAvailability && factorDataAvailability.decisionAffectedByMissingData), confidenceAdjustedForMissingData: !!(factorDataAvailability && factorDataAvailability.confidenceAdjustedForMissingData), confidence, rawConfidence, regimeAdjustment, failureLibraryAdjustment, tradeTypeWeighting, tradeTypeWeightingAdjustment, tradeTypeAdjustment, categoriesNotEvaluated, regime, pretradeGateCheck,
+  return {results, totalScore, directionalScore, directionalScoreAvailableOnly, tradeQualityScore, modelQualityScore, humanOperatorScore, riskScore, passCount:pass, failCount:fail, criticalFails:critFails, decision, decisionTier, reason, operatorIntel:opIntel, factorRegistry:registry, factorDataAvailability, decisionAffectedByMissingData: !!(factorDataAvailability && factorDataAvailability.decisionAffectedByMissingData), confidenceAdjustedForMissingData: !!(factorDataAvailability && factorDataAvailability.confidenceAdjustedForMissingData), confidence, rawConfidence, regimeAdjustment, failureLibraryAdjustment, tradeTypeWeighting, tradeTypeWeightingAdjustment, tradeTypeAdjustment, categoriesNotEvaluated, regime, pretradeGateCheck, preWeightingDecision,
     // Real, NEW, additive fields (Decision Intelligence system, this
     // pass) - both were already computed a few lines above for the
     // trade-type-weighting adjustment stage but never actually
@@ -16766,6 +16784,10 @@ function render(){
 
       const brain=evaluateBrain(refreshCtx);
       brain.strategySignalDecision = brain.decision;
+      if (isAutonomousPaperTradingActive()
+        && (brain.preWeightingDecision === 'BUY_READY' || brain.preWeightingDecision === 'SELL_READY')) {
+        brain.strategySignalDecision = brain.preWeightingDecision;
+      }
       lastBrain=brain;
       window.FNO_LAST_BRAIN = brain;
       window.FNO_LAST_CTX = refreshCtx;
@@ -16915,7 +16937,7 @@ function render(){
             const autoTrailing = !!(document.getElementById('trailingEnabled') && document.getElementById('trailingEnabled').checked);
             const autoPartial = !!(document.getElementById('partialExitEnabled') && document.getElementById('partialExitEnabled').checked);
             if (autoStrike) {
-              const preservation = checkScalpingCapitalPreservation(brain, refreshCtx, { journalToday: todayTrades });
+              const preservation = checkScalpingCapitalPreservation(brain, refreshCtx, { journalToday: todayTrades, autonomousPaper: true });
               if (!preservation.allowed) {
                 decisionLogBlockReason = preservation.reason;
               } else {
@@ -18389,7 +18411,10 @@ function render(){
       const hist = load(STORAGE.autoTrades + '_history') || [];
       const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0);
       const journalToday = hist.filter(t => t.ts >= dayStart.getTime());
-      const preservation = checkScalpingCapitalPreservation(brain, curCtx || {}, { journalToday });
+      const preservation = checkScalpingCapitalPreservation(brain, curCtx || {}, {
+        journalToday,
+        autonomousPaper: isAutonomousPaperTradingActive(),
+      });
       if (!preservation.allowed) {
         reportFn(preservation.reason);
         return { opened: false, reason: preservation.reason, rejectionCategory: FNO_EXEC_REJECTION.STRATEGY_RULE, rejectionSubcategory: 'capital_preservation' };
@@ -18498,20 +18523,21 @@ function render(){
       return { opened: false, reason: 'Option type must be PE for SELL_READY', rejectionCategory: FNO_EXEC_REJECTION.STRATEGY_RULE, rejectionSubcategory: 'option_type_mismatch' };
     }
 
-    if (typeof checkScalpingProfitEntryGate === 'function' && timeSufficiencyType === 'scalping') {
+    const skipOverlayEntryGates = isAutonomousPaperTradingActive();
+    if (!skipOverlayEntryGates && typeof checkScalpingProfitEntryGate === 'function' && timeSufficiencyType === 'scalping') {
       const speGate = checkScalpingProfitEntryGate(lastBrain, curCtx, optionType);
       if (!speGate.allowed) {
         reportFn(speGate.reason);
         return { opened: false, reason: speGate.reason, rejectionCategory: FNO_EXEC_REJECTION.STRATEGY_RULE, rejectionSubcategory: 'scalping_profit_engine' };
       }
     }
-    if (typeof checkTradeSetupEntryGate === 'function' && timeSufficiencyType === 'scalping') {
+    if (!skipOverlayEntryGates && typeof checkTradeSetupEntryGate === 'function' && timeSufficiencyType === 'scalping') {
       const tseGate = checkTradeSetupEntryGate(lastBrain, curCtx, optionType);
       if (!tseGate.allowed) {
         reportFn(tseGate.reason);
         return { opened: false, reason: tseGate.reason, rejectionCategory: FNO_EXEC_REJECTION.STRATEGY_RULE, rejectionSubcategory: 'trade_setup_engine' };
       }
-    } else if (typeof checkPullbackContinuationEntryGate === 'function' && timeSufficiencyType === 'scalping') {
+    } else if (!skipOverlayEntryGates && typeof checkPullbackContinuationEntryGate === 'function' && timeSufficiencyType === 'scalping') {
       const pbGate = checkPullbackContinuationEntryGate(lastBrain, curCtx, optionType);
       if (!pbGate.allowed) {
         reportFn(pbGate.reason);
