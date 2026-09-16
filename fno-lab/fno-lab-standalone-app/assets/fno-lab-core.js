@@ -3848,12 +3848,20 @@ function computeOpportunityGrade(brain) {
   const tier = brain.decisionTier;
   const gateAction = brain.pretradeGateCheck ? brain.pretradeGateCheck.finalAction : 'none';
   const gateBlocks = gateAction === 'block' || gateAction === 'reject';
+  const critBlock = brain.decision === 'NO_TRADE' && Array.isArray(brain.criticalFails) && brain.criticalFails.length > 0;
   let grade, label, reason;
-  if (tier === 'NO_TRADE' || gateBlocks) {
+  if (critBlock || gateBlocks) {
     grade = 'E'; label = 'Reject';
     reason = gateBlocks
       ? `Real pre-trade gate verdict is '${gateAction}' - risk/execution conditions unacceptable regardless of the directional score.`
-      : 'No real directional edge this refresh (directionalScore inside the neutral band between both thresholds).';
+      : `Critical block: ${brain.criticalFails.map(f => f.factor || f).join(', ')}`;
+  } else if (brain.decision === 'WAIT') {
+    grade = 'D'; label = 'Neutral band';
+    const gap = summarizeThresholdGap('WAIT', brain.directionalScoreAvailableOnly != null ? brain.directionalScoreAvailableOnly : brain.directionalScore, brain.buyThreshold, brain.sellThreshold);
+    reason = `Score inside BUY/SELL thresholds (not a Brain failure).${gap || ' Need a stronger directional edge before BUY_READY or SELL_READY.'}`;
+  } else if (tier === 'NO_TRADE' && brain.decision !== 'BUY_READY' && brain.decision !== 'SELL_READY') {
+    grade = 'D'; label = 'Neutral band';
+    reason = 'Directional score in the neutral zone between thresholds — missing optional catalog factors does not block this; score must cross the threshold.';
   } else if (tier === 'WEAK_LONG' || tier === 'WEAK_SHORT') {
     grade = 'D'; label = 'Weak';
     reason = `Directional score only just cleared 40% of the real threshold (tier=${tier}) - real, but insufficient evidence for a full-size entry.`;
@@ -4888,14 +4896,24 @@ function computeFactorDataAvailability(registry, results, categoriesNotEvaluated
   const dirUsed = usedFactors.filter(f => directionalCats.has(f.cat));
   const dirUnavailable = unavailableFactors.filter(f => directionalCats.has(f.cat));
   const dirNotComputed = notComputedFactors.filter(f => directionalCats.has(f.cat));
-  const directionalEligible = dirUsed.length + dirUnavailable.length + dirNotComputed.length;
-  const directionalCoveragePct = directionalEligible > 0 ? (dirUsed.length / directionalEligible * 100) : 0;
+  // Coverage = computed ÷ (computed + unavailable-with-a-row). NOT_COMPUTED catalog slots
+  // are unwired roadmap items — never treat them as "missing live data" (v16.37.6).
+  const directionalAttempted = dirUsed.length + dirUnavailable.length;
+  const directionalCoveragePct = directionalAttempted > 0
+    ? (dirUsed.length / directionalAttempted * 100)
+    : (dirUsed.length > 0 ? 100 : 0);
   const directionalScoreAvailableOnly = computeSeparatedScoresAvailableOnly(results || [], directionalCats);
   const skippedCategories = (categoriesNotEvaluated || []).map(c => c.cat);
 
   let missingDataImpact = 'none';
-  if (directionalCoveragePct < 35 || skippedCategories.length >= 3) missingDataImpact = 'high';
-  else if (directionalCoveragePct < 60 || skippedCategories.length >= 1 || dirUnavailable.length >= 8) missingDataImpact = 'low';
+  const scalping = typeof isScalpingProfitProfileActive === 'function' && isScalpingProfitProfileActive();
+  if (scalping) {
+    if (directionalCoveragePct < 25 && dirUnavailable.length >= 12) missingDataImpact = 'high';
+    else if (directionalCoveragePct < 45 || dirUnavailable.length >= 6) missingDataImpact = 'low';
+  } else {
+    if (directionalCoveragePct < 35 || skippedCategories.length >= 3) missingDataImpact = 'high';
+    else if (directionalCoveragePct < 60 || skippedCategories.length >= 1 || dirUnavailable.length >= 8) missingDataImpact = 'low';
+  }
 
   return {
     unavailableFactors,
@@ -14609,6 +14627,33 @@ function backfillChainIVFromPremium(rows, spot, nowMs) {
  * directional factor with a nonzero, finite score in the requested
  * direction exists this refresh (never fabricates a factor name).
  */
+function summarizeThresholdGap(decision, directionalScore, buyThreshold, sellThreshold) {
+  if (decision !== 'WAIT' || !Number.isFinite(directionalScore)) return '';
+  const toBuy = buyThreshold - directionalScore;
+  const toSell = directionalScore - sellThreshold;
+  if (!Number.isFinite(toBuy) || !Number.isFinite(toSell)) return '';
+  if (toBuy <= 0 || toSell <= 0) return '';
+  if (toBuy < toSell) {
+    return ` — ${toBuy.toFixed(1)} pts to BUY (need score ≥ ${buyThreshold})`;
+  }
+  return ` — ${toSell.toFixed(1)} pts to SELL / PE signal (need score ≤ ${sellThreshold})`;
+}
+
+/** UI-only 0–100 strength from tier + score (not catalog NOT_COMPUTED count). */
+function computeConfidenceDisplayPct(brain) {
+  if (!brain) return null;
+  const tierRank = { Low: 35, Medium: 62, High: 88 };
+  let base = tierRank[brain.confidence] || tierRank.Low;
+  const span = Math.max(Math.abs(brain.buyThreshold || 11), Math.abs(brain.sellThreshold || -17));
+  const mag = Math.abs(brain.directionalScoreAvailableOnly != null ? brain.directionalScoreAvailableOnly : brain.directionalScore);
+  if (Number.isFinite(mag) && span > 0) {
+    const edge = Math.min(1, mag / span);
+    base = Math.round(base * 0.55 + edge * 100 * 0.45);
+  }
+  if (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY') base = Math.max(base, 55);
+  return Math.max(5, Math.min(98, base));
+}
+
 function summarizeTopDirectionalFactors(results, directionalCats, direction, limit) {
   limit = limit || 4;
   const wantPositive = direction === 'bullish';
@@ -15322,7 +15367,7 @@ function evaluateBrain(ctx){
   else {
     decision='WAIT';
     const topFactors = summarizeTopDirectionalFactors(results, DIRECTIONAL_CATS_FOR_REASON, 'neutral', 4);
-    reason=`Directional score ${decisionDirectionalScore.toFixed(1)} from available factors only (between ${SELL_THRESHOLD} and ${BUY_THRESHOLD}) - operator bias ${opIntel.bias} (${opIntel.confidence} confidence)${topFactors ? ` - largest-magnitude factors (offsetting each other): ${topFactors}` : ''}`;
+    reason=`Directional score ${decisionDirectionalScore.toFixed(1)} from available factors only (between ${SELL_THRESHOLD} and ${BUY_THRESHOLD}) - operator bias ${opIntel.bias} (${opIntel.confidence} confidence)${topFactors ? ` - largest-magnitude factors (offsetting each other): ${topFactors}` : ''}${summarizeThresholdGap('WAIT', decisionDirectionalScore, BUY_THRESHOLD, SELL_THRESHOLD)}`;
   }
 
   // Master Prompt §23 - real 7-tier output, additive to `decision`
@@ -17005,7 +17050,7 @@ function render(){
       renderScalpingSessionReadiness(brain, refreshCtx);
 
       const decEl=document.getElementById('brainDecision');
-      const confBadge = brain.confidence ? ` <span style="font-size:11px;opacity:0.8">[${brain.confidence} confidence${brain.confidence!==brain.rawConfidence?', downgraded from '+brain.rawConfidence+' by low factor coverage - see §55':''}]</span>` : '';
+      const confBadge = brain.confidence ? ` <span style="font-size:11px;opacity:0.8">[${brain.confidence} confidence${(() => { const dp = computeConfidenceDisplayPct(brain); return dp != null ? ` · signal strength ${dp}%` : ''; })()}${brain.confidence!==brain.rawConfidence?', raw tier '+brain.rawConfidence+' before coverage adjust':''}]</span>` : '';
       // Master Prompt §25-26: only ever shown/used if the stored model
       // is genuinely ACTIVE (beat its naive baseline on real held-out
       // data) - an inactive or untrained model contributes NOTHING to
@@ -17098,10 +17143,10 @@ function render(){
           const pct = brain.factorRegistry.coveragePct;
           const dirPct = brain.factorDataAvailability ? brain.factorDataAvailability.directionalCoveragePct : null;
           covEl.textContent = dirPct != null
-            ? `Directional data available: ${dirPct.toFixed(1)}% (${brain.factorDataAvailability.directionalUsedCount} used) · Catalog computed: ${pct.toFixed(1)}% (${brain.factorRegistry.counts.COMPUTED}/${brain.factorRegistry.totalCatalogued})`
-            : `Data Availability Score: ${pct.toFixed(1)}% (${brain.factorRegistry.counts.COMPUTED} of ${brain.factorRegistry.totalCatalogued} catalogued factors genuinely computed this refresh)`;
+            ? `Trade signal data: ${dirPct.toFixed(1)}% of live directional inputs scored (${brain.factorDataAvailability.directionalUsedCount} used, ${brain.factorDataAvailability.directionalUnavailableCount} skipped) · Roadmap catalog: ${pct.toFixed(1)}% wired (${brain.factorRegistry.counts.COMPUTED}/${brain.factorRegistry.totalCatalogued}) — catalog % is NOT trade confidence`
+            : `Catalog roadmap: ${pct.toFixed(1)}% of ${brain.factorRegistry.totalCatalogued} factors have live logic (not the same as trade confidence)`;
           const displayPct = dirPct != null ? dirPct : pct;
-          covEl.style.color = displayPct >= 70 ? '#4ade80' : displayPct >= 30 ? '#fde68a' : '#f87171';
+          covEl.style.color = displayPct >= 55 ? '#4ade80' : displayPct >= 35 ? '#fde68a' : '#f87171';
         }
         renderFactorDataAvailabilityPanel(brain);
         // Phase 6 report-accuracy audit fix - the counts above told a
