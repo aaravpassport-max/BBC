@@ -1099,6 +1099,13 @@ function funnelBlockLabel(meta) {
   return meta.subcategory || meta.category || 'Other gate';
 }
 
+function getDecisionLogSetupDecision(entry) {
+  if (!entry) return null;
+  const sig = entry.strategySignalDecision;
+  if (sig === 'BUY_READY' || sig === 'SELL_READY') return sig;
+  return entry.decision;
+}
+
 function computeEligibilityFunnel(decisionLog, opts) {
   opts = opts || {};
   const limit = (typeof opts.limit === 'number' && opts.limit > 0) ? opts.limit : 100;
@@ -1129,7 +1136,8 @@ function computeEligibilityFunnel(decisionLog, opts) {
   const topBlockReasons = {};
   const topCritFailReasons = {};
   entries.forEach(e => {
-    const isSetup = e.decision === 'BUY_READY' || e.decision === 'SELL_READY';
+    const setupDecision = getDecisionLogSetupDecision(e);
+    const isSetup = setupDecision === 'BUY_READY' || setupDecision === 'SELL_READY';
     if (e.decision === 'NO_TRADE') {
       funnel.noSignalNoTrade++;
       (e.critFailIds || []).forEach(id => {
@@ -1142,12 +1150,12 @@ function computeEligibilityFunnel(decisionLog, opts) {
       funnel.noSignalWait++;
       if (e.tradeTypeWeightingAdjustment) funnel.weightedScoreWait++;
     }
-    if (e.decision === 'BUY_READY') { funnel.buyReady++; funnel.potentialSetups++; }
-    else if (e.decision === 'SELL_READY') { funnel.sellReady++; funnel.potentialSetups++; }
+    if (setupDecision === 'BUY_READY') { funnel.buyReady++; funnel.potentialSetups++; }
+    else if (setupDecision === 'SELL_READY') { funnel.sellReady++; funnel.potentialSetups++; }
     if (e.tradeOpened) funnel.opened++;
     if (isSetup && !e.tradeOpened) {
       funnel.setupBlocked++;
-      const meta = classifyExecutionRejection(e.decision, e.blockReason, {});
+      const meta = classifyExecutionRejection(setupDecision, e.blockReason, {});
       const label = funnelBlockLabel(meta);
       funnel.breakdown[label] = (funnel.breakdown[label] || 0) + 1;
       const reasonKey = (e.blockReason || 'No specific block reason recorded').slice(0, 140);
@@ -1175,12 +1183,12 @@ function computeEligibilityFunnel(decisionLog, opts) {
   if (funnel.totalRefreshes >= 30 && funnel.eligibilityRatePct !== null && funnel.eligibilityRatePct < 5) {
     funnel.alert = {
       level: 'warning',
-      message: `Trade eligibility rate unusually low (${funnel.eligibilityRatePct}% of last ${funnel.sampleCount} refreshes reached BUY/SELL) — review thresholds or whether the market had real setups.`,
+      message: `Diagnostic only (not a trading mode): only ${funnel.eligibilityRatePct}% of last ${funnel.sampleCount} refreshes logged a strategy BUY/SELL — see critical-fail breakdown and rejection reasons below before changing any rule.`,
     };
   } else if (funnel.potentialSetups >= 15 && funnel.executionRatePct !== null && funnel.executionRatePct < 5) {
     funnel.alert = {
       level: 'warning',
-      message: `${funnel.potentialSetups} BUY/SELL setups but only ${funnel.opened} opened (${funnel.executionRatePct}% execution rate) — check Autonomous Mode, spread blocks, and failure-mode gates below.`,
+      message: `${funnel.potentialSetups} strategy setups but only ${funnel.opened} opened (${funnel.executionRatePct}% execution) — check Autonomous Mode, TSE/SPE gates, spread blocks, and failure-mode gates below.`,
     };
   } else if (funnel.potentialSetups >= 10 && funnel.opened === 0) {
     funnel.alert = {

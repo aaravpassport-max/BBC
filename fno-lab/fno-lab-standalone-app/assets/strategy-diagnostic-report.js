@@ -5,6 +5,36 @@
 
 const FNO_DIAGNOSTIC_REPORT_SCHEMA = '1.0.0';
 
+/** BUY/SELL for analytics: prefer raw evaluateBrain signal when logged (v16.37.7+). */
+function getDecisionLogSetupDecision(entry) {
+  if (!entry) return null;
+  const sig = entry.strategySignalDecision;
+  if (sig === 'BUY_READY' || sig === 'SELL_READY') return sig;
+  return entry.decision;
+}
+
+function isLogSetupDecision(entry) {
+  const d = getDecisionLogSetupDecision(entry);
+  return d === 'BUY_READY' || d === 'SELL_READY';
+}
+
+function summarizeDecisionLogBlockers(log) {
+  const crit = {};
+  let noTrade = 0;
+  let wait = 0;
+  let setups = 0;
+  (log || []).forEach(e => {
+    if (isLogSetupDecision(e)) setups++;
+    else if (e.decision === 'NO_TRADE') {
+      noTrade++;
+      (e.critFailIds || []).forEach(id => { crit[id] = (crit[id] || 0) + 1; });
+    } else wait++;
+  });
+  const topCrit = Object.entries(crit).sort((a, b) => b[1] - a[1]).slice(0, 3)
+    .map(([k, v]) => `${k} (${v}×)`).join(', ');
+  return { noTrade, wait, setups, topCrit };
+}
+
 function filterReportWindow(entries, opts) {
   opts = opts || {};
   const startTs = typeof opts.startTs === 'number' ? opts.startTs : null;
@@ -91,7 +121,7 @@ function computePerformanceMetrics(trades) {
 
 function buildSignalAndRejectionStats(decisionLog, blockedAttempts) {
   const log = decisionLog || [];
-  const signals = log.filter(e => e.decision === 'BUY_READY' || e.decision === 'SELL_READY');
+  const signals = log.filter(e => isLogSetupDecision(e));
   const opened = signals.filter(e => e.tradeOpened);
   const blockedSetups = signals.filter(e => !e.tradeOpened);
   const rejections = [];
@@ -152,8 +182,8 @@ function buildSignalAndRejectionStats(decisionLog, blockedAttempts) {
   return {
     totalRefreshes: log.length,
     totalSignals: signals.length,
-    buySignals: signals.filter(e => e.decision === 'BUY_READY').length,
-    sellSignals: signals.filter(e => e.decision === 'SELL_READY').length,
+    buySignals: signals.filter(e => getDecisionLogSetupDecision(e) === 'BUY_READY').length,
+    sellSignals: signals.filter(e => getDecisionLogSetupDecision(e) === 'SELL_READY').length,
     tradesTaken: opened.length,
     setupsBlocked: blockedSetups.length,
     blockedAttemptsLogged: (blockedAttempts || []).length,
@@ -176,7 +206,8 @@ function buildEligibilityPipeline(decisionLog) {
     actualTrades: 0,
   };
   log.forEach(e => {
-    const isSetup = e.decision === 'BUY_READY' || e.decision === 'SELL_READY';
+    const setupDecision = getDecisionLogSetupDecision(e);
+    const isSetup = setupDecision === 'BUY_READY' || setupDecision === 'SELL_READY';
     if (!isSetup) return;
     pipeline.strategyPassed++;
     const opIds = e.pretradeGateTriggeredIds || [];
@@ -196,10 +227,21 @@ function buildEligibilityPipeline(decisionLog) {
     ? +(pipeline.actualTrades / pipeline.strategyPassed * 100).toFixed(1)
     : null;
   let overRestricted = null;
+  const blockSummary = summarizeDecisionLogBlockers(log);
+  const lowEligibilityLabel = 'Low BUY/SELL rate (diagnostic — not a trading mode)';
   if (pipeline.totalRefreshes >= 30 && eligibilityRate != null && eligibilityRate < 5) {
-    overRestricted = { level: 'warning', label: 'Potentially Over-Restricted Strategy', detail: `Only ${eligibilityRate}% of refreshes reached BUY/SELL (last ${pipeline.totalRefreshes} logged refreshes).` };
+    const critHint = blockSummary.topCrit ? ` Critical fails: ${blockSummary.topCrit}.` : '';
+    overRestricted = {
+      level: 'warning',
+      label: lowEligibilityLabel,
+      detail: `Only ${eligibilityRate}% of refreshes logged a strategy BUY/SELL signal (${pipeline.totalRefreshes} refreshes). NO_TRADE: ${blockSummary.noTrade}, WAIT: ${blockSummary.wait}.${critHint} This flag measures filter strictness — it does not change how the brain trades.`,
+    };
   } else if (pipeline.strategyPassed >= 15 && executionRate != null && executionRate < 5) {
-    overRestricted = { level: 'warning', label: 'Potentially Over-Restricted Strategy', detail: `${pipeline.strategyPassed} setups but ${executionRate}% execution rate — filters or Autonomous Mode may be blocking most entries.` };
+    overRestricted = {
+      level: 'warning',
+      label: lowEligibilityLabel,
+      detail: `${pipeline.strategyPassed} strategy setups but ${executionRate}% paper execution rate — Autonomous Mode, TSE/SPE entry gates, spread simulation, or failure-mode blocks are stopping most opens (see top rejection reasons).`,
+    };
   }
   return { ...pipeline, eligibilityRatePct: eligibilityRate, executionRatePct: executionRate, overRestrictedAlert: overRestricted };
 }

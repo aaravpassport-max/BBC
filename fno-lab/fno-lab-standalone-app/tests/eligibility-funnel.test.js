@@ -79,7 +79,7 @@ for (let i = 0; i < 35; i++) {
   lowSignal.push({ ts: t0 + i, sym: 'NIFTY', decision: 'WAIT', tradeOpened: false });
 }
 const lowFunnel = api.computeEligibilityFunnel(lowSignal, { limit: 100 });
-assert.ok(lowFunnel.alert && /eligibility rate unusually low/i.test(lowFunnel.alert.message));
+assert.ok(lowFunnel.alert && /Diagnostic only/i.test(lowFunnel.alert.message));
 
 assert.strictEqual(
   api.funnelBlockLabel(api.classifyExecutionRejection('BUY_READY', 'Autonomous Mode is not enabled')),
@@ -100,6 +100,16 @@ for (let i = 0; i < 10; i++) {
 const critFunnel = api.computeEligibilityFunnel(critLog, { limit: 100 });
 assert.strictEqual(critFunnel.noSignalNoTrade, 10);
 assert.ok(critFunnel.topCritFailReasonsList.some(r => r.reason === 'Value Decay' && r.count === 10));
+
+const downgradeLog = [];
+for (let i = 0; i < 35; i++) {
+  downgradeLog.push({ ts: t0 + 90000 + i, sym: 'NIFTY', decision: 'WAIT', strategySignalDecision: 'SELL_READY', tradeOpened: false, blockReason: 'Scalping Profit Engine: chase' });
+}
+const downgradeFunnel = api.computeEligibilityFunnel(downgradeLog, { limit: 100 });
+assert.strictEqual(downgradeFunnel.potentialSetups, 35);
+assert.ok(downgradeFunnel.eligibilityRatePct >= 5, 'strategySignalDecision must count toward eligibility');
+assert.ok(!downgradeFunnel.alert || !/Diagnostic only/i.test(downgradeFunnel.alert.message), 'should not warn low signal rate when every refresh had strategySignalDecision');
+
 assert.ok(/defaultLots: 2/.test(coreSrc));
 assert.ok(/scalpingCapitalPreservationEnabled: true/.test(coreSrc));
 
