@@ -275,7 +275,7 @@ function getScalpingCapitalPreservationConfig() {
   const cp = mode && mode.capitalPreservation ? mode.capitalPreservation : null;
   if (cp) {
     return {
-      minConfidence: cp.minConfidence || 'High',
+      minConfidence: cp.minConfidence || 'Medium',
       blockWeightedScoreWait: cp.blockWeightedScoreWait !== false,
       blockTrapWarnings: cp.blockTrapWarnings !== false,
       maxLosingTradesPerDay: typeof cp.maxLosingTradesPerDay === 'number'
@@ -287,7 +287,7 @@ function getScalpingCapitalPreservationConfig() {
     };
   }
   return {
-    minConfidence: 'High',
+    minConfidence: 'Medium',
     blockWeightedScoreWait: true,
     blockTrapWarnings: true,
     maxLosingTradesPerDay: (typeof s.maxLosingTradesPerDay === 'number') ? s.maxLosingTradesPerDay : 1,
@@ -4918,13 +4918,14 @@ function computeFactorDataAvailability(registry, results, categoriesNotEvaluated
 function applyFactorAvailabilityToConfidence(rawConfidence, availability) {
   const before = rawConfidence;
   let confidence = applyCoverageToConfidence(rawConfidence, availability.directionalCoveragePct);
-  if (availability.missingDataImpact === 'high' && confidence === 'High') confidence = 'Medium';
+  const scalping = typeof isScalpingProfitProfileActive === 'function' && isScalpingProfitProfileActive();
+  if (!scalping && availability.missingDataImpact === 'high' && confidence === 'High') confidence = 'Medium';
   const adjusted = confidence !== before;
   return {
     confidence,
     confidenceBeforeMissingDataAdjustment: before,
     confidenceAdjustedForMissingData: adjusted,
-    decisionAffectedByMissingData: adjusted || availability.missingDataImpact !== 'none',
+    decisionAffectedByMissingData: !scalping && (adjusted || availability.missingDataImpact !== 'none'),
   };
 }
 
@@ -5342,9 +5343,45 @@ function applyCoverageToConfidence(rawConfidence, coveragePct) {
   const tiers = ['Low', 'Medium', 'High'];
   let idx = tiers.indexOf(rawConfidence);
   if (idx === -1) return rawConfidence;
+  if (typeof isScalpingProfitProfileActive === 'function' && isScalpingProfitProfileActive()) {
+    // Scalping: partial feeds are normal — at most one tier down, only under very low coverage.
+    if (coveragePct < 22) idx -= 1;
+    idx = Math.max(0, idx);
+    return tiers[idx];
+  }
   if (coveragePct < 30) idx -= 2;
   else if (coveragePct < 70) idx -= 1;
   idx = Math.max(0, idx);
+  return tiers[idx];
+}
+
+/**
+ * Raw confidence from directional score magnitude vs threshold span.
+ * Scalping uses lower ratios (v16.37.4) so a real threshold-crossing setup is not
+ * permanently labeled Low after routine partial-data coverage downgrades.
+ */
+function computeRawDirectionalConfidenceTier(scoreMagnitude, rangeSpan) {
+  if (!Number.isFinite(scoreMagnitude) || !Number.isFinite(rangeSpan) || rangeSpan <= 0) return 'Low';
+  const scalping = typeof isScalpingProfitProfileActive === 'function' && isScalpingProfitProfileActive();
+  const highRatio = scalping ? 0.45 : 0.7;
+  const medRatio = scalping ? 0.18 : 0.35;
+  if (scoreMagnitude >= rangeSpan * highRatio) return 'High';
+  if (scoreMagnitude >= rangeSpan * medRatio) return 'Medium';
+  return 'Low';
+}
+
+/** After all decision/confidence adjustments: scalping BUY/SELL never stay Low if score cleared threshold. */
+function applyScalpingConfidenceFloor(decision, confidence, decisionDirectionalScore, buyThreshold, sellThreshold, rangeSpan) {
+  if (typeof isScalpingProfitProfileActive !== 'function' || !isScalpingProfitProfileActive()) return confidence;
+  if (decision !== 'BUY_READY' && decision !== 'SELL_READY') return confidence;
+  const tiers = ['Low', 'Medium', 'High'];
+  let idx = tiers.indexOf(confidence);
+  if (idx < 0) idx = 0;
+  const margin = decision === 'BUY_READY'
+    ? decisionDirectionalScore - buyThreshold
+    : sellThreshold - decisionDirectionalScore;
+  if (Number.isFinite(margin) && margin >= 0 && idx < 1) idx = 1;
+  if (Number.isFinite(margin) && margin >= rangeSpan * 0.12 && idx < 2) idx = 2;
   return tiers[idx];
 }
 
@@ -15310,7 +15347,7 @@ function evaluateBrain(ctx){
   // coverage — missing/unavailable factors are skipped, never scored as 0/fail.
   const scoreMagnitude = Math.abs(decisionDirectionalScore);
   const rangeSpan = Math.max(BUY_THRESHOLD, Math.abs(SELL_THRESHOLD));
-  const rawConfidence = scoreMagnitude >= rangeSpan * 0.7 ? 'High' : (scoreMagnitude >= rangeSpan * 0.35 ? 'Medium' : 'Low');
+  const rawConfidence = computeRawDirectionalConfidenceTier(scoreMagnitude, rangeSpan);
   const confFromAvailability = factorDataAvailability
     ? applyFactorAvailabilityToConfidence(rawConfidence, factorDataAvailability)
     : { confidence: rawConfidence, confidenceAdjustedForMissingData: false, decisionAffectedByMissingData: false };
@@ -15390,6 +15427,8 @@ function evaluateBrain(ctx){
   const tradeTypeWeightingResult = applyTradeTypeWeightingAdjustmentToDecision(decision, confidence, reason, directionalScore, weightedDirectionalScore, currentEffectiveTradingType, BUY_THRESHOLD, SELL_THRESHOLD);
   decision = tradeTypeWeightingResult.decision; confidence = tradeTypeWeightingResult.confidence; reason = tradeTypeWeightingResult.reason;
   const tradeTypeWeightingAdjustment = tradeTypeWeightingResult.tradeTypeWeightingAdjustment;
+
+  confidence = applyScalpingConfidenceFloor(decision, confidence, decisionDirectionalScore, BUY_THRESHOLD, SELL_THRESHOLD, rangeSpan);
 
   if (factorDataAvailability && factorDataAvailability.decisionAffectedByMissingData) {
     reason += ` [Data: ${factorDataAvailability.directionalCoveragePct}% directional factors available; ${factorDataAvailability.missingDataImpact} missing-data impact — unavailable inputs skipped, not scored as fail]`;

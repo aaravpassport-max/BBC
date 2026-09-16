@@ -29,14 +29,14 @@ const FNO_SCALPING_TRADING_MODES = {
     experimental: false,
     capitalPreservation: {
       enabled: true,
-      minConfidence: 'High',
+      minConfidence: 'Medium',
       blockWeightedScoreWait: true,
       blockTrapWarnings: true,
       maxLosingTradesPerDay: 1,
       maxDailyLossPctPreservation: 1.5,
     },
     positionSizeMultiplier: { High: 1, Medium: 0.85, Low: 0.65 },
-    description: 'Current default — strict FM escalation, High confidence only, weighted-score hard block.',
+    description: 'Strict FM escalation; Medium+ confidence; weighted-score hard block.',
   },
   balanced: {
     id: 'balanced',
@@ -51,7 +51,7 @@ const FNO_SCALPING_TRADING_MODES = {
     experimental: false,
     capitalPreservation: {
       enabled: true,
-      minConfidence: 'High',
+      minConfidence: 'Medium',
       blockWeightedScoreWait: true,
       blockTrapWarnings: true,
       maxLosingTradesPerDay: 1,
