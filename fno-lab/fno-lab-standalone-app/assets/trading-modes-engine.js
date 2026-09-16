@@ -150,7 +150,7 @@ const FNO_SCALPING_TRADING_MODES = {
   },
   experimental_trigger: {
     id: 'experimental_trigger',
-    label: 'Mode 7 — Trade Trigger Test (Risky / Paper only)',
+    label: 'Mode 7 — Trade Trigger Test (Risky / simulated paper)',
     shortLabel: 'Trigger Test',
     order: 7,
     buyThreshold: 3,

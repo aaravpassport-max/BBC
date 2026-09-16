@@ -1,6 +1,9 @@
 
 // F&O Lab v9 Standalone Core - Multi-Factor Auto Brain + Operator Intel - No Theme
 const STORAGE = {journal:'fno_journal_v8', daily:'fno_daily_v8', autoTrades:'fno_autotrades_v8', mode:'fno_mode_v8', blockedAttempts:'fno_blocked_attempts_v1'};
+// STORAGE.mode (fno_mode_v8): data-source toggle only — NOT Real Money Trading.
+//   'paper' = Free Data feeds | 'live' = Kite Data (Zerodha session for prices).
+// Both values use the same virtual Auto Trade / paper account for simulated CE/PE opens.
 // TRACE: Multi-symbol UI race guard (audit pass, symbol-isolation review).
 // refreshBrain() is NOT re-entrancy-safe by construction: it captures
 // `sym` from the <select id="sym"> at call start, then does real,
@@ -1073,8 +1076,17 @@ function resolveEntryDirectionDecision(brain) {
 }
 
 /**
- * Free Data (paper) and Kite Data (live) both use the virtual Auto Trade /
- * paper account — neither toggle turns on Real Money Trading (that is wp-admin only).
+ * User-facing "paper trading" / simulated Auto Trade — no real broker money.
+ * True for Free Data and for Kite Data ON (internal key `live` is historical naming).
+ * Real Money Trading is a separate wp-admin armed-account flow only.
+ */
+function isPaperTradingMode() {
+  return isVirtualSimulatedAutoTradeContext();
+}
+
+/**
+ * Free Data (internal `paper`) and Kite Data ON (internal `live`) both use the
+ * virtual Auto Trade account — neither toggle is Real Money Trading.
  */
 function isVirtualSimulatedAutoTradeContext() {
   try {
@@ -1084,9 +1096,18 @@ function isVirtualSimulatedAutoTradeContext() {
   } catch (e) { return true; }
 }
 
+/** Label for Brain panel + Auto Trades heading (always paper/simulated wording). */
 function formatTradeModeDisplayLabel(modeKey) {
-  if (modeKey === 'live') return 'KITE SIM';
-  return 'PAPER';
+  if (modeKey === 'live') return 'PAPER · Kite';
+  return 'PAPER · Free';
+}
+
+function syncPaperTradingModeLabels(modeKey) {
+  const label = formatTradeModeDisplayLabel(modeKey);
+  const modeDisplay = document.getElementById('modeDisplay');
+  if (modeDisplay) modeDisplay.textContent = label;
+  const tradesModeLabel = document.getElementById('tradesModeLabel');
+  if (tradesModeLabel) tradesModeLabel.textContent = label;
 }
 
 /** Autonomous simulated opens (virtual account — not Real Money Trading). */
@@ -15718,8 +15739,7 @@ async function loadRealMoneyJournal(){
 
 function render(){
   const savedMode = localStorage.getItem(STORAGE.mode) || 'paper';
-  document.getElementById('modeDisplay').textContent = formatTradeModeDisplayLabel(savedMode);
-  document.getElementById('tradesModeLabel').textContent=savedMode;
+  syncPaperTradingModeLabels(savedMode);
   document.getElementById('liveToggle').checked = savedMode==='live';
   document.getElementById('liveSettingsCard').style.display = savedMode==='live'?'block':'none';
 
@@ -16238,8 +16258,7 @@ function render(){
   document.getElementById('liveToggle').addEventListener('change', (e)=>{
     mode=e.target.checked?'live':'paper';
     localStorage.setItem(STORAGE.mode, mode);
-    document.getElementById('modeDisplay').textContent = formatTradeModeDisplayLabel(mode);
-    document.getElementById('tradesModeLabel').textContent=mode;
+    syncPaperTradingModeLabels(mode);
     document.getElementById('liveSettingsCard').style.display=mode==='live'?'block':'none';
     fetch(`${window.FNO_AJAX.url}?action=fno_toggle_live`, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:`enable=${mode==='live'?'yes':'no'}&nonce=${window.FNO_AJAX.nonce}`});
   });
@@ -20520,10 +20539,9 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
     autonomousToggleBtn.addEventListener('click', () => {
       if (autonomousModeInterval) stopAutonomousMode(); else startAutonomousMode();
     });
-    // Paper mode: enable autonomous polling once (system-driven paper trades).
-    // Live mode still requires an explicit Start — real money must never auto-arm.
-    const savedTradeMode = localStorage.getItem(STORAGE.mode) || 'paper';
-    if (savedTradeMode === 'paper' && localStorage.getItem('fno_autonomous_paper_default_v16377') !== 'done') {
+    // Simulated paper trading (Free or Kite data): enable autonomous once by default.
+    // Real Money Trading is unrelated — never auto-starts from this toggle.
+    if (isPaperTradingMode() && localStorage.getItem('fno_autonomous_paper_default_v16377') !== 'done') {
       localStorage.setItem('fno_autonomous_mode_enabled', 'true');
       localStorage.setItem('fno_autonomous_paper_default_v16377', 'done');
     }

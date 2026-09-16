@@ -288,7 +288,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <span style="font-size:11px;color:#94a3b8">No Theme • No Shortcode • Works like software</span>
     <select id="sym" class="input"><option>NIFTY</option><option>BANKNIFTY</option><option>FINNIFTY</option></select>
-    <div style="display:flex;align-items:center;gap:8px;background:#0e152a;padding:6px 12px;border-radius:10px;border:1px solid #1e293b" title="Free Data = NSE/public feeds. Kite Data ON = your Zerodha session for live prices. BOTH still use the virtual Auto Trade / paper account for simulated CE/PE opens — neither toggle is Real Money Trading (see green badge). Brain panel Mode shows PAPER or KITE SIM."><span style="font-size:12px;color:#94a3b8">Free Data</span><label class="toggle"><input type="checkbox" id="liveToggle"><span class="slider"></span></label><span style="font-size:12px;color:#94a3b8">Kite Data</span></div>
+    <div style="display:flex;align-items:center;gap:8px;background:#0e152a;padding:6px 12px;border-radius:10px;border:1px solid #1e293b" title="Both sides are paper/simulated trading (virtual Auto Trade account). This toggle only picks price feeds: Free Data vs your Kite session. Real Money Trading is the green badge → wp-admin only."><span style="font-size:12px;color:#94a3b8">Paper · Free Data</span><label class="toggle"><input type="checkbox" id="liveToggle"><span class="slider"></span></label><span style="font-size:12px;color:#94a3b8">Paper · Kite Data</span></div>
     
     <a id="realMoneyStatusBadge" href="<?php echo esc_url(admin_url('options-general.php?page=fno-premium-providers')); ?>#fno-real-money-section" style="font-size:11px;padding:5px 10px;border-radius:8px;background:#052e16;color:#4ade80;border:1px solid #166534;text-decoration:none;cursor:pointer" title="Real Money Trading is completely separate from the data-source toggle to the left. Click this badge any time to open the page where it's configured, armed, or disarmed - even if you're not using it yet, this is where you'd find it.">Loading real-money status...</a>
     <span id="dataSourceBadge" style="font-size:11px;padding:5px 10px;border-radius:8px;background:#0e152a;color:#94a3b8;border:1px solid #1e293b;display:none" title="Shows which real source your live chart/option-chain data actually came from this refresh - NSE directly, or your own connected Kite session as a real, automatic fallback when NSE is unreachable."></span>
@@ -376,7 +376,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
           <option value="opportunity">Mode 4 — Opportunity</option>
           <option value="aggressive_controlled">Mode 5 — Aggressive Controlled</option>
           <option value="maximum_opportunity">Mode 6 — Maximum Opportunity (Experimental)</option>
-          <option value="experimental_trigger">Mode 7 — Trade Trigger Test (Risky / Paper only)</option>
+          <option value="experimental_trigger">Mode 7 — Trade Trigger Test (Risky / simulated paper only)</option>
         </select>
       </div>
       <div id="settingScalpingTradingModeHint" style="font-size:10px;color:#64748b;margin-top:4px">Progression relaxes ENTRY willingness and uses confidence-based sizing — not bigger blind risk. Conservative and Balanced are unchanged from prior behavior. Hard stop-loss, daily-loss, spread, trap and liquidity protections never removed.</div>
@@ -583,7 +583,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
           <div style="background:#020617;padding:8px;border-radius:10px;text-align:center"><div style="font-size:11px;color:#94a3b8">Score</div><div id="totalScore" style="font-size:18px;font-weight:800">-</div></div>
           <div style="background:#020617;padding:8px;border-radius:10px;text-align:center"><div style="font-size:11px;color:#94a3b8">Pass/Fail</div><div><span id="passCount" style="color:#4ade80">-</span>/<span id="failCount" style="color:#f87171">-</span></div></div>
           <div style="background:#020617;padding:8px;border-radius:10px;text-align:center"><div style="font-size:11px;color:#94a3b8">Critical</div><div id="critCount" style="font-size:18px;color:#ef4444">-</div></div>
-          <div style="background:#020617;padding:8px;border-radius:10px;text-align:center"><div style="font-size:11px;color:#94a3b8">Mode</div><div id="modeDisplay" style="font-size:14px">PAPER</div></div>
+          <div style="background:#020617;padding:8px;border-radius:10px;text-align:center"><div style="font-size:11px;color:#94a3b8" title="Simulated Auto Trade account — not Real Money. Free Data or Kite Data toggle only changes price feeds.">Paper</div><div id="modeDisplay" style="font-size:13px;font-weight:700">PAPER · Free</div></div>
         </div>
         <div id="tradeTypeWeightingBox" style="margin-top:10px;padding:10px;background:#0e152a;border:1px solid #1e293b;border-radius:10px;font-size:11px" title="Real, trade-type-aware category weighting - user's own direct request. Shows how the same, real factor evidence scores differently depending on which trade type is currently active, and exactly why - fully transparent, never a black-box adjustment."></div>
         <div id="autoTradeBox" style="margin-top:10px"></div>
@@ -812,7 +812,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
       </div>
 
       <div class="card">
-        <h3>🎯 Auto Trades - <span id="tradesModeLabel">PAPER</span></h3>
+        <h3>🎯 Auto Trades — <span id="tradesModeLabel">PAPER · Free</span> <span style="font-size:10px;color:#64748b;font-weight:400">(simulated — not Real Money)</span></h3>
         <div style="margin-bottom:8px">
           <div style="font-size:11px;color:#94a3b8;margin-bottom:4px">Target / SL bracket (tap to select):</div>
           <div id="mainScalpingBracketButtons" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px">

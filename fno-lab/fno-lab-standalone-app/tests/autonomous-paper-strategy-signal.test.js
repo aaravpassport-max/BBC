@@ -18,8 +18,7 @@ const coreSrc = fs.readFileSync(
 
 (function testAutonomousUsesStrategy() {
   assert.match(coreSrc, /resolveStrategyEntryDecision\(brain\)/);
-  const autoBlock = coreSrc.indexOf("localStorage.getItem('fno_autonomous_mode_enabled') === 'true' && strategyEntryDecision");
-  assert.ok(autoBlock !== -1, 'autonomous block must gate on strategyEntryDecision');
+  assert.match(coreSrc, /isPaperAutoExecutionEnabled\(\) && strategyEntryDecision/);
 })();
 
 (function testTryOpenDirectionResolver() {
@@ -28,10 +27,11 @@ const coreSrc = fs.readFileSync(
   const fnEnd = coreSrc.indexOf('\n  function ', fnStart + 50);
   const fnBody = coreSrc.slice(fnStart, fnEnd > fnStart ? fnEnd : fnStart + 12000);
   assert.match(fnBody, /const entryBrain = lastBrain/);
-assert.ok(!/\n    if \(brain && \(entryDirectionDecision/.test(fnBody), 'must not reference undefined global brain in tryOpenAutoTradePosition');
+  assert.ok(!/\n    if \(brain && \(entryDirectionDecision/.test(fnBody), 'must not reference undefined global brain in tryOpenAutoTradePosition');
 })();
 
-console.log('autonomous-paper-strategy-signal.test.js: all passed');
-
-assert.match(coreSrc, /skipOverlayEntryGates = isAutonomousPaperTradingActive\(\)/);
+assert.match(coreSrc, /skipOverlayEntryGates = shouldUseRelaxedPaperExecutionLane\(\)/);
 assert.match(coreSrc, /preWeightingDecision/);
+assert.match(coreSrc, /isPaperTradingMode\(\)/);
+
+console.log('autonomous-paper-strategy-signal.test.js: all passed');
