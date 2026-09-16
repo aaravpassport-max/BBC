@@ -213,7 +213,11 @@ function applyScalpingTradingModePreset(modeId) {
     next.scalpingProfitEngineMode = 'SIGNAL_ONLY';
     next.scalpingCapitalPreservationEnabled = false;
     try {
-      localStorage.setItem('fno_autonomous_mode_enabled', 'true');
+      if (typeof safeStorageSetItem === 'function') {
+        safeStorageSetItem('fno_autonomous_mode_enabled', 'true');
+      } else {
+        localStorage.setItem('fno_autonomous_mode_enabled', 'true');
+      }
     } catch (e) { /* quota */ }
   }
   fnoSettings.set(next);

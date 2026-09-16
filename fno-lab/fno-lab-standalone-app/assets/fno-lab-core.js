@@ -504,7 +504,16 @@ const fnoSettings = {
   set(partial) {
     const current = fnoSettings.get();
     const next = { ...current, ...partial, tradingTypes: { ...current.tradingTypes, ...(partial.tradingTypes || {}) } };
-    localStorage.setItem(FNO_SETTINGS_KEY, JSON.stringify(next));
+    try {
+      localStorage.setItem(FNO_SETTINGS_KEY, JSON.stringify(next));
+    } catch (e) {
+      attemptStorageQuotaRecovery();
+      try { localStorage.setItem(FNO_SETTINGS_KEY, JSON.stringify(next)); }
+      catch (e2) {
+        console.warn('fnoSettings.set failed (storage full):', e2 && e2.message ? e2.message : e2);
+        return next;
+      }
+    }
     document.dispatchEvent(new CustomEvent('fnoSettingsChanged', { detail: next })); // real, dynamic propagation - every real consumer (appearance, sound, trade-type gating) listens for this rather than polling, so a change takes effect immediately, everywhere, with no page reload
     return next;
   },
@@ -2231,6 +2240,50 @@ function save(k,v){
   catch (e) { console.warn('localStorage save failed (quota or privacy mode):', k, e && e.message ? e.message : e); }
 }
 function loadObj(k){ try{return JSON.parse(localStorage.getItem(k)||'{}')}catch{return {}} }
+
+/** Trim a JSON array in localStorage to last `keep` entries (quota recovery). */
+function trimStorageJsonArray(key, keep) {
+  try {
+    const raw = localStorage.getItem(key);
+    if (!raw) return false;
+    const arr = JSON.parse(raw);
+    if (!Array.isArray(arr) || arr.length <= keep) return false;
+    localStorage.setItem(key, JSON.stringify(arr.slice(-keep)));
+    return true;
+  } catch (e) { return false; }
+}
+
+/** Free space by capping known large logs — safe to call multiple times. */
+function attemptStorageQuotaRecovery() {
+  let freed = false;
+  if (trimStorageJsonArray(FNO_DECISION_LOG_KEY, 800)) freed = true;
+  if (trimStorageJsonArray(FNO_SNAP_HISTORY_KEY, 80)) freed = true;
+  if (trimStorageJsonArray('fno_mode_trade_log_v1', 300)) freed = true;
+  if (trimStorageJsonArray(STORAGE.journal, 400)) freed = true;
+  if (trimStorageJsonArray(STORAGE.autoTrades + '_history', 200)) freed = true;
+  if (freed) {
+    window.FNO_STORAGE_QUOTA_RECOVERY = true;
+    console.warn('F&O Lab trimmed local logs to recover browser storage quota. Export diagnostics if you need older history.');
+  }
+  return freed;
+}
+
+function safeStorageSetItem(key, value) {
+  try {
+    localStorage.setItem(key, String(value));
+    return true;
+  } catch (e) {
+    const isQuota = e && (e.name === 'QuotaExceededError' || /quota/i.test(String(e.message || '')));
+    if (isQuota) attemptStorageQuotaRecovery();
+    try {
+      localStorage.setItem(key, String(value));
+      return true;
+    } catch (e2) {
+      console.warn('localStorage setItem failed:', key, e2 && e2.message ? e2.message : e2);
+      return false;
+    }
+  }
+}
 
 /**
  * TRACE: closes the second real, confirmed finding from this session's
@@ -16261,7 +16314,7 @@ function render(){
 
   document.getElementById('liveToggle').addEventListener('change', (e)=>{
     mode=e.target.checked?'live':'paper';
-    localStorage.setItem(STORAGE.mode, mode);
+    safeStorageSetItem(STORAGE.mode, mode);
     syncPaperTradingModeLabels(mode);
     document.getElementById('liveSettingsCard').style.display=mode==='live'?'block':'none';
     fetch(`${window.FNO_AJAX.url}?action=fno_toggle_live`, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:`enable=${mode==='live'?'yes':'no'}&nonce=${window.FNO_AJAX.nonce}`});
@@ -20496,13 +20549,13 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
   }
   function stopAutonomousMode() {
     if (autonomousModeInterval) { clearInterval(autonomousModeInterval); autonomousModeInterval = null; }
-    localStorage.setItem('fno_autonomous_mode_enabled', 'false');
+    safeStorageSetItem('fno_autonomous_mode_enabled', 'false');
     updateAutonomousStatusDisplay('Autonomous Mode: OFF - manual refresh only', false);
     const btn = document.getElementById('autonomousModeToggle');
     if (btn) { btn.textContent = '▶ Start Autonomous Mode'; btn.style.background = ''; }
   }
   function startAutonomousMode() {
-    localStorage.setItem('fno_autonomous_mode_enabled', 'true');
+    safeStorageSetItem('fno_autonomous_mode_enabled', 'true');
     const btn = document.getElementById('autonomousModeToggle');
     if (btn) { btn.textContent = '⏸ Stop Autonomous Mode'; btn.style.background = '#052e16'; }
     // TRACE: FOUND during the fnoRefreshGeneration follow-up audit -
@@ -20556,8 +20609,8 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
     // Simulated paper trading (Free or Kite data): enable autonomous once by default.
     // Real Money Trading is unrelated — never auto-starts from this toggle.
     if (isPaperTradingMode() && localStorage.getItem('fno_autonomous_paper_default_v16377') !== 'done') {
-      localStorage.setItem('fno_autonomous_mode_enabled', 'true');
-      localStorage.setItem('fno_autonomous_paper_default_v16377', 'done');
+      safeStorageSetItem('fno_autonomous_mode_enabled', 'true');
+      safeStorageSetItem('fno_autonomous_paper_default_v16377', 'done');
     }
     if (localStorage.getItem('fno_autonomous_mode_enabled') !== 'true') {
       updateAutonomousStatusDisplay('Autonomous Mode: OFF - manual refresh only', false);
@@ -20633,6 +20686,12 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
     });
     try {
       await refreshBrain();
+      if (window.FNO_STORAGE_QUOTA_RECOVERY) {
+        const bl = document.getElementById('brainLog');
+        if (bl) {
+          bl.textContent += '\n⚠️ Browser storage was full — older decision/mode/journal logs were trimmed automatically. If issues continue, clear site data for this site (Settings → Privacy) or export diagnostics first.';
+        }
+      }
     } catch (e) {
       console.error('Initial refreshBrain failed:', e);
       clearStuckLoadingPanels(e && e.message ? e.message : String(e));
