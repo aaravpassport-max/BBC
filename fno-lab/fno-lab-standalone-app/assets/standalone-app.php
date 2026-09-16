@@ -376,6 +376,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
           <option value="opportunity">Mode 4 — Opportunity</option>
           <option value="aggressive_controlled">Mode 5 — Aggressive Controlled</option>
           <option value="maximum_opportunity">Mode 6 — Maximum Opportunity (Experimental)</option>
+          <option value="experimental_trigger">Mode 7 — Trade Trigger Test (Risky / Paper only)</option>
         </select>
       </div>
       <div id="settingScalpingTradingModeHint" style="font-size:10px;color:#64748b;margin-top:4px">Progression relaxes ENTRY willingness and uses confidence-based sizing — not bigger blind risk. Conservative and Balanced are unchanged from prior behavior. Hard stop-loss, daily-loss, spread, trap and liquidity protections never removed.</div>

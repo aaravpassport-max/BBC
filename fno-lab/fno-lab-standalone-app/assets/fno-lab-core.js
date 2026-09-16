@@ -310,6 +310,9 @@ function formatScalpingCapitalPreservationStatusText() {
  */
 function checkScalpingCapitalPreservation(brain, ctx, opts) {
   opts = opts || {};
+  if (typeof isExperimentalTradeTriggerMode === 'function' && isExperimentalTradeTriggerMode()) {
+    return { allowed: true };
+  }
   const cfg = getScalpingCapitalPreservationConfig();
   if (!cfg) return { allowed: true };
   const reasons = [];
@@ -598,6 +601,7 @@ function computeValueDecayCriticalPct(ctx) {
  */
 function shouldPushValueDecayCriticalFail(ctx, decayCritPct) {
   if (decayCritPct === null) return false;
+  if (typeof isExperimentalTradeTriggerMode === 'function' && isExperimentalTradeTriggerMode()) return false;
   if (isScalpingProfitProfileActive()) return false;
   return decayCritPct > 5;
 }
@@ -609,6 +613,7 @@ function shouldPushValueDecayCriticalFail(ctx, decayCritPct) {
 function shouldPushExpiryCriticalFail(ctx) {
   if (!ctx || !ctx.decay || typeof ctx.decay.days !== 'number') return false;
   if (ctx.decay.days > 1) return false;
+  if (typeof isExperimentalTradeTriggerMode === 'function' && isExperimentalTradeTriggerMode()) return false;
   if (isScalpingProfitProfileActive()) return false;
   return true;
 }
@@ -1060,8 +1065,8 @@ function resolveStrategyEntryDecision(brain) {
 /** Direction for opening a position — autonomous uses strategy signal when TSE/SPE downgraded UI decision. */
 function resolveEntryDirectionDecision(brain) {
   if (!brain) return null;
-  const autonomousOn = typeof localStorage !== 'undefined' && localStorage.getItem('fno_autonomous_mode_enabled') === 'true';
-  if (autonomousOn && (brain.strategySignalDecision === 'BUY_READY' || brain.strategySignalDecision === 'SELL_READY')) {
+  if (shouldUseRelaxedPaperExecutionLane()
+    && (brain.strategySignalDecision === 'BUY_READY' || brain.strategySignalDecision === 'SELL_READY')) {
     return brain.strategySignalDecision;
   }
   return brain.decision;
@@ -1074,6 +1079,25 @@ function isAutonomousPaperTradingActive() {
     if ((localStorage.getItem(STORAGE.mode) || 'paper') !== 'paper') return false;
     return localStorage.getItem('fno_autonomous_mode_enabled') === 'true';
   } catch (e) { return false; }
+}
+
+/** Mode 7 — Trade Trigger Test on paper (diagnostic lane, not live money). */
+function isPaperExperimentalTriggerModeActive() {
+  try {
+    if (typeof localStorage === 'undefined') return false;
+    if ((localStorage.getItem(STORAGE.mode) || 'paper') !== 'paper') return false;
+    return typeof isExperimentalTradeTriggerMode === 'function' && isExperimentalTradeTriggerMode();
+  } catch (e) { return false; }
+}
+
+/** Skip SPE/TSE overlay entry gates and use raw strategy signal on paper autonomous or Mode 7. */
+function shouldUseRelaxedPaperExecutionLane() {
+  return isAutonomousPaperTradingActive() || isPaperExperimentalTriggerModeActive();
+}
+
+/** Whether refreshBrain should attempt an automatic paper open this cycle. */
+function isPaperAutoExecutionEnabled() {
+  return shouldUseRelaxedPaperExecutionLane();
 }
 
 function classifyExecutionRejection(decision, blockReason, extra) {
@@ -15787,7 +15811,12 @@ function render(){
     const modeHint = document.getElementById('settingScalpingTradingModeHint');
     if (modeHint && typeof getActiveTradingModeProfile === 'function') {
       const mp = getActiveTradingModeProfile();
-      modeHint.textContent = mp ? mp.description + ' Hard stop-loss, daily-loss, spread, trap and liquidity protections never removed.' : modeHint.textContent;
+      if (mp) {
+        modeHint.textContent = mp.relaxExecutionGates
+          ? mp.description
+          : mp.description + ' Hard stop-loss, daily-loss, spread, trap and liquidity protections never removed.';
+        modeHint.style.color = mp.relaxExecutionGates ? '#f87171' : '#64748b';
+      }
     }
     const preserveEl = document.getElementById('settingScalpingCapitalPreservation');
     if (preserveEl) preserveEl.checked = s.scalpingCapitalPreservationEnabled !== false;
@@ -16800,7 +16829,7 @@ function render(){
 
       const brain=evaluateBrain(refreshCtx);
       brain.strategySignalDecision = brain.decision;
-      if (isAutonomousPaperTradingActive()
+      if (shouldUseRelaxedPaperExecutionLane()
         && (brain.preWeightingDecision === 'BUY_READY' || brain.preWeightingDecision === 'SELL_READY')) {
         brain.strategySignalDecision = brain.preWeightingDecision;
       }
@@ -16924,9 +16953,11 @@ function render(){
       let decisionLogFailureModeResult = null;
       const strategyEntryDecision = resolveStrategyEntryDecision(brain);
       let decisionLogBlockReason = strategyEntryDecision
-        ? 'Autonomous Mode is not enabled - a real BUY/SELL signal existed this refresh but no automatic open was attempted.'
+        ? (isPaperExperimentalTriggerModeActive()
+          ? 'Paper auto-execution lane inactive — enable Paper mode and Mode 7 Trade Trigger Test (Autonomous is turned on automatically when you select Mode 7).'
+          : 'Autonomous Mode is not enabled - a real BUY/SELL signal existed this refresh but no automatic open was attempted.')
         : (brain.decision === 'NO_TRADE' ? `Critical fail: ${(brain.criticalFails||[]).map(f=>f.factor).join(', ') || 'unspecified'}` : 'No directional signal this refresh (WAIT).');
-      if (localStorage.getItem('fno_autonomous_mode_enabled') === 'true' && strategyEntryDecision) {
+      if (isPaperAutoExecutionEnabled() && strategyEntryDecision) {
         const existingPosition = loadObj(STORAGE.autoTrades);
         if (existingPosition && existingPosition.id) { decisionLogBlockReason = 'A position is already open - no new position can be opened until it closes.'; }
         if (!existingPosition || !existingPosition.id) {
@@ -18451,6 +18482,11 @@ function render(){
    * identically to the pre-existing manual path.
    */
   function tryOpenAutoTradePosition(params, reportFn) {
+    if (typeof isExperimentalTradeTriggerMode === 'function' && isExperimentalTradeTriggerMode()
+      && (localStorage.getItem(STORAGE.mode) || 'paper') !== 'paper') {
+      reportFn('Blocked: Mode 7 Trade Trigger Test is paper-only — switch to Paper mode.');
+      return { opened: false, reason: 'Experimental trigger mode is paper-only', rejectionCategory: FNO_EXEC_REJECTION.STRATEGY_RULE };
+    }
     const { strike, optionType, target, sl, execMode, trailingEnabled, partialExitEnabled } = params;
     let lotSize = params.lotSize;
     const lotCount = params.lotCount != null ? params.lotCount : qtyToLots(sym, lotSize);
@@ -18578,7 +18614,7 @@ function render(){
       return { opened: false, reason: 'Option type must be PE for SELL_READY', rejectionCategory: FNO_EXEC_REJECTION.STRATEGY_RULE, rejectionSubcategory: 'option_type_mismatch' };
     }
 
-    const skipOverlayEntryGates = isAutonomousPaperTradingActive();
+    const skipOverlayEntryGates = shouldUseRelaxedPaperExecutionLane();
     if (!skipOverlayEntryGates && typeof checkScalpingProfitEntryGate === 'function' && timeSufficiencyType === 'scalping') {
       const speGate = checkScalpingProfitEntryGate(lastBrain, curCtx, optionType);
       if (!speGate.allowed) {
@@ -18764,7 +18800,9 @@ function render(){
     // matching the user's own explicit "not treated the same" intent.
     const currentEffectiveType = effectiveTradingType;
     const fmResult = adjustFailureModesForTradeType(fmResultRaw, currentEffectiveType);
-    if (fmResult.finalAction === 'block' || fmResult.finalAction === 'reject') {
+    const relaxFmBlocks = typeof isExperimentalTradeTriggerMode === 'function' && isExperimentalTradeTriggerMode()
+      && getActiveTradingModeProfile().relaxFailureModeBlocks;
+    if (!relaxFmBlocks && (fmResult.finalAction === 'block' || fmResult.finalAction === 'reject')) {
       const topReason = fmResult.triggered.find(t => t.adjustedAction === fmResult.finalAction) || fmResult.triggered.find(t => t.action === fmResult.finalAction);
       reportFn(`Blocked by the Failure-Mode Library (${topReason ? topReason.id : ''}${topReason && topReason.typeRelevance ? `, escalated for ${topReason.typeRelevance}` : ''}): ${topReason ? topReason.reason : fmResult.summary}. ${fmResult.triggered.length} total condition(s) triggered this refresh - see the Failure-Mode panel for the full, real list.`);
       // FOUND AND FIXED before this ever shipped: the real,
@@ -18791,6 +18829,14 @@ function render(){
       });
       renderBlockedAttemptsHistory();
       return { opened: false, failureModeResult: fmResult };
+    }
+    if (relaxFmBlocks && (fmResult.finalAction === 'block' || fmResult.finalAction === 'reject')) {
+      reportFn(`Mode 7 diagnostic: Failure-Mode would have blocked (${fmResult.summary}) — proceeding anyway for trigger test.`);
+      const fmBoxDiag = document.getElementById('failureModeLibraryBox');
+      if (fmBoxDiag) {
+        fmBoxDiag.innerHTML = `<div style="padding:6px;background:#422006;border-radius:6px;margin-bottom:6px;color:#fde68a;font-weight:700">⚠️ Mode 7 — FM block ignored (diagnostic)</div>` +
+          fmResult.triggered.map(t => `<div style="padding:4px 0;border-bottom:1px solid #111827"><b>${escapeHtml(t.id)}</b> (${escapeHtml(t.adjustedSeverity||t.severity)}, ${escapeHtml((t.adjustedAction||t.action).replace(/_/g,' '))}): ${escapeHtml(t.condition)}</div>`).join('');
+      }
     }
     const decisionTimePrice = leg.lastPrice; // real, NEW capture this session (FM153) - the price shown BEFORE any spread/latency simulation runs
     const fill = determineFillPrice(leg, 'buy', execMode);

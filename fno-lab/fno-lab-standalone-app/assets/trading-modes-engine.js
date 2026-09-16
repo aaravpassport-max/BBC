@@ -148,6 +148,30 @@ const FNO_SCALPING_TRADING_MODES = {
     positionSizeMultiplier: { High: 0.75, Medium: 0.4, Low: 0.15 },
     description: 'Paper/testing — smallest risk on low confidence; hard SL and daily caps never removed.',
   },
+  experimental_trigger: {
+    id: 'experimental_trigger',
+    label: 'Mode 7 — Trade Trigger Test (Risky / Paper only)',
+    shortLabel: 'Trigger Test',
+    order: 7,
+    buyThreshold: 3,
+    sellThreshold: -5,
+    scalpingFmSafetyProfile: 'balanced',
+    spreadHardBlockPct: 20,
+    weightedScorePolicy: 'off',
+    experimental: true,
+    relaxExecutionGates: true,
+    relaxFailureModeBlocks: true,
+    capitalPreservation: {
+      enabled: false,
+      minConfidence: 'Low',
+      blockWeightedScoreWait: false,
+      blockTrapWarnings: false,
+      maxLosingTradesPerDay: 10,
+      maxDailyLossPctPreservation: 5,
+    },
+    positionSizeMultiplier: { High: 1, Medium: 1, Low: 1 },
+    description: 'PAPER DIAGNOSTIC ONLY — eases brain thresholds and skips SPE/TSE/FM/capital-preservation blocks so you can verify CE/PE opens fire. Still uses realistic spread fill simulation + market hours. NOT for live money.',
+  },
 };
 
 const FNO_TRADING_MODE_IDS = Object.keys(FNO_SCALPING_TRADING_MODES);
@@ -185,6 +209,15 @@ function applyScalpingTradingModePreset(modeId) {
     scalpingBracketPreset: cur.scalpingBracketPreset || 'standard',
   };
   if (mode.experimental) next.autoCalibrateThresholdEnabled = false;
+  if (mode.relaxExecutionGates) {
+    next.scalpingProfitEngineMode = 'SIGNAL_ONLY';
+    next.scalpingCapitalPreservationEnabled = false;
+    try {
+      if ((localStorage.getItem('fno_mode_v8') || 'paper') === 'paper') {
+        localStorage.setItem('fno_autonomous_mode_enabled', 'true');
+      }
+    } catch (e) { /* quota */ }
+  }
   fnoSettings.set(next);
   if (typeof applyScalpingExecutionControlsFromSettings === 'function') applyScalpingExecutionControlsFromSettings();
   if (typeof syncTargetSlUiFromPreset === 'function') syncTargetSlUiFromPreset();
@@ -245,6 +278,9 @@ function wouldModeAcceptSetup(modeId, brain, opts) {
   }
   if (!modeMeetsMinConfidence(mode, brain.confidence)) {
     return { accepted: false, reason: `Requires ${mode.capitalPreservation.minConfidence}+ confidence` };
+  }
+  if (mode.relaxExecutionGates) {
+    return { accepted: true, reason: 'Experimental trigger-test mode (relaxed gates)', modeId: mode.id, sizeMultiplier: resolveModePositionSizeMultiplier(brain.confidence, mode) };
   }
   if (mode.capitalPreservation.blockTrapWarnings && brain.pretradeGateCheck) {
     const ids = (brain.pretradeGateCheck.triggered || []).map(t => t.id);
@@ -617,4 +653,9 @@ function renderModeComparisonDashboard(sym) {
     <div style="max-height:100px;overflow:auto">${bvrRows}</div>
   `;
   return dash;
+}
+
+function isExperimentalTradeTriggerMode() {
+  const mode = getActiveTradingModeProfile();
+  return !!(mode && mode.relaxExecutionGates);
 }

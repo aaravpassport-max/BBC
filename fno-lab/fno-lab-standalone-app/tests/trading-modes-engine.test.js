@@ -30,12 +30,14 @@ const bootSrc = [
     .replace(/const FNO_SCALPING_PROFIT_PROFILE/g, 'var FNO_SCALPING_PROFIT_PROFILE'),
   modesSrc,
   'syncTargetSlUiFromPreset = function(){}; applyScalpingExecutionControlsFromSettings = function(){}; updateLotQtyHint = function(){};',
-  'return { fnoSettings, FNO_SCALPING_TRADING_MODES, resolveScalpingTradingMode, getActiveTradingModeProfile, applyScalpingTradingModePreset, wouldModeAcceptSetup, resolveModeAdjustedLotCount, getModeEffectiveThresholds, getModeSpreadHardBlockPct, computeModeComparisonDashboard, logModeTradeOpen, logModeTradeClose, getModeTradeLog, FNO_MODE_TRADE_LOG_KEY };',
+  'return { fnoSettings, FNO_SCALPING_TRADING_MODES, resolveScalpingTradingMode, getActiveTradingModeProfile, applyScalpingTradingModePreset, wouldModeAcceptSetup, resolveModeAdjustedLotCount, getModeEffectiveThresholds, getModeSpreadHardBlockPct, computeModeComparisonDashboard, logModeTradeOpen, logModeTradeClose, getModeTradeLog, FNO_MODE_TRADE_LOG_KEY, isExperimentalTradeTriggerMode };',
 ].join('\n');
 
 const api = new Function(bootSrc)();
 
-assert.strictEqual(Object.keys(api.FNO_SCALPING_TRADING_MODES).length, 6);
+assert.strictEqual(Object.keys(api.FNO_SCALPING_TRADING_MODES).length, 7);
+assert.strictEqual(api.FNO_SCALPING_TRADING_MODES.experimental_trigger.relaxExecutionGates, true);
+assert.strictEqual(api.FNO_SCALPING_TRADING_MODES.experimental_trigger.buyThreshold, 3);
 assert.strictEqual(api.FNO_SCALPING_TRADING_MODES.conservative.buyThreshold, 8);
 assert.strictEqual(api.FNO_SCALPING_TRADING_MODES.balanced.scalpingFmSafetyProfile, 'balanced');
 assert.strictEqual(api.FNO_SCALPING_TRADING_MODES.relaxed.buyThreshold, 7);
@@ -65,7 +67,14 @@ assert.strictEqual(api.resolveModeAdjustedLotCount(2, brain), 2); // Medium ×0.
 const lowConfBrain = { ...brain, confidence: 'Low', directionalScore: 5.5, weightedDirectionalScore: 5.5 };
 assert.strictEqual(api.wouldModeAcceptSetup('balanced', lowConfBrain).accepted, false);
 assert.strictEqual(api.wouldModeAcceptSetup('maximum_opportunity', lowConfBrain).accepted, true);
-assert.strictEqual(api.resolveModeAdjustedLotCount(2, lowConfBrain), 1); // Low ×0.15 → round(0.3)=0 → max 1
+assert.strictEqual(api.resolveModeAdjustedLotCount(2, lowConfBrain), 1); // Max opp Low ×0.15 → 1
+assert.strictEqual(api.wouldModeAcceptSetup('experimental_trigger', { ...lowConfBrain, directionalScore: 3.1, weightedDirectionalScore: 3.1 }).accepted, true);
+assert.strictEqual(api.isExperimentalTradeTriggerMode(), false);
+api.applyScalpingTradingModePreset('experimental_trigger');
+assert.strictEqual(api.isExperimentalTradeTriggerMode(), true);
+assert.strictEqual(api.fnoSettings.get().scalpingProfitEngineMode, 'SIGNAL_ONLY');
+assert.strictEqual(api.fnoSettings.get().scalpingCapitalPreservationEnabled, false);
+assert.strictEqual(api.resolveModeAdjustedLotCount(2, lowConfBrain), 2); // Mode 7 uses full size multipliers
 
 api.logModeTradeOpen(12345, brain, { sym: 'NIFTY', slPrice: 90, targetPrice: 110, spot: 24000 }, {
   sym: 'NIFTY', entry: { price: 100, qty: 50, strike: 24000, optionType: 'CE', target: 110, sl: 90 }, invalidation: 90,
