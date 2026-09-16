@@ -14,15 +14,15 @@ const boot = [
 const api = new Function(boot)();
 
 const entrySpeech = api.buildTradeAlertSpeech({ kind: 'entry', symbol: 'NIFTY', strike: 25000, optionType: 'CE', entryPrice: 185.5, qty: 50, tradingType: 'scalping' });
-assert.ok(entrySpeech.includes('Trade alert'), entrySpeech);
-assert.ok(entrySpeech.includes('NIFTY'), entrySpeech);
-assert.ok(entrySpeech.includes('25,000') || entrySpeech.includes('25000'), entrySpeech);
-assert.ok(entrySpeech.includes('CE'), entrySpeech);
-assert.ok(entrySpeech.includes('185.50'), entrySpeech);
+assert.strictEqual(
+  entrySpeech,
+  'BUY. NIFTY 25,000 CE was bought at Rs. 185.50 and total quantity bought is 50',
+  entrySpeech
+);
 
 const exitSpeech = api.buildTradeAlertSpeech({ kind: 'exit', symbol: 'NIFTY', strike: 25000, optionType: 'CE', entryPrice: 185.5, exitPrice: 212.3, qty: 50, netPnl: 500, exitReason: 'target', actionLabel: 'AUTO_TARGET_EXIT' });
-assert.ok(exitSpeech.includes('exited at'), exitSpeech);
-assert.ok(exitSpeech.includes('Entry price'), exitSpeech);
+assert.ok(exitSpeech.startsWith('SELL. NIFTY 25,000 CE was sold at Rs.'), exitSpeech);
+assert.ok(exitSpeech.includes('total quantity sold is 50'), exitSpeech);
 assert.ok(exitSpeech.includes('target hit'), exitSpeech);
 
 assert.ok(/notifyTradeExecution\(/.test(coreSrc));

@@ -5665,6 +5665,11 @@ function formatInrForTradeSpeech(n) {
   const parts = n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return parts + ' rupees';
 }
+/** Price only for "Rs. 185.50" trade-alert phrasing (en-IN grouping). */
+function formatRsAmountForTradeSpeech(n) {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return 'unknown';
+  return n.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 function formatStrikeForTradeSpeech(strike) {
   if (typeof strike !== 'number' || !Number.isFinite(strike)) return String(strike != null ? strike : '');
   return strike.toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -5684,24 +5689,31 @@ function buildTradeAlertSpeech(event) {
   const strike = formatStrikeForTradeSpeech(event.strike);
   const opt = event.optionType || 'CE';
   if (event.kind === 'entry') {
-    let s = `Trade alert. ${sym} ${strike} ${opt} bought at ${formatInrForTradeSpeech(event.entryPrice)}.`;
-    if (typeof event.qty === 'number') s += ` Quantity ${event.qty}.`;
-    if (event.tradingType) s += ` ${event.tradingType} trade.`;
+    const price = formatRsAmountForTradeSpeech(event.entryPrice);
+    const qty = typeof event.qty === 'number' ? event.qty : null;
+    let s = `BUY. ${sym} ${strike} ${opt} was bought at Rs. ${price}`;
+    if (qty != null) s += ` and total quantity bought is ${qty}`;
     return s;
   }
   if (event.kind === 'partial_exit') {
-    let s = `Trade alert. Partial exit. ${sym} ${strike} ${opt} exited at ${formatInrForTradeSpeech(event.exitPrice)}. Entry price ${formatInrForTradeSpeech(event.entryPrice)}.`;
-    if (typeof event.qty === 'number' && typeof event.totalQty === 'number') s += ` ${event.qty} of ${event.totalQty} quantity closed.`;
+    const exitPx = formatRsAmountForTradeSpeech(event.exitPrice);
+    const closed = typeof event.qty === 'number' ? event.qty : null;
+    const total = typeof event.totalQty === 'number' ? event.totalQty : null;
+    let s = `PARTIAL SELL. ${sym} ${strike} ${opt} was sold at Rs. ${exitPx}`;
+    if (closed != null && total != null) s += ` and quantity sold is ${closed} of ${total}`;
+    else if (closed != null) s += ` and quantity sold is ${closed}`;
     return s;
   }
-  let s = `Trade alert. ${sym} ${strike} ${opt} exited at ${formatInrForTradeSpeech(event.exitPrice)}. Entry price ${formatInrForTradeSpeech(event.entryPrice)}.`;
-  if (typeof event.qty === 'number') s += ` Quantity ${event.qty}.`;
+  const exitPx = formatRsAmountForTradeSpeech(event.exitPrice);
+  const qty = typeof event.qty === 'number' ? event.qty : null;
+  let s = `SELL. ${sym} ${strike} ${opt} was sold at Rs. ${exitPx}`;
+  if (qty != null) s += ` and total quantity sold is ${qty}`;
   if (typeof event.netPnl === 'number') {
     s += event.netPnl >= 0
-      ? ` Net profit ${formatInrForTradeSpeech(event.netPnl)}.`
-      : ` Net loss ${formatInrForTradeSpeech(Math.abs(event.netPnl))}.`;
+      ? `. Net profit Rs. ${formatRsAmountForTradeSpeech(event.netPnl)}`
+      : `. Net loss Rs. ${formatRsAmountForTradeSpeech(Math.abs(event.netPnl))}`;
   }
-  s += ` Reason ${mapExitReasonForTradeSpeech(event.exitReason, event.actionLabel)}.`;
+  s += `. Reason ${mapExitReasonForTradeSpeech(event.exitReason, event.actionLabel)}.`;
   return s;
 }
 function showTradeAlertVisual(event, speechText) {
