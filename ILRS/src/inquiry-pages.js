@@ -8,12 +8,9 @@
 
   function inquiryLifecycleQuickSelect(inq) {
     const LC = window.ILRSWorkLifecycle;
-    if (!LC || !inq?.id) return '';
-    const lc = LC.inferLifecycleFromInquiry(inq);
-    const opts = LC.LIFECYCLE_STATUSES.map((s) =>
-      `<option value="${s.id}" ${lc === s.id ? 'selected' : ''}>${s.short}</option>`
-    ).join('');
-    return `<select class="lifecycle-quick-select" onclick="event.stopPropagation()" onchange="setInquiryLifecycleFromCard('${inq.id}', this.value)" title="Work status (pipeline stage is separate)">${opts}</select>`;
+    if (!inq?.id) return '';
+    if (LC?.lifecycleCardControl) return LC.lifecycleCardControl(inq, 'inquiry');
+    return '';
   }
 
   async function setInquiryLifecycleFromCard(id, lifecycle) {
@@ -62,7 +59,6 @@
         <div class="inquiry-requirement">${inq.requirement}</div>
         ${WS?.scheduleDatesHtml ? WS.scheduleDatesHtml(inq, compact) : ''}
         <div class="inquiry-stage-badge ${stageCls}">${stageDisplay(inq.stage_key)}</div>
-        ${window.ILRSWorkLifecycle?.lifecycleBadge(window.ILRSWorkLifecycle.inferLifecycleFromInquiry(inq)) || ''}
         ${inquiryLifecycleQuickSelect(inq)}
         ${WS?.notePreviewHtml ? WS.notePreviewHtml(inq, 'inq') : ''}
         ${window.ILRSPayment?.paymentCardHtml ? window.ILRSPayment.paymentCardHtml(inq, 'inquiry', 'inq') : ''}
@@ -421,10 +417,7 @@
             ${window.ILRSWorkScheduling?.scheduleDatesHtml ? window.ILRSWorkScheduling.scheduleDatesHtml(inq) : ''}
             <div class="form-grid">
               <div><span class="form-label">Stage</span><div>${stageDisplay(inq.stage_key)}</div></div>
-              <div><span class="form-label">Work status</span><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-                ${window.ILRSWorkLifecycle?.lifecycleBadge(window.ILRSWorkLifecycle.inferLifecycleFromInquiry(inq)) || '—'}
-                ${inquiryLifecycleQuickSelect(inq)}
-              </div></div>
+              <div class="full" style="grid-column:1/-1">${inquiryLifecycleQuickSelect(inq) || '<span class="form-label">Work status</span>'}</div>
               <div><span class="form-label">Health</span><div class="inquiry-health-pill ${pipeline?.healthClass(inq.health)}">${pipeline?.healthLabel(inq.health)}</div></div>
               ${inq.work_start_date ? `<div><span class="form-label">Work start</span><div>${formatDate(inq.work_start_date)}</div></div>` : ''}
               ${inq.expected_completion_date ? `<div><span class="form-label">Expected completion</span><div>${formatDate(inq.expected_completion_date)}</div></div>` : ''}

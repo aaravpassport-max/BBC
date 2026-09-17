@@ -107,6 +107,26 @@
     return `<span class="${cls}" title="Status">${lifecycleLabel(lc, true)}</span>`;
   }
 
+  /** Inline work-status control for list cards (no Edit sheet). */
+  function lifecycleCardControl(item, entityType = 'reminder') {
+    if (!item?.id) return '';
+    const isInquiry = entityType === 'inquiry';
+    const lc = isInquiry ? inferLifecycleFromInquiry(item) : inferLifecycleFromReminder(item);
+    const handler = isInquiry
+      ? `setInquiryLifecycleFromCard('${item.id}', this.value)`
+      : `setReminderLifecycleFromCard('${item.id}', this.value)`;
+    const opts = LIFECYCLE_STATUSES.map((s) =>
+      `<option value="${s.id}" ${lc === s.id ? 'selected' : ''}>${s.short} — ${s.label}</option>`,
+    ).join('');
+    const typeHint = isInquiry ? 'inquiry' : (item.task_type === 'task' ? 'task' : 'reminder');
+    return `<div class="card-work-status" onclick="event.stopPropagation()" onmousedown="event.stopPropagation()">
+      <span class="card-work-status-label">Work status</span>
+      <select class="lifecycle-quick-select lifecycle-card-select" aria-label="Change work status for this ${typeHint}"
+        onclick="event.stopPropagation()" onmousedown="event.stopPropagation()"
+        onchange="event.stopPropagation();${handler}" title="Change work status without opening Edit">${opts}</select>
+    </div>`;
+  }
+
   function wireLifecycleFollowUpToggle(overlay, {
     statusSelId,
     followWrapId,
@@ -155,6 +175,7 @@
     lifecycleSelectHtml,
     lifecycleSelectField,
     lifecycleBadge,
+    lifecycleCardControl,
     wireLifecycleFollowUpToggle,
     isInquiryActiveForWorkQueue,
     isReminderOpenForWork,

@@ -1079,19 +1079,27 @@ function assigneeLabel(id) {
   return member ? member.name : '';
 }
 
-function lifecycleQuickSelect(reminder) {
+function reminderCardWorkStatus(r) {
   const LC = window.ILRSWorkLifecycle;
-  if (!LC) return '';
-  const lc = LC.inferLifecycleFromReminder(reminder);
-  const opts = LC.LIFECYCLE_STATUSES.map((s) =>
-    `<option value="${s.id}" ${lc === s.id ? 'selected' : ''}>${s.short}</option>`
-  ).join('');
-  return `<select class="lifecycle-quick-select" onclick="event.stopPropagation()" onchange="setReminderLifecycleFromCard('${reminder.id}', this.value)" title="Work status (stage is separate)">${opts}</select>`;
+  if (LC?.lifecycleCardControl) {
+    return LC.lifecycleCardControl(r, r.task_type === 'task' ? 'task' : 'reminder');
+  }
+  const raw = String(r.lifecycle_status || 'active').toLowerCase();
+  const sel = (v) => (raw === v ? ' selected' : '');
+  return `<div class="card-work-status"><span class="card-work-status-label">Work status</span>
+    <select class="lifecycle-quick-select lifecycle-card-select" onchange="setReminderLifecycleFromCard('${r.id}', this.value)">
+      <option value="active"${sel('active')}>Active</option><option value="pending"${sel('pending')}>On hold</option>
+      <option value="completed"${sel('completed')}>Done</option><option value="closed"${sel('closed')}>Closed</option>
+    </select></div>`;
 }
 
 async function setReminderLifecycleFromCard(id, lifecycle) {
   const LC = window.ILRSWorkLifecycle;
-  const lc = LC?.normalizeLifecycle(lifecycle) || lifecycle;
+  const lc = LC?.normalizeLifecycle
+    ? LC.normalizeLifecycle(lifecycle)
+    : (['active', 'pending', 'completed', 'closed'].includes(String(lifecycle || '').toLowerCase())
+      ? String(lifecycle).toLowerCase()
+      : 'active');
   const row = App.reminders?.find((r) => r.id === id);
   const entityKey = row?.task_type === 'task' ? 'task' : 'reminder';
   const result = await window.ilrs?.setReminderLifecycle?.(id, lc);
@@ -1117,7 +1125,7 @@ function workStatusWhatsNewHtml() {
       <div>
         <strong>Work status is here (v${App.appVersion || ''})</strong>
         <p style="margin:6px 0 0;font-size:13px;color:var(--text-secondary)">
-          Use the <strong>Status</strong> dropdown on each card, or open <strong>✏️ Edit</strong> / <strong>＋ New</strong>.
+          Use <strong>Work status</strong> on each card (no Edit needed), or set status in <strong>✏️ Edit</strong> / <strong>＋ New</strong>.
           <em>Done</em> or <em>Closed</em> clears the next reminder so items leave Today and alarms.
           Workflow <strong>stage</strong> is separate (🏷).
         </p>
@@ -1175,10 +1183,6 @@ function reminderCard(r) {
   const stageKey = r.stage_key || defaultStageKey;
   const stageCls = W ? W.stageClass(entityType, stageKey) : '';
   const stageLabel = W ? W.stageDisplay(entityType, stageKey) : stageKey;
-  const LC = window.ILRSWorkLifecycle;
-  const lifecycleBadge = LC?.lifecycleBadge
-    ? LC.lifecycleBadge(LC.inferLifecycleFromReminder(r))
-    : '';
   const taskActions = isDone ? `
         <button class="action-btn" onclick="showPostponeMenu('${r.id}')" title="Reschedule">📅</button>
       ` : isTask ? `
@@ -1204,10 +1208,9 @@ function reminderCard(r) {
         ${r.why_it_matters ? `<div class="reminder-why">${r.why_it_matters}</div>` : ''}
         ${WS?.notePreviewHtml ? WS.notePreviewHtml(r, 'rcard') : ''}
         ${window.ILRSPayment?.paymentCardHtml ? window.ILRSPayment.paymentCardHtml(r, 'reminder', 'rcard') : ''}
+        ${reminderCardWorkStatus(r)}
         <div class="reminder-meta">
           <span class="inquiry-stage-badge ${stageCls}" onclick="event.stopPropagation();showWorkflowStageModal('${r.id}','${entityType}')" title="Change stage">${stageLabel}</span>
-          ${lifecycleBadge}
-          ${lifecycleQuickSelect(r)}
           <span class="tag ${r.category}">${categoryIcon(r.category)} ${r.category}</span>
           ${r.priority !== 'normal' ? `<span class="tag ${r.priority}">${priorityLabel(r.priority)}</span>` : ''}
           ${tags.slice(0, 1).map(t => `<span class="tag">#${t}</span>`).join('')}
