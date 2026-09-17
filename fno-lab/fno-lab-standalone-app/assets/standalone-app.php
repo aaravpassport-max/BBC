@@ -102,7 +102,7 @@ input:checked + .slider:before{transform:translateX(24px)}
 #tradeLedgerTable tbody tr:nth-child(even){background:#020617}
 #tradeLedgerTable tbody tr:hover{background:#0f172a}
 #tradeLedgerTable .fno-ledger-col-id{width:44px;text-align:right;color:#64748b;font-variant-numeric:tabular-nums;font-size:10px}
-#tradeLedgerTable .fno-ledger-col-date{width:92px;line-height:1.35;white-space:normal;font-size:10px;color:#cbd5e1}
+#tradeLedgerTable .fno-ledger-col-date{width:118px;line-height:1.35;white-space:normal;font-size:10px;color:#cbd5e1}
 #tradeLedgerTable .fno-ledger-col-sym{width:68px;font-weight:600}
 #tradeLedgerTable .fno-ledger-col-strike{width:72px;font-size:10px;color:#94a3b8}
 #tradeLedgerTable .fno-ledger-col-action{max-width:108px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#94a3b8;font-size:10px}
@@ -527,7 +527,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
             <thead>
               <tr style="text-align:left">
                 <th class="fno-ledger-col-id">#</th>
-                <th class="fno-ledger-col-date">When</th>
+                <th class="fno-ledger-col-date">When (IST)</th>
                 <th class="fno-ledger-col-sym">Symbol</th>
                 <th class="fno-ledger-col-strike">Strike</th>
                 <th class="fno-ledger-col-action">Exit reason</th>

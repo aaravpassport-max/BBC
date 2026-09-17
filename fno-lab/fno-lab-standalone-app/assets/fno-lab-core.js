@@ -85,7 +85,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.29-ledger-ui';
+const FNO_CORE_BUILD_MARKER = '16.37.30-ledger-ist-time';
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -2778,6 +2778,38 @@ function formatISTDate(ts) {
   const d = new Date(ts + IST_OFFSET_MS);
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   return `${String(d.getUTCDate()).padStart(2, '0')} ${MONTHS[d.getUTCMonth()]}`;
+}
+/** Normalize journal/openedAt timestamps (ms, or legacy seconds) to epoch ms. */
+function normalizeTradeTimestampMs(raw) {
+  if (raw == null || raw === '') return null;
+  let n = typeof raw === 'number' ? raw : Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  if (n < 1e12) n *= 1000;
+  return n;
+}
+/** Trade ledger / journal display — always IST, never the viewer's browser timezone. */
+function formatLedgerWhenIST(rawTs) {
+  const ts = normalizeTradeTimestampMs(rawTs);
+  if (ts == null) return '—';
+  const datePart = formatISTDate(ts);
+  const hhmm = formatISTTime(ts);
+  if (hhmm === '--:--') return '—';
+  const parts = hhmm.split(':');
+  const hh = parseInt(parts[0], 10);
+  const mm = parts[1];
+  const h12 = hh % 12 || 12;
+  const ampm = hh < 12 ? 'am' : 'pm';
+  return `${datePart}, ${h12}:${mm} ${ampm} IST`;
+}
+function formatLedgerWhenRangeIST(openedAt, closedTs) {
+  const openMs = normalizeTradeTimestampMs(openedAt);
+  const closeMs = normalizeTradeTimestampMs(closedTs);
+  if (openMs != null && closeMs != null) {
+    return `Opened ${formatLedgerWhenIST(openMs)} · Closed ${formatLedgerWhenIST(closeMs)}`;
+  }
+  if (closeMs != null) return `Closed ${formatLedgerWhenIST(closeMs)}`;
+  if (openMs != null) return `Opened ${formatLedgerWhenIST(openMs)}`;
+  return '';
 }
 
 /**
@@ -11088,8 +11120,11 @@ function fingerprintJournalRow(t) {
 }
 function journalRowsLikelySame(a, b) {
   if (!a || !b) return false;
-  if (typeof a.id === 'number' && a.id > 0 && a.id === b.id) return true;
+  if (typeof a.id === 'number' && a.id > 0 && typeof b.id === 'number' && b.id > 0 && a.id === b.id) return true;
   if (a.openedAt && b.openedAt && a.openedAt === b.openedAt && a.qty === b.qty && a.pnl === b.pnl) return true;
+  const tsA = a.ts || a.openedAt || 0;
+  const tsB = b.ts || b.openedAt || 0;
+  if (tsA && tsB && Math.abs(tsA - tsB) < 3000 && a.qty === b.qty && a.pnl === b.pnl && (a.symbol || '') === (b.symbol || '')) return true;
   return fingerprintJournalRow(a) === fingerprintJournalRow(b);
 }
 function mergeJournalRowsForDisplay(serverRows, localRows) {
@@ -11136,10 +11171,6 @@ function formatLedgerStrikeCell(strike, optionType) {
   const s = strike.toLocaleString('en-IN', { maximumFractionDigits: 0 });
   return opt ? `${s} ${opt}` : s;
 }
-function formatLedgerWhen(ts) {
-  const d = new Date(ts || Date.now());
-  return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-}
 function assignLedgerDisplayIds(trades) {
   let localN = 0;
   return trades.map((t) => {
@@ -11157,7 +11188,7 @@ function openAutoTradeLedgerRow(open) {
   if (!open || !open.id) return null;
   return {
     id: `open-${open.id}`,
-    ts: open.openedAt || Date.now(),
+    ts: normalizeTradeTimestampMs(open.openedAt) || Date.now(),
     symbol: open.symbol || 'NIFTY',
     strike: open.strike,
     optionType: open.optionType,
@@ -20545,6 +20576,14 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
       const hiddenEventCount = trades.filter((t) => !t._ledgerOpen && !isLedgerCompletedRoundTrip(t)).length;
       const tableRows = assignLedgerDisplayIds(filterLedgerTableRows(trades));
 
+      if (tableRows.length === 0) {
+        summaryEl.innerHTML = '<div style="grid-column:1/-1;color:#64748b;font-style:italic">No completed round-trips yet.</div>';
+        bodyEl.innerHTML = '<tr><td colspan="13" style="padding:10px;color:#64748b">Open a position or close a trade to populate the ledger.</td></tr>';
+        const footEl0 = document.getElementById('tradeLedgerFootnote');
+        if (footEl0) footEl0.textContent = hiddenEventCount > 0 ? `${hiddenEventCount} journal event(s) stored but not shown (not completed round-trips).` : '';
+        return;
+      }
+
       const closed = tableRows.filter((t) => !t._ledgerOpen);
       const wins = closed.filter((t) => ledgerTradeNetPnl(t) > 0);
       const losses = closed.filter((t) => ledgerTradeNetPnl(t) < 0);
@@ -20563,7 +20602,7 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
         stat('Losses', losses.length, '#f87171') +
         stat('Win Rate', winRate.toFixed(0) + '%') +
         stat('Gross Profit', 'Rs' + grossProfit.toFixed(0), '#4ade80') +
-        stat('Gross Loss', 'Rs' + grossLoss.toFixed(0), '#f87171') +
+        stat('Gross Loss', 'Rs' + Math.abs(grossLoss).toFixed(0), '#f87171') +
         stat('Total Charges', 'Rs' + totalCharges.toFixed(0), '#fbbf24') +
         stat('Net P&L', 'Rs' + netPnl.toFixed(0), netPnl >= 0 ? '#4ade80' : '#f87171') +
         stat('Avg Win', 'Rs' + avgWin.toFixed(0), '#4ade80') +
@@ -20571,7 +20610,13 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
 
       bodyEl.innerHTML = tableRows.map(t => {
         const hasFullPriceData = typeof t.entryPrice === 'number' && typeof t.exitPrice === 'number';
-        const dateStr = formatLedgerWhen(t.ts);
+        const whenMs = t._ledgerOpen
+          ? (normalizeTradeTimestampMs(t.openedAt) || normalizeTradeTimestampMs(t.ts))
+          : (normalizeTradeTimestampMs(t.ts) || normalizeTradeTimestampMs(t.openedAt));
+        const dateStr = formatLedgerWhenIST(whenMs);
+        const dateTitle = t._ledgerOpen
+          ? formatLedgerWhenRangeIST(t.openedAt, null)
+          : formatLedgerWhenRangeIST(t.openedAt, t.ts);
         let costs = null;
         if (hasFullPriceData && typeof t.qty === 'number') {
           costs = computeTradeCosts(t.entryPrice, t.exitPrice, t.qty);
@@ -20586,7 +20631,7 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
         const actionLabel = t._ledgerOpen ? 'Live position' : formatLedgerActionLabel(t.action);
         return `<tr style="cursor:${costs ? 'pointer' : 'default'}" ${rowClick}>
           <td class="fno-ledger-col-id">${escapeHtml(t._ledgerDisplayId || '—')}</td>
-          <td class="fno-ledger-col-date">${dateStr}</td>
+          <td class="fno-ledger-col-date"${dateTitle ? ` title="${escapeHtml(dateTitle)}"` : ''}>${dateStr}</td>
           <td class="fno-ledger-col-sym">${escapeHtml(t.symbol || '')}</td>
           <td class="fno-ledger-col-strike">${escapeHtml(formatLedgerStrikeCell(t.strike, t.optionType))}</td>
           <td class="fno-ledger-col-action" title="${escapeHtml(String(t.action || ''))}">${escapeHtml(actionLabel)}</td>
