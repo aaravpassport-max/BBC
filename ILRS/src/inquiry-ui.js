@@ -3,6 +3,21 @@
   const P = () => window.ILRSInquiryPipeline;
   const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
+  function inquiryWorkStatusFieldHtml(inq) {
+    const LC = window.ILRSWorkLifecycle;
+    const selected = LC?.inferLifecycleFromInquiry ? LC.inferLifecycleFromInquiry(inq) : 'active';
+    if (LC?.lifecycleSelectField) {
+      return LC.lifecycleSelectField('inq-lifecycle', selected, { includeClosed: true });
+    }
+    return `
+      <select class="form-select lifecycle-status-select" id="inq-lifecycle" name="inq-lifecycle">
+        <option value="active" selected>Active / In Progress</option>
+        <option value="pending">Pending / On Hold</option>
+        <option value="completed">Completed / Done</option>
+        <option value="closed">Closed</option>
+      </select>`;
+  }
+
   function showQuickAddMenu() {
     if (typeof dismissPageModals === 'function') dismissPageModals();
     const overlay = document.createElement('div');
@@ -84,17 +99,14 @@
           ${stages.map((s) => `<option value="${s.key}" ${inq.stage_key === s.key ? 'selected' : ''}>${esc(s.display)}</option>`).join('')}
         </select>
 
-        <label class="form-label">Status</label>
-        ${window.ILRSWorkLifecycle?.lifecycleSelectHtml(
-          'inq-lifecycle',
-          window.ILRSWorkLifecycle.inferLifecycleFromInquiry(inq),
-          { includeClosed: true }
-        ) || ''}
-        <label class="lifecycle-schedule-opt form-hint" style="display:block;margin-top:8px">
+        <label class="form-label">Work status</label>
+        <p class="form-hint" style="margin:-4px 0 8px">Separate from <strong>Stage</strong> above — controls whether follow-up is required and if the inquiry stays in active queues.</p>
+        ${inquiryWorkStatusFieldHtml(inq)}
+        <label class="lifecycle-schedule-opt form-hint" style="display:block;margin-top:10px">
           <input type="checkbox" id="inq-schedule-next" /> Schedule follow-up after marking done
         </label>
 
-        <label class="form-label">Next action</label>
+        <label class="form-label" style="margin-top:12px">Next action</label>
         <input type="text" class="form-input" id="inq-next-action" value="${esc(inq.next_action || 'Follow up')}" placeholder="Call client" />
 
         <div id="inq-follow-wrap">

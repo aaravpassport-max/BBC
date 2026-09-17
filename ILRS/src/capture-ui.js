@@ -135,12 +135,19 @@
         <select class="form-select" id="capture-stage"></select>
         <p class="form-hint" style="margin-top:4px">Manage stages in sidebar → <strong>Workflow Stages</strong> (Tasks / Reminders tabs)</p>
 
-        <label class="form-label" style="margin-top:12px">Status</label>
-        ${window.ILRSWorkLifecycle?.lifecycleSelectHtml(
-          'capture-lifecycle',
-          window.ILRSWorkLifecycle.inferLifecycleFromReminder(r),
-          { includeClosed: true }
-        ) || ''}
+        <label class="form-label" style="margin-top:12px">Work status</label>
+        <p class="form-hint" style="margin:-4px 0 8px">Separate from workflow <strong>Stage</strong> — use Done/Closed to clear the next reminder.</p>
+        ${(() => {
+          const LC = window.ILRSWorkLifecycle;
+          const sel = LC?.inferLifecycleFromReminder ? LC.inferLifecycleFromReminder(r) : 'active';
+          if (LC?.lifecycleSelectField) return LC.lifecycleSelectField('capture-lifecycle', sel, { includeClosed: true });
+          return `<select class="form-select lifecycle-status-select" id="capture-lifecycle" name="capture-lifecycle">
+            <option value="active">Active / In Progress</option>
+            <option value="pending">Pending / On Hold</option>
+            <option value="completed">Completed / Done</option>
+            <option value="closed">Closed</option>
+          </select>`;
+        })()}
         <label class="lifecycle-schedule-opt form-hint" style="display:block;margin-top:8px">
           <input type="checkbox" id="capture-schedule-next" /> Schedule another reminder after completion
         </label>

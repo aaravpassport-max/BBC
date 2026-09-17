@@ -90,9 +90,15 @@
 
   function lifecycleSelectHtml(id, selected, { includeClosed = true } = {}) {
     const opts = LIFECYCLE_STATUSES.filter((s) => includeClosed || s.id !== LIFECYCLE_CLOSED);
-    return `<select class="form-select" id="${id}">${opts.map((s) =>
-      `<option value="${s.id}" ${selected === s.id ? 'selected' : ''}>${s.label}</option>`
+    const sel = normalizeLifecycle(selected);
+    return `<select class="form-select lifecycle-status-select" id="${id}" name="${id}">${opts.map((s) =>
+      `<option value="${s.id}" ${sel === s.id ? 'selected' : ''}>${s.label}</option>`
     ).join('')}</select>`;
+  }
+
+  /** Always returns a status &lt;select&gt; (never empty) for forms. */
+  function lifecycleSelectField(id, selected, options = {}) {
+    return lifecycleSelectHtml(id, selected, options);
   }
 
   function lifecycleBadge(lifecycle) {
@@ -147,6 +153,7 @@
     requiresNextReminderDate,
     blocksNextReminder,
     lifecycleSelectHtml,
+    lifecycleSelectField,
     lifecycleBadge,
     wireLifecycleFollowUpToggle,
     isInquiryActiveForWorkQueue,
