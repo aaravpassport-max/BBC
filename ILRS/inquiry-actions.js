@@ -435,9 +435,22 @@ function logInquiryActivity(db, inquiryId, { type, title, body }) {
   return { success: true };
 }
 
+function pickUpdateField(data, key, current) {
+  return data[key] !== undefined ? data[key] : current;
+}
+
 function updateInquiry(db, inquiryId, data, now = new Date()) {
-  const inquiry = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
+  let inquiry = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
   if (!inquiry) return { success: false, error: 'Inquiry not found' };
+
+  if (data.lifecycleStatus != null) {
+    applyInquiryLifecycleFields(db, inquiryId, data.lifecycleStatus, {
+      scheduleNext: data.scheduleNext,
+      nextFollowUp: data.nextFollowUp,
+      nextFollowUpTime: data.nextFollowUpTime,
+    });
+    inquiry = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
+  }
 
   if (data.clientName || data.mobile || data.email) {
     const client = findOrCreateClient(db, {
@@ -452,6 +465,9 @@ function updateInquiry(db, inquiryId, data, now = new Date()) {
     data.clientId = client.id;
   }
 
+  const nextFollowUp = pickUpdateField(data, 'nextFollowUp', inquiry.next_follow_up);
+  const nextFollowUpTime = pickUpdateField(data, 'nextFollowUpTime', inquiry.next_follow_up_time);
+
   db.prepare(`
     UPDATE inquiries SET
       client_id = COALESCE(?, client_id),
@@ -464,8 +480,8 @@ function updateInquiry(db, inquiryId, data, now = new Date()) {
       source = COALESCE(?, source),
       stage_key = COALESCE(?, stage_key),
       next_action = COALESCE(?, next_action),
-      next_follow_up = COALESCE(?, next_follow_up),
-      next_follow_up_time = COALESCE(?, next_follow_up_time),
+      next_follow_up = ?,
+      next_follow_up_time = ?,
       expected_value = COALESCE(?, expected_value),
       quotation_amount = COALESCE(?, quotation_amount),
       work_start_date = COALESCE(?, work_start_date),
@@ -484,8 +500,8 @@ function updateInquiry(db, inquiryId, data, now = new Date()) {
     data.source ?? null,
     data.stageKey ?? null,
     data.nextAction ?? null,
-    data.nextFollowUp ?? null,
-    data.nextFollowUpTime ?? null,
+    nextFollowUp ?? '',
+    nextFollowUpTime ?? '',
     data.expectedValue != null ? parseFloat(data.expectedValue) : null,
     data.quotationAmount != null ? parseFloat(data.quotationAmount) : null,
     data.workStartDate ?? null,
@@ -506,16 +522,8 @@ function updateInquiry(db, inquiryId, data, now = new Date()) {
     }, now);
   }
 
-  if (data.lifecycleStatus != null) {
-    applyInquiryLifecycleFields(db, inquiryId, data.lifecycleStatus, {
-      scheduleNext: data.scheduleNext,
-      nextFollowUp: data.nextFollowUp,
-      nextFollowUpTime: data.nextFollowUpTime,
-    });
-  }
-
-  const followUpChanged = data.nextFollowUp != null && data.nextFollowUp !== inquiry.next_follow_up;
-  const followUpTimeChanged = data.nextFollowUpTime != null && data.nextFollowUpTime !== inquiry.next_follow_up_time;
+  const followUpChanged = data.nextFollowUp !== undefined && data.nextFollowUp !== inquiry.next_follow_up;
+  const followUpTimeChanged = data.nextFollowUpTime !== undefined && data.nextFollowUpTime !== inquiry.next_follow_up_time;
   const nextActionChanged = data.nextAction != null && data.nextAction !== inquiry.next_action;
   if (followUpChanged || followUpTimeChanged || nextActionChanged || data.lifecycleStatus != null) {
     syncInquiryFollowUpReminder(db, inquiryId, now);

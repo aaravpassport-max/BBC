@@ -107,6 +107,43 @@ test('findPossibleDuplicates matches mobile', () => {
   fs.unlinkSync(dbPath);
 });
 
+test('updateInquiry persists work status pending from edit form payload', () => {
+  const { db, dbPath } = makeDb();
+  const now = new Date(2026, 8, 17, 10, 0, 0);
+  seedInquiryStages(db);
+  const { inquiry } = createInquiry(db, { clientName: 'Hold Co', requirement: 'Visa', nextFollowUp: '2026-09-20' }, now);
+  const result = updateInquiry(db, inquiry.id, {
+    clientName: 'Hold Co',
+    requirement: 'Visa',
+    lifecycleStatus: 'pending',
+    stageKey: 'follow_up',
+    nextAction: 'Wait for documents',
+    nextFollowUp: '2026-09-25',
+    nextFollowUpTime: '11:00',
+  }, now);
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(result.inquiry.lifecycle_status, 'pending');
+  const row = db.prepare('SELECT lifecycle_status, next_follow_up FROM inquiries WHERE id = ?').get(inquiry.id);
+  assert.strictEqual(row.lifecycle_status, 'pending');
+  assert.strictEqual(row.next_follow_up, '2026-09-25');
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
+test('updateInquiry card-only lifecycle change does not wipe follow-up date', () => {
+  const { db, dbPath } = makeDb();
+  const now = new Date(2026, 8, 17, 10, 0, 0);
+  seedInquiryStages(db);
+  const { inquiry } = createInquiry(db, { clientName: 'Card Co', requirement: 'PAN' }, now);
+  db.prepare('UPDATE inquiries SET next_follow_up = ? WHERE id = ?').run('2026-09-18', inquiry.id);
+  const result = updateInquiry(db, inquiry.id, { lifecycleStatus: 'pending', scheduleNext: false }, now);
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(result.inquiry.lifecycle_status, 'pending');
+  assert.strictEqual(result.inquiry.next_follow_up, '2026-09-18');
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
 test('updateInquiry updates requirement and notes', () => {
   const { db, dbPath } = makeDb();
   const now = new Date(2026, 8, 13, 10, 0, 0);

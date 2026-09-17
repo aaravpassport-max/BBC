@@ -3,6 +3,14 @@
   const P = () => window.ILRSInquiryPipeline;
   const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
+  function normalizeInquiryLifecycleValue(raw) {
+    const LC = window.ILRSWorkLifecycle;
+    if (LC?.normalizeLifecycle) return LC.normalizeLifecycle(raw);
+    const v = String(raw || '').trim().toLowerCase();
+    if (['active', 'pending', 'completed', 'closed'].includes(v)) return v;
+    return 'active';
+  }
+
   function inquiryWorkStatusFieldHtml(inq) {
     const LC = window.ILRSWorkLifecycle;
     const selected = LC?.inferLifecycleFromInquiry ? LC.inferLifecycleFromInquiry(inq) : 'active';
@@ -251,16 +259,24 @@
         return;
       }
       const LC = window.ILRSWorkLifecycle;
-      const lifecycleStatus = LC?.normalizeLifecycle(document.getElementById('inq-lifecycle')?.value) || 'active';
-      const scheduleNext = document.getElementById('inq-schedule-next')?.checked;
-      const when = document.getElementById('inq-when')?.value || 'tomorrow';
-      let nextFollowUp = when === 'custom'
-        ? (document.getElementById('inq-follow-date')?.value || resolveWhen(when))
-        : resolveWhen(when);
-      if (LC?.blocksNextReminder(lifecycleStatus)) nextFollowUp = '';
-      if (lifecycleStatus === LC?.LIFECYCLE_COMPLETED && !scheduleNext) nextFollowUp = '';
-      const followWrapVisible = document.getElementById('inq-follow-wrap')?.style.display !== 'none';
-      if (!followWrapVisible) nextFollowUp = '';
+      const lifecycleEl = overlay.querySelector('#inq-lifecycle');
+      const lifecycleStatus = normalizeInquiryLifecycleValue(lifecycleEl?.value);
+      const scheduleNext = overlay.querySelector('#inq-schedule-next')?.checked;
+      const when = overlay.querySelector('#inq-when')?.value || 'tomorrow';
+      const followWrap = overlay.querySelector('#inq-follow-wrap');
+      const followWrapVisible = followWrap && followWrap.style.display !== 'none';
+      let nextFollowUp;
+      let nextFollowUpTime;
+      if (followWrapVisible) {
+        nextFollowUp = when === 'custom'
+          ? (overlay.querySelector('#inq-follow-date')?.value || resolveWhen(when))
+          : resolveWhen(when);
+        nextFollowUpTime = overlay.querySelector('#inq-follow-time')?.value || '11:00';
+      } else if (LC?.blocksNextReminder(lifecycleStatus)
+        || (lifecycleStatus === LC?.LIFECYCLE_COMPLETED && !scheduleNext)) {
+        nextFollowUp = '';
+        nextFollowUpTime = '';
+      }
       const data = {
         clientName,
         requirement,
@@ -268,8 +284,8 @@
         lifecycleStatus,
         scheduleNext,
         nextAction: document.getElementById('inq-next-action')?.value.trim(),
-        nextFollowUp,
-        nextFollowUpTime: document.getElementById('inq-follow-time')?.value || '11:00',
+        ...(nextFollowUp !== undefined ? { nextFollowUp } : {}),
+        ...(nextFollowUpTime !== undefined ? { nextFollowUpTime } : {}),
         mobile: document.getElementById('inq-mobile')?.value.trim(),
         email: document.getElementById('inq-email')?.value.trim(),
         company: document.getElementById('inq-company')?.value.trim(),

@@ -18,7 +18,11 @@
 
   async function setInquiryLifecycleFromCard(id, lifecycle) {
     const LC = window.ILRSWorkLifecycle;
-    const lc = LC?.normalizeLifecycle(lifecycle) || lifecycle;
+    const lc = LC?.normalizeLifecycle
+      ? LC.normalizeLifecycle(lifecycle)
+      : (['active', 'pending', 'completed', 'closed'].includes(String(lifecycle || '').toLowerCase())
+        ? String(lifecycle).toLowerCase()
+        : 'active');
     const data = { lifecycleStatus: lc, scheduleNext: false };
     if (LC?.blocksNextReminder(lc) || lc === LC.LIFECYCLE_COMPLETED) {
       data.nextFollowUp = '';
