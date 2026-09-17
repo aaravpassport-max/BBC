@@ -89,7 +89,15 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.34-ledger-instant-paint';
+const FNO_CORE_BUILD_MARKER = '16.37.35-brain-refresh-ui-safe';
+
+/** Safe UI number formatting — never throws when value is missing/NaN. */
+function fnoFormatFixed(value, digits, fallback) {
+  if (fallback === undefined) fallback = '—';
+  if (value === null || value === undefined) return String(fallback);
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? n.toFixed(digits) : String(fallback);
+}
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -1116,7 +1124,7 @@ function renderScalpingSessionReadiness(brain, ctx) {
   const leg = (ctx && ctx.ocRow) ? ((brain && brain.decision === 'SELL_READY') ? ctx.ocRow.PE : ctx.ocRow.CE) : null;
   const spread = leg ? checkSpreadLevel(leg) : { spreadPct: null };
   const spreadBlockPct = typeof getModeSpreadHardBlockPct === 'function' ? getModeSpreadHardBlockPct() : FNO_SCALPING_PROFIT_PROFILE.spreadHardBlockPct;
-  const spreadTxt = spread.spreadPct !== null
+  const spreadTxt = Number.isFinite(spread.spreadPct)
     ? `${spread.spreadPct.toFixed(1)}% (blocks above ${spreadBlockPct}%)`
     : 'bid/ask unavailable';
   const timeCheck = checkSufficientTimeRemaining(ctx || {}, 'scalping');
@@ -1154,7 +1162,7 @@ function renderScalpingSessionReadiness(brain, ctx) {
   const sizeMult = modeProfile && brain ? resolveModePositionSizeMultiplier(brain.confidence, modeProfile) : 1;
   const sizeTxt = sizeMult < 1 ? `${lotTxt} (mode size ×${sizeMult})` : lotTxt;
   const decayPct = computeValueDecayCriticalPct(ctx || {});
-  const decayPolicyTxt = decayPct !== null
+  const decayPolicyTxt = Number.isFinite(decayPct)
     ? `Value Decay: ${decayPct.toFixed(1)}%/day of premium — scalping: scored + FM/SPE/TSE (no hard NO_TRADE); non-scalping: hard block if >5%`
     : 'Value Decay: premium unavailable — hard block skipped (decay still scored when data exists)';
   box.innerHTML = [
@@ -2580,7 +2588,7 @@ function renderDecisionIntelligence() {
     <div style="padding:3px 0;border-bottom:1px solid #111827"><span style="color:#94a3b8">${escapeHtml(new Date(m.ts).toLocaleString())}</span> - deeply-neutral WAIT (score ${m.directionalScore}) - spot still moved <span style="color:#64748b">${m.movePct}%</span> ${escapeHtml(m.direction)} within ${m.minutesToMove} min. Not a missed opportunity - the information at that moment did not support a trade.</div>`).join('');
 
   const lossRows = falsePos.losingTrades.slice(-10).reverse().map(t => `
-    <div style="padding:3px 0;border-bottom:1px solid #111827"><span style="color:#94a3b8">${escapeHtml(new Date(t.ts).toLocaleString())}</span> - ${escapeHtml(t.symbol||'')} ${t.strike||''}${escapeHtml(t.optionType||'')} (${escapeHtml(t.tradingType||'')}, ${escapeHtml(t.confidence||'')}) - <span style="color:#f87171">Rs${t.pnl.toFixed(0)}</span>${t.triggeredFmIds.length ? ` - FM at entry: ${escapeHtml(t.triggeredFmIds.join(', '))}` : ' - no FM triggered at entry'}</div>`).join('');
+    <div style="padding:3px 0;border-bottom:1px solid #111827"><span style="color:#94a3b8">${escapeHtml(new Date(t.ts).toLocaleString())}</span> - ${escapeHtml(t.symbol||'')} ${t.strike||''}${escapeHtml(t.optionType||'')} (${escapeHtml(t.tradingType||'')}, ${escapeHtml(t.confidence||'')}) - <span style="color:#f87171">Rs${Number.isFinite(t.pnl) ? t.pnl.toFixed(0) : '?'}</span>${t.triggeredFmIds.length ? ` - FM at entry: ${escapeHtml(t.triggeredFmIds.join(', '))}` : ' - no FM triggered at entry'}</div>`).join('');
 
   const lossCategoryRows = failureAnalysis.categories.size ? Array.from(failureAnalysis.categories.entries()).sort((a,b) => b[1].count - a[1].count).map(([cat, c]) => `
     <div style="padding:3px 0;border-bottom:1px solid #111827"><b>${escapeHtml(cat)}</b>: ${c.count} of ${failureAnalysis.totalLosses} real losses (${c.pct.toFixed(0)}%)</div>`).join('') : '';
@@ -17356,16 +17364,17 @@ function render(){
         const g = decay.snapshot.now;
         const tp = fnoThemePalette();
         const tile = (label, value, valueColor) => `<div style="background:${tp.panel};padding:6px;border-radius:8px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">${label}</div><div style="font-weight:800;color:${valueColor || tp.text}">${value}</div></div>`;
+        const gFmt = (val, d) => fnoFormatFixed(val, d, '—');
         document.getElementById('greeksMetrics').innerHTML = g.valid ? `
-          ${tile('Delta', g.delta.toFixed(3))}
-          ${tile('Gamma', g.gamma.toFixed(5))}
-          ${tile('Vega', g.vega.toFixed(2))}
-          ${tile('Theta/day', g.thetaPerDay.toFixed(2), tp.fail)}
-          ${tile('Rho', g.rho.toFixed(3))}
-          ${tile('Vanna', g.vanna.toFixed(4))}
-          ${tile('Vomma', g.vomma.toFixed(3))}
-          ${tile('Charm/day', g.charm.toFixed(4))}
-          ${tile('BS Price', g.price.toFixed(1))}
+          ${tile('Delta', gFmt(g.delta, 3))}
+          ${tile('Gamma', gFmt(g.gamma, 5))}
+          ${tile('Vega', gFmt(g.vega, 2))}
+          ${tile('Theta/day', gFmt(g.thetaPerDay, 2), tp.fail)}
+          ${tile('Rho', gFmt(g.rho, 3))}
+          ${tile('Vanna', gFmt(g.vanna, 4))}
+          ${tile('Vomma', gFmt(g.vomma, 3))}
+          ${tile('Charm/day', gFmt(g.charm, 4))}
+          ${tile('BS Price', gFmt(g.price, 1))}
         ` : `<div style="grid-column:1/4;color:${tp.warn}">Degenerate inputs (T or IV <= 0) - showing intrinsic value only: ${escapeHtml(g.reason)}</div>`;
       }
 
@@ -17915,7 +17924,7 @@ function render(){
       // authoritative, decision-driving directionalScore here instead,
       // so the number beside the decision is genuinely the number that
       // produced it.
-      document.getElementById('totalScore').textContent=brain.directionalScore.toFixed(1);
+      document.getElementById('totalScore').textContent=fnoFormatFixed(brain.directionalScore, 1);
       document.getElementById('passCount').textContent=brain.passCount;
       document.getElementById('failCount').textContent=brain.failCount;
       document.getElementById('critCount').textContent=brain.criticalFails.length;
@@ -17937,9 +17946,9 @@ function render(){
           .sort((a, b) => Math.abs(b[1].weightedScore - b[1].rawScore) - Math.abs(a[1].weightedScore - a[1].rawScore))
           .slice(0, 4);
         const catHtml = topCats.length > 0
-          ? topCats.map(([cat, v]) => `<span style="margin-right:10px">${cat}: ${v.rawScore.toFixed(1)} → <b style="color:${v.weight>1?'#4ade80':'#f87171'}">${v.weightedScore.toFixed(1)}</b> (${v.weight}x)</span>`).join('')
+          ? topCats.map(([cat, v]) => `<span style="margin-right:10px">${cat}: ${fnoFormatFixed(v.rawScore, 1)} → <b style="color:${v.weight>1?'#4ade80':'#f87171'}">${fnoFormatFixed(v.weightedScore, 1)}</b> (${v.weight}x)</span>`).join('')
           : '<span style="color:#64748b">Intraday uses 1.0x across every category - the unweighted score above already reflects this.</span>';
-        box.innerHTML = `<b>${typeLabels[w.tradingType] || w.tradingType} weighting:</b> raw ${brain.totalScore.toFixed(1)} → weighted <b>${w.weightedScore.toFixed(1)}</b><br><div style="margin-top:4px;font-size:10px">${catHtml}</div>`;
+        box.innerHTML = `<b>${typeLabels[w.tradingType] || w.tradingType} weighting:</b> raw ${fnoFormatFixed(brain.totalScore, 1)} → weighted <b>${fnoFormatFixed(w.weightedScore, 1)}</b><br><div style="margin-top:4px;font-size:10px">${catHtml}</div>`;
       })();
 
       renderScalpingSessionReadiness(brain, refreshCtx);
@@ -17956,7 +17965,7 @@ function render(){
         const entrySnapForModel = buildEntrySnapshot(brain, refreshCtx, sym);
         if (entrySnapForModel) {
           const modelProb = predictWinProbability(window.FNO_ACTIVE_PROB_MODEL, entrySnapForModel);
-          modelBadge = ` <span style="font-size:11px;color:#c4b5fd">[Model: ${(modelProb*100).toFixed(0)}% win probability, ${window.FNO_ACTIVE_PROB_MODEL.holdoutAccuracy.toFixed(0)}% holdout accuracy]</span>`;
+          modelBadge = ` <span style="font-size:11px;color:#c4b5fd">[Model: ${fnoFormatFixed(modelProb * 100, 0)}% win probability, ${fnoFormatFixed(window.FNO_ACTIVE_PROB_MODEL.holdoutAccuracy, 0)}% holdout accuracy]</span>`;
         }
       }
       // Master Prompt §23 - real 7-tier decision badge, additive to
@@ -17975,7 +17984,7 @@ function render(){
       const tierEl = document.getElementById('decisionTierBadge');
       if (tierEl) {
         const tp = fnoThemePalette();
-        tierEl.innerHTML = `${escapeHtml(tierInfo.emoji)} <b style="color:${tierInfo.color}">${escapeHtml(tierInfo.text)}</b> <span style="color:${tp.muted2};font-size:11px">(§23 real 7-tier - directional score ${brain.directionalScore.toFixed(1)})</span>`;
+        tierEl.innerHTML = `${escapeHtml(tierInfo.emoji)} <b style="color:${tierInfo.color}">${escapeHtml(tierInfo.text)}</b> <span style="color:${tp.muted2};font-size:11px">(§23 real 7-tier - directional score ${fnoFormatFixed(brain.directionalScore, 1)})</span>`;
       }
 
       // Real, visible pre-trade gate warning next to the eligibility
@@ -18037,10 +18046,12 @@ function render(){
         if (covEl) {
           const pct = brain.factorRegistry.coveragePct;
           const dirPct = brain.factorDataAvailability ? brain.factorDataAvailability.directionalCoveragePct : null;
-          covEl.textContent = dirPct != null
-            ? `Trade signal data: ${dirPct.toFixed(1)}% of live directional inputs scored (${brain.factorDataAvailability.directionalUsedCount} used, ${brain.factorDataAvailability.directionalUnavailableCount} skipped) · Roadmap catalog: ${pct.toFixed(1)}% wired (${brain.factorRegistry.counts.COMPUTED}/${brain.factorRegistry.totalCatalogued}) — catalog % is NOT trade confidence`
-            : `Catalog roadmap: ${pct.toFixed(1)}% of ${brain.factorRegistry.totalCatalogued} factors have live logic (not the same as trade confidence)`;
-          const displayPct = dirPct != null ? dirPct : pct;
+          const dirCovOk = Number.isFinite(dirPct);
+          const catCovOk = Number.isFinite(pct);
+          covEl.textContent = dirCovOk
+            ? `Trade signal data: ${fnoFormatFixed(dirPct, 1)}% of live directional inputs scored (${brain.factorDataAvailability.directionalUsedCount} used, ${brain.factorDataAvailability.directionalUnavailableCount} skipped) · Roadmap catalog: ${fnoFormatFixed(pct, 1)}% wired (${brain.factorRegistry.counts.COMPUTED}/${brain.factorRegistry.totalCatalogued}) — catalog % is NOT trade confidence`
+            : `Catalog roadmap: ${catCovOk ? fnoFormatFixed(pct, 1) : '—'}% of ${brain.factorRegistry.totalCatalogued} factors have live logic (not the same as trade confidence)`;
+          const displayPct = dirCovOk ? dirPct : (catCovOk ? pct : 0);
           covEl.style.color = displayPct >= 55 ? '#4ade80' : displayPct >= 35 ? '#fde68a' : '#f87171';
         }
         renderFactorDataAvailabilityPanel(brain);
@@ -18247,8 +18258,8 @@ function render(){
             <div style="margin-bottom:6px">Term structure shape: <b style="color:${shapeColor}">${surface.termStructureShape}</b></div>
             ${surface.byExpiry.map(e => `
               <div style="padding:4px 0;border-bottom:1px solid #111827">
-                <b>${e.expiry}</b> - ATM IV ${e.atmIV.toFixed(2)}%<br>
-                <span style="color:#94a3b8">Put skew (${e.skew.otmPutStrike}): ${e.skew.putSkew>=0?'+':''}${e.skew.putSkew.toFixed(2)}pp | Call skew (${e.skew.otmCallStrike}): ${e.skew.callSkew>=0?'+':''}${e.skew.callSkew.toFixed(2)}pp | Net: <span style="color:${e.skew.netSkew>3?'#fde68a':'#94a3b8'}">${e.skew.netSkew>=0?'+':''}${e.skew.netSkew.toFixed(2)}pp</span></span>
+                <b>${e.expiry}</b> - ATM IV ${fnoFormatFixed(e.atmIV, 2)}%<br>
+                <span style="color:#94a3b8">Put skew (${e.skew.otmPutStrike}): ${e.skew.putSkew>=0?'+':''}${fnoFormatFixed(e.skew.putSkew, 2)}pp | Call skew (${e.skew.otmCallStrike}): ${e.skew.callSkew>=0?'+':''}${fnoFormatFixed(e.skew.callSkew, 2)}pp | Net: <span style="color:${e.skew.netSkew>3?'#fde68a':'#94a3b8'}">${e.skew.netSkew>=0?'+':''}${fnoFormatFixed(e.skew.netSkew, 2)}pp</span></span>
               </div>
             `).join('')}
           `;
@@ -18268,7 +18279,7 @@ function render(){
           const totalColor = dgex.totalNetDealerGammaExposure > 0 ? '#4ade80' : '#f87171';
           dealerGammaBox.innerHTML = `
             <div style="font-size:10px;color:#64748b;margin-bottom:6px">Real, documented assumption (not a proven fact): dealers are net short calls, net long puts - the standard, publicly-cited convention. See the code's own TRACE comment for the full real reasoning.</div>
-            <div style="font-weight:700;color:${totalColor};margin-bottom:4px">Net Dealer Gamma: ${dgex.totalNetDealerGammaExposure.toFixed(2)}</div>
+            <div style="font-weight:700;color:${totalColor};margin-bottom:4px">Net Dealer Gamma: ${fnoFormatFixed(dgex.totalNetDealerGammaExposure, 2)}</div>
             <div style="color:#94a3b8;font-size:11px">${dgex.interpretation}</div>
           `;
         }
@@ -18287,7 +18298,7 @@ function render(){
             <div style="font-size:10px;color:#64748b;margin-bottom:6px">Real, ranked by aggregate real option-writer loss - the top level is the same real calculation as Max Pain, the others are the next-strongest real "who benefits" levels.</div>
             ${levels.map((l,i) => `
               <div style="padding:4px 0;border-bottom:1px solid #111827">
-                <b>${i===0?'Strongest':`#${i+1}`} real level: ${l.strike}</b> (${l.distPct>=0?'+':''}${l.distPct.toFixed(2)}% from spot)
+                <b>${i===0?'Strongest':`#${i+1}`} real level: ${l.strike}</b> (${l.distPct>=0?'+':''}${fnoFormatFixed(l.distPct, 2)}% from spot)
               </div>
             `).join('')}
           `;
@@ -18365,7 +18376,7 @@ function render(){
           const strengthLabel = {very_high:'Very High - effectively the same exposure', high:'High', moderate:'Moderate', low:'Low - meaningfully different exposure'}[strength];
           correlationBox.innerHTML = `
             <div style="font-weight:700;margin-bottom:4px">${sym} vs ${correlationSym}</div>
-            <div>Real return correlation: <b style="color:${strengthColor}">${corr.toFixed(2)}</b> (${strengthLabel})</div>
+            <div>Real return correlation: <b style="color:${strengthColor}">${fnoFormatFixed(corr, 2)}</b> (${strengthLabel})</div>
             <div style="font-size:10px;color:#64748b;margin-top:4px">${strength==='very_high'||strength==='high' ? `A ${sym} position and a ${correlationSym} position right now would largely be the SAME market bet, not genuinely diversified exposure.` : `${sym} and ${correlationSym} are currently moving with enough independence that positions in both would represent real, distinct exposure.`}</div>
           `;
         }
@@ -18435,7 +18446,7 @@ function render(){
         opEl.innerHTML = `
           <div style="text-align:center;padding:8px;border-radius:10px;background:${tp.panel};margin-bottom:8px;border:1px solid ${tp.line}">
             <div style="font-size:16px;font-weight:800;color:${biasColor}">${brain.operatorIntel.bias.replace('_',' ')}</div>
-            <div style="font-size:11px;color:${tp.muted}">Score ${brain.operatorIntel.score.toFixed(2)} | Confidence: ${brain.operatorIntel.confidence}</div>
+            <div style="font-size:11px;color:${tp.muted}">Score ${fnoFormatFixed(brain.operatorIntel.score, 2)} | Confidence: ${brain.operatorIntel.confidence}</div>
           </div>
           <div style="font-size:11px;color:${tp.muted2};margin-bottom:6px">Inference from public OI/volume data - not certainty. One weighted input among many, not a standalone signal to trade on.</div>
         ` + brain.operatorIntel.signals.map(s=>`
@@ -18450,7 +18461,7 @@ function render(){
       // fix isn't silently computed and invisible: Directional score
       // is what actually drives the decision now; the other four are
       // shown for real transparency but never move the threshold.
-      document.getElementById('brainLog').textContent=`Brain Standalone ${mode.toUpperCase()} v${typeof FNO_PLUGIN_VERSION !== 'undefined' ? FNO_PLUGIN_VERSION : '?'} Spot ${spot.toFixed(1)} Directional Score ${brain.directionalScore.toFixed(1)} (Risk ${brain.riskScore.toFixed(1)} | Trade-Quality ${brain.tradeQualityScore.toFixed(1)} | Model-Quality ${brain.modelQualityScore.toFixed(1)} | Human-Operator ${brain.humanOperatorScore.toFixed(1)}) Decision ${brain.decision} | Operator bias: ${brain.operatorIntel.bias} | No theme, no shortcode, works like app at /`;
+      document.getElementById('brainLog').textContent=`Brain Standalone ${mode.toUpperCase()} v${typeof FNO_PLUGIN_VERSION !== 'undefined' ? FNO_PLUGIN_VERSION : '?'} Spot ${fnoFormatFixed(spot, 1)} Directional Score ${fnoFormatFixed(brain.directionalScore, 1)} (Risk ${fnoFormatFixed(brain.riskScore, 1)} | Trade-Quality ${fnoFormatFixed(brain.tradeQualityScore, 1)} | Model-Quality ${fnoFormatFixed(brain.modelQualityScore, 1)} | Human-Operator ${fnoFormatFixed(brain.humanOperatorScore, 1)}) Decision ${brain.decision} | Operator bias: ${brain.operatorIntel.bias} | No theme, no shortcode, works like app at /`;
 
       // Enterprise Data Architecture Plan #20/#22 - real Data Quality
       // flags, computed server-side above and surfaced here in the
