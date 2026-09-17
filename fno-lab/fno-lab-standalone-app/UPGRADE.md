@@ -27,20 +27,13 @@ Always use **`fno-lab-standalone-app.zip`** at the **repository root** (not a co
 
 ## Download (latest on PR branch — **not** the old v16.37.0 GitHub Release)
 
-The release asset **v16.37.0** is an older snapshot (**16.37.0**). Current work (Modes 7–8, whole-lot qty, zip sync) is on branch **`cursor/liquidity-trap-engine-439c`**.
+**Zip (must be ~1.9–2.0 MB):**  
+https://github.com/aaravpassport-max/BBC/raw/cursor/liquidity-trap-engine-439c/fno-lab-standalone-app.zip?download=16.37.24
 
-**Use this zip (must be ~1.9–2.0 MB):**  
-https://github.com/aaravpassport-max/BBC/raw/cursor/liquidity-trap-engine-439c/fno-lab-standalone-app.zip
-
-If your browser reuses an old download, add a cache-buster query string, e.g.  
-`.../fno-lab-standalone-app.zip?download=16.37.23`
-
-Before installing, unzip locally and confirm `fno-lab-standalone-app/fno-lab.php` contains **`16.37.23`** and **`16.37.23-whole-lots`**.
+Inside the zip, open **`fno-lab-standalone-app/PLUGIN_BUILD.txt`** — it must say **`FNO_PLUGIN_VERSION=16.37.24`** and **`FNO_CORE_BUILD_MARKER=16.37.24-whole-lots-enforced`**. If you see **16.37.21**, the file is stale (wrong download or cached copy).
 
 After install:
 
-1. WordPress **Plugins** → version **16.37.23**, Install ID **16.37.23-whole-lots** (under the plugin row).
-2. App header shows **`v16.37.23 (16.37.23-whole-lots)`**.
-3. **Settings → F&O Lab Providers** → “Whole-lot paper qty fix present: **yes**”.
-
-If you still see **16.37.21**, an old plugin folder is still active or the zip was not replaced — delete **all** `fno-lab-standalone-app*` directories, reinstall, **deactivate → activate** once, hard-refresh (Ctrl+Shift+R). Check diagnostics on the settings page for the real path to `fno-lab.php` on disk.
+1. App header: **`v16.37.24 (16.37.24-whole-lots-enforced)`**
+2. **Settings → F&O Lab Providers** → Whole-lot fix: **yes**
+3. Browser view-source on `/` → search **`FNO_CORE_BUILD_MARKER`** — must be **`16.37.24-whole-lots-enforced`**

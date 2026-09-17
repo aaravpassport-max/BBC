@@ -73,6 +73,8 @@ let fnoAutoTradeCloseInProgress = false;
 const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
+/** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
+const FNO_CORE_BUILD_MARKER = '16.37.24-whole-lots-enforced';
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -237,6 +239,27 @@ function floorQtyToWholeLots(symbol, qty) {
   const q = Number(qty);
   if (!Number.isFinite(q) || q < unit) return 0;
   return Math.floor(q / unit) * unit;
+}
+
+/**
+ * Final gate before any simulated/live order qty is saved — never allow 37/65-style odd sizes.
+ * Floors to whole exchange lots; rejects below one lot.
+ */
+function finalizeExchangeOrderQty(symbol, qty) {
+  const unit = getExchangeLotSize(symbol);
+  const symLabel = normalizeUnderlyingSymbol(symbol);
+  const q = Number(qty);
+  if (!Number.isFinite(q) || q < unit) {
+    return { ok: false, qty: 0, reason: `Quantity ${qty} is below one ${symLabel} exchange lot (${unit} qty). NSE F&O does not allow partial lots.` };
+  }
+  if (isValidExchangeQty(symbol, q)) {
+    return { ok: true, qty: q, reason: null };
+  }
+  const floored = floorQtyToWholeLots(symbol, q);
+  if (floored >= unit && isValidExchangeQty(symbol, floored)) {
+    return { ok: true, qty: floored, reason: `Adjusted order qty ${q} → ${floored} (${floored / unit} whole lot(s) only).` };
+  }
+  return { ok: false, qty: 0, reason: `Quantity ${q} is not a valid multiple of ${symLabel} lot size (${unit} qty) and cannot be normalized to whole lots.` };
 }
 
 function getLotCountFromUi() {
@@ -8419,13 +8442,15 @@ function updateTrailingStop(open, livePrice) {
  * this is purely a SUGGESTED effective size - callers must never force
  * it over the user's own manually-entered value, only offer it.
  */
-function computeTradeTypeSize(baseLotSize, tradingType) {
+function computeTradeTypeSize(baseLotSize, tradingType, symbol) {
   if (typeof baseLotSize !== 'number' || !isFinite(baseLotSize) || baseLotSize <= 0) return baseLotSize;
+  symbol = symbol || 'NIFTY';
+  const unit = getExchangeLotSize(symbol);
+  const baseLots = Math.max(1, Math.round(baseLotSize / unit));
   const stopMultiplier = FNO_TRAILING_DISTANCE_MULTIPLIER[tradingType] || 1.0;
-  const sizeMultiplier = 1 / stopMultiplier; // equal-risk-per-trade: inverse of the stop-distance multiplier
-  const rawLots = (baseLotSize / baseLotSize) * sizeMultiplier; // = sizeMultiplier, kept explicit for readability of the "1 lot * multiplier" intent
-  const roundedLots = Math.max(1, Math.round(rawLots));
-  return roundedLots * baseLotSize;
+  const sizeMultiplier = 1 / stopMultiplier;
+  const adjustedLots = Math.max(1, Math.round(baseLots * sizeMultiplier));
+  return lotsToQty(symbol, adjustedLots);
 }
 
 /**
@@ -18560,6 +18585,12 @@ function render(){
     // close/partial-close for this same position is already in flight -
     // never start a second one on top of it.
     if (fnoAutoTradeCloseInProgress) { return; }
+    const partialFinal = finalizeExchangeOrderQty(sym, partialQty);
+    if (!partialFinal.ok) {
+      console.error('F&O Lab: blocked partial exit with invalid exchange qty', partialQty, partialFinal.reason);
+      return;
+    }
+    partialQty = partialFinal.qty;
     fnoAutoTradeCloseInProgress = true;
     try {
     const fill = determineFillPrice(exitLeg, 'sell', open.executionMode || 'realistic');
@@ -18948,7 +18979,7 @@ function render(){
     // user's own manually-entered lotSize is used completely unchanged,
     // exactly this function's pre-existing behavior.
     if (fnoSettings.get().tradeTypeSizingEnabled) {
-      lotSize = computeTradeTypeSize(lotSize, timeSufficiencyType);
+      lotSize = computeTradeTypeSize(lotSize, timeSufficiencyType, symForLot);
     }
     if (isScalpingProfitProfileActive() && timeSufficiencyType === 'scalping' && typeof resolveModeAdjustedLotCount === 'function' && lastBrain) {
       const baseCount = qtyToLots(symForLot, lotSize);
@@ -18957,6 +18988,13 @@ function render(){
         lotSize = lotsToQty(symForLot, modeCount);
       }
     }
+    const finalizedLot = finalizeExchangeOrderQty(symForLot, lotSize);
+    if (!finalizedLot.ok) {
+      reportFn(finalizedLot.reason);
+      return { opened: false, reason: finalizedLot.reason, rejectionCategory: FNO_EXEC_REJECTION.RISK_VALIDATION };
+    }
+    if (finalizedLot.reason) reportFn(finalizedLot.reason);
+    lotSize = finalizedLot.qty;
     if (!curCtx || !curCtx.ocRow) { reportFn('No live option-chain data this refresh - cannot open an Auto Trade position without a real live premium.'); return { opened: false }; }
     const leg = optionType==='PE' ? curCtx.ocRow.PE : curCtx.ocRow.CE;
     if (!leg || typeof leg.lastPrice!=='number') { reportFn('No live premium available for the selected strike/type this refresh.'); return { opened: false }; }
@@ -19263,13 +19301,17 @@ function render(){
     if (execMode === 'realistic') {
       partialFillInfo = simulatePartialFillQty(leg, lotSize, 'buy', symForLot);
       filledLotSize = partialFillInfo.filledQty;
-      if (!filledLotSize || filledLotSize < getExchangeLotSize(symForLot)) {
-        reportFn(partialFillInfo.reason || `Blocked: simulated fill could not reach one whole ${normalizeUnderlyingSymbol(symForLot)} exchange lot (${getExchangeLotSize(symForLot)} qty).`);
-        return { opened: false, reason: partialFillInfo.reason || 'Partial lot fill not allowed' };
-      }
-      if (partialFillInfo.isPartial) {
-        reportFn(`Partial fill (whole lots only): requested ${lotSize} qty, filled ${filledLotSize} (${filledLotSize / getExchangeLotSize(symForLot)} lot(s)). ${partialFillInfo.reason || ''}`);
-      }
+    }
+    const finalizedFill = finalizeExchangeOrderQty(symForLot, filledLotSize);
+    if (!finalizedFill.ok) {
+      reportFn(finalizedFill.reason || partialFillInfo.reason || `Blocked: simulated fill could not reach one whole ${normalizeUnderlyingSymbol(symForLot)} exchange lot (${getExchangeLotSize(symForLot)} qty).`);
+      return { opened: false, reason: finalizedFill.reason || 'Partial lot fill not allowed', rejectionCategory: FNO_EXEC_REJECTION.RISK_VALIDATION };
+    }
+    filledLotSize = finalizedFill.qty;
+    if (execMode === 'realistic' && partialFillInfo.isPartial) {
+      reportFn(`Partial fill (whole lots only): requested ${lotSize} qty, filled ${filledLotSize} (${filledLotSize / getExchangeLotSize(symForLot)} lot(s)). ${partialFillInfo.reason || ''}`);
+    } else if (execMode === 'realistic' && partialFillInfo.reason && filledLotSize < lotSize) {
+      reportFn(partialFillInfo.reason);
     }
     const hypotheticalCosts = computeTradeCosts(fill.price, target, filledLotSize);
     if (hypotheticalCosts.netPnl <= 0) {

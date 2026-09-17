@@ -979,6 +979,7 @@ window.FNO_AJAX = {
   isLoggedIn: <?php echo $is_logged_in ? 'true' : 'false'; ?>
 };
 window.FNO_PLUGIN_VERSION = <?php echo wp_json_encode(FNO_PLUGIN_VERSION); ?>;
+window.FNO_PLUGIN_INSTALL_ID = <?php echo wp_json_encode(FNO_PLUGIN_INSTALL_ID); ?>;
 // Master Development Prompt Section 5 (Factor Registry): the raw 193-
 // entry catalog, embedded server-side so the Factor Registry can
 // classify every catalogued factor's real implementation status

@@ -22,10 +22,15 @@ assert.strictEqual(zipConst[1], version, 'zip FNO_PLUGIN_VERSION must match sour
 
 const zipCoreCheck = spawnSync(
   'bash',
-  ['-c', `unzip -p "${zipPath}" fno-lab-standalone-app/assets/fno-lab-core.js | grep -q 'renderScalpingSessionReadiness' && unzip -p "${zipPath}" fno-lab-standalone-app/assets/fno-lab-core.js | grep -q 'fnoThemePalette'`],
+  ['-c', `unzip -p "${zipPath}" fno-lab-standalone-app/assets/fno-lab-core.js | grep -q 'renderScalpingSessionReadiness' && unzip -p "${zipPath}" fno-lab-standalone-app/assets/fno-lab-core.js | grep -q 'fnoThemePalette' && unzip -p "${zipPath}" fno-lab-standalone-app/assets/fno-lab-core.js | grep -q 'FNO_CORE_BUILD_MARKER'`],
   { stdio: 'ignore' }
 );
-assert.strictEqual(zipCoreCheck.status, 0, 'zip core JS includes light-mode readiness fix');
+assert.strictEqual(zipCoreCheck.status, 0, 'zip core JS includes light-mode readiness fix and FNO_CORE_BUILD_MARKER');
+
+const zipManifest = spawnSync('bash', ['-c', `unzip -p "${zipPath}" fno-lab-standalone-app/PLUGIN_BUILD.txt`], { encoding: 'utf8' });
+assert.strictEqual(zipManifest.status, 0, 'zip must include PLUGIN_BUILD.txt from build-plugin-zip.sh');
+assert.ok(zipManifest.stdout.includes(`FNO_PLUGIN_VERSION=${version}`), 'PLUGIN_BUILD.txt version must match source');
+assert.ok(zipManifest.stdout.includes('FNO_CORE_BUILD_MARKER='), 'PLUGIN_BUILD.txt must include core build marker');
 
 const zipSize = fs.statSync(zipPath).size;
 assert.ok(zipSize > 1_500_000, `zip too small (${zipSize} bytes) — full plugin should be ~1.8–2.0 MB; rebuild from complete source tree`);

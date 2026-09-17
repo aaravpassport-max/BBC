@@ -2,16 +2,16 @@
 /**
  * Plugin Name: F&O Lab - Standalone App - No Theme Needed
  * Description: Standalone F&O options research/paper-trading app for Indian index derivatives (NIFTY/BANKNIFTY/FINNIFTY). Activate plugin and yoursite.com/ IS the app - no theme, no shortcode needed for the app itself. Real 193-factor decision engine (never fabricates unavailable data), realistic paper trading (spread/slippage/costs/rejection simulation), a trained probability model, post-trade failure/correlation/regime analysis, an IV surface engine, and paper/live Kite Connect trading with explicit permission. A real Participant Payoff Hypothesis Engine (structured, falsifiable hypotheses tested against later price action, with a real historical track record feeding back into live confidence), real Dealer Gamma Exposure and Futures-Options/Multi-Instrument consistency checks, regime-conditional live confidence adjustment, a Six-Month Learning Objective progress dashboard, and a real, standalone Autonomous Driver (autonomous-driver/ folder) for genuinely unattended, browser-closed operation. Optional wp-admin settings page (Settings > F&O Lab Providers) for premium data providers, TrueData credentials, the companion tick daemon, the Autonomous Driver's secret/user attribution, and the raw observation store. Educational/research tool, not financial advice.
- * Version: 16.37.23
+ * Version: 16.37.24
  */
 
 if (!defined('ABSPATH')) exit;
 
 // WordPress reads * Version above for Plugins list; the app UI reads FNO_PLUGIN_VERSION.
 // Keep both identical — enforced by tests/plugin-version-sync.test.js
-define('FNO_PLUGIN_VERSION', '16.37.23');
+define('FNO_PLUGIN_VERSION', '16.37.24');
 // Fingerprint for support when semver alone is ambiguous (stale zip, duplicate folders, OPcache).
-define('FNO_PLUGIN_INSTALL_ID', '16.37.23-whole-lots');
+define('FNO_PLUGIN_INSTALL_ID', '16.37.24-whole-lots-enforced');
 
 // Only one plugin folder may be active — e.g. both fno-lab-standalone-app
 // AND fno-lab-standalone-app-v16.21.0 causes fatal "Cannot redeclare" errors.
@@ -52,7 +52,7 @@ function fno_get_plugin_install_diagnostics() {
     $wholeLots = false;
     if (is_readable($core)) {
         $snippet = @file_get_contents($core, false, null, 0, 512000);
-        $wholeLots = is_string($snippet) && strpos($snippet, 'floorQtyToWholeLots') !== false;
+        $wholeLots = is_string($snippet) && strpos($snippet, 'finalizeExchangeOrderQty') !== false && strpos($snippet, 'FNO_CORE_BUILD_MARKER') !== false;
     }
     return [
         'version' => FNO_PLUGIN_VERSION,
@@ -2838,7 +2838,7 @@ function fno_render_premium_settings_page() {
     echo '<li>Whole-lot paper qty fix present: <strong>' . ($diag['wholeLotSizing'] ? 'yes' : 'NO — stale files; reinstall from UPGRADE.md') . '</strong></li>';
     echo '<li>Last activation install ID: <code>' . esc_html($diag['activatedInstallId'] !== '' ? $diag['activatedInstallId'] : '(none)') . '</code></li>';
     echo '</ul>';
-    echo '<p style="margin:10px 0 0;color:#646970">If the app still shows <strong>16.37.21</strong>, you are not running these files — delete every <code>fno-lab-standalone-app*</code> folder, install the current branch zip (~2&nbsp;MB), activate once, hard-refresh the app.</p>';
+    echo '<p style="margin:10px 0 0;color:#646970">If the app still shows <strong>16.37.21</strong> or trades use odd qty (37/65), you are not running these files — delete every <code>fno-lab-standalone-app*</code> folder, install the current branch zip (~2&nbsp;MB), activate once, hard-refresh. Header must show <strong>16.37.24</strong> and build marker <code>16.37.24-whole-lots-enforced</code>.</p>';
     echo '</div>';
     echo '<p>The core system works fully without any of these configured - every capability below already has a free/built-in path. Configure a provider here ONLY if you want to enhance a capability with a premium data source. Leaving all of these blank changes nothing about the app\'s core functionality.</p>';
     if (isset($_GET['fno_saved'])) echo '<div class="notice notice-success"><p>Saved.</p></div>';

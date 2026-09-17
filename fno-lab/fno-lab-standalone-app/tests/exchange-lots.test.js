@@ -37,12 +37,12 @@ assert.ok(!api.isValidExchangeQty('NIFTY', 2));
 assert.ok(/2 lots = 150 qty \(75\/lot\)/.test(api.formatLotQtyLabel('NIFTY', 2)));
 
 const blocked = api.checkScalpingCapitalPreservation(
-  { confidence: 'Medium', pretradeGateCheck: null },
+  { confidence: 'Low', pretradeGateCheck: null },
   { todayPnL: 0, accountAvailableCapital: 100000 },
   { journalToday: [] }
 );
 assert.ok(!blocked.allowed);
-assert.ok(/High confidence/.test(blocked.reason));
+assert.ok(/Medium confidence/.test(blocked.reason));
 
 const afterLoss = api.checkScalpingCapitalPreservation(
   { confidence: 'High', pretradeGateCheck: { finalAction: 'none', triggered: [] } },
@@ -52,7 +52,7 @@ const afterLoss = api.checkScalpingCapitalPreservation(
 assert.ok(!afterLoss.allowed);
 assert.ok(/losing trade/i.test(afterLoss.reason));
 
-assert.ok(/FNO_SETTINGS_SCHEMA_VERSION = 9/.test(coreSrc));
+assert.ok(/FNO_SETTINGS_SCHEMA_VERSION = 13/.test(coreSrc));
 assert.ok(/defaultLots: 2/.test(coreSrc));
 assert.ok(/scalpingCapitalPreservationEnabled: true/.test(coreSrc));
 assert.ok(/function getLotCountFromUi/.test(coreSrc));

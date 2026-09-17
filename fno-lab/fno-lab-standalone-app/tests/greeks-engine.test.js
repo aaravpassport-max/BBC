@@ -7498,31 +7498,31 @@ test('the scalping/swing FM-relevance lists and the live check() call sites matc
 });
 
 console.log('\n=== computeTradeTypeSize (KB §7 "Position sizing" - this session) ===');
-test('computeTradeTypeSize sizes scalping UP (tighter 0.5x stop -> 1/0.5=2x size) for equal risk-per-trade', () => {
-  assert.strictEqual(__fno_computeTradeTypeSize(50, 'scalping'), 100);
+test('computeTradeTypeSize sizes scalping UP (tighter 0.5x stop -> 2x lot count) for equal risk-per-trade', () => {
+  assert.strictEqual(__fno_computeTradeTypeSize(75, 'scalping', 'NIFTY'), 150);
 });
-test('computeTradeTypeSize sizes swing DOWN (wider 1.5x stop -> 1/1.5=0.67x size, rounded to nearest whole lot) for equal risk-per-trade', () => {
-  assert.strictEqual(__fno_computeTradeTypeSize(50, 'swing'), 50); // round(0.667) = 1 lot -> unchanged at this base size
+test('computeTradeTypeSize sizes swing DOWN (wider 1.5x stop -> ~0.67x lot count, rounded) for equal risk-per-trade', () => {
+  assert.strictEqual(__fno_computeTradeTypeSize(75, 'swing', 'NIFTY'), 75);
 });
 test('computeTradeTypeSize leaves intraday completely unchanged (1.0x, the neutral multiplier)', () => {
-  assert.strictEqual(__fno_computeTradeTypeSize(50, 'intraday'), 50);
+  assert.strictEqual(__fno_computeTradeTypeSize(75, 'intraday', 'NIFTY'), 75);
 });
 test('computeTradeTypeSize falls back to the neutral 1.0x multiplier for an unrecognized/missing tradingType, never a guessed one', () => {
-  assert.strictEqual(__fno_computeTradeTypeSize(50, 'not_a_real_type'), 50);
-  assert.strictEqual(__fno_computeTradeTypeSize(50, undefined), 50);
+  assert.strictEqual(__fno_computeTradeTypeSize(75, 'not_a_real_type', 'NIFTY'), 75);
+  assert.strictEqual(__fno_computeTradeTypeSize(75, undefined, 'NIFTY'), 75);
 });
-test('computeTradeTypeSize always returns an exact, exchange-valid multiple of baseLotSize, minimum one lot, even for a large swing reduction', () => {
-  const result = __fno_computeTradeTypeSize(50, 'swing');
-  assert.strictEqual(result % 50, 0, 'result must be an exact multiple of the base lot size');
-  assert.ok(result >= 50, 'result must never floor below one whole lot');
+test('computeTradeTypeSize always returns an exchange-valid whole-lot qty, minimum one lot', () => {
+  const result = __fno_computeTradeTypeSize(75, 'swing', 'NIFTY');
+  assert.strictEqual(result % 75, 0, 'result must be an exact multiple of the NIFTY lot size');
+  assert.ok(result >= 75, 'result must never floor below one whole lot');
 });
-test('computeTradeTypeSize genuinely scales larger base lot sizes proportionally (e.g. 100 for BANKNIFTY-style base)', () => {
-  assert.strictEqual(__fno_computeTradeTypeSize(100, 'scalping'), 200);
+test('computeTradeTypeSize genuinely scales BANKNIFTY base lots proportionally', () => {
+  assert.strictEqual(__fno_computeTradeTypeSize(30, 'scalping', 'BANKNIFTY'), 60);
 });
 test('computeTradeTypeSize honestly returns the input unchanged for a malformed (non-positive/non-numeric) baseLotSize', () => {
-  assert.strictEqual(__fno_computeTradeTypeSize(0, 'scalping'), 0);
-  assert.strictEqual(__fno_computeTradeTypeSize(-5, 'scalping'), -5);
-  assert.ok(Number.isNaN(__fno_computeTradeTypeSize(NaN, 'scalping')), 'a NaN base must be returned unchanged (still NaN), never coerced into a fabricated number');
+  assert.strictEqual(__fno_computeTradeTypeSize(0, 'scalping', 'NIFTY'), 0);
+  assert.strictEqual(__fno_computeTradeTypeSize(-5, 'scalping', 'NIFTY'), -5);
+  assert.ok(Number.isNaN(__fno_computeTradeTypeSize(NaN, 'scalping', 'NIFTY')), 'a NaN base must be returned unchanged (still NaN), never coerced into a fabricated number');
 });
 
 console.log('\n=== Static audit lock: tryOpenAutoTradePosition genuinely applies computeTradeTypeSize when opted in (KB §7 "Position sizing") ===');
@@ -7534,7 +7534,7 @@ test('the real tryOpenAutoTradePosition source genuinely gates lotSize resizing 
   const fnBody = coreSrc.slice(fnStart, fnEnd > -1 ? fnEnd : fnStart + 20000);
 
   assert.ok(/let lotSize = params\.lotSize;/.test(fnBody), 'lotSize must genuinely be a mutable local (no longer a destructured const), so it can actually be resized');
-  assert.ok(/if \(fnoSettings\.get\(\)\.tradeTypeSizingEnabled\) \{\s*\n\s*lotSize = computeTradeTypeSize\(lotSize, timeSufficiencyType\);/.test(fnBody), 'the real entry path must genuinely call computeTradeTypeSize(lotSize, timeSufficiencyType) and reassign lotSize, but ONLY when tradeTypeSizingEnabled is genuinely on');
+  assert.ok(/if \(fnoSettings\.get\(\)\.tradeTypeSizingEnabled\) \{\s*\n\s*lotSize = computeTradeTypeSize\(lotSize, timeSufficiencyType, symForLot\);/.test(fnBody), 'the real entry path must genuinely call computeTradeTypeSize(lotSize, timeSufficiencyType, symForLot) and reassign lotSize, but ONLY when tradeTypeSizingEnabled is genuinely on');
 
   const gateIdx = fnBody.indexOf('if (fnoSettings.get().tradeTypeSizingEnabled)');
   const cooldownIdx = fnBody.indexOf('checkReEntryCooldown(');
