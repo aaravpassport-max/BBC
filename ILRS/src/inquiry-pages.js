@@ -817,6 +817,7 @@
   window.openClientInquiries = openClientInquiries;
   window.setInquiryFilter = setInquiryFilter;
   window.editInquiry = editInquiry;
+  window.setInquiryLifecycleFromCard = setInquiryLifecycleFromCard;
   window.showInquiryLinkedTask = showInquiryLinkedTask;
   window.canConvertReminderToInquiry = canConvertReminderToInquiry;
   window.convertReminderToInquiry = convertReminderToInquiry;
