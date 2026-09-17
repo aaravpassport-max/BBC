@@ -6,6 +6,36 @@
     return P()?.getStage(key)?.display || key;
   }
 
+  function inquiryLifecycleQuickSelect(inq) {
+    const LC = window.ILRSWorkLifecycle;
+    if (!LC || !inq?.id) return '';
+    const lc = LC.inferLifecycleFromInquiry(inq);
+    const opts = LC.LIFECYCLE_STATUSES.map((s) =>
+      `<option value="${s.id}" ${lc === s.id ? 'selected' : ''}>${s.short}</option>`
+    ).join('');
+    return `<select class="lifecycle-quick-select" onclick="event.stopPropagation()" onchange="setInquiryLifecycleFromCard('${inq.id}', this.value)" title="Work status (pipeline stage is separate)">${opts}</select>`;
+  }
+
+  async function setInquiryLifecycleFromCard(id, lifecycle) {
+    const LC = window.ILRSWorkLifecycle;
+    const lc = LC?.normalizeLifecycle(lifecycle) || lifecycle;
+    const data = { lifecycleStatus: lc, scheduleNext: false };
+    if (LC?.blocksNextReminder(lc) || lc === LC.LIFECYCLE_COMPLETED) {
+      data.nextFollowUp = '';
+      data.nextFollowUpTime = '';
+    }
+    const result = await window.ilrs?.updateInquiry?.(id, data);
+    if (!result?.success) {
+      if (typeof toast === 'function') toast(result?.error || 'Could not update status', 'warning');
+      return;
+    }
+    if (typeof toast === 'function') toast(`Status → ${LC?.lifecycleLabel(lc, true) || lc}`);
+    if (typeof loadAllData === 'function') await loadAllData();
+    if (typeof updateBadges === 'function') updateBadges();
+    if (typeof refreshCurrentView === 'function') refreshCurrentView();
+    else if (App.currentPage === 'inquiry-detail' && App.selectedInquiryId === id) navigate('inquiry-detail');
+  }
+
   function inquiryCard(inq, compact = false) {
     const pipeline = P();
     const WS = window.ILRSWorkScheduling;
@@ -30,6 +60,7 @@
         ${WS?.scheduleDatesHtml ? WS.scheduleDatesHtml(inq, compact) : ''}
         <div class="inquiry-stage-badge ${stageCls}">${stageDisplay(inq.stage_key)}</div>
         ${window.ILRSWorkLifecycle?.lifecycleBadge(window.ILRSWorkLifecycle.inferLifecycleFromInquiry(inq)) || ''}
+        ${inquiryLifecycleQuickSelect(inq)}
         ${WS?.notePreviewHtml ? WS.notePreviewHtml(inq, 'inq') : ''}
         ${window.ILRSPayment?.paymentCardHtml ? window.ILRSPayment.paymentCardHtml(inq, 'inquiry', 'inq') : ''}
         ${!Number(inq.payment_tracking_enabled) && inq.quotation_amount > 0 ? `<div class="inquiry-amount">₹${Number(inq.quotation_amount).toLocaleString('en-IN')}</div>` : ''}
@@ -299,6 +330,10 @@
         <button class="smart-tab ${filter === 'mine' ? 'active' : ''}" onclick="setInquiryFilter('mine')">My Inquiries</button>
         <button class="smart-tab ${filter === 'closed' ? 'active' : ''}" onclick="setInquiryFilter('closed')">Closed / Lost</button>
       </div>
+      <p class="form-hint" style="margin-bottom:10px">
+        <strong>Work status</strong> (Active / On hold / Done / Closed) is on each card, in <strong>Edit</strong>, or below.
+        Pipeline <strong>Stage</strong> is separate (workflow step).
+      </p>
       <div class="pipeline-stage-filter" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:12px;align-items:center">
         <label class="form-label" style="display:inline;margin-right:8px">Stage:</label>
         <select class="form-select" style="width:auto;min-width:220px" onchange="setInquiryStageFilter(this.value)">
@@ -396,6 +431,10 @@
             ${window.ILRSWorkScheduling?.scheduleDatesHtml ? window.ILRSWorkScheduling.scheduleDatesHtml(inq) : ''}
             <div class="form-grid">
               <div><span class="form-label">Stage</span><div>${stageDisplay(inq.stage_key)}</div></div>
+              <div><span class="form-label">Work status</span><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+                ${window.ILRSWorkLifecycle?.lifecycleBadge(window.ILRSWorkLifecycle.inferLifecycleFromInquiry(inq)) || '—'}
+                ${inquiryLifecycleQuickSelect(inq)}
+              </div></div>
               <div><span class="form-label">Health</span><div class="inquiry-health-pill ${pipeline?.healthClass(inq.health)}">${pipeline?.healthLabel(inq.health)}</div></div>
               ${inq.work_start_date ? `<div><span class="form-label">Work start</span><div>${formatDate(inq.work_start_date)}</div></div>` : ''}
               ${inq.expected_completion_date ? `<div><span class="form-label">Expected completion</span><div>${formatDate(inq.expected_completion_date)}</div></div>` : ''}
