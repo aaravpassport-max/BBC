@@ -25,6 +25,9 @@ if (defined('FNO_LAB_STANDALONE_LOADED')) {
 define('FNO_LAB_STANDALONE_LOADED', __FILE__);
 
 require_once __DIR__ . '/fno-data-layer.php'; // Enterprise Data Architecture Plan Phase 1 - Unified Market Data Layer, Data Quality Engine, Source hierarchy, cost-control logging
+if (defined('FNO_E2E_FIXTURES') && FNO_E2E_FIXTURES) {
+    require_once __DIR__ . '/includes/fno-e2e-fixtures.php';
+}
 
 // ------------------------------------------------------------------
 // ROOT-DOMAIN TAKEOVER
@@ -1253,6 +1256,9 @@ add_action('wp_ajax_fno_fetch_chart', 'fno_fetch_chart_fn');
 add_action('wp_ajax_nopriv_fno_fetch_chart', 'fno_fetch_chart_fn');
 function fno_fetch_chart_fn() {
     fno_verify_public_or_driver_access(); // real, swapped: this is a real, public market-data read the headless driver also needs, no login required (see fno_verify_public_or_driver_access's own real TRACE)
+    if (function_exists('fno_e2e_fixture_chart') && fno_e2e_fixture_chart()) {
+        return;
+    }
     fno_rate_limit('chart', 300); // real, high-frequency: called up to 3x per 600ms refresh cycle (selected symbol + 2 correlation symbols) - see fno_rate_limit's own real TRACE
     // Real fix (server-side symbol-enum sweep): symbol was previously
     // accepted via sanitize_text_field() alone with no enum check -
@@ -1579,6 +1585,9 @@ add_action('wp_ajax_fno_fetch_option_chain', 'fno_fetch_oc_fn');
 add_action('wp_ajax_nopriv_fno_fetch_option_chain', 'fno_fetch_oc_fn');
 function fno_fetch_oc_fn() {
     fno_verify_public_or_driver_access(); // real, swapped: this is a real, public market-data read the headless driver also needs, no login required (see fno_verify_public_or_driver_access's own real TRACE)
+    if (function_exists('fno_e2e_fixture_option_chain') && fno_e2e_fixture_option_chain()) {
+        return;
+    }
     fno_rate_limit('option_chain', 300); // real, high-frequency: called every 600ms refresh cycle - see fno_rate_limit's own real TRACE
     $symbol = strtoupper(sanitize_text_field($_GET['symbol'] ?? 'NIFTY'));
     $isIndex = in_array($symbol, ['NIFTY', 'BANKNIFTY', 'FINNIFTY', 'MIDCPNIFTY']);
@@ -1812,6 +1821,9 @@ add_action('wp_ajax_nopriv_fno_fetch_futures', 'fno_fetch_futures_fn');
  */
 function fno_fetch_futures_fn() {
     fno_verify_public_or_driver_access(); // real, swapped: this is a real, public market-data read the headless driver also needs, no login required (see fno_verify_public_or_driver_access's own real TRACE)
+    if (function_exists('fno_e2e_fixture_futures') && fno_e2e_fixture_futures()) {
+        return;
+    }
     fno_rate_limit('futures', 300); // real, high-frequency: called every 600ms refresh cycle
     // Real fix (server-side symbol-enum sweep): this app trades index
     // options only (NIFTY/BANKNIFTY/FINNIFTY - see this plugin's own
@@ -2492,6 +2504,9 @@ add_action('wp_ajax_fno_fetch_market_status', 'fno_fetch_status_fn');
 add_action('wp_ajax_nopriv_fno_fetch_market_status', 'fno_fetch_status_fn');
 function fno_fetch_status_fn() {
     fno_verify_public_or_driver_access(); // real, swapped: this is a real, public market-data read the headless driver also needs, no login required (see fno_verify_public_or_driver_access's own real TRACE)
+    if (function_exists('fno_e2e_fixture_market_status') && fno_e2e_fixture_market_status()) {
+        return;
+    }
     fno_rate_limit('market_status', 300); // real, high-frequency: called every 600ms refresh cycle
     // FOUND via a direct, urgent user report: real, robust IST -
     // never date('H:i', $rawTimestamp), since that formats using
