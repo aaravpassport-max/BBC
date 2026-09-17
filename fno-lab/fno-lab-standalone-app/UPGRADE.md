@@ -25,14 +25,22 @@ Every release uses the **same zip name** and **same folder name** so updates rep
 
 Always use **`fno-lab-standalone-app.zip`** at the **repository root** (not a copy under `fno-lab/`) and keep a **single** folder: **`fno-lab-standalone-app`**.
 
-## Download (v16.37.0 — use GitHub Release, not stale branch links)
+## Download (latest on PR branch — **not** the old v16.37.0 GitHub Release)
 
-**Recommended (pinned release asset):**  
-https://github.com/aaravpassport-max/BBC/releases/download/v16.37.0/fno-lab-standalone-app.zip
+The release asset **v16.37.0** is an older snapshot (**16.37.0**). Current work (Modes 7–8, whole-lot qty, zip sync) is on branch **`cursor/liquidity-trap-engine-439c`**.
 
-**Alternate (commit-pinned raw):**  
-https://raw.githubusercontent.com/aaravpassport-max/BBC/cursor/liquidity-trap-engine-439c/fno-lab-standalone-app.zip
+**Use this zip (must be ~1.9–2.0 MB):**  
+https://github.com/aaravpassport-max/BBC/raw/cursor/liquidity-trap-engine-439c/fno-lab-standalone-app.zip
 
-Before installing, confirm the downloaded file is **~1.9 MB**. A ~610 KB file is a broken partial build and will miss `greeks-engine.js`, `fno-data-layer.php`, the autonomous driver, and other required components.
+If your browser reuses an old download, add a cache-buster query string, e.g.  
+`.../fno-lab-standalone-app.zip?download=16.37.23`
 
-After install, WordPress **Plugins** and the app header must show the **same** version (e.g. **16.31.3**). If they differ, you installed an old zip — delete all `fno-lab-standalone-app*` folders and reinstall from the release link above.
+Before installing, unzip locally and confirm `fno-lab-standalone-app/fno-lab.php` contains **`16.37.23`** and **`16.37.23-whole-lots`**.
+
+After install:
+
+1. WordPress **Plugins** → version **16.37.23**, Install ID **16.37.23-whole-lots** (under the plugin row).
+2. App header shows **`v16.37.23 (16.37.23-whole-lots)`**.
+3. **Settings → F&O Lab Providers** → “Whole-lot paper qty fix present: **yes**”.
+
+If you still see **16.37.21**, an old plugin folder is still active or the zip was not replaced — delete **all** `fno-lab-standalone-app*` directories, reinstall, **deactivate → activate** once, hard-refresh (Ctrl+Shift+R). Check diagnostics on the settings page for the real path to `fno-lab.php` on disk.

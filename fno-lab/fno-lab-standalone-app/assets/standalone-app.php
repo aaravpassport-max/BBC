@@ -272,6 +272,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
 }
 </style>
 <meta name="fno-plugin-version" content="<?php echo esc_attr(FNO_PLUGIN_VERSION); ?>">
+<meta name="fno-install-id" content="<?php echo esc_attr(FNO_PLUGIN_INSTALL_ID); ?>">
 </head>
 <body>
 <?php if (!$is_logged_in): ?>
@@ -285,7 +286,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
 </div>
 <?php else: ?>
 <div class="header">
-  <div class="logo">🧠 F&O Lab v<?php echo esc_html(FNO_PLUGIN_VERSION); ?> - Standalone App - <?php echo $factors_count; ?> Factors</div>
+  <div class="logo" title="Install ID <?php echo esc_attr(FNO_PLUGIN_INSTALL_ID); ?>">🧠 F&O Lab v<?php echo esc_html(FNO_PLUGIN_VERSION); ?> (<?php echo esc_html(FNO_PLUGIN_INSTALL_ID); ?>) - Standalone App - <?php echo $factors_count; ?> Factors</div>
   <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <span style="font-size:11px;color:#94a3b8">No Theme • No Shortcode • Works like software</span>
     <select id="sym" class="input"><option>NIFTY</option><option>BANKNIFTY</option><option>FINNIFTY</option></select>
