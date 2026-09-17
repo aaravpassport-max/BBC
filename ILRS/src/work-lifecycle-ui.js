@@ -113,18 +113,19 @@
     if (!item?.id) return '';
     const isInquiry = entityType === 'inquiry';
     const lc = isInquiry ? inferLifecycleFromInquiry(item) : inferLifecycleFromReminder(item);
-    const handler = isInquiry
-      ? `setInquiryLifecycleFromCard('${item.id}', this.value)`
-      : `setReminderLifecycleFromCard('${item.id}', this.value)`;
+    const extraClass = isInquiry ? 'inquiry-lifecycle-card-select' : 'reminder-lifecycle-card-select';
+    const dataAttr = isInquiry
+      ? `data-inquiry-id="${item.id}"`
+      : `data-reminder-id="${item.id}"`;
     const opts = LIFECYCLE_STATUSES.map((s) =>
       `<option value="${s.id}" ${lc === s.id ? 'selected' : ''}>${s.short} — ${s.label}</option>`,
     ).join('');
     const typeHint = isInquiry ? 'inquiry' : (item.task_type === 'task' ? 'task' : 'reminder');
     return `<div class="card-work-status" onclick="event.stopPropagation()" onmousedown="event.stopPropagation()">
       <span class="card-work-status-label">Work status</span>
-      <select class="lifecycle-quick-select lifecycle-card-select" aria-label="Change work status for this ${typeHint}"
-        onclick="event.stopPropagation()" onmousedown="event.stopPropagation()"
-        onchange="event.stopPropagation();${handler}" title="Change work status without opening Edit">${opts}</select>
+      <select class="lifecycle-quick-select lifecycle-card-select ${extraClass}" ${dataAttr}
+        aria-label="Change work status for this ${typeHint}"
+        title="Change work status without opening Edit">${opts}</select>
     </div>`;
   }
 
@@ -148,7 +149,8 @@
       if (wrap) wrap.style.display = show ? 'block' : 'none';
       if (scheduleCb) {
         const showCb = lc === LIFECYCLE_COMPLETED;
-        scheduleCb.closest('.lifecycle-schedule-opt')?.style.display = showCb ? 'block' : 'none';
+        const scheduleOpt = scheduleCb.closest('.lifecycle-schedule-opt');
+        if (scheduleOpt) scheduleOpt.style.display = showCb ? 'block' : 'none';
         if (!showCb) scheduleCb.checked = false;
       }
       if (typeof onChange === 'function') onChange(lc, scheduleNext);
