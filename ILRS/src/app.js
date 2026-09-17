@@ -1107,6 +1107,16 @@ async function setReminderLifecycleFromCard(id, lifecycle) {
     toast(result?.error || 'Could not update status', 'warning');
     return;
   }
+  const idx = App.reminders?.findIndex((r) => r.id === id);
+  if (idx >= 0) {
+    App.reminders[idx] = {
+      ...App.reminders[idx],
+      lifecycle_status: lc,
+      status: lc === 'closed' || lc === 'completed' ? 'completed' : 'active',
+      workflow_status: lc === 'pending' ? 'postponed' : lc === 'completed' || lc === 'closed' ? 'done' : lc === 'active' ? 'in_progress' : App.reminders[idx].workflow_status,
+      next_fire: lc === 'closed' || lc === 'completed' ? '' : App.reminders[idx].next_fire,
+    };
+  }
   if (lc === 'closed' || lc === 'completed') {
     clearDuePopupsForItem(id);
     window.ILRSSounds?.stopAlertSound?.();

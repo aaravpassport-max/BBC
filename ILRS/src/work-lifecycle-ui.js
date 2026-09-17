@@ -32,7 +32,8 @@
 
   function inferLifecycleFromInquiry(inquiry) {
     if (!inquiry) return LIFECYCLE_ACTIVE;
-    if (inquiry.lifecycle_status) return normalizeLifecycle(inquiry.lifecycle_status);
+    const stored = String(inquiry.lifecycle_status ?? '').trim();
+    if (stored) return normalizeLifecycle(stored);
     if (inquiry.outcome_status === 'deleted') return LIFECYCLE_CLOSED;
     if (inquiry.outcome_status === 'closed_lost') return LIFECYCLE_CLOSED;
     if (inquiry.outcome_status === 'closed_won') return LIFECYCLE_COMPLETED;

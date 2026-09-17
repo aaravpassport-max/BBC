@@ -130,6 +130,24 @@ test('updateInquiry persists work status pending from edit form payload', () => 
   fs.unlinkSync(dbPath);
 });
 
+test('updateInquiry card-only pending syncs linked reminder lifecycle', () => {
+  const { db, dbPath } = makeDb();
+  const now = new Date(2026, 8, 17, 10, 0, 0);
+  seedInquiryStages(db);
+  const { inquiry } = createInquiry(db, { clientName: 'Sync Co', requirement: 'GST', nextFollowUp: '2026-09-18' }, now);
+  const result = updateInquiry(db, inquiry.id, { lifecycleStatus: 'pending', scheduleNext: false }, now);
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(result.inquiry.lifecycle_status, 'pending');
+  const rem = db.prepare(
+    "SELECT lifecycle_status, workflow_status FROM reminders WHERE source_type = 'inquiry' AND source_id = ? AND status != 'deleted'",
+  ).get(inquiry.id);
+  assert.ok(rem);
+  assert.strictEqual(rem.lifecycle_status, 'pending');
+  assert.strictEqual(rem.workflow_status, 'postponed');
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
 test('updateInquiry card-only lifecycle change does not wipe follow-up date', () => {
   const { db, dbPath } = makeDb();
   const now = new Date(2026, 8, 17, 10, 0, 0);

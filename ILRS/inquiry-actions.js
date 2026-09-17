@@ -14,6 +14,7 @@ const {
   normalizeLifecycle,
   inferLifecycleFromInquiry,
   inquiryRowPatchForLifecycle,
+  reminderRowPatchForLifecycle,
   clearInquiryFollowUpSchedule,
   shouldMaintainInquiryFollowUp,
   LIFECYCLE_ACTIVE,
@@ -161,6 +162,32 @@ function createFollowUpReminder(db, inquiry, { title, date, time, now = new Date
   return reminderId;
 }
 
+function syncLinkedReminderLifecycles(db, inquiryId, lifecycle) {
+  const patch = reminderRowPatchForLifecycle(normalizeLifecycle(lifecycle));
+  const rows = db.prepare(`
+    SELECT id FROM reminders WHERE source_type = 'inquiry' AND source_id = ? AND status != 'deleted'
+  `).all(inquiryId);
+  const upd = db.prepare(`
+    UPDATE reminders SET
+      lifecycle_status = ?,
+      status = ?,
+      workflow_status = ?,
+      next_fire = CASE WHEN ? THEN '' ELSE next_fire END,
+      alarm_rings = 0,
+      updated_at = datetime('now')
+    WHERE id = ?
+  `);
+  for (const row of rows) {
+    upd.run(
+      patch.lifecycle_status,
+      patch.status,
+      patch.workflow_status,
+      patch.clear_schedule ? 1 : 0,
+      row.id,
+    );
+  }
+}
+
 function applyInquiryLifecycleFields(db, inquiryId, lifecycle, { scheduleNext = false, nextFollowUp, nextFollowUpTime } = {}) {
   const lc = normalizeLifecycle(lifecycle);
   const patch = inquiryRowPatchForLifecycle(lc, { scheduleNext });
@@ -171,6 +198,7 @@ function applyInquiryLifecycleFields(db, inquiryId, lifecycle, { scheduleNext = 
       UPDATE inquiries SET lifecycle_status = ?, outcome_status = ?, updated_at = datetime('now')
       WHERE id = ?
     `).run(patch.lifecycle_status, patch.outcome_status, inquiryId);
+    syncLinkedReminderLifecycles(db, inquiryId, lc);
     return;
   }
 
@@ -191,6 +219,12 @@ function applyInquiryLifecycleFields(db, inquiryId, lifecycle, { scheduleNext = 
     followTime !== undefined ? followTime : null,
     inquiryId,
   );
+  syncLinkedReminderLifecycles(db, inquiryId, lc);
+}
+
+function inquiryPayloadTouchesNonLifecycleFields(data) {
+  const lifecycleKeys = new Set(['lifecycleStatus', 'scheduleNext', 'nextFollowUp', 'nextFollowUpTime']);
+  return Object.keys(data || {}).some((k) => !lifecycleKeys.has(k) && data[k] !== undefined);
 }
 
 function createInquiry(db, data, now = new Date()) {
@@ -450,6 +484,14 @@ function updateInquiry(db, inquiryId, data, now = new Date()) {
       nextFollowUpTime: data.nextFollowUpTime,
     });
     inquiry = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
+    if (!inquiryPayloadTouchesNonLifecycleFields(data)) {
+      syncInquiryFollowUpReminder(db, inquiryId, now);
+      const updated = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
+      const health = computeInquiryHealth(updated, now);
+      db.prepare('UPDATE inquiries SET health = ? WHERE id = ?').run(health, inquiryId);
+      updated.health = health;
+      return { success: true, inquiry: updated };
+    }
   }
 
   if (data.clientName || data.mobile || data.email) {

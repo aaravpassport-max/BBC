@@ -30,10 +30,19 @@
       if (typeof toast === 'function') toast(result?.error || 'Could not update status', 'warning');
       return;
     }
+    if (result.inquiry) {
+      const idx = (App.inquiries || []).findIndex((i) => i.id === id);
+      if (idx >= 0) App.inquiries[idx] = result.inquiry;
+    }
     if (typeof toast === 'function') toast(`Moved to ${LC?.lifecycleLabel(lc, true) || lc}`);
     const Q = window.ILRSLifecycleQueue;
-    if (Q?.afterStatusChange) await Q.afterStatusChange('inquiry', lc);
-    else if (App.currentPage === 'inquiry-detail' && App.selectedInquiryId === id) navigate('inquiry-detail');
+    if (Q?.afterStatusChange) {
+      await Q.afterStatusChange('inquiry', lc);
+    } else {
+      if (typeof loadAllData === 'function') await loadAllData();
+      if (typeof refreshCurrentView === 'function') refreshCurrentView();
+      else if (App.currentPage === 'inquiry-detail' && App.selectedInquiryId === id) navigate('inquiry-detail');
+    }
   }
 
   function inquiryCard(inq, compact = false) {
@@ -294,6 +303,7 @@
       pool = pool.filter((i) => i.assigned_to === 'me' || !i.assigned_to);
     }
     const stageFilter = App.inquiryStageFilter || 'all';
+    const queuePool = pool;
     if (stageFilter !== 'all') pool = pool.filter((i) => i.stage_key === stageFilter);
     const tab = Q?.getFilter('inquiry') || 'active';
     let items = Q?.filterItems ? Q.filterItems(pool, 'inquiry', tab) : pool;
@@ -319,7 +329,7 @@
           oninput="App.inquirySearchQuery=this.value;navigate('inquiries')" />
       </div>
       ${clientFilter ? `<div style="margin-bottom:12px"><button class="btn btn-ghost btn-sm" onclick="App.clientFilterId=null;navigate('inquiries')">✕ Clear client filter</button></div>` : ''}
-      ${Q?.tabsHtml ? Q.tabsHtml('inquiry', pool) : ''}
+      ${Q?.tabsHtml ? Q.tabsHtml('inquiry', queuePool) : ''}
       <div class="smart-tabs" style="margin-top:8px">
         <button class="smart-tab ${App.inquiryListFilter !== 'mine' ? 'active' : ''}" onclick="setInquiryFilter('all')">Everyone</button>
         <button class="smart-tab ${App.inquiryListFilter === 'mine' ? 'active' : ''}" onclick="setInquiryFilter('mine')">My inquiries</button>

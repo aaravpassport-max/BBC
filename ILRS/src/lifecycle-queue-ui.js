@@ -141,9 +141,17 @@
     </div>`;
   }
 
+  function lifecycleToQueueTab(newLifecycle) {
+    const api = LC();
+    let tab = api?.normalizeLifecycle ? api.normalizeLifecycle(newLifecycle) : String(newLifecycle || '').trim().toLowerCase();
+    const valid = new Set(['all', 'active', 'pending', 'completed', 'closed']);
+    if (!valid.has(tab)) tab = 'active';
+    return tab;
+  }
+
   async function afterStatusChange(entityKey, newLifecycle) {
     ensureFilters();
-    const tab = LC()?.normalizeLifecycle(newLifecycle) || newLifecycle;
+    const tab = lifecycleToQueueTab(newLifecycle);
     syncWorkQueues(tab);
     if (FOCUS_PAGES.has(App.currentPage)) {
       App.lifecycleQueueFilters.focus = tab;
