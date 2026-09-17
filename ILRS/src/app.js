@@ -239,6 +239,36 @@ function patchInquiryLifecycleInMemory(id, lc) {
 }
 window.patchInquiryLifecycleInMemory = patchInquiryLifecycleInMemory;
 
+function wireLifecycleCardDelegates() {
+  const content = document.getElementById('content');
+  if (!content || content.dataset.lifecycleDelegates === '1') return;
+  content.dataset.lifecycleDelegates = '1';
+  content.addEventListener('mousedown', (e) => {
+    if (e.target.closest('.card-work-status, .lifecycle-card-select')) {
+      e.stopPropagation();
+    }
+  }, true);
+  content.addEventListener('change', (e) => {
+    const inqSel = e.target.closest('select.inquiry-lifecycle-card-select');
+    if (inqSel) {
+      e.stopPropagation();
+      const id = inqSel.getAttribute('data-inquiry-id');
+      if (id && typeof setInquiryLifecycleFromCard === 'function') {
+        void setInquiryLifecycleFromCard(id, inqSel.value);
+      }
+      return;
+    }
+    const remSel = e.target.closest('select.reminder-lifecycle-card-select');
+    if (remSel) {
+      e.stopPropagation();
+      const id = remSel.getAttribute('data-reminder-id');
+      if (id && typeof setReminderLifecycleFromCard === 'function') {
+        void setReminderLifecycleFromCard(id, remSel.value);
+      }
+    }
+  }, true);
+}
+
 function openWorkflowStages(tab = 'task') {
   App.workflowSettingsTab = tab;
   navigate('pipeline-settings');
@@ -522,6 +552,8 @@ function renderShell() {
   document.querySelectorAll('.nav-item').forEach(el => {
     el.addEventListener('click', () => navigate(el.dataset.page));
   });
+
+  wireLifecycleCardDelegates();
 
   // Quick add on Enter + live parse preview
   const quickInput = document.getElementById('quick-input');

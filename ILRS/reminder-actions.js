@@ -240,6 +240,13 @@ function setReminderLifecycle(db, id, lifecycle, now = new Date()) {
     VALUES (?, ?, ?, datetime('now'))
   `).run(randomUUID(), id, `lifecycle_${lc}`);
 
+  try {
+    const { mirrorInquiryLifecycleFromReminder } = require('./inquiry-actions');
+    mirrorInquiryLifecycleFromReminder(db, id, lc);
+  } catch (err) {
+    console.error('mirrorInquiryLifecycleFromReminder:', err.message);
+  }
+
   return { success: true, lifecycle: lc, nextFire };
 }
 

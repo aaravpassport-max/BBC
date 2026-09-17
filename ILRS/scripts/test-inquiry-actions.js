@@ -130,6 +130,34 @@ test('updateInquiry persists work status pending from edit form payload', () => 
   fs.unlinkSync(dbPath);
 });
 
+test('mirrorInquiryLifecycleFromReminder syncs inquiry when follow-up reminder changes', () => {
+  const { db, dbPath } = makeDb();
+  const now = new Date(2026, 8, 17, 10, 0, 0);
+  seedInquiryStages(db);
+  const { mirrorInquiryLifecycleFromReminder } = require('../inquiry-actions');
+  const { inquiry } = createInquiry(db, {
+    clientName: 'Mirror Co',
+    requirement: 'Visa',
+    nextFollowUp: '2026-09-20',
+  }, now);
+  let rem = db.prepare(
+    "SELECT id FROM reminders WHERE source_type = 'inquiry' AND source_id = ? AND status != 'deleted'",
+  ).get(inquiry.id);
+  if (!rem?.id) {
+    const rid = 'rem-mirror-test';
+    db.prepare(`
+      INSERT INTO reminders (id, title, source_type, source_id, status, workflow_status, lifecycle_status, created_at, updated_at)
+      VALUES (?, 'Follow up', 'inquiry', ?, 'active', 'pending', 'active', datetime('now'), datetime('now'))
+    `).run(rid, inquiry.id);
+    rem = { id: rid };
+  }
+  mirrorInquiryLifecycleFromReminder(db, rem.id, 'pending');
+  const row = db.prepare('SELECT lifecycle_status FROM inquiries WHERE id = ?').get(inquiry.id);
+  assert.strictEqual(row.lifecycle_status, 'pending');
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
 test('updateInquiry card-only pending syncs linked reminder lifecycle', () => {
   const { db, dbPath } = makeDb();
   const now = new Date(2026, 8, 17, 10, 0, 0);

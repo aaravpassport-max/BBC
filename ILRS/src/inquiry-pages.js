@@ -6,11 +6,35 @@
     return P()?.getStage(key)?.display || key;
   }
 
-  function inquiryLifecycleQuickSelect(inq) {
-    const LC = window.ILRSWorkLifecycle;
+  function inquiryCardWorkStatus(inq) {
     if (!inq?.id) return '';
-    if (LC?.lifecycleCardControl) return LC.lifecycleCardControl(inq, 'inquiry');
-    return '';
+    const LC = window.ILRSWorkLifecycle;
+    if (LC?.lifecycleCardControl) {
+      try {
+        return LC.lifecycleCardControl(inq, 'inquiry');
+      } catch (err) {
+        console.error('inquiryCardWorkStatus:', err);
+      }
+    }
+    const stored = String(inq.lifecycle_status || 'active').toLowerCase();
+    const labels = {
+      active: 'Active — Act now',
+      pending: 'On hold — Waiting',
+      completed: 'Done — Finished',
+      closed: 'Closed',
+    };
+    const opts = ['active', 'pending', 'completed', 'closed'].map((v) =>
+      `<option value="${v}" ${stored === v ? 'selected' : ''}>${labels[v] || v}</option>`,
+    ).join('');
+    return `<div class="card-work-status inquiry-card-work-status" onclick="event.stopPropagation()" onmousedown="event.stopPropagation()">
+      <span class="card-work-status-label">Work status</span>
+      <select class="lifecycle-quick-select lifecycle-card-select inquiry-lifecycle-card-select" data-inquiry-id="${inq.id}"
+        aria-label="Inquiry work status">${opts}</select>
+    </div>`;
+  }
+
+  function inquiryLifecycleQuickSelect(inq) {
+    return inquiryCardWorkStatus(inq);
   }
 
   async function setInquiryLifecycleFromCard(id, lifecycle) {
@@ -33,10 +57,16 @@
       Q?.applyGlobalFilter?.(tab);
       if (typeof patchInquiryLifecycleInMemory === 'function') patchInquiryLifecycleInMemory(id, lc);
       if (typeof softRefreshCurrentPage === 'function') await softRefreshCurrentPage();
-      const result = await window.ilrs?.updateInquiry?.(id, data);
+      let result;
+      try {
+        result = await window.ilrs?.updateInquiry?.(id, data);
+      } catch (err) {
+        result = { success: false, error: err?.message || String(err) };
+      }
       if (!result?.success) {
         if (prevFilters) App.lifecycleQueueFilters = prevFilters;
         if (typeof toast === 'function') toast(result?.error || 'Could not update status', 'warning');
+        console.error('setInquiryLifecycleFromCard failed', id, data, result);
         if (typeof loadAllData === 'function') await loadAllData();
         if (typeof softRefreshCurrentPage === 'function') await softRefreshCurrentPage();
         return;
@@ -72,7 +102,7 @@
       : 'No follow-up set';
     const assignee = typeof assigneeLabel === 'function' ? assigneeLabel(inq.assigned_to) : '';
     return `
-      <div class="inquiry-card ${health} ${stageCls} ${completionOverdue ? 'completion-overdue' : ''}" onclick="openInquiryDetail('${inq.id}')">
+      <div class="inquiry-card ${health} ${stageCls} ${completionOverdue ? 'completion-overdue' : ''}" onclick="if(event.target.closest('.card-work-status,.lifecycle-quick-select,.item-select-checkbox,.action-btn')) return; openInquiryDetail('${inq.id}')">
         <input type="checkbox" class="item-select-checkbox" ${selected ? 'checked' : ''}
           onclick="event.stopPropagation();toggleInquirySelection('${inq.id}', this.checked)" title="Select" />
         <div class="inquiry-card-top">
@@ -81,9 +111,9 @@
           <button class="action-btn delete btn-sm" onclick="event.stopPropagation();deleteInquiryItem('${inq.id}')" title="Delete">🗑</button>
         </div>
         <div class="inquiry-requirement">${inq.requirement}</div>
+        ${inquiryCardWorkStatus(inq)}
         ${WS?.scheduleDatesHtml ? WS.scheduleDatesHtml(inq, compact) : ''}
         <div class="inquiry-stage-badge ${stageCls}">${stageDisplay(inq.stage_key)}</div>
-        ${inquiryLifecycleQuickSelect(inq)}
         ${WS?.notePreviewHtml ? WS.notePreviewHtml(inq, 'inq') : ''}
         ${window.ILRSPayment?.paymentCardHtml ? window.ILRSPayment.paymentCardHtml(inq, 'inquiry', 'inq') : ''}
         ${!Number(inq.payment_tracking_enabled) && inq.quotation_amount > 0 ? `<div class="inquiry-amount">₹${Number(inq.quotation_amount).toLocaleString('en-IN')}</div>` : ''}

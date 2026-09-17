@@ -162,6 +162,13 @@ function createFollowUpReminder(db, inquiry, { title, date, time, now = new Date
   return reminderId;
 }
 
+/** When a follow-up reminder’s work status changes, keep the parent inquiry in sync for queue tabs. */
+function mirrorInquiryLifecycleFromReminder(db, reminderId, lifecycle) {
+  const row = db.prepare('SELECT source_type, source_id FROM reminders WHERE id = ?').get(reminderId);
+  if (!row || row.source_type !== 'inquiry' || !row.source_id) return;
+  applyInquiryLifecycleFields(db, row.source_id, lifecycle, { scheduleNext: false });
+}
+
 function syncLinkedReminderLifecycles(db, inquiryId, lifecycle) {
   const patch = reminderRowPatchForLifecycle(normalizeLifecycle(lifecycle));
   const rows = db.prepare(`
@@ -673,6 +680,7 @@ module.exports = {
   createInquiry,
   convertReminderToInquiry,
   updateInquiry,
+  mirrorInquiryLifecycleFromReminder,
   changeInquiryStage,
   logInquiryActivity,
   findPossibleDuplicates,
