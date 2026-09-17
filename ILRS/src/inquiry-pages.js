@@ -29,6 +29,7 @@
         <div class="inquiry-requirement">${inq.requirement}</div>
         ${WS?.scheduleDatesHtml ? WS.scheduleDatesHtml(inq, compact) : ''}
         <div class="inquiry-stage-badge ${stageCls}">${stageDisplay(inq.stage_key)}</div>
+        ${window.ILRSWorkLifecycle?.lifecycleBadge(window.ILRSWorkLifecycle.inferLifecycleFromInquiry(inq)) || ''}
         ${WS?.notePreviewHtml ? WS.notePreviewHtml(inq, 'inq') : ''}
         ${window.ILRSPayment?.paymentCardHtml ? window.ILRSPayment.paymentCardHtml(inq, 'inquiry', 'inq') : ''}
         ${!Number(inq.payment_tracking_enabled) && inq.quotation_amount > 0 ? `<div class="inquiry-amount">₹${Number(inq.quotation_amount).toLocaleString('en-IN')}</div>` : ''}
@@ -42,7 +43,23 @@
   }
 
   function activeInquiries() {
-    return (App.inquiries || []).filter((i) => i.outcome_status === 'active');
+    const LC = window.ILRSWorkLifecycle;
+    return (App.inquiries || []).filter((i) => {
+      if (i.outcome_status === 'deleted') return false;
+      if (LC?.isInquiryActiveForWorkQueue) return LC.isInquiryActiveForWorkQueue(i);
+      return i.outcome_status === 'active';
+    });
+  }
+
+  function lifecycleFilterOptions(selected) {
+    const LC = window.ILRSWorkLifecycle;
+    const statuses = LC?.LIFECYCLE_STATUSES || [];
+    return `<option value="all" ${selected === 'all' ? 'selected' : ''}>All statuses</option>`
+      + statuses.map((s) =>
+        `<option value="${s.id}" ${selected === s.id ? 'selected' : ''}>${s.label}</option>`
+      ).join('')
+      + `<option value="has_followup" ${selected === 'has_followup' ? 'selected' : ''}>Has follow-up date</option>`
+      + `<option value="no_followup" ${selected === 'no_followup' ? 'selected' : ''}>No follow-up scheduled</option>`;
   }
 
   function daysInStage(inq) {
@@ -244,6 +261,17 @@
     else if (filter === 'mine') items = items.filter((i) => i.assigned_to === 'me' || !i.assigned_to);
     const stageFilter = App.inquiryStageFilter || 'all';
     if (stageFilter !== 'all') items = items.filter((i) => i.stage_key === stageFilter);
+    const lifecycleFilter = App.inquiryLifecycleFilter || 'all';
+    const LC = window.ILRSWorkLifecycle;
+    if (lifecycleFilter !== 'all' && LC) {
+      if (lifecycleFilter === 'has_followup') {
+        items = items.filter((i) => LC.hasScheduledInquiryFollowUp(i));
+      } else if (lifecycleFilter === 'no_followup') {
+        items = items.filter((i) => !LC.hasScheduledInquiryFollowUp(i));
+      } else {
+        items = items.filter((i) => LC.inferLifecycleFromInquiry(i) === lifecycleFilter);
+      }
+    }
     const searchQ = App.inquirySearchQuery || '';
     const GS = window.ILRSGlobalSearch;
     if (searchQ.trim() && GS?.matchesInquiry) {
@@ -271,10 +299,14 @@
         <button class="smart-tab ${filter === 'mine' ? 'active' : ''}" onclick="setInquiryFilter('mine')">My Inquiries</button>
         <button class="smart-tab ${filter === 'closed' ? 'active' : ''}" onclick="setInquiryFilter('closed')">Closed / Lost</button>
       </div>
-      <div class="pipeline-stage-filter" style="margin-bottom:12px">
+      <div class="pipeline-stage-filter" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:12px;align-items:center">
         <label class="form-label" style="display:inline;margin-right:8px">Stage:</label>
         <select class="form-select" style="width:auto;min-width:220px" onchange="setInquiryStageFilter(this.value)">
           ${stageFilterOptions(stageFilter)}
+        </select>
+        <label class="form-label" style="display:inline;margin-right:8px">Status:</label>
+        <select class="form-select" style="width:auto;min-width:220px" onchange="App.inquiryLifecycleFilter=this.value;navigate('inquiries')">
+          ${lifecycleFilterOptions(lifecycleFilter)}
         </select>
       </div>
       ${typeof renderBulkSelectionBar === 'function' ? renderBulkSelectionBar('inquiry') : ''}

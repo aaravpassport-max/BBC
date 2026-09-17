@@ -42,7 +42,7 @@ function makeDb() {
       stage_key TEXT, priority TEXT, assigned_to TEXT, next_action TEXT, next_follow_up TEXT,
       next_follow_up_time TEXT, expected_value REAL, quotation_amount REAL, payment_status TEXT,
       work_start_date TEXT, expected_completion_date TEXT,
-      outcome_status TEXT, closed_reason TEXT, health TEXT, stage_changed_at TEXT, last_activity_at TEXT,
+      outcome_status TEXT, lifecycle_status TEXT DEFAULT '', closed_reason TEXT, health TEXT, stage_changed_at TEXT, last_activity_at TEXT,
       notes TEXT, internal_notes TEXT, tags TEXT, created_at TEXT, updated_at TEXT
     );
     CREATE TABLE inquiry_activities (
@@ -57,7 +57,7 @@ function makeDb() {
       id TEXT PRIMARY KEY, title TEXT, task_type TEXT, category TEXT, why_it_matters TEXT,
       repeat_type TEXT, reminder_time TEXT, start_date TEXT, priority TEXT, alert_style TEXT,
       assigned_to TEXT, source_type TEXT, source_id TEXT, next_fire TEXT, status TEXT,
-      workflow_status TEXT, work_start_date TEXT, expected_completion_date TEXT,
+      workflow_status TEXT, lifecycle_status TEXT DEFAULT '', work_start_date TEXT, expected_completion_date TEXT,
       created_at TEXT, updated_at TEXT
     );
   `);

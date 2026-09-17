@@ -2,6 +2,8 @@
  * ILRS alarm scheduling utilities (local time — no UTC drift).
  */
 
+const { isReminderSchedulableByLifecycle } = require('./work-lifecycle');
+
 const ALARM_REPEAT_MINUTES = 2;
 const ALARM_MAX_RINGS = 6;
 
@@ -117,6 +119,7 @@ function alreadyFiredThisMinute(reminder, now = new Date()) {
  * Uses next_fire when set, and falls back to matching reminder_time to system HH:mm.
  */
 function shouldFireNow(reminder, now = new Date()) {
+  if (!isReminderSchedulableByLifecycle(reminder)) return false;
   const today = localDateStr(now);
   if (reminder.start_date && reminder.start_date > today) return false;
   if (reminder.end_date && reminder.end_date < today) return false;

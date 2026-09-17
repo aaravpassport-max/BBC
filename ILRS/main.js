@@ -43,6 +43,10 @@ const { getWorkAnalytics } = require('./inquiry-analytics');
 const { checkInquiryAlerts, refreshAllInquiryHealth } = require('./inquiry-health-monitor');
 const { checkCompletionDueAlerts, handleCompletionAction } = require('./completion-monitor');
 const {
+  backfillReminderLifecycle,
+  backfillInquiryLifecycle,
+} = require('./work-lifecycle');
+const {
   getPayments,
   getAllPayments,
   recordPayment,
@@ -1262,8 +1266,37 @@ function repairReminderSchedules() {
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '16')").run();
       console.log('Payment tracking migration v16 complete');
     }
+    if (version < 17) {
+      runWorkLifecycleMigrationV17();
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '17')").run();
+      console.log('Work lifecycle migration v17 complete');
+    }
   } catch (err) {
     console.error('repairReminderSchedules error:', err.message);
+  }
+}
+
+function runWorkLifecycleMigrationV17() {
+  try {
+    for (const table of ['reminders', 'inquiries']) {
+      try {
+        db.exec(`ALTER TABLE ${table} ADD COLUMN lifecycle_status TEXT DEFAULT ''`);
+      } catch (_) { /* exists */ }
+    }
+    const remindersBackfilled = backfillReminderLifecycle(db);
+    const inquiriesBackfilled = backfillInquiryLifecycle(db);
+    db.prepare(`
+      UPDATE reminders SET next_fire = '', alarm_rings = 0
+      WHERE lifecycle_status IN ('completed', 'closed') AND (next_fire IS NOT NULL AND next_fire != '')
+    `).run();
+    db.prepare(`
+      UPDATE inquiries SET next_follow_up = '', next_follow_up_time = ''
+      WHERE lifecycle_status IN ('completed', 'closed')
+        AND (next_follow_up IS NOT NULL AND next_follow_up != '')
+    `).run();
+    console.log(`Work lifecycle v17: backfilled ${remindersBackfilled} reminders, ${inquiriesBackfilled} inquiries`);
+  } catch (err) {
+    console.error('Work lifecycle migration v17 error:', err.message);
   }
 }
 

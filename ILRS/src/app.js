@@ -105,6 +105,12 @@ function isReminderOverdue(nextFire) {
 
 function isActiveSchedulableReminder(r) {
   if (!r || r.status !== 'active') return false;
+  const LC = window.ILRSWorkLifecycle;
+  if (LC?.isReminderSchedulableByLifecycle) {
+    if (!LC.isReminderSchedulableByLifecycle(r)) return false;
+  } else if (r.lifecycle_status === 'closed' || r.lifecycle_status === 'completed') {
+    if (!String(r.next_fire || '').trim()) return false;
+  }
   if (r.task_type === 'task' && (r.workflow_status || 'pending') === 'done') return false;
   return true;
 }
@@ -122,13 +128,19 @@ function isOverdueReminder(r, now = new Date()) {
 }
 
 function isCompletionOverdueInquiry(inq, now = new Date()) {
-  if (!inq || inq.outcome_status !== 'active') return false;
+  const LC = window.ILRSWorkLifecycle;
+  if (!inq || (LC?.isInquiryActiveForWorkQueue ? !LC.isInquiryActiveForWorkQueue(inq) : inq.outcome_status !== 'active')) return false;
   const WS = window.ILRSWorkScheduling;
   return Boolean(WS?.isCompletionOverdue?.(inq, now));
 }
 
 function getActiveInquiries() {
-  return (App.inquiries || []).filter((i) => i.outcome_status === 'active');
+  const LC = window.ILRSWorkLifecycle;
+  return (App.inquiries || []).filter((i) => {
+    if (i.outcome_status === 'deleted') return false;
+    if (LC?.isInquiryActiveForWorkQueue) return LC.isInquiryActiveForWorkQueue(i);
+    return i.outcome_status === 'active';
+  });
 }
 
 function filterInquiriesForScheduleView(mode, now = new Date()) {
@@ -1075,6 +1087,10 @@ function reminderCard(r) {
   const stageKey = r.stage_key || defaultStageKey;
   const stageCls = W ? W.stageClass(entityType, stageKey) : '';
   const stageLabel = W ? W.stageDisplay(entityType, stageKey) : stageKey;
+  const LC = window.ILRSWorkLifecycle;
+  const lifecycleBadge = LC?.lifecycleBadge
+    ? LC.lifecycleBadge(LC.inferLifecycleFromReminder(r))
+    : '';
   const taskActions = isDone ? `
         <button class="action-btn" onclick="showPostponeMenu('${r.id}')" title="Reschedule">📅</button>
       ` : isTask ? `
@@ -1102,6 +1118,7 @@ function reminderCard(r) {
         ${window.ILRSPayment?.paymentCardHtml ? window.ILRSPayment.paymentCardHtml(r, 'reminder', 'rcard') : ''}
         <div class="reminder-meta">
           <span class="inquiry-stage-badge ${stageCls}" onclick="event.stopPropagation();showWorkflowStageModal('${r.id}','${entityType}')" title="Change stage">${stageLabel}</span>
+          ${lifecycleBadge}
           <span class="tag ${r.category}">${categoryIcon(r.category)} ${r.category}</span>
           ${r.priority !== 'normal' ? `<span class="tag ${r.priority}">${priorityLabel(r.priority)}</span>` : ''}
           ${tags.slice(0, 1).map(t => `<span class="tag">#${t}</span>`).join('')}
@@ -1266,8 +1283,16 @@ function habitMiniCard(h) {
 
 // ── Completed Page ─────────────────────────────────────────────────
 async function renderCompleted(el) {
+  const LC = window.ILRSWorkLifecycle;
   const items = App.reminders
-    .filter(r => r.status === 'completed' || r.workflow_status === 'done')
+    .filter((r) => {
+      if (LC?.inferLifecycleFromReminder) {
+        const lc = LC.inferLifecycleFromReminder(r);
+        return lc === LC.LIFECYCLE_COMPLETED || lc === LC.LIFECYCLE_CLOSED
+          || r.status === 'completed' || r.workflow_status === 'done';
+      }
+      return r.status === 'completed' || r.workflow_status === 'done';
+    })
     .sort((a, b) => String(b.last_completed || b.updated_at).localeCompare(String(a.last_completed || a.updated_at)));
 
   el.innerHTML = `
@@ -1290,9 +1315,12 @@ async function renderCompleted(el) {
 async function renderTasks(el) {
   const q = App.taskSearchQuery || '';
   const GS = window.ILRSGlobalSearch;
-  let tasks = App.reminders.filter(r =>
-    r.task_type === 'task' && r.status !== 'completed' && (r.workflow_status || 'pending') !== 'done'
-  );
+  const LC = window.ILRSWorkLifecycle;
+  let tasks = App.reminders.filter((r) => {
+    if (r.task_type !== 'task') return false;
+    if (LC?.isReminderOpenForWork) return LC.isReminderOpenForWork(r);
+    return r.status !== 'completed' && (r.workflow_status || 'pending') !== 'done';
+  });
   if (q.trim() && GS?.matchesReminder) {
     tasks = tasks.filter((t) => GS.matchesReminder(t, q));
   }
@@ -1327,13 +1355,27 @@ async function renderTasks(el) {
 
 // ── Reminders Page ─────────────────────────────────────────────────
 async function renderReminders(el) {
-  const filter = { status: 'all', category: 'all', priority: 'all' };
+  const filter = {
+    status: 'all',
+    category: 'all',
+    priority: 'all',
+    lifecycle: App.reminderLifecycleFilter || 'all',
+    stage: App.reminderStageFilter || 'all',
+    nextAction: App.reminderNextActionFilter || 'all',
+  };
 
   const render = (reminders) => {
-    const filtered = reminders.filter(r => {
+    const LC = window.ILRSWorkLifecycle;
+    const filtered = reminders.filter((r) => {
       if (filter.status !== 'all' && r.status !== filter.status) return false;
       if (filter.category !== 'all' && r.category !== filter.category) return false;
       if (filter.priority !== 'all' && r.priority !== filter.priority) return false;
+      if (filter.lifecycle !== 'all' && LC?.inferLifecycleFromReminder) {
+        if (LC.inferLifecycleFromReminder(r) !== filter.lifecycle) return false;
+      }
+      if (filter.stage !== 'all' && (r.stage_key || '') !== filter.stage) return false;
+      if (filter.nextAction === 'scheduled' && !LC?.hasScheduledNextActionReminder(r)) return false;
+      if (filter.nextAction === 'none' && LC?.hasScheduledNextActionReminder(r)) return false;
       return true;
     });
 
@@ -1376,6 +1418,18 @@ async function renderReminders(el) {
         <option value="critical">🚨 Critical</option>
         <option value="important">⚠️ Important</option>
         <option value="normal">✅ Normal</option>
+      </select>
+      <select class="form-select" style="width:auto" onchange="App.reminderLifecycleFilter=this.value;filter.lifecycle=this.value;render(App.reminders)">
+        <option value="all" ${filter.lifecycle === 'all' ? 'selected' : ''}>All statuses</option>
+        <option value="active" ${filter.lifecycle === 'active' ? 'selected' : ''}>Active / In progress</option>
+        <option value="pending" ${filter.lifecycle === 'pending' ? 'selected' : ''}>Pending / On hold</option>
+        <option value="completed" ${filter.lifecycle === 'completed' ? 'selected' : ''}>Completed / Done</option>
+        <option value="closed" ${filter.lifecycle === 'closed' ? 'selected' : ''}>Closed</option>
+      </select>
+      <select class="form-select" style="width:auto" onchange="App.reminderNextActionFilter=this.value;filter.nextAction=this.value;render(App.reminders)">
+        <option value="all" ${filter.nextAction === 'all' ? 'selected' : ''}>Any next action</option>
+        <option value="scheduled" ${filter.nextAction === 'scheduled' ? 'selected' : ''}>Has next reminder</option>
+        <option value="none" ${filter.nextAction === 'none' ? 'selected' : ''}>No next reminder</option>
       </select>
       <input type="text" class="form-input" style="width:200px" placeholder="🔍 Search..." oninput="searchReminders(this.value,App.reminders,render)"/>
     </div>
@@ -1517,6 +1571,8 @@ async function snoozeReminder(id, minutes) {
     await db("INSERT INTO reminder_logs (id,reminder_id,action,timestamp) VALUES (?,?,'snoozed',datetime('now'))", [uuid(), id]);
   }
 
+  clearDuePopupsForItem(id);
+  window.ILRSSounds?.stopAlertSound?.();
   toast(`💤 Snoozed for ${result?.minutes || duration} minutes`);
   await loadAllData();
   updateBadges();

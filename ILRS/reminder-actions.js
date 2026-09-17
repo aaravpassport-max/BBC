@@ -3,6 +3,7 @@
  */
 const { randomUUID } = require('crypto');
 const { toLocalISO, advanceRecurring, ALARM_MAX_RINGS, isDue } = require('./alarm');
+const { LIFECYCLE_COMPLETED, LIFECYCLE_ACTIVE } = require('./work-lifecycle');
 
 function getSetting(db, key, defaultValue = '') {
   if (!db) return defaultValue;
@@ -48,10 +49,10 @@ function completeOccurrence(db, id, now = new Date()) {
   if (isTask) {
     db.prepare(`
       UPDATE reminders
-      SET status = 'completed', workflow_status = 'done', alarm_rings = 0,
-          last_completed = ?, updated_at = ?
+      SET status = 'completed', workflow_status = 'done', lifecycle_status = ?, alarm_rings = 0,
+          next_fire = '', last_completed = ?, updated_at = ?
       WHERE id = ?
-    `).run(firedAt, firedAt, id);
+    `).run(LIFECYCLE_COMPLETED, firedAt, firedAt, id);
     db.prepare(`
       INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
       VALUES (?, ?, 'completed', datetime('now'))
@@ -64,9 +65,9 @@ function completeOccurrence(db, id, now = new Date()) {
     db.prepare(`
       UPDATE reminders
       SET next_fire = ?, alarm_rings = 0, snooze_count = 0, workflow_status = 'pending',
-          last_completed = ?, updated_at = ?
+          lifecycle_status = ?, last_completed = ?, updated_at = ?
       WHERE id = ?
-    `).run(nextFire, firedAt, firedAt, id);
+    `).run(nextFire, LIFECYCLE_ACTIVE, firedAt, firedAt, id);
     db.prepare(`
       INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
       VALUES (?, ?, 'completed_occurrence', datetime('now'))
@@ -76,10 +77,10 @@ function completeOccurrence(db, id, now = new Date()) {
 
   db.prepare(`
     UPDATE reminders
-    SET status = 'completed', workflow_status = 'done', alarm_rings = 0,
-        last_completed = ?, updated_at = ?
+    SET status = 'completed', workflow_status = 'done', lifecycle_status = ?, alarm_rings = 0,
+        next_fire = '', last_completed = ?, updated_at = ?
     WHERE id = ?
-  `).run(firedAt, firedAt, id);
+  `).run(LIFECYCLE_COMPLETED, firedAt, firedAt, id);
   db.prepare(`
     INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
     VALUES (?, ?, 'completed', datetime('now'))

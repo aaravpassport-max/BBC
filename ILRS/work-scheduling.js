@@ -2,6 +2,7 @@
  * Work scheduling helpers — start/completion dates, filters, overdue detection.
  */
 const { localDateStr } = require('./alarm');
+const { isInquiryActiveForWorkQueue, isReminderOpenForWork } = require('./work-lifecycle');
 
 function dateOnly(value) {
   if (!value) return '';
@@ -29,7 +30,7 @@ function effectiveInquiryScheduleDate(inq) {
 }
 
 function isActiveInquiry(inq) {
-  return Boolean(inq && inq.outcome_status === 'active');
+  return isInquiryActiveForWorkQueue(inq);
 }
 
 function tomorrowStr(now = new Date()) {
@@ -65,8 +66,10 @@ function isInquiryFollowUpOverdue(inq, now = new Date()) {
 
 function isWorkItemActive(item) {
   if (!item) return false;
-  if (item.outcome_status) return item.outcome_status === 'active';
-  if (item.status === 'deleted' || item.status === 'completed') return false;
+  if (item.outcome_status) return isInquiryActiveForWorkQueue(item);
+  if (item.status === 'deleted') return false;
+  if (!isReminderOpenForWork(item)) return false;
+  if (item.status === 'completed') return false;
   if (item.workflow_status === 'done') return false;
   return item.status === 'active' || !item.status;
 }

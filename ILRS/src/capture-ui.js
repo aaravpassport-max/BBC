@@ -131,17 +131,29 @@
         <label class="form-label">What?</label>
         <input type="text" class="form-input capture-input-lg" id="capture-title" value="${esc(r.title)}" placeholder="Call John about the contract" autocomplete="off" />
 
-        <label class="form-label">When?</label>
+        <label class="form-label">Workflow stage</label>
+        <select class="form-select" id="capture-stage"></select>
+        <p class="form-hint" style="margin-top:4px">Manage stages in sidebar → <strong>Workflow Stages</strong> (Tasks / Reminders tabs)</p>
+
+        <label class="form-label" style="margin-top:12px">Status</label>
+        ${window.ILRSWorkLifecycle?.lifecycleSelectHtml(
+          'capture-lifecycle',
+          window.ILRSWorkLifecycle.inferLifecycleFromReminder(r),
+          { includeClosed: true }
+        ) || ''}
+        <label class="lifecycle-schedule-opt form-hint" style="display:block;margin-top:8px">
+          <input type="checkbox" id="capture-schedule-next" /> Schedule another reminder after completion
+        </label>
+
+        <div id="capture-follow-wrap">
+        <label class="form-label">Next action / reminder</label>
         <div class="chip-row" id="capture-when-chips">${whenChipHtml(state.when)}</div>
         <input type="date" class="form-input capture-custom-date" id="capture-date" value="${state.startDate}" style="display:${state.when === 'custom' ? 'block' : 'none'};margin-top:8px" />
 
         <label class="form-label">Time <span class="form-hint">(recommended for reminders)</span></label>
         <div class="chip-row" id="capture-time-chips">${timeChipHtml(state.timeMode)}</div>
         <input type="time" class="form-input capture-custom-time" id="capture-time" value="${state.time}" style="display:${state.timeMode === 'custom' ? 'block' : 'none'};margin-top:8px" />
-
-        <label class="form-label">Workflow stage</label>
-        <select class="form-select" id="capture-stage"></select>
-        <p class="form-hint" style="margin-top:4px">Manage stages in sidebar → <strong>Workflow Stages</strong> (Tasks / Reminders tabs)</p>
+        </div>
 
         <div class="form-grid" style="margin-top:12px">
           <div class="form-group">
@@ -369,6 +381,12 @@
     });
     refreshStageOptions();
 
+    window.ILRSWorkLifecycle?.wireLifecycleFollowUpToggle?.(overlay, {
+      statusSelId: 'capture-lifecycle',
+      followWrapId: 'capture-follow-wrap',
+      scheduleCheckboxId: 'capture-schedule-next',
+    });
+
     overlay.querySelector('.capture-sheet')?.addEventListener('click', (e) => e.stopPropagation());
   }
 
@@ -406,11 +424,27 @@
     const id = document.getElementById('capture-id')?.value;
     const isEdit = document.getElementById('capture-is-edit')?.value === '1';
 
-    let nextFire;
-    if (typeof computeNextFireForSave === 'function') {
-      nextFire = await computeNextFireForSave(startDate, time || '09:00', repeatType, repeatValue);
-    } else {
-      nextFire = C().parseNextFireLocal(startDate, time || '09:00', repeatType);
+    const LC = window.ILRSWorkLifecycle;
+    const lifecycle = LC?.normalizeLifecycle(document.getElementById('capture-lifecycle')?.value) || 'active';
+    const scheduleNext = document.getElementById('capture-schedule-next')?.checked;
+    const needsDate = LC?.requiresNextReminderDate(lifecycle, { scheduleNext });
+    if (needsDate && !startDate) {
+      if (typeof toast === 'function') toast('Pick a date for the next reminder', 'warning');
+      return;
+    }
+
+    let nextFire = '';
+    if (!LC?.blocksNextReminder(lifecycle)) {
+      const shouldCompute = needsDate
+        || lifecycle === LC?.LIFECYCLE_PENDING
+        || (lifecycle === LC?.LIFECYCLE_COMPLETED && scheduleNext);
+      if (shouldCompute && (time || kind === 'reminder')) {
+        if (typeof computeNextFireForSave === 'function') {
+          nextFire = await computeNextFireForSave(startDate, time || '09:00', repeatType, repeatValue);
+        } else {
+          nextFire = C().parseNextFireLocal(startDate, time || '09:00', repeatType);
+        }
+      }
     }
 
     const tags = (document.getElementById('capture-tags')?.value || '').split(',').map((t) => t.trim()).filter(Boolean);
@@ -440,27 +474,41 @@
 
     let ok;
     const stageKey = document.getElementById('capture-stage')?.value || '';
+    const lifecycleSqlPatch = (() => {
+      if (!LC) return { status: 'active', workflow: 'pending', lifecycle, nextFire };
+      if (lifecycle === LC.LIFECYCLE_CLOSED || (lifecycle === LC.LIFECYCLE_COMPLETED && !scheduleNext)) {
+        return { status: 'completed', workflow: 'done', lifecycle, nextFire: '' };
+      }
+      if (lifecycle === LC.LIFECYCLE_PENDING) {
+        return { status: 'active', workflow: 'postponed', lifecycle, nextFire };
+      }
+      if (lifecycle === LC.LIFECYCLE_ACTIVE) {
+        return { status: 'active', workflow: kind === 'task' ? 'in_progress' : 'pending', lifecycle, nextFire };
+      }
+      return { status: 'active', workflow: 'pending', lifecycle, nextFire };
+    })();
+    params[17] = lifecycleSqlPatch.nextFire;
+
     if (isEdit) {
       const existing = App?.reminders?.find((x) => x.id === id);
       const wasCompleted = existing
         && (existing.status === 'completed' || (existing.workflow_status || '') === 'done');
-      const reactivateSql = wasCompleted
-        ? ", status='active', workflow_status='pending', last_completed=NULL, snooze_count=0, alarm_rings=0"
+      const reactivateSql = wasCompleted && LC?.isReminderOpenForWork({ lifecycle_status: lifecycle })
+        ? ", last_completed=NULL, snooze_count=0, alarm_rings=0"
         : '';
       ok = await dbRun(
-        `UPDATE reminders SET title=?,task_type=?,category=?,why_it_matters=?,repeat_type=?,repeat_value=?,reminder_time=?,start_date=?,end_date=?,priority=?,urgency_quadrant=?,alert_style=?,snooze_duration=?,assigned_to=?,is_private=?,notes=?,tags=?,next_fire=?,work_start_date=?,expected_completion_date=?,stage_key=?,updated_at=?${reactivateSql} WHERE id=?`,
-        [...params.slice(1), workStartDate, expectedCompletionDate, stageKey, new Date().toISOString(), id]
+        `UPDATE reminders SET title=?,task_type=?,category=?,why_it_matters=?,repeat_type=?,repeat_value=?,reminder_time=?,start_date=?,end_date=?,priority=?,urgency_quadrant=?,alert_style=?,snooze_duration=?,assigned_to=?,is_private=?,notes=?,tags=?,next_fire=?,work_start_date=?,expected_completion_date=?,stage_key=?,lifecycle_status=?,status=?,workflow_status=?,updated_at=?${reactivateSql} WHERE id=?`,
+        [...params.slice(1), workStartDate, expectedCompletionDate, stageKey, lifecycleSqlPatch.lifecycle, lifecycleSqlPatch.status, lifecycleSqlPatch.workflow, new Date().toISOString(), id]
       );
       if (ok && stageKey && existing && stageKey !== (existing.stage_key || '')) {
         await window.ilrs?.changeReminderStage?.(id, stageKey, {});
       }
     } else {
-      const workflowStatus = kind === 'task' ? 'pending' : 'pending';
       const sourceType = document.getElementById('capture-source-type')?.value || '';
       const sourceId = document.getElementById('capture-source-id')?.value || '';
       ok = await dbRun(
-        `INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,repeat_value,reminder_time,start_date,end_date,priority,urgency_quadrant,alert_style,snooze_duration,assigned_to,is_private,notes,tags,next_fire,work_start_date,expected_completion_date,status,workflow_status,source_type,source_id,stage_key,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'active',?,?,?,?,datetime('now'),datetime('now'))`,
-        [...params, workStartDate, expectedCompletionDate, workflowStatus, sourceType, sourceId, stageKey]
+        `INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,repeat_value,reminder_time,start_date,end_date,priority,urgency_quadrant,alert_style,snooze_duration,assigned_to,is_private,notes,tags,next_fire,work_start_date,expected_completion_date,status,workflow_status,lifecycle_status,source_type,source_id,stage_key,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
+        [...params, workStartDate, expectedCompletionDate, lifecycleSqlPatch.status, lifecycleSqlPatch.workflow, lifecycleSqlPatch.lifecycle, sourceType, sourceId, stageKey]
       );
       if (ok && stageKey) {
         await window.ilrs?.setInitialReminderStage?.(id, kind, stageKey);

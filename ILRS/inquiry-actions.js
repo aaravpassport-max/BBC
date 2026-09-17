@@ -10,6 +10,16 @@ const {
   getStageAutomation,
 } = require('./inquiry-pipeline');
 const { loadStagesFromDb, saveAllStagesToDb } = require('./inquiry-stage-store');
+const {
+  normalizeLifecycle,
+  inferLifecycleFromInquiry,
+  inquiryRowPatchForLifecycle,
+  clearInquiryFollowUpSchedule,
+  shouldMaintainInquiryFollowUp,
+  LIFECYCLE_ACTIVE,
+  LIFECYCLE_CLOSED,
+  LIFECYCLE_COMPLETED,
+} = require('./work-lifecycle');
 
 function nextInquiryNumber(db) {
   const row = db.prepare("SELECT value FROM settings WHERE key = 'inquiry_counter'").get();
@@ -109,14 +119,14 @@ function computeInquiryHealth(inquiry, now = new Date()) {
 
 function syncInquiryFollowUpReminder(db, inquiryId, now = new Date()) {
   const inquiry = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
-  if (!inquiry || inquiry.outcome_status !== 'active') return;
+  if (!inquiry || inquiry.outcome_status === 'deleted') return;
 
   db.prepare(`
     UPDATE reminders SET status = 'deleted', updated_at = datetime('now')
     WHERE source_type = 'inquiry' AND source_id = ? AND status != 'deleted'
   `).run(inquiryId);
 
-  if (!inquiry.next_follow_up) return;
+  if (!shouldMaintainInquiryFollowUp(inquiry)) return;
 
   createFollowUpReminder(db, inquiry, {
     title: inquiry.next_action ? `${inquiry.next_action}: ${inquiry.client_name}` : undefined,
@@ -151,6 +161,38 @@ function createFollowUpReminder(db, inquiry, { title, date, time, now = new Date
   return reminderId;
 }
 
+function applyInquiryLifecycleFields(db, inquiryId, lifecycle, { scheduleNext = false, nextFollowUp, nextFollowUpTime } = {}) {
+  const lc = normalizeLifecycle(lifecycle);
+  const patch = inquiryRowPatchForLifecycle(lc, { scheduleNext });
+
+  if (patch.clear_follow_up) {
+    clearInquiryFollowUpSchedule(db, inquiryId);
+    db.prepare(`
+      UPDATE inquiries SET lifecycle_status = ?, outcome_status = ?, updated_at = datetime('now')
+      WHERE id = ?
+    `).run(patch.lifecycle_status, patch.outcome_status, inquiryId);
+    return;
+  }
+
+  const followUp = nextFollowUp != null ? nextFollowUp : undefined;
+  const followTime = nextFollowUpTime != null ? nextFollowUpTime : undefined;
+  db.prepare(`
+    UPDATE inquiries SET
+      lifecycle_status = ?,
+      outcome_status = ?,
+      next_follow_up = COALESCE(?, next_follow_up),
+      next_follow_up_time = COALESCE(?, next_follow_up_time),
+      updated_at = datetime('now')
+    WHERE id = ?
+  `).run(
+    patch.lifecycle_status,
+    patch.outcome_status,
+    followUp !== undefined ? followUp : null,
+    followTime !== undefined ? followTime : null,
+    inquiryId,
+  );
+}
+
 function createInquiry(db, data, now = new Date()) {
   const client = findOrCreateClient(db, {
     name: data.clientName,
@@ -163,6 +205,14 @@ function createInquiry(db, data, now = new Date()) {
   const inquiryNumber = nextInquiryNumber(db);
   const stageKey = data.stageKey || 'follow_up';
   const today = localDateStr(now);
+  const lifecycle = normalizeLifecycle(data.lifecycleStatus || LIFECYCLE_ACTIVE);
+  const lifecyclePatch = inquiryRowPatchForLifecycle(lifecycle, { scheduleNext: data.scheduleNext });
+  let nextFollowUp = data.nextFollowUp || '';
+  let nextFollowUpTime = data.nextFollowUpTime || '';
+  if (lifecyclePatch.clear_follow_up) {
+    nextFollowUp = '';
+    nextFollowUpTime = '';
+  }
 
   db.prepare(`
     INSERT INTO inquiries (
@@ -170,8 +220,8 @@ function createInquiry(db, data, now = new Date()) {
       requirement, service_category, source, stage_key, priority, assigned_to,
       next_action, next_follow_up, next_follow_up_time, expected_value, quotation_amount,
       work_start_date, expected_completion_date,
-      outcome_status, health, stage_changed_at, last_activity_at, notes, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', 'healthy', datetime('now'), datetime('now'), ?, datetime('now'), datetime('now'))
+      outcome_status, lifecycle_status, health, stage_changed_at, last_activity_at, notes, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'healthy', datetime('now'), datetime('now'), ?, datetime('now'), datetime('now'))
   `).run(
     id,
     inquiryNumber,
@@ -187,25 +237,25 @@ function createInquiry(db, data, now = new Date()) {
     data.priority || 'normal',
     data.assignedTo || 'me',
     data.nextAction || data.requirement || 'Follow up',
-    data.nextFollowUp || '',
-    data.nextFollowUpTime || '',
+    nextFollowUp,
+    nextFollowUpTime,
     parseFloat(data.expectedValue) || 0,
     parseFloat(data.quotationAmount) || 0,
     data.workStartDate || today,
     data.expectedCompletionDate || '',
+    lifecyclePatch.outcome_status,
+    lifecyclePatch.lifecycle_status,
     data.notes || '',
   );
 
   logActivity(db, id, 'inquiry_created', 'Inquiry created', `${client.name} — ${data.requirement}`, { newStage: stageKey });
 
-  if (data.nextFollowUp && !data.skipFollowUpReminder) {
-    createFollowUpReminder(db, { id, client_name: client.name, requirement: data.requirement, assigned_to: data.assignedTo }, {
-      title: data.nextAction ? `${data.nextAction}: ${client.name}` : undefined,
-      date: data.nextFollowUp,
-      time: data.nextFollowUpTime || '09:00',
-      now,
-    });
-    logActivity(db, id, 'follow_up', 'Follow-up scheduled', `${data.nextFollowUp} ${data.nextFollowUpTime || '09:00'}`, {});
+  const inquiryRow = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(id);
+  if (!data.skipFollowUpReminder && shouldMaintainInquiryFollowUp(inquiryRow)) {
+    syncInquiryFollowUpReminder(db, id, now);
+    if (nextFollowUp) {
+      logActivity(db, id, 'follow_up', 'Follow-up scheduled', `${nextFollowUp} ${nextFollowUpTime || '09:00'}`, {});
+    }
   }
 
   const inquiry = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(id);
@@ -303,6 +353,9 @@ function changeInquiryStage(db, inquiryId, newStageKey, options = {}, now = new 
 
   const oldKey = inquiry.stage_key;
   const outcome = isClosedStage(newStageKey, stages) ? 'closed_lost' : (newStageKey === 'delivered' ? 'closed_won' : 'active');
+  const lifecycleFromStage = isClosedStage(newStageKey, stages)
+    ? LIFECYCLE_CLOSED
+    : (newStageKey === 'delivered' ? LIFECYCLE_COMPLETED : LIFECYCLE_ACTIVE);
 
   // Cancel prior stage follow-up reminders before applying new stage rules
   db.prepare(`
@@ -311,7 +364,7 @@ function changeInquiryStage(db, inquiryId, newStageKey, options = {}, now = new 
   `).run(inquiryId);
 
   db.prepare(`
-    UPDATE inquiries SET stage_key = ?, outcome_status = ?, closed_reason = ?,
+    UPDATE inquiries SET stage_key = ?, outcome_status = ?, lifecycle_status = ?, closed_reason = ?,
       stage_changed_at = datetime('now'), updated_at = datetime('now'),
       quotation_amount = COALESCE(?, quotation_amount),
       payment_status = COALESCE(?, payment_status)
@@ -319,11 +372,16 @@ function changeInquiryStage(db, inquiryId, newStageKey, options = {}, now = new 
   `).run(
     newStageKey,
     outcome,
+    lifecycleFromStage,
     options.closedReason || (isClosedStage(newStageKey, stages) ? stage.display : ''),
     options.quotationAmount ?? null,
     options.paymentStatus ?? null,
     inquiryId,
   );
+
+  if (lifecycleFromStage === LIFECYCLE_CLOSED || lifecycleFromStage === LIFECYCLE_COMPLETED) {
+    clearInquiryFollowUpSchedule(db, inquiryId);
+  }
 
   logActivity(db, inquiryId, 'stage_change', `Stage → ${stage.display}`, options.note || '', {
     oldStage: oldKey,
@@ -448,10 +506,18 @@ function updateInquiry(db, inquiryId, data, now = new Date()) {
     }, now);
   }
 
+  if (data.lifecycleStatus != null) {
+    applyInquiryLifecycleFields(db, inquiryId, data.lifecycleStatus, {
+      scheduleNext: data.scheduleNext,
+      nextFollowUp: data.nextFollowUp,
+      nextFollowUpTime: data.nextFollowUpTime,
+    });
+  }
+
   const followUpChanged = data.nextFollowUp != null && data.nextFollowUp !== inquiry.next_follow_up;
   const followUpTimeChanged = data.nextFollowUpTime != null && data.nextFollowUpTime !== inquiry.next_follow_up_time;
   const nextActionChanged = data.nextAction != null && data.nextAction !== inquiry.next_action;
-  if (followUpChanged || followUpTimeChanged || nextActionChanged) {
+  if (followUpChanged || followUpTimeChanged || nextActionChanged || data.lifecycleStatus != null) {
     syncInquiryFollowUpReminder(db, inquiryId, now);
   }
 
@@ -489,10 +555,10 @@ function reopenInquiry(db, inquiryId, stageKey = 'follow_up') {
   const inquiry = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
   if (!inquiry) return { success: false, error: 'Inquiry not found' };
   db.prepare(`
-    UPDATE inquiries SET outcome_status = 'active', stage_key = ?, closed_reason = '',
+    UPDATE inquiries SET outcome_status = 'active', lifecycle_status = ?, stage_key = ?, closed_reason = '',
       stage_changed_at = datetime('now'), updated_at = datetime('now'), health = 'healthy'
     WHERE id = ?
-  `).run(stageKey, inquiryId);
+  `).run(LIFECYCLE_ACTIVE, stageKey, inquiryId);
   logActivity(db, inquiryId, 'stage_change', 'Inquiry reopened', '', { newStage: stageKey });
   const updated = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
   return { success: true, inquiry: updated };
@@ -514,6 +580,7 @@ function rescheduleInquiry(db, inquiryId, options = {}, now = new Date()) {
   db.prepare(`
     UPDATE inquiries SET
       outcome_status = 'active',
+      lifecycle_status = ?,
       stage_key = ?,
       closed_reason = '',
       next_follow_up = ?,
@@ -522,7 +589,7 @@ function rescheduleInquiry(db, inquiryId, options = {}, now = new Date()) {
       stage_changed_at = datetime('now'),
       updated_at = datetime('now')
     WHERE id = ?
-  `).run(stageKey, date, time, nextAction, inquiryId);
+  `).run(LIFECYCLE_ACTIVE, stageKey, date, time, nextAction, inquiryId);
 
   syncInquiryFollowUpReminder(db, inquiryId, now);
   const refreshed = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);

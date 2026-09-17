@@ -20,14 +20,14 @@ function makeDb() {
     CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT);
     CREATE TABLE reminders (
       id TEXT PRIMARY KEY, title TEXT, task_type TEXT DEFAULT 'reminder',
-      status TEXT DEFAULT 'active', workflow_status TEXT DEFAULT 'pending',
+      status TEXT DEFAULT 'active', workflow_status TEXT DEFAULT 'pending', lifecycle_status TEXT DEFAULT '',
       start_date TEXT, end_date TEXT, work_start_date TEXT, expected_completion_date TEXT,
       next_fire TEXT, reminder_time TEXT, notes TEXT, updated_at TEXT, alarm_rings INTEGER DEFAULT 0,
       repeat_type TEXT DEFAULT 'once', last_completed TEXT
     );
     CREATE TABLE reminder_logs (id TEXT PRIMARY KEY, reminder_id TEXT, action TEXT, timestamp TEXT, note TEXT);
     CREATE TABLE inquiries (
-      id TEXT PRIMARY KEY, client_name TEXT, requirement TEXT, outcome_status TEXT DEFAULT 'active',
+      id TEXT PRIMARY KEY, client_name TEXT, requirement TEXT, outcome_status TEXT DEFAULT 'active', lifecycle_status TEXT DEFAULT '',
       stage_key TEXT, work_start_date TEXT, expected_completion_date TEXT,
       next_follow_up TEXT, next_follow_up_time TEXT, next_action TEXT,
       updated_at TEXT, last_activity_at TEXT

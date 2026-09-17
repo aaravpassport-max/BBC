@@ -26,6 +26,8 @@
   }
 
   function isActiveInquiry(inq) {
+    const LC = window.ILRSWorkLifecycle;
+    if (LC?.isInquiryActiveForWorkQueue) return LC.isInquiryActiveForWorkQueue(inq);
     return Boolean(inq && inq.outcome_status === 'active');
   }
 
@@ -62,8 +64,14 @@
 
   function isWorkItemActive(item) {
     if (!item) return false;
-    if (item.outcome_status) return item.outcome_status === 'active';
-    if (item.status === 'deleted' || item.status === 'completed') return false;
+    const LC = window.ILRSWorkLifecycle;
+    if (item.outcome_status) {
+      if (LC?.isInquiryActiveForWorkQueue) return LC.isInquiryActiveForWorkQueue(item);
+      return item.outcome_status === 'active';
+    }
+    if (item.status === 'deleted') return false;
+    if (LC?.isReminderOpenForWork && !LC.isReminderOpenForWork(item)) return false;
+    if (item.status === 'completed') return false;
     if (item.workflow_status === 'done') return false;
     return item.status === 'active' || !item.status;
   }

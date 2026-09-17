@@ -84,9 +84,20 @@
           ${stages.map((s) => `<option value="${s.key}" ${inq.stage_key === s.key ? 'selected' : ''}>${esc(s.display)}</option>`).join('')}
         </select>
 
+        <label class="form-label">Status</label>
+        ${window.ILRSWorkLifecycle?.lifecycleSelectHtml(
+          'inq-lifecycle',
+          window.ILRSWorkLifecycle.inferLifecycleFromInquiry(inq),
+          { includeClosed: true }
+        ) || ''}
+        <label class="lifecycle-schedule-opt form-hint" style="display:block;margin-top:8px">
+          <input type="checkbox" id="inq-schedule-next" /> Schedule follow-up after marking done
+        </label>
+
         <label class="form-label">Next action</label>
         <input type="text" class="form-input" id="inq-next-action" value="${esc(inq.next_action || 'Follow up')}" placeholder="Call client" />
 
+        <div id="inq-follow-wrap">
         <label class="form-label">Next follow-up</label>
         <div class="chip-row" id="inq-when-chips">
           ${['today', 'tomorrow', 'next-week', 'custom'].map((w) =>
@@ -95,6 +106,7 @@
         </div>
         <input type="date" class="form-input" id="inq-follow-date" value="${whenInfo.startDate || ''}" style="display:${whenInfo.when === 'custom' ? 'block' : 'none'};margin-top:8px" />
         <input type="time" class="form-input" id="inq-follow-time" value="${inq.next_follow_up_time || '11:00'}" style="margin-top:8px" />
+        </div>
 
         <div class="form-grid" style="margin-top:12px">
           <div class="form-group">
@@ -201,6 +213,12 @@
       overlay.querySelectorAll('#inq-source-chips .chip').forEach((c) => c.classList.toggle('selected', c === chip));
     });
 
+    window.ILRSWorkLifecycle?.wireLifecycleFollowUpToggle?.(overlay, {
+      statusSelId: 'inq-lifecycle',
+      followWrapId: 'inq-follow-wrap',
+      scheduleCheckboxId: 'inq-schedule-next',
+    });
+
     if (!isEdit && !isConvert) {
       const tomorrowChip = overlay.querySelector('[data-when="tomorrow"]');
       if (tomorrowChip) {
@@ -220,14 +238,23 @@
         if (typeof toast === 'function') toast('Client and requirement are required', 'warning');
         return;
       }
+      const LC = window.ILRSWorkLifecycle;
+      const lifecycleStatus = LC?.normalizeLifecycle(document.getElementById('inq-lifecycle')?.value) || 'active';
+      const scheduleNext = document.getElementById('inq-schedule-next')?.checked;
       const when = document.getElementById('inq-when')?.value || 'tomorrow';
-      const nextFollowUp = when === 'custom'
+      let nextFollowUp = when === 'custom'
         ? (document.getElementById('inq-follow-date')?.value || resolveWhen(when))
         : resolveWhen(when);
+      if (LC?.blocksNextReminder(lifecycleStatus)) nextFollowUp = '';
+      if (lifecycleStatus === LC?.LIFECYCLE_COMPLETED && !scheduleNext) nextFollowUp = '';
+      const followWrapVisible = document.getElementById('inq-follow-wrap')?.style.display !== 'none';
+      if (!followWrapVisible) nextFollowUp = '';
       const data = {
         clientName,
         requirement,
         stageKey: document.getElementById('inq-stage')?.value,
+        lifecycleStatus,
+        scheduleNext,
         nextAction: document.getElementById('inq-next-action')?.value.trim(),
         nextFollowUp,
         nextFollowUpTime: document.getElementById('inq-follow-time')?.value || '11:00',

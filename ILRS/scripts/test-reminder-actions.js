@@ -43,6 +43,7 @@ function makeDb() {
       snooze_duration INTEGER DEFAULT 10,
       last_completed TEXT,
       workflow_status TEXT DEFAULT 'pending',
+      lifecycle_status TEXT DEFAULT '',
       task_type TEXT DEFAULT 'reminder',
       category TEXT DEFAULT 'general',
       source_type TEXT DEFAULT '',
