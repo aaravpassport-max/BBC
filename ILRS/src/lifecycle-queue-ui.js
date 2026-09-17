@@ -1,13 +1,44 @@
-// ILRS — Horizontal work-status queues (shared across reminders, tasks, inquiries, work)
+// ILRS — Top action queues (what to do with each item). Sidebar stays for navigation.
 (function () {
   const LC = () => window.ILRSWorkLifecycle;
 
+  const ENTITY_KEYS = ['global', 'focus', 'reminder', 'task', 'inquiry', 'work'];
+  const WORK_SYNC_KEYS = ['global', 'reminder', 'task', 'inquiry', 'work'];
+  const FOCUS_PAGES = new Set(['today', 'dashboard', 'tomorrow', 'upcoming', 'overdue', 'postponed', 'completed']);
+
+  function syncWorkQueues(tabId) {
+    ensureFilters();
+    for (const k of WORK_SYNC_KEYS) {
+      App.lifecycleQueueFilters[k] = tabId;
+    }
+  }
+
   const TAB_DEFS = [
-    { id: 'all', label: 'All' },
-    { id: 'active', label: 'Active' },
-    { id: 'pending', label: 'On hold' },
-    { id: 'completed', label: 'Done' },
-    { id: 'closed', label: 'Closed' },
+    {
+      id: 'all',
+      label: 'All',
+      actionHint: 'Show every item regardless of work status.',
+    },
+    {
+      id: 'active',
+      label: '▶ Act now',
+      actionHint: 'You should work or follow up on these now. Next reminders and due dates apply.',
+    },
+    {
+      id: 'pending',
+      label: '⏸ Waiting',
+      actionHint: 'On hold — waiting on a client, document, payment, or reply. Follow-up is optional.',
+    },
+    {
+      id: 'completed',
+      label: '✓ Finished',
+      actionHint: 'Work is done. No routine reminders unless you schedule another action.',
+    },
+    {
+      id: 'closed',
+      label: '⊘ Closed',
+      actionHint: 'Fully closed — no further work, reminders, or queue placement.',
+    },
   ];
 
   function ensureFilters() {
@@ -16,13 +47,37 @@
 
   function getFilter(entityKey, defaultTab = 'active') {
     ensureFilters();
+    if (entityKey === 'focus') {
+      if (App.lifecycleQueueFilters.focus) return App.lifecycleQueueFilters.focus;
+      return App.currentPage === 'completed' ? 'completed' : defaultTab;
+    }
+    if (WORK_SYNC_KEYS.includes(entityKey)) {
+      return App.lifecycleQueueFilters.global || App.lifecycleQueueFilters[entityKey] || defaultTab;
+    }
     return App.lifecycleQueueFilters[entityKey] || defaultTab;
   }
 
   function setFilter(entityKey, tabId) {
     ensureFilters();
-    App.lifecycleQueueFilters[entityKey] = tabId;
+    if (entityKey === 'focus') {
+      App.lifecycleQueueFilters.focus = tabId;
+    } else if (WORK_SYNC_KEYS.includes(entityKey)) {
+      syncWorkQueues(tabId);
+    } else {
+      App.lifecycleQueueFilters[entityKey] = tabId;
+    }
     if (typeof navigate === 'function' && App.currentPage) {
+      navigate(App.currentPage);
+    }
+  }
+
+  function applyGlobalFilter(tabId) {
+    syncWorkQueues(tabId);
+  }
+
+  function setGlobalFilter(tabId, { refresh = true } = {}) {
+    applyGlobalFilter(tabId);
+    if (refresh && typeof navigate === 'function' && App.currentPage) {
       navigate(App.currentPage);
     }
   }
@@ -61,25 +116,38 @@
     return counts;
   }
 
-  function tabsHtml(entityKey, items, { defaultTab = 'active', extraClass = '' } = {}) {
+  function selectedHint(entityKey) {
+    const selected = getFilter(entityKey);
+    return TAB_DEFS.find((t) => t.id === selected)?.actionHint || '';
+  }
+
+  function tabsHtml(entityKey, items, { defaultTab = 'active', extraClass = '', showHint = true } = {}) {
     const selected = getFilter(entityKey, defaultTab);
     const counts = countByTab(items, entityKey);
-    const cls = `lifecycle-queue-tabs smart-tabs ${extraClass}`.trim();
-    return `<div class="${cls}" role="tablist" aria-label="Work status queues">
-      ${TAB_DEFS.map((t) => {
-        const n = counts[t.id] ?? 0;
-        const label = t.id === 'all' ? `${t.label}` : `${t.label} · ${n}`;
-        return `<button type="button" class="smart-tab ${selected === t.id ? 'active' : ''}" role="tab"
-          onclick="ILRSLifecycleQueue.setFilter('${entityKey}','${t.id}')">${label}</button>`;
-      }).join('')}
+    const cls = `lifecycle-queue-tabs smart-tabs action-queue-tabs ${extraClass}`.trim();
+    const hint = showHint ? `<p class="action-queue-hint">${selectedHint(entityKey)}</p>` : '';
+    return `<div class="action-queue-bar">
+      <div class="action-queue-bar-title">What to do with these items</div>
+      <div class="${cls}" role="tablist" aria-label="Work action queues">
+        ${TAB_DEFS.map((t) => {
+          const n = counts[t.id] ?? 0;
+          const label = t.id === 'all' ? t.label : `${t.label} · ${n}`;
+          return `<button type="button" class="smart-tab ${selected === t.id ? 'active' : ''}" role="tab"
+            title="${t.actionHint}"
+            onclick="ILRSLifecycleQueue.setFilter('${entityKey}','${t.id}')">${label}</button>`;
+        }).join('')}
+      </div>
+      ${hint}
     </div>`;
   }
 
-  /** After user changes status — switch queue tab and refresh so item moves immediately. */
   async function afterStatusChange(entityKey, newLifecycle) {
     ensureFilters();
     const tab = LC()?.normalizeLifecycle(newLifecycle) || newLifecycle;
-    App.lifecycleQueueFilters[entityKey] = tab;
+    syncWorkQueues(tab);
+    if (FOCUS_PAGES.has(App.currentPage)) {
+      App.lifecycleQueueFilters.focus = tab;
+    }
     if (typeof loadAllData === 'function') await loadAllData();
     if (typeof updateBadges === 'function') updateBadges();
     if (typeof navigate === 'function' && App.currentPage) {
@@ -91,12 +159,16 @@
 
   window.ILRSLifecycleQueue = {
     TAB_DEFS,
+    ENTITY_KEYS,
     getFilter,
     setFilter,
+    setGlobalFilter,
+    applyGlobalFilter,
     inferItem,
     filterItems,
     countByTab,
     tabsHtml,
+    selectedHint,
     afterStatusChange,
   };
 })();

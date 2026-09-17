@@ -386,6 +386,12 @@ function attachModalDismiss(overlay) {
   });
 }
 
+function lifecycleFilterList(items, entityKey = 'focus') {
+  const Q = window.ILRSLifecycleQueue;
+  if (!Q?.filterItems || !items?.length) return items || [];
+  return Q.filterItems(items, entityKey);
+}
+
 async function navigate(page) {
   if (page === 'add') {
     showCaptureSheet();
@@ -393,6 +399,13 @@ async function navigate(page) {
   }
   dismissPageModals();
   App.currentPage = page;
+  if (page === 'completed') {
+    if (!App.lifecycleQueueFilters) App.lifecycleQueueFilters = {};
+    const f = App.lifecycleQueueFilters.focus;
+    if (!f || f === 'active' || f === 'pending') {
+      App.lifecycleQueueFilters.focus = 'completed';
+    }
+  }
   document.querySelectorAll('.nav-item').forEach(el => {
     el.classList.toggle('active', el.dataset.page === page);
   });
@@ -699,9 +712,15 @@ async function renderToday(el) {
   const overdue = overdueReminders;
   const dueTomorrow = dueTomorrowReminders;
   const inquiryAttention = inquiryFollowUpsToday.length + inquiryFollowUpsOverdue.length;
-  const todayCount = dueToday.length + inquiryFollowUpsToday.length;
+  const Q = window.ILRSLifecycleQueue;
+  const focusPool = [...overdue, ...dueToday, ...inquiryFollowUpsOverdue, ...inquiryFollowUpsToday];
+  const overdueShown = lifecycleFilterList(overdue, 'focus');
+  const dueTodayShown = lifecycleFilterList(dueToday, 'focus');
+  const inquiryOverdueShown = lifecycleFilterList(inquiryFollowUpsOverdue, 'focus');
+  const inquiryTodayShown = lifecycleFilterList(inquiryFollowUpsToday, 'focus');
+  const todayCount = dueTodayShown.length + inquiryTodayShown.length;
   const tomorrowCount = dueTomorrow.length + inquiryDueTomorrow.length;
-  const overdueCount = overdue.length + getOverdueInquiries(now).length;
+  const overdueCount = overdueShown.length + inquiryOverdueShown.length;
 
   const pendingMeds = getPendingMedDoses(medLogs || [], nowT);
   const billsAttention = getBillsNeedingAttention(todayDay);
@@ -729,13 +748,14 @@ async function renderToday(el) {
 
     ${workStatusWhatsNewHtml()}
 
-    <div class="smart-tabs">
+    <div class="smart-tabs smart-tabs-when" role="tablist" aria-label="When">
       <button class="smart-tab active" onclick="navigate('today')">Today · ${todayCount}</button>
       <button class="smart-tab" onclick="navigate('tomorrow')">Tomorrow · ${tomorrowCount}</button>
       <button class="smart-tab" onclick="navigate('overdue')">Overdue · ${overdueCount}</button>
       <button class="smart-tab" onclick="navigate('postponed')">Postponed · ${postponedItems.length}</button>
       <button class="smart-tab" onclick="navigate('upcoming')">Upcoming</button>
     </div>
+    ${Q?.tabsHtml ? Q.tabsHtml('focus', focusPool) : ''}
 
     ${overdueCount > 0 ? `
     <div class="attention-banner">
@@ -754,8 +774,8 @@ async function renderToday(el) {
           <div class="section-title">⚠️ Overdue</div>
           <button class="btn btn-ghost btn-sm" onclick="navigate('overdue')">View all</button>
         </div>
-        <div class="reminder-list" style="margin-bottom:12px">${overdue.slice(0, 5).map(r => reminderCard(r)).join('')}</div>
-        ${inquiryFollowUpsOverdue.length > 0 ? `<div class="inquiry-list" style="margin-bottom:20px">${renderInquiryCards(inquiryFollowUpsOverdue.slice(0, 5), true)}</div>` : ''}` : ''}
+        <div class="reminder-list" style="margin-bottom:12px">${overdueShown.slice(0, 5).map(r => reminderCard(r)).join('')}</div>
+        ${inquiryOverdueShown.length > 0 ? `<div class="inquiry-list" style="margin-bottom:20px">${renderInquiryCards(inquiryOverdueShown.slice(0, 5), true)}</div>` : ''}` : ''}
 
         <div class="section-header">
           <div class="section-title">☀️ Due Today</div>
@@ -763,9 +783,9 @@ async function renderToday(el) {
         </div>
         <div class="reminder-list" id="dashboard-reminders">
           ${todayCount === 0 ? `<div class="empty-state"><div class="empty-icon">🎉</div><h3>Nothing due today</h3><p>Press <strong>＋ New Reminder</strong> or type in the quick-add bar.</p></div>` :
-            dueToday.slice(0, 8).map(r => reminderCard(r)).join('')}
+            dueTodayShown.slice(0, 8).map(r => reminderCard(r)).join('')}
         </div>
-        ${inquiryFollowUpsToday.length > 0 ? `<div class="inquiry-list" style="margin-top:12px;margin-bottom:16px">${renderInquiryCards(inquiryFollowUpsToday.slice(0, 8), true)}</div>` : ''}
+        ${inquiryTodayShown.length > 0 ? `<div class="inquiry-list" style="margin-top:12px;margin-bottom:16px">${renderInquiryCards(inquiryTodayShown.slice(0, 8), true)}</div>` : ''}
         ${todayCount > 8 ? `<div style="text-align:center;margin-top:12px"><button class="btn btn-ghost btn-sm" onclick="navigate('today')">View all ${todayCount}</button></div>` : ''}
 
         ${lifeCount > 0 ? `
@@ -930,9 +950,13 @@ async function renderSmartList(mode) {
   }
 
   const postponedCount = App.reminders.filter(r => C?.isPostponedItem(r)).length;
-  const totalCount = items.length + lifeCards.length + scheduleInquiries.length;
+  const Q = window.ILRSLifecycleQueue;
+  const focusPool = [...items, ...scheduleInquiries];
+  const itemsShown = lifecycleFilterList(items, 'focus');
+  const inquiriesShown = lifecycleFilterList(scheduleInquiries, 'focus');
+  const totalCount = itemsShown.length + lifeCards.length + inquiriesShown.length;
   const lifeNote = lifeCards.length > 0 ? ` · ${lifeCards.length} from Life` : '';
-  const inquiryNote = scheduleInquiries.length > 0 ? ` · ${scheduleInquiries.length} inquiries` : '';
+  const inquiryNote = inquiriesShown.length > 0 ? ` · ${inquiriesShown.length} inquiries` : '';
 
   el.innerHTML = `
     <div class="page-header">
@@ -942,13 +966,14 @@ async function renderSmartList(mode) {
       </div>
       <button class="btn btn-primary" onclick="showCaptureSheet()">＋ New</button>
     </div>
-    <div class="smart-tabs">
+    <div class="smart-tabs smart-tabs-when" role="tablist" aria-label="When">
       <button class="smart-tab" onclick="navigate('today')">Today</button>
       <button class="smart-tab ${mode === 'tomorrow' ? 'active' : ''}" onclick="navigate('tomorrow')">Tomorrow</button>
       <button class="smart-tab ${mode === 'upcoming' ? 'active' : ''}" onclick="navigate('upcoming')">Upcoming</button>
       <button class="smart-tab ${mode === 'overdue' ? 'active' : ''}" onclick="navigate('overdue')">Overdue</button>
       <button class="smart-tab ${mode === 'postponed' ? 'active' : ''}" onclick="navigate('postponed')">Postponed · ${postponedCount}</button>
     </div>
+    ${Q?.tabsHtml ? Q.tabsHtml('focus', focusPool) : ''}
     ${renderBulkSelectionBar('reminder')}
     ${lifeCards.length > 0 ? `
     <div class="section-header" style="margin-top:8px">
@@ -956,18 +981,18 @@ async function renderSmartList(mode) {
       <button class="btn btn-ghost btn-sm" onclick="navigate('medicine')">Life modules</button>
     </div>
     <div class="reminder-list" style="margin-bottom:16px">${lifeCards.join('')}</div>` : ''}
-    ${scheduleInquiries.length > 0 ? `
+    ${inquiriesShown.length > 0 ? `
     <div class="section-header" style="margin-top:8px">
       <div class="section-title">📥 ${mode === 'overdue' ? 'Overdue' : mode === 'tomorrow' ? 'Tomorrow' : 'Upcoming'} Inquiries</div>
       <button class="btn btn-ghost btn-sm" onclick="navigate('inquiries')">All inquiries</button>
     </div>
-    <div class="inquiry-list" style="margin-bottom:16px">${renderInquiryCards(scheduleInquiries)}</div>` : ''}
+    <div class="inquiry-list" style="margin-bottom:16px">${renderInquiryCards(inquiriesShown)}</div>` : ''}
     <div class="reminder-list">
-      ${items.length === 0 && lifeCards.length === 0 && scheduleInquiries.length === 0
-        ? `<div class="empty-state"><div class="empty-icon">✨</div><h3>Nothing here</h3><p>You're clear for this view.</p></div>`
-        : items.length === 0
-          ? `<div class="empty-state" style="padding:24px 0"><p style="color:var(--text-muted)">No reminders in this view.</p></div>`
-          : items.map(r => reminderCard(r)).join('')}
+      ${itemsShown.length === 0 && lifeCards.length === 0 && inquiriesShown.length === 0
+        ? `<div class="empty-state"><div class="empty-icon">✨</div><h3>Nothing in this queue</h3><p>Try another <strong>When</strong> or <strong>What to do</strong> tab above.</p></div>`
+        : itemsShown.length === 0
+          ? `<div class="empty-state" style="padding:24px 0"><p style="color:var(--text-muted)">No reminders in this action queue.</p></div>`
+          : itemsShown.map(r => reminderCard(r)).join('')}
     </div>
   `;
 }
@@ -1348,29 +1373,54 @@ function habitMiniCard(h) {
 // ── Completed Page ─────────────────────────────────────────────────
 async function renderCompleted(el) {
   const LC = window.ILRSWorkLifecycle;
-  const items = App.reminders
-    .filter((r) => {
-      if (LC?.inferLifecycleFromReminder) {
-        const lc = LC.inferLifecycleFromReminder(r);
-        return lc === LC.LIFECYCLE_COMPLETED || lc === LC.LIFECYCLE_CLOSED
-          || r.status === 'completed' || r.workflow_status === 'done';
-      }
-      return r.status === 'completed' || r.workflow_status === 'done';
-    })
+  const Q = window.ILRSLifecycleQueue;
+  const isDoneReminder = (r) => {
+    if (LC?.inferLifecycleFromReminder) {
+      const lc = LC.inferLifecycleFromReminder(r);
+      return lc === LC.LIFECYCLE_COMPLETED || lc === LC.LIFECYCLE_CLOSED
+        || r.status === 'completed' || r.workflow_status === 'done';
+    }
+    return r.status === 'completed' || r.workflow_status === 'done';
+  };
+  const isFinishedInquiry = (i) => {
+    if (i.outcome_status === 'deleted') return false;
+    if (LC?.inferLifecycleFromInquiry) {
+      const lc = LC.inferLifecycleFromInquiry(i);
+      return lc === LC.LIFECYCLE_COMPLETED || lc === LC.LIFECYCLE_CLOSED;
+    }
+    return i.outcome_status !== 'active';
+  };
+  const reminders = App.reminders
+    .filter(isDoneReminder)
     .sort((a, b) => String(b.last_completed || b.updated_at).localeCompare(String(a.last_completed || a.updated_at)));
+  const inquiries = (App.inquiries || [])
+    .filter(isFinishedInquiry)
+    .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
+  const pool = [...reminders, ...inquiries];
+  const tab = Q?.getFilter('focus') || 'completed';
+  const remindersShown = Q?.filterItems ? Q.filterItems(reminders, 'focus', tab) : reminders;
+  const inquiriesShown = Q?.filterItems ? Q.filterItems(inquiries, 'focus', tab) : inquiries;
+  const visibleCount = remindersShown.length + inquiriesShown.length;
 
   el.innerHTML = `
     <div class="page-header">
       <div>
         <div class="page-title">✅ Completed</div>
-        <div class="page-subtitle">${items.length} finished item${items.length !== 1 ? 's' : ''}</div>
+        <div class="page-subtitle">Sidebar shortcut · use tabs below for ✓ Finished vs ⊘ Closed · ${visibleCount} in this queue</div>
       </div>
+      <button class="btn btn-ghost btn-sm" onclick="navigate('reminders')">All reminders</button>
     </div>
+    ${Q?.tabsHtml ? Q.tabsHtml('focus', pool, { defaultTab: 'completed' }) : ''}
     ${renderBulkSelectionBar('reminder')}
+    ${inquiriesShown.length > 0 ? `
+    <div class="section-header" style="margin-top:8px">
+      <div class="section-title">📥 Inquiries</div>
+    </div>
+    <div class="inquiry-list" style="margin-bottom:16px">${renderInquiryCards(inquiriesShown)}</div>` : ''}
     <div class="reminder-list">
-      ${items.length === 0
-        ? `<div class="empty-state"><div class="empty-icon">🎉</div><h3>Nothing completed yet</h3><p>Finished reminders and tasks appear here.</p></div>`
-        : items.map(r => reminderCard(r)).join('')}
+      ${visibleCount === 0
+        ? `<div class="empty-state"><div class="empty-icon">🎉</div><h3>Nothing in this queue</h3><p>Pick another tab above or mark items ✓ Finished / ⊘ Closed from any list.</p></div>`
+        : remindersShown.map(r => reminderCard(r)).join('')}
     </div>
   `;
 }
