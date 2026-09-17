@@ -2,16 +2,16 @@
 /**
  * Plugin Name: F&O Lab - Standalone App - No Theme Needed
  * Description: Standalone F&O options research/paper-trading app for Indian index derivatives (NIFTY/BANKNIFTY/FINNIFTY). Activate plugin and yoursite.com/ IS the app - no theme, no shortcode needed for the app itself. Real 193-factor decision engine (never fabricates unavailable data), realistic paper trading (spread/slippage/costs/rejection simulation), a trained probability model, post-trade failure/correlation/regime analysis, an IV surface engine, and paper/live Kite Connect trading with explicit permission. A real Participant Payoff Hypothesis Engine (structured, falsifiable hypotheses tested against later price action, with a real historical track record feeding back into live confidence), real Dealer Gamma Exposure and Futures-Options/Multi-Instrument consistency checks, regime-conditional live confidence adjustment, a Six-Month Learning Objective progress dashboard, and a real, standalone Autonomous Driver (autonomous-driver/ folder) for genuinely unattended, browser-closed operation. Optional wp-admin settings page (Settings > F&O Lab Providers) for premium data providers, TrueData credentials, the companion tick daemon, the Autonomous Driver's secret/user attribution, and the raw observation store. Educational/research tool, not financial advice.
- * Version: 16.37.25
+ * Version: 16.37.26
  */
 
 if (!defined('ABSPATH')) exit;
 
 // WordPress reads * Version above for Plugins list; the app UI reads FNO_PLUGIN_VERSION.
 // Keep both identical — enforced by tests/plugin-version-sync.test.js
-define('FNO_PLUGIN_VERSION', '16.37.25');
+define('FNO_PLUGIN_VERSION', '16.37.26');
 // Fingerprint for support when semver alone is ambiguous (stale zip, duplicate folders, OPcache).
-define('FNO_PLUGIN_INSTALL_ID', '16.37.25-trade-alerts-exits');
+define('FNO_PLUGIN_INSTALL_ID', '16.37.26-ledger-lots-alerts');
 
 // Only one plugin folder may be active — e.g. both fno-lab-standalone-app
 // AND fno-lab-standalone-app-v16.21.0 causes fatal "Cannot redeclare" errors.
@@ -995,6 +995,31 @@ function fno_validate_symbol($raw) {
     if (!is_scalar($raw)) { $raw = ''; }
     $symbol = strtoupper(sanitize_text_field((string) $raw));
     return in_array($symbol, fno_valid_symbols(), true) ? $symbol : null;
+}
+
+/** NSE F&O whole-lot unit sizes — must stay aligned with FNO_EXCHANGE_LOT_SIZES in fno-lab-core.js */
+function fno_exchange_lot_size($symbol) {
+    $sizes = [
+        'NIFTY' => 75,
+        'BANKNIFTY' => 15,
+        'FINNIFTY' => 25,
+        'MIDCPNIFTY' => 50,
+        'SENSEX' => 10,
+    ];
+    $sym = fno_validate_symbol($symbol) ?? 'NIFTY';
+    return $sizes[$sym] ?? 75;
+}
+
+function fno_validate_exchange_qty($symbol, $qty) {
+    if (!is_numeric($qty)) {
+        return false;
+    }
+    $qty = (int) $qty;
+    if ($qty <= 0) {
+        return false;
+    }
+    $unit = fno_exchange_lot_size($symbol);
+    return ($qty % $unit) === 0;
 }
 
 /**
@@ -5424,7 +5449,20 @@ function fno_journal_add_fn() {
         'action' => sanitize_text_field($_POST['trade_action'] ?? 'MANUAL'),
         'entry_price' => isset($_POST['entry_price']) ? (float) $_POST['entry_price'] : null,
         'exit_price' => isset($_POST['exit_price']) ? (float) $_POST['exit_price'] : null,
-        'qty' => isset($_POST['qty']) ? (int) $_POST['qty'] : null,
+        'qty' => (function () {
+            if (!isset($_POST['qty']) || $_POST['qty'] === '') {
+                return null;
+            }
+            if (!is_numeric($_POST['qty'])) {
+                wp_send_json_error(['message' => "Real, non-numeric value genuinely rejected for 'qty'."], 400);
+            }
+            $qty = (int) $_POST['qty'];
+            $sym = fno_validate_symbol($_POST['symbol'] ?? 'NIFTY') ?? 'NIFTY';
+            if (!fno_validate_exchange_qty($sym, $qty)) {
+                wp_send_json_error(['message' => "Qty $qty is not a whole-number of $sym exchange lots (unit " . fno_exchange_lot_size($sym) . ") — refusing partial-lot journal rows."], 400);
+            }
+            return $qty;
+        })(),
         'pnl' => (float) ($_POST['pnl'] ?? 0),
         'gross_pnl' => isset($_POST['gross_pnl']) ? (float) $_POST['gross_pnl'] : null,
         'costs_total' => isset($_POST['costs_total']) ? (float) $_POST['costs_total'] : null,

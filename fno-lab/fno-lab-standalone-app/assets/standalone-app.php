@@ -848,7 +848,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
         <div style="display:flex;gap:6px;margin-bottom:8px"><input id="target" class="input" type="number" value="200" style="width:70px" title="Take-profit price"><input id="sl" class="input" type="number" value="100" style="width:70px" title="Stop-loss price"><label style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="autoMode"> Auto</label><button id="forceExit" class="btn" style="background:#ef4444" aria-label="Force exit the currently open Auto Trade position immediately, at the current live price">Exit</button></div>
         <div style="display:flex;gap:12px;margin-bottom:8px;font-size:11px">
           <label style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="trailingEnabled" checked> Trailing Stop (§27)</label>
-          <label style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="partialExitEnabled" checked> Partial Exit at Target (§27)</label>
+          <label style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="partialExitEnabled"> Partial Exit at Target (§27)</label>
         </div>
         <div style="display:flex;gap:8px;margin-bottom:8px;font-size:11px;align-items:center">
           <label>Execution Mode (Enterprise Plan #30):

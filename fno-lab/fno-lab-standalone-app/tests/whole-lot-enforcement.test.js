@@ -34,6 +34,6 @@ assert.strictEqual(depthOneLot.filledQty, 75);
 assert.strictEqual(api.isValidExchangeQty('NIFTY', depthOneLot.filledQty), true);
 
 assert.ok(coreSrc.includes('FNO_CORE_BUILD_MARKER'), 'core must expose build marker for upgrade verification');
-assert.ok(coreSrc.includes('finalizeExchangeOrderQty(symForLot, lotSize)'), 'tryOpenAutoTradePosition must finalize qty before open');
+assert.ok(coreSrc.includes('all-or-nothing fill'), 'tryOpen must reject partial depth fills');
 
 console.log('whole-lot enforcement OK');

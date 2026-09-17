@@ -74,7 +74,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.25-trade-alerts-exits';
+const FNO_CORE_BUILD_MARKER = '16.37.26-ledger-lots-alerts';
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -121,7 +121,7 @@ const FNO_SETTINGS_DEFAULTS = {
   fmsMicroRangeWindow: 12,
   fmsStopPremiumPoints: 12,
   scalpingTrailingEnabled: true, // default ON with scalping profile — lock gains on fast moves
-  scalpingPartialExitEnabled: true, // default ON — scale half at target, trail remainder
+  scalpingPartialExitEnabled: false, // default OFF — whole-lot exit unless user enables §27 scale-out
   // Enterprise trade alert system — fires ONLY on real paper-trade entry/exit execution.
   tradeAlertSystemEnabled: true,
   tradeAlertSoundEnabled: true,
@@ -753,7 +753,7 @@ const FNO_SCALPING_BRACKET_PRESETS = {
     targetFraction: 0.10,
     slFraction: 0.05,
     trailingEnabled: true,
-    partialExitEnabled: true,
+    partialExitEnabled: false,
     autoAdjusted: true,
     hint: 'Fastest exits — auto-adjusts +10% target / −5% SL from live premium',
   },
@@ -763,7 +763,7 @@ const FNO_SCALPING_BRACKET_PRESETS = {
     targetFraction: 0.15,
     slFraction: 0.075,
     trailingEnabled: true,
-    partialExitEnabled: true,
+    partialExitEnabled: false,
     autoAdjusted: true,
     hint: 'Tight scalp — auto-adjusts +15% target / −7.5% SL (2:1) from live premium',
   },
@@ -773,7 +773,7 @@ const FNO_SCALPING_BRACKET_PRESETS = {
     targetFraction: 0.20,
     slFraction: 0.10,
     trailingEnabled: true,
-    partialExitEnabled: true,
+    partialExitEnabled: false,
     autoAdjusted: true,
     hint: 'Default — auto-adjusts +20% target / −10% SL from live premium each refresh',
   },
@@ -783,7 +783,7 @@ const FNO_SCALPING_BRACKET_PRESETS = {
     targetFraction: 0.25,
     slFraction: 0.125,
     trailingEnabled: true,
-    partialExitEnabled: true,
+    partialExitEnabled: false,
     autoAdjusted: true,
     hint: 'Balanced — auto-adjusts +25% target / −12.5% SL (2:1) from live premium',
   },
@@ -793,7 +793,7 @@ const FNO_SCALPING_BRACKET_PRESETS = {
     targetFraction: 0.30,
     slFraction: 0.15,
     trailingEnabled: true,
-    partialExitEnabled: true,
+    partialExitEnabled: false,
     autoAdjusted: false,
     hint: 'Edit target/SL below, then Save — your % is reused on every setup',
   },
@@ -816,7 +816,7 @@ function getScalpingBracketConfig() {
       preset.slFraction = s.savedManualSlPct / 100;
     }
     preset.trailingEnabled = s.savedManualTrailingEnabled !== false;
-    preset.partialExitEnabled = s.savedManualPartialExitEnabled !== false;
+    preset.partialExitEnabled = s.savedManualPartialExitEnabled === true;
   }
   return preset;
 }
@@ -1058,7 +1058,7 @@ function applyScalpingProfitProfilePreset() {
     scalpingFmSafetyProfile: cur.scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'strict',
     defaultLots: 2,
     scalpingTrailingEnabled: true,
-    scalpingPartialExitEnabled: true,
+    scalpingPartialExitEnabled: false,
     scalpingCapitalPreservationEnabled: true,
     maxLosingTradesPerDay: 1,
     maxDailyLossPctPreservation: 1.5,
@@ -5766,7 +5766,7 @@ function applyScalpingConfidenceFloor(decision, confidence, decisionDirectionalS
 // Real paper-trade execution only (entry / exit / partial exit) —
 // alert sound FIRST, AI-style voice announcement IMMEDIATELY after.
 // ====================================================================
-let _fnoTradeAlertQueue = Promise.resolve();
+let _fnoTradeAlertVoiceQueue = Promise.resolve();
 
 function formatInrForTradeSpeech(n) {
   if (typeof n !== 'number' || !Number.isFinite(n)) return 'unknown price';
@@ -6095,17 +6095,14 @@ function notifyTradeExecution(event) {
   const preset = settings.tradeAlertSoundPreset || 'trading_desk';
   const pulses = (event.kind === 'exit' || event.kind === 'partial_exit') ? 2 : 1;
   const voiceUri = settings.tradeAlertVoiceUri || '';
-  _fnoTradeAlertQueue = _fnoTradeAlertQueue.then(() => new Promise((resolve) => {
-    const speak = () => {
-      if (settings.tradeAlertVoiceEnabled === false) { resolve(); return; }
+  if (settings.tradeAlertVoiceEnabled !== false) {
+    _fnoTradeAlertVoiceQueue = _fnoTradeAlertVoiceQueue.then(() => new Promise((resolve) => {
       speakTradeAlert(speech, voiceVol, settings.tradeAlertVoiceRate, settings.tradeAlertVoicePitch, voiceUri).then(resolve);
-    };
-    if (settings.tradeAlertSoundEnabled !== false) {
-      playTradeAlertSoundPreset(preset, soundVol, pulses, speak);
-    } else {
-      speak();
-    }
-  })).catch(() => {});
+    })).catch(() => {});
+  }
+  if (settings.tradeAlertSoundEnabled !== false) {
+    playTradeAlertSoundPreset(preset, soundVol, pulses, () => {});
+  }
 }
 function testTradeAlertSoundPreview() {
   primeTradeAlertAudio();
@@ -11072,7 +11069,57 @@ const FNO_STRATEGY_VERSION = 'v1.0-baseline'; // Master Prompt §34: every strat
  * Edge cases handled: anonymous user (isLoggedIn false) - server call
  * skipped entirely, not attempted-and-silently-failed.
  */
+function fingerprintJournalRow(t) {
+  if (!t) return '';
+  if (typeof t.id === 'number' && t.id > 0) return `id:${t.id}`;
+  const ts = t.ts || t.openedAt || 0;
+  return `${ts}|${t.symbol || ''}|${t.strike ?? ''}|${t.optionType || ''}|${t.action || ''}|${t.qty ?? ''}|${t.pnl ?? ''}`;
+}
+function journalRowsLikelySame(a, b) {
+  if (!a || !b) return false;
+  if (typeof a.id === 'number' && a.id > 0 && a.id === b.id) return true;
+  if (a.openedAt && b.openedAt && a.openedAt === b.openedAt && a.qty === b.qty && a.pnl === b.pnl) return true;
+  return fingerprintJournalRow(a) === fingerprintJournalRow(b);
+}
+function mergeJournalRowsForDisplay(serverRows, localRows) {
+  const server = Array.isArray(serverRows) ? serverRows.slice() : [];
+  const local = Array.isArray(localRows) ? localRows : [];
+  const out = server.slice();
+  for (const loc of local) {
+    if (server.some(s => journalRowsLikelySame(s, loc))) continue;
+    out.push(Object.assign({}, loc, { id: loc.id || `local-${fingerprintJournalRow(loc)}` }));
+  }
+  out.sort((a, b) => (b.ts || b.openedAt || 0) - (a.ts || a.openedAt || 0));
+  return out;
+}
+function openAutoTradeLedgerRow(open) {
+  if (!open || !open.id) return null;
+  return {
+    id: `open-${open.id}`,
+    ts: open.openedAt || Date.now(),
+    symbol: open.symbol || 'NIFTY',
+    strike: open.strike,
+    optionType: open.optionType,
+    action: 'OPEN',
+    entryPrice: open.entryPrice,
+    exitPrice: null,
+    qty: open.qty,
+    pnl: null,
+    grossPnl: null,
+    costsTotal: null,
+    tradingStyle: open.tradingType || 'intraday',
+    _ledgerOpen: true,
+  };
+}
 async function journalAdd(entry) {
+  if (entry && typeof entry.qty === 'number' && entry.qty > 0) {
+    const sym = entry.symbol || 'NIFTY';
+    if (!isValidExchangeQty(sym, entry.qty)) {
+      const fixed = floorQtyToWholeLots(sym, entry.qty);
+      if (fixed > 0 && isValidExchangeQty(sym, fixed)) entry.qty = fixed;
+      else console.warn('[FNO] journalAdd skipped invalid exchange qty', entry.qty, sym);
+    }
+  }
   const j = load(STORAGE.journal);
   j.push(entry);
   save(STORAGE.journal, j);
@@ -11113,6 +11160,11 @@ async function journalAdd(entry) {
       }).filter(([,v])=>v!==undefined && v!==null).map(([k,v])=>`${k}=${encodeURIComponent(v)}`).join('&');
       const r = await fetch(`${window.FNO_AJAX.url}?action=fno_journal_add`, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body});
       const j2 = await r.json();
+      if (j2.success && j2.data && j2.data.id) {
+        entry.id = j2.data.id;
+        j[j.length - 1] = entry;
+        save(STORAGE.journal, j);
+      }
       if (!j2.success) console.warn('Server journal write failed, entry kept in localStorage only:', j2.data && j2.data.message);
     } catch(e) { console.warn('Server journal write threw, entry kept in localStorage only:', e.message); }
   }
@@ -11134,23 +11186,22 @@ async function journalAdd(entry) {
  * back to load(STORAGE.journal) rather than leaving journal undefined.
  */
 async function syncServerJournal() {
-  if (!window.FNO_AJAX || !window.FNO_AJAX.isLoggedIn) return load(STORAGE.journal);
+  const local = load(STORAGE.journal);
+  if (!window.FNO_AJAX || !window.FNO_AJAX.isLoggedIn) return local;
   try {
     const r = await fetch(`${window.FNO_AJAX.url}?action=fno_journal_list&nonce=${window.FNO_AJAX.nonce}`);
     const j = await r.json();
-    if (!j.success) return load(STORAGE.journal);
-    if (j.data.count === 0) {
-      const local = load(STORAGE.journal);
-      if (local.length) {
-        const body = `action=fno_journal_import&entries=${encodeURIComponent(JSON.stringify(local))}&nonce=${window.FNO_AJAX.nonce}`;
-        await fetch(`${window.FNO_AJAX.url}?action=fno_journal_import`, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body});
-        return local; // use local copy for this render; next load will read it back from the server
-      }
+    if (!j.success) return local;
+    const serverRows = j.data.journal || [];
+    if (serverRows.length === 0 && local.length) {
+      const body = `action=fno_journal_import&entries=${encodeURIComponent(JSON.stringify(local))}&nonce=${window.FNO_AJAX.nonce}`;
+      await fetch(`${window.FNO_AJAX.url}?action=fno_journal_import`, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body});
+      return local;
     }
-    return j.data.journal;
+    return mergeJournalRowsForDisplay(serverRows, local);
   } catch(e) {
     console.warn('Server journal sync failed, using local-only journal:', e.message);
-    return load(STORAGE.journal);
+    return local;
   }
 }
 
@@ -19416,6 +19467,10 @@ function render(){
     if (execMode === 'realistic') {
       partialFillInfo = simulatePartialFillQty(leg, lotSize, 'buy', symForLot);
       filledLotSize = partialFillInfo.filledQty;
+      if (partialFillInfo.isPartial || (partialFillInfo.filledQty > 0 && partialFillInfo.filledQty < lotSize)) {
+        reportFn(`Blocked (all-or-nothing fill): requested ${lotSize} qty (${lotSize / getExchangeLotSize(symForLot)} lot(s)) but depth supports only ${partialFillInfo.filledQty} qty. ${partialFillInfo.reason || 'Reduce lot size or wait for more resting liquidity.'}`);
+        return { opened: false, reason: 'partial_fill_rejected', rejectionCategory: FNO_EXEC_REJECTION.RISK_VALIDATION };
+      }
     }
     const finalizedFill = finalizeExchangeOrderQty(symForLot, filledLotSize);
     if (!finalizedFill.ok) {
@@ -19423,11 +19478,6 @@ function render(){
       return { opened: false, reason: finalizedFill.reason || 'Partial lot fill not allowed', rejectionCategory: FNO_EXEC_REJECTION.RISK_VALIDATION };
     }
     filledLotSize = finalizedFill.qty;
-    if (execMode === 'realistic' && partialFillInfo.isPartial) {
-      reportFn(`Partial fill (whole lots only): requested ${lotSize} qty, filled ${filledLotSize} (${filledLotSize / getExchangeLotSize(symForLot)} lot(s)). ${partialFillInfo.reason || ''}`);
-    } else if (execMode === 'realistic' && partialFillInfo.reason && filledLotSize < lotSize) {
-      reportFn(partialFillInfo.reason);
-    }
     const hypotheticalCosts = computeTradeCosts(fill.price, target, filledLotSize);
     if (hypotheticalCosts.netPnl <= 0) {
       reportFn(`Blocked (Master Prompt §44 cost-aware check): even at target Rs${target}, real transaction costs (STT/exchange/GST/stamp - Rs${hypotheticalCosts.totalCosts.toFixed(2)}) would leave a net P&L of Rs${hypotheticalCosts.netPnl.toFixed(2)} - this trade cannot be profitable even in the best case.`);
@@ -19564,6 +19614,8 @@ function render(){
       sl,
       execMode,
     });
+    loadPaperAccount();
+    loadTradeLedger();
     const fmBox = document.getElementById('failureModeLibraryBox');
     if (fmBox) {
       fmBox.innerHTML = fmResult.triggered.length === 0
@@ -20357,39 +20409,43 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
   async function loadTradeLedger() {
     const summaryEl = document.getElementById('tradeLedgerSummary');
     const bodyEl = document.getElementById('tradeLedgerBody');
-    if (!summaryEl || !bodyEl || !window.FNO_AJAX.isLoggedIn) {
-      if (summaryEl) summaryEl.innerHTML = '<div style="grid-column:1/-1;color:#64748b">Log in to view the trade ledger.</div>';
-      if (bodyEl) bodyEl.innerHTML = '<tr><td colspan="13" style="padding:10px;color:#64748b">Log in to view trades.</td></tr>';
+    if (!summaryEl || !bodyEl) return;
+    const loggedIn = !!(window.FNO_AJAX && window.FNO_AJAX.isLoggedIn);
+    let trades = [];
+    try {
+      if (loggedIn) {
+        const r = await fetch(`${window.FNO_AJAX.url}?action=fno_journal_list&nonce=${window.FNO_AJAX.nonce}`);
+        const j = await r.json();
+        if (!j.success) {
+          trades = mergeJournalRowsForDisplay([], load(STORAGE.journal));
+        } else {
+          trades = mergeJournalRowsForDisplay(j.data.journal || [], load(STORAGE.journal));
+        }
+      } else {
+        trades = mergeJournalRowsForDisplay([], load(STORAGE.journal));
+      }
+    } catch (e) {
+      trades = mergeJournalRowsForDisplay([], load(STORAGE.journal));
+    }
+    const openRow = openAutoTradeLedgerRow(loadObj(STORAGE.autoTrades));
+    if (openRow) trades = [openRow, ...trades.filter(t => !t._ledgerOpen)];
+
+    if (!loggedIn && trades.length === 0) {
+      summaryEl.innerHTML = '<div style="grid-column:1/-1;color:#64748b">Log in to persist the trade ledger server-side. Local closed trades still appear here after you exit a position.</div>';
+      bodyEl.innerHTML = '<tr><td colspan="13" style="padding:10px;color:#64748b">No trades yet (log in for server backup).</td></tr>';
       return;
     }
-    try {
-      const r = await fetch(`${window.FNO_AJAX.url}?action=fno_journal_list&nonce=${window.FNO_AJAX.nonce}`);
-      const j = await r.json();
-      if (!j.success) { summaryEl.innerHTML = 'Could not load the real trade ledger this refresh.'; return; }
-      const trades = j.data.journal || [];
 
       if (trades.length === 0) {
         summaryEl.innerHTML = '<div style="grid-column:1/-1;color:#64748b;font-style:italic">No trades yet.</div>';
-        bodyEl.innerHTML = '<tr><td colspan="13" style="padding:10px;color:#64748b">No simulated trades recorded yet - once Auto Trade or a manual position closes, it will appear here.</td></tr>';
+        bodyEl.innerHTML = '<tr><td colspan="13" style="padding:10px;color:#64748b">No simulated trades recorded yet — open positions show here on entry; closed trades stay after exit.</td></tr>';
         return;
       }
 
       // Real, honest summary stats - every closed trade counted, none
-      // filtered by outcome. A trade with entryPrice but no exitPrice
-      // yet is a real, still-open position and is excluded from
-      // closed-trade stats (shown separately in Open Trades above).
-      // FOUND, and corrected properly, while testing this live: this
-      // app's own real architecture means wp_fno_journal ONLY ever
-      // receives a row when a trade genuinely, fully closes (via
-      // journalAdd/closeAutoTrade) - a still-open position lives
-      // separately, in the browser, until it closes. So every real
-      // row returned by fno_journal_list already IS a completed
-      // trade; there is no real "still open" row in this table to
-      // filter out. An earlier version of this code incorrectly
-      // required a real, present exitPrice specifically, which
-      // undercounted real, older rows that recorded a final pnl
-      // without also storing entry/exit price.
-      const closed = trades;
+      // filtered by outcome. Open rows (_ledgerOpen) are shown in the
+      // table but excluded from win/loss aggregates.
+      const closed = trades.filter(t => !t._ledgerOpen);
       const wins = closed.filter(t => t.pnl > 0);
       const losses = closed.filter(t => t.pnl < 0);
       const grossProfit = wins.reduce((s, t) => s + (t.grossPnl !== null ? t.grossPnl : t.pnl), 0);
@@ -20430,8 +20486,13 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
         if (hasFullPriceData && typeof t.qty === 'number') {
           costs = computeTradeCosts(t.entryPrice, t.exitPrice, t.qty);
         }
-        const netColor = t.pnl > 0 ? '#4ade80' : t.pnl < 0 ? '#f87171' : '#94a3b8';
-        return `<tr style="border-bottom:1px solid #111827;cursor:${costs ? 'pointer' : 'default'}" ${costs ? `onclick="window.__fnoShowChargesDetail(${t.id})"` : ''}>
+        const netColor = t._ledgerOpen ? '#38bdf8' : (t.pnl > 0 ? '#4ade80' : t.pnl < 0 ? '#f87171' : '#94a3b8');
+        const statusHtml = t._ledgerOpen
+          ? '<span style="color:#38bdf8;font-weight:700">Open</span>'
+          : `<span style="color:#94a3b8">Closed</span>${!hasFullPriceData ? ' <span style="color:#64748b;font-size:9px">(partial data)</span>' : ''}`;
+        const pnlCell = t._ledgerOpen || typeof t.pnl !== 'number' ? '-' : `Rs${t.pnl.toFixed(0)}`;
+        const rowClick = (costs && typeof t.id === 'number') ? `onclick="window.__fnoShowChargesDetail(${t.id})"` : '';
+        return `<tr style="border-bottom:1px solid #111827;cursor:${costs ? 'pointer' : 'default'}" ${rowClick}>
           <td style="padding:5px 4px;color:#64748b">#${t.id}</td>
           <td style="padding:5px 4px">${dateStr}</td>
           <td style="padding:5px 4px">${escapeHtml(t.symbol)}</td>
@@ -20442,8 +20503,8 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
           <td style="padding:5px 4px;text-align:right">${t.exitPrice !== null && t.exitPrice !== undefined ? t.exitPrice.toFixed(2) : '-'}</td>
           <td style="padding:5px 4px;text-align:right">${t.grossPnl !== null ? 'Rs'+t.grossPnl.toFixed(0) : '-'}</td>
           <td style="padding:5px 4px;text-align:right;color:#fbbf24">${t.costsTotal !== null ? 'Rs'+t.costsTotal.toFixed(0) : '-'}</td>
-          <td style="padding:5px 4px;text-align:right;font-weight:700;color:${netColor}">Rs${t.pnl.toFixed(0)}</td>
-          <td style="padding:5px 4px"><span style="color:#94a3b8">Closed</span>${!hasFullPriceData ? ' <span style="color:#64748b;font-size:9px">(partial data)</span>' : ''}</td>
+          <td style="padding:5px 4px;text-align:right;font-weight:700;color:${netColor}">${pnlCell}</td>
+          <td style="padding:5px 4px">${statusHtml}</td>
           <td style="padding:5px 4px">${(function(type){ const colors = {scalping:'#f59e0b', intraday:'#3b82f6', swing:'#a78bfa'}; const labels = {scalping:'⚡ Scalp', intraday:'📊 Intraday', swing:'📅 Swing'}; const t = type || 'intraday'; return `<span style="color:${colors[t]||'#94a3b8'};font-size:10px;font-weight:700">${labels[t]||t}</span>`; })(t.tradingStyle)}</td>
         </tr>`;
       }).join('');
@@ -20469,9 +20530,6 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
           <div style="font-size:10px;color:#64748b;margin-top:6px">Buy leg includes brokerage + exchange transaction charge + SEBI fee + stamp duty + GST on service fees. Sell leg includes the same, plus STT (no stamp duty on sell side) - the real, documented formula, not a flat estimate.</div>
         </div>`;
       };
-    } catch (e) {
-      summaryEl.innerHTML = 'Could not load the real trade ledger this refresh.';
-    }
   }
 
   async function loadPaperAccount() {
