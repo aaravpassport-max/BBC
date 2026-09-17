@@ -30,6 +30,8 @@ contextBridge.exposeInMainWorld('ilrs', {
 
   // App paths
   getAppPath: () => ipcRenderer.invoke('get-app-path'),
+  getAppVersion: () => ipcRenderer.invoke('get-app-version'),
+  setReminderLifecycle: (id, lifecycle) => ipcRenderer.invoke('set-reminder-lifecycle', { id, lifecycle }),
 
   // Window
   minimizeToTray: () => ipcRenderer.send('minimize-to-tray'),

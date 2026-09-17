@@ -3,7 +3,12 @@
  */
 const { randomUUID } = require('crypto');
 const { toLocalISO, advanceRecurring, ALARM_MAX_RINGS, isDue } = require('./alarm');
-const { LIFECYCLE_COMPLETED, LIFECYCLE_ACTIVE } = require('./work-lifecycle');
+const {
+  LIFECYCLE_COMPLETED,
+  LIFECYCLE_ACTIVE,
+  normalizeLifecycle,
+  reminderRowPatchForLifecycle,
+} = require('./work-lifecycle');
 
 function getSetting(db, key, defaultValue = '') {
   if (!db) return defaultValue;
@@ -208,6 +213,36 @@ function acknowledgeReminder(db, id, now = new Date()) {
   return { success: true };
 }
 
+function setReminderLifecycle(db, id, lifecycle, now = new Date()) {
+  const reminder = getReminder(db, id);
+  if (!reminder) return { success: false, error: 'Reminder not found' };
+  if (reminder.status === 'deleted') return { success: false, error: 'Reminder deleted' };
+
+  const lc = normalizeLifecycle(lifecycle);
+  const patch = reminderRowPatchForLifecycle(lc);
+  const nextFire = patch.clear_schedule ? '' : (reminder.next_fire || '');
+  const status = patch.status || reminder.status;
+  const workflow = patch.workflow_status || reminder.workflow_status;
+
+  db.prepare(`
+    UPDATE reminders SET
+      lifecycle_status = ?,
+      status = ?,
+      workflow_status = ?,
+      next_fire = ?,
+      alarm_rings = 0,
+      updated_at = ?
+    WHERE id = ?
+  `).run(patch.lifecycle_status, status, workflow, nextFire, toLocalISO(now), id);
+
+  db.prepare(`
+    INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
+    VALUES (?, ?, ?, datetime('now'))
+  `).run(randomUUID(), id, `lifecycle_${lc}`);
+
+  return { success: true, lifecycle: lc, nextFire };
+}
+
 function dismissAllRingingReminders(db, now = new Date()) {
   const rows = db.prepare(`
     SELECT id, next_fire, alarm_rings FROM reminders
@@ -236,6 +271,7 @@ module.exports = {
   updateWorkflowStatus,
   acknowledgeReminder,
   dismissAllRingingReminders,
+  setReminderLifecycle,
   parseNotificationAction,
   getSetting,
 };

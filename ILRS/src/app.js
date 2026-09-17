@@ -414,7 +414,7 @@ function renderShell() {
 
     <!-- Top Bar -->
     <div class="topbar">
-      <div class="topbar-logo">ILRS <span>Modern Reminder</span></div>
+      <div class="topbar-logo">ILRS <span>v${App.appVersion || '…'}</span></div>
       <div class="quick-add-bar">
         <input type="text" id="quick-input" placeholder="⚡ Call John tomorrow at 10am — press Enter" autocomplete="off" />
         <button class="quick-add-btn" onclick="handleQuickAdd()" title="Add reminder">+</button>
@@ -466,7 +466,7 @@ function renderShell() {
 
       <div style="margin-top:auto;padding:12px 8px">
         <div style="font-size:11px;color:var(--text-muted);text-align:center">
-          Hello, ${name}! 👋
+          Hello, ${name}! 👋<br/>ILRS v${App.appVersion || '…'}
         </div>
       </div>
     </nav>
@@ -726,6 +726,8 @@ async function renderToday(el) {
   el.innerHTML = `
     <div class="greeting-line">${greeting}, ${name}</div>
     <div class="greeting-sub">${attention === 0 ? 'You\'re all caught up!' : `${attention} thing${attention !== 1 ? 's' : ''} need your attention`}${lifeCount > 0 ? ` · ${lifeCount} from Life` : ''}</div>
+
+    ${workStatusWhatsNewHtml()}
 
     <div class="smart-tabs">
       <button class="smart-tab active" onclick="navigate('today')">Today · ${todayCount}</button>
@@ -1045,6 +1047,58 @@ function assigneeLabel(id) {
   return member ? member.name : '';
 }
 
+function lifecycleQuickSelect(reminder) {
+  const LC = window.ILRSWorkLifecycle;
+  if (!LC) return '';
+  const lc = LC.inferLifecycleFromReminder(reminder);
+  const opts = LC.LIFECYCLE_STATUSES.map((s) =>
+    `<option value="${s.id}" ${lc === s.id ? 'selected' : ''}>${s.short}</option>`
+  ).join('');
+  return `<select class="lifecycle-quick-select" onclick="event.stopPropagation()" onchange="setReminderLifecycleFromCard('${reminder.id}', this.value)" title="Work status (stage is separate)">${opts}</select>`;
+}
+
+async function setReminderLifecycleFromCard(id, lifecycle) {
+  const LC = window.ILRSWorkLifecycle;
+  const lc = LC?.normalizeLifecycle(lifecycle) || lifecycle;
+  const result = await window.ilrs?.setReminderLifecycle?.(id, lc);
+  if (!result?.success) {
+    toast(result?.error || 'Could not update status', 'warning');
+    return;
+  }
+  if (lc === 'closed' || lc === 'completed') {
+    clearDuePopupsForItem(id);
+    window.ILRSSounds?.stopAlertSound?.();
+  }
+  toast(`Status → ${LC?.lifecycleLabel(lc, true) || lc}`);
+  await loadAllData();
+  updateBadges();
+  if (typeof refreshCurrentView === 'function') refreshCurrentView();
+}
+window.setReminderLifecycleFromCard = setReminderLifecycleFromCard;
+
+function workStatusWhatsNewHtml() {
+  if (App.settings?.lifecycle_whats_new_dismissed === '1') return '';
+  return `
+    <div class="lifecycle-whats-new">
+      <div>
+        <strong>Work status is here (v${App.appVersion || ''})</strong>
+        <p style="margin:6px 0 0;font-size:13px;color:var(--text-secondary)">
+          Use the <strong>Status</strong> dropdown on each card, or open <strong>✏️ Edit</strong> / <strong>＋ New</strong>.
+          <em>Done</em> or <em>Closed</em> clears the next reminder so items leave Today and alarms.
+          Workflow <strong>stage</strong> is separate (🏷).
+        </p>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="dismissLifecycleWhatsNew()">Got it</button>
+    </div>`;
+}
+
+async function dismissLifecycleWhatsNew() {
+  await dbRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('lifecycle_whats_new_dismissed', '1')");
+  App.settings.lifecycle_whats_new_dismissed = '1';
+  if (typeof refreshCurrentView === 'function') refreshCurrentView();
+}
+window.dismissLifecycleWhatsNew = dismissLifecycleWhatsNew;
+
 function workflowLabel(status) {
   const labels = {
     pending: 'Pending',
@@ -1119,6 +1173,7 @@ function reminderCard(r) {
         <div class="reminder-meta">
           <span class="inquiry-stage-badge ${stageCls}" onclick="event.stopPropagation();showWorkflowStageModal('${r.id}','${entityType}')" title="Change stage">${stageLabel}</span>
           ${lifecycleBadge}
+          ${lifecycleQuickSelect(r)}
           <span class="tag ${r.category}">${categoryIcon(r.category)} ${r.category}</span>
           ${r.priority !== 'normal' ? `<span class="tag ${r.priority}">${priorityLabel(r.priority)}</span>` : ''}
           ${tags.slice(0, 1).map(t => `<span class="tag">#${t}</span>`).join('')}
@@ -2710,6 +2765,10 @@ async function renderSettings(el) {
     <div class="page-header">
       <div>
         <div class="page-title">⚙️ Settings</div>
+        <div class="page-subtitle" style="font-size:13px;color:var(--accent-light);margin-top:4px">
+          ILRS version <strong>${App.appVersion || 'unknown'}</strong>
+          ${App.appVersion && App.appVersion < '1.0.42' ? ' — <span style="color:var(--critical)">Update to v1.0.43+ for work status</span>' : ''}
+        </div>
         <div class="page-subtitle" id="system-clock-display" style="font-size:13px;color:var(--text-muted);margin-top:4px">
           🕐 Computer time: ${clock.time} · ${clock.date} (${clock.timezone || 'local'})
         </div>
@@ -3740,6 +3799,8 @@ async function dismissAlert() {
 async function init() {
   try {
     await loadSettings();
+    const ver = await api.getAppVersion?.();
+    App.appVersion = ver?.version || '';
     applyTheme(App.settings.appearance || 'dark');
     await loadAllData();
     renderShell();

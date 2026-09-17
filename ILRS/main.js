@@ -1,6 +1,7 @@
 const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { version: APP_VERSION } = require('./package.json');
 const {
   showDesktopNotification,
   dismissNotificationsForItem,
@@ -17,6 +18,7 @@ const {
   updateWorkflowStatus,
   acknowledgeReminder,
   dismissAllRingingReminders,
+  setReminderLifecycle,
   parseNotificationAction,
 } = require('./reminder-actions');
 const {
@@ -139,7 +141,7 @@ function createWindow() {
     height: 800,
     minWidth: 900,
     minHeight: 600,
-    title: 'ILRS — Modern Reminder',
+    title: `ILRS v${APP_VERSION} — Modern Reminder`,
     backgroundColor: '#0B1220',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -677,6 +679,22 @@ function setupIPC() {
   });
 
   ipcMain.handle('get-system-clock', async () => getSystemClockInfo());
+
+  ipcMain.handle('get-app-version', async () => ({ version: APP_VERSION }));
+
+  ipcMain.handle('set-reminder-lifecycle', async (_event, { id, lifecycle }) => {
+    try {
+      if (!id || !lifecycle) return { success: false, error: 'Missing id or lifecycle' };
+      const result = setReminderLifecycle(db, id, lifecycle);
+      if (result.success) {
+        clearReminderNotifications(id);
+        notifyRendererDataChanged();
+      }
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
 
   ipcMain.handle('compute-next-fire', async (_event, { startDate, time, repeatType, repeatValue }) => {
     const now = new Date();

@@ -12,6 +12,7 @@ const {
   bulkDeleteReminders,
   acknowledgeReminder,
   dismissAllRingingReminders,
+  setReminderLifecycle,
   parseNotificationAction,
 } = require('../reminder-actions');
 const { parseLocalDateTime, ALARM_MAX_RINGS, shouldFireNow } = require('../alarm');
@@ -173,6 +174,19 @@ test('completeOccurrence completes tasks without recurring advance', () => {
   const row = db.prepare('SELECT status, workflow_status FROM reminders WHERE id = ?').get('t1');
   assert.strictEqual(row.status, 'completed');
   assert.strictEqual(row.workflow_status, 'done');
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
+test('setReminderLifecycle closed clears next_fire', () => {
+  const { db, dbPath } = makeDb();
+  db.prepare(`INSERT INTO reminders (id, title, status, workflow_status, next_fire) VALUES (?, ?, 'active', 'pending', '2026-09-20T09:00:00')`)
+    .run('lc1', 'Follow up client');
+  const result = setReminderLifecycle(db, 'lc1', 'closed');
+  assert.strictEqual(result.success, true);
+  const row = db.prepare('SELECT lifecycle_status, status, next_fire FROM reminders WHERE id = ?').get('lc1');
+  assert.strictEqual(row.lifecycle_status, 'closed');
+  assert.strictEqual(row.next_fire, '');
   db.close();
   fs.unlinkSync(dbPath);
 });
