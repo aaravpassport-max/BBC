@@ -975,6 +975,7 @@ async function renderSmartList(mode) {
 async function renderWorkSchedule(el) {
   const target = el || document.getElementById('content');
   const WS = window.ILRSWorkScheduling;
+  const Q = window.ILRSLifecycleQueue;
   if (!WS) {
     target.innerHTML = '<div class="empty-state"><p>Work scheduling module not loaded.</p></div>';
     return;
@@ -982,7 +983,12 @@ async function renderWorkSchedule(el) {
   const filter = App.workScheduleFilter || 'upcoming';
   const custom = App.workScheduleCustom || {};
   const now = new Date();
-  let items = collectWorkScheduleItems();
+  let pool = collectWorkScheduleItems();
+  const lifecycleTab = Q?.getFilter('work') || 'active';
+  if (Q?.inferItem) {
+    pool = pool.filter((item) => lifecycleTab === 'all' || Q.inferItem(item, 'work') === lifecycleTab);
+  }
+  let items = pool;
   if (filter && filter !== 'all') {
     items = items.filter((item) => WS.matchesCompletionFilter(item, filter, now, custom));
   }
@@ -997,6 +1003,7 @@ async function renderWorkSchedule(el) {
       </div>
       <button class="btn btn-primary" onclick="typeof showQuickAddMenu==='function'?showQuickAddMenu():showCaptureSheet()">＋ New</button>
     </div>
+    ${Q?.tabsHtml ? Q.tabsHtml('work', pool) : ''}
     <div class="schedule-filters">
       ${WS.DATE_FILTERS.map((f) =>
         `<button type="button" class="schedule-filter-chip ${filter === f.id ? 'active' : ''}" onclick="setWorkScheduleFilter('${f.id}')">${f.label}</button>`
@@ -1060,6 +1067,8 @@ function lifecycleQuickSelect(reminder) {
 async function setReminderLifecycleFromCard(id, lifecycle) {
   const LC = window.ILRSWorkLifecycle;
   const lc = LC?.normalizeLifecycle(lifecycle) || lifecycle;
+  const row = App.reminders?.find((r) => r.id === id);
+  const entityKey = row?.task_type === 'task' ? 'task' : 'reminder';
   const result = await window.ilrs?.setReminderLifecycle?.(id, lc);
   if (!result?.success) {
     toast(result?.error || 'Could not update status', 'warning');
@@ -1069,10 +1078,10 @@ async function setReminderLifecycleFromCard(id, lifecycle) {
     clearDuePopupsForItem(id);
     window.ILRSSounds?.stopAlertSound?.();
   }
-  toast(`Status → ${LC?.lifecycleLabel(lc, true) || lc}`);
-  await loadAllData();
-  updateBadges();
-  if (typeof refreshCurrentView === 'function') refreshCurrentView();
+  toast(`Moved to ${LC?.lifecycleLabel(lc, true) || lc}`);
+  const Q = window.ILRSLifecycleQueue;
+  if (Q?.afterStatusChange) await Q.afterStatusChange(entityKey, lc);
+  else if (typeof refreshCurrentView === 'function') refreshCurrentView();
 }
 window.setReminderLifecycleFromCard = setReminderLifecycleFromCard;
 
@@ -1370,24 +1379,19 @@ async function renderCompleted(el) {
 async function renderTasks(el) {
   const q = App.taskSearchQuery || '';
   const GS = window.ILRSGlobalSearch;
-  const LC = window.ILRSWorkLifecycle;
-  let tasks = App.reminders.filter((r) => {
-    if (r.task_type !== 'task') return false;
-    if (LC?.isReminderOpenForWork) return LC.isReminderOpenForWork(r);
-    return r.status !== 'completed' && (r.workflow_status || 'pending') !== 'done';
-  });
+  const Q = window.ILRSLifecycleQueue;
+  let tasks = App.reminders.filter((r) => r.task_type === 'task' && r.status !== 'deleted');
   if (q.trim() && GS?.matchesReminder) {
     tasks = tasks.filter((t) => GS.matchesReminder(t, q));
   }
-  const pending = tasks.filter(t => (t.workflow_status || 'pending') === 'pending');
-  const active = tasks.filter(t => t.workflow_status === 'in_progress');
-  const postponed = tasks.filter(t => t.workflow_status === 'postponed');
+  const tab = Q?.getFilter('task') || 'active';
+  const visible = Q?.filterItems ? Q.filterItems(tasks, 'task', tab) : tasks;
 
   el.innerHTML = `
     <div class="page-header">
       <div>
         <div class="page-title">✅ Tasks</div>
-        <div class="page-subtitle">Work items without the pressure of a timed alarm</div>
+        <div class="page-subtitle">Status queues · ${visible.length} in this view</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-ghost" onclick="showSearchPalette()" title="Ctrl+K">🔍 Search</button>
@@ -1395,39 +1399,39 @@ async function renderTasks(el) {
         <button class="btn btn-primary" onclick="showCaptureSheet({ task_type: 'task' })">＋ New Task</button>
       </div>
     </div>
-    <div class="filter-bar" style="margin-bottom:12px">
+    ${Q?.tabsHtml ? Q.tabsHtml('task', tasks) : ''}
+    <div class="filter-bar" style="margin:12px 0">
       <input type="text" class="form-input" style="max-width:320px" placeholder="🔍 Search tasks (title, notes, tags, stage…)"
         value="${q.replace(/"/g, '&quot;')}"
         oninput="App.taskSearchQuery=this.value;navigate('tasks')" />
     </div>
     ${renderBulkSelectionBar('reminder')}
-    ${active.length ? `<div class="section-label">In progress</div><div class="reminder-list">${active.map(r => reminderCard(r)).join('')}</div>` : ''}
-    ${pending.length ? `<div class="section-label">Pending</div><div class="reminder-list">${pending.map(r => reminderCard(r)).join('')}</div>` : ''}
-    ${postponed.length ? `<div class="section-label">Postponed</div><div class="reminder-list">${postponed.map(r => reminderCard(r)).join('')}</div>` : ''}
-    ${tasks.length === 0 ? `<div class="empty-state"><div class="empty-icon">✅</div><h3>${q ? 'No matching tasks' : 'No open tasks'}</h3><p>${q ? 'Try different keywords or use Ctrl+K for global search.' : 'Create a task for things to do without a strict reminder time.'}</p></div>` : ''}
+    <div class="reminder-list">
+      ${visible.length === 0
+        ? `<div class="empty-state"><div class="empty-icon">✅</div><h3>${q ? 'No matching tasks' : 'No tasks in this status queue'}</h3><p>Change status on a card or pick another tab above.</p></div>`
+        : visible.map((r) => reminderCard(r)).join('')}
+    </div>
   `;
 }
 
 // ── Reminders Page ─────────────────────────────────────────────────
 async function renderReminders(el) {
   const filter = {
-    status: 'all',
     category: 'all',
     priority: 'all',
-    lifecycle: App.reminderLifecycleFilter || 'all',
     stage: App.reminderStageFilter || 'all',
     nextAction: App.reminderNextActionFilter || 'all',
   };
+  const Q = window.ILRSLifecycleQueue;
+  const baseReminders = App.reminders.filter((r) => r.task_type !== 'task' && r.status !== 'deleted');
+  const lifecycleTab = Q?.getFilter('reminder') || 'active';
 
   const render = (reminders) => {
     const LC = window.ILRSWorkLifecycle;
-    const filtered = reminders.filter((r) => {
-      if (filter.status !== 'all' && r.status !== filter.status) return false;
+    let filtered = Q?.filterItems ? Q.filterItems(reminders, 'reminder', lifecycleTab) : reminders;
+    filtered = filtered.filter((r) => {
       if (filter.category !== 'all' && r.category !== filter.category) return false;
       if (filter.priority !== 'all' && r.priority !== filter.priority) return false;
-      if (filter.lifecycle !== 'all' && LC?.inferLifecycleFromReminder) {
-        if (LC.inferLifecycleFromReminder(r) !== filter.lifecycle) return false;
-      }
       if (filter.stage !== 'all' && (r.stage_key || '') !== filter.stage) return false;
       if (filter.nextAction === 'scheduled' && !LC?.hasScheduledNextActionReminder(r)) return false;
       if (filter.nextAction === 'none' && LC?.hasScheduledNextActionReminder(r)) return false;
@@ -1450,14 +1454,9 @@ async function renderReminders(el) {
     </div>
     <div id="reminders-bulk-bar">${renderBulkSelectionBar('reminder')}</div>
 
-    <!-- Filters -->
-    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
-      <select class="form-select" style="width:auto" onchange="filter.status=this.value;render(App.reminders)" id="f-status">
-        <option value="all">All Status</option>
-        <option value='active'>Active</option>
-        <option value='completed'>Completed</option>
-        <option value="paused">Paused</option>
-      </select>
+    ${Q?.tabsHtml ? Q.tabsHtml('reminder', baseReminders) : ''}
+
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 20px">
       <select class="form-select" style="width:auto" onchange="filter.category=this.value;render(App.reminders)">
         <option value="all">All Categories</option>
         <option value="general">General</option>
@@ -1474,19 +1473,12 @@ async function renderReminders(el) {
         <option value="important">⚠️ Important</option>
         <option value="normal">✅ Normal</option>
       </select>
-      <select class="form-select" style="width:auto" onchange="App.reminderLifecycleFilter=this.value;filter.lifecycle=this.value;render(App.reminders)">
-        <option value="all" ${filter.lifecycle === 'all' ? 'selected' : ''}>All statuses</option>
-        <option value="active" ${filter.lifecycle === 'active' ? 'selected' : ''}>Active / In progress</option>
-        <option value="pending" ${filter.lifecycle === 'pending' ? 'selected' : ''}>Pending / On hold</option>
-        <option value="completed" ${filter.lifecycle === 'completed' ? 'selected' : ''}>Completed / Done</option>
-        <option value="closed" ${filter.lifecycle === 'closed' ? 'selected' : ''}>Closed</option>
-      </select>
       <select class="form-select" style="width:auto" onchange="App.reminderNextActionFilter=this.value;filter.nextAction=this.value;render(App.reminders)">
         <option value="all" ${filter.nextAction === 'all' ? 'selected' : ''}>Any next action</option>
         <option value="scheduled" ${filter.nextAction === 'scheduled' ? 'selected' : ''}>Has next reminder</option>
         <option value="none" ${filter.nextAction === 'none' ? 'selected' : ''}>No next reminder</option>
       </select>
-      <input type="text" class="form-input" style="width:200px" placeholder="🔍 Search..." oninput="searchReminders(this.value,App.reminders,render)"/>
+      <input type="text" class="form-input" style="width:200px" placeholder="🔍 Search..." oninput="searchReminders(this.value,baseReminders,render)"/>
     </div>
 
     <div class="reminder-list" id="reminders-list"></div>
@@ -1495,7 +1487,8 @@ async function renderReminders(el) {
   // expose filter to closures
   window.filter = filter;
   window.render = render;
-  render(App.reminders);
+  window.baseReminders = baseReminders;
+  render(baseReminders);
 }
 
 function searchReminders(query, reminders, renderFn) {

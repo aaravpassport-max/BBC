@@ -325,8 +325,12 @@
             : `📥 Inquiry ${result.inquiry.inquiry_number} created`;
         toast(msg);
       }
-      if (typeof navigate === 'function') {
-        App.selectedInquiryId = result.inquiry.id;
+      App.selectedInquiryId = result.inquiry.id;
+      const Q = window.ILRSLifecycleQueue;
+      if (Q?.afterStatusChange && data.lifecycleStatus) {
+        await Q.afterStatusChange('inquiry', data.lifecycleStatus);
+        if (typeof navigate === 'function') navigate('inquiry-detail');
+      } else if (typeof navigate === 'function') {
         navigate('inquiry-detail');
       }
     });

@@ -548,14 +548,14 @@
       toast(wasCompleted ? 'Rescheduled — item is active again' : (isEdit ? 'Updated!' : 'Created!'));
     }
     onClose();
-    if (typeof loadAllData === 'function') await loadAllData();
-    if (typeof updateBadges === 'function') updateBadges();
-    if (wasCompleted && App?.currentPage === 'completed' && typeof navigate === 'function') {
-      navigate(savedKind === 'task' ? 'tasks' : 'reminders');
-    } else if (typeof refreshCurrentView === 'function') {
-      refreshCurrentView();
-    } else if (typeof navigate === 'function') {
-      navigate(savedKind === 'task' ? 'tasks' : (App?.currentPage || 'today'));
+    const entityKey = savedKind === 'task' ? 'task' : 'reminder';
+    const Q = window.ILRSLifecycleQueue;
+    if (Q?.afterStatusChange && lifecycle) {
+      await Q.afterStatusChange(entityKey, lifecycle);
+    } else {
+      if (typeof loadAllData === 'function') await loadAllData();
+      if (typeof updateBadges === 'function') updateBadges();
+      if (typeof refreshCurrentView === 'function') refreshCurrentView();
     }
   }
 

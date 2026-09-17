@@ -29,10 +29,9 @@
       if (typeof toast === 'function') toast(result?.error || 'Could not update status', 'warning');
       return;
     }
-    if (typeof toast === 'function') toast(`Status → ${LC?.lifecycleLabel(lc, true) || lc}`);
-    if (typeof loadAllData === 'function') await loadAllData();
-    if (typeof updateBadges === 'function') updateBadges();
-    if (typeof refreshCurrentView === 'function') refreshCurrentView();
+    if (typeof toast === 'function') toast(`Moved to ${LC?.lifecycleLabel(lc, true) || lc}`);
+    const Q = window.ILRSLifecycleQueue;
+    if (Q?.afterStatusChange) await Q.afterStatusChange('inquiry', lc);
     else if (App.currentPage === 'inquiry-detail' && App.selectedInquiryId === id) navigate('inquiry-detail');
   }
 
@@ -190,7 +189,10 @@
   async function renderPipeline(el) {
     const pipeline = P();
     const categories = pipeline?.STAGE_CATEGORIES || {};
-    const active = activeInquiries();
+    const Q = window.ILRSLifecycleQueue;
+    const pool = (App.inquiries || []).filter((i) => i.outcome_status !== 'deleted');
+    const tab = Q?.getFilter('inquiry') || 'active';
+    const active = Q?.filterItems ? Q.filterItems(pool, 'inquiry', tab) : activeInquiries();
     const catFilter = App.pipelineCategoryFilter || 'all';
     const stageFilter = App.pipelineStageFilter || 'all';
     const stages = (pipeline?.getActiveStages() || []).filter((s) => {
@@ -236,7 +238,7 @@
       <div class="page-header">
         <div>
           <div class="page-title">📊 Inquiry Pipeline</div>
-          <div class="page-subtitle">${visibleCount} active · table view by stage</div>
+          <div class="page-subtitle">${visibleCount} in this status queue · grouped by pipeline stage</div>
         </div>
         <div style="display:flex;gap:8px">
           <button class="btn btn-ghost" onclick="navigate('pipeline-settings')">⚙️ Setup</button>
@@ -244,6 +246,7 @@
           <button class="btn btn-primary" onclick="showInquirySheet()">＋ New Inquiry</button>
         </div>
       </div>
+      ${Q?.tabsHtml ? Q.tabsHtml('inquiry', pool) : ''}
       <div class="smart-tabs pipeline-filters">
         ${categoryTabs.map(([key, label]) =>
           `<button class="smart-tab ${catFilter === key ? 'active' : ''}" onclick="setPipelineCategory('${key}')">${label}</button>`
@@ -283,26 +286,17 @@
   }
 
   async function renderInquiries(el) {
-    const all = App.inquiries || [];
-    const filter = App.inquiryListFilter || 'active';
-    let items = all;
-    if (App.clientFilterId) items = items.filter((i) => i.client_id === App.clientFilterId);
-    if (filter === 'active') items = items.filter((i) => i.outcome_status === 'active');
-    else if (filter === 'closed') items = items.filter((i) => i.outcome_status !== 'active');
-    else if (filter === 'mine') items = items.filter((i) => i.assigned_to === 'me' || !i.assigned_to);
-    const stageFilter = App.inquiryStageFilter || 'all';
-    if (stageFilter !== 'all') items = items.filter((i) => i.stage_key === stageFilter);
-    const lifecycleFilter = App.inquiryLifecycleFilter || 'all';
-    const LC = window.ILRSWorkLifecycle;
-    if (lifecycleFilter !== 'all' && LC) {
-      if (lifecycleFilter === 'has_followup') {
-        items = items.filter((i) => LC.hasScheduledInquiryFollowUp(i));
-      } else if (lifecycleFilter === 'no_followup') {
-        items = items.filter((i) => !LC.hasScheduledInquiryFollowUp(i));
-      } else {
-        items = items.filter((i) => LC.inferLifecycleFromInquiry(i) === lifecycleFilter);
-      }
+    const Q = window.ILRSLifecycleQueue;
+    const all = (App.inquiries || []).filter((i) => i.outcome_status !== 'deleted');
+    let pool = all;
+    if (App.clientFilterId) pool = pool.filter((i) => i.client_id === App.clientFilterId);
+    if (App.inquiryListFilter === 'mine') {
+      pool = pool.filter((i) => i.assigned_to === 'me' || !i.assigned_to);
     }
+    const stageFilter = App.inquiryStageFilter || 'all';
+    if (stageFilter !== 'all') pool = pool.filter((i) => i.stage_key === stageFilter);
+    const tab = Q?.getFilter('inquiry') || 'active';
+    let items = Q?.filterItems ? Q.filterItems(pool, 'inquiry', tab) : pool;
     const searchQ = App.inquirySearchQuery || '';
     const GS = window.ILRSGlobalSearch;
     if (searchQ.trim() && GS?.matchesInquiry) {
@@ -325,23 +319,15 @@
           oninput="App.inquirySearchQuery=this.value;navigate('inquiries')" />
       </div>
       ${clientFilter ? `<div style="margin-bottom:12px"><button class="btn btn-ghost btn-sm" onclick="App.clientFilterId=null;navigate('inquiries')">✕ Clear client filter</button></div>` : ''}
-      <div class="smart-tabs">
-        <button class="smart-tab ${filter === 'active' ? 'active' : ''}" onclick="setInquiryFilter('active')">Active</button>
-        <button class="smart-tab ${filter === 'mine' ? 'active' : ''}" onclick="setInquiryFilter('mine')">My Inquiries</button>
-        <button class="smart-tab ${filter === 'closed' ? 'active' : ''}" onclick="setInquiryFilter('closed')">Closed / Lost</button>
+      ${Q?.tabsHtml ? Q.tabsHtml('inquiry', pool) : ''}
+      <div class="smart-tabs" style="margin-top:8px">
+        <button class="smart-tab ${App.inquiryListFilter !== 'mine' ? 'active' : ''}" onclick="setInquiryFilter('all')">Everyone</button>
+        <button class="smart-tab ${App.inquiryListFilter === 'mine' ? 'active' : ''}" onclick="setInquiryFilter('mine')">My inquiries</button>
       </div>
-      <p class="form-hint" style="margin-bottom:10px">
-        <strong>Work status</strong> (Active / On hold / Done / Closed) is on each card, in <strong>Edit</strong>, or below.
-        Pipeline <strong>Stage</strong> is separate (workflow step).
-      </p>
-      <div class="pipeline-stage-filter" style="margin-bottom:12px;display:flex;flex-wrap:wrap;gap:12px;align-items:center">
-        <label class="form-label" style="display:inline;margin-right:8px">Stage:</label>
+      <div class="pipeline-stage-filter" style="margin:12px 0;display:flex;flex-wrap:wrap;gap:12px;align-items:center">
+        <label class="form-label" style="display:inline;margin-right:8px">Pipeline stage:</label>
         <select class="form-select" style="width:auto;min-width:220px" onchange="setInquiryStageFilter(this.value)">
           ${stageFilterOptions(stageFilter)}
-        </select>
-        <label class="form-label" style="display:inline;margin-right:8px">Status:</label>
-        <select class="form-select" style="width:auto;min-width:220px" onchange="App.inquiryLifecycleFilter=this.value;navigate('inquiries')">
-          ${lifecycleFilterOptions(lifecycleFilter)}
         </select>
       </div>
       ${typeof renderBulkSelectionBar === 'function' ? renderBulkSelectionBar('inquiry') : ''}
@@ -353,7 +339,7 @@
   }
 
   function setInquiryFilter(f) {
-    App.inquiryListFilter = f;
+    App.inquiryListFilter = f === 'mine' ? 'mine' : 'all';
     navigate('inquiries');
   }
 
