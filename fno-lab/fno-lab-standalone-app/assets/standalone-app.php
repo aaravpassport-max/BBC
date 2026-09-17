@@ -96,6 +96,20 @@ input:checked + .slider:before{transform:translateX(24px)}
    they can genuinely shrink to the real, available width, letting
    each card's own internal scroll take over instead. */
 .grid>div{min-width:0}
+#tradeLedgerTable{table-layout:fixed;width:100%;min-width:860px;font-size:11px;border:1px solid #1e293b;border-radius:10px;overflow:hidden}
+#tradeLedgerTable thead th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;background:#0b1220;white-space:nowrap}
+#tradeLedgerTable td,#tradeLedgerTable th{padding:8px 6px;vertical-align:middle;border-bottom:1px solid #111827}
+#tradeLedgerTable tbody tr:nth-child(even){background:#020617}
+#tradeLedgerTable tbody tr:hover{background:#0f172a}
+#tradeLedgerTable .fno-ledger-col-id{width:44px;text-align:right;color:#64748b;font-variant-numeric:tabular-nums;font-size:10px}
+#tradeLedgerTable .fno-ledger-col-date{width:92px;line-height:1.35;white-space:normal;font-size:10px;color:#cbd5e1}
+#tradeLedgerTable .fno-ledger-col-sym{width:68px;font-weight:600}
+#tradeLedgerTable .fno-ledger-col-strike{width:72px;font-size:10px;color:#94a3b8}
+#tradeLedgerTable .fno-ledger-col-action{max-width:108px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#94a3b8;font-size:10px}
+#tradeLedgerTable .fno-ledger-col-num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+#tradeLedgerTable .fno-ledger-col-status{width:72px;font-size:10px}
+#tradeLedgerTable .fno-ledger-col-type{width:64px;font-size:10px}
+#tradeLedgerFootnote{font-size:10px;color:#64748b;margin-top:8px;line-height:1.4}
 @media(max-width:1000px){.grid{grid-template-columns:1fr}}
 .login-bar{background:#422006;color:#fde68a;padding:10px;border-radius:10px;margin-bottom:12px;text-align:center}
 .login-bar a{color:#60a5fa;font-weight:700}
@@ -506,30 +520,31 @@ body.fno-nse-disabled .nse-only-section{display:none}
         <div id="learningObjectiveBox" style="font-size:11px">Loading real progress...</div>
       </div>
       <div class="card card-accent-primary">
-        <h3>📒 Trade Ledger <span class="card-subtitle">Every simulated trade, with realistic Zerodha-rate charges - nothing filtered</span></h3>
+        <h3>📒 Trade Ledger <span class="card-subtitle">Closed round-trips with Zerodha-rate charges — open position shown until exit</span></h3>
         <div id="tradeLedgerSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:12px">Loading...</div>
-        <div style="overflow-x:auto;max-width:100%">
-          <table style="width:100%;border-collapse:collapse;font-size:12px" id="tradeLedgerTable">
+        <div style="overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch">
+          <table style="width:100%;border-collapse:collapse" id="tradeLedgerTable">
             <thead>
-              <tr style="border-bottom:1px solid #1e293b;color:#94a3b8;text-align:left">
-                <th style="padding:7px 6px">ID</th>
-                <th style="padding:7px 6px">Date / Time</th>
-                <th style="padding:7px 6px">Symbol</th>
-                <th style="padding:7px 6px">Strike/Type</th>
-                <th style="padding:7px 6px">Action</th>
-                <th style="padding:7px 6px;text-align:right">Qty</th>
-                <th style="padding:7px 6px;text-align:right">Entry</th>
-                <th style="padding:7px 6px;text-align:right">Exit</th>
-                <th style="padding:7px 6px;text-align:right">Gross P&amp;L</th>
-                <th style="padding:7px 6px;text-align:right">Charges</th>
-                <th style="padding:7px 6px;text-align:right">Net P&amp;L</th>
-                <th style="padding:7px 6px">Status</th>
-                <th style="padding:7px 6px" title="Real, foundational trade-type awareness - which trade type this specific trade actually was, recorded at the exact moment it opened.">Type</th>
+              <tr style="text-align:left">
+                <th class="fno-ledger-col-id">#</th>
+                <th class="fno-ledger-col-date">When</th>
+                <th class="fno-ledger-col-sym">Symbol</th>
+                <th class="fno-ledger-col-strike">Strike</th>
+                <th class="fno-ledger-col-action">Exit reason</th>
+                <th class="fno-ledger-col-num">Qty</th>
+                <th class="fno-ledger-col-num">Entry</th>
+                <th class="fno-ledger-col-num">Exit</th>
+                <th class="fno-ledger-col-num">Gross</th>
+                <th class="fno-ledger-col-num">Charges</th>
+                <th class="fno-ledger-col-num">Net</th>
+                <th class="fno-ledger-col-status">Status</th>
+                <th class="fno-ledger-col-type">Type</th>
               </tr>
             </thead>
             <tbody id="tradeLedgerBody"><tr><td colspan="13" style="padding:10px;color:#64748b">Loading...</td></tr></tbody>
           </table>
         </div>
+        <div id="tradeLedgerFootnote"></div>
         <div id="tradeLedgerChargesDetail" style="margin-top:10px;font-size:12px"></div>
       </div>
       <div class="card card-accent-info">

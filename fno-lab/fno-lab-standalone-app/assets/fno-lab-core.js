@@ -85,7 +85,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.28-ledger-live-sync';
+const FNO_CORE_BUILD_MARKER = '16.37.29-ledger-ui';
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -11098,15 +11098,60 @@ function mergeJournalRowsForDisplay(serverRows, localRows) {
   // Local journal is the source of truth for this browser session (written
   // synchronously on every close); server rows backfill history from other
   // devices or after import — never drop local-only rows behind a slow fetch.
-  const out = local.map((loc) => Object.assign({}, loc, {
-    id: (loc.id != null && loc.id !== '') ? loc.id : `local-${fingerprintJournalRow(loc)}`,
-  }));
+  const out = local.map((loc) => Object.assign({}, loc));
   for (const s of server) {
     if (out.some((loc) => journalRowsLikelySame(s, loc))) continue;
     out.push(s);
   }
   out.sort((a, b) => (b.ts || b.openedAt || 0) - (a.ts || a.openedAt || 0));
   return out;
+}
+/** Completed CE/PE round-trip (excludes ORDER_PLACED audit rows and junk partial rows). */
+function isLedgerCompletedRoundTrip(t) {
+  if (!t) return false;
+  if (t._ledgerOpen) return false;
+  const action = String(t.action || '');
+  if (action === 'ORDER_PLACED' || t.source === 'order') return false;
+  if (typeof t.pnl !== 'number' || !Number.isFinite(t.pnl)) return false;
+  return true;
+}
+function formatLedgerActionLabel(action) {
+  const a = String(action || '');
+  const labels = {
+    AUTO_TARGET_EXIT: 'Target hit',
+    AUTO_SL_EXIT: 'Stop loss',
+    AUTO_SIGNAL_INVALIDATED: 'Signal invalid',
+    AUTO_SQUARE_OFF: 'Square-off',
+    MANUAL_FORCE_EXIT: 'Manual exit',
+    PARTIAL_EXIT_AT_TARGET: 'Partial @ target',
+    ORDER_PLACED: 'Order placed',
+    OPEN: 'Entry',
+  };
+  if (labels[a]) return labels[a];
+  return a.replace(/^AUTO_/, '').replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()).trim() || '—';
+}
+function formatLedgerStrikeCell(strike, optionType) {
+  const opt = optionType ? String(optionType) : '';
+  if (typeof strike !== 'number' || !Number.isFinite(strike)) return opt || '—';
+  const s = strike.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+  return opt ? `${s} ${opt}` : s;
+}
+function formatLedgerWhen(ts) {
+  const d = new Date(ts || Date.now());
+  return d.toLocaleString('en-IN', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+function assignLedgerDisplayIds(trades) {
+  let localN = 0;
+  return trades.map((t) => {
+    let displayId = '—';
+    if (t._ledgerOpen) displayId = '·';
+    else if (typeof t.id === 'number' && t.id > 0) displayId = String(t.id);
+    else displayId = 'L' + (++localN);
+    return Object.assign({}, t, { _ledgerDisplayId: displayId });
+  });
+}
+function filterLedgerTableRows(trades) {
+  return trades.filter((t) => t._ledgerOpen || isLedgerCompletedRoundTrip(t));
 }
 function openAutoTradeLedgerRow(open) {
   if (!open || !open.id) return null;
@@ -20492,12 +20537,17 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
       if (trades.length === 0) {
         summaryEl.innerHTML = '<div style="grid-column:1/-1;color:#64748b;font-style:italic">No trades yet.</div>';
         bodyEl.innerHTML = '<tr><td colspan="13" style="padding:10px;color:#64748b">No simulated trades recorded yet — open positions show here on entry; closed trades stay after exit.</td></tr>';
+        const footEl = document.getElementById('tradeLedgerFootnote');
+        if (footEl) footEl.textContent = '';
         return;
       }
 
-      const closed = trades.filter(t => !t._ledgerOpen);
-      const wins = closed.filter(t => ledgerTradeNetPnl(t) > 0);
-      const losses = closed.filter(t => ledgerTradeNetPnl(t) < 0);
+      const hiddenEventCount = trades.filter((t) => !t._ledgerOpen && !isLedgerCompletedRoundTrip(t)).length;
+      const tableRows = assignLedgerDisplayIds(filterLedgerTableRows(trades));
+
+      const closed = tableRows.filter((t) => !t._ledgerOpen);
+      const wins = closed.filter((t) => ledgerTradeNetPnl(t) > 0);
+      const losses = closed.filter((t) => ledgerTradeNetPnl(t) < 0);
       const grossProfit = wins.reduce((s, t) => s + ledgerTradeGrossPnl(t), 0);
       const grossLoss = losses.reduce((s, t) => s + ledgerTradeGrossPnl(t), 0);
       const totalCharges = closed.reduce((s, t) => s + ((typeof t.costsTotal === 'number' && Number.isFinite(t.costsTotal)) ? t.costsTotal : 0), 0);
@@ -20519,9 +20569,9 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
         stat('Avg Win', 'Rs' + avgWin.toFixed(0), '#4ade80') +
         stat('Avg Loss', 'Rs' + avgLoss.toFixed(0), '#f87171');
 
-      bodyEl.innerHTML = trades.map(t => {
+      bodyEl.innerHTML = tableRows.map(t => {
         const hasFullPriceData = typeof t.entryPrice === 'number' && typeof t.exitPrice === 'number';
-        const dateStr = new Date(t.ts || Date.now()).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+        const dateStr = formatLedgerWhen(t.ts);
         let costs = null;
         if (hasFullPriceData && typeof t.qty === 'number') {
           costs = computeTradeCosts(t.entryPrice, t.exitPrice, t.qty);
@@ -20530,27 +20580,35 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
         const netColor = t._ledgerOpen ? '#38bdf8' : (net > 0 ? '#4ade80' : net < 0 ? '#f87171' : '#94a3b8');
         const statusHtml = t._ledgerOpen
           ? '<span style="color:#38bdf8;font-weight:700">Open</span>'
-          : `<span style="color:#94a3b8">Closed</span>${!hasFullPriceData ? ' <span style="color:#64748b;font-size:9px">(partial data)</span>' : ''}`;
-        const pnlCell = t._ledgerOpen ? '-' : formatLedgerRsWhole(typeof t.pnl === 'number' ? t.pnl : null);
+          : '<span style="color:#94a3b8">Closed</span>';
+        const pnlCell = t._ledgerOpen ? '—' : formatLedgerRsWhole(typeof t.pnl === 'number' ? t.pnl : null);
         const rowClick = (costs && typeof t.id === 'number') ? `onclick="window.__fnoShowChargesDetail(${t.id})"` : '';
-        return `<tr style="border-bottom:1px solid #111827;cursor:${costs ? 'pointer' : 'default'}" ${rowClick}>
-          <td style="padding:5px 4px;color:#64748b">#${escapeHtml(String(t.id))}</td>
-          <td style="padding:5px 4px">${dateStr}</td>
-          <td style="padding:5px 4px">${escapeHtml(t.symbol || '')}</td>
-          <td style="padding:5px 4px">${t.strike != null && typeof t.strike === 'number' ? t.strike : '-'}${escapeHtml(t.optionType || '')}</td>
-          <td style="padding:5px 4px">${escapeHtml(String(t.action || ''))}</td>
-          <td style="padding:5px 4px;text-align:right">${typeof t.qty === 'number' ? t.qty : '-'}</td>
-          <td style="padding:5px 4px;text-align:right">${typeof t.entryPrice === 'number' ? t.entryPrice.toFixed(2) : '-'}</td>
-          <td style="padding:5px 4px;text-align:right">${typeof t.exitPrice === 'number' ? t.exitPrice.toFixed(2) : '-'}</td>
-          <td style="padding:5px 4px;text-align:right">${formatLedgerRsWhole(typeof t.grossPnl === 'number' ? t.grossPnl : null)}</td>
-          <td style="padding:5px 4px;text-align:right;color:#fbbf24">${formatLedgerRsWhole(typeof t.costsTotal === 'number' ? t.costsTotal : null)}</td>
-          <td style="padding:5px 4px;text-align:right;font-weight:700;color:${netColor}">${pnlCell}</td>
-          <td style="padding:5px 4px">${statusHtml}</td>
-          <td style="padding:5px 4px">${(function(type){ const colors = {scalping:'#f59e0b', intraday:'#3b82f6', swing:'#a78bfa'}; const labels = {scalping:'⚡ Scalp', intraday:'📊 Intraday', swing:'📅 Swing'}; const ty = type || 'intraday'; return `<span style="color:${colors[ty]||'#94a3b8'};font-size:10px;font-weight:700">${labels[ty]||ty}</span>`; })(t.tradingStyle || t.tradingType)}</td>
+        const actionLabel = t._ledgerOpen ? 'Live position' : formatLedgerActionLabel(t.action);
+        return `<tr style="cursor:${costs ? 'pointer' : 'default'}" ${rowClick}>
+          <td class="fno-ledger-col-id">${escapeHtml(t._ledgerDisplayId || '—')}</td>
+          <td class="fno-ledger-col-date">${dateStr}</td>
+          <td class="fno-ledger-col-sym">${escapeHtml(t.symbol || '')}</td>
+          <td class="fno-ledger-col-strike">${escapeHtml(formatLedgerStrikeCell(t.strike, t.optionType))}</td>
+          <td class="fno-ledger-col-action" title="${escapeHtml(String(t.action || ''))}">${escapeHtml(actionLabel)}</td>
+          <td class="fno-ledger-col-num">${typeof t.qty === 'number' ? t.qty : '—'}</td>
+          <td class="fno-ledger-col-num">${typeof t.entryPrice === 'number' ? t.entryPrice.toFixed(2) : '—'}</td>
+          <td class="fno-ledger-col-num">${typeof t.exitPrice === 'number' ? t.exitPrice.toFixed(2) : '—'}</td>
+          <td class="fno-ledger-col-num">${formatLedgerRsWhole(typeof t.grossPnl === 'number' ? t.grossPnl : null)}</td>
+          <td class="fno-ledger-col-num" style="color:#fbbf24">${formatLedgerRsWhole(typeof t.costsTotal === 'number' ? t.costsTotal : null)}</td>
+          <td class="fno-ledger-col-num" style="font-weight:700;color:${netColor}">${pnlCell}</td>
+          <td class="fno-ledger-col-status">${statusHtml}</td>
+          <td class="fno-ledger-col-type">${(function(type){ const colors = {scalping:'#f59e0b', intraday:'#3b82f6', swing:'#a78bfa'}; const labels = {scalping:'Scalp', intraday:'Intraday', swing:'Swing'}; const ty = type || 'intraday'; return `<span style="color:${colors[ty]||'#94a3b8'};font-weight:700">${labels[ty]||ty}</span>`; })(t.tradingStyle || t.tradingType)}</td>
         </tr>`;
       }).join('');
 
-      window.__fnoLedgerTrades = trades;
+      const footEl = document.getElementById('tradeLedgerFootnote');
+      if (footEl) {
+        footEl.textContent = hiddenEventCount > 0
+          ? `${hiddenEventCount} non-trade journal event(s) (e.g. order placed) hidden from this table — stats above count completed round-trips only.`
+          : '';
+      }
+
+      window.__fnoLedgerTrades = tableRows;
       window.__fnoShowChargesDetail = function(tradeId) {
         const t = window.__fnoLedgerTrades.find(tr => tr.id === tradeId);
         if (!t || typeof t.exitPrice !== 'number') return;
