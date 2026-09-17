@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.35-brain-refresh-ui-safe';
+const FNO_CORE_BUILD_MARKER = '16.37.36-brain-refresh-ui-safe-v2';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -98,6 +98,7 @@ function fnoFormatFixed(value, digits, fallback) {
   const n = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(n) ? n.toFixed(digits) : String(fallback);
 }
+if (typeof window !== 'undefined') window.fnoFormatFixed = fnoFormatFixed;
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -1125,7 +1126,7 @@ function renderScalpingSessionReadiness(brain, ctx) {
   const spread = leg ? checkSpreadLevel(leg) : { spreadPct: null };
   const spreadBlockPct = typeof getModeSpreadHardBlockPct === 'function' ? getModeSpreadHardBlockPct() : FNO_SCALPING_PROFIT_PROFILE.spreadHardBlockPct;
   const spreadTxt = Number.isFinite(spread.spreadPct)
-    ? `${spread.spreadPct.toFixed(1)}% (blocks above ${spreadBlockPct}%)`
+    ? `${fnoFormatFixed(spread.spreadPct, 1)}% (blocks above ${spreadBlockPct}%)`
     : 'bid/ask unavailable';
   const timeCheck = checkSufficientTimeRemaining(ctx || {}, 'scalping');
   const timeTxt = timeCheck.sufficient
@@ -1143,10 +1144,10 @@ function renderScalpingSessionReadiness(brain, ctx) {
     : (fnoSettings.get().scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'strict');
   const weightSafety = brain && brain.tradeTypeWeightingAdjustment
     ? '⚠ weighted score failed — trade blocked for safety'
-    : (wds !== null ? `weighted ${wds.toFixed(1)} OK` : 'weighted n/a');
+    : (Number.isFinite(wds) ? `weighted ${fnoFormatFixed(wds, 1)} OK` : 'weighted n/a');
   const daemonOnline = isMicrostructureDaemonOnline(ctx);
   const microTxt = daemonOnline
-    ? `✓ Companion daemon live (${ctx.microstructure.ticksPerMinute.toFixed(0)} ticks/min) — 7 tick factors active`
+    ? `✓ Companion daemon live (${fnoFormatFixed(ctx.microstructure.ticksPerMinute, 0)} ticks/min) — 7 tick factors active`
     : '⚠ Microstructure daemon offline — scalping weights Microstructure 1.6× but 7 tick factors are unavailable (Flow/Tech/Vol still active)';
   const bracketTxt = fnoSettings.get().tradeTypeTargetSlEnabled
     ? `${getScalpingBracketConfig().label}: ${formatScalpingBracketLabel(getScalpingBracketConfig())}`
@@ -1163,13 +1164,13 @@ function renderScalpingSessionReadiness(brain, ctx) {
   const sizeTxt = sizeMult < 1 ? `${lotTxt} (mode size ×${sizeMult})` : lotTxt;
   const decayPct = computeValueDecayCriticalPct(ctx || {});
   const decayPolicyTxt = Number.isFinite(decayPct)
-    ? `Value Decay: ${decayPct.toFixed(1)}%/day of premium — scalping: scored + FM/SPE/TSE (no hard NO_TRADE); non-scalping: hard block if >5%`
+    ? `Value Decay: ${fnoFormatFixed(decayPct, 1)}%/day of premium — scalping: scored + FM/SPE/TSE (no hard NO_TRADE); non-scalping: hard block if >5%`
     : 'Value Decay: premium unavailable — hard block skipped (decay still scored when data exists)';
   box.innerHTML = [
     `<b style="color:${tp.warn}">⚡ Scalping Profit Profile</b> <span style="color:${tp.muted}">(Entry mode: ${escapeHtml(fmMode)}, realistic fills, ${bracketTxt})</span>`,
     `Live thresholds: BUY ≥ ${thresholds.buyThreshold}, SELL ≤ ${thresholds.sellThreshold}`,
     ds !== null
-      ? `Directional ${ds.toFixed(1)} — ${buyGap > 0 ? `${buyGap.toFixed(1)} pts to BUY` : '✓ BUY zone'} · ${sellGap > 0 ? `${sellGap.toFixed(1)} pts to SELL` : '✓ SELL zone'}`
+      ? `Directional ${fnoFormatFixed(ds, 1)} — ${buyGap > 0 ? `${fnoFormatFixed(buyGap, 1)} pts to BUY` : '✓ BUY zone'} · ${sellGap > 0 ? `${fnoFormatFixed(sellGap, 1)} pts to SELL` : '✓ SELL zone'}`
       : 'Directional score pending',
     `Microstructure safety: ${weightSafety}`,
     `Spread: ${spreadTxt}`,
@@ -2591,7 +2592,7 @@ function renderDecisionIntelligence() {
     <div style="padding:3px 0;border-bottom:1px solid #111827"><span style="color:#94a3b8">${escapeHtml(new Date(t.ts).toLocaleString())}</span> - ${escapeHtml(t.symbol||'')} ${t.strike||''}${escapeHtml(t.optionType||'')} (${escapeHtml(t.tradingType||'')}, ${escapeHtml(t.confidence||'')}) - <span style="color:#f87171">Rs${Number.isFinite(t.pnl) ? t.pnl.toFixed(0) : '?'}</span>${t.triggeredFmIds.length ? ` - FM at entry: ${escapeHtml(t.triggeredFmIds.join(', '))}` : ' - no FM triggered at entry'}</div>`).join('');
 
   const lossCategoryRows = failureAnalysis.categories.size ? Array.from(failureAnalysis.categories.entries()).sort((a,b) => b[1].count - a[1].count).map(([cat, c]) => `
-    <div style="padding:3px 0;border-bottom:1px solid #111827"><b>${escapeHtml(cat)}</b>: ${c.count} of ${failureAnalysis.totalLosses} real losses (${c.pct.toFixed(0)}%)</div>`).join('') : '';
+    <div style="padding:3px 0;border-bottom:1px solid #111827"><b>${escapeHtml(cat)}</b>: ${c.count} of ${failureAnalysis.totalLosses} real losses (${Number.isFinite(c.pct) ? c.pct.toFixed(0) : '0'}%)</div>`).join('') : '';
 
   // Real trade lifecycle rollup (spec §6) - reuses the SAME real,
   // pre-existing diagnoseEntryExitQuality() engine (Master Prompt §42,
@@ -2610,7 +2611,7 @@ function renderDecisionIntelligence() {
       <div style="font-weight:700;margin:10px 0 4px">🔬 Trade Lifecycle - Entry/Exit Quality (${lifecycleQuality.length} real trade(s) with recorded MFE/MAE)</div>
       <div style="padding:3px 0">Good entries: ${goodEntries}/${lifecycleQuality.length} (${(goodEntries/lifecycleQuality.length*100).toFixed(0)}%) - real entry never came close to the stop before working</div>
       <div style="padding:3px 0">Good exits: ${goodExits}/${lifecycleQuality.length} (${(goodExits/lifecycleQuality.length*100).toFixed(0)}%) - real exit captured most of the favorable move</div>
-      <div style="padding:3px 0">Average real MFE captured: ${avgCaptured.toFixed(0)}%${avgCaptured < 60 ? ' - real profit is being left on the table; consider tighter targets or trailing stops' : ' - real exits are capturing the favorable move well'}</div>
+      <div style="padding:3px 0">Average real MFE captured: ${Number.isFinite(avgCaptured) ? avgCaptured.toFixed(0) : '—'}%${Number.isFinite(avgCaptured) && avgCaptured < 60 ? ' - real profit is being left on the table; consider tighter targets or trailing stops' : Number.isFinite(avgCaptured) ? ' - real exits are capturing the favorable move well' : ''}</div>
     `;
   })() : '';
 
@@ -5295,7 +5296,7 @@ function renderFactorDataAvailabilityPanel(brain) {
   html += `<div style="font-size:10px;margin-bottom:6px">Directional coverage: <b>${a.directionalCoveragePct}%</b> (${a.directionalUsedCount} used / ${a.directionalUnavailableCount} unavailable / ${a.directionalNotComputedCount} not computed) · Impact: <span style="color:${impactColor};font-weight:700">${a.missingDataImpact.toUpperCase()}</span>`;
   if (a.decisionAffectedByMissingData) html += ` · <span style="color:#fde68a">confidence adjusted for missing data</span>`;
   html += `</div>`;
-  html += `<div style="font-size:10px;color:#94a3b8;margin-bottom:4px">Decision score (available factors only): <b>${typeof brain.directionalScoreAvailableOnly === 'number' ? brain.directionalScoreAvailableOnly.toFixed(1) : '—'}</b>${typeof brain.directionalScore === 'number' && brain.directionalScore !== brain.directionalScoreAvailableOnly ? ` · catalog sum incl. skipped rows: ${brain.directionalScore.toFixed(1)}` : ''} — unavailable factors are skipped, never counted as 0/fail</div>`;
+  html += `<div style="font-size:10px;color:#94a3b8;margin-bottom:4px">Decision score (available factors only): <b>${fnoFormatFixed(brain.directionalScoreAvailableOnly, 1)}</b>${Number.isFinite(brain.directionalScore) && brain.directionalScore !== brain.directionalScoreAvailableOnly ? ` · catalog sum incl. skipped rows: ${fnoFormatFixed(brain.directionalScore, 1)}` : ''} — unavailable factors are skipped, never counted as 0/fail</div>`;
   if (a.skippedCategories && a.skippedCategories.length) {
     html += `<div style="font-size:10px;color:#64748b;margin-bottom:4px">Skipped categories: ${a.skippedCategories.map(c => escapeHtml(c)).join(', ')}</div>`;
   }
@@ -14690,8 +14691,9 @@ function computeParticipantPayoffHypothesis(operatorIntel, maxPainInfo, trapSign
   let bullishVotes = 0, bearishVotes = 0;
 
   if (operatorIntel && operatorIntel.bias) {
-    if (operatorIntel.bias === 'ACCUMULATION') { bullishVotes++; supportingEvidence.push(`Real Operator Intel composite reads ACCUMULATION (score ${operatorIntel.score.toFixed(2)}) - fresh OI building alongside a genuinely bullish-leaning signal set, consistent with real conviction buying rather than a lottery-ticket bet.`); }
-    else if (operatorIntel.bias === 'DISTRIBUTION') { bearishVotes++; supportingEvidence.push(`Real Operator Intel composite reads DISTRIBUTION (score ${operatorIntel.score.toFixed(2)}) - fresh OI building alongside a genuinely bearish-leaning signal set.`); }
+    const opScoreTxt = Number.isFinite(operatorIntel.score) ? operatorIntel.score.toFixed(2) : '?';
+    if (operatorIntel.bias === 'ACCUMULATION') { bullishVotes++; supportingEvidence.push(`Real Operator Intel composite reads ACCUMULATION (score ${opScoreTxt}) - fresh OI building alongside a genuinely bullish-leaning signal set, consistent with real conviction buying rather than a lottery-ticket bet.`); }
+    else if (operatorIntel.bias === 'DISTRIBUTION') { bearishVotes++; supportingEvidence.push(`Real Operator Intel composite reads DISTRIBUTION (score ${opScoreTxt}) - fresh OI building alongside a genuinely bearish-leaning signal set.`); }
     else if (operatorIntel.bias === 'BULLISH_TRAP') { counterEvidence.push(`Real Operator Intel composite reads BULLISH_TRAP - bullish-leaning signals without real fresh OI backing them (OI is unwinding, not accumulating) - a real reason for caution on a naive bullish read.`); }
     else if (operatorIntel.bias === 'BEARISH_TRAP') { counterEvidence.push(`Real Operator Intel composite reads BEARISH_TRAP - bearish-leaning signals without real fresh OI backing them.`); }
   }
@@ -17278,7 +17280,8 @@ function render(){
 
       if (!manualOverride && liveLeg && typeof liveLeg.impliedVolatility==='number' && liveLeg.impliedVolatility>0) {
         iv = liveLeg.impliedVolatility;
-        document.getElementById('iv').value = iv.toFixed(2);
+        const ivEl = document.getElementById('iv');
+        if (ivEl) ivEl.value = fnoFormatFixed(iv, 2);
       } else if (!manualOverride && liveLeg && typeof liveLeg.lastPrice === 'number' && liveLeg.lastPrice > 0 && typeof solveImpliedVolatility === 'function') {
         // Real, new fallback (closes a real, previously-documented
         // gap): a Kite-sourced option chain genuinely has no direct
@@ -17291,7 +17294,8 @@ function render(){
         const solved = solveImpliedVolatility(liveLeg.lastPrice, spot, strike, daysExp / 365, optionType, 0.065);
         if (solved.converged && solved.iv !== null) {
           iv = solved.iv;
-          document.getElementById('iv').value = iv.toFixed(2);
+          const ivEl2 = document.getElementById('iv');
+          if (ivEl2) ivEl2.value = fnoFormatFixed(iv, 2);
         } else {
           iv = parseFloat(document.getElementById('iv').value)||18;
         }
@@ -17887,7 +17891,13 @@ function render(){
           ? getStrategyReportUiOptions()
           : { symbol: sym, pluginVersion: FNO_PLUGIN_VERSION });
       }
-      renderDecisionIntelligence(); // real, local analysis over the log just updated above - see its own TRACE
+      try {
+        renderDecisionIntelligence(); // real, local analysis over the log just updated above - see its own TRACE
+      } catch (diErr) {
+        console.warn('Decision intelligence panel failed (non-critical):', diErr);
+        const diBox = document.getElementById('decisionIntelligenceBox');
+        if (diBox) diBox.innerHTML = `<span style="color:#fde68a">Decision intelligence UI error this refresh: ${escapeHtml(diErr && diErr.message ? diErr.message : String(diErr))} — brain evaluation still completed.</span>`;
+      }
 
       // Real, user's own direct, explicit request this session ("i
       // wanted everything automatic with system decesion so i dont
@@ -17951,7 +17961,13 @@ function render(){
         box.innerHTML = `<b>${typeLabels[w.tradingType] || w.tradingType} weighting:</b> raw ${fnoFormatFixed(brain.totalScore, 1)} → weighted <b>${fnoFormatFixed(w.weightedScore, 1)}</b><br><div style="margin-top:4px;font-size:10px">${catHtml}</div>`;
       })();
 
-      renderScalpingSessionReadiness(brain, refreshCtx);
+      try {
+        renderScalpingSessionReadiness(brain, refreshCtx);
+      } catch (scalpUiErr) {
+        console.warn('Scalping readiness panel failed (non-critical):', scalpUiErr);
+        const scalpBox = document.getElementById('scalpingSessionReadinessBox');
+        if (scalpBox) scalpBox.innerHTML = `<span style="color:#fde68a">Scalping readiness UI error: ${escapeHtml(scalpUiErr && scalpUiErr.message ? scalpUiErr.message : String(scalpUiErr))}</span>`;
+      }
 
       const decEl=document.getElementById('brainDecision');
       const confBadge = brain.confidence ? ` <span style="font-size:11px;opacity:0.8">[${brain.confidence} confidence${(() => { const dp = computeConfidenceDisplayPct(brain); return dp != null ? ` · signal strength ${dp}%` : ''; })()}${brain.confidence!==brain.rawConfidence?', raw tier '+brain.rawConfidence+' before coverage adjust':''}]</span>` : '';
@@ -18407,7 +18423,7 @@ function render(){
           } else {
             matrixBox.innerHTML = matrix.map(p => {
               const color = p.strength==='very_high' ? '#f87171' : p.strength==='high' ? '#fde68a' : p.strength==='moderate' ? '#94a3b8' : '#4ade80';
-              return `<div style="padding:4px 0;border-bottom:1px solid #111827"><b>${p.symbolA} ↔ ${p.symbolB}</b>: <span style="color:${color}">${p.correlation!==null?p.correlation.toFixed(2):'n/a'} (${p.strength.replace(/_/g,' ')})</span></div>`;
+              return `<div style="padding:4px 0;border-bottom:1px solid #111827"><b>${p.symbolA} ↔ ${p.symbolB}</b>: <span style="color:${color}">${Number.isFinite(p.correlation) ? p.correlation.toFixed(2) : 'n/a'} (${p.strength.replace(/_/g,' ')})</span></div>`;
             }).join('');
           }
         }
@@ -18553,11 +18569,11 @@ function render(){
       el.innerHTML = `<div style="color:${tp.muted2}">No trades journaled yet - stats will appear here once you have closed trades (manually via Force Exit, or via Auto Trades hitting target/SL).</div>`;
       return;
     }
-    const winners = journal.filter(t=>t.pnl>0), losers = journal.filter(t=>t.pnl<0);
+    const winners = journal.filter(t=>Number.isFinite(t.pnl) && t.pnl>0), losers = journal.filter(t=>Number.isFinite(t.pnl) && t.pnl<0);
     const winRate = journal.length ? (winners.length/journal.length*100) : 0;
     const avgWin = winners.length ? winners.reduce((a,b)=>a+b.pnl,0)/winners.length : 0;
     const avgLoss = losers.length ? losers.reduce((a,b)=>a+b.pnl,0)/losers.length : 0;
-    const totalPnL = journal.reduce((a,b)=>a+b.pnl,0);
+    const totalPnL = journal.reduce((a,b)=>a+(Number.isFinite(b.pnl)?b.pnl:0),0);
     const sorted = [...journal].sort((a,b)=>a.ts-b.ts);
     let streak=0, streakType=null;
     for (let i=sorted.length-1;i>=0;i--) {
@@ -18569,9 +18585,9 @@ function render(){
     }
     el.innerHTML = `
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
-        <div style="background:${tp.panel};padding:8px;border-radius:8px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Win Rate (real)</div><div style="font-weight:800;color:${winRate>=50?tp.pass:tp.fail}">${winRate.toFixed(1)}% (${winners.length}/${journal.length})</div></div>
-        <div style="background:${tp.panel};padding:8px;border-radius:8px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Total P&L</div><div style="font-weight:800;color:${totalPnL>=0?tp.pass:tp.fail}">Rs${totalPnL.toFixed(0)}</div></div>
-        <div style="background:${tp.panel};padding:8px;border-radius:8px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Avg Win / Avg Loss</div><div style="font-weight:800;color:${tp.text}">Rs${avgWin.toFixed(0)} / Rs${avgLoss.toFixed(0)}</div></div>
+        <div style="background:${tp.panel};padding:8px;border-radius:8px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Win Rate (real)</div><div style="font-weight:800;color:${winRate>=50?tp.pass:tp.fail}">${fnoFormatFixed(winRate, 1)}% (${winners.length}/${journal.length})</div></div>
+        <div style="background:${tp.panel};padding:8px;border-radius:8px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Total P&L</div><div style="font-weight:800;color:${totalPnL>=0?tp.pass:tp.fail}">Rs${fnoFormatFixed(totalPnL, 0)}</div></div>
+        <div style="background:${tp.panel};padding:8px;border-radius:8px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Avg Win / Avg Loss</div><div style="font-weight:800;color:${tp.text}">Rs${fnoFormatFixed(avgWin, 0)} / Rs${fnoFormatFixed(avgLoss, 0)}</div></div>
         <div style="background:${tp.panel};padding:8px;border-radius:8px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Current Streak</div><div style="font-weight:800;color:${tp.text}">${streak>0?streak+streakType:'-'}</div></div>
       </div>
       <div style="font-size:10px;color:${tp.muted2};margin-top:6px">Computed from ${journal.length} real journaled trades${window.FNO_AJAX.isLoggedIn?' (server-synced)':' (localStorage only - log in to persist across devices)'}. ${journal.length<20?'Fewer than 20 trades - treat these numbers as noisy, not a reliable edge estimate yet.':'20+ trades - still cross-check against the Psychology category Backtest Overfitting factor (50+ recommended before trusting an edge).'}</div>
@@ -18933,10 +18949,15 @@ function render(){
       // string in there before this render runs. escapeHtml() is cheap
       // defense-in-depth so wrap regardless of the current enum-only
       // provenance, per the "nothing left unhardened" standard.
+      const trailSlTxt = open.trailingEnabled && Number.isFinite(open.trailingSl)
+        ? `${fnoFormatFixed(open.trailingSl, 1)} trailing`
+        : open.sl;
+      const mfeVal = Number.isFinite(open.mfe) ? open.mfe : open.entryPrice;
+      const maeVal = Number.isFinite(open.mae) ? open.mae : open.entryPrice;
       openEl.innerHTML = liveNow!==null
-        ? `<b>${escapeHtml(sym)} ${escapeHtml(String(open.strike))}${escapeHtml(open.optionType)}</b> entry Rs${open.entryPrice}${open.fillIsRealistic?'':' (fallback fill, no spread sim)'} -> live Rs${liveNow.toFixed(1)} (target ${open.target}, SL ${open.trailingEnabled?open.trailingSl.toFixed(1)+' trailing':open.sl}${open.partialTaken?', partial taken':''})<br>MFE Rs${(open.mfe||open.entryPrice).toFixed(1)} / MAE Rs${(open.mae||open.entryPrice).toFixed(1)} <span style="color:#64748b">- Opened ${new Date(open.openedAt).toLocaleTimeString()}</span>`
+        ? `<b>${escapeHtml(sym)} ${escapeHtml(String(open.strike))}${escapeHtml(open.optionType)}</b> entry Rs${open.entryPrice}${open.fillIsRealistic?'':' (fallback fill, no spread sim)'} -> live Rs${fnoFormatFixed(liveNow, 1)} (target ${open.target}, SL ${trailSlTxt}${open.partialTaken?', partial taken':''})<br>MFE Rs${fnoFormatFixed(mfeVal, 1)} / MAE Rs${fnoFormatFixed(maeVal, 1)} <span style="color:#64748b">- Opened ${new Date(open.openedAt).toLocaleTimeString()}</span>`
         : (ocStaleAtExit && ocStaleAtExit.stale
-            ? `<b>${escapeHtml(sym)} ${escapeHtml(String(open.strike))}${escapeHtml(open.optionType)}</b> entry Rs${open.entryPrice} - live premium is ${ocStaleAtExit.ageMinutes.toFixed(1)} min stale this refresh (real NSE fetch timestamp), cannot trust target/SL check until a fresh quote returns`
+            ? `<b>${escapeHtml(sym)} ${escapeHtml(String(open.strike))}${escapeHtml(open.optionType)}</b> entry Rs${open.entryPrice} - live premium is ${fnoFormatFixed(ocStaleAtExit.ageMinutes, 1)} min stale this refresh (real NSE fetch timestamp), cannot trust target/SL check until a fresh quote returns`
             : `<b>${escapeHtml(sym)} ${escapeHtml(String(open.strike))}${escapeHtml(open.optionType)}</b> entry Rs${open.entryPrice} - live premium unavailable this refresh (NSE data degraded), cannot check target/SL until it returns`);
 
       if (liveNow!==null) {
@@ -18995,7 +19016,7 @@ function render(){
     // itself), but symbol/strike/optionType are inserted verbatim, so
     // escape them too.
     histEl.innerHTML = history.length
-      ? history.slice(-10).reverse().map(h=>`<div style="padding:4px 0;border-bottom:1px solid #111827">${escapeHtml(h.symbol)} ${escapeHtml(String(h.strike))}${escapeHtml(h.optionType)} - ${h.source==='auto_target'?'🎯 Target':h.source==='square_off'?'⏰ Square-off':h.source==='manual_force_exit'?'👆 Manual':h.source==='partial'?'✂️ Partial':h.source==='auto_invalidated'?'⚠️ Invalidated':'🛑 SL'} - Gross Rs${h.grossPnl.toFixed(0)} / Net Rs${h.pnl.toFixed(0)} (costs Rs${h.costsTotal.toFixed(0)}) <span style="color:#64748b">${new Date(h.ts).toLocaleTimeString()}</span></div>`).join('')
+      ? history.slice(-10).reverse().map(h=>`<div style="padding:4px 0;border-bottom:1px solid #111827">${escapeHtml(h.symbol)} ${escapeHtml(String(h.strike))}${escapeHtml(h.optionType)} - ${h.source==='auto_target'?'🎯 Target':h.source==='square_off'?'⏰ Square-off':h.source==='manual_force_exit'?'👆 Manual':h.source==='partial'?'✂️ Partial':h.source==='auto_invalidated'?'⚠️ Invalidated':'🛑 SL'} - Gross Rs${fnoFormatFixed(h.grossPnl, 0)} / Net Rs${fnoFormatFixed(h.pnl, 0)} (costs Rs${fnoFormatFixed(h.costsTotal, 0)}) <span style="color:#64748b">${new Date(h.ts).toLocaleTimeString()}</span></div>`).join('')
       : `<span style="color:#64748b">No closed trades yet</span>`;
   }
 

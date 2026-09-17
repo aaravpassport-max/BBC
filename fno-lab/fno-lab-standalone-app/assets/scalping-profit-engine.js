@@ -940,8 +940,15 @@ function renderScalpingProfitDashboard(spe, stats) {
     html += `<div style="color:#64748b">Engine inactive — enable in Settings.</div>`;
   }
   if (stats.n > 0 || stats.noTradeCount > 0) {
+    const fmt = (typeof fnoFormatFixed === 'function') ? fnoFormatFixed
+      : (n, d, fb) => (Number.isFinite(n) ? n.toFixed(d) : (fb != null ? fb : '—'));
+    const wr = Number.isFinite(stats.winRate) ? fmt(stats.winRate, 0) : '—';
+    const net = Number.isFinite(stats.totalPnl) ? fmt(stats.totalPnl, 0) : '—';
+    const pf = stats.profitFactor === Infinity ? '∞'
+      : Number.isFinite(stats.profitFactor) ? fmt(stats.profitFactor, 2) : '—';
+    const exp = Number.isFinite(stats.expectancy) ? fmt(stats.expectancy, 0) : '—';
     html += `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #334155;font-size:10px;color:#94a3b8">`;
-    html += `Today: ${stats.n} trades · WR ${stats.winRate.toFixed(0)}% · Net ₹${stats.totalPnl.toFixed(0)} · PF ${stats.profitFactor === Infinity ? '∞' : stats.profitFactor.toFixed(2)} · Expectancy ₹${stats.expectancy.toFixed(0)} · NO TRADE logged: ${stats.noTradeCount}`;
+    html += `Today: ${stats.n} trades · WR ${wr}% · Net ₹${net} · PF ${pf} · Expectancy ₹${exp} · NO TRADE logged: ${stats.noTradeCount}`;
     html += `</div>`;
   }
   box.innerHTML = html;

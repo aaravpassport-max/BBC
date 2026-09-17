@@ -556,12 +556,19 @@ function renderLiquidityBehaviourPanel(trapEngine, validationStats) {
   const box = document.getElementById('liquidityBehaviourBox');
   if (!box) return;
   if (!trapEngine) { box.innerHTML = '<span style="color:#64748b">Loading liquidity behaviour analysis...</span>'; return; }
+  const fmt = (typeof fnoFormatFixed === 'function') ? fnoFormatFixed
+    : (n, d, fb) => (Number.isFinite(n) ? n.toFixed(d) : (fb != null ? fb : '—'));
 
   const tp = typeof fnoThemePalette === 'function' ? fnoThemePalette() : { text: '#e2e8f0', muted: '#94a3b8', warn: '#fde68a', pass: '#4ade80', fail: '#f87171', panel: '#0e152a', line: '#1e293b' };
-  const scoreColor = trapEngine.trapScore >= 71 ? tp.fail : trapEngine.trapScore >= 51 ? tp.warn : tp.muted;
-  const zones = (trapEngine.liquidityMap.zones || []).slice(0, 6).map(z =>
-    `<div style="padding:2px 0">${escapeHtml(z.label)}: ${z.price.toFixed(1)} (${z.distPct >= 0 ? '+' : ''}${z.distPct.toFixed(2)}%)</div>`
+  const trapScore = Number.isFinite(trapEngine.trapScore) ? trapEngine.trapScore : 0;
+  const scoreColor = trapScore >= 71 ? tp.fail : trapScore >= 51 ? tp.warn : tp.muted;
+  const zones = (trapEngine.liquidityMap && trapEngine.liquidityMap.zones || []).slice(0, 6).map(z =>
+    `<div style="padding:2px 0">${escapeHtml(z.label)}: ${fmt(z.price, 1)} (${Number.isFinite(z.distPct) && z.distPct >= 0 ? '+' : ''}${fmt(z.distPct, 2)}%)</div>`
   ).join('') || `<span style="color:${tp.muted}">No zones mapped</span>`;
+
+  const probs = trapEngine.probabilities || {};
+  const contPct = Number.isFinite(probs.continuation) ? probs.continuation * 100 : null;
+  const revPct = Number.isFinite(probs.reversal) ? probs.reversal * 100 : null;
 
   const stageHtml = (arr, title) => arr.length
     ? `<div style="margin-top:6px"><b>${title}</b>${arr.map(s => `<div style="font-size:10px;color:${tp.muted};padding:2px 0">S${s.stage}: ${escapeHtml(s.label)} — ${escapeHtml(s.detail)}</div>`).join('')}</div>`
@@ -569,22 +576,22 @@ function renderLiquidityBehaviourPanel(trapEngine, validationStats) {
 
   box.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-      <div><b style="color:${scoreColor}">Trap score: ${trapEngine.trapScore}/100</b> <span style="color:${tp.muted};font-size:10px">(${escapeHtml(trapEngine.trapScoreLabel)})</span></div>
-      <div style="font-size:10px;color:${tp.muted}">State: <b style="color:${tp.text}">${escapeHtml(trapEngine.state.replace(/_/g, ' '))}</b></div>
+      <div><b style="color:${scoreColor}">Trap score: ${trapScore}/100</b> <span style="color:${tp.muted};font-size:10px">(${escapeHtml(trapEngine.trapScoreLabel || '—')})</span></div>
+      <div style="font-size:10px;color:${tp.muted}">State: <b style="color:${tp.text}">${escapeHtml(String(trapEngine.state || 'NORMAL').replace(/_/g, ' '))}</b></div>
     </div>
     <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:10px;margin-bottom:8px">
-      <div style="background:${tp.panel};padding:6px;border-radius:6px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Sweep</div><div style="color:${trapEngine.sweep.detected ? tp.warn : tp.muted}">${trapEngine.sweep.detected ? 'YES' : 'No'}</div></div>
-      <div style="background:${tp.panel};padding:6px;border-radius:6px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Continuation</div><div>${(trapEngine.probabilities.continuation * 100).toFixed(0)}%</div></div>
-      <div style="background:${tp.panel};padding:6px;border-radius:6px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Reversal</div><div>${(trapEngine.probabilities.reversal * 100).toFixed(0)}%</div></div>
+      <div style="background:${tp.panel};padding:6px;border-radius:6px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Sweep</div><div style="color:${trapEngine.sweep && trapEngine.sweep.detected ? tp.warn : tp.muted}">${trapEngine.sweep && trapEngine.sweep.detected ? 'YES' : 'No'}</div></div>
+      <div style="background:${tp.panel};padding:6px;border-radius:6px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Continuation</div><div>${fmt(contPct, 0, '—')}${contPct != null ? '%' : ''}</div></div>
+      <div style="background:${tp.panel};padding:6px;border-radius:6px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Reversal</div><div>${fmt(revPct, 0, '—')}${revPct != null ? '%' : ''}</div></div>
     </div>
     <div style="font-size:11px;margin-bottom:6px"><b>Liquidity map</b>${zones}</div>
-    ${trapEngine.pathBetweenLevels.available ? `<div style="font-size:10px;color:${tp.muted};margin-bottom:6px"><b>Path:</b> ${escapeHtml(trapEngine.pathBetweenLevels.summary)}</div>` : ''}
-    ${trapEngine.sweep.detected ? `<div style="padding:6px;border-radius:6px;background:${tp.panel};border:1px solid ${tp.line};font-size:10px;margin-bottom:6px;color:${tp.warn}">${escapeHtml(trapEngine.sweep.reason)}</div>` : ''}
-    ${stageHtml(trapEngine.stages.ce, 'CE trap stages')}
-    ${stageHtml(trapEngine.stages.pe, 'PE trap stages')}
+    ${trapEngine.pathBetweenLevels && trapEngine.pathBetweenLevels.available ? `<div style="font-size:10px;color:${tp.muted};margin-bottom:6px"><b>Path:</b> ${escapeHtml(trapEngine.pathBetweenLevels.summary)}</div>` : ''}
+    ${trapEngine.sweep && trapEngine.sweep.detected ? `<div style="padding:6px;border-radius:6px;background:${tp.panel};border:1px solid ${tp.line};font-size:10px;margin-bottom:6px;color:${tp.warn}">${escapeHtml(trapEngine.sweep.reason)}</div>` : ''}
+    ${stageHtml((trapEngine.stages && trapEngine.stages.ce) || [], 'CE trap stages')}
+    ${stageHtml((trapEngine.stages && trapEngine.stages.pe) || [], 'PE trap stages')}
     ${trapEngine.microAbsorption && trapEngine.microAbsorption.detected ? `<div style="font-size:10px;color:${tp.warn};margin-bottom:6px"><b>Microstructure absorption:</b> ${escapeHtml(trapEngine.microAbsorption.reason || 'Live daemon flow supports absorption/trap read')}</div>` : ''}
-    ${trapEngine.disproofs.length ? `<div style="margin-top:6px;font-size:10px;color:${tp.muted}"><b>Disproof checks:</b> ${trapEngine.disproofs.map(d => escapeHtml(d.text)).join(' · ')}</div>` : ''}
-    ${trapEngine.psychology.length ? `<div style="margin-top:6px;font-size:10px;color:${tp.muted}"><b>Psychology:</b> ${trapEngine.psychology.map(p => escapeHtml(p)).join(' · ')}</div>` : ''}
+    ${trapEngine.disproofs && trapEngine.disproofs.length ? `<div style="margin-top:6px;font-size:10px;color:${tp.muted}"><b>Disproof checks:</b> ${trapEngine.disproofs.map(d => escapeHtml(d.text)).join(' · ')}</div>` : ''}
+    ${trapEngine.psychology && trapEngine.psychology.length ? `<div style="margin-top:6px;font-size:10px;color:${tp.muted}"><b>Psychology:</b> ${trapEngine.psychology.map(p => escapeHtml(p)).join(' · ')}</div>` : ''}
     ${validationStats && validationStats.decisiveTotal > 0 ? `<div style="margin-top:8px;padding:6px;border-radius:6px;background:${tp.panel};border:1px solid ${tp.line};font-size:10px">
       <b>Historical validation (30m outcomes)</b>
       <div style="margin-top:4px;color:${validationStats.confirmedRatePct >= 55 ? tp.pass : validationStats.confirmedRatePct <= 45 ? tp.fail : tp.muted}">

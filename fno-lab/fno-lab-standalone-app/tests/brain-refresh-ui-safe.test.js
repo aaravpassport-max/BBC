@@ -45,5 +45,13 @@ try {
 }
 check(!threw, 'factor registry coverage text with missing pct/dirPct does not throw');
 
+let hypoThrew = false;
+try {
+  computeParticipantPayoffHypothesis({ bias: 'ACCUMULATION' }, null, null, null, 24000);
+} catch (e) {
+  hypoThrew = true;
+}
+check(!hypoThrew, 'hypothesis with operator bias but no score does not throw');
+
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);
