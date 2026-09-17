@@ -74,7 +74,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.26-ledger-lots-alerts';
+const FNO_CORE_BUILD_MARKER = '16.37.27-ledger-render-fix';
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -11111,6 +11111,38 @@ function openAutoTradeLedgerRow(open) {
     _ledgerOpen: true,
   };
 }
+function loadLocalJournalArray() {
+  const raw = load(STORAGE.journal);
+  return Array.isArray(raw) ? raw : [];
+}
+function ledgerTradeNetPnl(t) {
+  return (typeof t.pnl === 'number' && Number.isFinite(t.pnl)) ? t.pnl : 0;
+}
+function ledgerTradeGrossPnl(t) {
+  if (typeof t.grossPnl === 'number' && Number.isFinite(t.grossPnl)) return t.grossPnl;
+  return ledgerTradeNetPnl(t);
+}
+function formatLedgerRsWhole(n) {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return '-';
+  return 'Rs' + n.toFixed(0);
+}
+async function fetchJournalListForLedger(timeoutMs) {
+  if (!window.FNO_AJAX || !window.FNO_AJAX.isLoggedIn) return null;
+  const ms = timeoutMs || 12000;
+  const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  let timer = null;
+  if (ctrl) timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const r = await fetch(`${window.FNO_AJAX.url}?action=fno_journal_list&nonce=${window.FNO_AJAX.nonce}`, ctrl ? { signal: ctrl.signal } : undefined);
+    const j = await r.json();
+    return j.success ? (j.data.journal || []) : null;
+  } catch (e) {
+    console.warn('[FNO] trade ledger server fetch failed:', e && e.message ? e.message : e);
+    return null;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 async function journalAdd(entry) {
   if (entry && typeof entry.qty === 'number' && entry.qty > 0) {
     const sym = entry.symbol || 'NIFTY';
@@ -11186,13 +11218,11 @@ async function journalAdd(entry) {
  * back to load(STORAGE.journal) rather than leaving journal undefined.
  */
 async function syncServerJournal() {
-  const local = load(STORAGE.journal);
+  const local = loadLocalJournalArray();
   if (!window.FNO_AJAX || !window.FNO_AJAX.isLoggedIn) return local;
   try {
-    const r = await fetch(`${window.FNO_AJAX.url}?action=fno_journal_list&nonce=${window.FNO_AJAX.nonce}`);
-    const j = await r.json();
-    if (!j.success) return local;
-    const serverRows = j.data.journal || [];
+    const serverRows = await fetchJournalListForLedger(12000);
+    if (serverRows === null) return mergeJournalRowsForDisplay([], local);
     if (serverRows.length === 0 && local.length) {
       const body = `action=fno_journal_import&entries=${encodeURIComponent(JSON.stringify(local))}&nonce=${window.FNO_AJAX.nonce}`;
       await fetch(`${window.FNO_AJAX.url}?action=fno_journal_import`, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body});
@@ -18229,6 +18259,11 @@ function render(){
         el.textContent = msg;
         el.style.background = '#422006';
         el.style.color = '#fde68a';
+      } else if (el.id === 'tradeLedgerSummary' && /^Loading/i.test(el.textContent.trim())) {
+        el.textContent = msg;
+        el.style.color = '#64748b';
+      } else if (el.id === 'tradeLedgerBody' && /Loading/i.test(el.textContent)) {
+        el.innerHTML = `<tr><td colspan="13" style="padding:10px;color:#64748b">${escapeHtml(msg)}</td></tr>`;
       }
     });
   }
@@ -20411,30 +20446,27 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
     const bodyEl = document.getElementById('tradeLedgerBody');
     if (!summaryEl || !bodyEl) return;
     const loggedIn = !!(window.FNO_AJAX && window.FNO_AJAX.isLoggedIn);
-    let trades = [];
+    const showLedgerError = (msg) => {
+      summaryEl.innerHTML = `<div style="grid-column:1/-1;color:#f87171">${escapeHtml(msg)}</div>`;
+      bodyEl.innerHTML = `<tr><td colspan="13" style="padding:10px;color:#64748b">${escapeHtml(msg)}</td></tr>`;
+    };
     try {
+      let trades = [];
+      const localJournal = loadLocalJournalArray();
       if (loggedIn) {
-        const r = await fetch(`${window.FNO_AJAX.url}?action=fno_journal_list&nonce=${window.FNO_AJAX.nonce}`);
-        const j = await r.json();
-        if (!j.success) {
-          trades = mergeJournalRowsForDisplay([], load(STORAGE.journal));
-        } else {
-          trades = mergeJournalRowsForDisplay(j.data.journal || [], load(STORAGE.journal));
-        }
+        const serverRows = await fetchJournalListForLedger(12000);
+        trades = mergeJournalRowsForDisplay(serverRows || [], localJournal);
       } else {
-        trades = mergeJournalRowsForDisplay([], load(STORAGE.journal));
+        trades = mergeJournalRowsForDisplay([], localJournal);
       }
-    } catch (e) {
-      trades = mergeJournalRowsForDisplay([], load(STORAGE.journal));
-    }
-    const openRow = openAutoTradeLedgerRow(loadObj(STORAGE.autoTrades));
-    if (openRow) trades = [openRow, ...trades.filter(t => !t._ledgerOpen)];
+      const openRow = openAutoTradeLedgerRow(loadObj(STORAGE.autoTrades));
+      if (openRow) trades = [openRow, ...trades.filter(t => !t._ledgerOpen)];
 
-    if (!loggedIn && trades.length === 0) {
-      summaryEl.innerHTML = '<div style="grid-column:1/-1;color:#64748b">Log in to persist the trade ledger server-side. Local closed trades still appear here after you exit a position.</div>';
-      bodyEl.innerHTML = '<tr><td colspan="13" style="padding:10px;color:#64748b">No trades yet (log in for server backup).</td></tr>';
-      return;
-    }
+      if (!loggedIn && trades.length === 0) {
+        summaryEl.innerHTML = '<div style="grid-column:1/-1;color:#64748b">Log in to persist the trade ledger server-side. Local closed trades still appear here after you exit a position.</div>';
+        bodyEl.innerHTML = '<tr><td colspan="13" style="padding:10px;color:#64748b">No trades yet (log in for server backup).</td></tr>';
+        return;
+      }
 
       if (trades.length === 0) {
         summaryEl.innerHTML = '<div style="grid-column:1/-1;color:#64748b;font-style:italic">No trades yet.</div>';
@@ -20442,19 +20474,16 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
         return;
       }
 
-      // Real, honest summary stats - every closed trade counted, none
-      // filtered by outcome. Open rows (_ledgerOpen) are shown in the
-      // table but excluded from win/loss aggregates.
       const closed = trades.filter(t => !t._ledgerOpen);
-      const wins = closed.filter(t => t.pnl > 0);
-      const losses = closed.filter(t => t.pnl < 0);
-      const grossProfit = wins.reduce((s, t) => s + (t.grossPnl !== null ? t.grossPnl : t.pnl), 0);
-      const grossLoss = losses.reduce((s, t) => s + (t.grossPnl !== null ? t.grossPnl : t.pnl), 0);
-      const totalCharges = closed.reduce((s, t) => s + (t.costsTotal || 0), 0);
-      const netPnl = closed.reduce((s, t) => s + t.pnl, 0);
+      const wins = closed.filter(t => ledgerTradeNetPnl(t) > 0);
+      const losses = closed.filter(t => ledgerTradeNetPnl(t) < 0);
+      const grossProfit = wins.reduce((s, t) => s + ledgerTradeGrossPnl(t), 0);
+      const grossLoss = losses.reduce((s, t) => s + ledgerTradeGrossPnl(t), 0);
+      const totalCharges = closed.reduce((s, t) => s + ((typeof t.costsTotal === 'number' && Number.isFinite(t.costsTotal)) ? t.costsTotal : 0), 0);
+      const netPnl = closed.reduce((s, t) => s + ledgerTradeNetPnl(t), 0);
       const winRate = closed.length > 0 ? (wins.length / closed.length * 100) : 0;
-      const avgWin = wins.length > 0 ? wins.reduce((s, t) => s + t.pnl, 0) / wins.length : 0;
-      const avgLoss = losses.length > 0 ? losses.reduce((s, t) => s + t.pnl, 0) / losses.length : 0;
+      const avgWin = wins.length > 0 ? wins.reduce((s, t) => s + ledgerTradeNetPnl(t), 0) / wins.length : 0;
+      const avgLoss = losses.length > 0 ? losses.reduce((s, t) => s + ledgerTradeNetPnl(t), 0) / losses.length : 0;
 
       const stat = (label, value, color) => `<div style="background:#020617;padding:8px;border-radius:8px;text-align:center"><div style="font-size:10px;color:#94a3b8">${label}</div><div style="font-size:14px;font-weight:800;color:${color||'#e5e7eb'}">${value}</div></div>`;
       summaryEl.innerHTML =
@@ -20470,54 +20499,43 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
         stat('Avg Loss', 'Rs' + avgLoss.toFixed(0), '#f87171');
 
       bodyEl.innerHTML = trades.map(t => {
-        // Renamed from the earlier, misleading "isOpen" - every real
-        // row in this table is architecturally a closed trade (see
-        // the real TRACE above); this only tracks whether real,
-        // specific entry/exit PRICE data happens to be present for
-        // this particular row, which is a genuinely different,
-        // narrower question than whether the trade itself is closed.
         const hasFullPriceData = typeof t.entryPrice === 'number' && typeof t.exitPrice === 'number';
-        const dateStr = new Date(t.ts).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
-        // Real, per-trade itemized charge breakdown, computed live via
-        // the same real, already-verified formula - never a second,
-        // independently-derived figure that could silently disagree
-        // with the stored total.
+        const dateStr = new Date(t.ts || Date.now()).toLocaleString('en-IN', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
         let costs = null;
         if (hasFullPriceData && typeof t.qty === 'number') {
           costs = computeTradeCosts(t.entryPrice, t.exitPrice, t.qty);
         }
-        const netColor = t._ledgerOpen ? '#38bdf8' : (t.pnl > 0 ? '#4ade80' : t.pnl < 0 ? '#f87171' : '#94a3b8');
+        const net = ledgerTradeNetPnl(t);
+        const netColor = t._ledgerOpen ? '#38bdf8' : (net > 0 ? '#4ade80' : net < 0 ? '#f87171' : '#94a3b8');
         const statusHtml = t._ledgerOpen
           ? '<span style="color:#38bdf8;font-weight:700">Open</span>'
           : `<span style="color:#94a3b8">Closed</span>${!hasFullPriceData ? ' <span style="color:#64748b;font-size:9px">(partial data)</span>' : ''}`;
-        const pnlCell = t._ledgerOpen || typeof t.pnl !== 'number' ? '-' : `Rs${t.pnl.toFixed(0)}`;
+        const pnlCell = t._ledgerOpen ? '-' : formatLedgerRsWhole(typeof t.pnl === 'number' ? t.pnl : null);
         const rowClick = (costs && typeof t.id === 'number') ? `onclick="window.__fnoShowChargesDetail(${t.id})"` : '';
         return `<tr style="border-bottom:1px solid #111827;cursor:${costs ? 'pointer' : 'default'}" ${rowClick}>
-          <td style="padding:5px 4px;color:#64748b">#${t.id}</td>
+          <td style="padding:5px 4px;color:#64748b">#${escapeHtml(String(t.id))}</td>
           <td style="padding:5px 4px">${dateStr}</td>
-          <td style="padding:5px 4px">${escapeHtml(t.symbol)}</td>
-          <td style="padding:5px 4px">${t.strike !== null ? t.strike : '-'}${escapeHtml(t.optionType || '')}</td>
-          <td style="padding:5px 4px">${t.action}</td>
-          <td style="padding:5px 4px;text-align:right">${t.qty !== null ? t.qty : '-'}</td>
-          <td style="padding:5px 4px;text-align:right">${t.entryPrice !== null && t.entryPrice !== undefined ? t.entryPrice.toFixed(2) : '-'}</td>
-          <td style="padding:5px 4px;text-align:right">${t.exitPrice !== null && t.exitPrice !== undefined ? t.exitPrice.toFixed(2) : '-'}</td>
-          <td style="padding:5px 4px;text-align:right">${t.grossPnl !== null ? 'Rs'+t.grossPnl.toFixed(0) : '-'}</td>
-          <td style="padding:5px 4px;text-align:right;color:#fbbf24">${t.costsTotal !== null ? 'Rs'+t.costsTotal.toFixed(0) : '-'}</td>
+          <td style="padding:5px 4px">${escapeHtml(t.symbol || '')}</td>
+          <td style="padding:5px 4px">${t.strike != null && typeof t.strike === 'number' ? t.strike : '-'}${escapeHtml(t.optionType || '')}</td>
+          <td style="padding:5px 4px">${escapeHtml(String(t.action || ''))}</td>
+          <td style="padding:5px 4px;text-align:right">${typeof t.qty === 'number' ? t.qty : '-'}</td>
+          <td style="padding:5px 4px;text-align:right">${typeof t.entryPrice === 'number' ? t.entryPrice.toFixed(2) : '-'}</td>
+          <td style="padding:5px 4px;text-align:right">${typeof t.exitPrice === 'number' ? t.exitPrice.toFixed(2) : '-'}</td>
+          <td style="padding:5px 4px;text-align:right">${formatLedgerRsWhole(typeof t.grossPnl === 'number' ? t.grossPnl : null)}</td>
+          <td style="padding:5px 4px;text-align:right;color:#fbbf24">${formatLedgerRsWhole(typeof t.costsTotal === 'number' ? t.costsTotal : null)}</td>
           <td style="padding:5px 4px;text-align:right;font-weight:700;color:${netColor}">${pnlCell}</td>
           <td style="padding:5px 4px">${statusHtml}</td>
-          <td style="padding:5px 4px">${(function(type){ const colors = {scalping:'#f59e0b', intraday:'#3b82f6', swing:'#a78bfa'}; const labels = {scalping:'⚡ Scalp', intraday:'📊 Intraday', swing:'📅 Swing'}; const t = type || 'intraday'; return `<span style="color:${colors[t]||'#94a3b8'};font-size:10px;font-weight:700">${labels[t]||t}</span>`; })(t.tradingStyle)}</td>
+          <td style="padding:5px 4px">${(function(type){ const colors = {scalping:'#f59e0b', intraday:'#3b82f6', swing:'#a78bfa'}; const labels = {scalping:'⚡ Scalp', intraday:'📊 Intraday', swing:'📅 Swing'}; const ty = type || 'intraday'; return `<span style="color:${colors[ty]||'#94a3b8'};font-size:10px;font-weight:700">${labels[ty]||ty}</span>`; })(t.tradingStyle || t.tradingType)}</td>
         </tr>`;
       }).join('');
 
-      // Real, per-trade charges breakdown on click - stores the real,
-      // already-fetched trades in a real, closure-scoped map so the
-      // click handler doesn't need a second fetch.
       window.__fnoLedgerTrades = trades;
       window.__fnoShowChargesDetail = function(tradeId) {
         const t = window.__fnoLedgerTrades.find(tr => tr.id === tradeId);
-        if (!t || t.exitPrice === null) return;
+        if (!t || typeof t.exitPrice !== 'number') return;
         const c = computeTradeCosts(t.entryPrice, t.exitPrice, t.qty);
         const detailEl = document.getElementById('tradeLedgerChargesDetail');
+        if (!detailEl) return;
         detailEl.innerHTML = `<div style="background:#0e152a;border:1px solid #1e293b;border-radius:10px;padding:10px">
           <b>Trade #${t.id} - real, itemized charge breakdown (Zerodha F&O rates)</b>
           <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-top:8px">
@@ -20530,6 +20548,10 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
           <div style="font-size:10px;color:#64748b;margin-top:6px">Buy leg includes brokerage + exchange transaction charge + SEBI fee + stamp duty + GST on service fees. Sell leg includes the same, plus STT (no stamp duty on sell side) - the real, documented formula, not a flat estimate.</div>
         </div>`;
       };
+    } catch (e) {
+      console.error('[FNO] loadTradeLedger failed:', e);
+      showLedgerError('Could not render the trade ledger — showing local data only on next refresh. ' + (e && e.message ? e.message : String(e)));
+    }
   }
 
   async function loadPaperAccount() {
