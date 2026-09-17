@@ -74,7 +74,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.24-whole-lots-enforced';
+const FNO_CORE_BUILD_MARKER = '16.37.25-trade-alerts-exits';
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -275,6 +275,35 @@ function getLotCountFromUi() {
 function resolveOrderQuantity(symbol, lotsOverride) {
   const lots = lotsOverride != null ? lotsOverride : getLotCountFromUi();
   return lotsToQty(symbol, lots);
+}
+
+/** Never use bare `sym` from DOM id= — browsers expose the <select> object and stringify as [object HTMLSelectElement]. */
+function resolveUiSymbol(fallback) {
+  const el = typeof document !== 'undefined' ? document.getElementById('sym') : null;
+  if (el && typeof el.value === 'string' && el.value.trim()) {
+    return normalizeUnderlyingSymbol(el.value);
+  }
+  if (typeof fallback === 'string' && fallback.trim() && !/\[object\s/i.test(fallback)) {
+    return normalizeUnderlyingSymbol(fallback);
+  }
+  if (fallback && typeof fallback === 'object' && typeof fallback.value === 'string' && fallback.value.trim()) {
+    return normalizeUnderlyingSymbol(fallback.value);
+  }
+  return 'NIFTY';
+}
+
+function normalizeTradeAlertSymbol(symbol, open) {
+  if (open && typeof open.symbol === 'string' && open.symbol.trim() && !/\[object\s/i.test(open.symbol)) {
+    return normalizeUnderlyingSymbol(open.symbol);
+  }
+  if (symbol == null) return resolveUiSymbol(null);
+  if (typeof symbol === 'object') {
+    if (typeof symbol.value === 'string' && symbol.value.trim()) return normalizeUnderlyingSymbol(symbol.value);
+    return resolveUiSymbol(null);
+  }
+  const s = String(symbol);
+  if (/\[object\s/i.test(s)) return resolveUiSymbol(null);
+  return normalizeUnderlyingSymbol(s);
 }
 
 function formatLotQtyLabel(symbol, lots) {
@@ -5754,7 +5783,26 @@ function formatStrikeForTradeSpeech(strike) {
   return strike.toLocaleString('en-IN', { maximumFractionDigits: 0 });
 }
 function mapExitReasonForTradeSpeech(exitReason, actionLabel) {
-  const byReason = { target: 'target hit', square_off: 'square off', manual_force_exit: 'manual exit', invalidated: 'signal invalidated', sl: 'stop loss', trailing: 'trailing stop' };
+  const byReason = {
+    target: 'target hit',
+    square_off: 'square off',
+    manual_force_exit: 'manual exit',
+    invalidated: 'signal invalidated',
+    sl: 'stop loss',
+    trailing: 'trailing stop',
+    PROFIT_PROTECTION: 'scalping profit protection',
+    MOMENTUM_FAILURE: 'momentum failure',
+    TIME_STOP: 'time stop',
+    OPPOSITE_SIGNAL: 'opposite signal',
+    FMS_INITIAL_TARGET: 'momentum scalp initial target',
+    FMS_EXTENDED_TARGET: 'momentum scalp extended target',
+    FMS_HALF_LIFE: 'momentum half-life exit',
+    FMS_TIME_STOP: 'momentum time stop',
+    FMS_MAX_HOLD: 'max holding time',
+    FMS_SPREAD_WIDEN: 'spread widened',
+    FMS_OPPOSITE: 'opposite momentum',
+    FMS_SPOT_REVERSAL: 'spot reversal',
+  };
   if (exitReason && byReason[exitReason]) return byReason[exitReason];
   const a = String(actionLabel || '');
   if (a.includes('TARGET')) return 'target hit';
@@ -5764,7 +5812,7 @@ function mapExitReasonForTradeSpeech(exitReason, actionLabel) {
   return 'exit';
 }
 function buildTradeAlertSpeech(event) {
-  const sym = event.symbol || 'NIFTY';
+  const sym = normalizeTradeAlertSymbol(event.symbol, event.open);
   const strike = formatStrikeForTradeSpeech(event.strike);
   const opt = event.optionType || 'CE';
   if (event.kind === 'entry') {
@@ -5804,8 +5852,9 @@ function showTradeAlertVisual(event, speechText) {
   const isPartial = event.kind === 'partial_exit';
   const accent = isEntry ? '#22c55e' : (isPartial ? '#f59e0b' : '#ef4444');
   const title = isEntry ? '🟢 TRADE ENTRY' : (isPartial ? '🟡 PARTIAL EXIT' : '🔴 TRADE EXIT');
+  const symLabel = normalizeTradeAlertSymbol(event.symbol, event.open);
   const detailLines = [];
-  detailLines.push(`${event.symbol || 'NIFTY'} · ${formatStrikeForTradeSpeech(event.strike)} ${event.optionType || 'CE'}`);
+  detailLines.push(`${symLabel} · ${formatStrikeForTradeSpeech(event.strike)} ${event.optionType || 'CE'}`);
   if (isEntry) {
     detailLines.push(`Bought @ ${formatInrForTradeSpeech(event.entryPrice)} · Qty ${event.qty != null ? event.qty : '—'}`);
     if (event.tradingType) detailLines.push(`Style: ${event.tradingType}`);
@@ -6033,6 +6082,7 @@ function playTradeAlertSoundPreset(preset, volume, pulseCount, onComplete) {
   } catch (e) { onComplete(); }
 }
 function notifyTradeExecution(event) {
+  event = Object.assign({}, event, { symbol: normalizeTradeAlertSymbol(event.symbol, event.open) });
   const settings = fnoSettings.get();
   if (settings.tradeAlertSystemEnabled === false) return;
   if (event.kind === 'entry' && settings.soundEntryEnabled === false) return;
@@ -8236,6 +8286,57 @@ function checkTradeExit(entryPrice, currentPrice, targetPrice, slPrice) {
   if (currentPrice <= slPrice) return 'sl';
   if (currentPrice >= targetPrice) return 'target';
   return null;
+}
+
+/**
+ * Paper exit must match the live option premium that triggered the close — no target/SL exit unless
+ * live premium actually crossed the level, and no sell fill priced above that live quote (look-ahead).
+ */
+function validatePaperExitEconomics(open, exitReason, liveTriggerPrice, proposedExitPrice) {
+  const r = String(exitReason || '');
+  if (!Number.isFinite(proposedExitPrice) || proposedExitPrice <= 0) {
+    return { ok: false, exitPrice: proposedExitPrice, exitTriggerPremium: liveTriggerPrice, note: 'invalid proposed exit fill' };
+  }
+  if (r === 'target') {
+    if (!Number.isFinite(liveTriggerPrice) || !Number.isFinite(open.target) || liveTriggerPrice + 0.02 < open.target) {
+      return {
+        ok: false,
+        exitPrice: proposedExitPrice,
+        exitTriggerPremium: liveTriggerPrice,
+        note: `target exit rejected: live premium ${liveTriggerPrice} did not reach target ${open.target}`,
+      };
+    }
+  }
+  if (r === 'sl') {
+    const effSl = open.trailingEnabled ? open.trailingSl : open.sl;
+    if (Number.isFinite(liveTriggerPrice) && Number.isFinite(effSl) && liveTriggerPrice > effSl + 0.02) {
+      return {
+        ok: false,
+        exitPrice: proposedExitPrice,
+        exitTriggerPremium: liveTriggerPrice,
+        note: `stop exit rejected: live premium ${liveTriggerPrice} still above stop ${effSl}`,
+      };
+    }
+  }
+  let exitPrice = proposedExitPrice;
+  if (Number.isFinite(liveTriggerPrice)) {
+    exitPrice = Math.min(exitPrice, liveTriggerPrice + 0.05);
+  }
+  return { ok: true, exitPrice, exitTriggerPremium: liveTriggerPrice, note: null };
+}
+
+function classifyPaperExitLabels(exitReason) {
+  const r = String(exitReason || '');
+  if (r === 'target') return { actionLabel: 'AUTO_TARGET_EXIT', sourceLabel: 'auto_target' };
+  if (r === 'square_off') return { actionLabel: 'AUTO_SQUARE_OFF', sourceLabel: 'square_off' };
+  if (r === 'manual_force_exit') return { actionLabel: 'MANUAL_FORCE_EXIT', sourceLabel: 'manual_force_exit' };
+  if (r === 'invalidated') return { actionLabel: 'AUTO_SIGNAL_INVALIDATED', sourceLabel: 'auto_invalidated' };
+  if (r === 'sl') return { actionLabel: 'AUTO_SL_EXIT', sourceLabel: 'auto_sl' };
+  if (/^FMS_/.test(r)) return { actionLabel: r, sourceLabel: 'fms_exit' };
+  if (r === 'PROFIT_PROTECTION' || r === 'MOMENTUM_FAILURE' || r === 'TIME_STOP' || r === 'OPPOSITE_SIGNAL' || r === 'TARGET_HIT' || r === 'STOP_HIT') {
+    return { actionLabel: 'SPE_' + r, sourceLabel: 'spe_exit' };
+  }
+  return { actionLabel: 'AUTO_SL_EXIT', sourceLabel: 'auto_sl' };
 }
 
 /**
@@ -17363,7 +17464,7 @@ function render(){
               let autoResult;
               try {
               autoResult = tryOpenAutoTradePosition(
-                { strike: autoStrike, optionType: autoOptionType, target: autoTarget, sl: autoSl, lotSize, lotCount, execMode: autoExecMode, trailingEnabled: autoTrailing, partialExitEnabled: autoPartial },
+                { strike: autoStrike, optionType: autoOptionType, target: autoTarget, sl: autoSl, lotSize, lotCount, symbol: sym, execMode: autoExecMode, trailingEnabled: autoTrailing, partialExitEnabled: autoPartial },
                 (msg) => { document.getElementById('brainLog').textContent += `\n⚠️ Autonomous Mode did not open a trade this cycle: ${msg}`; }
               );
               } catch (autoOpenErr) {
@@ -18513,7 +18614,7 @@ function render(){
       if (liveNow!==null) {
         const effectiveSl = open.trailingEnabled ? open.trailingSl : open.sl;
         const exit = checkTradeExit(open.entryPrice, liveNow, open.target, effectiveSl);
-        if (exit) { closeAutoTrade(open, leg, exit, sym); return; }
+        if (exit) { closeAutoTrade(open, leg, exit, sym, liveNow); return; }
         // Real, NEW check this session - see checkSignalInvalidation's
         // own TRACE. Checked AFTER price-based target/SL (price-based
         // exits are the more concrete, immediate real event when both
@@ -18524,14 +18625,14 @@ function render(){
         const invalidation = checkSignalInvalidation(open, lastBrain);
         if (invalidation.invalidated) {
           document.getElementById('brainLog').textContent += `\n⚠️ Signal invalidated: ${invalidation.reason}`;
-          closeAutoTrade(open, leg, 'invalidated', sym);
+          closeAutoTrade(open, leg, 'invalidated', sym, liveNow);
           return;
         }
         if (typeof evaluateScalpingProfitExit === 'function' && open.scalpingProfitTrade) {
           const speExit = evaluateScalpingProfitExit(open, curCtx, lastBrain, liveNow);
           if (speExit && speExit.exit) {
             document.getElementById('brainLog').textContent += `\n⚡ SPE exit: ${speExit.label}`;
-            closeAutoTrade(open, leg, speExit.reason === 'PROFIT_PROTECTION' ? 'target' : 'sl', sym);
+            closeAutoTrade(open, leg, speExit.reason, sym, liveNow);
             return;
           }
         }
@@ -18539,8 +18640,7 @@ function render(){
           const fmsExit = evaluateFirstMomentumScalperExit(open, curCtx, lastBrain, liveNow);
           if (fmsExit && fmsExit.exit) {
             document.getElementById('brainLog').textContent += `\n⚡ FMS exit: ${fmsExit.label}`;
-            const src = /TARGET/i.test(fmsExit.reason) ? 'target' : (fmsExit.reason === 'FMS_OPPOSITE' ? 'invalidated' : 'sl');
-            closeAutoTrade(open, leg, src, sym);
+            closeAutoTrade(open, leg, fmsExit.reason, sym, liveNow);
             return;
           }
         }
@@ -18553,7 +18653,7 @@ function render(){
       const nowStr = (curCtx && curCtx.time) || '';
       // Real swing positions are genuinely multi-day — same-day MIS square-off does not apply.
       if (squareOffTime && nowStr && nowStr >= squareOffTime && liveNow !== null && open.tradingType !== 'swing') {
-        closeAutoTrade(open, leg, 'square_off', sym);
+        closeAutoTrade(open, leg, 'square_off', sym, liveNow);
       }
     } else {
       openEl.innerHTML = `<span style="color:#64748b">No open Auto Trade position</span>`;
@@ -18602,7 +18702,7 @@ function render(){
     const exitPrice = fill.price !== null ? fill.price : (exitLeg && exitLeg.lastPrice) || open.entryPrice;
     const costs = computeTradeCosts(open.entryPrice, exitPrice, partialQty);
     const entry = {
-      ts: Date.now(), symbol: sym, strike: open.strike, optionType: open.optionType,
+      ts: Date.now(), symbol: normalizeTradeAlertSymbol(sym, open), strike: open.strike, optionType: open.optionType,
       action: 'PARTIAL_EXIT_AT_TARGET', entryPrice: open.entryPrice,
       exitPrice, exitIsRealistic: fill.isRealistic, qty: partialQty,
       grossPnl: costs.grossPnl, costsTotal: costs.totalCosts, pnl: costs.netPnl,
@@ -18617,7 +18717,8 @@ function render(){
     await journalAdd(entry);
     notifyTradeExecution({
       kind: 'partial_exit',
-      symbol: sym,
+      symbol: normalizeTradeAlertSymbol(sym, open),
+      open,
       strike: open.strike,
       optionType: open.optionType,
       entryPrice: open.entryPrice,
@@ -18634,7 +18735,7 @@ function render(){
     } finally { fnoAutoTradeCloseInProgress = false; }
   }
 
-  async function closeAutoTrade(open, exitLeg, exitReason, sym) {
+  async function closeAutoTrade(open, exitLeg, exitReason, sym, liveTriggerPrice) {
     // See fnoAutoTradeCloseInProgress TRACE (top of file): a concurrent
     // close/partial-close for this same position is already in flight -
     // never start a second one on top of it (would double-journal and
@@ -18659,7 +18760,18 @@ function render(){
       fill.price = latencyResult.adjustedPrice;
       exitLatencyCostRs = latencyResult.latencyCostRs;
     }
-    const exitPrice = fill.price !== null ? fill.price : (exitLeg && exitLeg.lastPrice) || open.entryPrice;
+    const exitPriceRaw = fill.price !== null ? fill.price : (exitLeg && exitLeg.lastPrice) || open.entryPrice;
+    const livePremiumAtDecision = Number.isFinite(liveTriggerPrice)
+      ? liveTriggerPrice
+      : (exitLeg && Number.isFinite(exitLeg.lastPrice) ? exitLeg.lastPrice : null);
+    const economics = validatePaperExitEconomics(open, exitReason, livePremiumAtDecision, exitPriceRaw);
+    if (!economics.ok) {
+      const brainLogEl = document.getElementById('brainLog');
+      if (brainLogEl) brainLogEl.textContent += `\n⚠️ Exit blocked (market integrity): ${economics.note}`;
+      return;
+    }
+    let exitPrice = economics.exitPrice;
+    const symResolved = normalizeTradeAlertSymbol(sym, open);
     const costs = computeTradeCosts(open.entryPrice, exitPrice, open.qty);
     // 'invalidated' (real, NEW this session - see checkSignalInvalidation's
     // own TRACE) is deliberately given its own distinct label, never
@@ -18670,12 +18782,14 @@ function render(){
     // re-entry cooldown gate, which specifically, deliberately keys
     // off a real SL exit only - see checkReEntryCooldown's own TRACE
     // for why that distinction matters there too).
-    const actionLabel = exitReason==='target' ? 'AUTO_TARGET_EXIT' : exitReason==='square_off' ? 'AUTO_SQUARE_OFF' : exitReason==='manual_force_exit' ? 'MANUAL_FORCE_EXIT' : exitReason==='invalidated' ? 'AUTO_SIGNAL_INVALIDATED' : 'AUTO_SL_EXIT';
-    const sourceLabel = exitReason==='target' ? 'auto_target' : exitReason==='square_off' ? 'square_off' : exitReason==='manual_force_exit' ? 'manual_force_exit' : exitReason==='invalidated' ? 'auto_invalidated' : 'auto_sl';
+    const actionLabel = classifyPaperExitLabels(exitReason).actionLabel;
+    const sourceLabel = classifyPaperExitLabels(exitReason).sourceLabel;
     const entry = {
-      ts: Date.now(), symbol: sym, strike: open.strike, optionType: open.optionType,
+      ts: Date.now(), symbol: symResolved, strike: open.strike, optionType: open.optionType,
       action: actionLabel, entryPrice: open.entryPrice,
       exitPrice, exitIsRealistic: fill.isRealistic, qty: open.qty,
+      exitTriggerPremium: economics.exitTriggerPremium != null ? economics.exitTriggerPremium : livePremiumAtDecision,
+      mfeAtExit: open.mfe,
       grossPnl: costs.grossPnl, costsTotal: costs.totalCosts, pnl: costs.netPnl, // pnl = NET, per §44 - the field every Risk/Psychology factor already reads must reflect real economics
       source: sourceLabel, mode,
       sl: open.sl, // ORIGINAL sl (not trailing), for diagnoseEntryExitQuality's risk-distance calc
@@ -18765,7 +18879,8 @@ function render(){
     if (typeof renderScalpingProfitLearningAnalytics === 'function') renderScalpingProfitLearningAnalytics();
     notifyTradeExecution({
       kind: 'exit',
-      symbol: sym,
+      symbol: symResolved,
+      open,
       strike: open.strike,
       optionType: open.optionType,
       entryPrice: open.entryPrice,
@@ -18880,8 +18995,8 @@ function render(){
     }
     const { strike, optionType, target, sl, execMode, trailingEnabled, partialExitEnabled } = params;
     let lotSize = params.lotSize;
-    const lotCount = params.lotCount != null ? params.lotCount : qtyToLots(sym, lotSize);
-    const symForLot = sym;
+    const symForLot = resolveUiSymbol(params.symbol);
+    const lotCount = params.lotCount != null ? params.lotCount : qtyToLots(symForLot, lotSize);
     const contractLot = getExchangeLotSize(symForLot);
     if (!isValidExchangeQty(symForLot, lotSize)) {
       reportFn(`Blocked: order quantity ${lotSize} is not a valid multiple of ${normalizeUnderlyingSymbol(symForLot)} contract lot (${contractLot} qty/lot). Set whole lots in the Lots field (currently ${lotCount} lot(s) = ${lotsToQty(symForLot, lotCount)} qty).`);
@@ -19354,12 +19469,12 @@ function render(){
       ? resolveFirstMomentumScalperBracket(fill.price, curCtx, lastBrain, effectiveTradingType, optionType)
       : null;
     const fmsEntrySpreadPct = (leg && typeof checkSpreadLevel === 'function') ? checkSpreadLevel(leg).spreadPct : null;
-    save(STORAGE.autoTrades, {id:openTradeId, strike, optionType, entryPrice:fill.price, fillIsRealistic:fill.isRealistic, executionMode:execMode, qty:filledLotSize, requestedQty: lotSize, fillIsPartial: partialFillInfo.isPartial, decisionTimePrice, entrySlippagePct: slippageCheck.slippagePct, target, sl, openedAt:Date.now(), entrySnapshot: entrySnapshotWithFailureCheck, trailingEnabled, trailingSl: sl, partialExitEnabled, partialTaken:false, mfe:fill.price, mae:fill.price, entryIV: (curCtx && curCtx.decay && curCtx.decay.snapshot && typeof curCtx.decay.snapshot.iv === 'number') ? curCtx.decay.snapshot.iv : null, failureModeCheck: fmResult, tradingType: effectiveTradingType, entrySpot, entryCandleTs, scalpingProfitTrade: isSpeTrade, scalpingProfitSnapshot: isSpeTrade ? speSnap : null, firstMomentumScalperTrade: isFmsTrade, firstMomentumSnapshot: isFmsTrade ? fmsSnap : null, fmsInitialTargetRs: isFmsTrade ? (fmsBracket && fmsBracket.initialTargetRs != null ? fmsBracket.initialTargetRs : fmsSnap.premiumTargetRs) : null, fmsExtendedTargetRs: isFmsTrade ? (fmsBracket && fmsBracket.extendedTargetRs != null ? fmsBracket.extendedTargetRs : fmsSnap.premiumExtendedTargetRs) : null, fmsTriggerSpot: isFmsTrade ? entrySpot : null, fmsEntrySpreadPct: isFmsTrade ? fmsEntrySpreadPct : null});
+    save(STORAGE.autoTrades, {id:openTradeId, symbol: symForLot, strike, optionType, entryPrice:fill.price, fillIsRealistic:fill.isRealistic, executionMode:execMode, qty:filledLotSize, requestedQty: lotSize, fillIsPartial: partialFillInfo.isPartial, decisionTimePrice, entrySlippagePct: slippageCheck.slippagePct, target, sl, openedAt:Date.now(), entrySnapshot: entrySnapshotWithFailureCheck, trailingEnabled, trailingSl: sl, partialExitEnabled, partialTaken:false, mfe:fill.price, mae:fill.price, entryIV: (curCtx && curCtx.decay && curCtx.decay.snapshot && typeof curCtx.decay.snapshot.iv === 'number') ? curCtx.decay.snapshot.iv : null, failureModeCheck: fmResult, tradingType: effectiveTradingType, entrySpot, entryCandleTs, scalpingProfitTrade: isSpeTrade, scalpingProfitSnapshot: isSpeTrade ? speSnap : null, firstMomentumScalperTrade: isFmsTrade, firstMomentumSnapshot: isFmsTrade ? fmsSnap : null, fmsInitialTargetRs: isFmsTrade ? (fmsBracket && fmsBracket.initialTargetRs != null ? fmsBracket.initialTargetRs : fmsSnap.premiumTargetRs) : null, fmsExtendedTargetRs: isFmsTrade ? (fmsBracket && fmsBracket.extendedTargetRs != null ? fmsBracket.extendedTargetRs : fmsSnap.premiumExtendedTargetRs) : null, fmsTriggerSpot: isFmsTrade ? entrySpot : null, fmsEntrySpreadPct: isFmsTrade ? fmsEntrySpreadPct : null});
     if (typeof linkPaperValidationTradeId === 'function') linkPaperValidationTradeId(openTradeId);
     if (typeof linkScalpingProfitTradeId === 'function' && isSpeTrade && speSnap) linkScalpingProfitTradeId(openTradeId, speSnap);
     if (typeof logModeTradeOpen === 'function' && lastBrain) {
       logModeTradeOpen(openTradeId, lastBrain, curCtx, {
-        sym,
+        sym: symForLot,
         entry: { price: fill.price, qty: filledLotSize, strike, optionType, target, sl },
         invalidation: sl,
         risk: { sl, target, qty: filledLotSize },
@@ -19439,7 +19554,7 @@ function render(){
     document.getElementById('brainLog').textContent += `\n✅ Auto Trade opened (${execMode==='theoretical'?'Mode 1 theoretical':'Mode 2 realistic'}): ${strike}${optionType} at Rs${fill.price.toFixed(2)}${fill.isRealistic?' (real ask price, spread simulated)':execMode==='theoretical'?' (theoretical last price, no spread modeled - by design in Mode 1)':' (fallback: last traded price - no real bid/ask this refresh, spread NOT simulated)'}${latencyInfo.latencyCostRs>0?` + Rs${latencyInfo.latencyCostRs.toFixed(2)} simulated latency cost (Enterprise Plan #29)`:''}, target Rs${target}, SL Rs${sl}. Projected net P&L at target after real costs: Rs${hypotheticalCosts.netPnl.toFixed(0)}. Polling every refresh for target/SL hit.${fmResult.triggered.length>0?` Failure-Mode Library: ${fmResult.triggered.length} real condition(s) noted (none severe enough to block) - ${fmResult.triggered.map(t=>t.id).join(', ')}.`:' Failure-Mode Library: no real conditions triggered.'}`;
     notifyTradeExecution({
       kind: 'entry',
-      symbol: sym,
+      symbol: symForLot,
       strike,
       optionType,
       entryPrice: fill.price,
@@ -19480,7 +19595,7 @@ function render(){
     const execMode = (document.getElementById('executionMode') && document.getElementById('executionMode').value) || 'realistic';
     const trailingEnabled = !!(document.getElementById('trailingEnabled') && document.getElementById('trailingEnabled').checked);
     const partialExitEnabled = !!(document.getElementById('partialExitEnabled') && document.getElementById('partialExitEnabled').checked);
-    const result = tryOpenAutoTradePosition({ strike, optionType, target, sl, lotSize, lotCount, execMode, trailingEnabled, partialExitEnabled }, (msg) => alert(msg));
+    const result = tryOpenAutoTradePosition({ strike, optionType, target, sl, lotSize, lotCount, symbol: symVal, execMode, trailingEnabled, partialExitEnabled }, (msg) => alert(msg));
     if (!result.opened && result.reason === 'Position already open') {
       // Real, exact preservation of the original manual-path behavior:
       // alert the user AND keep the checkbox checked (true, not false),
@@ -19530,7 +19645,7 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
     if (!curCtx || !curCtx.ocRow) { alert('No live premium available this refresh - cannot force-exit at a fabricated price. Try again next refresh.'); return; }
     const leg = open.optionType==='PE' ? curCtx.ocRow.PE : curCtx.ocRow.CE;
     if (!leg || typeof leg.lastPrice!=='number') { alert('No live premium for this leg this refresh.'); return; }
-    await closeAutoTrade(open, leg, 'manual_force_exit', document.getElementById('sym').value);
+    await closeAutoTrade(open, leg, 'manual_force_exit', resolveUiSymbol(open.symbol), leg.lastPrice);
   });
 
   document.getElementById('placeOrderBtn').addEventListener('click', async ()=>{
