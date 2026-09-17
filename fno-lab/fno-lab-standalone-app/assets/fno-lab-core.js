@@ -231,6 +231,14 @@ function snapQtyToExchangeLots(symbol, qty) {
   return Math.max(unit, Math.round(q / unit) * unit);
 }
 
+/** Largest whole-lot qty ≤ q (NSE F&O — no fractional lots). Returns 0 if q < one lot. */
+function floorQtyToWholeLots(symbol, qty) {
+  const unit = getExchangeLotSize(symbol);
+  const q = Number(qty);
+  if (!Number.isFinite(q) || q < unit) return 0;
+  return Math.floor(q / unit) * unit;
+}
+
 function getLotCountFromUi() {
   const el = document.getElementById('lotCount') || document.getElementById('lotSize');
   if (el && el.value) {
@@ -6534,22 +6542,36 @@ function checkGapFillStatus(candles) {
  * isPartial is only ever true when filledQty < qty for a REAL, verified
  * depth reason, never a coin-flip or unexplained shortfall.
  */
-function simulatePartialFillQty(leg, qty, side) {
+function simulatePartialFillQty(leg, qty, side, symbol) {
+  symbol = symbol || 'NIFTY';
+  const unit = getExchangeLotSize(symbol);
+  if (!Number.isFinite(qty) || qty < unit) {
+    return { filledQty: 0, isPartial: false, reason: `Requested qty ${qty} is below one ${normalizeUnderlyingSymbol(symbol)} exchange lot (${unit} qty) — NSE F&O does not allow partial lots.` };
+  }
+  qty = floorQtyToWholeLots(symbol, qty);
+  if (qty <= 0) {
+    return { filledQty: 0, isPartial: false, reason: `Could not normalize to a whole lot (${unit} qty).` };
+  }
   if (!leg) return { filledQty: qty, isPartial: false, reason: null };
   const restingQty = side === 'buy' ? leg.askQty : leg.bidQty;
   if (typeof restingQty !== 'number' || !(restingQty > 0)) {
-    // Depth data itself is simply absent - honestly cannot verify a
-    // shortfall, so (matching simulateOrderRejection's own discipline)
-    // this is NOT treated as evidence of a partial fill.
     return { filledQty: qty, isPartial: false, reason: null };
   }
-  if (restingQty >= qty) {
+  const maxWhole = floorQtyToWholeLots(symbol, Math.min(qty, restingQty));
+  if (maxWhole < unit) {
+    return {
+      filledQty: 0,
+      isPartial: false,
+      reason: `Best-level resting qty ${restingQty} cannot fill even one full ${normalizeUnderlyingSymbol(symbol)} lot (${unit} qty) — simulated as no fill (real markets do not trade 37/65-style odd sizes).`,
+    };
+  }
+  if (maxWhole >= qty) {
     return { filledQty: qty, isPartial: false, reason: null };
   }
   return {
-    filledQty: restingQty,
+    filledQty: maxWhole,
     isPartial: true,
-    reason: `Requested qty ${qty} exceeded the real best-level resting qty ${restingQty} on the ${side==='buy'?'ask':'bid'} side - simulated fill capped at the genuinely available depth, matching a real exchange's own price-time-priority behavior rather than fabricating a full fill.`,
+    reason: `Requested ${qty} qty (${qty / unit} lot(s)) but only ${maxWhole} qty (${maxWhole / unit} whole lot(s)) available at the ${side === 'buy' ? 'ask' : 'bid'} — capped to whole exchange lots only.`,
   };
 }
 
@@ -8517,12 +8539,19 @@ function checkPartialExit(open, livePrice) {
  * Postconditions: never returns a result whose remainingQty<=0 or
  * partialQty<=0.
  */
-function resolvePartialExitQty(open, partial) {
+function resolvePartialExitQty(open, partial, symbol) {
   if (!partial) return null;
-  if (!Number.isFinite(open.qty) || open.qty <= 1) return null; // no genuine remainder possible
-  const partialQty = Math.round(open.qty / 2);
+  if (!Number.isFinite(open.qty) || open.qty <= 0) return null;
+  symbol = symbol || (open.symbol || 'NIFTY');
+  const unit = getExchangeLotSize(symbol);
+  if (!isValidExchangeQty(symbol, open.qty)) return null;
+  const totalLots = Math.floor(open.qty / unit);
+  if (totalLots < 2) return null;
+  const exitLots = Math.floor(totalLots / 2);
+  if (exitLots < 1) return null;
+  const partialQty = exitLots * unit;
   const remainingQty = open.qty - partialQty;
-  if (!(partialQty > 0) || !(remainingQty > 0)) return null; // defense-in-depth, same guarantee restated
+  if (!isValidExchangeQty(symbol, remainingQty) || remainingQty < unit) return null;
   return { partialQty, remainingQty };
 }
 
@@ -18431,7 +18460,7 @@ function render(){
         // full exit via the normal checkTradeExit path below, instead
         // of leaving a permanent qty:0 phantom open position.
         const partial = checkPartialExit(open, liveNow);
-        const qtySplit = resolvePartialExitQty(open, partial);
+        const qtySplit = resolvePartialExitQty(open, partial, sym);
         if (partial && qtySplit) {
           closePartial(open, leg, qtySplit.partialQty, sym);
           open = {...open, qty: qtySplit.remainingQty, sl: partial.newSl, target: partial.newTarget, partialTaken: true, trailingSl: open.trailingEnabled ? partial.newSl : undefined};
@@ -19232,10 +19261,14 @@ function render(){
     let filledLotSize = lotSize;
     let partialFillInfo = { filledQty: lotSize, isPartial: false, reason: null };
     if (execMode === 'realistic') {
-      partialFillInfo = simulatePartialFillQty(leg, lotSize, 'buy');
+      partialFillInfo = simulatePartialFillQty(leg, lotSize, 'buy', symForLot);
       filledLotSize = partialFillInfo.filledQty;
+      if (!filledLotSize || filledLotSize < getExchangeLotSize(symForLot)) {
+        reportFn(partialFillInfo.reason || `Blocked: simulated fill could not reach one whole ${normalizeUnderlyingSymbol(symForLot)} exchange lot (${getExchangeLotSize(symForLot)} qty).`);
+        return { opened: false, reason: partialFillInfo.reason || 'Partial lot fill not allowed' };
+      }
       if (partialFillInfo.isPartial) {
-        reportFn(`Partial fill simulated (Decision Matrix - real depth-based model, not a certainty): requested ${lotSize}, filled ${filledLotSize}. ${partialFillInfo.reason}`);
+        reportFn(`Partial fill (whole lots only): requested ${lotSize} qty, filled ${filledLotSize} (${filledLotSize / getExchangeLotSize(symForLot)} lot(s)). ${partialFillInfo.reason || ''}`);
       }
     }
     const hypotheticalCosts = computeTradeCosts(fill.price, target, filledLotSize);

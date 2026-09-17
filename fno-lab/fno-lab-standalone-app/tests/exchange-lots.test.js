@@ -10,13 +10,18 @@ const bootEnd = coreSrc.indexOf('/** One-time schema migrations', bootStart);
 const preservationStart = coreSrc.indexOf('/** User checkbox is the master ON/OFF for capital preservation gates. */');
 const preservationEnd = coreSrc.indexOf('/** One-time schema migrations', preservationStart);
 
+const partialFnStart = coreSrc.indexOf('function resolvePartialExitQty(open, partial, symbol)');
+const partialFnEnd = coreSrc.indexOf('\nfunction diagnoseEntryExitQuality', partialFnStart);
+
 const bootSrc = [
   coreSrc.slice(bootStart, bootEnd),
   coreSrc.slice(preservationStart, preservationEnd),
+  coreSrc.slice(partialFnStart, partialFnEnd),
   'var fnoSettings = { get(){ return { scalpingCapitalPreservationEnabled: true, maxLosingTradesPerDay: 1, maxDailyLossPctPreservation: 1.5, scalpingProfitProfileEnabled: true, tradingTypes: { scalping: true } }; } };',
+  'function isAutonomousPaperTradingActive(){ return false; }',
   'function isScalpingProfitProfileActive(){ return true; }',
   'function getActiveTradingModeProfile(){ return null; }',
-  'return { normalizeUnderlyingSymbol, getExchangeLotSize, lotsToQty, qtyToLots, isValidExchangeQty, resolveOrderQuantity, formatLotQtyLabel, checkScalpingCapitalPreservation };',
+  'return { normalizeUnderlyingSymbol, getExchangeLotSize, lotsToQty, qtyToLots, isValidExchangeQty, resolveOrderQuantity, formatLotQtyLabel, floorQtyToWholeLots, resolvePartialExitQty, checkScalpingCapitalPreservation };',
 ].join('\n');
 
 const api = new Function(bootSrc.replace(/const FNO_/g, 'var FNO_'))();
@@ -57,5 +62,13 @@ assert.ok(/getLotCountFromUi\(\)/.test(coreSrc));
 assert.ok(/resolveOrderQuantity\(symVal, lotCount\)/.test(coreSrc));
 assert.ok(!/ctx\.lotCount = lotCount/.test(coreSrc), 'lotCount must be set inside const ctx={}, not before ctx is declared (TDZ bug)');
 assert.ok(/lotCount, exchangeLotSize: getExchangeLotSize\(sym\)/.test(coreSrc));
+
+assert.strictEqual(api.floorQtyToWholeLots('NIFTY', 37), 0);
+assert.strictEqual(api.floorQtyToWholeLots('NIFTY', 75), 75);
+assert.strictEqual(api.floorQtyToWholeLots('NIFTY', 149), 75);
+const split = api.resolvePartialExitQty({ qty: 150 }, { newSl: 1 }, 'NIFTY');
+assert.strictEqual(split.partialQty, 75);
+assert.strictEqual(split.remainingQty, 75);
+assert.strictEqual(api.resolvePartialExitQty({ qty: 75 }, { newSl: 1 }, 'NIFTY'), null);
 
 console.log('All exchange-lots tests passed.');

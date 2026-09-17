@@ -5013,40 +5013,23 @@ test('triggers at target: moves SL to breakeven, extends target by one risk dist
   assert.strictEqual(r.newTarget, 200); // 150 + (150-100)
 });
 
-console.log('\n=== resolvePartialExitQty (REAL BUG FOUND AND FIXED - qty:1 phantom-position guard) ===');
+console.log('\n=== resolvePartialExitQty (whole exchange lots only) ===');
 test('returns null when checkPartialExit signal itself is null', () => {
-  assert.strictEqual(__fno_resolvePartialExitQty({qty: 10}, null), null);
+  assert.strictEqual(__fno_resolvePartialExitQty({ qty: 150 }, null, 'NIFTY'), null);
 });
-test('REGRESSION GUARD: qty===1 - Math.round(1/2) rounds UP to 1, would leave qty:0 phantom - must return null instead', () => {
-  const signal = { newSl: 100, newTarget: 200 };
-  const r = __fno_resolvePartialExitQty({qty: 1}, signal);
-  assert.strictEqual(r, null, 'a qty=1 position must never be "partially" exited - there is no genuine remainder to keep running');
+test('single lot (75 qty) cannot scale out — must ride to full exit', () => {
+  assert.strictEqual(__fno_resolvePartialExitQty({ qty: 75 }, { newSl: 100, newTarget: 200 }, 'NIFTY'), null);
 });
-test('qty===0 (defensive) also returns null, never a negative/NaN split', () => {
-  assert.strictEqual(__fno_resolvePartialExitQty({qty: 0}, {newSl:100,newTarget:200}), null);
+test('two lots (150 qty): exit one lot (75), keep one lot (75) — not 38/37', () => {
+  const r = __fno_resolvePartialExitQty({ qty: 150 }, { newSl: 100, newTarget: 200 }, 'NIFTY');
+  assert.deepStrictEqual(r, { partialQty: 75, remainingQty: 75 });
 });
-test('non-finite qty returns null rather than propagating NaN into partialQty/remainingQty', () => {
-  assert.strictEqual(__fno_resolvePartialExitQty({qty: NaN}, {newSl:100,newTarget:200}), null);
+test('invalid odd qty (37) returns null', () => {
+  assert.strictEqual(__fno_resolvePartialExitQty({ qty: 37 }, { newSl: 100, newTarget: 200 }, 'NIFTY'), null);
 });
-test('qty===2 (even, smallest real splittable lot): 1 closed, 1 genuine remainder', () => {
-  const r = __fno_resolvePartialExitQty({qty: 2}, {newSl:100,newTarget:200});
-  assert.deepStrictEqual(r, { partialQty: 1, remainingQty: 1 });
-});
-test('qty===3 (odd): Math.round(1.5)=2 closed, 1 genuine remainder (unchanged real baseline behavior)', () => {
-  const r = __fno_resolvePartialExitQty({qty: 3}, {newSl:100,newTarget:200});
-  assert.deepStrictEqual(r, { partialQty: 2, remainingQty: 1 });
-});
-test('qty===50 (default lot size): 25/25 even split, real baseline unchanged', () => {
-  const r = __fno_resolvePartialExitQty({qty: 50}, {newSl:100,newTarget:200});
-  assert.deepStrictEqual(r, { partialQty: 25, remainingQty: 25 });
-});
-test('invariant: whenever a result is returned, partialQty+remainingQty===original qty for a wide sweep of lot sizes (no silent qty leakage)', () => {
-  for (let qty = 2; qty <= 200; qty++) {
-    const r = __fno_resolvePartialExitQty({qty}, {newSl:100,newTarget:200});
-    assert.ok(r, `qty=${qty} should always yield a genuine split`);
-    assert.ok(r.partialQty > 0 && r.remainingQty > 0, `qty=${qty}: both legs must be strictly positive`);
-    assert.strictEqual(r.partialQty + r.remainingQty, qty, `qty=${qty}: split must conserve total quantity exactly`);
-  }
+test('four lots (300 qty): exit two lots, keep two lots', () => {
+  const r = __fno_resolvePartialExitQty({ qty: 300 }, { newSl: 100, newTarget: 200 }, 'NIFTY');
+  assert.deepStrictEqual(r, { partialQty: 150, remainingQty: 150 });
 });
 
 console.log('\n=== Full multi-leg partial-exit lifecycle simulation (open -> partial -> final close) ===');
@@ -6327,44 +6310,38 @@ test('no rejection when order qty is well within resting depth and spread is tig
   assert.strictEqual(r.riskFactors.length, 0);
 });
 
-console.log('\n=== simulatePartialFillQty (real, NEW Phase-5 fix - the "Partial order execution" Decision Matrix gap found during the post-session audit) ===');
-test('a genuinely null leg (data simply absent) fills the full requested qty - a data gap is not evidence of a partial fill', () => {
-  const r = __fno_simulatePartialFillQty(null, 50, 'buy');
-  assert.strictEqual(r.filledQty, 50);
-  assert.strictEqual(r.isPartial, false);
-  assert.strictEqual(r.reason, null);
-});
-test('resting depth data simply missing/zero (not the same as verified-thin) honestly does not simulate a partial fill', () => {
-  assert.strictEqual(__fno_simulatePartialFillQty({}, 50, 'buy').isPartial, false);
-  assert.strictEqual(__fno_simulatePartialFillQty({askQty: 0}, 50, 'buy').isPartial, false);
-  assert.strictEqual(__fno_simulatePartialFillQty({askQty: -5}, 50, 'buy').isPartial, false);
-});
-test('resting qty comfortably covers the requested qty - fills in full, not partial', () => {
-  const r = __fno_simulatePartialFillQty({askQty: 500, bidQty: 500}, 50, 'buy');
-  assert.strictEqual(r.filledQty, 50);
+console.log('\n=== simulatePartialFillQty (NSE whole-lot discipline) ===');
+test('a genuinely null leg (data absent) fills the full requested whole-lot qty', () => {
+  const r = __fno_simulatePartialFillQty(null, 150, 'buy', 'NIFTY');
+  assert.strictEqual(r.filledQty, 150);
   assert.strictEqual(r.isPartial, false);
 });
-test('exact boundary: resting qty exactly equals requested qty - fills in full, not partial (inclusive boundary)', () => {
-  const r = __fno_simulatePartialFillQty({askQty: 50, bidQty: 500}, 50, 'buy');
-  assert.strictEqual(r.filledQty, 50);
+test('resting depth data missing does not simulate a partial fill', () => {
+  assert.strictEqual(__fno_simulatePartialFillQty({}, 150, 'buy', 'NIFTY').isPartial, false);
+});
+test('resting qty covers request — full fill', () => {
+  const r = __fno_simulatePartialFillQty({ askQty: 500, bidQty: 500 }, 150, 'buy', 'NIFTY');
+  assert.strictEqual(r.filledQty, 150);
   assert.strictEqual(r.isPartial, false);
 });
-test('resting qty genuinely below the requested qty on the BUY side (crosses the ask) - fills only the real available depth, never fabricates the full requested qty', () => {
-  const r = __fno_simulatePartialFillQty({askQty: 10, bidQty: 500}, 50, 'buy');
-  assert.strictEqual(r.filledQty, 10);
+test('resting qty below request — caps to whole lots only (150 req, 100 resting → 75)', () => {
+  const r = __fno_simulatePartialFillQty({ askQty: 100, bidQty: 500 }, 150, 'buy', 'NIFTY');
+  assert.strictEqual(r.filledQty, 75);
   assert.strictEqual(r.isPartial, true);
-  assert.ok(/best-level resting qty 10/.test(r.reason));
 });
-test('SELL side correctly checks bidQty, not askQty - the two sides must never be confused', () => {
-  const r = __fno_simulatePartialFillQty({askQty: 500, bidQty: 15}, 50, 'sell');
-  assert.strictEqual(r.filledQty, 15);
+test('resting qty below one lot — no fill (not 37/65 odd sizes)', () => {
+  const r = __fno_simulatePartialFillQty({ askQty: 65, bidQty: 500 }, 150, 'buy', 'NIFTY');
+  assert.strictEqual(r.filledQty, 0);
+  assert.ok(/one full/i.test(r.reason));
+});
+test('request below one exchange lot is rejected', () => {
+  const r = __fno_simulatePartialFillQty({ askQty: 500 }, 50, 'buy', 'NIFTY');
+  assert.strictEqual(r.filledQty, 0);
+});
+test('SELL side uses bidQty and whole lots', () => {
+  const r = __fno_simulatePartialFillQty({ askQty: 500, bidQty: 80 }, 150, 'sell', 'NIFTY');
+  assert.strictEqual(r.filledQty, 75);
   assert.strictEqual(r.isPartial, true);
-  assert.ok(/bid side/.test(r.reason));
-});
-test('a genuinely, verifiably tiny resting qty (1) still fills that 1, never rounds down to zero or fabricates a full rejection this function has no business making', () => {
-  const r = __fno_simulatePartialFillQty({askQty: 1, bidQty: 500}, 50, 'buy');
-  assert.strictEqual(r.filledQty, 1);
-  assert.ok(r.filledQty > 0, 'filledQty must never be zero - that would silently open a position with an invalid, zero quantity');
 });
 
 console.log('\n=== checkExecutionLatencyRisk / FM067 (real, NEW Phase-5 fix - the previously-deferred "latency cost is a meaningful % of premium" gap) ===');
@@ -7474,7 +7451,7 @@ test('tryOpenAutoTradePosition genuinely calls simulatePartialFillQty and uses I
   assert.ok(fnStart !== -1, 'tryOpenAutoTradePosition must still exist in the current source under this name');
   const fnEnd = coreSrc.indexOf('\n  function ', fnStart + 10);
   const fnBody = coreSrc.slice(fnStart, fnEnd > -1 ? fnEnd : fnStart + 20000);
-  assert.ok(/simulatePartialFillQty\(leg, lotSize, 'buy'\)/.test(fnBody), 'must genuinely call the real function with the real requested lotSize');
+  assert.ok(/simulatePartialFillQty\(leg, lotSize, 'buy', symForLot\)/.test(fnBody), 'must genuinely call the real function with symbol for whole-lot fills');
   assert.ok(/qty:\s*filledLotSize/.test(fnBody), 'the saved position object must record the REAL filled qty, not the originally-requested lotSize - a silent full-qty fabrication would defeat the entire point of this fix');
   assert.ok(/computeTradeCosts\(fill\.price,\s*target,\s*filledLotSize\)/.test(fnBody), 'the cost-aware profitability check (Master Prompt §44) must be computed against the REAL filled qty, not an unfilled, fabricated full lotSize');
   assert.ok(/qty=\$\{filledLotSize\}/.test(fnBody), 'the real, server-side swing-position-open call must also send the REAL filled qty, not the requested lotSize - otherwise the DB row would silently misrepresent the real, simulated position size');
