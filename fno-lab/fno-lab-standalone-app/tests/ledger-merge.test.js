@@ -9,6 +9,14 @@ assert.ok(coreSrc.includes('function journalRecordOpenPosition'), 'entry alert m
 assert.ok(coreSrc.includes('function resolveOpenRowForLedger'), 'ledger must resolve open from live or journal marker');
 assert.ok(coreSrc.includes('function reconcileLocalJournalFromServer'), 'ledger must persist server+local union');
 assert.ok(!coreSrc.includes('local-${fingerprintJournalRow'), 'ledger must not show raw fingerprint ids');
+const loadLedgerImpl = coreSrc.slice(
+  coreSrc.indexOf('async function loadTradeLedgerImpl'),
+  coreSrc.indexOf('async function loadTradeLedger()')
+);
+assert.ok(
+  !loadLedgerImpl.includes('reconcileLocalJournalFromServer'),
+  'loadTradeLedgerImpl must merge for display only; persist via syncServerJournal'
+);
 assert.ok(coreSrc.includes('partial_fill_rejected'), 'all-or-nothing entry must block depth partial fills');
 assert.ok(coreSrc.includes('_fnoTradeAlertVoiceQueue'), 'voice queue must be separate from immediate sound');
 assert.ok(!coreSrc.includes('_fnoTradeAlertQueue'), 'serial sound+voice queue removed');

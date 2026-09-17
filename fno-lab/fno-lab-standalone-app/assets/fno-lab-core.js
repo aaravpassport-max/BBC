@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.32-ledger-open-sync';
+const FNO_CORE_BUILD_MARKER = '16.37.33-ledger-display-merge-only';
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -19773,8 +19773,9 @@ function render(){
       ? resolveFirstMomentumScalperBracket(fill.price, curCtx, lastBrain, effectiveTradingType, optionType)
       : null;
     const fmsEntrySpreadPct = (leg && typeof checkSpreadLevel === 'function') ? checkSpreadLevel(leg).spreadPct : null;
-    save(STORAGE.autoTrades, {id:openTradeId, symbol: symForLot, strike, optionType, entryPrice:fill.price, fillIsRealistic:fill.isRealistic, executionMode:execMode, qty:filledLotSize, requestedQty: lotSize, fillIsPartial: partialFillInfo.isPartial, decisionTimePrice, entrySlippagePct: slippageCheck.slippagePct, target, sl, openedAt:Date.now(), entrySnapshot: entrySnapshotWithFailureCheck, trailingEnabled, trailingSl: sl, partialExitEnabled, partialTaken:false, mfe:fill.price, mae:fill.price, entryIV: (curCtx && curCtx.decay && curCtx.decay.snapshot && typeof curCtx.decay.snapshot.iv === 'number') ? curCtx.decay.snapshot.iv : null, failureModeCheck: fmResult, tradingType: effectiveTradingType, entrySpot, entryCandleTs, scalpingProfitTrade: isSpeTrade, scalpingProfitSnapshot: isSpeTrade ? speSnap : null, firstMomentumScalperTrade: isFmsTrade, firstMomentumSnapshot: isFmsTrade ? fmsSnap : null, fmsInitialTargetRs: isFmsTrade ? (fmsBracket && fmsBracket.initialTargetRs != null ? fmsBracket.initialTargetRs : fmsSnap.premiumTargetRs) : null, fmsExtendedTargetRs: isFmsTrade ? (fmsBracket && fmsBracket.extendedTargetRs != null ? fmsBracket.extendedTargetRs : fmsSnap.premiumExtendedTargetRs) : null, fmsTriggerSpot: isFmsTrade ? entrySpot : null, fmsEntrySpreadPct: isFmsTrade ? fmsEntrySpreadPct : null});
-    journalRecordOpenPosition(loadObj(STORAGE.autoTrades), mode);
+    const openPayload = {id:openTradeId, symbol: symForLot, strike, optionType, entryPrice:fill.price, fillIsRealistic:fill.isRealistic, executionMode:execMode, qty:filledLotSize, requestedQty: lotSize, fillIsPartial: partialFillInfo.isPartial, decisionTimePrice, entrySlippagePct: slippageCheck.slippagePct, target, sl, openedAt:Date.now(), entrySnapshot: entrySnapshotWithFailureCheck, trailingEnabled, trailingSl: sl, partialExitEnabled, partialTaken:false, mfe:fill.price, mae:fill.price, entryIV: (curCtx && curCtx.decay && curCtx.decay.snapshot && typeof curCtx.decay.snapshot.iv === 'number') ? curCtx.decay.snapshot.iv : null, failureModeCheck: fmResult, tradingType: effectiveTradingType, entrySpot, entryCandleTs, scalpingProfitTrade: isSpeTrade, scalpingProfitSnapshot: isSpeTrade ? speSnap : null, firstMomentumScalperTrade: isFmsTrade, firstMomentumSnapshot: isFmsTrade ? fmsSnap : null, fmsInitialTargetRs: isFmsTrade ? (fmsBracket && fmsBracket.initialTargetRs != null ? fmsBracket.initialTargetRs : fmsSnap.premiumTargetRs) : null, fmsExtendedTargetRs: isFmsTrade ? (fmsBracket && fmsBracket.extendedTargetRs != null ? fmsBracket.extendedTargetRs : fmsSnap.premiumExtendedTargetRs) : null, fmsTriggerSpot: isFmsTrade ? entrySpot : null, fmsEntrySpreadPct: isFmsTrade ? fmsEntrySpreadPct : null};
+    save(STORAGE.autoTrades, openPayload);
+    journalRecordOpenPosition(openPayload, mode);
     if (typeof linkPaperValidationTradeId === 'function') linkPaperValidationTradeId(openTradeId);
     if (typeof linkScalpingProfitTradeId === 'function' && isSpeTrade && speSnap) linkScalpingProfitTradeId(openTradeId, speSnap);
     if (typeof logModeTradeOpen === 'function' && lastBrain) {
@@ -20679,9 +20680,8 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
       if (loggedIn) {
         serverRowsFresh = await fetchJournalListForLedger(12000);
         usedCachedServer = serverRowsFresh === null && !!(fnoLastGoodServerJournal && fnoLastGoodServerJournal.length);
-        if (serverRowsFresh !== null) {
-          reconcileLocalJournalFromServer(serverRowsFresh);
-        }
+        // Intentionally no local journal persist on ledger paint (races with journalAdd/close).
+        // Read-only union via buildUnifiedJournalForLedger(); persist via syncServerJournal().
       }
       if (loadGen !== fnoLedgerLoadGeneration) return;
       let trades = loggedIn ? buildUnifiedJournalForLedger(serverRowsFresh) : buildUnifiedJournalForLedger([]);
@@ -20740,11 +20740,11 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
 
       bodyEl.innerHTML = tableRows.map(t => {
         const hasFullPriceData = typeof t.entryPrice === 'number' && typeof t.exitPrice === 'number';
-        const whenMs = t._ledgerOpen
+        const whenMs = (t._ledgerOpen || t.ledgerPhase === 'open')
           ? (normalizeTradeTimestampMs(t.openedAt) || normalizeTradeTimestampMs(t.ts))
           : (normalizeTradeTimestampMs(t.ts) || normalizeTradeTimestampMs(t.openedAt));
         const dateStr = formatLedgerWhenIST(whenMs);
-        const dateTitle = t._ledgerOpen
+        const dateTitle = (t._ledgerOpen || t.ledgerPhase === 'open')
           ? formatLedgerWhenRangeIST(t.openedAt, null)
           : formatLedgerWhenRangeIST(t.openedAt, t.ts);
         let costs = null;
@@ -20752,13 +20752,13 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
           costs = computeTradeCosts(t.entryPrice, t.exitPrice, t.qty);
         }
         const net = ledgerTradeNetPnl(t);
-        const netColor = t._ledgerOpen ? '#38bdf8' : (net > 0 ? '#4ade80' : net < 0 ? '#f87171' : '#94a3b8');
-        const statusHtml = t._ledgerOpen
+        const netColor = (t._ledgerOpen || t.ledgerPhase === 'open') ? '#38bdf8' : (net > 0 ? '#4ade80' : net < 0 ? '#f87171' : '#94a3b8');
+        const statusHtml = (t._ledgerOpen || t.ledgerPhase === 'open')
           ? '<span style="color:#38bdf8;font-weight:700">Open</span>'
           : '<span style="color:#94a3b8">Closed</span>';
-        const pnlCell = t._ledgerOpen ? '—' : formatLedgerRsWhole(typeof t.pnl === 'number' ? t.pnl : null);
+        const pnlCell = (t._ledgerOpen || t.ledgerPhase === 'open') ? '—' : formatLedgerRsWhole(typeof t.pnl === 'number' ? t.pnl : null);
         const rowClick = (costs && typeof t.id === 'number') ? `onclick="window.__fnoShowChargesDetail(${t.id})"` : '';
-        const actionLabel = t._ledgerOpen ? 'Live position' : formatLedgerActionLabel(t.action);
+        const actionLabel = (t._ledgerOpen || t.ledgerPhase === 'open') ? 'Live position' : formatLedgerActionLabel(t.action);
         return `<tr style="cursor:${costs ? 'pointer' : 'default'}" ${rowClick}>
           <td class="fno-ledger-col-id">${escapeHtml(t._ledgerDisplayId || '—')}</td>
           <td class="fno-ledger-col-date"${dateTitle ? ` title="${escapeHtml(dateTitle)}"` : ''}>${dateStr}</td>
