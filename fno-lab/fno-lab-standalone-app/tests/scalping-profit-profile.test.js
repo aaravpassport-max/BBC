@@ -34,15 +34,15 @@ const bootSrc = [
 const api = new Function(bootSrc)();
 
 api.fnoSettings.set({ scalpingProfitProfileEnabled: true, tradingTypes: { intraday: false, scalping: true, swing: false }, scalpingTradingMode: 'conservative' });
-assert.strictEqual(api.getEffectiveDecisionThresholds().buyThreshold, 8);
+assert.strictEqual(api.getEffectiveDecisionThresholds().buyThreshold, 6);
 assert.strictEqual(api.getEffectiveDecisionThresholds().source, 'trading_mode_conservative');
 api.fnoSettings.set({ scalpingProfitProfileEnabled: false });
-assert.strictEqual(api.getEffectiveDecisionThresholds().buyThreshold, 11);
-api.fnoSettings.set({ scalpingProfitProfileEnabled: true, tradingTypes: { intraday: false, scalping: true, swing: false } });
+assert.strictEqual(api.getEffectiveDecisionThresholds().buyThreshold, 9);
+api.fnoSettings.set({ scalpingProfitProfileEnabled: true, tradingTypes: { intraday: false, scalping: true, swing: false }, scalpingTradingMode: 'balanced' });
 assert.strictEqual(api.isScalpingProfitProfileActive(), true);
 const t = api.getEffectiveDecisionThresholds();
-assert.strictEqual(t.buyThreshold, 8);
-assert.strictEqual(t.sellThreshold, -13);
+assert.strictEqual(t.buyThreshold, 6);
+assert.strictEqual(t.sellThreshold, -11);
 
 api.applyScalpingProfitProfilePreset();
 const s = api.fnoSettings.get();

@@ -37,10 +37,10 @@ const api = new Function(bootSrc)();
 
 assert.strictEqual(Object.keys(api.FNO_SCALPING_TRADING_MODES).length, 7);
 assert.strictEqual(api.FNO_SCALPING_TRADING_MODES.experimental_trigger.relaxExecutionGates, true);
-assert.strictEqual(api.FNO_SCALPING_TRADING_MODES.experimental_trigger.buyThreshold, 3);
-assert.strictEqual(api.FNO_SCALPING_TRADING_MODES.conservative.buyThreshold, 8);
+assert.strictEqual(api.FNO_SCALPING_TRADING_MODES.experimental_trigger.buyThreshold, 2);
+assert.strictEqual(api.FNO_SCALPING_TRADING_MODES.conservative.buyThreshold, 6);
 assert.strictEqual(api.FNO_SCALPING_TRADING_MODES.balanced.scalpingFmSafetyProfile, 'balanced');
-assert.strictEqual(api.FNO_SCALPING_TRADING_MODES.relaxed.buyThreshold, 7);
+assert.strictEqual(api.FNO_SCALPING_TRADING_MODES.relaxed.buyThreshold, 5);
 assert.strictEqual(api.FNO_SCALPING_TRADING_MODES.maximum_opportunity.experimental, true);
 
 api.fnoSettings.set({ scalpingProfitProfileEnabled: true, tradingTypes: { scalping: true, intraday: false, swing: false }, scalpingTradingMode: 'conservative' });
@@ -49,13 +49,13 @@ assert.strictEqual(api.getModeEffectiveThresholds().source, 'trading_mode_conser
 api.applyScalpingTradingModePreset('relaxed');
 assert.strictEqual(api.resolveScalpingTradingMode(), 'relaxed');
 assert.strictEqual(api.getActiveTradingModeProfile().weightedScorePolicy, 'downgrade');
-assert.strictEqual(api.getModeSpreadHardBlockPct(), 13);
+assert.strictEqual(api.getModeSpreadHardBlockPct(), 14);
 
 const brain = {
   decision: 'BUY_READY',
   confidence: 'Medium',
-  directionalScore: 7.2,
-  weightedDirectionalScore: 6.5,
+  directionalScore: 5.2,
+  weightedDirectionalScore: 5.2,
   pretradeGateCheck: { finalAction: 'none', triggered: [] },
   results: [{ factor: 'Momentum', pass: true, score: 2.1, cat: 'Flow' }],
   reason: 'Momentum developing',
@@ -64,11 +64,11 @@ assert.strictEqual(api.wouldModeAcceptSetup('balanced', brain).accepted, false);
 assert.strictEqual(api.wouldModeAcceptSetup('relaxed', brain).accepted, true);
 assert.strictEqual(api.resolveModeAdjustedLotCount(2, brain), 2); // Medium ×0.75 → round(1.5)=2 min 1
 
-const lowConfBrain = { ...brain, confidence: 'Low', directionalScore: 5.5, weightedDirectionalScore: 5.5 };
+const lowConfBrain = { ...brain, confidence: 'Low', directionalScore: 3.2, weightedDirectionalScore: 3.2 };
 assert.strictEqual(api.wouldModeAcceptSetup('balanced', lowConfBrain).accepted, false);
 assert.strictEqual(api.wouldModeAcceptSetup('maximum_opportunity', lowConfBrain).accepted, true);
 assert.strictEqual(api.resolveModeAdjustedLotCount(2, lowConfBrain), 1); // Max opp Low ×0.15 → 1
-assert.strictEqual(api.wouldModeAcceptSetup('experimental_trigger', { ...lowConfBrain, directionalScore: 3.1, weightedDirectionalScore: 3.1 }).accepted, true);
+assert.strictEqual(api.wouldModeAcceptSetup('experimental_trigger', { ...lowConfBrain, directionalScore: 2.1, weightedDirectionalScore: 2.1 }).accepted, true);
 assert.strictEqual(api.isExperimentalTradeTriggerMode(), false);
 api.applyScalpingTradingModePreset('experimental_trigger');
 assert.strictEqual(api.isExperimentalTradeTriggerMode(), true);

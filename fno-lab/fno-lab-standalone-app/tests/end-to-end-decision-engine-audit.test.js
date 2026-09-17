@@ -358,7 +358,7 @@ console.log('\n=== Live threshold override (real evaluateBrain() behavior change
 
   const ctx = buildBaseCtx({});
   const brainBefore = evaluateBrain(ctx);
-  check(brainBefore.buyThreshold === 11 && brainBefore.sellThreshold === -17, `Before any override: evaluateBrain() genuinely uses its real, original hand-set defaults (got buyThreshold=${brainBefore.buyThreshold}, sellThreshold=${brainBefore.sellThreshold})`);
+  check(brainBefore.buyThreshold === 9 && brainBefore.sellThreshold === -15, `Before any override: evaluateBrain() genuinely uses its real, original hand-set defaults (got buyThreshold=${brainBefore.buyThreshold}, sellThreshold=${brainBefore.sellThreshold})`);
 
   const applyResult = applyThresholdOverride(25, -30, 'test override');
   check(applyResult.success === true, `applyThresholdOverride() genuinely accepts a real, valid override (buyThreshold>0, sellThreshold<0) (got success=${applyResult.success})`);
@@ -376,7 +376,7 @@ console.log('\n=== Live threshold override (real evaluateBrain() behavior change
 
   clearThresholdOverride();
   const brainAfterRevert = evaluateBrain(ctx);
-  check(brainAfterRevert.buyThreshold === 11 && brainAfterRevert.sellThreshold === -17, `clearThresholdOverride() genuinely reverts evaluateBrain() back to its real original defaults on the very next call (got buyThreshold=${brainAfterRevert.buyThreshold}, sellThreshold=${brainAfterRevert.sellThreshold})`);
+  check(brainAfterRevert.buyThreshold === 9 && brainAfterRevert.sellThreshold === -15, `clearThresholdOverride() genuinely reverts evaluateBrain() back to its real original defaults on the very next call (got buyThreshold=${brainAfterRevert.buyThreshold}, sellThreshold=${brainAfterRevert.sellThreshold})`);
 
   delete global.localStorage;
 }

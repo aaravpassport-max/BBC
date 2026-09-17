@@ -107,7 +107,7 @@ const FNO_SETTINGS_DEFAULTS = {
   // score safety rails (never disables realistic execution or FM blocks).
   scalpingProfitProfileEnabled: true,
   scalpingFmSafetyProfile: 'strict', // legacy sync — use scalpingTradingMode for full profile
-  scalpingTradingMode: 'conservative', // conservative | balanced | relaxed | opportunity | aggressive_controlled | maximum_opportunity
+  scalpingTradingMode: 'balanced', // default Mode 2 — earlier entries with downgrade (not block) on weighted score
   scalpingTrailingEnabled: true, // default ON with scalping profile — lock gains on fast moves
   scalpingPartialExitEnabled: true, // default ON — scale half at target, trail remainder
   // Enterprise trade alert system — fires ONLY on real paper-trade entry/exit execution.
@@ -131,7 +131,7 @@ const FNO_SETTINGS_DEFAULTS = {
   fastMovementThreshold: 65,
   mediumMovementThreshold: 40,
   insufficientMovementThreshold: 25,
-  minimumSetupScore: 65,
+  minimumSetupScore: 58,
   minimumRiskReward: 1.5,
   setupConfirmationMaxCandles: 8,
   targetPointsFast: 20,
@@ -144,9 +144,9 @@ const FNO_SETTINGS_DEFAULTS = {
   // Scalping Profit Engine — independent layered decision pipeline (paper-first default).
   scalpingProfitEngineEnabled: true,
   scalpingProfitEngineMode: 'PAPER_ONLY', // OFF | ON | PAPER_ONLY | SIGNAL_ONLY
-  speMinTradeQualityScore: 70,
-  speMinRegimeConfidence: 60,
-  speMinDirectionConfidence: 65,
+  speMinTradeQualityScore: 62,
+  speMinRegimeConfidence: 52,
+  speMinDirectionConfidence: 58,
   speAntiChaseThresholdPct: 75,
   speSpreadThresholdPct: 0.12,
   speMinExpectedMovePts: 8,
@@ -584,13 +584,13 @@ function isAnyTradingTypeEnabled() {
   return !!(t.intraday || t.scalping || t.swing);
 }
 
-/** Scalping Profit Profile — slightly easier thresholds, tighter spread block, weighted-score safety. */
+/** Scalping Profit Profile — aligned with Mode 2 (Balanced) entry thresholds; spread block follows active mode. */
 const FNO_SCALPING_PROFIT_PROFILE = {
-  buyThreshold: 8,
-  sellThreshold: -13,
+  buyThreshold: 6,
+  sellThreshold: -11,
   autoCalibrateTargetWinRatePct: 65,
   autoCalibrateMinSampleSize: 20, // higher bar than general 10 — avoids over-tightening on tiny samples
-  spreadHardBlockPct: 12,
+  spreadHardBlockPct: 13,
   // Value Decay hard NO_TRADE: on weekly/monthly options theta often exceeds 5% of
   // premium — blocking there made scalping show 0% eligibility all session (v16.30.4).
   valueDecayHardBlockMaxDays: 1, // hard block only on last expiry day (pairs with Expiry critFail)
@@ -632,6 +632,40 @@ function shouldPushExpiryCriticalFail(ctx) {
   if (typeof isExperimentalTradeTriggerMode === 'function' && isExperimentalTradeTriggerMode()) return false;
   if (isScalpingProfitProfileActive()) return false;
   return true;
+}
+
+/** Hard NO_TRADE daily loss — uses preservation % when set; scalping profile allows more room before crit. */
+function getBrainMaxLossCriticalThresholdRs(ctx) {
+  const assumedCapital = (ctx && Number.isFinite(ctx.assumedCapital)) ? ctx.assumedCapital : 100000;
+  let pct = 2;
+  if (typeof fnoSettings !== 'undefined') {
+    const s = fnoSettings.get();
+    if (typeof s.maxDailyLossPctPreservation === 'number' && s.maxDailyLossPctPreservation > 0) {
+      pct = Math.max(pct, s.maxDailyLossPctPreservation);
+    }
+  }
+  const pctLimit = assumedCapital * pct / 100;
+  if (typeof isScalpingProfitProfileActive === 'function' && isScalpingProfitProfileActive()) {
+    return Math.max(4500, pctLimit);
+  }
+  return Math.max(2000, pctLimit);
+}
+
+/** Personal checklist items that become critFails — softened under scalping profile (score penalty only). */
+function shouldPersonalChecklistItemCriticalFail(key) {
+  if (key !== 'internet' && key !== 'mindset') return false;
+  if (typeof isScalpingProfitProfileActive === 'function' && isScalpingProfitProfileActive()) return false;
+  return true;
+}
+
+function getBrainVixOptimalBand() {
+  const loose = typeof isScalpingProfitProfileActive === 'function' && isScalpingProfitProfileActive();
+  return loose ? { lo: 10, hi: 26 } : { lo: 13, hi: 20 };
+}
+
+function getBrainPcrNeutralBand() {
+  const loose = typeof isScalpingProfitProfileActive === 'function' && isScalpingProfitProfileActive();
+  return loose ? { lo: 0.65, hi: 1.45 } : { lo: 0.8, hi: 1.3 };
 }
 
 /**
@@ -923,7 +957,7 @@ function getEffectiveDecisionThresholds() {
   }
   const override = getThresholdOverride();
   if (override) return { buyThreshold: override.buyThreshold, sellThreshold: override.sellThreshold, source: 'strategy_override' };
-  return { buyThreshold: 11, sellThreshold: -17, source: 'default' };
+  return { buyThreshold: 9, sellThreshold: -15, source: 'default' };
 }
 
 function getSimulateOrderRejectionOpts() {
@@ -4332,8 +4366,8 @@ function maybeAutoCalibrateThreshold(decisionLog) {
   const calib = computeThresholdCalibrationForWinRate(decisionLog, {
     targetWinRatePct,
     minSampleSize: profileActive ? FNO_SCALPING_PROFIT_PROFILE.autoCalibrateMinSampleSize : undefined,
-    baseBuyThreshold: profileActive ? FNO_SCALPING_PROFIT_PROFILE.buyThreshold : 11,
-    baseSellThreshold: profileActive ? FNO_SCALPING_PROFIT_PROFILE.sellThreshold : -17,
+    baseBuyThreshold: profileActive ? FNO_SCALPING_PROFIT_PROFILE.buyThreshold : 9,
+    baseSellThreshold: profileActive ? FNO_SCALPING_PROFIT_PROFILE.sellThreshold : -15,
   });
   try { localStorage.setItem(FNO_AUTO_CALIBRATION_LAST_RUN_KEY, String(Date.now())); } catch (e) { /* real, honest no-op */ } // real - marks today's real attempt as done regardless of outcome, so an insufficient-data day doesn't retry every refresh
 
@@ -5557,8 +5591,8 @@ function applyCoverageToConfidence(rawConfidence, coveragePct) {
 function computeRawDirectionalConfidenceTier(scoreMagnitude, rangeSpan) {
   if (!Number.isFinite(scoreMagnitude) || !Number.isFinite(rangeSpan) || rangeSpan <= 0) return 'Low';
   const scalping = typeof isScalpingProfitProfileActive === 'function' && isScalpingProfitProfileActive();
-  const highRatio = scalping ? 0.45 : 0.7;
-  const medRatio = scalping ? 0.18 : 0.35;
+  const highRatio = scalping ? 0.38 : 0.7;
+  const medRatio = scalping ? 0.14 : 0.35;
   if (scoreMagnitude >= rangeSpan * highRatio) return 'High';
   if (scoreMagnitude >= rangeSpan * medRatio) return 'Medium';
   return 'Low';
@@ -5575,7 +5609,7 @@ function applyScalpingConfidenceFloor(decision, confidence, decisionDirectionalS
     ? decisionDirectionalScore - buyThreshold
     : sellThreshold - decisionDirectionalScore;
   if (Number.isFinite(margin) && margin >= 0 && idx < 1) idx = 1;
-  if (Number.isFinite(margin) && margin >= rangeSpan * 0.12 && idx < 2) idx = 2;
+  if (Number.isFinite(margin) && margin >= rangeSpan * 0.08 && idx < 2) idx = 2;
   return tiers[idx];
 }
 
@@ -15283,8 +15317,17 @@ function evaluateBrain(ctx){
   else { results.push({cat:'Market',factor:'NIFTY Trend vs 21 EMA',pass:false,score:-1,reason:`Below 21EMA bearish`}); totalScore-=1; fail++; }
 
   if(typeof ctx.vix !== 'number'){ results.push({cat:'Market',factor:'India VIX Level',pass:null,score:0,reason:'India VIX unavailable this refresh (NSE quote endpoint unreachable) - not scored, not guessed'}); }
-  else if(ctx.vix>=13 && ctx.vix<=20){ results.push({cat:'Market',factor:'India VIX Level',pass:true,score:1,reason:`VIX ${ctx.vix.toFixed(1)} optimal`}); totalScore+=1; pass++; }
-  else { results.push({cat:'Market',factor:'India VIX Level',pass:false,score:-1,reason:`VIX ${ctx.vix.toFixed(1)} extreme`}); totalScore-=1; fail++; }
+  else {
+    const vixBand = getBrainVixOptimalBand();
+    if(ctx.vix>=vixBand.lo && ctx.vix<=vixBand.hi){ results.push({cat:'Market',factor:'India VIX Level',pass:true,score:1,reason:`VIX ${ctx.vix.toFixed(1)} optimal (${vixBand.lo}–${vixBand.hi})`}); totalScore+=1; pass++; }
+    else {
+      const scalpLoose = typeof isScalpingProfitProfileActive === 'function' && isScalpingProfitProfileActive();
+      const mild = scalpLoose && ctx.vix > vixBand.hi && ctx.vix <= vixBand.hi + 6;
+      const score = mild ? -0.5 : -1;
+      results.push({cat:'Market',factor:'India VIX Level',pass:false,score,reason:`VIX ${ctx.vix.toFixed(1)} ${mild ? 'elevated but tradable' : 'extreme'}`});
+      totalScore += score; fail++;
+    }
+  }
 
   // FOUND same audit as the 21EMA fix above: ctx.pcr (totalPE/totalCE,
   // both real-but-unvalidated sums off the raw option-chain feed) had
@@ -15292,9 +15335,18 @@ function evaluateBrain(ctx){
   // truthy branches into the final `else` and fabricate a scored
   // "PCR overbought" fail rather than reporting unknown.
   if(!Number.isFinite(ctx.pcr)){ results.push({cat:'Flow',factor:'PCR Level',pass:null,score:0,reason:'PCR unavailable/non-finite this refresh (option-chain OI sum malformed) - not scored, not guessed'}); }
-  else if(ctx.pcr>=0.8 && ctx.pcr<=1.3){ results.push({cat:'Flow',factor:'PCR Level',pass:true,score:1,reason:`PCR ${ctx.pcr.toFixed(2)} neutral`}); totalScore+=1; pass++; }
-  else if(ctx.pcr>1.3){ results.push({cat:'Flow',factor:'PCR Level',pass:true,score:1,reason:`PCR ${ctx.pcr.toFixed(2)} oversold`}); totalScore+=1; pass++; }
-  else { results.push({cat:'Flow',factor:'PCR Level',pass:false,score:-1,reason:`PCR overbought`}); totalScore-=1; fail++; }
+  else {
+    const pcrBand = getBrainPcrNeutralBand();
+    if(ctx.pcr>=pcrBand.lo && ctx.pcr<=pcrBand.hi){ results.push({cat:'Flow',factor:'PCR Level',pass:true,score:1,reason:`PCR ${ctx.pcr.toFixed(2)} neutral`}); totalScore+=1; pass++; }
+    else if(ctx.pcr>pcrBand.hi){ results.push({cat:'Flow',factor:'PCR Level',pass:true,score:1,reason:`PCR ${ctx.pcr.toFixed(2)} oversold`}); totalScore+=1; pass++; }
+    else {
+      const scalpLoose = typeof isScalpingProfitProfileActive === 'function' && isScalpingProfitProfileActive();
+      const mild = scalpLoose && ctx.pcr >= pcrBand.lo - 0.12;
+      const score = mild ? -0.5 : -1;
+      results.push({cat:'Flow',factor:'PCR Level',pass:false,score,reason:mild ? `PCR ${ctx.pcr.toFixed(2)} mildly overbought` : 'PCR overbought'});
+      totalScore += score; fail++;
+    }
+  }
 
   // FOUND same audit: ctx.vwap (really closeAvgProxy's output, see its
   // own fix above) had no finite guard here either - same fail-open
@@ -15318,8 +15370,9 @@ function evaluateBrain(ctx){
   else if(Array.isArray(ctx.banList) && ctx.symbol && ctx.banList.includes(ctx.symbol)){ results.push({cat:'Regulatory',factor:'F&O Ban List - Stock in Ban?',pass:false,score:-2,reason:`${ctx.symbol} is genuinely, currently in the real, live ban list`}); totalScore-=2; fail++; critFails.push({factor:'Ban List'}); }
   else { results.push({cat:'Regulatory',factor:'F&O Ban List - Stock in Ban?',pass:true,score:1,reason:'Not in ban (verified against live feed)'}); totalScore+=1; pass++; }
 
-  if(ctx.todayPnL< -2000){ results.push({cat:'Risk',factor:'Max Loss Per Day',pass:false,score:-2,reason:`Loss ${ctx.todayPnL} stop`}); totalScore-=2; fail++; critFails.push({factor:'Max Loss'}); }
-  else { results.push({cat:'Risk',factor:'Max Loss Per Day',pass:true,score:1,reason:`PnL ok`}); totalScore+=1; pass++; }
+  const maxLossCritRs = getBrainMaxLossCriticalThresholdRs(ctx);
+  if(Number.isFinite(ctx.todayPnL) && ctx.todayPnL < -maxLossCritRs){ results.push({cat:'Risk',factor:'Max Loss Per Day',pass:false,score:-2,reason:`Loss ${ctx.todayPnL} exceeds Rs${maxLossCritRs.toFixed(0)} stop`}); totalScore-=2; fail++; critFails.push({factor:'Max Loss'}); }
+  else { results.push({cat:'Risk',factor:'Max Loss Per Day',pass:true,score:1,reason:`PnL ok (crit stop Rs${maxLossCritRs.toFixed(0)})`}); totalScore+=1; pass++; }
 
   // Personal category (f101-f120) - Master Prompt §14: human-operator
   // readiness layer. Every factor below reads from ctx.daily (the real
@@ -15370,7 +15423,7 @@ function evaluateBrain(ctx){
     }
     if (val === true) { results.push({cat:'Personal', factor:name, pass:true, score:0.5, reason:trueMsg}); totalScore+=0.5; pass++; }
     else if (val === false) {
-      const isCritical = key==='internet' || key==='mindset';
+      const isCritical = shouldPersonalChecklistItemCriticalFail(key);
       results.push({cat:'Personal', factor:name, pass:false, score:isCritical?-2:-0.5, reason:falseMsg});
       totalScore += isCritical?-2:-0.5; fail++;
       if (isCritical) critFails.push({factor:name});

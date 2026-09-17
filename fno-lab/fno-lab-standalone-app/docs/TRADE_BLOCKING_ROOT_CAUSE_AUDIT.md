@@ -343,4 +343,6 @@ No evidence that **confidence calculation is mathematically broken**; it aligns 
 
 *Audit performed by static trace + executable fixtures.*
 
+**Update (v16.37.20):** Global eligibility loosening for scalping — all seven entry modes use lower BUY/SELL thresholds; Conservative/Balanced use **downgrade** (not **block**) on trade-type weighted score; default entry mode is **Balanced** (6 / −11). Core factor bands widened under scalping profile (VIX 10–26, PCR 0.65–1.45 with mild penalties); personal checklist internet/mindset no longer hard **NO_TRADE** when scalping profile is on; daily max-loss crit uses preservation % with a higher scalping floor (~Rs 4500+). Non-scalping default thresholds are now **9 / −15** (was 11 / −17). SPE/TSE default quality bars lowered slightly (e.g. min setup 58, SPE quality 62). Mode 7 diagnostic thresholds 2 / −4 unchanged in role.
+
 **Update (v16.37.3):** With Scalping Profit Profile enabled, `shouldPushValueDecayCriticalFail` and `shouldPushExpiryCriticalFail` no longer add hard `NO_TRADE` for expiry-day theta; decay still scores and SPE/TSE/FM/time gates apply. Non-scalping paths unchanged.
