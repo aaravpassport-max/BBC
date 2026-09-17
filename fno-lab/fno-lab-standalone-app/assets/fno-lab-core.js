@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.30-ledger-ist-time';
+const FNO_CORE_BUILD_MARKER = '16.37.32-ledger-open-sync';
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -11182,14 +11182,75 @@ function getServerJournalForMerge(freshRows) {
 }
 function reconcileLocalJournalFromServer(serverRows) {
   if (!Array.isArray(serverRows)) return loadLocalJournalArray();
-  const local = loadLocalJournalArray();
-  const merged = dedupeJournalRows(mergeJournalRowsForDisplay(serverRows, local));
+  const snapshotBefore = loadLocalJournalArray();
+  const merged = buildUnifiedJournalForLedger(serverRows);
+  const snapshotAfter = loadLocalJournalArray();
+  // Never shrink local journal during reconcile — a close may land in localStorage
+  // while fno_journal_list is still in flight (exact “notified buy but not in ledger”).
+  const union = dedupeJournalRows([...snapshotBefore, ...snapshotAfter, ...merged]);
   try {
-    save(STORAGE.journal, merged.map(stripJournalUiFields));
+    save(STORAGE.journal, union.map(stripJournalUiFields));
   } catch (e) {
     console.warn('[FNO] reconcileLocalJournalFromServer save failed:', e && e.message);
   }
   return loadLocalJournalArray();
+}
+function journalClearOpenPositionMarker(openTradeId) {
+  if (openTradeId == null) return;
+  const j = loadLocalJournalArray();
+  const next = j.filter((e) => !(e.ledgerPhase === 'open' && e.openTradeId === openTradeId));
+  if (next.length !== j.length) save(STORAGE.journal, next);
+}
+function journalRecordOpenPosition(open, tradeMode) {
+  if (!open || !open.id) return;
+  journalClearOpenPositionMarker(open.id);
+  const row = {
+    ts: open.openedAt || Date.now(),
+    openedAt: open.openedAt || Date.now(),
+    openTradeId: open.id,
+    symbol: open.symbol || 'NIFTY',
+    strike: open.strike,
+    optionType: open.optionType,
+    action: 'POSITION_OPEN',
+    entryPrice: open.entryPrice,
+    qty: open.qty,
+    tradingType: open.tradingType || 'intraday',
+    ledgerPhase: 'open',
+    source: 'auto',
+    mode: tradeMode || 'paper',
+  };
+  const j = loadLocalJournalArray().slice();
+  j.push(row);
+  save(STORAGE.journal, j);
+  scheduleTradeLedgerRefresh();
+}
+function openMarkerToLedgerRow(m) {
+  if (!m || m.openTradeId == null) return null;
+  return {
+    id: `open-${m.openTradeId}`,
+    ts: normalizeTradeTimestampMs(m.openedAt) || normalizeTradeTimestampMs(m.ts) || Date.now(),
+    symbol: m.symbol || 'NIFTY',
+    strike: m.strike,
+    optionType: m.optionType,
+    action: 'OPEN',
+    entryPrice: m.entryPrice,
+    exitPrice: null,
+    qty: m.qty,
+    pnl: null,
+    grossPnl: null,
+    costsTotal: null,
+    tradingStyle: m.tradingType || m.tradingStyle || 'intraday',
+    openTradeId: m.openTradeId,
+    _ledgerOpen: true,
+  };
+}
+function resolveOpenRowForLedger(trades) {
+  const live = loadObj(STORAGE.autoTrades);
+  const fromLive = openAutoTradeLedgerRow(live);
+  if (fromLive) return fromLive;
+  const markers = (Array.isArray(trades) ? trades : []).filter((t) => t.ledgerPhase === 'open' && t.openTradeId != null);
+  markers.sort((a, b) => (normalizeTradeTimestampMs(b.ts) || 0) - (normalizeTradeTimestampMs(a.ts) || 0));
+  return markers.length ? openMarkerToLedgerRow(markers[0]) : null;
 }
 function buildUnifiedJournalForLedger(serverRowsFresh) {
   const server = getServerJournalForMerge(serverRowsFresh);
@@ -11215,6 +11276,7 @@ function formatLedgerActionLabel(action) {
     MANUAL_FORCE_EXIT: 'Manual exit',
     PARTIAL_EXIT_AT_TARGET: 'Partial @ target',
     ORDER_PLACED: 'Order placed',
+    POSITION_OPEN: 'Live position',
     OPEN: 'Entry',
   };
   if (labels[a]) return labels[a];
@@ -11237,7 +11299,7 @@ function assignLedgerDisplayIds(trades) {
   });
 }
 function filterLedgerTableRows(trades) {
-  return trades.filter((t) => t._ledgerOpen || isLedgerCompletedRoundTrip(t));
+  return trades.filter((t) => t._ledgerOpen || t.ledgerPhase === 'open' || isLedgerCompletedRoundTrip(t));
 }
 function openAutoTradeLedgerRow(open) {
   if (!open || !open.id) return null;
@@ -19072,6 +19134,7 @@ function render(){
       tradingType: open.tradingType || 'intraday', // real, honestly read back from the exact real position being closed, the same real, deliberate design as the partial-exit path above
     };
     await journalAdd(entry);
+    journalClearOpenPositionMarker(open.id);
     if (typeof logModeTradeClose === 'function') {
       logModeTradeClose(open.id, open, {
         ts: entry.ts,
@@ -19711,6 +19774,7 @@ function render(){
       : null;
     const fmsEntrySpreadPct = (leg && typeof checkSpreadLevel === 'function') ? checkSpreadLevel(leg).spreadPct : null;
     save(STORAGE.autoTrades, {id:openTradeId, symbol: symForLot, strike, optionType, entryPrice:fill.price, fillIsRealistic:fill.isRealistic, executionMode:execMode, qty:filledLotSize, requestedQty: lotSize, fillIsPartial: partialFillInfo.isPartial, decisionTimePrice, entrySlippagePct: slippageCheck.slippagePct, target, sl, openedAt:Date.now(), entrySnapshot: entrySnapshotWithFailureCheck, trailingEnabled, trailingSl: sl, partialExitEnabled, partialTaken:false, mfe:fill.price, mae:fill.price, entryIV: (curCtx && curCtx.decay && curCtx.decay.snapshot && typeof curCtx.decay.snapshot.iv === 'number') ? curCtx.decay.snapshot.iv : null, failureModeCheck: fmResult, tradingType: effectiveTradingType, entrySpot, entryCandleTs, scalpingProfitTrade: isSpeTrade, scalpingProfitSnapshot: isSpeTrade ? speSnap : null, firstMomentumScalperTrade: isFmsTrade, firstMomentumSnapshot: isFmsTrade ? fmsSnap : null, fmsInitialTargetRs: isFmsTrade ? (fmsBracket && fmsBracket.initialTargetRs != null ? fmsBracket.initialTargetRs : fmsSnap.premiumTargetRs) : null, fmsExtendedTargetRs: isFmsTrade ? (fmsBracket && fmsBracket.extendedTargetRs != null ? fmsBracket.extendedTargetRs : fmsSnap.premiumExtendedTargetRs) : null, fmsTriggerSpot: isFmsTrade ? entrySpot : null, fmsEntrySpreadPct: isFmsTrade ? fmsEntrySpreadPct : null});
+    journalRecordOpenPosition(loadObj(STORAGE.autoTrades), mode);
     if (typeof linkPaperValidationTradeId === 'function') linkPaperValidationTradeId(openTradeId);
     if (typeof linkScalpingProfitTradeId === 'function' && isSpeTrade && speSnap) linkScalpingProfitTradeId(openTradeId, speSnap);
     if (typeof logModeTradeOpen === 'function' && lastBrain) {
@@ -20621,8 +20685,8 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
       }
       if (loadGen !== fnoLedgerLoadGeneration) return;
       let trades = loggedIn ? buildUnifiedJournalForLedger(serverRowsFresh) : buildUnifiedJournalForLedger([]);
-      const openRow = openAutoTradeLedgerRow(loadObj(STORAGE.autoTrades));
-      if (openRow) trades = [openRow, ...trades.filter(t => !t._ledgerOpen)];
+      const openRow = resolveOpenRowForLedger(trades);
+      if (openRow) trades = [openRow, ...trades.filter(t => !t._ledgerOpen && t.ledgerPhase !== 'open')];
       if (loadGen !== fnoLedgerLoadGeneration) return;
 
       if (!loggedIn && trades.length === 0) {
@@ -20650,7 +20714,7 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
         return;
       }
 
-      const closed = tableRows.filter((t) => !t._ledgerOpen);
+      const closed = tableRows.filter((t) => !t._ledgerOpen && t.ledgerPhase !== 'open');
       const wins = closed.filter((t) => ledgerTradeNetPnl(t) > 0);
       const losses = closed.filter((t) => ledgerTradeNetPnl(t) < 0);
       const grossProfit = wins.reduce((s, t) => s + ledgerTradeGrossPnl(t), 0);
