@@ -572,7 +572,7 @@ function buildSpeExplanation(layers, quality, decision) {
       lines.push(`Expected Move: ${layers.expectedMove.favorablePts}pt / Risk: ${layers.expectedMove.adversePts}pt`);
       lines.push(`Target: ${layers.expectedMove.favorablePts} Stop: ${layers.expectedMove.adversePts}`);
     }
-    if (layers.room) lines.push(`Available Room: ${layers.room.roomPts != null ? layers.room.roomPts.toFixed(1) : '?'} points`);
+    if (layers.room) lines.push(`Available Room: ${Number.isFinite(layers.room.roomPts) ? layers.room.roomPts.toFixed(1) : '?'} points`);
     lines.push('Invalidation: Momentum collapse OR structure break OR time decay');
   } else {
     lines.push(`NO TRADE — ${layers.noTradeReason || 'Insufficient edge'}`);

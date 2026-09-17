@@ -53,5 +53,8 @@ try {
 }
 check(!hypoThrew, 'hypothesis with operator bias but no score does not throw');
 
+const modesSrc = fs.readFileSync(path.join(__dirname, '../assets/trading-modes-engine.js'), 'utf8');
+check(/Number\.isFinite\(r\.score\)/.test(modesSrc), 'mode comparison dashboard guards missing log score with isFinite');
+
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

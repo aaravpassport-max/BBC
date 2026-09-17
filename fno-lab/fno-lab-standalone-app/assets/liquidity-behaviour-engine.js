@@ -597,7 +597,7 @@ function renderLiquidityBehaviourPanel(trapEngine, validationStats) {
       <div style="margin-top:4px;color:${validationStats.confirmedRatePct >= 55 ? tp.pass : validationStats.confirmedRatePct <= 45 ? tp.fail : tp.muted}">
         Confirmed ${validationStats.confirmedRatePct}% · False-positive ${validationStats.falsePositiveRatePct}% · ${validationStats.decisiveTotal} decisive / ${validationStats.sampleSize} logged
       </div>
-      <div style="color:${tp.muted};margin-top:2px">Avg MFE/MAE @30m: ${validationStats.avgMfeM30Pct != null ? validationStats.avgMfeM30Pct.toFixed(2) : 'n/a'}% / ${validationStats.avgMaeM30Pct != null ? validationStats.avgMaeM30Pct.toFixed(2) : 'n/a'}%</div>
+      <div style="color:${tp.muted};margin-top:2px">Avg MFE/MAE @30m: ${Number.isFinite(validationStats.avgMfeM30Pct) ? validationStats.avgMfeM30Pct.toFixed(2) : 'n/a'}% / ${Number.isFinite(validationStats.avgMaeM30Pct) ? validationStats.avgMaeM30Pct.toFixed(2) : 'n/a'}%</div>
       ${validationStats.pendingCount ? `<div style="color:${tp.muted};margin-top:2px">${validationStats.pendingCount} setup(s) awaiting 5/10/15/30m outcome checks</div>` : ''}
     </div>` : ''}
   `;

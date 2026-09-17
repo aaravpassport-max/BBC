@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.36-brain-refresh-ui-safe-v2';
+const FNO_CORE_BUILD_MARKER = '16.37.37-brain-refresh-ui-safe-v3';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -846,7 +846,9 @@ function getScalpingBracketConfig() {
 }
 
 function formatScalpingBracketLabel(cfg) {
+  if (!cfg) return '—';
   const fmt = (f) => {
+    if (!Number.isFinite(f)) return '?';
     const pct = f * 100;
     return Math.abs(pct - Math.round(pct)) < 0.01 ? String(Math.round(pct)) : pct.toFixed(1);
   };
@@ -17885,11 +17887,23 @@ function render(){
         modeAttribution: typeof buildModeTradeAttribution === 'function' ? buildModeTradeAttribution(brain, refreshCtx, {}) : null,
       });
       renderEligibilityFunnel(sym);
-      if (typeof renderModeComparisonDashboard === 'function') renderModeComparisonDashboard(sym);
-      if (typeof renderStrategyDiagnosticPreview === 'function') {
-        renderStrategyDiagnosticPreview(typeof getStrategyReportUiOptions === 'function'
-          ? getStrategyReportUiOptions()
-          : { symbol: sym, pluginVersion: FNO_PLUGIN_VERSION });
+      try {
+        if (typeof renderModeComparisonDashboard === 'function') renderModeComparisonDashboard(sym);
+      } catch (modeDashErr) {
+        console.warn('Mode comparison dashboard failed (non-critical):', modeDashErr);
+        const modeBox = document.getElementById('modeComparisonDashboard');
+        if (modeBox) modeBox.innerHTML = `<span style="color:#fde68a">Mode dashboard UI error: ${escapeHtml(modeDashErr && modeDashErr.message ? modeDashErr.message : String(modeDashErr))}</span>`;
+      }
+      try {
+        if (typeof renderStrategyDiagnosticPreview === 'function') {
+          renderStrategyDiagnosticPreview(typeof getStrategyReportUiOptions === 'function'
+            ? getStrategyReportUiOptions()
+            : { symbol: sym, pluginVersion: FNO_PLUGIN_VERSION });
+        }
+      } catch (stratDiagErr) {
+        console.warn('Strategy diagnostic preview failed (non-critical):', stratDiagErr);
+        const stratEl = document.getElementById('strategyDiagnosticPreview');
+        if (stratEl) stratEl.innerHTML = `<span style="color:#fde68a">Strategy report preview error: ${escapeHtml(stratDiagErr && stratDiagErr.message ? stratDiagErr.message : String(stratDiagErr))}</span>`;
       }
       try {
         renderDecisionIntelligence(); // real, local analysis over the log just updated above - see its own TRACE
@@ -20105,7 +20119,7 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
             `).join('');
             replayDetailEl.innerHTML = `
               <div style="font-weight:700;margin-bottom:6px">${escapeHtml(t.symbol)} ${t.strike}${escapeHtml(t.optionType||'')} - ${new Date(t.ts).toLocaleString()}</div>
-              <div style="margin-bottom:6px">Decision: <b>${snap.decision}</b> | Confidence: <b>${snap.confidence}</b>${snap.confidence!==snap.rawConfidence?` (downgraded from ${snap.rawConfidence})`:''} | Score: ${snap.totalScore!=null?snap.totalScore.toFixed(1):'-'} | Coverage: ${snap.coveragePct!=null?snap.coveragePct.toFixed(1)+'%':'-'}</div>
+              <div style="margin-bottom:6px">Decision: <b>${snap.decision}</b> | Confidence: <b>${snap.confidence}</b>${snap.confidence!==snap.rawConfidence?` (downgraded from ${snap.rawConfidence})`:''} | Score: ${Number.isFinite(snap.totalScore)?snap.totalScore.toFixed(1):'-'} | Coverage: ${Number.isFinite(snap.coveragePct)?snap.coveragePct.toFixed(1)+'%':'-'}</div>
               ${snap.regime?`<div style="margin-bottom:6px">Regime: <b>${escapeHtml(snap.regime.label)}</b></div>`:''}
               <div style="margin-bottom:6px">Strategy version at the time: <b>${snap.strategyVersion||'unknown'}</b></div>
               <div style="margin-bottom:6px">Actual outcome: <span style="color:${t.pnl>=0?'#4ade80':'#f87171'}">Rs${t.pnl.toFixed(0)} (${t.action})</span></div>

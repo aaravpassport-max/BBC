@@ -657,7 +657,9 @@ function renderModeComparisonDashboard(sym) {
       : r.outcome === 'trap' ? 'Trap'
       : r.outcome === 'opened_pending' ? 'Opened (pending)'
       : r.outcome === 'not_taken' ? 'Not taken' : (r.outcome || '?');
-    return `<div style="font-size:10px;padding:3px 0;border-bottom:1px solid ${palette.line}">${new Date(r.ts).toLocaleTimeString()} ${fnoEscapeHtml(r.sym)} ${r.decision} score ${r.score != null ? r.score.toFixed(1) : '?'} — Balanced REJECT / Relaxed ACCEPT · <span style="color:${outcomeColor}">${outcomeLabel}${r.pnl != null ? ' (₹' + r.pnl.toFixed(0) + ')' : ''}</span></div>`;
+    const scoreTxt = Number.isFinite(r.score) ? r.score.toFixed(1) : '?';
+    const pnlTxt = Number.isFinite(r.pnl) ? ' (₹' + r.pnl.toFixed(0) + ')' : '';
+    return `<div style="font-size:10px;padding:3px 0;border-bottom:1px solid ${palette.line}">${new Date(r.ts).toLocaleTimeString()} ${fnoEscapeHtml(r.sym)} ${r.decision} score ${scoreTxt} — Balanced REJECT / Relaxed ACCEPT · <span style="color:${outcomeColor}">${outcomeLabel}${pnlTxt}</span></div>`;
   }).join('') || `<span style="color:${palette.muted}">No Balanced-reject / Relaxed-accept cases in log yet.</span>`;
 
   const activeStats = dash.byMode[dash.activeMode] || {};
