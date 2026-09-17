@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.33-ledger-display-merge-only';
+const FNO_CORE_BUILD_MARKER = '16.37.34-ledger-instant-paint';
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -11337,19 +11337,32 @@ function formatLedgerRsWhole(n) {
 }
 async function fetchJournalListForLedger(timeoutMs) {
   if (!window.FNO_AJAX || !window.FNO_AJAX.isLoggedIn) return null;
-  const ms = timeoutMs || 12000;
+  const ms = timeoutMs || 8000;
+  const url = `${window.FNO_AJAX.url}?action=fno_journal_list&nonce=${window.FNO_AJAX.nonce}`;
   const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
   let timer = null;
   if (ctrl) timer = setTimeout(() => ctrl.abort(), ms);
+  const fetchPromise = fetch(url, ctrl ? { signal: ctrl.signal } : undefined)
+    .then((r) => r.json())
+    .then((j) => {
+      if (j && j.success) {
+        fnoLastGoodServerJournal = j.data.journal || [];
+        fnoLastGoodServerJournalAt = Date.now();
+        return fnoLastGoodServerJournal;
+      }
+      return null;
+    });
+  const timeoutPromise = new Promise((resolve) => {
+    setTimeout(() => resolve('__FNO_LEDGER_FETCH_TIMEOUT__'), ms);
+  });
   try {
-    const r = await fetch(`${window.FNO_AJAX.url}?action=fno_journal_list&nonce=${window.FNO_AJAX.nonce}`, ctrl ? { signal: ctrl.signal } : undefined);
-    const j = await r.json();
-    if (j.success) {
-      fnoLastGoodServerJournal = j.data.journal || [];
-      fnoLastGoodServerJournalAt = Date.now();
-      return fnoLastGoodServerJournal;
+    const result = await Promise.race([fetchPromise, timeoutPromise]);
+    if (result === '__FNO_LEDGER_FETCH_TIMEOUT__') {
+      if (ctrl) try { ctrl.abort(); } catch (_) { /* ignore */ }
+      console.warn('[FNO] trade ledger server fetch timed out after', ms, 'ms');
+      return null;
     }
-    return null;
+    return result;
   } catch (e) {
     console.warn('[FNO] trade ledger server fetch failed:', e && e.message ? e.message : e);
     return null;
@@ -20675,14 +20688,7 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
       bodyEl.innerHTML = `<tr><td colspan="13" style="padding:10px;color:#64748b">${escapeHtml(msg)}</td></tr>`;
     };
     let usedCachedServer = false;
-    try {
-      let serverRowsFresh = null;
-      if (loggedIn) {
-        serverRowsFresh = await fetchJournalListForLedger(12000);
-        usedCachedServer = serverRowsFresh === null && !!(fnoLastGoodServerJournal && fnoLastGoodServerJournal.length);
-        // Intentionally no local journal persist on ledger paint (races with journalAdd/close).
-        // Read-only union via buildUnifiedJournalForLedger(); persist via syncServerJournal().
-      }
+    const renderLedgerFromServerRows = (serverRowsFresh, cachedFootnote) => {
       if (loadGen !== fnoLedgerLoadGeneration) return;
       let trades = loggedIn ? buildUnifiedJournalForLedger(serverRowsFresh) : buildUnifiedJournalForLedger([]);
       const openRow = resolveOpenRowForLedger(trades);
@@ -20779,7 +20785,7 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
       const footEl = document.getElementById('tradeLedgerFootnote');
       if (footEl) {
         const parts = [];
-        if (usedCachedServer) {
+        if (cachedFootnote) {
           parts.push('Server journal sync was slow this refresh — merged with your last successful server fetch plus local closes.');
         }
         if (hiddenEventCount > 0) {
@@ -20807,6 +20813,16 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
           <div style="font-size:10px;color:#64748b;margin-top:6px">Buy leg includes brokerage + exchange transaction charge + SEBI fee + stamp duty + GST on service fees. Sell leg includes the same, plus STT (no stamp duty on sell side) - the real, documented formula, not a flat estimate.</div>
         </div>`;
       };
+    };
+    try {
+      let serverRowsFresh = null;
+      if (loggedIn) {
+        renderLedgerFromServerRows(null, false);
+        serverRowsFresh = await fetchJournalListForLedger(8000);
+        usedCachedServer = serverRowsFresh === null && !!(fnoLastGoodServerJournal && fnoLastGoodServerJournal.length);
+      }
+      if (loadGen !== fnoLedgerLoadGeneration) return;
+      renderLedgerFromServerRows(loggedIn ? serverRowsFresh : [], usedCachedServer);
     } catch (e) {
       console.error('[FNO] loadTradeLedger failed:', e);
       showLedgerError('Could not render the trade ledger — showing local data only on next refresh. ' + (e && e.message ? e.message : String(e)));
