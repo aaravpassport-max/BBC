@@ -27,6 +27,17 @@ let fnoRefreshGeneration = 0;
 /** Coalesces overlapping refreshBrain() calls so stale-generation exits cannot starve the UI. */
 let fnoRefreshBrainRunning = false;
 let fnoRefreshBrainQueued = false;
+/** Invalidates in-flight loadTradeLedger() calls when a newer refresh is requested. */
+let fnoLedgerLoadGeneration = 0;
+let fnoLedgerRefreshTimer = null;
+function scheduleTradeLedgerRefresh() {
+  if (typeof window.__fnoLoadTradeLedger !== 'function') return;
+  if (fnoLedgerRefreshTimer) clearTimeout(fnoLedgerRefreshTimer);
+  fnoLedgerRefreshTimer = setTimeout(() => {
+    fnoLedgerRefreshTimer = null;
+    window.__fnoLoadTradeLedger();
+  }, 40);
+}
 /** In-flight refresh promise — callers that await refreshBrain() wait for queued work too. */
 let fnoRefreshBrainPromise = null;
 
@@ -74,7 +85,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.27-ledger-render-fix';
+const FNO_CORE_BUILD_MARKER = '16.37.28-ledger-live-sync';
 const FNO_SETTINGS_DEFAULTS = {
   nseIntegrationEnabled: false, // real, deliberate default OFF - user's own stated reasoning: NSE access is hard to obtain/maintain, Zerodha (Kite) is the real, primary, main integration
   tradingTypes: { intraday: false, scalping: true, swing: false }, // scalping-first default (v16.23.0) — profile bundle keeps intraday OFF
@@ -11082,12 +11093,17 @@ function journalRowsLikelySame(a, b) {
   return fingerprintJournalRow(a) === fingerprintJournalRow(b);
 }
 function mergeJournalRowsForDisplay(serverRows, localRows) {
-  const server = Array.isArray(serverRows) ? serverRows.slice() : [];
+  const server = Array.isArray(serverRows) ? serverRows : [];
   const local = Array.isArray(localRows) ? localRows : [];
-  const out = server.slice();
-  for (const loc of local) {
-    if (server.some(s => journalRowsLikelySame(s, loc))) continue;
-    out.push(Object.assign({}, loc, { id: loc.id || `local-${fingerprintJournalRow(loc)}` }));
+  // Local journal is the source of truth for this browser session (written
+  // synchronously on every close); server rows backfill history from other
+  // devices or after import — never drop local-only rows behind a slow fetch.
+  const out = local.map((loc) => Object.assign({}, loc, {
+    id: (loc.id != null && loc.id !== '') ? loc.id : `local-${fingerprintJournalRow(loc)}`,
+  }));
+  for (const s of server) {
+    if (out.some((loc) => journalRowsLikelySame(s, loc))) continue;
+    out.push(s);
   }
   out.sort((a, b) => (b.ts || b.openedAt || 0) - (a.ts || a.openedAt || 0));
   return out;
@@ -11149,12 +11165,13 @@ async function journalAdd(entry) {
     if (!isValidExchangeQty(sym, entry.qty)) {
       const fixed = floorQtyToWholeLots(sym, entry.qty);
       if (fixed > 0 && isValidExchangeQty(sym, fixed)) entry.qty = fixed;
-      else console.warn('[FNO] journalAdd skipped invalid exchange qty', entry.qty, sym);
+      else console.warn('[FNO] journalAdd refused invalid exchange qty', entry.qty, sym);
     }
   }
-  const j = load(STORAGE.journal);
+  const j = loadLocalJournalArray().slice();
   j.push(entry);
   save(STORAGE.journal, j);
+  scheduleTradeLedgerRefresh();
   if (window.FNO_AJAX && window.FNO_AJAX.isLoggedIn) {
     try {
       const body = Object.entries({
@@ -11200,6 +11217,7 @@ async function journalAdd(entry) {
       if (!j2.success) console.warn('Server journal write failed, entry kept in localStorage only:', j2.data && j2.data.message);
     } catch(e) { console.warn('Server journal write threw, entry kept in localStorage only:', e.message); }
   }
+  scheduleTradeLedgerRefresh();
   return j;
 }
 
@@ -19650,6 +19668,7 @@ function render(){
       execMode,
     });
     loadPaperAccount();
+    scheduleTradeLedgerRefresh();
     loadTradeLedger();
     const fmBox = document.getElementById('failureModeLibraryBox');
     if (fmBox) {
@@ -20445,22 +20464,24 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
     const summaryEl = document.getElementById('tradeLedgerSummary');
     const bodyEl = document.getElementById('tradeLedgerBody');
     if (!summaryEl || !bodyEl) return;
+    const loadGen = ++fnoLedgerLoadGeneration;
     const loggedIn = !!(window.FNO_AJAX && window.FNO_AJAX.isLoggedIn);
     const showLedgerError = (msg) => {
+      if (loadGen !== fnoLedgerLoadGeneration) return;
       summaryEl.innerHTML = `<div style="grid-column:1/-1;color:#f87171">${escapeHtml(msg)}</div>`;
       bodyEl.innerHTML = `<tr><td colspan="13" style="padding:10px;color:#64748b">${escapeHtml(msg)}</td></tr>`;
     };
     try {
-      let trades = [];
-      const localJournal = loadLocalJournalArray();
+      let serverRows = null;
       if (loggedIn) {
-        const serverRows = await fetchJournalListForLedger(12000);
-        trades = mergeJournalRowsForDisplay(serverRows || [], localJournal);
-      } else {
-        trades = mergeJournalRowsForDisplay([], localJournal);
+        serverRows = await fetchJournalListForLedger(12000);
       }
+      if (loadGen !== fnoLedgerLoadGeneration) return;
+      const localJournal = loadLocalJournalArray();
+      let trades = mergeJournalRowsForDisplay(serverRows || [], localJournal);
       const openRow = openAutoTradeLedgerRow(loadObj(STORAGE.autoTrades));
       if (openRow) trades = [openRow, ...trades.filter(t => !t._ledgerOpen)];
+      if (loadGen !== fnoLedgerLoadGeneration) return;
 
       if (!loggedIn && trades.length === 0) {
         summaryEl.innerHTML = '<div style="grid-column:1/-1;color:#64748b">Log in to persist the trade ledger server-side. Local closed trades still appear here after you exit a position.</div>';
@@ -20553,6 +20574,7 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
       showLedgerError('Could not render the trade ledger — showing local data only on next refresh. ' + (e && e.message ? e.message : String(e)));
     }
   }
+  window.__fnoLoadTradeLedger = function () { void loadTradeLedger(); };
 
   async function loadPaperAccount() {
     if (!window.FNO_AJAX.isLoggedIn) return;
