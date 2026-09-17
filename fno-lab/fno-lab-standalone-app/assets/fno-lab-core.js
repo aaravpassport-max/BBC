@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.37-brain-refresh-ui-safe-v3';
+const FNO_CORE_BUILD_MARKER = '16.37.38-brain-refresh-ui-safe-v4';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -1184,6 +1184,77 @@ function renderScalpingSessionReadiness(brain, ctx) {
     preserveTxt,
     pbTargetTxt,
   ].filter(Boolean).map(line => `<div style="padding:3px 0;font-size:11px;color:${tp.text}">${line}</div>`).join('');
+}
+
+/** Core decision tiles + banner — must run before heavy post-funnel panels so a secondary UI throw never leaves "Loading brain...". */
+function paintCoreBrainDecisionUi(brain, refreshCtx, sym, spot, tradeMode) {
+  if (typeof document === 'undefined' || !brain) return;
+  const totalScoreEl = document.getElementById('totalScore');
+  if (totalScoreEl) totalScoreEl.textContent = fnoFormatFixed(brain.directionalScore, 1);
+  const passEl = document.getElementById('passCount');
+  if (passEl) passEl.textContent = brain.passCount;
+  const failEl = document.getElementById('failCount');
+  if (failEl) failEl.textContent = brain.failCount;
+  const critEl = document.getElementById('critCount');
+  if (critEl) critEl.textContent = (brain.criticalFails && brain.criticalFails.length) || 0;
+
+  const decEl = document.getElementById('brainDecision');
+  if (!decEl) return;
+  const confBadge = brain.confidence ? ` <span style="font-size:11px;opacity:0.8">[${brain.confidence} confidence${(() => { const dp = computeConfidenceDisplayPct(brain); return dp != null ? ` · signal strength ${dp}%` : ''; })()}${brain.confidence !== brain.rawConfidence ? ', raw tier ' + brain.rawConfidence + ' before coverage adjust' : ''}]</span>` : '';
+  let modelBadge = '';
+  if (typeof window !== 'undefined' && window.FNO_ACTIVE_PROB_MODEL && brain.factorRegistry) {
+    const entrySnapForModel = buildEntrySnapshot(brain, refreshCtx, sym);
+    if (entrySnapForModel) {
+      const modelProb = predictWinProbability(window.FNO_ACTIVE_PROB_MODEL, entrySnapForModel);
+      modelBadge = ` <span style="font-size:11px;color:#c4b5fd">[Model: ${fnoFormatFixed(modelProb * 100, 0)}% win probability, ${fnoFormatFixed(window.FNO_ACTIVE_PROB_MODEL.holdoutAccuracy, 0)}% holdout accuracy]</span>`;
+    }
+  }
+  const tierLabels = {
+    STRONG_LONG: { emoji: '🟢🟢', text: 'STRONG LONG', color: '#4ade80' },
+    LONG: { emoji: '🟢', text: 'LONG', color: '#4ade80' },
+    WEAK_LONG: { emoji: '🟡🟢', text: 'WEAK LONG', color: '#a3e635' },
+    NO_TRADE: { emoji: '⛔', text: 'NO TRADE', color: '#94a3b8' },
+    WEAK_SHORT: { emoji: '🟡🔴', text: 'WEAK SHORT', color: '#fb923c' },
+    SHORT: { emoji: '🔴', text: 'SHORT', color: '#f87171' },
+    STRONG_SHORT: { emoji: '🔴🔴', text: 'STRONG SHORT', color: '#f87171' },
+  };
+  const tierInfo = tierLabels[brain.decisionTier] || tierLabels.NO_TRADE;
+  const tierEl = document.getElementById('decisionTierBadge');
+  if (tierEl) {
+    const tp = fnoThemePalette();
+    tierEl.innerHTML = `${escapeHtml(tierInfo.emoji)} <b style="color:${tierInfo.color}">${escapeHtml(tierInfo.text)}</b> <span style="color:${tp.muted2};font-size:11px">(§23 real 7-tier - directional score ${fnoFormatFixed(brain.directionalScore, 1)})</span>`;
+  }
+  let gateWarningHtml = '';
+  if (brain.pretradeGateCheck && (brain.pretradeGateCheck.finalAction === 'block' || brain.pretradeGateCheck.finalAction === 'reject')) {
+    const top = brain.pretradeGateCheck.triggered[0];
+    const gateDetail = top ? `${top.id}: ${top.reason || top.condition || top.adjustedAction || 'see Failure-Mode Library'}` : brain.pretradeGateCheck.triggered.map(t => t.id).join(', ');
+    gateWarningHtml = `<div style="margin-top:6px;padding:6px;background:#450a0a;border-radius:6px;color:#fca5a5;font-size:12px"><b>⚠️ Would be BLOCKED if opened right now:</b> ${escapeHtml(gateDetail)}</div>`;
+  } else if (brain.pretradeGateCheck && brain.pretradeGateCheck.finalAction === 'require_confirmation') {
+    const top = brain.pretradeGateCheck.triggered[0];
+    const gateDetail = top ? `${top.id}: ${top.reason || top.condition || 'confirmation advised'}` : brain.pretradeGateCheck.triggered.map(t => t.id).join(', ');
+    gateWarningHtml = `<div style="margin-top:6px;padding:6px;background:#422006;border-radius:6px;color:#fde68a;font-size:12px"><b>⚠️ Would need confirmation if opened right now:</b> ${escapeHtml(gateDetail)}</div>`;
+  }
+  syncUiOptionTypeFromBrainDecision(brain);
+  const tpDec = fnoThemePalette();
+  const modeLabel = (tradeMode || 'paper').toUpperCase();
+  if (brain.decision === 'BUY_READY') {
+    decEl.innerHTML = `🟢 BUY READY → CE - ${escapeHtml(brain.reason)} [${modeLabel}]${confBadge}${modelBadge}${gateWarningHtml}`;
+    decEl.style.background = tpDec.passBg; decEl.style.color = tpDec.pass;
+  } else if (brain.decision === 'SELL_READY') {
+    decEl.innerHTML = `🔴 SELL READY → PE - ${escapeHtml(brain.reason)} [${modeLabel}]${confBadge}${modelBadge}${gateWarningHtml}`;
+    decEl.style.background = tpDec.failBg || '#450a0a'; decEl.style.color = tpDec.fail || '#f87171';
+  } else if (brain.decision === 'NO_TRADE') {
+    decEl.innerHTML = `⛔ NO_TRADE - ${escapeHtml(brain.reason)}${confBadge}${modelBadge}`;
+    decEl.style.background = tpDec.warnBg; decEl.style.color = tpDec.warn;
+  } else {
+    decEl.innerHTML = `🟡 ${escapeHtml(brain.decision)} - ${escapeHtml(brain.reason)}${confBadge}${modelBadge}${gateWarningHtml}`;
+    decEl.style.background = tpDec.waitBg; decEl.style.color = tpDec.waitText;
+  }
+  const opBias = (brain.operatorIntel && brain.operatorIntel.bias) ? brain.operatorIntel.bias : 'NEUTRAL';
+  const brainLogEl = document.getElementById('brainLog');
+  if (brainLogEl) {
+    brainLogEl.textContent = `Brain Standalone ${modeLabel} v${typeof FNO_PLUGIN_VERSION !== 'undefined' ? FNO_PLUGIN_VERSION : '?'} Spot ${fnoFormatFixed(spot, 1)} Directional Score ${fnoFormatFixed(brain.directionalScore, 1)} (Risk ${fnoFormatFixed(brain.riskScore, 1)} | Trade-Quality ${fnoFormatFixed(brain.tradeQualityScore, 1)} | Model-Quality ${fnoFormatFixed(brain.modelQualityScore, 1)} | Human-Operator ${fnoFormatFixed(brain.humanOperatorScore, 1)}) Decision ${brain.decision} | Operator bias: ${opBias} | No theme, no shortcode, works like app at /`;
+  }
 }
 
 /**
@@ -4156,7 +4227,7 @@ function computeDecisionAttribution(brain) {
     byCat[cat] = (byCat[cat] || 0) + r.score;
   });
   const categoryBreakdown = Object.keys(byCat)
-    .map(cat => ({ cat, score: +byCat[cat].toFixed(1) }))
+    .map(cat => ({ cat, score: Number.isFinite(byCat[cat]) ? +byCat[cat].toFixed(1) : 0 }))
     .sort((a, b) => Math.abs(b.score) - Math.abs(a.score));
   const scored = brain.results.filter(r => typeof r.score === 'number' && Number.isFinite(r.score) && r.score !== 0);
   const supporting = scored.filter(r => r.score > 0).sort((a, b) => b.score - a.score).slice(0, 8)
@@ -4330,10 +4401,11 @@ function computeHistoricalBacktest(decisionLog, strategyConfig, opts) {
       if (exitReason === null) exitReason = (j >= seq.length) ? 'unresolved_forced_closure' : 'time_exit';
 
       const costs = computeTradeCosts(entryG.price, exitPremium, lotSize);
+      const fixed2 = (n) => (Number.isFinite(n) ? +n.toFixed(2) : 0);
       trades.push({
         sym: e.sym, tradingType: e.tradingType, optionType, entryTs: e.ts, exitTs, exitReason,
-        entryPremium: +entryG.price.toFixed(2), exitPremium: +exitPremium.toFixed(2), lotSize,
-        grossPnl: +costs.grossPnl.toFixed(2), netPnl: +costs.netPnl.toFixed(2),
+        entryPremium: fixed2(entryG.price), exitPremium: fixed2(exitPremium), lotSize,
+        grossPnl: fixed2(costs && costs.grossPnl), netPnl: fixed2(costs && costs.netPnl),
         unresolvedForcedClosure: exitReason === 'unresolved_forced_closure',
       });
       i = j + 1; // real "no overlapping simulated positions" rule - resume scanning only AFTER this simulated position closed
@@ -7357,20 +7429,24 @@ function computeRegimeAdjustedConfidence(baseConfidence, currentRegimeLabel, reg
   if (!regimeStats || regimeStats.sampleSizeWarning) {
     return { adjustedConfidence: baseConfidence, wasDowngraded: false, reason: regimeStats ? `Real regime "${currentRegimeLabel}" has only ${regimeStats.tradeCount} real trades so far - not enough to trust a real adjustment yet` : `No real trade history yet for regime "${currentRegimeLabel}"` };
   }
+  const winRatePct = Number.isFinite(regimeStats.winRatePct) ? regimeStats.winRatePct : null;
+  if (winRatePct === null) {
+    return { adjustedConfidence: baseConfidence, wasDowngraded: false, reason: `Real regime "${currentRegimeLabel}" has ${regimeStats.tradeCount} logged trades but no finite win rate — left confidence unchanged` };
+  }
   // Real, documented threshold: a regime with a real win rate at or
   // below 40% is genuinely, historically a poor real setup for this
   // trader - not a statistically-derived number, a real, stated
   // heuristic consistent with the "poor" framing this app already
   // uses elsewhere for sub-50% factor reliability tiers.
-  if (regimeStats.winRatePct <= 40) {
+  if (winRatePct <= 40) {
     const downgrade = { High: 'Medium', Medium: 'Low', Low: 'Low' };
     const adjustedConfidence = downgrade[baseConfidence] || baseConfidence;
     return {
       adjustedConfidence, wasDowngraded: adjustedConfidence !== baseConfidence,
-      reason: `Real regime "${currentRegimeLabel}" has a real ${regimeStats.winRatePct.toFixed(0)}% win rate across ${regimeStats.tradeCount} real trades - historically a poor setup for this trader, confidence honestly downgraded rather than silently left at face value`,
+      reason: `Real regime "${currentRegimeLabel}" has a real ${fnoFormatFixed(winRatePct, 0)}% win rate across ${regimeStats.tradeCount} real trades - historically a poor setup for this trader, confidence honestly downgraded rather than silently left at face value`,
     };
   }
-  return { adjustedConfidence: baseConfidence, wasDowngraded: false, reason: `Real regime "${currentRegimeLabel}" has a real ${regimeStats.winRatePct.toFixed(0)}% win rate across ${regimeStats.tradeCount} real trades - no real reason to downgrade` };
+  return { adjustedConfidence: baseConfidence, wasDowngraded: false, reason: `Real regime "${currentRegimeLabel}" has a real ${fnoFormatFixed(winRatePct, 0)}% win rate across ${regimeStats.tradeCount} real trades - no real reason to downgrade` };
 }
 
 /**
@@ -7473,15 +7549,19 @@ function computeTradeTypeAdjustedConfidence(baseConfidence, currentTradingType, 
   if (!typeStats || typeStats.sampleSizeWarning) {
     return { adjustedConfidence: baseConfidence, wasDowngraded: false, reason: typeStats ? `Real trade type "${currentTradingType}" has only ${typeStats.tradeCount} real trades so far - not enough to trust a real adjustment yet` : `No real trade history yet for trade type "${currentTradingType}"` };
   }
-  if (typeStats.winRatePct <= 40) {
+  const winRatePct = Number.isFinite(typeStats.winRatePct) ? typeStats.winRatePct : null;
+  if (winRatePct === null) {
+    return { adjustedConfidence: baseConfidence, wasDowngraded: false, reason: `Real trade type "${currentTradingType}" has ${typeStats.tradeCount} logged trades but no finite win rate — left confidence unchanged` };
+  }
+  if (winRatePct <= 40) {
     const downgrade = { High: 'Medium', Medium: 'Low', Low: 'Low' };
     const adjustedConfidence = downgrade[baseConfidence] || baseConfidence;
     return {
       adjustedConfidence, wasDowngraded: adjustedConfidence !== baseConfidence,
-      reason: `Real trade type "${currentTradingType}" has a real ${typeStats.winRatePct.toFixed(0)}% win rate across ${typeStats.tradeCount} real trades - historically a poor performer for this trader in this specific style, confidence honestly downgraded rather than silently left at face value`,
+      reason: `Real trade type "${currentTradingType}" has a real ${fnoFormatFixed(winRatePct, 0)}% win rate across ${typeStats.tradeCount} real trades - historically a poor performer for this trader in this specific style, confidence honestly downgraded rather than silently left at face value`,
     };
   }
-  return { adjustedConfidence: baseConfidence, wasDowngraded: false, reason: `Real trade type "${currentTradingType}" has a real ${typeStats.winRatePct.toFixed(0)}% win rate across ${typeStats.tradeCount} real trades - no real reason to downgrade` };
+  return { adjustedConfidence: baseConfidence, wasDowngraded: false, reason: `Real trade type "${currentTradingType}" has a real ${fnoFormatFixed(winRatePct, 0)}% win rate across ${typeStats.tradeCount} real trades - no real reason to downgrade` };
 }
 
 /**
@@ -17887,6 +17967,7 @@ function render(){
         modeAttribution: typeof buildModeTradeAttribution === 'function' ? buildModeTradeAttribution(brain, refreshCtx, {}) : null,
       });
       renderEligibilityFunnel(sym);
+      paintCoreBrainDecisionUi(brain, refreshCtx, sym, spot, mode);
       try {
         if (typeof renderModeComparisonDashboard === 'function') renderModeComparisonDashboard(sym);
       } catch (modeDashErr) {
@@ -17920,7 +18001,14 @@ function render(){
       // unless autoCalibrateThresholdEnabled is genuinely on AND the
       // real once-per-day throttle has elapsed, so this adds no real
       // per-refresh cost for the (default, conservative) OFF case.
-      const autoCalibResult = maybeAutoCalibrateThreshold(getDecisionLog());
+      let autoCalibResult = null;
+      try {
+        autoCalibResult = maybeAutoCalibrateThreshold(getDecisionLog());
+      } catch (autoCalibErr) {
+        console.warn('Auto threshold calibration failed (non-critical):', autoCalibErr);
+        const brainLogEl = document.getElementById('brainLog');
+        if (brainLogEl) brainLogEl.textContent += `\n🎯 Auto-calibration skipped this refresh: ${autoCalibErr && autoCalibErr.message ? autoCalibErr.message : String(autoCalibErr)}`;
+      }
       if (autoCalibResult) {
         const brainLogEl = document.getElementById('brainLog');
         if (brainLogEl) {
@@ -17929,29 +18017,6 @@ function render(){
             : `\n🎯 Auto-calibration checked but made no change: ${autoCalibResult.reason}`;
         }
       }
-
-      // FOUND during the end-to-end decision-engine audit (real
-      // execution, not just reading code): this "Score" tile sits
-      // directly beside brainDecision (BUY_READY/SELL_READY/WAIT) and
-      // was displaying brain.totalScore - the OLD, merged-every-
-      // category sum that the §20 fix above deliberately stopped
-      // using to DRIVE the decision (see that fix's own comment:
-      // "every category's score... was merged into ONE totalScore...
-      // exactly what this section says not to do"). The actual
-      // decision-driving number is brain.directionalScore, shown only
-      // in small print inside decisionTierBadge below - a real user
-      // reading this prominent tile would see a "Score" that can
-      // diverge substantially from what actually produced the
-      // decision next to it (confirmed via the real end-to-end test
-      // harness: totalScore and directionalScore differing by 15+
-      // points on the same evaluation). REAL FIX: show the real,
-      // authoritative, decision-driving directionalScore here instead,
-      // so the number beside the decision is genuinely the number that
-      // produced it.
-      document.getElementById('totalScore').textContent=fnoFormatFixed(brain.directionalScore, 1);
-      document.getElementById('passCount').textContent=brain.passCount;
-      document.getElementById('failCount').textContent=brain.failCount;
-      document.getElementById('critCount').textContent=brain.criticalFails.length;
 
       // Real, trade-type-aware weighted score display - user's own
       // direct request (requirement #8: "make it immediately obvious
@@ -17981,80 +18046,6 @@ function render(){
         console.warn('Scalping readiness panel failed (non-critical):', scalpUiErr);
         const scalpBox = document.getElementById('scalpingSessionReadinessBox');
         if (scalpBox) scalpBox.innerHTML = `<span style="color:#fde68a">Scalping readiness UI error: ${escapeHtml(scalpUiErr && scalpUiErr.message ? scalpUiErr.message : String(scalpUiErr))}</span>`;
-      }
-
-      const decEl=document.getElementById('brainDecision');
-      const confBadge = brain.confidence ? ` <span style="font-size:11px;opacity:0.8">[${brain.confidence} confidence${(() => { const dp = computeConfidenceDisplayPct(brain); return dp != null ? ` · signal strength ${dp}%` : ''; })()}${brain.confidence!==brain.rawConfidence?', raw tier '+brain.rawConfidence+' before coverage adjust':''}]</span>` : '';
-      // Master Prompt §25-26: only ever shown/used if the stored model
-      // is genuinely ACTIVE (beat its naive baseline on real held-out
-      // data) - an inactive or untrained model contributes NOTHING to
-      // this display, exactly the gating discipline trainProbabilityModel
-      // enforces server-side too.
-      let modelBadge = '';
-      if (window.FNO_ACTIVE_PROB_MODEL && brain.factorRegistry) {
-        const entrySnapForModel = buildEntrySnapshot(brain, refreshCtx, sym);
-        if (entrySnapForModel) {
-          const modelProb = predictWinProbability(window.FNO_ACTIVE_PROB_MODEL, entrySnapForModel);
-          modelBadge = ` <span style="font-size:11px;color:#c4b5fd">[Model: ${fnoFormatFixed(modelProb * 100, 0)}% win probability, ${fnoFormatFixed(window.FNO_ACTIVE_PROB_MODEL.holdoutAccuracy, 0)}% holdout accuracy]</span>`;
-        }
-      }
-      // Master Prompt §23 - real 7-tier decision badge, additive to
-      // the existing BUY_READY/NO_TRADE/WAIT display above (kept
-      // unchanged - see computeDecisionTier's own TRACE for why).
-      const tierLabels = {
-        STRONG_LONG: {emoji:'🟢🟢', text:'STRONG LONG', color:'#4ade80'},
-        LONG: {emoji:'🟢', text:'LONG', color:'#4ade80'},
-        WEAK_LONG: {emoji:'🟡🟢', text:'WEAK LONG', color:'#a3e635'},
-        NO_TRADE: {emoji:'⛔', text:'NO TRADE', color:'#94a3b8'},
-        WEAK_SHORT: {emoji:'🟡🔴', text:'WEAK SHORT', color:'#fb923c'},
-        SHORT: {emoji:'🔴', text:'SHORT', color:'#f87171'},
-        STRONG_SHORT: {emoji:'🔴🔴', text:'STRONG SHORT', color:'#f87171'},
-      };
-      const tierInfo = tierLabels[brain.decisionTier] || tierLabels.NO_TRADE;
-      const tierEl = document.getElementById('decisionTierBadge');
-      if (tierEl) {
-        const tp = fnoThemePalette();
-        tierEl.innerHTML = `${escapeHtml(tierInfo.emoji)} <b style="color:${tierInfo.color}">${escapeHtml(tierInfo.text)}</b> <span style="color:${tp.muted2};font-size:11px">(§23 real 7-tier - directional score ${fnoFormatFixed(brain.directionalScore, 1)})</span>`;
-      }
-
-      // Real, visible pre-trade gate warning next to the eligibility
-      // badge itself (user's own direct follow-up request after the
-      // §2.2 fix - the earlier fix made brain.pretradeGateCheck exist
-      // in the data every refresh, but did NOT change what the badge on
-      // screen shows; this closes that gap). Purely a DISPLAY addition -
-      // never changes brain.decision/confidence/reason, and never
-      // changes whether a real trade is actually allowed to open (that
-      // real, hard gate is unchanged, still enforced inside
-      // tryOpenAutoTradePosition() at real open-attempt time). Only
-      // shown when computePretradeGateCheck() actually found a real,
-      // named condition for THIS SAME leg (see that function's own
-      // TRACE) - never a generic/fabricated warning.
-      let gateWarningHtml = '';
-      if (brain.pretradeGateCheck && (brain.pretradeGateCheck.finalAction === 'block' || brain.pretradeGateCheck.finalAction === 'reject')) {
-        const top = brain.pretradeGateCheck.triggered[0];
-        const gateDetail = top ? `${top.id}: ${top.reason || top.condition || top.adjustedAction || 'see Failure-Mode Library'}` : brain.pretradeGateCheck.triggered.map(t => t.id).join(', ');
-        gateWarningHtml = `<div style="margin-top:6px;padding:6px;background:#450a0a;border-radius:6px;color:#fca5a5;font-size:12px"><b>⚠️ Would be BLOCKED if opened right now:</b> ${escapeHtml(gateDetail)}</div>`;
-      } else if (brain.pretradeGateCheck && brain.pretradeGateCheck.finalAction === 'require_confirmation') {
-        const top = brain.pretradeGateCheck.triggered[0];
-        const gateDetail = top ? `${top.id}: ${top.reason || top.condition || 'confirmation advised'}` : brain.pretradeGateCheck.triggered.map(t => t.id).join(', ');
-        gateWarningHtml = `<div style="margin-top:6px;padding:6px;background:#422006;border-radius:6px;color:#fde68a;font-size:12px"><b>⚠️ Would need confirmation if opened right now:</b> ${escapeHtml(gateDetail)}</div>`;
-      }
-
-      syncUiOptionTypeFromBrainDecision(brain);
-
-      const tpDec = fnoThemePalette();
-      if(brain.decision==='BUY_READY'){
-        decEl.innerHTML=`🟢 BUY READY → CE - ${escapeHtml(brain.reason)} [${mode.toUpperCase()}]${confBadge}${modelBadge}${gateWarningHtml}`;
-        decEl.style.background=tpDec.passBg; decEl.style.color=tpDec.pass;
-      } else if(brain.decision==='SELL_READY'){
-        decEl.innerHTML=`🔴 SELL READY → PE - ${escapeHtml(brain.reason)} [${mode.toUpperCase()}]${confBadge}${modelBadge}${gateWarningHtml}`;
-        decEl.style.background=tpDec.failBg || '#450a0a'; decEl.style.color=tpDec.fail || '#f87171';
-      } else if(brain.decision==='NO_TRADE'){
-        decEl.innerHTML=`⛔ NO_TRADE - ${escapeHtml(brain.reason)}${confBadge}${modelBadge}`;
-        decEl.style.background=tpDec.warnBg; decEl.style.color=tpDec.warn;
-      } else {
-        decEl.innerHTML=`🟡 ${escapeHtml(brain.decision)} - ${escapeHtml(brain.reason)}${confBadge}${modelBadge}${gateWarningHtml}`;
-        decEl.style.background=tpDec.waitBg; decEl.style.color=tpDec.waitText;
       }
 
       // Factor Registry panel (Master Prompt §2, §54-57) - real
@@ -18487,17 +18478,7 @@ function render(){
         `).join('');
       }
 
-      // Master Prompt §20 - real, separate score display, proving the
-      // fix isn't silently computed and invisible: Directional score
-      // is what actually drives the decision now; the other four are
-      // shown for real transparency but never move the threshold.
-      document.getElementById('brainLog').textContent=`Brain Standalone ${mode.toUpperCase()} v${typeof FNO_PLUGIN_VERSION !== 'undefined' ? FNO_PLUGIN_VERSION : '?'} Spot ${fnoFormatFixed(spot, 1)} Directional Score ${fnoFormatFixed(brain.directionalScore, 1)} (Risk ${fnoFormatFixed(brain.riskScore, 1)} | Trade-Quality ${fnoFormatFixed(brain.tradeQualityScore, 1)} | Model-Quality ${fnoFormatFixed(brain.modelQualityScore, 1)} | Human-Operator ${fnoFormatFixed(brain.humanOperatorScore, 1)}) Decision ${brain.decision} | Operator bias: ${brain.operatorIntel.bias} | No theme, no shortcode, works like app at /`;
-
-      // Enterprise Data Architecture Plan #20/#22 - real Data Quality
-      // flags, computed server-side above and surfaced here in the
-      // SAME phase, not left as a second orphaned data field for a
-      // future audit to find (the pattern this project has caught
-      // repeatedly - checking for it explicitly this time).
+      // Data quality flags append to the brain log line painted in paintCoreBrainDecisionUi().
       const realDqFlags = [...(status.vixQualityFlags||[]), ...((oc && oc._dataQuality && oc._dataQuality.spotQualityFlags) || [])];
       if (realDqFlags.length > 0) {
         document.getElementById('brainLog').textContent += `\n⚠️ Data Quality Engine flagged: ${realDqFlags.join(', ')} - treat this refresh's numbers with extra caution.`;

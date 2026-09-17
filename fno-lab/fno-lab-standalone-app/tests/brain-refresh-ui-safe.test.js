@@ -56,5 +56,17 @@ check(!hypoThrew, 'hypothesis with operator bias but no score does not throw');
 const modesSrc = fs.readFileSync(path.join(__dirname, '../assets/trading-modes-engine.js'), 'utf8');
 check(/Number\.isFinite\(r\.score\)/.test(modesSrc), 'mode comparison dashboard guards missing log score with isFinite');
 
+check(/function paintCoreBrainDecisionUi/.test(coreSource), 'paintCoreBrainDecisionUi exists for early core decision paint');
+check(/maybeAutoCalibrateThreshold\(getDecisionLog\(\)\)/.test(coreSource) && /Auto threshold calibration failed/.test(coreSource), 'maybeAutoCalibrateThreshold wrapped in try/catch');
+
+let regimeAdjThrew = false;
+try {
+  const fakeMap = new Map([['Trending', { tradeCount: 20, winRatePct: undefined, sampleSizeWarning: false }]]);
+  computeRegimeAdjustedConfidence('Medium', 'Trending', fakeMap);
+} catch (e) {
+  regimeAdjThrew = true;
+}
+check(!regimeAdjThrew, 'computeRegimeAdjustedConfidence does not throw when winRatePct is missing');
+
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);
