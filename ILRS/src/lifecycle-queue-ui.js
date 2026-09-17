@@ -158,8 +158,8 @@
     }
     if (typeof loadAllData === 'function') await loadAllData();
     if (typeof updateBadges === 'function') updateBadges();
-    if (typeof navigate === 'function' && App.currentPage) {
-      navigate(App.currentPage);
+    if (typeof window.softRefreshCurrentPage === 'function') {
+      await window.softRefreshCurrentPage();
     } else if (typeof refreshCurrentView === 'function') {
       refreshCurrentView();
     }
@@ -178,5 +178,6 @@
     tabsHtml,
     selectedHint,
     afterStatusChange,
+    lifecycleToQueueTab,
   };
 })();

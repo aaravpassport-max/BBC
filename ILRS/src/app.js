@@ -209,6 +209,36 @@ function refreshCurrentView() {
   if (PAGES[page]) navigate(page);
 }
 
+/** Re-render current page without resetting queue filters or showing loading shell. */
+async function softRefreshCurrentPage() {
+  const content = document.getElementById('content');
+  if (!content || !PAGES[App.currentPage]) return;
+  await PAGES[App.currentPage](content);
+}
+window.softRefreshCurrentPage = softRefreshCurrentPage;
+
+function patchReminderLifecycleInMemory(id, lc) {
+  const idx = App.reminders?.findIndex((r) => r.id === id);
+  if (idx < 0) return;
+  const row = App.reminders[idx];
+  App.reminders[idx] = {
+    ...row,
+    lifecycle_status: lc,
+    status: lc === 'closed' || lc === 'completed' ? 'completed' : 'active',
+    workflow_status: lc === 'pending' ? 'postponed'
+      : lc === 'completed' || lc === 'closed' ? 'done'
+        : lc === 'active' ? 'in_progress' : row.workflow_status,
+    next_fire: lc === 'closed' || lc === 'completed' ? '' : row.next_fire,
+  };
+}
+
+function patchInquiryLifecycleInMemory(id, lc) {
+  const idx = (App.inquiries || []).findIndex((i) => i.id === id);
+  if (idx < 0) return;
+  App.inquiries[idx] = { ...App.inquiries[idx], lifecycle_status: lc };
+}
+window.patchInquiryLifecycleInMemory = patchInquiryLifecycleInMemory;
+
 function openWorkflowStages(tab = 'task') {
   App.workflowSettingsTab = tab;
   navigate('pipeline-settings');
@@ -1102,29 +1132,34 @@ async function setReminderLifecycleFromCard(id, lifecycle) {
       : 'active');
   const row = App.reminders?.find((r) => r.id === id);
   const entityKey = row?.task_type === 'task' ? 'task' : 'reminder';
-  const result = await window.ilrs?.setReminderLifecycle?.(id, lc);
-  if (!result?.success) {
-    toast(result?.error || 'Could not update status', 'warning');
-    return;
-  }
-  const idx = App.reminders?.findIndex((r) => r.id === id);
-  if (idx >= 0) {
-    App.reminders[idx] = {
-      ...App.reminders[idx],
-      lifecycle_status: lc,
-      status: lc === 'closed' || lc === 'completed' ? 'completed' : 'active',
-      workflow_status: lc === 'pending' ? 'postponed' : lc === 'completed' || lc === 'closed' ? 'done' : lc === 'active' ? 'in_progress' : App.reminders[idx].workflow_status,
-      next_fire: lc === 'closed' || lc === 'completed' ? '' : App.reminders[idx].next_fire,
-    };
-  }
-  if (lc === 'closed' || lc === 'completed') {
-    clearDuePopupsForItem(id);
-    window.ILRSSounds?.stopAlertSound?.();
-  }
-  toast(`Moved to ${LC?.lifecycleLabel(lc, true) || lc}`);
   const Q = window.ILRSLifecycleQueue;
-  if (Q?.afterStatusChange) await Q.afterStatusChange(entityKey, lc);
-  else if (typeof refreshCurrentView === 'function') refreshCurrentView();
+  const tab = Q?.lifecycleToQueueTab ? Q.lifecycleToQueueTab(lc) : lc;
+  const prevFilters = App.lifecycleQueueFilters ? { ...App.lifecycleQueueFilters } : null;
+  App._lifecycleQueueRefreshLock = true;
+  try {
+    Q?.applyGlobalFilter?.(tab);
+    patchReminderLifecycleInMemory(id, lc);
+    await softRefreshCurrentPage();
+    const result = await window.ilrs?.setReminderLifecycle?.(id, lc);
+    if (!result?.success) {
+      if (prevFilters) App.lifecycleQueueFilters = prevFilters;
+      toast(result?.error || 'Could not update status', 'warning');
+      await loadAllData();
+      await softRefreshCurrentPage();
+      return;
+    }
+    patchReminderLifecycleInMemory(id, lc);
+    if (lc === 'closed' || lc === 'completed') {
+      clearDuePopupsForItem(id);
+      window.ILRSSounds?.stopAlertSound?.();
+    }
+    toast(`Moved to ${LC?.lifecycleLabel(lc, true) || lc}`);
+    await loadAllData();
+    updateBadges();
+    await softRefreshCurrentPage();
+  } finally {
+    App._lifecycleQueueRefreshLock = false;
+  }
 }
 window.setReminderLifecycleFromCard = setReminderLifecycleFromCard;
 
@@ -3366,9 +3401,10 @@ function setupListeners() {
   });
 
   api.onReminderUpdated?.(async () => {
+    if (App._lifecycleQueueRefreshLock) return;
     await loadAllData();
     updateBadges();
-    if (PAGES[App.currentPage]) navigate(App.currentPage);
+    await softRefreshCurrentPage();
     dismissAlert();
   });
 

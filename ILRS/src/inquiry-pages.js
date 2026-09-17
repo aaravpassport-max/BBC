@@ -25,23 +25,38 @@
       data.nextFollowUp = '';
       data.nextFollowUpTime = '';
     }
-    const result = await window.ilrs?.updateInquiry?.(id, data);
-    if (!result?.success) {
-      if (typeof toast === 'function') toast(result?.error || 'Could not update status', 'warning');
-      return;
-    }
-    if (result.inquiry) {
-      const idx = (App.inquiries || []).findIndex((i) => i.id === id);
-      if (idx >= 0) App.inquiries[idx] = result.inquiry;
-    }
-    if (typeof toast === 'function') toast(`Moved to ${LC?.lifecycleLabel(lc, true) || lc}`);
     const Q = window.ILRSLifecycleQueue;
-    if (Q?.afterStatusChange) {
-      await Q.afterStatusChange('inquiry', lc);
-    } else {
+    const tab = Q?.lifecycleToQueueTab ? Q.lifecycleToQueueTab(lc) : lc;
+    const prevFilters = App.lifecycleQueueFilters ? { ...App.lifecycleQueueFilters } : null;
+    App._lifecycleQueueRefreshLock = true;
+    try {
+      Q?.applyGlobalFilter?.(tab);
+      if (typeof patchInquiryLifecycleInMemory === 'function') patchInquiryLifecycleInMemory(id, lc);
+      if (typeof softRefreshCurrentPage === 'function') await softRefreshCurrentPage();
+      const result = await window.ilrs?.updateInquiry?.(id, data);
+      if (!result?.success) {
+        if (prevFilters) App.lifecycleQueueFilters = prevFilters;
+        if (typeof toast === 'function') toast(result?.error || 'Could not update status', 'warning');
+        if (typeof loadAllData === 'function') await loadAllData();
+        if (typeof softRefreshCurrentPage === 'function') await softRefreshCurrentPage();
+        return;
+      }
+      if (result.inquiry) {
+        const idx = (App.inquiries || []).findIndex((i) => i.id === id);
+        if (idx >= 0) App.inquiries[idx] = result.inquiry;
+      } else if (typeof patchInquiryLifecycleInMemory === 'function') {
+        patchInquiryLifecycleInMemory(id, lc);
+      }
+      if (typeof toast === 'function') toast(`Moved to ${LC?.lifecycleLabel(lc, true) || lc}`);
       if (typeof loadAllData === 'function') await loadAllData();
-      if (typeof refreshCurrentView === 'function') refreshCurrentView();
-      else if (App.currentPage === 'inquiry-detail' && App.selectedInquiryId === id) navigate('inquiry-detail');
+      if (typeof updateBadges === 'function') updateBadges();
+      if (typeof softRefreshCurrentPage === 'function') {
+        await softRefreshCurrentPage();
+      } else if (App.currentPage === 'inquiry-detail' && App.selectedInquiryId === id) {
+        navigate('inquiry-detail');
+      }
+    } finally {
+      App._lifecycleQueueRefreshLock = false;
     }
   }
 
