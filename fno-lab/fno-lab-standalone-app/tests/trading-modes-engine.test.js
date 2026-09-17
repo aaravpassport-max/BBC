@@ -35,7 +35,8 @@ const bootSrc = [
 
 const api = new Function(bootSrc)();
 
-assert.strictEqual(Object.keys(api.FNO_SCALPING_TRADING_MODES).length, 7);
+assert.strictEqual(Object.keys(api.FNO_SCALPING_TRADING_MODES).length, 8);
+assert.strictEqual(api.FNO_SCALPING_TRADING_MODES.first_momentum_scalper.buyThreshold, 5);
 assert.strictEqual(api.FNO_SCALPING_TRADING_MODES.experimental_trigger.relaxExecutionGates, true);
 assert.strictEqual(api.FNO_SCALPING_TRADING_MODES.experimental_trigger.buyThreshold, 2);
 assert.strictEqual(api.FNO_SCALPING_TRADING_MODES.conservative.buyThreshold, 6);

@@ -241,6 +241,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
   color:var(--muted-text)!important;
 }
 [data-theme="light"] #scalpingSessionReadinessBox,
+[data-theme="light"] #firstMomentumScalperBox,
 [data-theme="light"] #pullbackContinuationBox,
 [data-theme="light"] #tradeSetupPerformanceBox,
 [data-theme="light"] #tradeSetupValidationBox,
@@ -377,6 +378,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
           <option value="aggressive_controlled">Mode 5 — Aggressive Controlled</option>
           <option value="maximum_opportunity">Mode 6 — Maximum Opportunity (Experimental)</option>
           <option value="experimental_trigger">Mode 7 — Trade Trigger Test (Risky / simulated paper only)</option>
+          <option value="first_momentum_scalper">Mode 8 — First Momentum Scalper (micro impulse · +Rs10–15)</option>
         </select>
       </div>
       <div id="settingScalpingTradingModeHint" style="font-size:10px;color:#64748b;margin-top:4px">Progression relaxes ENTRY willingness and uses confidence-based sizing — not bigger blind risk. Conservative and Balanced are unchanged from prior behavior. Hard stop-loss, daily-loss, spread, trap and liquidity protections never removed.</div>
@@ -575,6 +577,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
         </div>
         <div style="font-size:10px;color:#64748b;margin-bottom:8px">While ON, this tab automatically re-runs the full observe-analyse-decide-monitor-exit cycle every 15 seconds (Scalping) or 60 seconds (Intraday) during real NSE market hours (9:15am-3:30pm IST, Mon-Fri) - no manual clicking needed. Honest limit: this only runs while this browser tab stays open; closing it pauses everything until you return.</div>
         <div id="scalpingSessionReadinessBox" style="display:none;margin-bottom:10px;padding:10px;background:#422006;border:1px solid #92400e;border-radius:10px"></div>
+        <div id="firstMomentumScalperBox" style="display:none;margin-bottom:10px;padding:10px;background:#0c1a2e;border:1px solid #334155;border-radius:10px"></div>
         <div id="scalpingProfitEngineBox" style="display:none;margin-bottom:10px;padding:10px;background:#1a1a2e;border:1px solid #4c1d95;border-radius:10px;font-size:11px"></div>
         <div id="scalpingProfitLearningBox" style="display:none;margin-bottom:10px;padding:10px;background:#0f0a1e;border:1px solid #6d28d9;border-radius:10px;font-size:11px"></div>
         <div id="pullbackContinuationBox" style="display:none;margin-bottom:10px;padding:10px;background:#422006;border:1px solid #92400e;border-radius:10px"></div>
@@ -992,6 +995,7 @@ window.FNO_FACTORS_CATALOG = <?php echo $json ? wp_json_encode($json) : '[]'; ?>
 <?php include __DIR__ . '/liquidity-behaviour-engine.js'; ?>
 <?php include __DIR__ . '/trade-setup-engine.js'; ?>
 <?php include __DIR__ . '/scalping-profit-engine.js'; ?>
+<?php include __DIR__ . '/first-momentum-scalper-engine.js'; ?>
 <?php include __DIR__ . '/strategy-diagnostic-report.js'; ?>
 </script>
 <?php endif; ?>

@@ -172,6 +172,34 @@ const FNO_SCALPING_TRADING_MODES = {
     positionSizeMultiplier: { High: 1, Medium: 1, Low: 1 },
     description: 'PAPER DIAGNOSTIC ONLY — eases brain thresholds and skips SPE/TSE/FM/capital-preservation blocks so you can verify CE/PE simulated auto-opens fire (Free Data or Kite Data toggle). Still uses realistic spread fill simulation + market hours. NOT for Real Money Trading.',
   },
+  first_momentum_scalper: {
+    id: 'first_momentum_scalper',
+    label: 'Mode 8 — First Momentum Scalper',
+    shortLabel: 'First Momentum',
+    order: 8,
+    buyThreshold: 5,
+    sellThreshold: -9,
+    firstMomentumScalper: true,
+    scalpingFmSafetyProfile: 'balanced',
+    spreadHardBlockPct: 14,
+    weightedScorePolicy: 'off',
+    experimental: false,
+    minTierBScore: 6,
+    strongTierBScore: 8,
+    initialTargetPoints: 10,
+    extendedTargetPoints: 15,
+    momentumHalfLifeMinutes: 3,
+    capitalPreservation: {
+      enabled: true,
+      minConfidence: 'Medium',
+      blockWeightedScoreWait: false,
+      blockTrapWarnings: false,
+      maxLosingTradesPerDay: 3,
+      maxDailyLossPctPreservation: 1.5,
+    },
+    positionSizeMultiplier: { High: 1, Medium: 0.7, Low: 0.4 },
+    description: 'Micro-momentum scalp — Tier A safety + Tier B confluence (not all 193 factors). Enter on acceleration; book +Rs10–15 premium when momentum fades. Paper-test first.',
+  },
 };
 
 const FNO_TRADING_MODE_IDS = Object.keys(FNO_SCALPING_TRADING_MODES);
@@ -209,6 +237,14 @@ function applyScalpingTradingModePreset(modeId) {
     scalpingBracketPreset: cur.scalpingBracketPreset || 'standard',
   };
   if (mode.experimental) next.autoCalibrateThresholdEnabled = false;
+  if (mode.firstMomentumScalper) {
+    next.scalpingProfitEngineMode = 'SIGNAL_ONLY';
+    next.tradeSetupEngineEnabled = true;
+    next.scalpingBracketPreset = 'micro10';
+    next.fmsInitialTargetPoints = mode.initialTargetPoints != null ? mode.initialTargetPoints : 10;
+    next.fmsExtendedTargetPoints = mode.extendedTargetPoints != null ? mode.extendedTargetPoints : 15;
+    next.fmsMomentumHalfLifeMinutes = mode.momentumHalfLifeMinutes != null ? mode.momentumHalfLifeMinutes : 3;
+  }
   if (mode.relaxExecutionGates) {
     next.scalpingProfitEngineMode = 'SIGNAL_ONLY';
     next.scalpingCapitalPreservationEnabled = false;

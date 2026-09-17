@@ -108,6 +108,16 @@ const FNO_SETTINGS_DEFAULTS = {
   scalpingProfitProfileEnabled: true,
   scalpingFmSafetyProfile: 'strict', // legacy sync — use scalpingTradingMode for full profile
   scalpingTradingMode: 'balanced', // default Mode 2 — earlier entries with downgrade (not block) on weighted score
+  fmsInitialTargetPoints: 10,
+  fmsExtendedTargetPoints: 15,
+  fmsMomentumHalfLifeMinutes: 3,
+  fmsMaxHoldingMinutes: 8,
+  fmsThesisMinutes: 2,
+  fmsMinTierBScore: 6,
+  fmsStrongTierBScore: 8,
+  fmsMinPremiumPctForTarget: 6,
+  fmsMicroRangeWindow: 12,
+  fmsStopPremiumPoints: 12,
   scalpingTrailingEnabled: true, // default ON with scalping profile — lock gains on fast moves
   scalpingPartialExitEnabled: true, // default ON — scale half at target, trail remainder
   // Enterprise trade alert system — fires ONLY on real paper-trade entry/exit execution.
@@ -787,6 +797,10 @@ function syncUiOptionTypeFromBrainDecision(brain) {
 function resolveTradeBracketForEntry(optPrice, tradingType, ctx, brain, optionType) {
   if (typeof optPrice !== 'number' || !Number.isFinite(optPrice) || optPrice <= 0) {
     return { target: null, sl: null, source: 'invalid_price' };
+  }
+  if (tradingType === 'scalping' && typeof resolveFirstMomentumScalperBracket === 'function') {
+    const fms = resolveFirstMomentumScalperBracket(optPrice, ctx, brain, tradingType, optionType);
+    if (fms && fms.target && fms.sl) return fms;
   }
   if (tradingType === 'scalping' && typeof resolveScalpingProfitBracket === 'function') {
     const spe = resolveScalpingProfitBracket(optPrice, ctx, brain, tradingType, optionType);
@@ -17184,6 +17198,20 @@ function render(){
       } catch (speErr) {
         console.warn('Scalping Profit Engine failed (non-critical):', speErr);
       }
+      try {
+        if (typeof computeFirstMomentumScalper === 'function') {
+          const fms = computeFirstMomentumScalper(refreshCtx, brain, { journalToday: todayTrades });
+          applyFirstMomentumScalperInfluence(brain, fms);
+          refreshCtx.firstMomentumScalper = fms;
+          logFirstMomentumObservation(fms, sym, brain);
+          renderFirstMomentumScalperPanel(fms);
+          if (fms.entryAllowed && (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY')) {
+            brain.strategySignalDecision = brain.decision;
+          }
+        }
+      } catch (fmsErr) {
+        console.warn('First Momentum Scalper failed (non-critical):', fmsErr);
+      }
       // Real, NEW this pass (Advanced Trading Intelligence spec §3/§16) -
       // cached to a window global, same real pattern as
       // window.FNO_SUGGESTED_OBSERVATIONS, so renderDecisionIntelligence()
@@ -18453,6 +18481,15 @@ function render(){
             return;
           }
         }
+        if (typeof evaluateFirstMomentumScalperExit === 'function' && open.firstMomentumScalperTrade) {
+          const fmsExit = evaluateFirstMomentumScalperExit(open, curCtx, lastBrain, liveNow);
+          if (fmsExit && fmsExit.exit) {
+            document.getElementById('brainLog').textContent += `\n⚡ FMS exit: ${fmsExit.label}`;
+            const src = /TARGET/i.test(fmsExit.reason) ? 'target' : (fmsExit.reason === 'FMS_OPPOSITE' ? 'invalidated' : 'sl');
+            closeAutoTrade(open, leg, src, sym);
+            return;
+          }
+        }
       }
       // Master Prompt §27: paper engine must simulate "forced square-off"
       // - real, using the same user-configured broker time already
@@ -19236,7 +19273,13 @@ function render(){
     const openTradeId = Date.now();
     const speSnap = lastBrain && lastBrain.scalpingProfitDecision ? lastBrain.scalpingProfitDecision : null;
     const isSpeTrade = !!(speSnap && speSnap.active && speSnap.entryAllowed && isScalpingProfitEngineActive());
-    save(STORAGE.autoTrades, {id:openTradeId, strike, optionType, entryPrice:fill.price, fillIsRealistic:fill.isRealistic, executionMode:execMode, qty:filledLotSize, requestedQty: lotSize, fillIsPartial: partialFillInfo.isPartial, decisionTimePrice, entrySlippagePct: slippageCheck.slippagePct, target, sl, openedAt:Date.now(), entrySnapshot: entrySnapshotWithFailureCheck, trailingEnabled, trailingSl: sl, partialExitEnabled, partialTaken:false, mfe:fill.price, mae:fill.price, entryIV: (curCtx && curCtx.decay && curCtx.decay.snapshot && typeof curCtx.decay.snapshot.iv === 'number') ? curCtx.decay.snapshot.iv : null, failureModeCheck: fmResult, tradingType: effectiveTradingType, entrySpot, entryCandleTs, scalpingProfitTrade: isSpeTrade, scalpingProfitSnapshot: isSpeTrade ? speSnap : null});
+    const fmsSnap = lastBrain && lastBrain.firstMomentumScalper ? lastBrain.firstMomentumScalper : null;
+    const isFmsTrade = !!(fmsSnap && fmsSnap.active && fmsSnap.entryAllowed && typeof isFirstMomentumScalperModeActive === 'function' && isFirstMomentumScalperModeActive());
+    const fmsBracket = isFmsTrade && typeof resolveFirstMomentumScalperBracket === 'function'
+      ? resolveFirstMomentumScalperBracket(fill.price, curCtx, lastBrain, effectiveTradingType, optionType)
+      : null;
+    const fmsEntrySpreadPct = (leg && typeof checkSpreadLevel === 'function') ? checkSpreadLevel(leg).spreadPct : null;
+    save(STORAGE.autoTrades, {id:openTradeId, strike, optionType, entryPrice:fill.price, fillIsRealistic:fill.isRealistic, executionMode:execMode, qty:filledLotSize, requestedQty: lotSize, fillIsPartial: partialFillInfo.isPartial, decisionTimePrice, entrySlippagePct: slippageCheck.slippagePct, target, sl, openedAt:Date.now(), entrySnapshot: entrySnapshotWithFailureCheck, trailingEnabled, trailingSl: sl, partialExitEnabled, partialTaken:false, mfe:fill.price, mae:fill.price, entryIV: (curCtx && curCtx.decay && curCtx.decay.snapshot && typeof curCtx.decay.snapshot.iv === 'number') ? curCtx.decay.snapshot.iv : null, failureModeCheck: fmResult, tradingType: effectiveTradingType, entrySpot, entryCandleTs, scalpingProfitTrade: isSpeTrade, scalpingProfitSnapshot: isSpeTrade ? speSnap : null, firstMomentumScalperTrade: isFmsTrade, firstMomentumSnapshot: isFmsTrade ? fmsSnap : null, fmsInitialTargetRs: isFmsTrade ? (fmsBracket && fmsBracket.initialTargetRs != null ? fmsBracket.initialTargetRs : fmsSnap.premiumTargetRs) : null, fmsExtendedTargetRs: isFmsTrade ? (fmsBracket && fmsBracket.extendedTargetRs != null ? fmsBracket.extendedTargetRs : fmsSnap.premiumExtendedTargetRs) : null, fmsTriggerSpot: isFmsTrade ? entrySpot : null, fmsEntrySpreadPct: isFmsTrade ? fmsEntrySpreadPct : null});
     if (typeof linkPaperValidationTradeId === 'function') linkPaperValidationTradeId(openTradeId);
     if (typeof linkScalpingProfitTradeId === 'function' && isSpeTrade && speSnap) linkScalpingProfitTradeId(openTradeId, speSnap);
     if (typeof logModeTradeOpen === 'function' && lastBrain) {
