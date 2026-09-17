@@ -57,6 +57,7 @@ const modesSrc = fs.readFileSync(path.join(__dirname, '../assets/trading-modes-e
 check(/Number\.isFinite\(r\.score\)/.test(modesSrc), 'mode comparison dashboard guards missing log score with isFinite');
 
 check(/function paintCoreBrainDecisionUi/.test(coreSource), 'paintCoreBrainDecisionUi exists for early core decision paint');
+check(/function safePaintCoreBrainDecisionUi/.test(coreSource), 'safePaintCoreBrainDecisionUi wraps core paint');
 check(/maybeAutoCalibrateThreshold\(getDecisionLog\(\)\)/.test(coreSource) && /Auto threshold calibration failed/.test(coreSource), 'maybeAutoCalibrateThreshold wrapped in try/catch');
 
 let regimeAdjThrew = false;

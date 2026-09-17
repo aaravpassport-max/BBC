@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.38-brain-refresh-ui-safe-v4';
+const FNO_CORE_BUILD_MARKER = '16.37.39-brain-refresh-ui-safe-v5';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -1189,6 +1189,9 @@ function renderScalpingSessionReadiness(brain, ctx) {
 /** Core decision tiles + banner — must run before heavy post-funnel panels so a secondary UI throw never leaves "Loading brain...". */
 function paintCoreBrainDecisionUi(brain, refreshCtx, sym, spot, tradeMode) {
   if (typeof document === 'undefined' || !brain) return;
+  const triggered = (brain.pretradeGateCheck && Array.isArray(brain.pretradeGateCheck.triggered))
+    ? brain.pretradeGateCheck.triggered
+    : [];
   const totalScoreEl = document.getElementById('totalScore');
   if (totalScoreEl) totalScoreEl.textContent = fnoFormatFixed(brain.directionalScore, 1);
   const passEl = document.getElementById('passCount');
@@ -1226,12 +1229,12 @@ function paintCoreBrainDecisionUi(brain, refreshCtx, sym, spot, tradeMode) {
   }
   let gateWarningHtml = '';
   if (brain.pretradeGateCheck && (brain.pretradeGateCheck.finalAction === 'block' || brain.pretradeGateCheck.finalAction === 'reject')) {
-    const top = brain.pretradeGateCheck.triggered[0];
-    const gateDetail = top ? `${top.id}: ${top.reason || top.condition || top.adjustedAction || 'see Failure-Mode Library'}` : brain.pretradeGateCheck.triggered.map(t => t.id).join(', ');
+    const top = triggered[0];
+    const gateDetail = top ? `${top.id}: ${top.reason || top.condition || top.adjustedAction || 'see Failure-Mode Library'}` : triggered.map(t => t.id).join(', ');
     gateWarningHtml = `<div style="margin-top:6px;padding:6px;background:#450a0a;border-radius:6px;color:#fca5a5;font-size:12px"><b>⚠️ Would be BLOCKED if opened right now:</b> ${escapeHtml(gateDetail)}</div>`;
   } else if (brain.pretradeGateCheck && brain.pretradeGateCheck.finalAction === 'require_confirmation') {
-    const top = brain.pretradeGateCheck.triggered[0];
-    const gateDetail = top ? `${top.id}: ${top.reason || top.condition || 'confirmation advised'}` : brain.pretradeGateCheck.triggered.map(t => t.id).join(', ');
+    const top = triggered[0];
+    const gateDetail = top ? `${top.id}: ${top.reason || top.condition || 'confirmation advised'}` : triggered.map(t => t.id).join(', ');
     gateWarningHtml = `<div style="margin-top:6px;padding:6px;background:#422006;border-radius:6px;color:#fde68a;font-size:12px"><b>⚠️ Would need confirmation if opened right now:</b> ${escapeHtml(gateDetail)}</div>`;
   }
   syncUiOptionTypeFromBrainDecision(brain);
@@ -1254,6 +1257,22 @@ function paintCoreBrainDecisionUi(brain, refreshCtx, sym, spot, tradeMode) {
   const brainLogEl = document.getElementById('brainLog');
   if (brainLogEl) {
     brainLogEl.textContent = `Brain Standalone ${modeLabel} v${typeof FNO_PLUGIN_VERSION !== 'undefined' ? FNO_PLUGIN_VERSION : '?'} Spot ${fnoFormatFixed(spot, 1)} Directional Score ${fnoFormatFixed(brain.directionalScore, 1)} (Risk ${fnoFormatFixed(brain.riskScore, 1)} | Trade-Quality ${fnoFormatFixed(brain.tradeQualityScore, 1)} | Model-Quality ${fnoFormatFixed(brain.modelQualityScore, 1)} | Human-Operator ${fnoFormatFixed(brain.humanOperatorScore, 1)}) Decision ${brain.decision} | Operator bias: ${opBias} | No theme, no shortcode, works like app at /`;
+  }
+}
+
+function safePaintCoreBrainDecisionUi(brain, refreshCtx, sym, spot, tradeMode) {
+  try {
+    paintCoreBrainDecisionUi(brain, refreshCtx, sym, spot, tradeMode);
+  } catch (paintErr) {
+    console.warn('Core brain decision UI paint failed:', paintErr);
+    const decEl = document.getElementById('brainDecision');
+    const totalScoreEl = document.getElementById('totalScore');
+    if (totalScoreEl) totalScoreEl.textContent = fnoFormatFixed(brain && brain.directionalScore, 1);
+    if (decEl) {
+      decEl.textContent = `⚠️ Decision UI partial error: ${paintErr && paintErr.message ? paintErr.message : String(paintErr)} — score ${fnoFormatFixed(brain && brain.directionalScore, 1)}, decision ${brain && brain.decision ? brain.decision : '?'}`;
+      decEl.style.background = '#422006';
+      decEl.style.color = '#fde68a';
+    }
   }
 }
 
@@ -3559,10 +3578,11 @@ function computeHypotheticalPremiumMove(entryEvent, laterEvents, optionType) {
 
   const lotSize = (typeof entryEvent.lotSize === 'number' && entryEvent.lotSize > 0) ? entryEvent.lotSize : null;
   const costs = lotSize ? computeTradeCosts(entryG.price, bestPremium, lotSize) : null;
+  const fixed2 = (n) => (Number.isFinite(n) ? +n.toFixed(2) : null);
   return {
-    entryPremium: +entryG.price.toFixed(2), bestExitPremium: +bestPremium.toFixed(2), bestExitTs: bestTs,
-    grossPnlPerLot: lotSize ? +costs.grossPnl.toFixed(2) : null,
-    netPnlPerLot: lotSize ? +costs.netPnl.toFixed(2) : null,
+    entryPremium: fixed2(entryG.price), bestExitPremium: fixed2(bestPremium), bestExitTs: bestTs,
+    grossPnlPerLot: lotSize && costs ? fixed2(costs.grossPnl) : null,
+    netPnlPerLot: lotSize && costs ? fixed2(costs.netPnl) : null,
     lotSize,
   };
 }
@@ -17702,6 +17722,7 @@ function render(){
       lastBrain=brain;
       window.FNO_LAST_BRAIN = brain;
       window.FNO_LAST_CTX = refreshCtx;
+      safePaintCoreBrainDecisionUi(brain, refreshCtx, sym, spot, mode);
       try {
         if (typeof computeLiquidityTrapEngine === 'function') {
           const liqEngine = computeLiquidityTrapEngine(refreshCtx, brain, refreshCtx.liquidityInputs);
@@ -17782,6 +17803,7 @@ function render(){
       window.FNO_LAST_DECISION_ATTRIBUTION = computeDecisionAttribution(brain);
       window.FNO_LAST_OPPORTUNITY_GRADE = computeOpportunityGrade(brain);
 
+      try {
       // User's own direct request (Option A) - real, throttled AI
       // narrative commentary explaining THIS real, already-computed
       // decision. Called here specifically because this is the exact
@@ -17967,7 +17989,15 @@ function render(){
         modeAttribution: typeof buildModeTradeAttribution === 'function' ? buildModeTradeAttribution(brain, refreshCtx, {}) : null,
       });
       renderEligibilityFunnel(sym);
-      paintCoreBrainDecisionUi(brain, refreshCtx, sym, spot, mode);
+      safePaintCoreBrainDecisionUi(brain, refreshCtx, sym, spot, mode);
+      } catch (decisionTrailErr) {
+        console.warn('Decision log / funnel failed (non-critical):', decisionTrailErr);
+        safePaintCoreBrainDecisionUi(brain, refreshCtx, sym, spot, mode);
+        const brainLogElTrail = document.getElementById('brainLog');
+        if (brainLogElTrail) {
+          brainLogElTrail.textContent += `\n⚠️ Decision log/funnel error (brain evaluation completed): ${decisionTrailErr && decisionTrailErr.message ? decisionTrailErr.message : String(decisionTrailErr)}`;
+        }
+      }
       try {
         if (typeof renderModeComparisonDashboard === 'function') renderModeComparisonDashboard(sym);
       } catch (modeDashErr) {
@@ -18490,13 +18520,22 @@ function render(){
     }catch(e){
       const brainLogEl = document.getElementById('brainLog');
       const decEl = document.getElementById('brainDecision');
+      const totalScoreEl = document.getElementById('totalScore');
       const errMsg = e && e.message ? String(e.message) : String(e);
+      if (window.FNO_LAST_BRAIN && window.FNO_LAST_CTX) {
+        safePaintCoreBrainDecisionUi(window.FNO_LAST_BRAIN, window.FNO_LAST_CTX, sym, window.FNO_LAST_CTX.spot, mode);
+      }
       if (brainLogEl) brainLogEl.textContent += '\n❌ ' + errMsg;
-      if (decEl && /Loading brain/i.test(decEl.textContent)) {
+      const scoreStillEmpty = totalScoreEl && (totalScoreEl.textContent === '-' || totalScoreEl.textContent === '—' || !totalScoreEl.textContent.trim());
+      const decisionStillLoading = decEl && /Loading brain/i.test(decEl.textContent);
+      if (decEl && (decisionStillLoading || scoreStillEmpty)) {
         const ver = typeof FNO_PLUGIN_VERSION !== 'undefined' ? FNO_PLUGIN_VERSION : '?';
-        decEl.textContent = `❌ Brain refresh failed — ${errMsg} (plugin v${ver} — reinstall from PR #17 zip if not v16.31.2+)`;
+        const marker = typeof FNO_CORE_BUILD_MARKER !== 'undefined' ? FNO_CORE_BUILD_MARKER : '?';
+        decEl.textContent = `❌ Brain refresh failed — ${errMsg} (plugin v${ver}, core ${marker} — delete all fno-lab-standalone-app* folders, install latest zip, reactivate, hard refresh)`;
         decEl.style.background = '#450a0a';
         decEl.style.color = '#fca5a5';
+      } else if (decEl) {
+        decEl.textContent += `\n⚠️ Non-fatal refresh error: ${errMsg}`;
       }
       clearStuckLoadingPanels(`Refresh error: ${errMsg}`);
     }

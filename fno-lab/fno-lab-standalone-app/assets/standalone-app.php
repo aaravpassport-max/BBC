@@ -287,6 +287,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
 </style>
 <meta name="fno-plugin-version" content="<?php echo esc_attr(FNO_PLUGIN_VERSION); ?>">
 <meta name="fno-install-id" content="<?php echo esc_attr(FNO_PLUGIN_INSTALL_ID); ?>">
+<meta name="fno-core-build-marker" content="<?php echo esc_attr(FNO_PLUGIN_INSTALL_ID); ?>">
 </head>
 <body>
 <?php if (!$is_logged_in): ?>
