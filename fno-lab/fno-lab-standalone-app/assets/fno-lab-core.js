@@ -30,6 +30,10 @@ let fnoRefreshBrainQueued = false;
 /** Invalidates in-flight loadTradeLedger() calls when a newer refresh is requested. */
 let fnoLedgerLoadGeneration = 0;
 let fnoLedgerRefreshTimer = null;
+let fnoLastGoodServerJournal = null;
+let fnoLastGoodServerJournalAt = 0;
+let fnoLedgerLoadPromise = null;
+let fnoLedgerLoadQueued = false;
 function scheduleTradeLedgerRefresh() {
   if (typeof window.__fnoLoadTradeLedger !== 'function') return;
   if (fnoLedgerRefreshTimer) clearTimeout(fnoLedgerRefreshTimer);
@@ -11121,25 +11125,76 @@ function fingerprintJournalRow(t) {
 function journalRowsLikelySame(a, b) {
   if (!a || !b) return false;
   if (typeof a.id === 'number' && a.id > 0 && typeof b.id === 'number' && b.id > 0 && a.id === b.id) return true;
-  if (a.openedAt && b.openedAt && a.openedAt === b.openedAt && a.qty === b.qty && a.pnl === b.pnl) return true;
-  const tsA = a.ts || a.openedAt || 0;
-  const tsB = b.ts || b.openedAt || 0;
-  if (tsA && tsB && Math.abs(tsA - tsB) < 3000 && a.qty === b.qty && a.pnl === b.pnl && (a.symbol || '') === (b.symbol || '')) return true;
-  return fingerprintJournalRow(a) === fingerprintJournalRow(b);
+  const tsA = normalizeTradeTimestampMs(a.ts);
+  const tsB = normalizeTradeTimestampMs(b.ts);
+  if (tsA && tsB && tsA === tsB && a.qty === b.qty && a.strike === b.strike
+      && (a.symbol || '') === (b.symbol || '') && (a.optionType || '') === (b.optionType || '')) {
+    if (typeof a.pnl === 'number' && typeof b.pnl === 'number') {
+      return Math.abs(a.pnl - b.pnl) < 0.02;
+    }
+    return true;
+  }
+  if (a.openedAt && b.openedAt && a.openedAt === b.openedAt && a.qty === b.qty && a.strike === b.strike
+      && (a.symbol || '') === (b.symbol || '')) {
+    if (typeof a.pnl === 'number' && typeof b.pnl === 'number') {
+      return Math.abs(a.pnl - b.pnl) < 0.02;
+    }
+    return false;
+  }
+  return false;
+}
+function dedupeJournalRows(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  const out = [];
+  for (const row of list) {
+    if (out.some((existing) => journalRowsLikelySame(existing, row))) continue;
+    out.push(row);
+  }
+  out.sort((a, b) => {
+    const tb = normalizeTradeTimestampMs(b.ts) || normalizeTradeTimestampMs(b.openedAt) || 0;
+    const ta = normalizeTradeTimestampMs(a.ts) || normalizeTradeTimestampMs(a.openedAt) || 0;
+    return tb - ta;
+  });
+  return out;
+}
+function stripJournalUiFields(row) {
+  if (!row || typeof row !== 'object') return row;
+  const copy = Object.assign({}, row);
+  delete copy._ledgerOpen;
+  delete copy._ledgerDisplayId;
+  delete copy._ledgerRowIndex;
+  return copy;
 }
 function mergeJournalRowsForDisplay(serverRows, localRows) {
   const server = Array.isArray(serverRows) ? serverRows : [];
   const local = Array.isArray(localRows) ? localRows : [];
-  // Local journal is the source of truth for this browser session (written
-  // synchronously on every close); server rows backfill history from other
-  // devices or after import — never drop local-only rows behind a slow fetch.
   const out = local.map((loc) => Object.assign({}, loc));
   for (const s of server) {
     if (out.some((loc) => journalRowsLikelySame(s, loc))) continue;
-    out.push(s);
+    out.push(Object.assign({}, s));
   }
-  out.sort((a, b) => (b.ts || b.openedAt || 0) - (a.ts || a.openedAt || 0));
-  return out;
+  return dedupeJournalRows(out);
+}
+function getServerJournalForMerge(freshRows) {
+  if (Array.isArray(freshRows)) return freshRows;
+  if (Array.isArray(fnoLastGoodServerJournal) && fnoLastGoodServerJournal.length) return fnoLastGoodServerJournal;
+  return [];
+}
+function reconcileLocalJournalFromServer(serverRows) {
+  if (!Array.isArray(serverRows)) return loadLocalJournalArray();
+  const local = loadLocalJournalArray();
+  const merged = dedupeJournalRows(mergeJournalRowsForDisplay(serverRows, local));
+  try {
+    save(STORAGE.journal, merged.map(stripJournalUiFields));
+  } catch (e) {
+    console.warn('[FNO] reconcileLocalJournalFromServer save failed:', e && e.message);
+  }
+  return loadLocalJournalArray();
+}
+function buildUnifiedJournalForLedger(serverRowsFresh) {
+  const server = getServerJournalForMerge(serverRowsFresh);
+  const local = loadLocalJournalArray();
+  return dedupeJournalRows(mergeJournalRowsForDisplay(server, local));
 }
 /** Completed CE/PE round-trip (excludes ORDER_PLACED audit rows and junk partial rows). */
 function isLedgerCompletedRoundTrip(t) {
@@ -11227,7 +11282,12 @@ async function fetchJournalListForLedger(timeoutMs) {
   try {
     const r = await fetch(`${window.FNO_AJAX.url}?action=fno_journal_list&nonce=${window.FNO_AJAX.nonce}`, ctrl ? { signal: ctrl.signal } : undefined);
     const j = await r.json();
-    return j.success ? (j.data.journal || []) : null;
+    if (j.success) {
+      fnoLastGoodServerJournal = j.data.journal || [];
+      fnoLastGoodServerJournalAt = Date.now();
+      return fnoLastGoodServerJournal;
+    }
+    return null;
   } catch (e) {
     console.warn('[FNO] trade ledger server fetch failed:', e && e.message ? e.message : e);
     return null;
@@ -11316,16 +11376,18 @@ async function syncServerJournal() {
   if (!window.FNO_AJAX || !window.FNO_AJAX.isLoggedIn) return local;
   try {
     const serverRows = await fetchJournalListForLedger(12000);
-    if (serverRows === null) return mergeJournalRowsForDisplay([], local);
+    if (serverRows === null) {
+      return buildUnifiedJournalForLedger(null);
+    }
     if (serverRows.length === 0 && local.length) {
       const body = `action=fno_journal_import&entries=${encodeURIComponent(JSON.stringify(local))}&nonce=${window.FNO_AJAX.nonce}`;
       await fetch(`${window.FNO_AJAX.url}?action=fno_journal_import`, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body});
       return local;
     }
-    return mergeJournalRowsForDisplay(serverRows, local);
+    return reconcileLocalJournalFromServer(serverRows);
   } catch(e) {
-    console.warn('Server journal sync failed, using local-only journal:', e.message);
-    return local;
+    console.warn('Server journal sync failed, using unified local+cached journal:', e.message);
+    return buildUnifiedJournalForLedger(null);
   }
 }
 
@@ -20536,7 +20598,7 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
     }
   }
 
-  async function loadTradeLedger() {
+  async function loadTradeLedgerImpl() {
     const summaryEl = document.getElementById('tradeLedgerSummary');
     const bodyEl = document.getElementById('tradeLedgerBody');
     if (!summaryEl || !bodyEl) return;
@@ -20547,14 +20609,18 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
       summaryEl.innerHTML = `<div style="grid-column:1/-1;color:#f87171">${escapeHtml(msg)}</div>`;
       bodyEl.innerHTML = `<tr><td colspan="13" style="padding:10px;color:#64748b">${escapeHtml(msg)}</td></tr>`;
     };
+    let usedCachedServer = false;
     try {
-      let serverRows = null;
+      let serverRowsFresh = null;
       if (loggedIn) {
-        serverRows = await fetchJournalListForLedger(12000);
+        serverRowsFresh = await fetchJournalListForLedger(12000);
+        usedCachedServer = serverRowsFresh === null && !!(fnoLastGoodServerJournal && fnoLastGoodServerJournal.length);
+        if (serverRowsFresh !== null) {
+          reconcileLocalJournalFromServer(serverRowsFresh);
+        }
       }
       if (loadGen !== fnoLedgerLoadGeneration) return;
-      const localJournal = loadLocalJournalArray();
-      let trades = mergeJournalRowsForDisplay(serverRows || [], localJournal);
+      let trades = loggedIn ? buildUnifiedJournalForLedger(serverRowsFresh) : buildUnifiedJournalForLedger([]);
       const openRow = openAutoTradeLedgerRow(loadObj(STORAGE.autoTrades));
       if (openRow) trades = [openRow, ...trades.filter(t => !t._ledgerOpen)];
       if (loadGen !== fnoLedgerLoadGeneration) return;
@@ -20648,9 +20714,14 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
 
       const footEl = document.getElementById('tradeLedgerFootnote');
       if (footEl) {
-        footEl.textContent = hiddenEventCount > 0
-          ? `${hiddenEventCount} non-trade journal event(s) (e.g. order placed) hidden from this table — stats above count completed round-trips only.`
-          : '';
+        const parts = [];
+        if (usedCachedServer) {
+          parts.push('Server journal sync was slow this refresh — merged with your last successful server fetch plus local closes.');
+        }
+        if (hiddenEventCount > 0) {
+          parts.push(`${hiddenEventCount} non-trade journal event(s) hidden — stats count completed round-trips only.`);
+        }
+        footEl.textContent = parts.join(' ');
       }
 
       window.__fnoLedgerTrades = tableRows;
@@ -20676,6 +20747,23 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
       console.error('[FNO] loadTradeLedger failed:', e);
       showLedgerError('Could not render the trade ledger — showing local data only on next refresh. ' + (e && e.message ? e.message : String(e)));
     }
+  }
+  async function loadTradeLedger() {
+    if (fnoLedgerLoadPromise) {
+      fnoLedgerLoadQueued = true;
+      return fnoLedgerLoadPromise;
+    }
+    fnoLedgerLoadPromise = (async () => {
+      try {
+        do {
+          fnoLedgerLoadQueued = false;
+          await loadTradeLedgerImpl();
+        } while (fnoLedgerLoadQueued);
+      } finally {
+        fnoLedgerLoadPromise = null;
+      }
+    })();
+    return fnoLedgerLoadPromise;
   }
   window.__fnoLoadTradeLedger = function () { void loadTradeLedger(); };
 
