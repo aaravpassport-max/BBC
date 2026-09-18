@@ -131,10 +131,10 @@ Each entry: type, title, body, timestamp, optional metadata (stage transition).
 - [x] Unified Inquiries hub (List / Pipeline / Follow-ups / Schedule inner tabs)
 - [x] Task/reminder tabbed detail workspace (`work-item-detail`)
 - [x] Auto activity on enquiry lifecycle, follow-up reminder create, task/reminder complete
-- [ ] End-to-end: create enquiry → log → stage → complete linked task (manual regression)
-- [ ] History chronological; card shows latest line only (verify after auto-sync)
-- [ ] Closed items leave Act now; overdue visible on Focus
-- [ ] Mobile layout: top nav scrolls; cards stack
+- [x] Automated E2E: `npm run test:enquiry-e2e` (create → stage → complete linked task → activity trail)
+- [x] Mobile section drawer (☰) when viewport ≤768px
+- [ ] History chronological in UI smoke test (manual)
+- [ ] Closed items leave Act now; overdue visible on Focus (manual)
 
 ---
 
