@@ -31,6 +31,7 @@ const {
   convertReminderToInquiry,
   updateInquiry,
   changeInquiryStage,
+  startInquiryWork,
   logInquiryActivity,
   findPossibleDuplicates,
   reopenInquiry,
@@ -507,6 +508,16 @@ function setupIPC() {
   ipcMain.handle('change-inquiry-stage', async (_event, { id, stageKey, options }) => {
     try {
       const result = changeInquiryStage(db, id, stageKey, options || {});
+      if (result.success) notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('start-inquiry-work', async (_event, { id }) => {
+    try {
+      const result = startInquiryWork(db, id);
       if (result.success) notifyRendererDataChanged();
       return result;
     } catch (err) {
@@ -1294,8 +1305,31 @@ function repairReminderSchedules() {
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '18')").run();
       console.log('Operational UX migration v18 complete');
     }
+    if (version < 19) {
+      runInquiryWorkPhaseMigrationV19();
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '19')").run();
+      console.log('Inquiry work_phase migration v19 complete');
+    }
   } catch (err) {
     console.error('repairReminderSchedules error:', err.message);
+  }
+}
+
+function runInquiryWorkPhaseMigrationV19() {
+  try {
+    try {
+      db.exec("ALTER TABLE inquiries ADD COLUMN work_phase TEXT DEFAULT 'new'");
+    } catch (_) { /* exists */ }
+    const { INQUIRY_NEW_STAGE_KEYS } = require('./work-lifecycle');
+    const rows = db.prepare("SELECT id, stage_key, work_start_date FROM inquiries WHERE outcome_status != 'deleted'").all();
+    const upd = db.prepare("UPDATE inquiries SET work_phase = ? WHERE id = ?");
+    for (const row of rows) {
+      const inProcess = Boolean(String(row.work_start_date || '').trim())
+        || !INQUIRY_NEW_STAGE_KEYS.has(row.stage_key || 'follow_up');
+      upd.run(inProcess ? 'in_process' : 'new', row.id);
+    }
+  } catch (err) {
+    console.error('Inquiry work_phase migration v19 error:', err.message);
   }
 }
 

@@ -20,6 +20,7 @@ const {
   LIFECYCLE_ACTIVE,
   LIFECYCLE_CLOSED,
   LIFECYCLE_COMPLETED,
+  INQUIRY_NEW_STAGE_KEYS,
 } = require('./work-lifecycle');
 
 function nextInquiryNumber(db) {
@@ -287,9 +288,9 @@ function createInquiry(db, data, now = new Date()) {
       id, inquiry_number, client_id, client_name, company, mobile, email,
       requirement, service_category, source, stage_key, priority, assigned_to,
       next_action, next_follow_up, next_follow_up_time, expected_value, quotation_amount,
-      work_start_date, expected_completion_date,
+      work_start_date, expected_completion_date, work_phase,
       outcome_status, lifecycle_status, health, stage_changed_at, last_activity_at, notes, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'healthy', datetime('now'), datetime('now'), ?, datetime('now'), datetime('now'))
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'healthy', datetime('now'), datetime('now'), ?, datetime('now'), datetime('now'))
   `).run(
     id,
     inquiryNumber,
@@ -309,8 +310,9 @@ function createInquiry(db, data, now = new Date()) {
     nextFollowUpTime,
     parseFloat(data.expectedValue) || 0,
     parseFloat(data.quotationAmount) || 0,
-    data.workStartDate || today,
+    data.workStartDate || '',
     data.expectedCompletionDate || '',
+    'new',
     lifecyclePatch.outcome_status,
     lifecyclePatch.lifecycle_status,
     data.notes || '',
@@ -456,6 +458,17 @@ function changeInquiryStage(db, inquiryId, newStageKey, options = {}, now = new 
     newStage: newStageKey,
   });
 
+  if (lifecycleFromStage === LIFECYCLE_ACTIVE && !INQUIRY_NEW_STAGE_KEYS.has(newStageKey)) {
+    db.prepare(`
+      UPDATE inquiries SET
+        work_phase = 'in_process',
+        work_start_date = CASE WHEN work_start_date IS NULL OR work_start_date = '' THEN date('now') ELSE work_start_date END,
+        operational_state = CASE WHEN operational_state IN ('', 'new') THEN 'in_progress' ELSE operational_state END
+      WHERE id = ?
+    `).run(inquiryId);
+    logActivity(db, inquiryId, 'status_change', 'Moved to In process', 'Work started — past initial qualification stage', {});
+  }
+
   const followDays = options.followUpDays ?? automation.followUpDays;
   const autoNextAction = options.nextAction || automation.nextAction;
   if (followDays && !isClosedStage(newStageKey, stages)) {
@@ -492,6 +505,26 @@ function changeInquiryStage(db, inquiryId, newStageKey, options = {}, now = new 
   updated.health = health;
 
   return { success: true, inquiry: updated, stage };
+}
+
+function startInquiryWork(db, inquiryId, now = new Date()) {
+  const inquiry = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
+  if (!inquiry) return { success: false, error: 'Inquiry not found' };
+  const today = localDateStr(now);
+  db.prepare(`
+    UPDATE inquiries SET
+      work_phase = 'in_process',
+      work_start_date = CASE WHEN work_start_date IS NULL OR work_start_date = '' THEN ? ELSE work_start_date END,
+      operational_state = CASE WHEN operational_state IN ('', 'new') THEN 'in_progress' ELSE operational_state END,
+      lifecycle_status = ?,
+      updated_at = datetime('now')
+    WHERE id = ?
+  `).run(today, LIFECYCLE_ACTIVE, inquiryId);
+  logActivity(db, inquiryId, 'status_change', 'Work started', 'Enquiry moved to In process', {});
+  const updated = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
+  updated.health = computeInquiryHealth(updated, now);
+  db.prepare('UPDATE inquiries SET health = ? WHERE id = ?').run(updated.health, inquiryId);
+  return { success: true, inquiry: updated };
 }
 
 function logInquiryActivity(db, inquiryId, { type, title, body }) {
@@ -711,6 +744,7 @@ module.exports = {
   updateInquiry,
   mirrorInquiryLifecycleFromReminder,
   changeInquiryStage,
+  startInquiryWork,
   logInquiryActivity,
   findPossibleDuplicates,
   findOrCreateClient,

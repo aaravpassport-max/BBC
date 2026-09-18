@@ -13,6 +13,16 @@ const LIFECYCLE_STATUSES = [
   { id: LIFECYCLE_CLOSED, label: 'Closed' },
 ];
 
+/** Queue tab: work underway (distinct from Act now = new enquiries only). */
+const QUEUE_TAB_IN_PROCESS = 'in_process';
+
+/** Stages treated as “new enquiry — start work” (Act now). */
+const INQUIRY_NEW_STAGE_KEYS = new Set([
+  'follow_up',
+  'high_quality_prospect',
+  'need_to_work_on_query',
+]);
+
 function normalizeLifecycle(value) {
   const v = String(value || '').trim().toLowerCase();
   if ([LIFECYCLE_ACTIVE, LIFECYCLE_PENDING, LIFECYCLE_COMPLETED, LIFECYCLE_CLOSED].includes(v)) return v;
@@ -39,6 +49,35 @@ function inferLifecycleFromInquiry(inquiry) {
   if (inquiry.outcome_status === 'closed_lost') return LIFECYCLE_CLOSED;
   if (inquiry.outcome_status === 'closed_won') return LIFECYCLE_COMPLETED;
   if (inquiry.outcome_status && inquiry.outcome_status !== 'active') return LIFECYCLE_CLOSED;
+  return LIFECYCLE_ACTIVE;
+}
+
+function isInquiryInProcess(inquiry) {
+  if (!inquiry) return false;
+  const phase = String(inquiry.work_phase || '').trim().toLowerCase();
+  if (phase === 'in_process') return true;
+  if (String(inquiry.work_start_date || '').trim()) return true;
+  const op = String(inquiry.operational_state || '').trim();
+  if (op && op !== 'new') return true;
+  const stageKey = inquiry.stage_key || 'follow_up';
+  if (!INQUIRY_NEW_STAGE_KEYS.has(stageKey)) return true;
+  return false;
+}
+
+/**
+ * Inquiry list queue tab (Act now / In process / Waiting / …).
+ * Act now = lifecycle active and still “new”; In process = active work started.
+ */
+function inferInquiryQueueTab(inquiry) {
+  const lc = inferLifecycleFromInquiry(inquiry);
+  if (lc !== LIFECYCLE_ACTIVE) return lc;
+  return isInquiryInProcess(inquiry) ? QUEUE_TAB_IN_PROCESS : LIFECYCLE_ACTIVE;
+}
+
+function inferReminderQueueTab(reminder) {
+  const lc = inferLifecycleFromReminder(reminder);
+  if (lc !== LIFECYCLE_ACTIVE) return lc;
+  if ((reminder.workflow_status || '') === 'in_progress') return QUEUE_TAB_IN_PROCESS;
   return LIFECYCLE_ACTIVE;
 }
 
@@ -181,10 +220,15 @@ module.exports = {
   LIFECYCLE_PENDING,
   LIFECYCLE_COMPLETED,
   LIFECYCLE_CLOSED,
+  QUEUE_TAB_IN_PROCESS,
+  INQUIRY_NEW_STAGE_KEYS,
   LIFECYCLE_STATUSES,
   normalizeLifecycle,
   inferLifecycleFromReminder,
   inferLifecycleFromInquiry,
+  isInquiryInProcess,
+  inferInquiryQueueTab,
+  inferReminderQueueTab,
   lifecycleLabel,
   isLifecycleSchedulable,
   requiresNextReminderDate,

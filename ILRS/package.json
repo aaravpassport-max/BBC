@@ -1,6 +1,6 @@
 {
   "name": "ilrs",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "ILRS — Intelligent Life Reminder System",
   "author": {
     "name": "Business OS",
@@ -28,6 +28,7 @@
     "test:inquiry-schedule": "node scripts/test-inquiry-schedule.js",
     "test:inquiry-workflow": "node scripts/test-inquiry-workflow.js",
     "test:enquiry-e2e": "node scripts/test-enquiry-workflow-e2e.js",
+    "test:inquiry-queue-tabs": "node scripts/test-inquiry-queue-tabs.js",
     "test:workflow-stages": "node scripts/test-workflow-stages.js",
     "test:inquiry-stages": "node scripts/test-inquiry-stages.js",
     "test:work-scheduling": "node scripts/test-work-scheduling.js",

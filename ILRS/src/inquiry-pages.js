@@ -50,7 +50,7 @@
       data.nextFollowUpTime = '';
     }
     const Q = window.ILRSLifecycleQueue;
-    const tab = Q?.lifecycleToQueueTab ? Q.lifecycleToQueueTab(lc) : lc;
+    let tab = Q?.lifecycleToQueueTab ? Q.lifecycleToQueueTab(lc) : lc;
     const prevFilters = App.lifecycleQueueFilters ? { ...App.lifecycleQueueFilters } : null;
     App._lifecycleQueueRefreshLock = true;
     try {
@@ -74,10 +74,13 @@
       if (result.inquiry) {
         const idx = (App.inquiries || []).findIndex((i) => i.id === id);
         if (idx >= 0) App.inquiries[idx] = result.inquiry;
+        if (Q?.inferInquiryQueueTab) tab = Q.inferInquiryQueueTab(result.inquiry);
       } else if (typeof patchInquiryLifecycleInMemory === 'function') {
         patchInquiryLifecycleInMemory(id, lc);
       }
-      if (typeof toast === 'function') toast(`Moved to ${LC?.lifecycleLabel(lc, true) || lc}`);
+      Q?.applyGlobalFilter?.(tab);
+      const tabLabel = tab === 'in_process' ? 'In process' : (LC?.lifecycleLabel(lc, true) || lc);
+      if (typeof toast === 'function') toast(`Moved to ${tabLabel}`);
       if (typeof loadAllData === 'function') await loadAllData();
       if (typeof updateBadges === 'function') updateBadges();
       if (typeof softRefreshCurrentPage === 'function') {
@@ -99,7 +102,9 @@
     const completionOverdue = WS?.isCompletionOverdue?.(inq);
     const selected = App.selectedInquiryIds?.has(inq.id);
     const assignee = typeof assigneeLabel === 'function' ? assigneeLabel(inq.assigned_to) : '';
-    const stateLabel = WC?.operationalStateLabel ? WC.operationalStateLabel(inq) : 'Active';
+    const LCw = window.ILRSWorkLifecycle;
+    const isNew = LCw?.inferInquiryQueueTab?.(inq) === 'active' && LCw?.inferLifecycleFromInquiry?.(inq) === 'active';
+    const stateLabel = isNew ? 'New enquiry' : (WC?.operationalStateLabel ? WC.operationalStateLabel(inq) : 'Active');
     const stateCls = WC?.operationalStateClass ? WC.operationalStateClass(inq) : '';
     const nextBlock = WC?.nextActionBlock ? WC.nextActionBlock(inq) : '';
     const latest = WC?.latestLineHtml ? WC.latestLineHtml(inq) : '';
@@ -120,6 +125,7 @@
           ${inquiryCardWorkStatus(inq)}
         </div>
         ${nextBlock}
+        ${isNew ? `<button type="button" class="btn btn-primary btn-sm inquiry-start-work-btn" onclick="event.stopPropagation();startInquiryWorkFromCard('${inq.id}')">Start processing</button>` : ''}
         ${latest || noteLine}
         ${!compact && assignee ? `<div class="inquiry-meta">Owner: ${assignee}</div>` : ''}
         <div class="inquiry-health-pill ${health}" title="Health">${pipeline?.healthLabel(inq.health) || ''}</div>
@@ -478,6 +484,20 @@
           ? '<div class="empty-state"><div class="empty-icon">📥</div><h3>No inquiries</h3><p>Create your first inquiry in seconds.</p></div>'
           : items.map((i) => inquiryCard(i)).join('')}
       </div>`;
+  }
+
+  async function startInquiryWorkFromCard(id) {
+    const result = await window.ilrs?.startInquiryWork?.(id);
+    if (!result?.success) {
+      toast(result?.error || 'Could not start work', 'warning');
+      return;
+    }
+    const Q = window.ILRSLifecycleQueue;
+    Q?.applyGlobalFilter?.('in_process');
+    toast('Moved to In process');
+    await loadAllData();
+    if (typeof softRefreshCurrentPage === 'function') await softRefreshCurrentPage();
+    else navigate(App.currentPage);
   }
 
   function setInquiryFilter(f) {
@@ -1011,4 +1031,5 @@
   window.setInquiryDetailTab = setInquiryDetailTab;
   window.updateInquiryOperationalState = updateInquiryOperationalState;
   window.saveInquiryCurrentNote = saveInquiryCurrentNote;
+  window.startInquiryWorkFromCard = startInquiryWorkFromCard;
 })();

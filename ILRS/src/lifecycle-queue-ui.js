@@ -22,7 +22,12 @@
     {
       id: 'active',
       label: '▶ Act now',
-      actionHint: 'You should work or follow up on these now. Next reminders and due dates apply.',
+      actionHint: 'New enquiries and tasks you still need to start — pick up and begin work.',
+    },
+    {
+      id: 'in_process',
+      label: '⚙ In process',
+      actionHint: 'Work is underway — enquiry converted or moved into the pipeline beyond initial qualification.',
     },
     {
       id: 'pending',
@@ -93,9 +98,14 @@
     const api = LC();
     if (!api) return 'active';
     if (entityKey === 'inquiry' || (entityKey === 'work' && isInquiryItem(item)) || isInquiryItem(item)) {
-      return api.inferLifecycleFromInquiry(item);
+      return api.inferInquiryQueueTab ? api.inferInquiryQueueTab(item) : api.inferLifecycleFromInquiry(item);
     }
-    return api.inferLifecycleFromReminder(item);
+    return api.inferReminderQueueTab ? api.inferReminderQueueTab(item) : api.inferLifecycleFromReminder(item);
+  }
+
+  function inferInquiryQueueTab(inquiry) {
+    const api = LC();
+    return api?.inferInquiryQueueTab ? api.inferInquiryQueueTab(inquiry) : 'active';
   }
 
   function filterItems(items, entityKey, tabId) {
@@ -141,17 +151,23 @@
     </div>`;
   }
 
-  function lifecycleToQueueTab(newLifecycle) {
+  function lifecycleToQueueTab(newLifecycle, item) {
     const api = LC();
     let tab = api?.normalizeLifecycle ? api.normalizeLifecycle(newLifecycle) : String(newLifecycle || '').trim().toLowerCase();
-    const valid = new Set(['all', 'active', 'pending', 'completed', 'closed']);
+    const valid = new Set(['all', 'active', 'in_process', 'pending', 'completed', 'closed']);
     if (!valid.has(tab)) tab = 'active';
+    if (tab === 'active' && item && api?.inferInquiryQueueTab && isInquiryItem(item)) {
+      return api.inferInquiryQueueTab(item);
+    }
+    if (tab === 'active' && item && api?.inferReminderQueueTab && !isInquiryItem(item)) {
+      return api.inferReminderQueueTab(item);
+    }
     return tab;
   }
 
-  async function afterStatusChange(entityKey, newLifecycle) {
+  async function afterStatusChange(entityKey, newLifecycle, item) {
     ensureFilters();
-    const tab = lifecycleToQueueTab(newLifecycle);
+    const tab = lifecycleToQueueTab(newLifecycle, item);
     syncWorkQueues(tab);
     if (FOCUS_PAGES.has(App.currentPage)) {
       App.lifecycleQueueFilters.focus = tab;
@@ -173,6 +189,7 @@
     setGlobalFilter,
     applyGlobalFilter,
     inferItem,
+    inferInquiryQueueTab,
     filterItems,
     countByTab,
     tabsHtml,

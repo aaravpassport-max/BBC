@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('ilrs', {
     ipcRenderer.invoke('convert-reminder-to-inquiry', { reminderId, data }),
   updateInquiry: (id, data) => ipcRenderer.invoke('update-inquiry', { id, data }),
   changeInquiryStage: (id, stageKey, options) => ipcRenderer.invoke('change-inquiry-stage', { id, stageKey, options }),
+  startInquiryWork: (id) => ipcRenderer.invoke('start-inquiry-work', { id }),
   logInquiryActivity: (id, type, title, body) => ipcRenderer.invoke('log-inquiry-activity', { id, type, title, body }),
   findInquiryDuplicates: (data) => ipcRenderer.invoke('find-inquiry-duplicates', data),
   reopenInquiry: (id, stageKey) => ipcRenderer.invoke('reopen-inquiry', { id, stageKey }),
