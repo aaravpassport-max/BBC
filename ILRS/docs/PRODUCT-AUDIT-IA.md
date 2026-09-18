@@ -128,10 +128,12 @@ Each entry: type, title, body, timestamp, optional metadata (stage transition).
 
 ## 8. Validation checklist (release)
 
-- [ ] Create enquiry → log activities → change stage/state → complete task → complete follow-up
-- [ ] History chronological; card shows latest line only
+- [x] Unified Inquiries hub (List / Pipeline / Follow-ups / Schedule inner tabs)
+- [x] Task/reminder tabbed detail workspace (`work-item-detail`)
+- [x] Auto activity on enquiry lifecycle, follow-up reminder create, task/reminder complete
+- [ ] End-to-end: create enquiry → log → stage → complete linked task (manual regression)
+- [ ] History chronological; card shows latest line only (verify after auto-sync)
 - [ ] Closed items leave Act now; overdue visible on Focus
-- [ ] Top nav + contextual sidebar; no dead controls
 - [ ] Mobile layout: top nav scrolls; cards stack
 
 ---
