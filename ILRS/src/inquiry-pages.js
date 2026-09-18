@@ -93,37 +93,59 @@
   function inquiryCard(inq, compact = false) {
     const pipeline = P();
     const WS = window.ILRSWorkScheduling;
+    const WC = window.ILRSWorkCards;
     const health = pipeline?.healthClass(inq.health) || '';
     const stageCls = pipeline?.stageCategoryClass?.(inq.stage_key) || '';
     const completionOverdue = WS?.isCompletionOverdue?.(inq);
     const selected = App.selectedInquiryIds?.has(inq.id);
-    const followLabel = inq.next_follow_up
-      ? `${formatDate(inq.next_follow_up)}${inq.next_follow_up_time ? ' · ' + formatTime(inq.next_follow_up_time) : ''}`
-      : 'No follow-up set';
     const assignee = typeof assigneeLabel === 'function' ? assigneeLabel(inq.assigned_to) : '';
+    const stateLabel = WC?.operationalStateLabel ? WC.operationalStateLabel(inq) : 'Active';
+    const stateCls = WC?.operationalStateClass ? WC.operationalStateClass(inq) : '';
+    const nextBlock = WC?.nextActionBlock ? WC.nextActionBlock(inq) : '';
+    const latest = WC?.latestLineHtml ? WC.latestLineHtml(inq) : '';
+    const noteLine = !latest && WC?.currentNoteHtml ? WC.currentNoteHtml(inq) : '';
     return `
-      <div class="inquiry-card ${health} ${stageCls} ${completionOverdue ? 'completion-overdue' : ''}" onclick="if(event.target.closest('.card-work-status,.lifecycle-quick-select,.item-select-checkbox,.action-btn')) return; openInquiryDetail('${inq.id}')">
+      <div class="inquiry-card inquiry-card-operational ${health} ${stageCls} ${completionOverdue ? 'completion-overdue' : ''}" onclick="if(event.target.closest('.card-work-status,.lifecycle-quick-select,.item-select-checkbox,.action-btn')) return; openInquiryDetail('${inq.id}')">
         <input type="checkbox" class="item-select-checkbox" ${selected ? 'checked' : ''}
           onclick="event.stopPropagation();toggleInquirySelection('${inq.id}', this.checked)" title="Select" />
         <div class="inquiry-card-top">
           <strong>${inq.client_name}</strong>
           <span class="inquiry-number">${inq.inquiry_number || ''}</span>
+          <span class="operational-state-pill ${stateCls}" title="Current state">${stateLabel}</span>
           <button class="action-btn delete btn-sm" onclick="event.stopPropagation();deleteInquiryItem('${inq.id}')" title="Delete">🗑</button>
         </div>
         <div class="inquiry-requirement">${inq.requirement}</div>
-        ${inquiryCardWorkStatus(inq)}
-        ${WS?.scheduleDatesHtml ? WS.scheduleDatesHtml(inq, compact) : ''}
-        <div class="inquiry-stage-badge ${stageCls}">${stageDisplay(inq.stage_key)}</div>
-        ${WS?.notePreviewHtml ? WS.notePreviewHtml(inq, 'inq') : ''}
-        ${window.ILRSPayment?.paymentCardHtml ? window.ILRSPayment.paymentCardHtml(inq, 'inquiry', 'inq') : ''}
-        ${!Number(inq.payment_tracking_enabled) && inq.quotation_amount > 0 ? `<div class="inquiry-amount">₹${Number(inq.quotation_amount).toLocaleString('en-IN')}</div>` : ''}
-        <div class="inquiry-next-action">
-          <span class="next-action-label">Next:</span> ${inq.next_action || 'Follow up'}
-          <div class="next-action-when">${followLabel}</div>
+        <div class="inquiry-card-status-row">
+          <span class="inquiry-stage-badge ${stageCls}">${stageDisplay(inq.stage_key)}</span>
+          ${inquiryCardWorkStatus(inq)}
         </div>
-        ${!compact && assignee ? `<div class="inquiry-meta">Assigned: ${assignee}</div>` : ''}
-        <div class="inquiry-health-pill ${health}">${pipeline?.healthLabel(inq.health) || ''}</div>
+        ${nextBlock}
+        ${latest || noteLine}
+        ${!compact && assignee ? `<div class="inquiry-meta">Owner: ${assignee}</div>` : ''}
+        <div class="inquiry-health-pill ${health}" title="Health">${pipeline?.healthLabel(inq.health) || ''}</div>
       </div>`;
+  }
+
+  function inquiryDetailTabsHtml(inquiryId, activeTab) {
+    const tabs = [
+      ['overview', 'Overview'],
+      ['tasks', 'Tasks'],
+      ['followups', 'Follow-ups'],
+      ['activity', 'Activity'],
+      ['notes', 'Notes'],
+    ];
+    return `<div class="detail-tabs" role="tablist">
+      ${tabs.map(([id, label]) =>
+        `<button type="button" class="detail-tab ${activeTab === id ? 'active' : ''}"
+          onclick="setInquiryDetailTab('${inquiryId}','${id}')">${label}</button>`,
+      ).join('')}
+    </div>`;
+  }
+
+  function setInquiryDetailTab(inquiryId, tab) {
+    App.inquiryDetailTab = tab;
+    App.selectedInquiryId = inquiryId;
+    navigate('inquiry-detail');
   }
 
   function activeInquiries() {
@@ -426,8 +448,9 @@
       return;
     }
 
+    const tab = App.inquiryDetailTab || 'overview';
     const activities = await db(
-      'SELECT * FROM inquiry_activities WHERE inquiry_id = ? ORDER BY created_at DESC LIMIT 50',
+      'SELECT * FROM inquiry_activities WHERE inquiry_id = ? ORDER BY created_at DESC LIMIT 100',
       [id],
     ) || [];
     const linkedTasks = await db(
@@ -435,81 +458,135 @@
       [id],
     ) || [];
     const pipeline = P();
-    const stages = inq.outcome_status === 'active'
-      ? pipeline?.getActiveStages() || []
-      : [...(pipeline?.getActiveStages() || []), ...(pipeline?.getClosedStages() || [])];
+    const WC = window.ILRSWorkCards;
+    const stateLabel = WC?.operationalStateLabel ? WC.operationalStateLabel(inq) : '';
+
+    const operationalOptions = [
+      ['', '— Not set —'],
+      ['new', 'New'],
+      ['in_progress', 'In progress'],
+      ['follow_up_required', 'Follow-up required'],
+      ['waiting_us', 'Waiting on us'],
+      ['waiting_client', 'Waiting on client'],
+      ['waiting_vendor', 'Waiting on vendor'],
+    ].map(([v, l]) =>
+      `<option value="${v}" ${(inq.operational_state || '') === v ? 'selected' : ''}>${l}</option>`,
+    ).join('');
+
+    let tabBody = '';
+    if (tab === 'overview') {
+      tabBody = `
+        <div class="next-action-banner">
+          <div class="next-action-label">Next action</div>
+          <div class="next-action-title">${inq.next_action || 'Follow up'}</div>
+          <div class="next-action-when">${inq.next_follow_up ? formatDate(inq.next_follow_up) + (inq.next_follow_up_time ? ' · ' + formatTime(inq.next_follow_up_time) : '') : 'Set a follow-up date'}</div>
+        </div>
+        <div class="card inquiry-overview-card">
+          <div class="form-grid">
+            <div><span class="form-label">State</span><div class="operational-state-pill">${stateLabel}</div></div>
+            <div><span class="form-label">Stage</span><div>${stageDisplay(inq.stage_key)}</div></div>
+            <div class="full" style="grid-column:1/-1">${inquiryLifecycleQuickSelect(inq)}</div>
+            <div class="full" style="grid-column:1/-1">
+              <label class="form-label">Operational detail</label>
+              <select class="form-select" onchange="updateInquiryOperationalState('${id}', this.value)">${operationalOptions}</select>
+            </div>
+            <div><span class="form-label">Health</span><div class="inquiry-health-pill ${pipeline?.healthClass(inq.health)}">${pipeline?.healthLabel(inq.health)}</div></div>
+            ${inq.mobile ? `<div><span class="form-label">Mobile</span><div>${inq.mobile}</div></div>` : ''}
+            ${inq.email ? `<div><span class="form-label">Email</span><div>${inq.email}</div></div>` : ''}
+          </div>
+          ${window.ILRSWorkScheduling?.scheduleDatesHtml ? window.ILRSWorkScheduling.scheduleDatesHtml(inq) : ''}
+        </div>
+        ${window.ILRSPayment?.paymentCardHtml ? `
+        <div class="section-header"><div class="section-title">Payments</div>
+          <button class="btn btn-ghost btn-sm" onclick="showRecordPaymentModal('inquiry','${id}')">Record payment</button>
+        </div>
+        <div class="card" style="margin-bottom:16px">${window.ILRSPayment.paymentCardHtml(inq, 'inquiry', 'inq-detail')}</div>` : ''}
+        ${(window.ILRSActivity?.renderTimeline)(activities.slice(0, 3), { compact: true, emptyText: '' }) || ''}`;
+    } else if (tab === 'tasks') {
+      tabBody = `
+        <div class="section-header">
+          <div class="section-title">Tasks linked to this enquiry</div>
+          <button class="btn btn-primary btn-sm" onclick="showInquiryLinkedTask('${id}')">+ Task</button>
+        </div>
+        <div class="reminder-list">${linkedTasks.filter((r) => r.task_type === 'task').length
+          ? linkedTasks.filter((r) => r.task_type === 'task').map((r) => reminderCard(r)).join('')
+          : '<p class="activity-empty">No tasks yet.</p>'}</div>`;
+    } else if (tab === 'followups') {
+      const followReminders = linkedTasks.filter((r) => r.task_type !== 'task');
+      tabBody = `
+        <div class="section-header">
+          <div class="section-title">Follow-up schedule</div>
+          <button class="btn btn-ghost btn-sm" onclick="showInquiryRescheduleMenu('${id}')">Reschedule</button>
+        </div>
+        <div class="card" style="margin-bottom:16px;padding:16px">
+          <div class="form-label">Next follow-up</div>
+          <div>${inq.next_follow_up ? formatDate(inq.next_follow_up) + (inq.next_follow_up_time ? ' · ' + formatTime(inq.next_follow_up_time) : '') : 'Not scheduled'}</div>
+        </div>
+        <div class="reminder-list">${followReminders.length
+          ? followReminders.map((r) => reminderCard(r)).join('')
+          : '<p class="activity-empty">No reminder fires linked.</p>'}</div>`;
+    } else if (tab === 'activity') {
+      tabBody = `
+        <div class="section-header">
+          <div class="section-title">Activity & conversations</div>
+          <button class="btn btn-primary btn-sm" onclick="ILRSActivity.showLogActivityModal('${id}')">Log activity</button>
+        </div>
+        ${window.ILRSActivity?.renderTimeline(activities) || ''}`;
+    } else if (tab === 'notes') {
+      const safeNotes = (inq.notes || '').replace(/</g, '&lt;');
+      tabBody = `
+        <div class="section-header"><div class="section-title">Current note</div></div>
+        <p class="form-hint">Operational note — visible on the card. Full history stays in Activity.</p>
+        <textarea id="inquiry-current-note" class="form-input" rows="8" placeholder="What should anyone opening this enquiry know right now?">${safeNotes}</textarea>
+        <div style="margin-top:12px;display:flex;gap:8px">
+          <button class="btn btn-primary" onclick="saveInquiryCurrentNote('${id}')">Save note</button>
+        </div>`;
+    }
 
     el.innerHTML = `
-      <div class="page-header">
+      <div class="page-header inquiry-detail-header">
         <div>
-          <button class="btn btn-ghost btn-sm" onclick="navigate('inquiries')">← Back</button>
+          <button class="btn btn-ghost btn-sm" onclick="navigate('inquiries')">← Inquiries</button>
           <div class="page-title" style="margin-top:8px">${inq.client_name}</div>
-          <div class="page-subtitle">${inq.inquiry_number} · ${inq.requirement}</div>
+          <div class="page-subtitle">${inq.inquiry_number || ''} · ${inq.requirement}</div>
         </div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn btn-ghost btn-sm" onclick="logInquiryQuick('${id}','call')">📞 Call</button>
-          <button class="btn btn-ghost btn-sm" onclick="logInquiryQuick('${id}','whatsapp')">💬 WhatsApp</button>
-          <button class="btn btn-ghost btn-sm" onclick="showInquiryLinkedTask('${id}')">＋ Task</button>
-          <button class="btn btn-ghost btn-sm" onclick="event.stopPropagation();editInquiry('${id}')">Edit</button>
-          <button class="btn btn-ghost btn-sm" onclick="deleteInquiryItem('${id}')">🗑 Delete</button>
-          ${inq.outcome_status !== 'active'
-            ? `<button class="btn btn-ghost btn-sm" onclick="showInquiryRescheduleMenu('${id}')">📅 Reschedule</button>
-               <button class="btn btn-ghost btn-sm" onclick="reopenInquiryConfirm('${id}')">↩ Reopen</button>`
-            : `<button class="btn btn-primary btn-sm" onclick="showStageChangeModal('${id}')">Change Stage</button>
-               <button class="btn btn-ghost btn-sm" onclick="showInquiryRescheduleMenu('${id}')">📅 Reschedule</button>`}
+        <div class="inquiry-detail-actions">
+          <button class="btn btn-ghost btn-sm" onclick="ILRSActivity.quickLog('${id}','outbound_call')">Call</button>
+          <button class="btn btn-ghost btn-sm" onclick="ILRSActivity.quickLog('${id}','whatsapp')">WhatsApp</button>
+          <button class="btn btn-ghost btn-sm" onclick="ILRSActivity.showLogActivityModal('${id}')">Log</button>
+          <button class="btn btn-ghost btn-sm" onclick="editInquiry('${id}')">Edit</button>
+          ${inq.outcome_status === 'active'
+            ? `<button class="btn btn-primary btn-sm" onclick="showStageChangeModal('${id}')">Change stage</button>`
+            : `<button class="btn btn-ghost btn-sm" onclick="reopenInquiryConfirm('${id}')">Reopen</button>`}
         </div>
       </div>
+      ${inquiryDetailTabsHtml(id, tab)}
+      <div class="inquiry-detail-panel">${tabBody}</div>`;
+  }
 
-      <div class="inquiry-detail-grid">
-        <div class="inquiry-detail-main">
-          <div class="next-action-banner">
-            <div class="next-action-label">NEXT ACTION</div>
-            <div class="next-action-title">${inq.next_action || 'Follow up'}</div>
-            <div class="next-action-when">${inq.next_follow_up ? formatDate(inq.next_follow_up) + (inq.next_follow_up_time ? ' · ' + formatTime(inq.next_follow_up_time) : '') : 'Set a follow-up date'}</div>
-          </div>
+  async function updateInquiryOperationalState(id, value) {
+    const result = await window.ilrs?.updateInquiry?.(id, { operationalState: value || '' });
+    if (!result?.success) {
+      toast(result?.error || 'Could not update', 'warning');
+      return;
+    }
+    toast('State updated');
+    await loadAllData();
+    navigate('inquiry-detail');
+  }
 
-          <div class="card" style="padding:16px;margin-bottom:16px">
-            ${window.ILRSWorkScheduling?.scheduleDatesHtml ? window.ILRSWorkScheduling.scheduleDatesHtml(inq) : ''}
-            <div class="form-grid">
-              <div><span class="form-label">Stage</span><div>${stageDisplay(inq.stage_key)}</div></div>
-              <div class="full" style="grid-column:1/-1">${inquiryLifecycleQuickSelect(inq) || '<span class="form-label">Work status</span>'}</div>
-              <div><span class="form-label">Health</span><div class="inquiry-health-pill ${pipeline?.healthClass(inq.health)}">${pipeline?.healthLabel(inq.health)}</div></div>
-              ${inq.work_start_date ? `<div><span class="form-label">Work start</span><div>${formatDate(inq.work_start_date)}</div></div>` : ''}
-              ${inq.expected_completion_date ? `<div><span class="form-label">Expected completion</span><div>${formatDate(inq.expected_completion_date)}</div></div>` : ''}
-              ${inq.mobile ? `<div><span class="form-label">Mobile</span><div>${inq.mobile}</div></div>` : ''}
-              ${inq.email ? `<div><span class="form-label">Email</span><div>${inq.email}</div></div>` : ''}
-              ${inq.quotation_amount > 0 ? `<div><span class="form-label">Quotation</span><div>₹${Number(inq.quotation_amount).toLocaleString('en-IN')}</div></div>` : ''}
-            </div>
-            ${inq.notes ? `<p style="margin-top:12px;font-size:13px;color:var(--text-secondary)">${inq.notes}</p>` : ''}
-          </div>
-
-          ${window.ILRSPayment?.paymentCardHtml ? `
-          <div class="section-header"><div class="section-title">💰 Payments</div>
-            <button class="btn btn-ghost btn-sm" onclick="showRecordPaymentModal('inquiry','${id}')">+ Record Payment</button>
-          </div>
-          <div style="margin-bottom:16px">${window.ILRSPayment.paymentCardHtml(inq, 'inquiry', 'inq-detail')}</div>` : ''}
-
-          <div class="section-header"><div class="section-title">📋 Linked Tasks & Reminders</div></div>
-          <div class="reminder-list" style="margin-bottom:16px">
-            ${linkedTasks.length === 0 ? '<p style="color:var(--text-muted);font-size:13px">No linked items yet.</p>' :
-              linkedTasks.map((r) => typeof reminderCard === 'function' ? reminderCard(r) : `<div>${r.title}</div>`).join('')}
-          </div>
-
-          <div class="section-header">
-            <div class="section-title">🕓 Activity Timeline</div>
-            <button class="btn btn-ghost btn-sm" onclick="promptInquiryNote('${id}')">+ Log Activity</button>
-          </div>
-          <div class="activity-timeline">
-            ${activities.length === 0 ? '<p style="color:var(--text-muted)">No activity yet.</p>' :
-              activities.map((a) => `
-                <div class="activity-item">
-                  <div class="activity-time">${formatDate(a.created_at?.slice(0, 10))} · ${a.created_at?.slice(11, 16) || ''}</div>
-                  <div class="activity-title">${a.title}</div>
-                  ${a.body ? `<div class="activity-body">${a.body}</div>` : ''}
-                </div>`).join('')}
-          </div>
-        </div>
-      </div>`;
+  async function saveInquiryCurrentNote(id) {
+    const el = document.getElementById('inquiry-current-note');
+    const notes = el?.value ?? '';
+    const result = await window.ilrs?.updateInquiry?.(id, { notes });
+    if (!result?.success) {
+      toast(result?.error || 'Could not save note', 'warning');
+      return;
+    }
+    await window.ilrs?.logInquiryActivity?.(id, 'note', 'Current note updated', notes.slice(0, 200));
+    toast('Note saved');
+    await loadAllData();
+    navigate('inquiry-detail');
   }
 
   function openInquiryDetail(id) {
@@ -518,22 +595,16 @@
   }
 
   async function logInquiryQuick(id, type) {
-    const labels = { call: 'Call logged', whatsapp: 'WhatsApp logged', email: 'Email logged' };
-    const result = await window.ilrs?.logInquiryActivity?.(id, type, labels[type] || 'Activity', '');
-    if (result?.success) {
-      toast('Activity logged');
-      await loadAllData();
-      navigate('inquiry-detail');
+    if (window.ILRSActivity?.quickLog) {
+      await window.ILRSActivity.quickLog(id, type === 'call' ? 'outbound_call' : type);
+      return;
     }
   }
 
   async function promptInquiryNote(id) {
-    const body = prompt('Activity note:');
-    if (!body) return;
-    await window.ilrs?.logInquiryActivity?.(id, 'note', 'Note added', body);
-    toast('Note logged');
-    await loadAllData();
-    navigate('inquiry-detail');
+    if (window.ILRSActivity?.showLogActivityModal) {
+      window.ILRSActivity.showLogActivityModal(id);
+    }
   }
 
   function editInquiry(id) {
@@ -864,4 +935,7 @@
   window.showInquiryRescheduleMenu = showInquiryRescheduleMenu;
   window.logInquiryQuick = logInquiryQuick;
   window.promptInquiryNote = promptInquiryNote;
+  window.setInquiryDetailTab = setInquiryDetailTab;
+  window.updateInquiryOperationalState = updateInquiryOperationalState;
+  window.saveInquiryCurrentNote = saveInquiryCurrentNote;
 })();

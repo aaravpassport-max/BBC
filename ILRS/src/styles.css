@@ -168,7 +168,7 @@ html, body {
 #main-app {
   display: grid;
   grid-template-columns: var(--sidebar-width) 1fr;
-  grid-template-rows: var(--topbar-height) 1fr;
+  grid-template-rows: var(--topbar-height) auto 1fr;
   height: 100vh;
   overflow: hidden;
 }
@@ -241,7 +241,45 @@ html, body {
 }
 
 /* ── Sidebar ──────────────────────────────────────────────────────── */
+.primary-nav-bar {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  padding: 0 12px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+.primary-nav {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  min-height: 42px;
+  align-items: center;
+}
+.primary-nav-item {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s;
+}
+.primary-nav-item:hover { color: var(--text-primary); background: var(--bg-hover); }
+.primary-nav-item.active {
+  color: var(--accent-light);
+  background: var(--accent-dim);
+  font-weight: 600;
+}
+
 .sidebar {
+  grid-row: 3;
   background: var(--bg-surface);
   border-right: 1px solid var(--border);
   display: flex;
@@ -249,6 +287,13 @@ html, body {
   overflow-y: auto;
   overflow-x: hidden;
   padding: 12px 8px;
+}
+.sidebar-footer {
+  margin-top: auto;
+  padding: 12px 8px;
+  font-size: 10px;
+  color: var(--text-muted);
+  text-align: center;
 }
 
 .sidebar::-webkit-scrollbar { width: 4px; }
@@ -290,6 +335,7 @@ html, body {
 
 /* ── Main Content ─────────────────────────────────────────────────── */
 .content {
+  grid-row: 3;
   overflow-y: auto;
   overflow-x: hidden;
   padding: 24px;
@@ -1731,3 +1777,91 @@ textarea.form-input {
 }
 .payment-existing-label { font-size: 11px; color: var(--text-muted); margin: 8px 0 4px; }
 .payment-add-btn { margin-top: 4px; }
+
+/* ── Operational enquiry cards & activity timeline (UX restructure) ── */
+.inquiry-card-operational { gap: 8px; }
+.inquiry-card-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0;
+}
+.operational-state-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--bg-hover);
+  color: var(--text-secondary);
+}
+.operational-state-pill.state-waiting,
+.operational-state-pill.state-pending { background: var(--important-dim); color: var(--important); }
+.operational-state-pill.state-active { background: var(--accent-dim); color: var(--accent-light); }
+.operational-state-pill.state-completed { background: var(--normal-dim); color: var(--normal); }
+.operational-state-pill.state-closed { background: var(--bg-hover); color: var(--text-muted); }
+.card-next-block {
+  padding: 8px 10px;
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+}
+.card-next-action { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.card-next-when { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.card-latest-update,
+.card-current-note {
+  font-size: 12px;
+  color: var(--text-secondary);
+  border-left: 2px solid var(--border);
+  padding-left: 8px;
+  margin-top: 4px;
+}
+.detail-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 16px 0 12px;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 4px;
+}
+.detail-tab {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  cursor: pointer;
+}
+.detail-tab.active {
+  color: var(--accent-light);
+  font-weight: 600;
+  border-bottom: 2px solid var(--accent);
+  margin-bottom: -5px;
+}
+.inquiry-detail-panel { max-width: 960px; }
+.inquiry-detail-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.activity-timeline { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
+.activity-item {
+  display: grid;
+  grid-template-columns: 32px 1fr;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.activity-marker { font-size: 18px; line-height: 1; }
+.activity-time { font-size: 11px; color: var(--text-muted); }
+.activity-title { font-size: 13px; font-weight: 600; margin-top: 2px; }
+.activity-body { font-size: 13px; color: var(--text-secondary); margin-top: 4px; white-space: pre-wrap; }
+.activity-meta { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+.activity-empty { color: var(--text-muted); font-size: 13px; }
+.activity-log-card { max-width: 480px; width: 100%; }
+.activity-timeline-compact .activity-item { padding: 8px 10px; }
+@media (max-width: 768px) {
+  #main-app { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .primary-nav-item { padding: 8px 12px; font-size: 12px; }
+  .content { padding: 16px; }
+}

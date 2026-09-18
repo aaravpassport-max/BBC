@@ -1289,8 +1289,28 @@ function repairReminderSchedules() {
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '17')").run();
       console.log('Work lifecycle migration v17 complete');
     }
+    if (version < 18) {
+      runOperationalUxMigrationV18();
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '18')").run();
+      console.log('Operational UX migration v18 complete');
+    }
   } catch (err) {
     console.error('repairReminderSchedules error:', err.message);
+  }
+}
+
+function runOperationalUxMigrationV18() {
+  try {
+    for (const col of [
+      ['inquiries', 'last_activity_summary', "TEXT DEFAULT ''"],
+      ['inquiries', 'operational_state', "TEXT DEFAULT ''"],
+    ]) {
+      try {
+        db.exec(`ALTER TABLE ${col[0]} ADD COLUMN ${col[1]} ${col[2]}`);
+      } catch (_) { /* exists */ }
+    }
+  } catch (err) {
+    console.error('Operational UX migration v18 error:', err.message);
   }
 }
 

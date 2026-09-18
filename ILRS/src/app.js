@@ -474,6 +474,7 @@ async function navigate(page) {
   await loadAllData();
   if (PAGES[page]) await PAGES[page](content);
   content.scrollTop = 0;
+  window.ILRSAppNav?.onNavigate?.(page);
 }
 
 // ── App Shell ──────────────────────────────────────────────────────
@@ -503,55 +504,16 @@ function renderShell() {
       </div>
     </div>
 
-    <!-- Sidebar -->
-    <nav class="sidebar">
-      <button class="btn btn-primary sidebar-add-btn" onclick="typeof showQuickAddMenu==='function'?showQuickAddMenu():showCaptureSheet()">＋ New</button>
-      <div class="sidebar-section-label">Focus</div>
-      ${navItem('today', '☀️', 'Today')}
-      ${navItem('tomorrow', '🌅', 'Tomorrow')}
-      ${navItem('upcoming', '📆', 'Upcoming')}
-      ${navItem('overdue', '⚠️', 'Overdue', '')}
-      ${navItem('postponed', '📅', 'Postponed')}
-      ${navItem('completed', '✅', 'Completed')}
-      ${navItem('reminders', '📋', 'All')}
-      ${navItem('tasks', '✅', 'Tasks')}
-      ${navItem('calendar', '📅', 'Calendar')}
+    <div class="primary-nav-bar" id="primary-nav-slot"></div>
 
-      <div class="sidebar-section-label">Work</div>
-      ${navItem('pipeline', '📊', 'Pipeline')}
-      ${navItem('inquiries', '📥', 'Inquiries')}
-      ${navItem('inquiry-followups', '📞', 'Follow-ups')}
-      ${navItem('work-schedule', '🗓', 'Work Schedule')}
-      ${navItem('clients', '👤', 'Clients')}
-      ${navItem('work-reports', '📈', 'Work Analytics')}
-      ${navItem('pipeline-settings', '🏷', 'Workflow Stages')}
-
-      <div class="sidebar-section-label">Life</div>
-      ${navItem('medicine', '💊', 'Medicine')}
-      ${navItem('bills', '💸', 'Bills')}
-      ${navItem('habits', '🔁', 'Habits')}
-      ${navItem('family', '👨‍👩‍👧', 'Family')}
-      ${navItem('checklists', '📝', 'Checklists')}
-      ${App.settings.rewards_enabled === '1' ? navItem('rewards', '🏅', 'Rewards') : ''}
-
-      <div class="sidebar-section-label">System</div>
-      ${navItem('settings', '⚙️', 'Settings')}
-
-      <div style="margin-top:auto;padding:12px 8px">
-        <div style="font-size:11px;color:var(--text-muted);text-align:center">
-          Hello, ${name}! 👋<br/>ILRS v${App.appVersion || '…'}
-        </div>
-      </div>
-    </nav>
+    <!-- Contextual sidebar (secondary — section from top nav) -->
+    <nav class="sidebar" id="context-sidebar-slot" aria-label="Section navigation"></nav>
 
     <!-- Main Content -->
     <main class="content" id="content"></main>
   `;
 
-  // Nav click handlers
-  document.querySelectorAll('.nav-item').forEach(el => {
-    el.addEventListener('click', () => navigate(el.dataset.page));
-  });
+  window.ILRSAppNav?.wireAfterShellRender?.();
 
   wireLifecycleCardDelegates();
 
@@ -807,8 +769,6 @@ async function renderToday(el) {
   el.innerHTML = `
     <div class="greeting-line">${greeting}, ${name}</div>
     <div class="greeting-sub">${attention === 0 ? 'You\'re all caught up!' : `${attention} thing${attention !== 1 ? 's' : ''} need your attention`}${lifeCount > 0 ? ` · ${lifeCount} from Life` : ''}</div>
-
-    ${workStatusWhatsNewHtml()}
 
     <div class="smart-tabs smart-tabs-when" role="tablist" aria-label="When">
       <button class="smart-tab active" onclick="navigate('today')">Today · ${todayCount}</button>

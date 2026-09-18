@@ -96,7 +96,14 @@ function logActivity(db, inquiryId, activityType, title, body = '', meta = {}) {
     meta.newStage || '',
     JSON.stringify(meta.extra || {}),
   );
-  db.prepare(`UPDATE inquiries SET last_activity_at = datetime('now'), updated_at = datetime('now') WHERE id = ?`).run(inquiryId);
+  const summary = String(body || '').trim()
+    ? `${title}: ${String(body).trim()}`.slice(0, 240)
+    : String(title || '').slice(0, 240);
+  db.prepare(`
+    UPDATE inquiries SET last_activity_at = datetime('now'), updated_at = datetime('now'),
+      last_activity_summary = ?
+    WHERE id = ?
+  `).run(summary, inquiryId);
   return id;
 }
 
@@ -536,6 +543,7 @@ function updateInquiry(db, inquiryId, data, now = new Date()) {
       work_start_date = COALESCE(?, work_start_date),
       expected_completion_date = COALESCE(?, expected_completion_date),
       notes = COALESCE(?, notes),
+      operational_state = COALESCE(?, operational_state),
       updated_at = datetime('now')
     WHERE id = ?
   `).run(
@@ -556,6 +564,7 @@ function updateInquiry(db, inquiryId, data, now = new Date()) {
     data.workStartDate ?? null,
     data.expectedCompletionDate ?? null,
     data.notes ?? null,
+    data.operationalState ?? null,
     inquiryId,
   );
 
