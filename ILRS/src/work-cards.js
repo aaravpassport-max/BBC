@@ -1,18 +1,11 @@
 // ILRS — Operational cards (current state only — history lives in Activity tab)
 (function () {
   function operationalStateLabel(inq) {
-    const op = String(inq?.operational_state || '').trim();
-    const map = {
-      waiting_us: 'Waiting on us',
-      waiting_client: 'Waiting on client',
-      waiting_vendor: 'Waiting on vendor',
-      follow_up_required: 'Follow-up required',
-      in_progress: 'In progress',
-      new: 'New',
-    };
-    if (op && map[op]) return map[op];
     const LC = window.ILRSWorkLifecycle;
+    const tab = LC?.inferInquiryQueueTab ? LC.inferInquiryQueueTab(inq) : null;
     const lc = LC?.inferLifecycleFromInquiry ? LC.inferLifecycleFromInquiry(inq) : 'active';
+    if (tab === 'active' && lc === 'active') return 'New enquiry';
+    if (tab === 'in_process') return 'In process';
     if (lc === 'pending') return 'On hold';
     if (lc === 'completed') return 'Done';
     if (lc === 'closed') return 'Closed';
@@ -20,10 +13,11 @@
   }
 
   function operationalStateClass(inq) {
-    const op = inq?.operational_state || '';
-    if (op.startsWith('waiting_')) return 'state-waiting';
     const LC = window.ILRSWorkLifecycle;
+    const tab = LC?.inferInquiryQueueTab ? LC.inferInquiryQueueTab(inq) : null;
     const lc = LC?.inferLifecycleFromInquiry ? LC.inferLifecycleFromInquiry(inq) : 'active';
+    if (tab === 'in_process') return 'state-in_process';
+    if (tab === 'active' && lc === 'active') return 'state-new';
     return `state-${lc}`;
   }
 
@@ -32,13 +26,6 @@
     const line = A?.latestActivityLine ? A.latestActivityLine(inq) : (inq?.last_activity_summary || '');
     if (!line) return '';
     return `<div class="card-latest-update" title="Latest activity">${line}</div>`;
-  }
-
-  function currentNoteHtml(inq) {
-    const note = String(inq?.notes || '').trim();
-    if (!note) return '';
-    const short = note.length > 120 ? `${note.slice(0, 117)}…` : note;
-    return `<div class="card-current-note" title="${note.replace(/"/g, '&quot;')}">${short}</div>`;
   }
 
   function nextActionBlock(inq) {
@@ -55,7 +42,6 @@
     operationalStateLabel,
     operationalStateClass,
     latestLineHtml,
-    currentNoteHtml,
     nextActionBlock,
   };
 })();

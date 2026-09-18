@@ -108,7 +108,6 @@
     const stateCls = WC?.operationalStateClass ? WC.operationalStateClass(inq) : '';
     const nextBlock = WC?.nextActionBlock ? WC.nextActionBlock(inq) : '';
     const latest = WC?.latestLineHtml ? WC.latestLineHtml(inq) : '';
-    const noteLine = !latest && WC?.currentNoteHtml ? WC.currentNoteHtml(inq) : '';
     return `
       <div class="inquiry-card inquiry-card-operational ${health} ${stageCls} ${completionOverdue ? 'completion-overdue' : ''}" onclick="if(event.target.closest('.card-work-status,.lifecycle-quick-select,.item-select-checkbox,.action-btn')) return; openInquiryDetail('${inq.id}')">
         <input type="checkbox" class="item-select-checkbox" ${selected ? 'checked' : ''}
@@ -126,7 +125,8 @@
         </div>
         ${nextBlock}
         ${isNew ? `<button type="button" class="btn btn-primary btn-sm inquiry-start-work-btn" onclick="event.stopPropagation();startInquiryWorkFromCard('${inq.id}')">Start processing</button>` : ''}
-        ${latest || noteLine}
+        ${latest ? `<div class="card-conversation-preview">${latest}</div>` : ''}
+        <button type="button" class="btn btn-ghost btn-sm inquiry-add-conversation-btn" onclick="event.stopPropagation();openInquiryConversation('${inq.id}')">+ Conversation</button>
         ${!compact && assignee ? `<div class="inquiry-meta">Owner: ${assignee}</div>` : ''}
         <div class="inquiry-health-pill ${health}" title="Health">${pipeline?.healthLabel(inq.health) || ''}</div>
       </div>`;
@@ -137,8 +137,7 @@
       ['overview', 'Overview'],
       ['tasks', 'Tasks'],
       ['followups', 'Follow-ups'],
-      ['activity', 'Activity'],
-      ['notes', 'Notes'],
+      ['conversation', 'Conversation'],
     ];
     return `<div class="detail-tabs" role="tablist">
       ${tabs.map(([id, label]) =>
@@ -539,9 +538,11 @@
       return;
     }
 
-    const tab = App.inquiryDetailTab || 'overview';
+    let tab = App.inquiryDetailTab || 'overview';
+    if (tab === 'activity' || tab === 'notes') tab = 'conversation';
+    App.inquiryDetailTab = tab;
     const activities = await db(
-      'SELECT * FROM inquiry_activities WHERE inquiry_id = ? ORDER BY created_at DESC LIMIT 100',
+      'SELECT * FROM inquiry_activities WHERE inquiry_id = ? ORDER BY created_at ASC LIMIT 500',
       [id],
     ) || [];
     const linkedTasks = await db(
@@ -551,18 +552,6 @@
     const pipeline = P();
     const WC = window.ILRSWorkCards;
     const stateLabel = WC?.operationalStateLabel ? WC.operationalStateLabel(inq) : '';
-
-    const operationalOptions = [
-      ['', '— Not set —'],
-      ['new', 'New'],
-      ['in_progress', 'In progress'],
-      ['follow_up_required', 'Follow-up required'],
-      ['waiting_us', 'Waiting on us'],
-      ['waiting_client', 'Waiting on client'],
-      ['waiting_vendor', 'Waiting on vendor'],
-    ].map(([v, l]) =>
-      `<option value="${v}" ${(inq.operational_state || '') === v ? 'selected' : ''}>${l}</option>`,
-    ).join('');
 
     let tabBody = '';
     if (tab === 'overview') {
@@ -577,10 +566,6 @@
             <div><span class="form-label">State</span><div class="operational-state-pill">${stateLabel}</div></div>
             <div><span class="form-label">Stage</span><div>${stageDisplay(inq.stage_key)}</div></div>
             <div class="full" style="grid-column:1/-1">${inquiryLifecycleQuickSelect(inq)}</div>
-            <div class="full" style="grid-column:1/-1">
-              <label class="form-label">Operational detail</label>
-              <select class="form-select" onchange="updateInquiryOperationalState('${id}', this.value)">${operationalOptions}</select>
-            </div>
             <div><span class="form-label">Health</span><div class="inquiry-health-pill ${pipeline?.healthClass(inq.health)}">${pipeline?.healthLabel(inq.health)}</div></div>
             ${inq.mobile ? `<div><span class="form-label">Mobile</span><div>${inq.mobile}</div></div>` : ''}
             ${inq.email ? `<div><span class="form-label">Email</span><div>${inq.email}</div></div>` : ''}
@@ -592,7 +577,11 @@
           <button class="btn btn-ghost btn-sm" onclick="showRecordPaymentModal('inquiry','${id}')">Record payment</button>
         </div>
         <div class="card" style="margin-bottom:16px">${window.ILRSPayment.paymentCardHtml(inq, 'inquiry', 'inq-detail')}</div>` : ''}
-        ${(window.ILRSActivity?.renderTimeline)(activities.slice(0, 3), { compact: true, emptyText: '' }) || ''}`;
+        <div class="section-header" style="margin-top:16px">
+          <div class="section-title">Recent conversation</div>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="setInquiryDetailTab('${id}','conversation')">View all</button>
+        </div>
+        ${(window.ILRSActivity?.renderTimeline)(activities.slice(-3), { compact: true, emptyText: 'No conversation yet — open the Conversation tab to add the first entry.' }) || ''}`;
     } else if (tab === 'tasks') {
       tabBody = `
         <div class="section-header">
@@ -616,22 +605,13 @@
         <div class="reminder-list">${followReminders.length
           ? followReminders.map((r) => reminderCard(r)).join('')
           : '<p class="activity-empty">No reminder fires linked.</p>'}</div>`;
-    } else if (tab === 'activity') {
+    } else if (tab === 'conversation') {
       tabBody = `
         <div class="section-header">
-          <div class="section-title">Activity & conversations</div>
-          <button class="btn btn-primary btn-sm" onclick="ILRSActivity.showLogActivityModal('${id}')">Log activity</button>
+          <div class="section-title">Client conversation history</div>
         </div>
-        ${window.ILRSActivity?.renderTimeline(activities) || ''}`;
-    } else if (tab === 'notes') {
-      const safeNotes = (inq.notes || '').replace(/</g, '&lt;');
-      tabBody = `
-        <div class="section-header"><div class="section-title">Current note</div></div>
-        <p class="form-hint">Operational note — visible on the card. Full history stays in Activity.</p>
-        <textarea id="inquiry-current-note" class="form-input" rows="8" placeholder="What should anyone opening this enquiry know right now?">${safeNotes}</textarea>
-        <div style="margin-top:12px;display:flex;gap:8px">
-          <button class="btn btn-primary" onclick="saveInquiryCurrentNote('${id}')">Save note</button>
-        </div>`;
+        <p class="form-hint" style="margin-bottom:12px">Every call, message, and update is stored here in time order for this enquiry.</p>
+        ${window.ILRSActivity?.renderConversationPanel(id, activities) || ''}`;
     }
 
     el.innerHTML = `
@@ -644,7 +624,7 @@
         <div class="inquiry-detail-actions">
           <button class="btn btn-ghost btn-sm" onclick="ILRSActivity.quickLog('${id}','outbound_call')">Call</button>
           <button class="btn btn-ghost btn-sm" onclick="ILRSActivity.quickLog('${id}','whatsapp')">WhatsApp</button>
-          <button class="btn btn-ghost btn-sm" onclick="ILRSActivity.showLogActivityModal('${id}')">Log</button>
+          <button class="btn btn-primary btn-sm" onclick="setInquiryDetailTab('${id}','conversation')">+ Conversation</button>
           <button class="btn btn-ghost btn-sm" onclick="editInquiry('${id}')">Edit</button>
           ${inq.outcome_status === 'active'
             ? `<button class="btn btn-primary btn-sm" onclick="showStageChangeModal('${id}')">Change stage</button>`
@@ -655,28 +635,9 @@
       <div class="inquiry-detail-panel">${tabBody}</div>`;
   }
 
-  async function updateInquiryOperationalState(id, value) {
-    const result = await window.ilrs?.updateInquiry?.(id, { operationalState: value || '' });
-    if (!result?.success) {
-      toast(result?.error || 'Could not update', 'warning');
-      return;
-    }
-    toast('State updated');
-    await loadAllData();
-    navigate('inquiry-detail');
-  }
-
-  async function saveInquiryCurrentNote(id) {
-    const el = document.getElementById('inquiry-current-note');
-    const notes = el?.value ?? '';
-    const result = await window.ilrs?.updateInquiry?.(id, { notes });
-    if (!result?.success) {
-      toast(result?.error || 'Could not save note', 'warning');
-      return;
-    }
-    await window.ilrs?.logInquiryActivity?.(id, 'note', 'Current note updated', notes.slice(0, 200));
-    toast('Note saved');
-    await loadAllData();
+  function openInquiryConversation(id) {
+    App.selectedInquiryId = id;
+    App.inquiryDetailTab = 'conversation';
     navigate('inquiry-detail');
   }
 
@@ -1000,6 +961,12 @@
     }
     toast(`Stage → ${result.stage?.display || stageKey}`);
     await loadAllData();
+    const inq = (App.inquiries || []).find((i) => i.id === id);
+    const Q = window.ILRSLifecycleQueue;
+    if (inq && Q?.inferInquiryQueueTab) {
+      const tab = Q.inferInquiryQueueTab(inq);
+      if (tab === 'in_process') Q.applyGlobalFilter?.('in_process');
+    }
     navigate('inquiry-detail');
   }
 
@@ -1029,7 +996,6 @@
   window.logInquiryQuick = logInquiryQuick;
   window.promptInquiryNote = promptInquiryNote;
   window.setInquiryDetailTab = setInquiryDetailTab;
-  window.updateInquiryOperationalState = updateInquiryOperationalState;
-  window.saveInquiryCurrentNote = saveInquiryCurrentNote;
+  window.openInquiryConversation = openInquiryConversation;
   window.startInquiryWorkFromCard = startInquiryWorkFromCard;
 })();
