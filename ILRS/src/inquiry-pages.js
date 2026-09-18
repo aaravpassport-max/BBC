@@ -262,7 +262,67 @@
     }
   }
 
-  async function renderPipeline(el) {
+  function inquiryHubViewForPage(page) {
+    if (page === 'pipeline') return 'pipeline';
+    if (page === 'inquiry-followups') return 'followups';
+    if (page === 'work-schedule') return 'schedule';
+    return App.inquiryHubView || 'list';
+  }
+
+  function inquiryHubTabsHtml(activeView) {
+    const tabs = [
+      ['list', 'List'],
+      ['pipeline', 'Pipeline'],
+      ['followups', 'Follow-ups'],
+      ['schedule', 'Schedule'],
+    ];
+    return `<div class="hub-tabs detail-tabs" role="tablist" aria-label="Inquiry views">
+      ${tabs.map(([id, label]) =>
+        `<button type="button" class="detail-tab ${activeView === id ? 'active' : ''}"
+          onclick="setInquiryHubView('${id}')">${label}</button>`,
+      ).join('')}
+    </div>`;
+  }
+
+  function setInquiryHubView(view) {
+    App.inquiryHubView = view;
+    const routes = { list: 'inquiries', pipeline: 'pipeline', followups: 'inquiry-followups', schedule: 'work-schedule' };
+    navigate(routes[view] || 'inquiries');
+  }
+
+  async function renderInquiryHub(el) {
+    const view = inquiryHubViewForPage(App.currentPage);
+    App.inquiryHubView = view;
+    const subtitles = {
+      list: 'Card list with work queues',
+      pipeline: 'Grouped by pipeline stage',
+      followups: 'Due today, overdue, and upcoming',
+      schedule: 'Start dates and expected completion',
+    };
+    el.innerHTML = `
+      <div class="page-header">
+        <div>
+          <div class="page-title">Inquiries</div>
+          <div class="page-subtitle">${subtitles[view] || ''}</div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" onclick="showSearchPalette()" title="Ctrl+K">Search</button>
+          <button class="btn btn-ghost" onclick="navigate('pipeline-settings')">Stages</button>
+          <button class="btn btn-primary" onclick="showInquirySheet()">＋ New inquiry</button>
+        </div>
+      </div>
+      ${inquiryHubTabsHtml(view)}
+      <div id="inquiry-hub-panel" class="inquiry-hub-panel"></div>`;
+    const panel = el.querySelector('#inquiry-hub-panel');
+    if (view === 'list') await renderInquiryList(panel, { embedded: true });
+    else if (view === 'pipeline') await renderPipeline(panel, { embedded: true });
+    else if (view === 'followups') await renderInquiryFollowups(panel, { embedded: true });
+    else if (view === 'schedule' && typeof renderWorkSchedule === 'function') {
+      await renderWorkSchedule(panel, { embedded: true });
+    }
+  }
+
+  async function renderPipeline(el, opts = {}) {
     const pipeline = P();
     const categories = pipeline?.STAGE_CATEGORIES || {};
     const Q = window.ILRSLifecycleQueue;
@@ -310,7 +370,7 @@
         ${rows.map(pipelineTableRow).join('')}`;
     }).join('');
 
-    el.innerHTML = `
+    const header = opts.embedded ? '' : `
       <div class="page-header">
         <div>
           <div class="page-title">📊 Inquiry Pipeline</div>
@@ -321,7 +381,9 @@
           <button class="btn btn-ghost" onclick="navigate('work-reports')">📈 Analytics</button>
           <button class="btn btn-primary" onclick="showInquirySheet()">＋ New Inquiry</button>
         </div>
-      </div>
+      </div>`;
+    el.innerHTML = `
+      ${header}
       ${Q?.tabsHtml ? Q.tabsHtml('inquiry', pool) : ''}
       <div class="smart-tabs pipeline-filters">
         ${categoryTabs.map(([key, label]) =>
@@ -361,7 +423,7 @@
       </div>`;
   }
 
-  async function renderInquiries(el) {
+  async function renderInquiryList(el, opts = {}) {
     const Q = window.ILRSLifecycleQueue;
     const all = (App.inquiries || []).filter((i) => i.outcome_status !== 'deleted');
     let pool = all;
@@ -381,7 +443,7 @@
     }
     const clientFilter = App.clientFilterId ? (App.clients || []).find((c) => c.id === App.clientFilterId) : null;
 
-    el.innerHTML = `
+    const header = opts.embedded ? '' : `
       <div class="page-header">
         <div><div class="page-title">📥 Inquiries</div>
           <div class="page-subtitle">${clientFilter ? `${clientFilter.name} · ` : ''}${items.length} inquiries</div></div>
@@ -389,7 +451,9 @@
           <button class="btn btn-ghost" onclick="showSearchPalette()" title="Ctrl+K">🔍 Search</button>
           <button class="btn btn-primary" onclick="showInquirySheet()">＋ New Inquiry</button>
         </div>
-      </div>
+      </div>`;
+    el.innerHTML = `
+      ${header}
       <div class="filter-bar" style="margin-bottom:12px">
         <input type="text" class="form-input" style="max-width:360px" placeholder="🔍 Search client, notes, stage, tags…"
           value="${searchQ.replace(/"/g, '&quot;')}"
@@ -420,18 +484,24 @@
     navigate('inquiries');
   }
 
-  async function renderInquiryFollowups(el) {
+  async function renderInquiries(el) {
+    return renderInquiryHub(el);
+  }
+
+  async function renderInquiryFollowups(el, opts = {}) {
     const today = typeof todayStr === 'function' ? todayStr() : '';
     const active = activeInquiries();
     const dueToday = active.filter((i) => i.next_follow_up === today);
     const overdue = active.filter((i) => i.next_follow_up && i.next_follow_up < today);
     const upcoming = active.filter((i) => i.next_follow_up && i.next_follow_up > today);
 
-    el.innerHTML = `
+    const header = opts.embedded ? '' : `
       <div class="page-header">
         <div><div class="page-title">📞 Follow-ups</div>
           <div class="page-subtitle">${dueToday.length} today · ${overdue.length} overdue</div></div>
-      </div>
+      </div>`;
+    el.innerHTML = `
+      ${header}
       ${overdue.length ? `<div class="section-header"><div class="section-title">⚠️ Overdue</div></div>
         <div class="inquiry-list">${overdue.map(inquiryCard).join('')}</div>` : ''}
       <div class="section-header"><div class="section-title">☀️ Today</div></div>
@@ -919,6 +989,8 @@
   window.setInquiryStageFilter = setInquiryStageFilter;
   window.deleteInquiryItem = deleteInquiryItem;
   window.renderInquiries = renderInquiries;
+  window.renderInquiryHub = renderInquiryHub;
+  window.setInquiryHubView = setInquiryHubView;
   window.renderInquiryFollowups = renderInquiryFollowups;
   window.renderInquiryDetail = renderInquiryDetail;
   window.renderClients = renderClients;

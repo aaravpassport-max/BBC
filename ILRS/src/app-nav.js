@@ -21,10 +21,10 @@
       defaultPage: 'inquiries',
       pages: new Set(['inquiries', 'inquiry-detail', 'pipeline', 'inquiry-followups', 'work-schedule']),
       sidebar: [
-        ['inquiries', '📋', 'List'],
-        ['pipeline', '📊', 'Pipeline'],
-        ['inquiry-followups', '📞', 'Follow-ups'],
-        ['work-schedule', '🗓', 'Schedule'],
+        ['inquiries', '📋', 'List', 'list'],
+        ['pipeline', '📊', 'Pipeline', 'pipeline'],
+        ['inquiry-followups', '📞', 'Follow-ups', 'followups'],
+        ['work-schedule', '🗓', 'Schedule', 'schedule'],
       ],
     },
     {
@@ -94,7 +94,14 @@
 
   function contextualSidebarHtml(currentPage) {
     const section = sectionForPage(currentPage);
-    let items = section.sidebar.map(([page, icon, label]) => navItem(page, icon, label));
+    let items = section.sidebar.map((row) => {
+      const [page, icon, label, hubView] = row;
+      if (section.id === 'inquiries' && hubView) {
+        return `<button type="button" class="nav-item" data-page="${page}" data-hub-view="${hubView}"
+          onclick="setInquiryHubView('${hubView}')"><span class="nav-icon">${icon}</span><span class="nav-label">${label}</span></button>`;
+      }
+      return navItem(page, icon, label);
+    });
     if (section.id === 'life' && App?.settings?.rewards_enabled === '1') {
       items.push(navItem('rewards', '🏅', 'Rewards'));
     }
@@ -123,9 +130,18 @@
     if (top) top.innerHTML = primaryNavHtml(App.currentPage);
     if (side) {
       side.innerHTML = contextualSidebarHtml(App.currentPage);
+      const hubView = App.inquiryHubView
+        || (App.currentPage === 'pipeline' ? 'pipeline'
+          : App.currentPage === 'inquiry-followups' ? 'followups'
+            : App.currentPage === 'work-schedule' ? 'schedule'
+              : 'list');
       side.querySelectorAll('.nav-item').forEach((el) => {
-        el.classList.toggle('active', el.dataset.page === App.currentPage);
-        el.addEventListener('click', () => navigate(el.dataset.page));
+        const hubActive = el.dataset.hubView && el.dataset.hubView === hubView
+          && ['inquiries', 'pipeline', 'inquiry-followups', 'work-schedule', 'inquiry-detail'].includes(App.currentPage);
+        el.classList.toggle('active', hubActive || (!el.dataset.hubView && el.dataset.page === App.currentPage));
+        if (!el.dataset.hubView) {
+          el.addEventListener('click', () => navigate(el.dataset.page));
+        }
       });
     }
     document.querySelectorAll('#primary-nav-slot .primary-nav-item').forEach((el) => {

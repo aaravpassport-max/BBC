@@ -419,14 +419,15 @@ const PAGES = {
   reports: renderReports,
   settings: renderSettings,
   rewards: renderRewards,
-  pipeline: renderPipeline,
-  inquiries: renderInquiries,
-  'inquiry-followups': renderInquiryFollowups,
+  pipeline: renderInquiryHub,
+  inquiries: renderInquiryHub,
+  'inquiry-followups': renderInquiryHub,
   'inquiry-detail': renderInquiryDetail,
   clients: renderClients,
   'pipeline-settings': renderPipelineSettings,
   'work-reports': renderWorkReports,
-  'work-schedule': renderWorkSchedule,
+  'work-schedule': renderInquiryHub,
+  'work-item-detail': renderWorkItemDetail,
 };
 
 function dismissPageModals() {
@@ -1019,8 +1020,9 @@ async function renderSmartList(mode) {
   `;
 }
 
-async function renderWorkSchedule(el) {
+async function renderWorkSchedule(el, opts = {}) {
   const target = el || document.getElementById('content');
+  const embedded = opts.embedded;
   const WS = window.ILRSWorkScheduling;
   const Q = window.ILRSLifecycleQueue;
   if (!WS) {
@@ -1042,14 +1044,16 @@ async function renderWorkSchedule(el) {
   items = WS.sortByCompletionDate(items);
   const overdueCount = collectWorkScheduleItems().filter((i) => WS.isCompletionOverdue(i, now)).length;
 
-  target.innerHTML = `
+  const header = embedded ? '' : `
     <div class="page-header">
       <div>
         <div class="page-title">🗓 Work Schedule</div>
         <div class="page-subtitle">Track start dates, expected completion, and follow-ups · ${items.length} item${items.length !== 1 ? 's' : ''}${overdueCount ? ` · ${overdueCount} overdue` : ''}</div>
       </div>
       <button class="btn btn-primary" onclick="typeof showQuickAddMenu==='function'?showQuickAddMenu():showCaptureSheet()">＋ New</button>
-    </div>
+    </div>`;
+  target.innerHTML = `
+    ${header}
     ${Q?.tabsHtml ? Q.tabsHtml('work', pool) : ''}
     <div class="schedule-filters">
       ${WS.DATE_FILTERS.map((f) =>
@@ -1238,7 +1242,7 @@ function reminderCard(r) {
       <div class="reminder-check ${isDone ? 'done' : ''}" onclick="completeReminder('${r.id}')">
         ${isDone ? '✓' : ''}
       </div>
-      <div class="reminder-body">
+      <div class="reminder-body" onclick="if(!event.target.closest('.reminder-actions,.card-work-status,.lifecycle-quick-select,.lifecycle-card-select'))openWorkItemDetail('${r.id}')">
         <div class="reminder-title">${r.title}</div>
         <div class="reminder-context ${isOverdue ? 'overdue' : ''}">${kind}${context ? ' · ' + context : ''}</div>
         ${WS?.scheduleDatesHtml ? WS.scheduleDatesHtml(r) : ''}

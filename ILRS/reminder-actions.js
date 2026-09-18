@@ -62,6 +62,8 @@ function completeOccurrence(db, id, now = new Date()) {
       INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
       VALUES (?, ?, 'completed', datetime('now'))
     `).run(randomUUID(), id);
+    const { mirrorReminderToInquiryActivity } = require('./inquiry-activity-sync');
+    mirrorReminderToInquiryActivity(db, reminder, 'task_completed', `Task completed: ${reminder.title}`, '');
     return { success: true, recurring: false, task: true };
   }
 
@@ -90,6 +92,8 @@ function completeOccurrence(db, id, now = new Date()) {
     INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
     VALUES (?, ?, 'completed', datetime('now'))
   `).run(randomUUID(), id);
+  const { mirrorReminderToInquiryActivity } = require('./inquiry-activity-sync');
+  mirrorReminderToInquiryActivity(db, reminder, 'reminder_completed', `Reminder completed: ${reminder.title}`, '');
   return { success: true, recurring: false };
 }
 
@@ -243,6 +247,15 @@ function setReminderLifecycle(db, id, lifecycle, now = new Date()) {
   try {
     const { mirrorInquiryLifecycleFromReminder } = require('./inquiry-actions');
     mirrorInquiryLifecycleFromReminder(db, id, lc);
+    const { mirrorReminderToInquiryActivity } = require('./inquiry-activity-sync');
+    const { lifecycleLabel } = require('./work-lifecycle');
+    mirrorReminderToInquiryActivity(
+      db,
+      reminder,
+      'status_change',
+      `Work status → ${lifecycleLabel(lc)}`,
+      'Updated from linked reminder/task',
+    );
   } catch (err) {
     console.error('mirrorInquiryLifecycleFromReminder:', err.message);
   }

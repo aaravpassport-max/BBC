@@ -1840,6 +1840,8 @@ textarea.form-input {
   margin-bottom: -5px;
 }
 .inquiry-detail-panel { max-width: 960px; }
+.inquiry-hub-panel { margin-top: 8px; }
+.hub-tabs { margin-top: 0; }
 .inquiry-detail-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .activity-timeline { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
 .activity-item {

@@ -166,6 +166,13 @@ function createFollowUpReminder(db, inquiry, { title, date, time, now = new Date
     inquiry.id,
     nextFire,
   );
+  logActivity(
+    db,
+    inquiry.id,
+    'reminder_created',
+    'Follow-up reminder scheduled',
+    `${startDate} ${fireTime} — ${reminderTitle}`,
+  );
   return reminderId;
 }
 
@@ -173,7 +180,7 @@ function createFollowUpReminder(db, inquiry, { title, date, time, now = new Date
 function mirrorInquiryLifecycleFromReminder(db, reminderId, lifecycle) {
   const row = db.prepare('SELECT source_type, source_id FROM reminders WHERE id = ?').get(reminderId);
   if (!row || row.source_type !== 'inquiry' || !row.source_id) return;
-  applyInquiryLifecycleFields(db, row.source_id, lifecycle, { scheduleNext: false });
+  applyInquiryLifecycleFields(db, row.source_id, lifecycle, { scheduleNext: false, logActivity: false });
 }
 
 function syncLinkedReminderLifecycles(db, inquiryId, lifecycle) {
@@ -202,7 +209,12 @@ function syncLinkedReminderLifecycles(db, inquiryId, lifecycle) {
   }
 }
 
-function applyInquiryLifecycleFields(db, inquiryId, lifecycle, { scheduleNext = false, nextFollowUp, nextFollowUpTime } = {}) {
+function applyInquiryLifecycleFields(db, inquiryId, lifecycle, {
+  scheduleNext = false,
+  nextFollowUp,
+  nextFollowUpTime,
+  logActivity: shouldLog = true,
+} = {}) {
   const lc = normalizeLifecycle(lifecycle);
   const patch = inquiryRowPatchForLifecycle(lc, { scheduleNext });
 
@@ -213,6 +225,10 @@ function applyInquiryLifecycleFields(db, inquiryId, lifecycle, { scheduleNext = 
       WHERE id = ?
     `).run(patch.lifecycle_status, patch.outcome_status, inquiryId);
     syncLinkedReminderLifecycles(db, inquiryId, lc);
+    if (shouldLog) {
+      const { mirrorLifecycleToInquiry } = require('./inquiry-activity-sync');
+      mirrorLifecycleToInquiry(db, inquiryId, lc);
+    }
     return;
   }
 
@@ -234,6 +250,10 @@ function applyInquiryLifecycleFields(db, inquiryId, lifecycle, { scheduleNext = 
     inquiryId,
   );
   syncLinkedReminderLifecycles(db, inquiryId, lc);
+  if (shouldLog) {
+    const { mirrorLifecycleToInquiry } = require('./inquiry-activity-sync');
+    mirrorLifecycleToInquiry(db, inquiryId, lc);
+  }
 }
 
 function inquiryPayloadTouchesNonLifecycleFields(data) {
