@@ -1861,9 +1861,35 @@ textarea.form-input {
 .activity-empty { color: var(--text-muted); font-size: 13px; }
 .activity-log-card { max-width: 480px; width: 100%; }
 .activity-timeline-compact .activity-item { padding: 8px 10px; }
+.mobile-menu-btn { display: none; flex-shrink: 0; }
+.sidebar-drawer-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 150;
+  background: rgba(0, 0, 0, 0.45);
+}
+body.sidebar-drawer-open .sidebar-drawer-backdrop { display: block; }
+
 @media (max-width: 768px) {
   #main-app { grid-template-columns: 1fr; }
-  .sidebar { display: none; }
+  .mobile-menu-btn { display: inline-flex; }
+  .quick-add-bar { max-width: none; min-width: 0; }
+  .topbar-logo span { display: none; }
+  .sidebar {
+    display: flex;
+    position: fixed;
+    left: 0;
+    top: calc(var(--topbar-height) + 42px);
+    bottom: 0;
+    width: min(288px, 88vw);
+    z-index: 200;
+    transform: translateX(-110%);
+    transition: transform 0.2s ease;
+    box-shadow: 4px 0 24px rgba(0, 0, 0, 0.35);
+  }
+  body.sidebar-drawer-open .sidebar { transform: translateX(0); }
   .primary-nav-item { padding: 8px 12px; font-size: 12px; }
-  .content { padding: 16px; }
+  .content { padding: 16px; grid-column: 1 / -1; }
+  .fab-add { bottom: 16px; right: 16px; }
 }

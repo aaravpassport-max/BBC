@@ -459,6 +459,7 @@ async function navigate(page) {
     return;
   }
   dismissPageModals();
+  window.ILRSAppNav?.closeMobileDrawer?.();
   App.currentPage = page;
   if (page === 'completed') {
     if (!App.lifecycleQueueFilters) App.lifecycleQueueFilters = {};
@@ -489,6 +490,8 @@ function renderShell() {
 
     <!-- Top Bar -->
     <div class="topbar">
+      <button type="button" class="topbar-btn mobile-menu-btn" id="mobile-nav-toggle" aria-label="Open section menu"
+        onclick="ILRSAppNav.toggleMobileDrawer()">☰</button>
       <div class="topbar-logo">ILRS <span>v${App.appVersion || '…'}</span></div>
       <div class="quick-add-bar">
         <input type="text" id="quick-input" placeholder="⚡ Call John tomorrow at 10am — press Enter" autocomplete="off" />
@@ -509,6 +512,7 @@ function renderShell() {
 
     <!-- Contextual sidebar (secondary — section from top nav) -->
     <nav class="sidebar" id="context-sidebar-slot" aria-label="Section navigation"></nav>
+    <div id="sidebar-drawer-backdrop" class="sidebar-drawer-backdrop" hidden onclick="ILRSAppNav.closeMobileDrawer()"></div>
 
     <!-- Main Content -->
     <main class="content" id="content"></main>
@@ -1158,29 +1162,6 @@ async function setReminderLifecycleFromCard(id, lifecycle) {
   }
 }
 window.setReminderLifecycleFromCard = setReminderLifecycleFromCard;
-
-function workStatusWhatsNewHtml() {
-  if (App.settings?.lifecycle_whats_new_dismissed === '1') return '';
-  return `
-    <div class="lifecycle-whats-new">
-      <div>
-        <strong>Work status is here (v${App.appVersion || ''})</strong>
-        <p style="margin:6px 0 0;font-size:13px;color:var(--text-secondary)">
-          Use <strong>Work status</strong> on each card (no Edit needed), or set status in <strong>✏️ Edit</strong> / <strong>＋ New</strong>.
-          <em>Done</em> or <em>Closed</em> clears the next reminder so items leave Today and alarms.
-          Workflow <strong>stage</strong> is separate (🏷).
-        </p>
-      </div>
-      <button type="button" class="btn btn-ghost btn-sm" onclick="dismissLifecycleWhatsNew()">Got it</button>
-    </div>`;
-}
-
-async function dismissLifecycleWhatsNew() {
-  await dbRun("INSERT OR REPLACE INTO settings (key, value) VALUES ('lifecycle_whats_new_dismissed', '1')");
-  App.settings.lifecycle_whats_new_dismissed = '1';
-  if (typeof refreshCurrentView === 'function') refreshCurrentView();
-}
-window.dismissLifecycleWhatsNew = dismissLifecycleWhatsNew;
 
 function workflowLabel(status) {
   const labels = {

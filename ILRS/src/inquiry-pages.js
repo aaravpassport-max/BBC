@@ -286,6 +286,7 @@
 
   function setInquiryHubView(view) {
     App.inquiryHubView = view;
+    window.ILRSAppNav?.closeMobileDrawer?.();
     const routes = { list: 'inquiries', pipeline: 'pipeline', followups: 'inquiry-followups', schedule: 'work-schedule' };
     navigate(routes[view] || 'inquiries');
   }

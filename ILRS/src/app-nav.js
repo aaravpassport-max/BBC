@@ -59,6 +59,7 @@
       sidebar: [
         ['clients', '👤', 'Clients'],
         ['work-reports', '📈', 'Work analytics'],
+        ['reports', '📊', 'Life reports'],
         ['pipeline-settings', '🏷', 'Workflow stages'],
         ['settings', '⚙️', 'Settings'],
       ],
@@ -157,6 +158,23 @@
     refreshShellNav();
   }
 
+  function openMobileDrawer() {
+    document.body.classList.add('sidebar-drawer-open');
+    const backdrop = document.getElementById('sidebar-drawer-backdrop');
+    if (backdrop) backdrop.hidden = false;
+  }
+
+  function closeMobileDrawer() {
+    document.body.classList.remove('sidebar-drawer-open');
+    const backdrop = document.getElementById('sidebar-drawer-backdrop');
+    if (backdrop) backdrop.hidden = true;
+  }
+
+  function toggleMobileDrawer() {
+    if (document.body.classList.contains('sidebar-drawer-open')) closeMobileDrawer();
+    else openMobileDrawer();
+  }
+
   window.ILRSAppNav = {
     SECTIONS,
     sectionForPage,
@@ -166,5 +184,8 @@
     refreshShellNav,
     wireAfterShellRender,
     onNavigate,
+    openMobileDrawer,
+    closeMobileDrawer,
+    toggleMobileDrawer,
   };
 })();
