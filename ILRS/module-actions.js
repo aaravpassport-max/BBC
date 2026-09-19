@@ -19,6 +19,10 @@ function markMedicineDoseTaken(db, medId, doseTime, now = new Date()) {
     VALUES (?, ?, ?, ?, 'taken', ?, ?)
   `).run(logId, medId, time, time, now.toISOString(), today);
 
+  const { maybeSyncEntity } = require('./sync-hook');
+  maybeSyncEntity(db, 'medicine_log', logId);
+  maybeSyncEntity(db, 'medicine', medId);
+
   return { success: true, medId, doseTime: time };
 }
 
@@ -36,6 +40,10 @@ function markBillPaidAction(db, billId, now = new Date()) {
   `).run(logId, billId, paidDate, amount);
   db.prepare(`UPDATE bills SET payment_status = 'paid' WHERE id = ?`).run(billId);
 
+  const { maybeSyncEntity } = require('./sync-hook');
+  maybeSyncEntity(db, 'bill_history', logId);
+  maybeSyncEntity(db, 'bill', billId);
+
   return { success: true, billId };
 }
 
@@ -49,6 +57,8 @@ function logHabitAction(db, habitId, now = new Date()) {
   `).get(habitId, today);
   if (existing) {
     const stats = recalculateHabitStats(db, habit, now);
+    const { maybeSyncEntity } = require('./sync-hook');
+    maybeSyncEntity(db, 'habit', habitId);
     return { success: true, habitId, streak: stats.streak, alreadyLogged: true };
   }
 
@@ -62,6 +72,9 @@ function logHabitAction(db, habitId, now = new Date()) {
   `).run(logId, habitId, today);
 
   const stats = recalculateHabitStats(db, habit, now);
+  const { maybeSyncEntity } = require('./sync-hook');
+  maybeSyncEntity(db, 'habit_log', logId);
+  maybeSyncEntity(db, 'habit', habitId);
   return { success: true, habitId, streak: stats.streak, completionRate: stats.completionRate };
 }
 

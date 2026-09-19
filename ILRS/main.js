@@ -2,7 +2,12 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, powerMonitor } =
 const path = require('path');
 const fs = require('fs');
 const { version: APP_VERSION } = require('./package.json');
-const { runSyncMigrationV20, runSyncMigrationV21, runSyncMigrationV22 } = require('./sync-migration');
+const {
+  runSyncMigrationV20,
+  runSyncMigrationV21,
+  runSyncMigrationV22,
+  runSyncMigrationV23,
+} = require('./sync-migration');
 const { maybeSyncAfterDbMutation } = require('./sync-db-mutation');
 const {
   getSyncStatus,
@@ -1414,6 +1419,11 @@ function repairReminderSchedules() {
       runSyncMigrationV22(db);
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '22')").run();
       console.log('Multi-computer sync phase 2 migration v22 complete');
+    }
+    if (version < 23) {
+      runSyncMigrationV23(db);
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '23')").run();
+      console.log('Multi-computer sync phase 3 migration v23 complete');
     }
   } catch (err) {
     console.error('repairReminderSchedules error:', err.message);

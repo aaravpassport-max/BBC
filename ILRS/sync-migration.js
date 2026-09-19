@@ -90,4 +90,29 @@ function runSyncMigrationV22(db) {
   }
 }
 
-module.exports = { runSyncMigrationV20, runSyncMigrationV21, runSyncMigrationV22 };
+function runSyncMigrationV23(db) {
+  const lifeTables = [
+    'medicines',
+    'medicine_logs',
+    'bills',
+    'bill_history',
+    'habits',
+    'habit_logs',
+    'family_members',
+    'checklists',
+    'checklist_items',
+  ];
+  for (const table of lifeTables) {
+    try {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN sync_revision INTEGER DEFAULT 1`);
+      db.prepare(`UPDATE ${table} SET sync_revision = 1 WHERE sync_revision IS NULL`).run();
+    } catch (_) { /* table or column missing */ }
+  }
+}
+
+module.exports = {
+  runSyncMigrationV20,
+  runSyncMigrationV21,
+  runSyncMigrationV22,
+  runSyncMigrationV23,
+};

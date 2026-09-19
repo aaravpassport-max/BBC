@@ -5,8 +5,12 @@ const { randomUUID } = require('crypto');
 const os = require('os');
 
 function getSetting(db, key, fallback = '') {
-  const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
-  return row?.value ?? fallback;
+  try {
+    const row = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+    return row?.value ?? fallback;
+  } catch (_) {
+    return fallback;
+  }
 }
 
 function setSetting(db, key, value) {

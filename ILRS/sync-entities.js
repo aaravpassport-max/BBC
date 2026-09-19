@@ -41,6 +41,60 @@ const ENTITIES = {
       { table: 'reminders', column: 'entity_id', when: (row) => row.entity_type === 'reminder' },
     ],
   },
+  family_member: {
+    table: 'family_members',
+    idColumn: 'id',
+    applyOrder: 50,
+    dependencies: [],
+  },
+  medicine: {
+    table: 'medicines',
+    idColumn: 'id',
+    applyOrder: 51,
+    dependencies: [],
+  },
+  medicine_log: {
+    table: 'medicine_logs',
+    idColumn: 'id',
+    applyOrder: 52,
+    dependencies: [{ table: 'medicines', column: 'medicine_id' }],
+  },
+  bill: {
+    table: 'bills',
+    idColumn: 'id',
+    applyOrder: 53,
+    dependencies: [],
+  },
+  bill_history: {
+    table: 'bill_history',
+    idColumn: 'id',
+    applyOrder: 54,
+    dependencies: [{ table: 'bills', column: 'bill_id' }],
+  },
+  habit: {
+    table: 'habits',
+    idColumn: 'id',
+    applyOrder: 55,
+    dependencies: [{ table: 'reminders', column: 'reminder_id', optional: true }],
+  },
+  habit_log: {
+    table: 'habit_logs',
+    idColumn: 'id',
+    applyOrder: 56,
+    dependencies: [{ table: 'habits', column: 'habit_id' }],
+  },
+  checklist: {
+    table: 'checklists',
+    idColumn: 'id',
+    applyOrder: 57,
+    dependencies: [],
+  },
+  checklist_item: {
+    table: 'checklist_items',
+    idColumn: 'id',
+    applyOrder: 58,
+    dependencies: [{ table: 'checklists', column: 'checklist_id' }],
+  },
 };
 
 function getEntity(key) {

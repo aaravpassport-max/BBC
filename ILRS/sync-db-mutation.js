@@ -1,40 +1,49 @@
 /**
- * Best-effort sync enqueue after renderer db-query mutations (tasks/reminders UI).
+ * Best-effort sync enqueue after renderer db-query mutations.
  */
 const { isApplyingInbound } = require('./sync-hook');
 
 const SYNC_TABLES = {
   reminders: 'reminder',
   reminder_logs: 'reminder_log',
+  medicines: 'medicine',
+  medicine_logs: 'medicine_log',
+  bills: 'bill',
+  bill_history: 'bill_history',
+  habits: 'habit',
+  habit_logs: 'habit_log',
+  family_members: 'family_member',
+  checklists: 'checklist',
+  checklist_items: 'checklist_item',
 };
 
 function extractMutationTarget(sql, params) {
   const normalized = sql.replace(/\s+/g, ' ').trim();
-  const upper = normalized.toUpperCase();
   const p = params || [];
 
-  let table = null;
-  if (upper.startsWith('INSERT INTO ')) {
-    table = normalized.match(/^INSERT\s+INTO\s+([a-z_]+)/i)?.[1];
-    if (table && SYNC_TABLES[table]) {
-      const id = p[0];
+  const insertMatch = normalized.match(/^INSERT\s+(?:OR\s+REPLACE\s+)?INTO\s+([a-z_]+)\b/i);
+  if (insertMatch) {
+    const table = insertMatch[1];
+    if (SYNC_TABLES[table] && p[0]) {
+      return { entity: SYNC_TABLES[table], recordId: String(p[0]) };
+    }
+  }
+
+  const updateMatch = normalized.match(/^UPDATE\s+([a-z_]+)\b/i);
+  if (updateMatch) {
+    const table = updateMatch[1];
+    if (SYNC_TABLES[table] && p.length > 0) {
+      const id = p[p.length - 1];
       return id ? { entity: SYNC_TABLES[table], recordId: String(id) } : null;
     }
   }
 
-  if (/^UPDATE\s+reminders\b/i.test(normalized)) {
-    const id = p[p.length - 1];
-    return id ? { entity: 'reminder', recordId: String(id) } : null;
-  }
-
-  if (/^UPDATE\s+reminder_logs\b/i.test(normalized)) {
-    const id = p[p.length - 1];
-    return id ? { entity: 'reminder_log', recordId: String(id) } : null;
-  }
-
-  if (upper.startsWith('DELETE FROM REMINDERS')) {
-    const id = p[0];
-    return id ? { entity: 'reminder', recordId: String(id), operation: 'delete' } : null;
+  const deleteMatch = normalized.match(/^DELETE\s+FROM\s+([a-z_]+)\b/i);
+  if (deleteMatch) {
+    const table = deleteMatch[1];
+    if (SYNC_TABLES[table] && p[0]) {
+      return { entity: SYNC_TABLES[table], recordId: String(p[0]), operation: 'delete' };
+    }
   }
 
   return null;
@@ -55,4 +64,5 @@ function maybeSyncAfterDbMutation(db, sql, params) {
 
 module.exports = {
   maybeSyncAfterDbMutation,
+  SYNC_TABLES,
 };

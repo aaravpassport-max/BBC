@@ -4,7 +4,8 @@
 **Phase 0:** Implemented in v1.2.0 (device, folder, outbox, settings UI).  
 **Phase 1:** Implemented in v1.2.1 — clients, inquiries, activities, payments.  
 **Phase 2:** Implemented in v1.2.2 — reminders/tasks, reminder logs, enquiry follow-up reminders (+ renderer SQL hook).  
-**Phase 3+:** Life modules, stages/templates, attachments — not started.  
+**Phase 3:** Implemented in v1.2.3 — Life modules (medicine, bills, habits, family, checklists via SQL hook + module actions).  
+**Phase 4+:** Workflow/pipeline config, attachments, Drive backups — not started.  
 **Architecture:** Existing ILRS + local SQLite per PC + Google Drive for Desktop folder + record-level change files. No server, no Google API, no syncing `ilrs.db`.
 
 ---

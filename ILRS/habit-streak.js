@@ -86,6 +86,11 @@ function recalculateHabitStats(db, habit, now = new Date()) {
     WHERE id = ?
   `).run(streak, Math.max(bestStreak, streak), completionRate, lastCompleted, habit.id);
 
+  try {
+    const { maybeSyncEntity } = require('./sync-hook');
+    maybeSyncEntity(db, 'habit', habit.id);
+  } catch (_) { /* sync optional in tests */ }
+
   return { streak, bestStreak: Math.max(bestStreak, streak), completionRate, lastCompleted };
 }
 
