@@ -3,12 +3,13 @@
  * Phase 0 sync: device, folder, outbox, publish, inbound discovery.
  */
 const assert = require('assert');
+const { createHash } = require('crypto');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const Database = require('better-sqlite3');
 
-const { runSyncMigrationV20 } = require('../sync-migration');
+const { runSyncMigrationV20, runSyncMigrationV21 } = require('../sync-migration');
 const { configureSyncFolder, runSyncCycle, resetSyncState, getSyncStatus } = require('../sync-engine');
 const { enqueueChange } = require('../sync-outbox');
 const { getDeviceContext } = require('../sync-device');
@@ -22,8 +23,12 @@ function makeDb() {
     INSERT INTO settings (key, value) VALUES ('schema_version', '19');
     INSERT INTO settings (key, value) VALUES ('user_name', 'Test Operator');
   `);
+  db.exec(`
+    CREATE TABLE clients (id TEXT PRIMARY KEY, name TEXT, company TEXT, mobile TEXT, email TEXT, notes TEXT, created_at TEXT);
+  `);
   runSyncMigrationV20(db);
-  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '20')").run();
+  runSyncMigrationV21(db);
+  db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '21')").run();
   return { db, dbPath };
 }
 
@@ -73,30 +78,48 @@ try {
     assert.ok(files.length >= 1);
   });
 
-  test('inbound scan records foreign events as pending_apply', () => {
+  test('inbound applies foreign client events', () => {
     const root = configureSyncFolder(db, syncTmp).root;
     const foreignDir = path.join(root, 'Sync', 'Changes', '2026', '09', '19');
     fs.mkdirSync(foreignDir, { recursive: true });
+    const recordId = '22222222-2222-4222-8222-222222222222';
+    const payload = {
+      row: {
+        id: recordId,
+        name: 'Raj Kumar',
+        company: '',
+        mobile: '',
+        email: '',
+        notes: '',
+        sync_revision: 1,
+      },
+      new_revision: 1,
+      base_revision: 0,
+    };
+    const payloadHash = createHash('sha256').update(JSON.stringify(payload)).digest('hex');
     const foreignEvent = {
       schema_version: 1,
       event_id: '11111111-1111-4111-8111-111111111111',
       entity: 'client',
-      record_id: '22222222-2222-4222-8222-222222222222',
-      operation: 'create',
+      record_id: recordId,
+      operation: 'upsert',
       device_id: 'DEVICE-FFFFFFFF',
       user_id: '33333333-3333-4333-8333-333333333333',
       office_id: '44444444-4444-4444-8444-444444444444',
       client_timestamp: new Date().toISOString(),
-      payload: { name: 'Raj Kumar' },
-      payload_hash: 'abc',
+      new_revision: 1,
+      base_revision: 0,
+      payload,
+      payload_hash: payloadHash,
       app_version: '1.2.0-test',
     };
     fs.writeFileSync(path.join(foreignDir, `${foreignEvent.event_id}.json`), JSON.stringify(foreignEvent));
 
     const cycle = runSyncCycle(db, '1.2.0-test', { force: true });
-    assert.ok(cycle.inbound.recorded >= 1);
-    const status = getSyncStatus(db, '1.2.0-test');
-    assert.ok(status.inbound_pending_apply >= 1);
+    assert.ok(cycle.inbound.applied >= 1);
+    const client = db.prepare('SELECT * FROM clients WHERE id = ?').get(foreignEvent.record_id);
+    assert.ok(client);
+    assert.strictEqual(client.name, 'Raj Kumar');
   });
 
   test('reset sync state preserves outbox and clears processed', () => {

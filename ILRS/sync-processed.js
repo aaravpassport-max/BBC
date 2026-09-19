@@ -20,7 +20,10 @@ function getProcessedStats(db) {
   const pendingApply = db.prepare(`
     SELECT COUNT(*) AS c FROM sync_processed_events WHERE apply_status = 'pending_apply'
   `).get()?.c || 0;
-  return { total, pending_apply: pendingApply };
+  const conflicts = db.prepare(`
+    SELECT COUNT(*) AS c FROM sync_processed_events WHERE apply_status = 'conflict'
+  `).get()?.c || 0;
+  return { total, pending_apply: pendingApply, event_conflicts: conflicts };
 }
 
 function safeReadEventFile(filePath) {

@@ -1,8 +1,10 @@
 /**
  * Phase 0 sync engine: folder setup, device heartbeat, outbox publish, inbound discovery.
- * Record apply arrives in phase 1+.
+ * Phase 1: apply inbound business record events.
  */
 const { getDeviceContext, getSetting, setSetting, ensureDeviceRegistration } = require('./sync-device');
+const { countOpenConflicts } = require('./sync-conflicts');
+const { applyInboundFromFolder } = require('./sync-apply');
 const {
   pathsForRoot,
   verifySyncFolder,
@@ -10,7 +12,7 @@ const {
   writeDeviceHeartbeat,
 } = require('./sync-folder');
 const { publishPendingOutbox, getOutboxStats, enqueueChange } = require('./sync-outbox');
-const { scanInboundEventFiles, getProcessedStats } = require('./sync-processed');
+const { getProcessedStats } = require('./sync-processed');
 
 let syncIntervalTimer = null;
 
@@ -57,6 +59,7 @@ function getSyncStatus(db, appVersion) {
   let folderOk = false;
   let syncRoot = '';
   let inboundPendingApply = processed.pending_apply;
+  const openConflicts = countOpenConflicts(db);
 
   if (settings.folder_path) {
     const v = verifySyncFolder(settings.folder_path);
@@ -70,7 +73,8 @@ function getSyncStatus(db, appVersion) {
   else if (!settings.enabled) statusLabel = 'Disabled';
   else if (!folderOk) statusLabel = 'Folder problem';
   else if (outbox.pending > 0 || outbox.failed > 0) statusLabel = 'Pending upload';
-  else if (inboundPendingApply > 0) statusLabel = 'Incoming (apply in phase 1)';
+  else if (openConflicts > 0) statusLabel = `${openConflicts} sync conflict(s)`;
+  else if (inboundPendingApply > 0) statusLabel = 'Waiting on dependencies';
   else statusLabel = 'Up to date';
 
   return {
@@ -82,6 +86,7 @@ function getSyncStatus(db, appVersion) {
     outbox,
     processed,
     inbound_pending_apply: inboundPendingApply,
+    open_conflicts: openConflicts,
     online,
     status_label: statusLabel,
   };
@@ -106,7 +111,7 @@ function runSyncCycle(db, appVersion, { force = false } = {}) {
   const paths = pathsForRoot(settings.folder_path);
 
   const publish = publishPendingOutbox(db, settings.folder_path, device, appVersion);
-  const inbound = scanInboundEventFiles(db, paths.changes, device.device_id);
+  const inbound = applyInboundFromFolder(db, paths.changes, device.device_id);
 
   const lastSyncIso = new Date().toISOString();
   writeDeviceHeartbeat(settings.folder_path, {

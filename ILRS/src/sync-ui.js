@@ -85,13 +85,15 @@
     const last = formatSyncTime(status.settings?.last_run_at);
     const pending = (status.outbox?.pending || 0) + (status.outbox?.failed || 0);
     const incoming = status.inbound_pending_apply || 0;
+    const conflicts = status.open_conflicts || 0;
     const err = status.settings?.last_error;
 
     el.innerHTML = `
       <div style="font-weight:600;margin-bottom:6px">${dot} ${status.status_label || 'Unknown'}</div>
       <div style="color:var(--text-secondary);line-height:1.5">
         Pending upload: <strong>${pending}</strong><br/>
-        Incoming (awaiting apply): <strong>${incoming}</strong><br/>
+        Waiting on dependencies: <strong>${incoming}</strong><br/>
+        Open conflicts: <strong>${conflicts}</strong><br/>
         Last sync: <strong>${last}</strong>
         ${status.sync_root ? `<br/>Sync root: <span style="font-family:var(--font-mono);font-size:11px">${status.sync_root}</span>` : ''}
         ${err ? `<br/><span style="color:var(--critical)">Last error: ${err}</span>` : ''}
@@ -100,7 +102,7 @@
 
     const badge = document.getElementById('sync-topbar-badge');
     if (badge) {
-      const attention = pending + incoming;
+      const attention = pending + incoming + conflicts;
       badge.textContent = attention > 0 ? String(attention) : '';
       badge.style.display = attention > 0 ? 'inline' : 'none';
     }

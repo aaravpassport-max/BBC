@@ -137,6 +137,8 @@ function updatePaymentSettings(db, { entityType, entityId, enabled, total, nextP
   if (entityType === 'inquiry') {
     logActivity(db, entityId, 'payment', enabled ? 'Payment tracking enabled' : 'Payment tracking disabled',
       total ? `Total: ${formatRupee(total)}` : '', {});
+    const { maybeSyncEntity } = require('./sync-hook');
+    maybeSyncEntity(db, 'inquiry', entityId);
   }
 
   return { success: true, summary };
@@ -174,14 +176,22 @@ function recordPayment(db, { entityType, entityId, amount, receivedDate, note },
     `).run(randomUUID(), entityId, `${formatRupee(amt)} on ${date}${note ? ` — ${note}` : ''}`);
   }
 
+  const { maybeSyncEntity } = require('./sync-hook');
+  maybeSyncEntity(db, 'work_payment', id);
+  if (entityType === 'inquiry') maybeSyncEntity(db, 'inquiry', entityId);
+
   return { success: true, paymentId: id, summary };
 }
 
 function deletePayment(db, paymentId, now = new Date()) {
   const row = db.prepare('SELECT * FROM work_payments WHERE id = ?').get(paymentId);
   if (!row) return { success: false, error: 'Payment not found' };
+  const { maybeSyncEntity } = require('./sync-hook');
+  const { publishRecordChange } = require('./sync-publish');
+  publishRecordChange(db, 'work_payment', paymentId, 'delete');
   db.prepare('DELETE FROM work_payments WHERE id = ?').run(paymentId);
   const summary = syncEntityPaymentStatus(db, row.entity_type, row.entity_id, now);
+  if (row.entity_type === 'inquiry') maybeSyncEntity(db, 'inquiry', row.entity_id);
   return { success: true, summary };
 }
 

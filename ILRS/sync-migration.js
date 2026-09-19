@@ -57,4 +57,28 @@ function runSyncMigrationV20(db) {
   ensureActiveUser(db);
 }
 
-module.exports = { runSyncMigrationV20 };
+function runSyncMigrationV21(db) {
+  for (const table of ['clients', 'inquiries', 'inquiry_activities', 'work_payments']) {
+    try {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN sync_revision INTEGER DEFAULT 1`);
+      db.prepare(`UPDATE ${table} SET sync_revision = 1 WHERE sync_revision IS NULL`).run();
+    } catch (_) { /* table or column missing */ }
+  }
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sync_conflicts (
+      id TEXT PRIMARY KEY,
+      entity TEXT NOT NULL,
+      record_id TEXT NOT NULL,
+      event_id TEXT NOT NULL,
+      local_revision INTEGER DEFAULT 0,
+      incoming_revision INTEGER DEFAULT 0,
+      detail_json TEXT DEFAULT '{}',
+      created_at TEXT DEFAULT (datetime('now')),
+      resolved INTEGER DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_sync_conflicts_open ON sync_conflicts(resolved);
+  `);
+}
+
+module.exports = { runSyncMigrationV20, runSyncMigrationV21 };

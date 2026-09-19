@@ -18,6 +18,8 @@ function isPackaged(rel) {
 const entryFiles = [
   'main.js',
   'sync-engine.js',
+  'sync-apply.js',
+  'sync-publish.js',
   'inquiry-actions.js',
   'reminder-actions.js',
   'payment-manager.js',

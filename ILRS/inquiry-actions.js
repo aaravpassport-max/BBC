@@ -48,6 +48,8 @@ function findOrCreateClient(db, { name, company, mobile, email }) {
   db.prepare(`
     INSERT INTO clients (id, name, company, mobile, email) VALUES (?, ?, ?, ?, ?)
   `).run(id, trimmedName, company || '', trimmedMobile, trimmedEmail);
+  const { maybeSyncEntity } = require('./sync-hook');
+  maybeSyncEntity(db, 'client', id);
   return { id, name: trimmedName, company: company || '', mobile: trimmedMobile, email: trimmedEmail };
 }
 
@@ -105,6 +107,8 @@ function logActivity(db, inquiryId, activityType, title, body = '', meta = {}) {
       last_activity_summary = ?
     WHERE id = ?
   `).run(summary, inquiryId);
+  const { maybeSyncEntity } = require('./sync-hook');
+  maybeSyncEntity(db, 'inquiry_activity', id);
   return id;
 }
 
@@ -332,6 +336,10 @@ function createInquiry(db, data, now = new Date()) {
   inquiry.health = computeInquiryHealth(inquiry, now);
   db.prepare('UPDATE inquiries SET health = ? WHERE id = ?').run(inquiry.health, id);
 
+  const { maybeSyncEntity } = require('./sync-hook');
+  maybeSyncEntity(db, 'client', client.id);
+  maybeSyncEntity(db, 'inquiry', id);
+
   return { success: true, inquiry, client };
 }
 
@@ -504,6 +512,9 @@ function changeInquiryStage(db, inquiryId, newStageKey, options = {}, now = new 
   db.prepare('UPDATE inquiries SET health = ? WHERE id = ?').run(health, inquiryId);
   updated.health = health;
 
+  const { maybeSyncEntity } = require('./sync-hook');
+  maybeSyncEntity(db, 'inquiry', inquiryId);
+
   return { success: true, inquiry: updated, stage };
 }
 
@@ -524,6 +535,8 @@ function startInquiryWork(db, inquiryId, now = new Date()) {
   const updated = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
   updated.health = computeInquiryHealth(updated, now);
   db.prepare('UPDATE inquiries SET health = ? WHERE id = ?').run(updated.health, inquiryId);
+  const { maybeSyncEntity } = require('./sync-hook');
+  maybeSyncEntity(db, 'inquiry', inquiryId);
   return { success: true, inquiry: updated };
 }
 
@@ -572,6 +585,8 @@ function updateInquiry(db, inquiryId, data, now = new Date()) {
       UPDATE clients SET name = ?, company = ?, mobile = ?, email = ? WHERE id = ?
     `).run(client.name, data.company || client.company, data.mobile || client.mobile, data.email || client.email, client.id);
     data.clientId = client.id;
+    const { maybeSyncEntity } = require('./sync-hook');
+    maybeSyncEntity(db, 'client', client.id);
   }
 
   const nextFollowUp = pickUpdateField(data, 'nextFollowUp', inquiry.next_follow_up);
@@ -644,6 +659,8 @@ function updateInquiry(db, inquiryId, data, now = new Date()) {
   const health = computeInquiryHealth(updated, now);
   db.prepare('UPDATE inquiries SET health = ? WHERE id = ?').run(health, inquiryId);
   updated.health = health;
+  const { maybeSyncEntity } = require('./sync-hook');
+  maybeSyncEntity(db, 'inquiry', inquiryId);
   return { success: true, inquiry: updated };
 }
 
@@ -655,6 +672,8 @@ function deleteInquiry(db, inquiryId) {
     UPDATE inquiries SET outcome_status = 'deleted', updated_at = datetime('now') WHERE id = ?
   `).run(inquiryId);
   logActivity(db, inquiryId, 'note', 'Inquiry deleted', '', {});
+  const { maybeSyncEntity } = require('./sync-hook');
+  maybeSyncEntity(db, 'inquiry', inquiryId);
   return { success: true };
 }
 
@@ -680,6 +699,8 @@ function reopenInquiry(db, inquiryId, stageKey = 'follow_up') {
   `).run(LIFECYCLE_ACTIVE, stageKey, inquiryId);
   logActivity(db, inquiryId, 'stage_change', 'Inquiry reopened', '', { newStage: stageKey });
   const updated = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
+  const { maybeSyncEntity } = require('./sync-hook');
+  maybeSyncEntity(db, 'inquiry', inquiryId);
   return { success: true, inquiry: updated };
 }
 
@@ -725,6 +746,8 @@ function rescheduleInquiry(db, inquiryId, options = {}, now = new Date()) {
   const health = computeInquiryHealth(refreshed, now);
   db.prepare('UPDATE inquiries SET health = ? WHERE id = ?').run(health, inquiryId);
   refreshed.health = health;
+  const { maybeSyncEntity } = require('./sync-hook');
+  maybeSyncEntity(db, 'inquiry', inquiryId);
   return { success: true, inquiry: refreshed };
 }
 
