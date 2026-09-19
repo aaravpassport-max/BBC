@@ -58,7 +58,7 @@ function runSyncMigrationV20(db) {
 }
 
 function runSyncMigrationV21(db) {
-  for (const table of ['clients', 'inquiries', 'inquiry_activities', 'work_payments']) {
+  for (const table of ['clients', 'inquiries', 'inquiry_activities', 'work_payments', 'reminders', 'reminder_logs']) {
     try {
       db.exec(`ALTER TABLE ${table} ADD COLUMN sync_revision INTEGER DEFAULT 1`);
       db.prepare(`UPDATE ${table} SET sync_revision = 1 WHERE sync_revision IS NULL`).run();
@@ -81,4 +81,13 @@ function runSyncMigrationV21(db) {
   `);
 }
 
-module.exports = { runSyncMigrationV20, runSyncMigrationV21 };
+function runSyncMigrationV22(db) {
+  for (const table of ['reminders', 'reminder_logs']) {
+    try {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN sync_revision INTEGER DEFAULT 1`);
+      db.prepare(`UPDATE ${table} SET sync_revision = 1 WHERE sync_revision IS NULL`).run();
+    } catch (_) { /* table or column missing */ }
+  }
+}
+
+module.exports = { runSyncMigrationV20, runSyncMigrationV21, runSyncMigrationV22 };

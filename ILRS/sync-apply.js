@@ -82,6 +82,10 @@ function deleteRow(db, table, idColumn, recordId) {
     db.prepare(`UPDATE ${table} SET outcome_status = 'deleted', updated_at = datetime('now') WHERE ${idColumn} = ?`).run(recordId);
     return { success: true };
   }
+  if (table === 'reminders') {
+    db.prepare(`UPDATE ${table} SET status = 'deleted', updated_at = datetime('now') WHERE ${idColumn} = ?`).run(recordId);
+    return { success: true };
+  }
   if (table === 'work_payments') {
     db.prepare(`DELETE FROM ${table} WHERE ${idColumn} = ?`).run(recordId);
     return { success: true };
@@ -221,13 +225,22 @@ function applyInboundFromFolder(db, changesDir, deviceId, { maxScan = 3000 } = {
     invalid: 0,
   };
 
-  const sorted = files.slice().sort();
-  for (const filePath of sorted) {
+  const events = [];
+  for (const filePath of files) {
     const event = safeReadEventFile(filePath);
-    if (!event) {
-      stats.invalid += 1;
-      continue;
-    }
+    if (event) events.push(event);
+    else stats.invalid += 1;
+  }
+
+  const { getEntity } = require('./sync-entities');
+  events.sort((a, b) => {
+    const ao = getEntity(a.entity)?.applyOrder ?? 999;
+    const bo = getEntity(b.entity)?.applyOrder ?? 999;
+    if (ao !== bo) return ao - bo;
+    return String(a.client_timestamp || '').localeCompare(String(b.client_timestamp || ''));
+  });
+
+  for (const event of events) {
     const result = applySyncEvent(db, event, deviceId);
     switch (result.status) {
       case 'applied':

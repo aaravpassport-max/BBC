@@ -2,8 +2,9 @@
 
 **Status:** Approved for scope — **include all application data** (business + Life modules + shared configuration).  
 **Phase 0:** Implemented in v1.2.0 (device, folder, outbox, settings UI).  
-**Phase 1:** Implemented in v1.2.1 — clients, inquiries, activities, payments (enqueue + inbound apply + basic conflicts).  
-**Phase 2+:** Reminders/tasks, life modules, attachments — not started.  
+**Phase 1:** Implemented in v1.2.1 — clients, inquiries, activities, payments.  
+**Phase 2:** Implemented in v1.2.2 — reminders/tasks, reminder logs, enquiry follow-up reminders (+ renderer SQL hook).  
+**Phase 3+:** Life modules, stages/templates, attachments — not started.  
 **Architecture:** Existing ILRS + local SQLite per PC + Google Drive for Desktop folder + record-level change files. No server, no Google API, no syncing `ilrs.db`.
 
 ---

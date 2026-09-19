@@ -121,6 +121,8 @@ function changeReminderStage(db, itemId, stageKey, options = {}, now = new Date(
   );
 
   const updated = db.prepare('SELECT * FROM reminders WHERE id = ?').get(itemId);
+  const { maybeSyncEntity } = require('./sync-hook');
+  maybeSyncEntity(db, 'reminder', itemId);
   return { success: true, item: updated, stage, schedule };
 }
 
@@ -129,6 +131,8 @@ function setInitialReminderStage(db, itemId, entityType, stageKey) {
   db.prepare(`
     UPDATE reminders SET stage_key = ?, stage_changed_at = datetime('now') WHERE id = ?
   `).run(key, itemId);
+  const { maybeSyncEntity } = require('./sync-hook');
+  maybeSyncEntity(db, 'reminder', itemId);
 }
 
 module.exports = {

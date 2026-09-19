@@ -24,6 +24,22 @@ function getReminder(db, id) {
   return db.prepare('SELECT * FROM reminders WHERE id = ?').get(id);
 }
 
+function logReminderAction(db, reminderId, action) {
+  const logId = randomUUID();
+  db.prepare(`
+    INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
+    VALUES (?, ?, ?, datetime('now'))
+  `).run(logId, reminderId, action);
+  const { maybeSyncEntity } = require('./sync-hook');
+  maybeSyncEntity(db, 'reminder_log', logId);
+  return logId;
+}
+
+function syncReminderRow(db, id) {
+  const { maybeSyncEntity } = require('./sync-hook');
+  maybeSyncEntity(db, 'reminder', id);
+}
+
 /**
  * Mark one occurrence done. Recurring series stays active with next_fire advanced.
  */
@@ -34,10 +50,8 @@ function updateWorkflowStatus(db, id, workflowStatus, now = new Date()) {
   db.prepare(`
     UPDATE reminders SET workflow_status = ?, updated_at = ? WHERE id = ?
   `).run(workflowStatus, toLocalISO(now), id);
-  db.prepare(`
-    INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
-    VALUES (?, ?, ?, datetime('now'))
-  `).run(randomUUID(), id, workflowStatus);
+  logReminderAction(db, id, workflowStatus);
+  syncReminderRow(db, id);
 
   return { success: true, workflowStatus };
 }
@@ -58,10 +72,8 @@ function completeOccurrence(db, id, now = new Date()) {
           next_fire = '', last_completed = ?, updated_at = ?
       WHERE id = ?
     `).run(LIFECYCLE_COMPLETED, firedAt, firedAt, id);
-    db.prepare(`
-      INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
-      VALUES (?, ?, 'completed', datetime('now'))
-    `).run(randomUUID(), id);
+    logReminderAction(db, id, 'completed');
+    syncReminderRow(db, id);
     const { mirrorReminderToInquiryActivity } = require('./inquiry-activity-sync');
     mirrorReminderToInquiryActivity(db, reminder, 'task_completed', `Task completed: ${reminder.title}`, '');
     return { success: true, recurring: false, task: true };
@@ -75,10 +87,8 @@ function completeOccurrence(db, id, now = new Date()) {
           lifecycle_status = ?, last_completed = ?, updated_at = ?
       WHERE id = ?
     `).run(nextFire, LIFECYCLE_ACTIVE, firedAt, firedAt, id);
-    db.prepare(`
-      INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
-      VALUES (?, ?, 'completed_occurrence', datetime('now'))
-    `).run(randomUUID(), id);
+    logReminderAction(db, id, 'completed_occurrence');
+    syncReminderRow(db, id);
     return { success: true, recurring: true, nextFire };
   }
 
@@ -88,10 +98,8 @@ function completeOccurrence(db, id, now = new Date()) {
         next_fire = '', last_completed = ?, updated_at = ?
     WHERE id = ?
   `).run(LIFECYCLE_COMPLETED, firedAt, firedAt, id);
-  db.prepare(`
-    INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
-    VALUES (?, ?, 'completed', datetime('now'))
-  `).run(randomUUID(), id);
+  logReminderAction(db, id, 'completed');
+  syncReminderRow(db, id);
   const { mirrorReminderToInquiryActivity } = require('./inquiry-activity-sync');
   mirrorReminderToInquiryActivity(db, reminder, 'reminder_completed', `Reminder completed: ${reminder.title}`, '');
   return { success: true, recurring: false };
@@ -116,10 +124,8 @@ function snoozeReminder(db, id, minutes, now = new Date()) {
     SET next_fire = ?, alarm_rings = 0, snooze_count = snooze_count + 1, updated_at = ?
     WHERE id = ?
   `).run(newFire, toLocalISO(now), id);
-  db.prepare(`
-    INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
-    VALUES (?, ?, 'snoozed', datetime('now'))
-  `).run(randomUUID(), id);
+  logReminderAction(db, id, 'snoozed');
+  syncReminderRow(db, id);
 
   return { success: true, minutes: duration, nextFire: newFire };
 }
@@ -151,10 +157,8 @@ function postponeReminder(db, id, dateStr, timeStr, now = new Date()) {
         status = 'active', workflow_status = ?, last_completed = NULL, updated_at = ?
     WHERE id = ?
   `).run(dateStr, resolvedTime, nextFire, workflowStatus, toLocalISO(now), id);
-  db.prepare(`
-    INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
-    VALUES (?, ?, 'postponed', datetime('now'))
-  `).run(randomUUID(), id);
+  logReminderAction(db, id, 'postponed');
+  syncReminderRow(db, id);
 
   return { success: true, nextFire };
 }
@@ -165,10 +169,8 @@ function deleteReminder(db, id, now = new Date()) {
   db.prepare(`
     UPDATE reminders SET status = 'deleted', updated_at = ? WHERE id = ?
   `).run(toLocalISO(now), id);
-  db.prepare(`
-    INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
-    VALUES (?, ?, 'deleted', datetime('now'))
-  `).run(randomUUID(), id);
+  logReminderAction(db, id, 'deleted');
+  syncReminderRow(db, id);
   return { success: true };
 }
 
@@ -209,10 +211,8 @@ function acknowledgeReminder(db, id, now = new Date()) {
     SET alarm_rings = ?, missed_count = COALESCE(missed_count, 0) + 1, updated_at = ?
     WHERE id = ?
   `).run(ALARM_MAX_RINGS, toLocalISO(now), id);
-  db.prepare(`
-    INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
-    VALUES (?, ?, 'acknowledged', datetime('now'))
-  `).run(randomUUID(), id);
+  logReminderAction(db, id, 'acknowledged');
+  syncReminderRow(db, id);
 
   return { success: true };
 }
@@ -239,10 +239,8 @@ function setReminderLifecycle(db, id, lifecycle, now = new Date()) {
     WHERE id = ?
   `).run(patch.lifecycle_status, status, workflow, nextFire, toLocalISO(now), id);
 
-  db.prepare(`
-    INSERT INTO reminder_logs (id, reminder_id, action, timestamp)
-    VALUES (?, ?, ?, datetime('now'))
-  `).run(randomUUID(), id, `lifecycle_${lc}`);
+  logReminderAction(db, id, `lifecycle_${lc}`);
+  syncReminderRow(db, id);
 
   try {
     const { mirrorInquiryLifecycleFromReminder } = require('./inquiry-actions');

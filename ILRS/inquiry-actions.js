@@ -134,19 +134,25 @@ function syncInquiryFollowUpReminder(db, inquiryId, now = new Date()) {
   const inquiry = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
   if (!inquiry || inquiry.outcome_status === 'deleted') return;
 
+  const retiring = db.prepare(`
+    SELECT id FROM reminders WHERE source_type = 'inquiry' AND source_id = ? AND status != 'deleted'
+  `).all(inquiryId);
   db.prepare(`
     UPDATE reminders SET status = 'deleted', updated_at = datetime('now')
     WHERE source_type = 'inquiry' AND source_id = ? AND status != 'deleted'
   `).run(inquiryId);
+  const { maybeSyncEntity } = require('./sync-hook');
+  for (const row of retiring) maybeSyncEntity(db, 'reminder', row.id);
 
   if (!shouldMaintainInquiryFollowUp(inquiry)) return;
 
-  createFollowUpReminder(db, inquiry, {
+  const newReminderId = createFollowUpReminder(db, inquiry, {
     title: inquiry.next_action ? `${inquiry.next_action}: ${inquiry.client_name}` : undefined,
     date: inquiry.next_follow_up,
     time: inquiry.next_follow_up_time || '09:00',
     now,
   });
+  if (newReminderId) maybeSyncEntity(db, 'reminder', newReminderId);
 }
 
 function createFollowUpReminder(db, inquiry, { title, date, time, now = new Date() }) {
@@ -203,6 +209,7 @@ function syncLinkedReminderLifecycles(db, inquiryId, lifecycle) {
       updated_at = datetime('now')
     WHERE id = ?
   `);
+  const { maybeSyncEntity } = require('./sync-hook');
   for (const row of rows) {
     upd.run(
       patch.lifecycle_status,
@@ -211,6 +218,7 @@ function syncLinkedReminderLifecycles(db, inquiryId, lifecycle) {
       patch.clear_schedule ? 1 : 0,
       row.id,
     );
+    maybeSyncEntity(db, 'reminder', row.id);
   }
 }
 

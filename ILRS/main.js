@@ -2,7 +2,8 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, powerMonitor } =
 const path = require('path');
 const fs = require('fs');
 const { version: APP_VERSION } = require('./package.json');
-const { runSyncMigrationV20, runSyncMigrationV21 } = require('./sync-migration');
+const { runSyncMigrationV20, runSyncMigrationV21, runSyncMigrationV22 } = require('./sync-migration');
+const { maybeSyncAfterDbMutation } = require('./sync-db-mutation');
 const {
   getSyncStatus,
   runSyncCycle,
@@ -439,6 +440,7 @@ function setupIPC() {
         return { success: true, data: stmt.all(...(params || [])) };
       }
       const result = stmt.run(...(params || []));
+      maybeSyncAfterDbMutation(db, sql, params || []);
       return { success: true, data: result };
     } catch (err) {
       console.error('DB Error:', err.message, sql);
@@ -1407,6 +1409,11 @@ function repairReminderSchedules() {
       runSyncMigrationV21(db);
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '21')").run();
       console.log('Multi-computer sync phase 1 migration v21 complete');
+    }
+    if (version < 22) {
+      runSyncMigrationV22(db);
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '22')").run();
+      console.log('Multi-computer sync phase 2 migration v22 complete');
     }
   } catch (err) {
     console.error('repairReminderSchedules error:', err.message);
