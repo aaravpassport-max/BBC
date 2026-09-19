@@ -1,7 +1,8 @@
 # ILRS — Multi-computer sync implementation plan
 
 **Status:** Approved for scope — **include all application data** (business + Life modules + shared configuration).  
-**Not started:** Sync engine code (await explicit “go implement” if still required per phase).  
+**Phase 0:** Implemented in v1.2.0 (device, folder, outbox, processed-event discovery, settings UI).  
+**Phase 1+:** Record apply and entity hooks — not started.  
 **Architecture:** Existing ILRS + local SQLite per PC + Google Drive for Desktop folder + record-level change files. No server, no Google API, no syncing `ilrs.db`.
 
 ---

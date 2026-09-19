@@ -38,6 +38,13 @@ contextBridge.exposeInMainWorld('ilrs', {
   showWindow: () => ipcRenderer.send('show-window'),
   openBackupFolder: (path) => ipcRenderer.send('open-backup-folder', path),
   performBackup: (force = false) => ipcRenderer.invoke('perform-backup', { force }),
+
+  getSyncStatus: () => ipcRenderer.invoke('get-sync-status'),
+  selectSyncFolder: () => ipcRenderer.invoke('select-sync-folder'),
+  verifySyncFolder: (folderPath) => ipcRenderer.invoke('verify-sync-folder', { folderPath }),
+  saveSyncSettings: (payload) => ipcRenderer.invoke('save-sync-settings', payload),
+  syncNow: () => ipcRenderer.invoke('sync-now'),
+  resetSyncState: () => ipcRenderer.invoke('reset-sync-state'),
   createInquiry: (data) => ipcRenderer.invoke('create-inquiry', data),
   convertReminderToInquiry: (reminderId, data) =>
     ipcRenderer.invoke('convert-reminder-to-inquiry', { reminderId, data }),

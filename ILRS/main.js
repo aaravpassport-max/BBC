@@ -2,6 +2,16 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, dialog, shell, powerMonitor } =
 const path = require('path');
 const fs = require('fs');
 const { version: APP_VERSION } = require('./package.json');
+const { runSyncMigrationV20 } = require('./sync-migration');
+const {
+  getSyncStatus,
+  runSyncCycle,
+  resetSyncState,
+  configureSyncFolder,
+  saveSyncSettings,
+  startSyncScheduler,
+  stopSyncScheduler,
+} = require('./sync-engine');
 const {
   showDesktopNotification,
   dismissNotificationsForItem,
@@ -927,6 +937,84 @@ function setupIPC() {
     documents: app.getPath('documents'),
   }));
 
+  ipcMain.handle('get-sync-status', async () => {
+    try {
+      if (!db) return { success: false, error: 'Database not ready' };
+      return { success: true, status: getSyncStatus(db, APP_VERSION) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('select-sync-folder', async () => {
+    try {
+      const { filePaths, canceled } = await dialog.showOpenDialog(mainWindow, {
+        title: 'Select Google Drive folder for ILRS sync',
+        properties: ['openDirectory', 'createDirectory'],
+      });
+      if (canceled || !filePaths?.[0]) return { success: false, canceled: true };
+      const result = configureSyncFolder(db, filePaths[0]);
+      if (result.success) {
+        startSyncScheduler(db, APP_VERSION);
+        notifyRendererDataChanged();
+      }
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('verify-sync-folder', async (_event, { folderPath } = {}) => {
+    try {
+      const { verifySyncFolder } = require('./sync-folder');
+      const pathToUse = folderPath || require('./sync-device').getSetting(db, 'sync_folder_path', '');
+      if (!pathToUse) return { success: false, error: 'No folder configured' };
+      return verifySyncFolder(pathToUse);
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('save-sync-settings', async (_event, payload = {}) => {
+    try {
+      if (!db) return { success: false, error: 'Database not ready' };
+      saveSyncSettings(db, {
+        enabled: payload.enabled !== undefined ? (payload.enabled ? '1' : '0') : undefined,
+        auto: payload.auto !== undefined ? (payload.auto ? '1' : '0') : undefined,
+        interval_seconds: payload.interval_seconds,
+        device_name: payload.device_name,
+        office_label: payload.office_label,
+      });
+      startSyncScheduler(db, APP_VERSION);
+      notifyRendererDataChanged();
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('sync-now', async () => {
+    try {
+      if (!db) return { success: false, error: 'Database not ready' };
+      const result = runSyncCycle(db, APP_VERSION, { force: true });
+      notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('reset-sync-state', async () => {
+    try {
+      if (!db) return { success: false, error: 'Database not ready' };
+      const result = resetSyncState(db, () => performBackup(true));
+      notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.on('minimize-to-tray', () => mainWindow.hide());
   ipcMain.on('show-window', focusMainWindow);
 }
@@ -1309,6 +1397,11 @@ function repairReminderSchedules() {
       runInquiryWorkPhaseMigrationV19();
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '19')").run();
       console.log('Inquiry work_phase migration v19 complete');
+    }
+    if (version < 20) {
+      runSyncMigrationV20(db);
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '20')").run();
+      console.log('Multi-computer sync migration v20 complete');
     }
   } catch (err) {
     console.error('repairReminderSchedules error:', err.message);
@@ -1831,6 +1924,7 @@ app.whenReady().then(() => {
     syncAllSchedulesToSystemClock();
     startScheduler();
     scheduleBackup();
+    startSyncScheduler(db, APP_VERSION);
     applyAutoStart(getSetting(db, 'auto_start', '1') === '1');
     setTimeout(catchUpOverdueReminders, 1500);
   }
@@ -1856,6 +1950,7 @@ app.on('activate', () => {
 
 app.on('before-quit', () => {
   app.isQuitting = true;
+  stopSyncScheduler();
   if (schedulerTimer) clearInterval(schedulerTimer);
   if (tray) {
     try { tray.destroy(); } catch (_) { /* ignore */ }

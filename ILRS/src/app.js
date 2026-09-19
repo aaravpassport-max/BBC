@@ -501,6 +501,9 @@ function renderShell() {
       <div class="topbar-actions">
         <button class="topbar-btn" onclick="showSearchPalette()" title="Search everything (Ctrl+K)">🔍 Search</button>
         <button class="topbar-btn" id="focus-btn" onclick="toggleFocusMode()" title="Focus Mode">🎯 Focus</button>
+        <button class="topbar-btn" onclick="navigate('settings')" title="Sync status">
+          ☁️ <span id="sync-topbar-badge" class="notif-badge" style="display:none"></span>
+        </button>
         <button class="topbar-btn" onclick="showAlertCount()" title="Pending Alerts">
           🔔 <span id="alert-badge" class="notif-badge" style="display:none">0</span>
         </button>
@@ -519,6 +522,7 @@ function renderShell() {
   `;
 
   window.ILRSAppNav?.wireAfterShellRender?.();
+  window.ILRSSyncUI?.refreshTopbarBadge?.();
 
   wireLifecycleCardDelegates();
 
@@ -2982,6 +2986,8 @@ async function renderSettings(el) {
           </div>
         </div>
 
+        ${window.ILRSSyncUI?.syncSettingsCardHtml?.(s) || ''}
+
         <div class="card" style="margin-bottom:16px">
           <div class="settings-section-title">💾 Data & Backup</div>
           <div class="setting-row">
@@ -3041,6 +3047,8 @@ async function renderSettings(el) {
       display.textContent = `🕐 Computer time: ${live.time} · ${live.date} (${live.timezone || 'local'})`;
     }
   }, 1000);
+
+  window.ILRSSyncUI?.refreshStatus?.();
 }
 
 async function saveSettings() {
@@ -3066,6 +3074,7 @@ async function saveSettings() {
   for (const [k, v] of Object.entries(updates)) {
     await saveSetting(k, v);
   }
+  await window.ILRSSyncUI?.saveFromSettingsPage?.();
   applyTheme(updates.appearance);
   await api.applyAutoStart?.(updates.auto_start === '1');
   renderShell();
