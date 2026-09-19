@@ -1,0 +1,169 @@
+{
+  "name": "ilrs",
+  "version": "1.2.5",
+  "description": "ILRS — Intelligent Life Reminder System",
+  "author": {
+    "name": "Business OS",
+    "email": "admin@businessos.local"
+  },
+  "homepage": "https://github.com/aaravpassport-max/BBC",
+  "main": "main.js",
+  "scripts": {
+    "start": "node scripts/generate-icons.js && electron . --no-sandbox",
+    "postinstall": "node scripts/generate-icons.js && node scripts/generate-sounds.js && electron-rebuild -f -w better-sqlite3",
+    "test:timezone": "node scripts/test-timezone.js",
+    "test:alarm": "node scripts/test-alarm.js",
+    "test:verify-alarms": "electron scripts/verify-alarm-system.js --no-sandbox",
+    "test:live-alarm": "node scripts/verify-live-alarm.js",
+    "test:background-alarm": "electron scripts/test-background-alarm.js --no-sandbox",
+    "test:windows-sound": "electron scripts/test-windows-sound-path.js --no-sandbox",
+    "test:voice-text": "node scripts/test-voice-text.js",
+    "test:notification-click": "node scripts/test-notification-click.js",
+    "test:modal-dismiss": "node scripts/test-modal-dismiss.js",
+    "test:capture": "node scripts/test-capture-parse.js",
+    "test:reminder-actions": "node scripts/test-reminder-actions.js",
+    "test:module-actions": "node scripts/test-module-actions.js",
+    "test:habit-streak": "node scripts/test-habit-streak.js",
+    "test:inquiry-actions": "node scripts/test-inquiry-actions.js",
+    "test:inquiry-schedule": "node scripts/test-inquiry-schedule.js",
+    "test:inquiry-workflow": "node scripts/test-inquiry-workflow.js",
+    "test:enquiry-e2e": "node scripts/test-enquiry-workflow-e2e.js",
+    "test:inquiry-queue-tabs": "node scripts/test-inquiry-queue-tabs.js",
+    "test:packaged-modules": "node scripts/verify-packaged-modules.js",
+    "test:sync-phase0": "node scripts/test-sync-phase0.js",
+    "test:sync-phase1": "node scripts/test-sync-phase1.js",
+    "test:sync-phase2": "node scripts/test-sync-phase2.js",
+    "test:sync-phase3": "node scripts/test-sync-phase3.js",
+    "test:sync-phase4": "node scripts/test-sync-phase4.js",
+    "test:sync-phase5": "node scripts/test-sync-phase5.js",
+    "test:workflow-stages": "node scripts/test-workflow-stages.js",
+    "test:inquiry-stages": "node scripts/test-inquiry-stages.js",
+    "test:work-scheduling": "node scripts/test-work-scheduling.js",
+    "test:work-lifecycle": "node scripts/test-work-lifecycle.js",
+    "test:payments": "node scripts/test-payments.js",
+    "test:global-search": "node scripts/test-global-search.js",
+    "test:db": "node scripts/test-db-ops.js",
+    "test:e2e": "electron scripts/e2e-ipc-test.js --no-sandbox",
+    "dev": "electron . --dev --no-sandbox",
+    "prebuild": "node scripts/generate-icons.js && node scripts/generate-sounds.js",
+    "build:win": "npm run prebuild && electron-builder --win --x64",
+    "build:mac": "electron-builder --mac",
+    "build:linux": "electron-builder --linux --x64",
+    "build": "electron-builder --win --linux --x64"
+  },
+  "dependencies": {
+    "better-sqlite3": "^9.4.3",
+    "electron-store": "^8.1.0",
+    "node-cron": "^3.0.3",
+    "node-notifier": "^10.0.1",
+    "uuid": "^9.0.0"
+  },
+  "devDependencies": {
+    "@electron/rebuild": "^4.2.0",
+    "electron": "^29.0.0",
+    "electron-builder": "^24.9.1"
+  },
+  "build": {
+    "appId": "com.ilrs.app",
+    "productName": "ILRS",
+    "artifactName": "ILRS-Setup-${version}.${ext}",
+    "icon": "assets/icon.png",
+    "directories": {
+      "output": "dist"
+    },
+    "asarUnpack": [
+      "**/*.node",
+      "assets/sounds/**",
+      "assets/*.png",
+      "node_modules/node-notifier/vendor/**"
+    ],
+    "files": [
+      "main.js",
+      "preload.js",
+      "notifications.js",
+      "reminder-actions.js",
+      "module-actions.js",
+      "habit-streak.js",
+      "inquiry-actions.js",
+      "inquiry-activity-sync.js",
+      "inquiry-pipeline.js",
+      "inquiry-health-monitor.js",
+      "inquiry-stage-store.js",
+      "inquiry-templates.js",
+      "inquiry-analytics.js",
+      "work-scheduling.js",
+      "work-lifecycle.js",
+      "completion-monitor.js",
+      "payment-manager.js",
+      "payment-monitor.js",
+      "workflow-stage-pipeline.js",
+      "workflow-stage-store.js",
+      "workflow-stage-actions.js",
+      "alarm.js",
+      "sound-player.js",
+      "sound-player.html",
+      "voice-announcer.js",
+      "voice-player.html",
+      "reminder-voice.js",
+      "windows-support.js",
+      "sync-constants.js",
+      "sync-device.js",
+      "sync-folder.js",
+      "sync-outbox.js",
+      "sync-processed.js",
+      "sync-engine.js",
+      "sync-migration.js",
+      "sync-entities.js",
+      "sync-hook.js",
+      "sync-publish.js",
+      "sync-apply.js",
+      "sync-conflicts.js",
+      "sync-db-mutation.js",
+      "sync-entity-rows.js",
+      "sync-drive-backup.js",
+      "sync-attachments.js",
+      "sync-bootstrap.js",
+      "attachment-actions.js",
+      "assets/sounds/**/*",
+      "src/**/*",
+      "assets/**/*",
+      "node_modules/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "signAndEditExecutable": false
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/icon.png"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "icon": "assets/icon.png",
+      "category": "Office",
+      "maintainer": "Business OS <admin@businessos.local>"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "ILRS",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false,
+      "include": "build/installer.nsh"
+    }
+  }
+}
