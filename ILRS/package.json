@@ -1,6 +1,6 @@
 {
   "name": "ilrs",
-  "version": "1.2.3",
+  "version": "1.2.4",
   "description": "ILRS — Intelligent Life Reminder System",
   "author": {
     "name": "Business OS",
@@ -34,6 +34,7 @@
     "test:sync-phase1": "node scripts/test-sync-phase1.js",
     "test:sync-phase2": "node scripts/test-sync-phase2.js",
     "test:sync-phase3": "node scripts/test-sync-phase3.js",
+    "test:sync-phase4": "node scripts/test-sync-phase4.js",
     "test:workflow-stages": "node scripts/test-workflow-stages.js",
     "test:inquiry-stages": "node scripts/test-inquiry-stages.js",
     "test:work-scheduling": "node scripts/test-work-scheduling.js",
@@ -117,6 +118,8 @@
       "sync-apply.js",
       "sync-conflicts.js",
       "sync-db-mutation.js",
+      "sync-entity-rows.js",
+      "sync-drive-backup.js",
       "assets/sounds/**/*",
       "src/**/*",
       "assets/**/*",

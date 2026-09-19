@@ -43,10 +43,14 @@ function createTemplate(db, data) {
     data.notes || '',
     parseInt(data.sortOrder, 10) || 99,
   );
+  const { maybeSyncEntity } = require('./sync-hook');
+  maybeSyncEntity(db, 'inquiry_template', id);
   return { success: true, template: db.prepare('SELECT * FROM inquiry_templates WHERE id = ?').get(id) };
 }
 
 function deleteTemplate(db, id) {
+  const { publishRecordChange } = require('./sync-publish');
+  publishRecordChange(db, 'inquiry_template', id, 'delete');
   db.prepare('DELETE FROM inquiry_templates WHERE id = ?').run(id);
   return { success: true };
 }

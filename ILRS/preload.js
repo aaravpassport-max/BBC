@@ -45,6 +45,9 @@ contextBridge.exposeInMainWorld('ilrs', {
   saveSyncSettings: (payload) => ipcRenderer.invoke('save-sync-settings', payload),
   syncNow: () => ipcRenderer.invoke('sync-now'),
   resetSyncState: () => ipcRenderer.invoke('reset-sync-state'),
+  listSyncConflicts: () => ipcRenderer.invoke('list-sync-conflicts'),
+  resolveSyncConflict: (conflictId) => ipcRenderer.invoke('resolve-sync-conflict', { conflictId }),
+  runDriveBackup: () => ipcRenderer.invoke('run-drive-backup'),
   createInquiry: (data) => ipcRenderer.invoke('create-inquiry', data),
   convertReminderToInquiry: (reminderId, data) =>
     ipcRenderer.invoke('convert-reminder-to-inquiry', { reminderId, data }),

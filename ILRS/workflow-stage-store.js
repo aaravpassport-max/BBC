@@ -56,6 +56,10 @@ function saveWorkflowStage(db, stage) {
     JSON.stringify(stage.fields || []),
     JSON.stringify(stage.automation || {}),
   );
+  try {
+    const { maybeSyncEntity } = require('./sync-hook');
+    maybeSyncEntity(db, 'workflow_stage', `${stage.entityType}:${stage.key}`);
+  } catch (_) { /* sync optional */ }
 }
 
 function deleteWorkflowStage(db, entityType, key, reassignTo = null) {
@@ -70,6 +74,10 @@ function deleteWorkflowStage(db, entityType, key, reassignTo = null) {
       'UPDATE reminders SET stage_key = ?, updated_at = datetime(\'now\') WHERE stage_key = ? AND task_type = ? AND status != ?',
     ).run(reassignTo, key, entityType, 'deleted');
   }
+  try {
+    const { publishRecordChange } = require('./sync-publish');
+    publishRecordChange(db, 'workflow_stage', `${entityType}:${key}`, 'delete');
+  } catch (_) { /* ignore */ }
   db.prepare('DELETE FROM workflow_stages WHERE key = ? AND entity_type = ?').run(key, entityType);
   return { success: true };
 }

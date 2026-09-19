@@ -15,6 +15,8 @@ const SYNC_TABLES = {
   family_members: 'family_member',
   checklists: 'checklist',
   checklist_items: 'checklist_item',
+  inquiry_stages: 'inquiry_stage',
+  inquiry_templates: 'inquiry_template',
 };
 
 function extractMutationTarget(sql, params) {

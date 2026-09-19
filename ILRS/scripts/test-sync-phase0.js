@@ -32,9 +32,9 @@ function makeDb() {
   return { db, dbPath };
 }
 
-function test(name, fn) {
+async function test(name, fn) {
   try {
-    fn();
+    await fn();
     console.log(`  ✓ ${name}`);
   } catch (err) {
     console.error(`  ✗ ${name}`);
@@ -45,21 +45,22 @@ function test(name, fn) {
 const { db, dbPath } = makeDb();
 const syncTmp = path.join(os.tmpdir(), `ilrs-sync-root-${Date.now()}`);
 
+(async () => {
 try {
-  test('device id is generated', () => {
+  await test('device id is generated', () => {
     const ctx = getDeviceContext(db);
     assert.match(ctx.device_id, /^DEVICE-[A-F0-9]{8}$/);
     assert.ok(ctx.user_id);
   });
 
-  test('configure folder creates ILRS structure', () => {
+  await test('configure folder creates ILRS structure', () => {
     const r = configureSyncFolder(db, syncTmp);
     assert.strictEqual(r.success, true);
     assert.ok(fs.existsSync(path.join(r.root, 'Sync', 'manifest.json')));
     assert.ok(fs.existsSync(path.join(r.root, 'Sync', 'Changes')));
   });
 
-  test('enqueue and publish writes change file', () => {
+  await test('enqueue and publish writes change file', () => {
     db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('sync_enabled', '1')").run();
     const ctx = getDeviceContext(db);
     enqueueChange(db, {
@@ -78,7 +79,7 @@ try {
     assert.ok(files.length >= 1);
   });
 
-  test('inbound applies foreign client events', () => {
+  await test('inbound applies foreign client events', () => {
     const root = configureSyncFolder(db, syncTmp).root;
     const foreignDir = path.join(root, 'Sync', 'Changes', '2026', '09', '19');
     fs.mkdirSync(foreignDir, { recursive: true });
@@ -122,9 +123,9 @@ try {
     assert.strictEqual(client.name, 'Raj Kumar');
   });
 
-  test('reset sync state preserves outbox and clears processed', () => {
+  await test('reset sync state preserves outbox and clears processed', async () => {
     const before = db.prepare('SELECT COUNT(*) AS c FROM sync_outbox').get().c;
-    const reset = resetSyncState(db, () => ({ success: true }));
+    const reset = await resetSyncState(db, () => ({ success: true }));
     assert.strictEqual(reset.success, true);
     const after = db.prepare('SELECT COUNT(*) AS c FROM sync_outbox').get().c;
     assert.strictEqual(after, before);
@@ -138,3 +139,7 @@ try {
   try { fs.unlinkSync(dbPath); } catch (_) { /* ignore */ }
   try { fs.rmSync(syncTmp, { recursive: true, force: true }); } catch (_) { /* ignore */ }
 }
+})().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

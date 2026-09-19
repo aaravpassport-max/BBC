@@ -2,6 +2,24 @@
  * Phase 1 synced entities (business records).
  */
 const ENTITIES = {
+  inquiry_stage: {
+    table: 'inquiry_stages',
+    idColumn: 'key',
+    applyOrder: 5,
+    dependencies: [],
+  },
+  workflow_stage: {
+    table: 'workflow_stages',
+    idColumn: 'key',
+    applyOrder: 6,
+    dependencies: [],
+  },
+  inquiry_template: {
+    table: 'inquiry_templates',
+    idColumn: 'id',
+    applyOrder: 7,
+    dependencies: [],
+  },
   client: {
     table: 'clients',
     idColumn: 'id',

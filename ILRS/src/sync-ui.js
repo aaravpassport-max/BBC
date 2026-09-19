@@ -19,6 +19,8 @@
     const deviceName = s.sync_device_name || '';
     const office = s.sync_office_label || 'Main Office';
     const deviceId = s.sync_device_id || '—';
+    const driveBackup = s.sync_drive_backup === '1';
+    const backupRetention = parseInt(s.sync_drive_backup_retention, 10) || 14;
 
     return `
       <div class="card" style="margin-bottom:16px" id="sync-settings-card">
@@ -69,8 +71,21 @@
             <div class="setting-desc" style="font-family:var(--font-mono)">${deviceId}</div>
           </div>
         </div>
+        <div class="setting-row">
+          <div class="setting-info">
+            <div class="setting-label">Drive backup copies</div>
+            <div class="setting-desc">Versioned .db files in ILRS/Backups (separate from change sync)</div>
+          </div>
+          <div class="toggle ${driveBackup ? 'on' : ''}" id="t-sync-drive-backup" onclick="this.classList.toggle('on')"></div>
+        </div>
+        <div class="setting-row">
+          <div class="setting-info"><div class="setting-label">Keep backups (count)</div></div>
+          <input type="number" class="form-input" style="width:80px" id="s-sync-backup-retention" value="${backupRetention}" min="3" max="60"/>
+        </div>
+        <div id="sync-conflicts-panel" style="margin-top:12px;font-size:12px;color:var(--text-secondary)"></div>
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
           <button type="button" class="btn btn-primary btn-sm" onclick="ILRSSyncUI.syncNow()">↻ Sync now</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="ILRSSyncUI.runDriveBackup()">🗄️ Backup to Drive folder</button>
           <button type="button" class="btn btn-ghost btn-sm" onclick="ILRSSyncUI.resetState()">Reset local sync state</button>
         </div>
       </div>
@@ -108,9 +123,34 @@
     }
   }
 
+  async function refreshConflictsPanel() {
+    const panel = document.getElementById('sync-conflicts-panel');
+    if (!panel) return;
+    const res = await window.ilrs?.listSyncConflicts?.();
+    const rows = res?.conflicts || [];
+    if (!rows.length) {
+      panel.innerHTML = '<div style="color:var(--normal)">No open sync conflicts.</div>';
+      return;
+    }
+    panel.innerHTML = `
+      <div style="font-weight:600;margin-bottom:6px;color:var(--critical)">Sync conflicts (${rows.length})</div>
+      <ul style="margin:0;padding-left:18px;line-height:1.6">
+        ${rows.slice(0, 8).map((c) => `
+          <li>
+            <strong>${c.entity}</strong> · ${c.record_id}
+            <button type="button" class="btn btn-ghost btn-sm" style="margin-left:6px;padding:2px 6px"
+              onclick="ILRSSyncUI.resolveConflict('${c.id}')">Mark resolved</button>
+          </li>
+        `).join('')}
+      </ul>
+      <p style="margin:8px 0 0;font-size:11px">Resolve data on the affected record locally, then mark resolved.</p>
+    `;
+  }
+
   async function refreshStatus() {
     const res = await window.ilrs?.getSyncStatus?.();
     if (res?.success) renderStatusPanel(res.status);
+    await refreshConflictsPanel();
     return res;
   }
 
@@ -158,6 +198,27 @@
     }
   }
 
+  async function resolveConflict(conflictId) {
+    const res = await window.ilrs?.resolveSyncConflict?.(conflictId);
+    if (res?.success) {
+      toast('Conflict marked resolved');
+      await refreshStatus();
+    } else {
+      toast(res?.error || 'Could not resolve', 'warning');
+    }
+  }
+
+  async function runDriveBackup() {
+    const res = await window.ilrs?.runDriveBackup?.();
+    if (res?.success) {
+      toast(res.warning ? 'Drive backup saved (sync not fully settled)' : 'Drive backup saved');
+    } else if (res?.skipped) {
+      toast('Enable Drive backup and set a sync folder first', 'warning');
+    } else {
+      toast(res?.error || 'Backup failed', 'warning');
+    }
+  }
+
   function collectSettingsFromForm() {
     return {
       enabled: document.getElementById('t-sync-enabled')?.classList.contains('on'),
@@ -165,6 +226,8 @@
       interval_seconds: document.getElementById('s-sync-interval')?.value || '120',
       device_name: document.getElementById('s-sync-device-name')?.value?.trim(),
       office_label: document.getElementById('s-sync-office')?.value?.trim(),
+      drive_backup: document.getElementById('t-sync-drive-backup')?.classList.contains('on'),
+      drive_backup_retention: document.getElementById('s-sync-backup-retention')?.value || '14',
     };
   }
 
@@ -185,6 +248,8 @@
     verifyFolder,
     syncNow,
     resetState,
+    resolveConflict,
+    runDriveBackup,
     collectSettingsFromForm,
     saveFromSettingsPage,
     refreshTopbarBadge,

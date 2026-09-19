@@ -38,6 +38,8 @@ function saveSyncSettings(db, partial) {
     device_name: 'sync_device_name',
     office_label: 'sync_office_label',
     office_id: 'sync_office_id',
+    drive_backup: 'sync_drive_backup',
+    drive_backup_retention: 'sync_drive_backup_retention',
   };
   for (const [key, settingKey] of Object.entries(map)) {
     if (partial[key] !== undefined) {
@@ -132,8 +134,11 @@ function runSyncCycle(db, appVersion, { force = false } = {}) {
   };
 }
 
-function resetSyncState(db, backupFn) {
-  const backup = typeof backupFn === 'function' ? backupFn(true) : { success: false };
+async function resetSyncState(db, backupFn) {
+  let backup = { success: false };
+  if (typeof backupFn === 'function') {
+    backup = await backupFn(true);
+  }
   const pendingPublished = db.prepare(`
     SELECT COUNT(*) AS c FROM sync_outbox WHERE status = 'published'
   `).get()?.c || 0;

@@ -110,9 +110,22 @@ function runSyncMigrationV23(db) {
   }
 }
 
+function runSyncMigrationV24(db) {
+  for (const table of ['inquiry_stages', 'workflow_stages', 'inquiry_templates']) {
+    try {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN sync_revision INTEGER DEFAULT 1`);
+      db.prepare(`UPDATE ${table} SET sync_revision = 1 WHERE sync_revision IS NULL`).run();
+    } catch (_) { /* table or column missing */ }
+  }
+  const ins = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
+  ins.run('sync_drive_backup', '0');
+  ins.run('sync_drive_backup_retention', '14');
+}
+
 module.exports = {
   runSyncMigrationV20,
   runSyncMigrationV21,
   runSyncMigrationV22,
   runSyncMigrationV23,
+  runSyncMigrationV24,
 };

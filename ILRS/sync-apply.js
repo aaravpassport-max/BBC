@@ -5,6 +5,7 @@ const { isEventProcessed, markEventProcessed } = require('./sync-processed');
 const { runApplyingInbound } = require('./sync-hook');
 const { safeReadEventFile } = require('./sync-processed');
 const { listChangeEventFiles } = require('./sync-folder');
+const { fetchRow, deleteEntityRow, upsertEntityRow } = require('./sync-entity-rows');
 
 const tableColumnsCache = new Map();
 
@@ -105,13 +106,21 @@ function applySyncEvent(db, event, deviceId) {
 
   const payload = event.payload || {};
   const row = payload.row || payload;
-  const recordId = event.record_id || row[def.idColumn];
+  let recordId = event.record_id;
+  if (!recordId) {
+    if (event.entity === 'workflow_stage' && row.entity_type && row.key) {
+      recordId = `${row.entity_type}:${row.key}`;
+    } else {
+      recordId = row[def.idColumn];
+    }
+  }
   const incomingRevision = event.new_revision ?? payload.new_revision ?? 0;
   const baseRevision = event.base_revision ?? payload.base_revision;
 
   if (event.operation === 'delete') {
     return runApplyingInbound(() => {
-      deleteRow(db, def.table, def.idColumn, recordId);
+      const special = deleteEntityRow(db, event.entity, recordId);
+      if (!special) deleteRow(db, def.table, def.idColumn, recordId);
       markEventProcessed(db, {
         eventId: event.event_id,
         sourceDeviceId: event.device_id || '',
@@ -136,7 +145,7 @@ function applySyncEvent(db, event, deviceId) {
     return { status: 'rejected', detail: dep };
   }
 
-  const local = db.prepare(`SELECT * FROM ${def.table} WHERE ${def.idColumn} = ?`).get(recordId);
+  const local = fetchRow(db, event.entity, recordId);
   const localRevision = local?.sync_revision ?? 0;
 
   if (local && incomingRevision <= localRevision) {
@@ -175,7 +184,10 @@ function applySyncEvent(db, event, deviceId) {
   const rowToWrite = { ...row, sync_revision: incomingRevision };
 
   return runApplyingInbound(() => {
-    const result = upsertRow(db, def.table, def.idColumn, rowToWrite);
+    let result = upsertEntityRow(db, event.entity, filterRowForTable(db, def.table, rowToWrite));
+    if (!result) {
+      result = upsertRow(db, def.table, def.idColumn, rowToWrite);
+    }
     if (!result.success) {
       return { status: 'error', error: result.error };
     }

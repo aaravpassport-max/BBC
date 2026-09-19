@@ -53,6 +53,10 @@ function saveStageToDb(db, stage) {
     JSON.stringify(stage.fields || STAGE_FIELDS[stage.key] || []),
     JSON.stringify(stage.automation || STAGE_AUTOMATION[stage.key] || {}),
   );
+  try {
+    const { maybeSyncEntity } = require('./sync-hook');
+    maybeSyncEntity(db, 'inquiry_stage', stage.key);
+  } catch (_) { /* sync optional */ }
 }
 
 function saveAllStagesToDb(db, stages) {
@@ -83,6 +87,10 @@ function deleteInquiryStage(db, key, reassignTo = null) {
       WHERE stage_key = ? AND outcome_status != ?
     `).run(reassignTo, key, 'deleted');
   }
+  try {
+    const { publishRecordChange } = require('./sync-publish');
+    publishRecordChange(db, 'inquiry_stage', key, 'delete');
+  } catch (_) { /* ignore */ }
   db.prepare('DELETE FROM inquiry_stages WHERE key = ?').run(key);
   return { success: true };
 }

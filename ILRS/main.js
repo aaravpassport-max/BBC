@@ -7,7 +7,10 @@ const {
   runSyncMigrationV21,
   runSyncMigrationV22,
   runSyncMigrationV23,
+  runSyncMigrationV24,
 } = require('./sync-migration');
+const { maybeRunDriveBackup } = require('./sync-drive-backup');
+const { listOpenConflicts, markConflictResolved } = require('./sync-conflicts');
 const { maybeSyncAfterDbMutation } = require('./sync-db-mutation');
 const {
   getSyncStatus,
@@ -489,7 +492,7 @@ function setupIPC() {
   });
 
   ipcMain.handle('perform-backup', async (_event, { force } = {}) => {
-    return performBackup(Boolean(force));
+    return await performBackup(Boolean(force));
   });
 
   ipcMain.handle('create-inquiry', async (_event, data) => {
@@ -991,6 +994,8 @@ function setupIPC() {
         interval_seconds: payload.interval_seconds,
         device_name: payload.device_name,
         office_label: payload.office_label,
+        drive_backup: payload.drive_backup !== undefined ? (payload.drive_backup ? '1' : '0') : undefined,
+        drive_backup_retention: payload.drive_backup_retention,
       });
       startSyncScheduler(db, APP_VERSION);
       notifyRendererDataChanged();
@@ -1011,10 +1016,39 @@ function setupIPC() {
     }
   });
 
+  ipcMain.handle('list-sync-conflicts', async () => {
+    try {
+      if (!db) return { success: false, error: 'Database not ready' };
+      return { success: true, conflicts: listOpenConflicts(db) };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('resolve-sync-conflict', async (_event, { conflictId }) => {
+    try {
+      if (!db) return { success: false, error: 'Database not ready' };
+      const result = markConflictResolved(db, conflictId);
+      notifyRendererDataChanged();
+      return result;
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('run-drive-backup', async () => {
+    try {
+      if (!db) return { success: false, error: 'Database not ready' };
+      return await maybeRunDriveBackup(db);
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
   ipcMain.handle('reset-sync-state', async () => {
     try {
       if (!db) return { success: false, error: 'Database not ready' };
-      const result = resetSyncState(db, () => performBackup(true));
+      const result = await resetSyncState(db, () => performBackup(true));
       notifyRendererDataChanged();
       return result;
     } catch (err) {
@@ -1424,6 +1458,11 @@ function repairReminderSchedules() {
       runSyncMigrationV23(db);
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '23')").run();
       console.log('Multi-computer sync phase 3 migration v23 complete');
+    }
+    if (version < 24) {
+      runSyncMigrationV24(db);
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '24')").run();
+      console.log('Multi-computer sync phase 4 migration v24 complete');
     }
   } catch (err) {
     console.error('repairReminderSchedules error:', err.message);
@@ -1900,8 +1939,8 @@ function scheduleBackup() {
   const msUntil2AM = next2AM - now;
 
   setTimeout(() => {
-    performBackup();
-    setInterval(performBackup, 24 * 60 * 60 * 1000);
+    void performBackup();
+    setInterval(() => { void performBackup(); }, 24 * 60 * 60 * 1000);
   }, msUntil2AM);
 }
 
@@ -1909,7 +1948,7 @@ function isLocalBackupEnabled() {
   return getSetting(db, 'local_backup', '1') === '1';
 }
 
-function performBackup(force = false) {
+async function performBackup(force = false) {
   try {
     if (!db) return { success: false, error: 'Database not ready' };
     if (!force && !isLocalBackupEnabled()) {
@@ -1918,9 +1957,10 @@ function performBackup(force = false) {
     const backupDir = path.join(app.getPath('userData'), 'backups');
     if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
     const backupFile = path.join(backupDir, `ilrs-backup-${localDateStr()}.db`);
-    db.backup(backupFile);
+    await db.backup(backupFile);
     console.log('Backup created:', backupFile);
-    return { success: true, path: backupFile };
+    const driveBackup = await maybeRunDriveBackup(db);
+    return { success: true, path: backupFile, drive_backup: driveBackup };
   } catch (err) {
     console.error('Backup error:', err.message);
     return { success: false, error: err.message };

@@ -22,7 +22,23 @@ function countOpenConflicts(db) {
   return db.prepare('SELECT COUNT(*) AS c FROM sync_conflicts WHERE resolved = 0').get()?.c || 0;
 }
 
+function listOpenConflicts(db, limit = 50) {
+  return db.prepare(`
+    SELECT * FROM sync_conflicts WHERE resolved = 0
+    ORDER BY created_at DESC LIMIT ?
+  `).all(limit);
+}
+
+function markConflictResolved(db, conflictId) {
+  const row = db.prepare('SELECT * FROM sync_conflicts WHERE id = ?').get(conflictId);
+  if (!row) return { success: false, error: 'not_found' };
+  db.prepare('UPDATE sync_conflicts SET resolved = 1 WHERE id = ?').run(conflictId);
+  return { success: true };
+}
+
 module.exports = {
   recordConflict,
   countOpenConflicts,
+  listOpenConflicts,
+  markConflictResolved,
 };

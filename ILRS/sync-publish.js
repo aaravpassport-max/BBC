@@ -1,29 +1,27 @@
 const { getDeviceContext } = require('./sync-device');
 const { getEntity } = require('./sync-entities');
 const { enqueueChange } = require('./sync-outbox');
-
-function bumpRevision(db, table, idColumn, recordId) {
-  db.prepare(`
-    UPDATE ${table}
-    SET sync_revision = COALESCE(sync_revision, 0) + 1
-    WHERE ${idColumn} = ?
-  `).run(recordId);
-}
+const { fetchRow, bumpRevision } = require('./sync-entity-rows');
 
 function publishRecordChange(db, entityKey, recordId, operation = 'upsert') {
   const def = getEntity(entityKey);
   if (!def) return null;
 
-  let row = db.prepare(`SELECT * FROM ${def.table} WHERE ${def.idColumn} = ?`).get(recordId);
+  let row = fetchRow(db, entityKey, recordId);
 
   if (operation === 'upsert') {
     if (!row) return null;
-    bumpRevision(db, def.table, def.idColumn, recordId);
-    row = db.prepare(`SELECT * FROM ${def.table} WHERE ${def.idColumn} = ?`).get(recordId);
+    bumpRevision(db, entityKey, recordId);
+    row = fetchRow(db, entityKey, recordId);
   }
 
   if (!row && operation === 'delete') {
-    row = { [def.idColumn]: recordId };
+    if (entityKey === 'workflow_stage') {
+      const parts = require('./sync-entity-rows').parseWorkflowStageRecordId(recordId);
+      row = parts ? { key: parts.key, entity_type: parts.entity_type } : null;
+    } else {
+      row = { [def.idColumn]: recordId };
+    }
   }
   if (!row) return null;
 
@@ -48,6 +46,5 @@ function publishRecordChange(db, entityKey, recordId, operation = 'upsert') {
 }
 
 module.exports = {
-  bumpRevision,
   publishRecordChange,
 };
