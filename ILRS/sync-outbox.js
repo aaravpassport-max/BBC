@@ -85,6 +85,16 @@ function publishPendingOutbox(db, syncFolderRoot, deviceContext, appVersion, { b
   for (const row of pending) {
     markOutboxStatus(db, row.id, OUTBOX_STATUS.PUBLISHING);
     try {
+      if (row.entity === 'attachment') {
+        const { fetchRow } = require('./sync-entity-rows');
+        const { resolveLocalPath } = require('./attachment-actions');
+        const { ensureAttachmentOnDrive } = require('./sync-attachments');
+        const attRow = fetchRow(db, 'attachment', row.record_id);
+        const localPath = resolveLocalPath(db, row.record_id);
+        if (attRow && localPath) {
+          ensureAttachmentOnDrive(syncFolderRoot, localPath, attRow);
+        }
+      }
       const event = buildEventFile(row, deviceContext, appVersion);
       const dir = changesPathForToday(syncFolderRoot);
       const filePath = path.join(dir, `${event.event_id}.json`);

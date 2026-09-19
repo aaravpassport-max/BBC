@@ -6,7 +6,7 @@
 **Phase 2:** Implemented in v1.2.2 — reminders/tasks, reminder logs, enquiry follow-up reminders (+ renderer SQL hook).  
 **Phase 3:** Implemented in v1.2.3 — Life modules.  
 **Phase 4:** Implemented in v1.2.4 — inquiry/workflow stages, inquiry templates, Drive folder backups, conflict list UI.  
-**Phase 5+:** File attachments, bootstrap snapshot, full conflict merge UI — not started.  
+**Phase 5:** Implemented in v1.2.5 — attachments + SHA dedupe on Drive, bootstrap snapshot import/export, conflict keep-local / keep-remote UI.  
 **Architecture:** Existing ILRS + local SQLite per PC + Google Drive for Desktop folder + record-level change files. No server, no Google API, no syncing `ilrs.db`.
 
 ---
@@ -180,7 +180,7 @@ If you prefer “ring everywhere,” we can set default to all devices.
 | 2 | Reminders, tasks, logs |
 | 3 | Life modules (all tables listed in §2) |
 | 4 | Stages, templates, whitelisted settings |
-| 5 | Attachments + Drive backups + bootstrap snapshot if needed |
+| 5 | Attachments, opt-in bootstrap snapshot, conflict keep-local / keep-remote |
 
 ---
 

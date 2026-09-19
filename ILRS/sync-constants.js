@@ -10,7 +10,7 @@ const OUTBOX_STATUS = {
   FAILED: 'failed',
 };
 
-const SYNC_ROOT_SUBDIRS = ['Sync/Devices', 'Sync/Changes', 'Sync/Conflicts', 'Sync/Locks', 'Attachments', 'Backups'];
+const SYNC_ROOT_SUBDIRS = ['Sync/Devices', 'Sync/Changes', 'Sync/Conflicts', 'Sync/Locks', 'Sync/Snapshots', 'Attachments', 'Backups'];
 
 module.exports = {
   SYNC_EVENT_SCHEMA_VERSION,

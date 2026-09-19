@@ -44,6 +44,12 @@ const ENTITIES = {
     applyOrder: 30,
     dependencies: [{ table: 'inquiries', column: 'inquiry_id' }],
   },
+  attachment: {
+    table: 'attachments',
+    idColumn: 'id',
+    applyOrder: 31,
+    dependencies: [{ table: 'inquiries', column: 'inquiry_id', optional: true }],
+  },
   reminder_log: {
     table: 'reminder_logs',
     idColumn: 'id',

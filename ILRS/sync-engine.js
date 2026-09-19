@@ -13,6 +13,7 @@ const {
 } = require('./sync-folder');
 const { publishPendingOutbox, getOutboxStats, enqueueChange } = require('./sync-outbox');
 const { getProcessedStats } = require('./sync-processed');
+const { maybeImportBootstrap, maybePublishBootstrapSnapshot } = require('./sync-bootstrap');
 
 let syncIntervalTimer = null;
 
@@ -112,8 +113,12 @@ function runSyncCycle(db, appVersion, { force = false } = {}) {
   const device = getDeviceContext(db);
   const paths = pathsForRoot(settings.folder_path);
 
+  const bootstrapImport = maybeImportBootstrap(db, settings.folder_path);
+
   const publish = publishPendingOutbox(db, settings.folder_path, device, appVersion);
   const inbound = applyInboundFromFolder(db, paths.changes, device.device_id);
+
+  const bootstrapPublish = maybePublishBootstrapSnapshot(db, settings.folder_path);
 
   const lastSyncIso = new Date().toISOString();
   writeDeviceHeartbeat(settings.folder_path, {
@@ -130,6 +135,8 @@ function runSyncCycle(db, appVersion, { force = false } = {}) {
     published: publish.published,
     publish_errors: publish.errors,
     inbound,
+    bootstrap_import: bootstrapImport,
+    bootstrap_publish: bootstrapPublish,
     last_run_at: lastSyncIso,
   };
 }

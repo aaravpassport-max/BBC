@@ -91,6 +91,10 @@ function deleteRow(db, table, idColumn, recordId) {
     db.prepare(`DELETE FROM ${table} WHERE ${idColumn} = ?`).run(recordId);
     return { success: true };
   }
+  if (table === 'attachments') {
+    db.prepare(`UPDATE ${table} SET deleted_at = datetime('now') WHERE ${idColumn} = ?`).run(recordId);
+    return { success: true };
+  }
   db.prepare(`DELETE FROM ${table} WHERE ${idColumn} = ?`).run(recordId);
   return { success: true };
 }
@@ -170,7 +174,12 @@ function applySyncEvent(db, event, deviceId) {
       eventId: event.event_id,
       localRevision,
       incomingRevision,
-      detail: { base_revision: baseRevision, device_id: event.device_id },
+      detail: {
+        base_revision: baseRevision,
+        device_id: event.device_id,
+        local_row: local,
+        incoming_row: row,
+      },
     });
     markEventProcessed(db, {
       eventId: event.event_id,
@@ -190,6 +199,19 @@ function applySyncEvent(db, event, deviceId) {
     }
     if (!result.success) {
       return { status: 'error', error: result.error };
+    }
+    if (event.entity === 'attachment' && !row.deleted_at) {
+      const { getSetting } = require('./sync-device');
+      const { ensureLocalAttachmentFromDrive } = require('./sync-attachments');
+      const { getLocalAttachmentsRoot } = require('./attachment-actions');
+      const folder = getSetting(db, 'sync_folder_path', '');
+      if (folder) {
+        const localDest = require('path').join(
+          getLocalAttachmentsRoot(),
+          row.storage_rel_path || require('path').join(recordId, row.file_name),
+        );
+        ensureLocalAttachmentFromDrive(folder, row, localDest);
+      }
     }
     markEventProcessed(db, {
       eventId: event.event_id,

@@ -8,9 +8,11 @@ const {
   runSyncMigrationV22,
   runSyncMigrationV23,
   runSyncMigrationV24,
+  runSyncMigrationV25,
 } = require('./sync-migration');
 const { maybeRunDriveBackup } = require('./sync-drive-backup');
-const { listOpenConflicts, markConflictResolved } = require('./sync-conflicts');
+const { exportBootstrapSnapshot } = require('./sync-bootstrap');
+const { listOpenConflicts, markConflictResolved, resolveConflictWithStrategy } = require('./sync-conflicts');
 const { maybeSyncAfterDbMutation } = require('./sync-db-mutation');
 const {
   getSyncStatus,
@@ -1025,10 +1027,12 @@ function setupIPC() {
     }
   });
 
-  ipcMain.handle('resolve-sync-conflict', async (_event, { conflictId }) => {
+  ipcMain.handle('resolve-sync-conflict', async (_event, { conflictId, strategy }) => {
     try {
       if (!db) return { success: false, error: 'Database not ready' };
-      const result = markConflictResolved(db, conflictId);
+      const result = strategy && strategy !== 'mark_resolved'
+        ? resolveConflictWithStrategy(db, conflictId, strategy)
+        : markConflictResolved(db, conflictId);
       notifyRendererDataChanged();
       return result;
     } catch (err) {
@@ -1040,6 +1044,17 @@ function setupIPC() {
     try {
       if (!db) return { success: false, error: 'Database not ready' };
       return await maybeRunDriveBackup(db);
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  ipcMain.handle('publish-bootstrap-snapshot', async () => {
+    try {
+      if (!db) return { success: false, error: 'Database not ready' };
+      const folder = getSetting(db, 'sync_folder_path', '');
+      if (!folder) return { success: false, error: 'Sync folder not set' };
+      return exportBootstrapSnapshot(db, folder);
     } catch (err) {
       return { success: false, error: err.message };
     }
@@ -1463,6 +1478,11 @@ function repairReminderSchedules() {
       runSyncMigrationV24(db);
       db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '24')").run();
       console.log('Multi-computer sync phase 4 migration v24 complete');
+    }
+    if (version < 25) {
+      runSyncMigrationV25(db);
+      db.prepare("INSERT OR REPLACE INTO settings (key, value) VALUES ('schema_version', '25')").run();
+      console.log('Multi-computer sync phase 5 migration v25 complete');
     }
   } catch (err) {
     console.error('repairReminderSchedules error:', err.message);

@@ -86,6 +86,7 @@
         <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
           <button type="button" class="btn btn-primary btn-sm" onclick="ILRSSyncUI.syncNow()">↻ Sync now</button>
           <button type="button" class="btn btn-ghost btn-sm" onclick="ILRSSyncUI.runDriveBackup()">🗄️ Backup to Drive folder</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="ILRSSyncUI.publishBootstrap()">📦 Publish bootstrap snapshot</button>
           <button type="button" class="btn btn-ghost btn-sm" onclick="ILRSSyncUI.resetState()">Reset local sync state</button>
         </div>
       </div>
@@ -136,14 +137,20 @@
       <div style="font-weight:600;margin-bottom:6px;color:var(--critical)">Sync conflicts (${rows.length})</div>
       <ul style="margin:0;padding-left:18px;line-height:1.6">
         ${rows.slice(0, 8).map((c) => `
-          <li>
-            <strong>${c.entity}</strong> · ${c.record_id}
-            <button type="button" class="btn btn-ghost btn-sm" style="margin-left:6px;padding:2px 6px"
-              onclick="ILRSSyncUI.resolveConflict('${c.id}')">Mark resolved</button>
+          <li style="margin-bottom:6px">
+            <strong>${c.entity}</strong> · <span style="font-family:var(--font-mono);font-size:11px">${c.record_id}</span>
+            <div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px">
+              <button type="button" class="btn btn-ghost btn-sm" style="padding:2px 6px"
+                onclick="ILRSSyncUI.resolveConflict('${c.id}', 'keep_local')">Keep this PC</button>
+              <button type="button" class="btn btn-ghost btn-sm" style="padding:2px 6px"
+                onclick="ILRSSyncUI.resolveConflict('${c.id}', 'keep_remote')">Use other PC</button>
+              <button type="button" class="btn btn-ghost btn-sm" style="padding:2px 6px"
+                onclick="ILRSSyncUI.resolveConflict('${c.id}')">Mark resolved</button>
+            </div>
           </li>
         `).join('')}
       </ul>
-      <p style="margin:8px 0 0;font-size:11px">Resolve data on the affected record locally, then mark resolved.</p>
+      <p style="margin:8px 0 0;font-size:11px">Choose which copy to keep, or fix the record manually and mark resolved.</p>
     `;
   }
 
@@ -198,13 +205,25 @@
     }
   }
 
-  async function resolveConflict(conflictId) {
-    const res = await window.ilrs?.resolveSyncConflict?.(conflictId);
+  async function resolveConflict(conflictId, strategy) {
+    const res = await window.ilrs?.resolveSyncConflict?.(conflictId, strategy);
     if (res?.success) {
-      toast('Conflict marked resolved');
+      const label = strategy === 'keep_local' ? 'Kept this PC copy'
+        : strategy === 'keep_remote' ? 'Applied other PC copy'
+          : 'Conflict marked resolved';
+      toast(label);
       await refreshStatus();
     } else {
       toast(res?.error || 'Could not resolve', 'warning');
+    }
+  }
+
+  async function publishBootstrap() {
+    const res = await window.ilrs?.publishBootstrapSnapshot?.();
+    if (res?.success) {
+      toast('Bootstrap snapshot saved for new computers');
+    } else {
+      toast(res?.error || 'Could not publish snapshot', 'warning');
     }
   }
 
@@ -250,6 +269,7 @@
     resetState,
     resolveConflict,
     runDriveBackup,
+    publishBootstrap,
     collectSettingsFromForm,
     saveFromSettingsPage,
     refreshTopbarBadge,

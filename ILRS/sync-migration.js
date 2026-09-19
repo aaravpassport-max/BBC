@@ -122,10 +122,39 @@ function runSyncMigrationV24(db) {
   ins.run('sync_drive_backup_retention', '14');
 }
 
+function runSyncMigrationV25(db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS attachments (
+      id TEXT PRIMARY KEY,
+      inquiry_id TEXT DEFAULT '',
+      entity_type TEXT DEFAULT 'inquiry',
+      entity_id TEXT DEFAULT '',
+      file_name TEXT NOT NULL,
+      mime_type TEXT DEFAULT '',
+      size_bytes INTEGER DEFAULT 0,
+      sha256 TEXT NOT NULL,
+      storage_rel_path TEXT NOT NULL,
+      local_rel_path TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now')),
+      deleted_at TEXT,
+      sync_revision INTEGER DEFAULT 1
+    );
+    CREATE INDEX IF NOT EXISTS idx_attachments_entity ON attachments(entity_type, entity_id);
+  `);
+
+  const ins = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
+  ins.run('sync_bootstrap_imported', '0');
+  ins.run('sync_bootstrap_publish', '0');
+  ins.run('sync_bootstrap_imported_at', '');
+  ins.run('sync_bootstrap_exported_at', '');
+  ins.run('sync_bootstrap_source_device', '');
+}
+
 module.exports = {
   runSyncMigrationV20,
   runSyncMigrationV21,
   runSyncMigrationV22,
   runSyncMigrationV23,
   runSyncMigrationV24,
+  runSyncMigrationV25,
 };
