@@ -93,11 +93,12 @@ pub async fn ensure_engine(app: &AppHandle, state: &Mutex<EngineState>) -> Resul
     let jobs_url = format!("http://{listen_addr}/api/v1/jobs");
     let api_base = format!("http://{listen_addr}");
 
-    {
+    let marked_ready = {
         let s = state.lock().map_err(|e| e.to_string())?;
-        if s.ready && engine_is_up(&jobs_url).await {
-            return Ok(());
-        }
+        s.ready
+    };
+    if marked_ready && engine_is_up(&jobs_url).await {
+        return Ok(());
     }
 
     if engine_is_up(&jobs_url).await {
