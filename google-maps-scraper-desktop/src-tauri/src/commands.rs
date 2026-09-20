@@ -97,10 +97,16 @@ pub async fn start_search(
     params: SearchParams,
 ) -> Result<String, String> {
     ensure_engine(&app, &state.engine).await?;
+    let api_base = state
+        .engine
+        .lock()
+        .map_err(|e| e.to_string())?
+        .api_base
+        .clone();
     let storage = state.storage.clone();
     let runtime = state.runtime.clone();
     tauri::async_runtime::spawn(async move {
-        if let Err(e) = run_search_job(app.clone(), storage, runtime, params, None).await {
+        if let Err(e) = run_search_job(app.clone(), storage, runtime, params, None, api_base).await {
             let _ = app.emit("job-error", e);
         }
     });

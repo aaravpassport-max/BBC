@@ -2,7 +2,6 @@ use crate::logging;
 use serde::{Deserialize, Serialize};
 use std::time::Duration;
 
-const BASE: &str = "http://127.0.0.1:8080";
 
 #[derive(Debug, Serialize)]
 struct CreateJobBody {
@@ -33,20 +32,24 @@ pub struct JobStatusResp {
 
 pub struct ApiClient {
     client: reqwest::Client,
+    base: String,
 }
 
 impl ApiClient {
-    pub fn new() -> Result<Self, String> {
+    pub fn new(base: &str) -> Result<Self, String> {
         let client = reqwest::Client::builder()
             .timeout(Duration::from_secs(120))
             .build()
             .map_err(|e| e.to_string())?;
-        Ok(Self { client })
+        Ok(Self {
+            client,
+            base: base.trim_end_matches('/').to_string(),
+        })
     }
 
     pub async fn health(&self) -> Result<(), String> {
         self.client
-            .get(format!("{BASE}/api/v1/jobs"))
+            .get(format!("{}/api/v1/jobs", self.base))
             .send()
             .await
             .map_err(|e| format!("Search engine not reachable: {e}"))?;
@@ -60,6 +63,7 @@ impl ApiClient {
         lat: &str,
         lon: &str,
         depth: i32,
+        fast_mode: bool,
         email: bool,
         max_time: i64,
     ) -> Result<String, String> {
@@ -70,7 +74,7 @@ impl ApiClient {
             zoom: 15,
             lat: lat.into(),
             lon: lon.into(),
-            fast_mode: false,
+            fast_mode,
             radius: 10000,
             depth,
             email,
@@ -78,7 +82,7 @@ impl ApiClient {
         };
         let resp = self
             .client
-            .post(format!("{BASE}/api/v1/jobs"))
+            .post(format!("{}/api/v1/jobs", self.base))
             .json(&body)
             .send()
             .await
@@ -111,7 +115,7 @@ impl ApiClient {
     pub async fn poll_status(&self, id: &str) -> Result<String, String> {
         let resp = self
             .client
-            .get(format!("{BASE}/api/v1/jobs/{id}"))
+            .get(format!("{}/api/v1/jobs/{id}", self.base))
             .send()
             .await
             .map_err(|e| e.to_string())?;
@@ -133,7 +137,7 @@ impl ApiClient {
     pub async fn download_csv(&self, id: &str) -> Result<String, String> {
         let resp = self
             .client
-            .get(format!("{BASE}/api/v1/jobs/{id}/download"))
+            .get(format!("{}/api/v1/jobs/{id}/download", self.base))
             .send()
             .await
             .map_err(|e| e.to_string())?;

@@ -35,6 +35,7 @@ pub async fn run_search_job(
     runtime: Arc<JobRuntime>,
     params: SearchParams,
     resume_job_id: Option<String>,
+    api_base: String,
 ) -> Result<String, String> {
     runtime.stop.store(false, Ordering::SeqCst);
     runtime.pause.store(false, Ordering::SeqCst);
@@ -97,12 +98,14 @@ pub async fn run_search_job(
     let delay_ms = rate_to_delay(&params.rate_mode);
     let max_time = settings.timeout_secs as i64;
     let email = params.email_extraction;
-    let api = ApiClient::new()?;
+    let fast_mode = params.depth_label.eq_ignore_ascii_case("fast");
+    let api = ApiClient::new(&api_base)?;
     api.health().await?;
 
     let started = std::time::Instant::now();
     let mut all_rows: Vec<BusinessRow> = Vec::new();
     let mut engine_ids = Vec::new();
+    let mut step_errors: Vec<String> = Vec::new();
     let mut batch_lines: Vec<crate::models::BatchLine> = locations
         .iter()
         .map(|l| crate::models::BatchLine {
@@ -152,6 +155,7 @@ pub async fn run_search_job(
             Ok(c) => c,
             Err(e) => {
                 logging::warn(&e);
+                step_errors.push(format!("Could not locate \"{location}\" (check spelling and internet): {e}"));
                 if let Some(line) = batch_lines.iter_mut().find(|b| b.location == *location) {
                     line.status = "Failed".into();
                 }
@@ -168,6 +172,7 @@ pub async fn run_search_job(
                 &coords.0,
                 &coords.1,
                 depth,
+                fast_mode,
                 email,
                 max_time,
             )
@@ -198,6 +203,10 @@ pub async fn run_search_job(
                     break;
                 }
                 logging::error(&e);
+                step_errors.push(format!("Could not start search for \"{location}\": {e}"));
+                if let Some(line) = batch_lines.iter_mut().find(|b| b.location == *location) {
+                    line.status = "Failed".into();
+                }
                 continue;
             }
         };
@@ -210,7 +219,12 @@ pub async fn run_search_job(
                 break;
             }
             tokio::time::sleep(std::time::Duration::from_secs(8)).await;
-            status = api.poll_status(&engine_id).await.unwrap_or_else(|_| "failed".into());
+            status = api
+                .poll_status(&engine_id)
+                .await
+                .unwrap_or_else(|_| "failed".into())
+                .trim()
+                .to_lowercase();
             if poll == 15 && status == "working" && all_rows.is_empty() {
                 let _ = app.emit(
                     "job-progress-hint",
@@ -252,21 +266,32 @@ pub async fn run_search_job(
         }
 
         if status == "ok" {
-            if let Ok(csv) = api.download_csv(&engine_id).await {
-                let mut parsed = parse_csv_rows(&csv, &job_id, &query_label, location);
-                if email {
-                    for row in &mut parsed {
-                        if row.email.is_empty() && !row.website.is_empty() {
-                            if let Some(em) = find_public_email(&row.website).await {
-                                row.email = em;
+            match api.download_csv(&engine_id).await {
+                Ok(csv) => {
+                    let mut parsed = parse_csv_rows(&csv, &job_id, &query_label, location);
+                    if parsed.is_empty() {
+                        step_errors.push(format!(
+                            "Search for \"{location}\" finished with 0 listings. Try **Fast** depth, a simpler keyword (e.g. \"coffee shop\"), ensure no other Maps scraper is running, and wait 10–15 minutes on first launch while the browser prepares."
+                        ));
+                    }
+                    if email {
+                        for row in &mut parsed {
+                            if row.email.is_empty() && !row.website.is_empty() {
+                                if let Some(em) = find_public_email(&row.website).await {
+                                    row.email = em;
+                                }
+                            }
+                            if !row.title.is_empty() {
+                                last_title = row.title.clone();
                             }
                         }
-                        if !row.title.is_empty() {
-                            last_title = row.title.clone();
-                        }
                     }
+                    all_rows.extend(parsed);
                 }
-                all_rows.extend(parsed);
+                Err(e) => {
+                    logging::warn(&e);
+                    step_errors.push(format!("Could not download results for \"{location}\": {e}"));
+                }
             }
         }
 
@@ -317,10 +342,12 @@ pub async fn run_search_job(
     );
 
     if job.result_count == 0 && job.error_message.is_none() {
-        job.error_message = Some(
-            "No businesses were returned. Check your internet connection, try Fast coverage, or use a broader keyword."
-                .into(),
-        );
+        job.error_message = Some(if step_errors.is_empty() {
+            "No businesses were returned. Use the latest installer (with bundled browser), set depth to Fast, try a common keyword, and keep the app open 10–15 minutes on first run. Open logs from Settings if it persists."
+                .into()
+        } else {
+            step_errors.join(" ")
+        });
         let s = storage.lock().map_err(|e| e.to_string())?;
         s.update_job(&job)?;
     }
