@@ -1,9 +1,12 @@
 use crate::logging;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::{AppHandle, Manager};
+use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
+
+#[cfg(windows)]
+const CREATE_NO_WINDOW: u32 = 0x0800_0000;
 
 pub struct EngineState {
     pub data_dir: PathBuf,
@@ -39,6 +42,9 @@ pub async fn ensure_engine(app: &AppHandle, state: &Mutex<EngineState>) -> Resul
         .sidecar("scraper-engine")
         .map_err(|e| format!("Bundled search engine is missing. Please reinstall the application. ({e})"))?;
 
+    #[cfg(windows)]
+    let sidecar = sidecar.creation_flags(CREATE_NO_WINDOW);
+
     let (mut rx, _child) = sidecar
         .args(["-web", "-data-folder"])
         .args([data_dir.to_string_lossy().to_string()])
@@ -66,6 +72,7 @@ pub async fn ensure_engine(app: &AppHandle, state: &Mutex<EngineState>) -> Resul
             let mut s = state.lock().map_err(|e| e.to_string())?;
             s.ready = true;
             logging::info("Search engine ready");
+            let _ = app.emit("engine-ready", ());
             return Ok(());
         }
         if attempt == 60 {

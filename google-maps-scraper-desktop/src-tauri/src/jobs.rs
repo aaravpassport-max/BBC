@@ -46,15 +46,26 @@ pub async fn run_search_job(
 
     let job_id = resume_job_id.unwrap_or_else(|| Uuid::new_v4().to_string());
     let now = Utc::now().to_rfc3339();
-    let keywords = expand_keywords(&params.keywords, &params.coverage_mode);
-    let locations = params.locations.clone();
-    let units: Vec<(String, String)> = locations
+    let keywords: Vec<String> = expand_keywords(
+        &params
+            .keywords
+            .iter()
+            .map(|k| k.trim())
+            .filter(|k| !k.is_empty())
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>(),
+        &params.coverage_mode,
+    );
+    let locations: Vec<String> = params
+        .locations
         .iter()
-        .flat_map(|loc| keywords.iter().map(move |k| (k.clone(), loc.clone())))
+        .map(|l| l.trim())
+        .filter(|l| !l.is_empty())
+        .map(|s| s.to_string())
         .collect();
-    let total = units.len() as u32;
+    let total = locations.len() as u32;
 
-    if total == 0 {
+    if keywords.is_empty() || locations.is_empty() {
         return Err("Add at least one keyword and one location.".into());
     }
 
@@ -100,7 +111,7 @@ pub async fn run_search_job(
         })
         .collect();
 
-    for (idx, (keyword, location)) in units.into_iter().enumerate() {
+    for (idx, location) in locations.iter().enumerate() {
         if runtime.stop.load(Ordering::SeqCst) {
             job.status = "stopped".into();
             break;
@@ -112,13 +123,17 @@ pub async fn run_search_job(
             }
         }
 
-        let query = format!("{keyword} in {location}, India");
+        let api_keywords: Vec<String> = keywords
+            .iter()
+            .map(|k| format!("{k} in {location}, India"))
+            .collect();
+        let query_label = keywords.first().cloned().unwrap_or_default();
         update_progress(
             &app,
             &runtime,
             &job_id,
-            &location,
-            &query,
+            location,
+            &format!("{} (+{} more)", query_label, keywords.len().saturating_sub(1)),
             idx as u32,
             total,
             all_rows.len() as u32,
@@ -129,7 +144,7 @@ pub async fn run_search_job(
             false,
         );
 
-        if let Some(line) = batch_lines.iter_mut().find(|b| b.location == location) {
+        if let Some(line) = batch_lines.iter_mut().find(|b| b.location == *location) {
             line.status = "Running".into();
         }
 
@@ -137,7 +152,7 @@ pub async fn run_search_job(
             Ok(c) => c,
             Err(e) => {
                 logging::warn(&e);
-                if let Some(line) = batch_lines.iter_mut().find(|b| b.location == location) {
+                if let Some(line) = batch_lines.iter_mut().find(|b| b.location == *location) {
                     line.status = "Failed".into();
                 }
                 continue;
@@ -149,7 +164,7 @@ pub async fn run_search_job(
         let engine_id = match api
             .create_job(
                 &job.name,
-                vec![query.clone()],
+                api_keywords.clone(),
                 &coords.0,
                 &coords.1,
                 depth,
@@ -165,8 +180,8 @@ pub async fn run_search_job(
                         &app,
                         &runtime,
                         &job_id,
-                        &location,
-                        &query,
+                        location,
+                        &query_label,
                         idx as u32,
                         total,
                         all_rows.len() as u32,
@@ -189,12 +204,28 @@ pub async fn run_search_job(
         engine_ids.push(engine_id.clone());
 
         let mut status = "working".to_string();
+        let mut last_title = String::new();
         for _ in 0..120 {
             if runtime.stop.load(Ordering::SeqCst) {
                 break;
             }
             tokio::time::sleep(std::time::Duration::from_secs(8)).await;
             status = api.poll_status(&engine_id).await.unwrap_or_else(|_| "failed".into());
+            update_progress(
+                &app,
+                &runtime,
+                &job_id,
+                location,
+                &query_label,
+                idx as u32,
+                total,
+                all_rows.len() as u32,
+                all_rows.len() as u32,
+                &last_title,
+                started.elapsed().as_secs(),
+                &batch_lines,
+                false,
+            );
             if status == "ok" {
                 break;
             }
@@ -209,7 +240,7 @@ pub async fn run_search_job(
 
         if status == "ok" {
             if let Ok(csv) = api.download_csv(&engine_id).await {
-                let mut parsed = parse_csv_rows(&csv, &job_id, &keyword, &location);
+                let mut parsed = parse_csv_rows(&csv, &job_id, &query_label, location);
                 if email {
                     for row in &mut parsed {
                         if row.email.is_empty() && !row.website.is_empty() {
@@ -217,17 +248,20 @@ pub async fn run_search_job(
                                 row.email = em;
                             }
                         }
+                        if !row.title.is_empty() {
+                            last_title = row.title.clone();
+                        }
                     }
                 }
                 all_rows.extend(parsed);
             }
         }
 
-        if let Some(line) = batch_lines.iter_mut().find(|b| b.location == location) {
+        if let Some(line) = batch_lines.iter_mut().find(|b| b.location == *location) {
             line.status = if status == "ok" {
                 "Complete".into()
             } else {
-                "Failed".into()
+                "Failed".into();
             };
         }
     }
@@ -298,6 +332,13 @@ fn parse_csv_rows(csv: &str, job_id: &str, keyword: &str, location: &str) -> Vec
                 }
             }
         }
+        let row_keyword = ["keyword", "input", "query"]
+            .iter()
+            .find_map(|col| {
+                idx(col).and_then(|i| rec.get(i)).filter(|s| !s.is_empty())
+            })
+            .unwrap_or(keyword)
+            .to_string();
         out.push(BusinessRow {
             id: Uuid::new_v4().to_string(),
             job_id: job_id.to_string(),
@@ -318,7 +359,7 @@ fn parse_csv_rows(csv: &str, job_id: &str, keyword: &str, location: &str) -> Vec
             longitude: get("longitude"),
             open_hours: get("open_hours"),
             description: get("descriptions"),
-            search_keyword: keyword.to_string(),
+            search_keyword: row_keyword,
             search_location: location.to_string(),
             scraped_at: ts.clone(),
             status: get("status"),

@@ -54,6 +54,8 @@ pub fn run() {
             commands::clear_all_data,
             commands::open_logs_folder,
             commands::export_job,
+            commands::get_unfinished_job,
+            commands::discard_unfinished_job,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

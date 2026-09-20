@@ -157,6 +157,35 @@ pub fn clear_all_data(state: State<'_, AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub fn get_unfinished_job(state: State<'_, AppState>) -> Result<Option<JobRecord>, String> {
+    state
+        .storage
+        .lock()
+        .map_err(|e| e.to_string())?
+        .find_unfinished_job()
+}
+
+#[tauri::command]
+pub async fn discard_unfinished_job(
+    job_id: String,
+    state: State<'_, AppState>,
+) -> Result<(), String> {
+    let mut job = state
+        .storage
+        .lock()
+        .map_err(|e| e.to_string())?
+        .get_job(&job_id)?
+        .ok_or_else(|| "Job not found".to_string())?;
+    job.status = "stopped".into();
+    job.updated_at = chrono::Utc::now().to_rfc3339();
+    state
+        .storage
+        .lock()
+        .map_err(|e| e.to_string())?
+        .update_job(&job)
+}
+
+#[tauri::command]
 pub fn open_logs_folder(state: State<'_, AppState>) -> Result<String, String> {
     let dir = state
         .storage

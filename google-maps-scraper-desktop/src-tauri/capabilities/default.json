@@ -13,7 +13,7 @@
       "identifier": "shell:allow-execute",
       "allow": [
         {
-          "name": "binaries/scraper-engine",
+          "name": "scraper-engine",
           "sidecar": true,
           "args": true
         }

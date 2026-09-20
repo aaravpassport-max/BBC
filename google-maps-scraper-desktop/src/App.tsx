@@ -50,6 +50,9 @@ export default function App() {
   const [batchSelected, setBatchSelected] = useState<Record<string, boolean>>({});
   const [confirmBatch, setConfirmBatch] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
+  const [engineStarting, setEngineStarting] = useState(true);
+  const [engineReady, setEngineReady] = useState(false);
+  const [unfinished, setUnfinished] = useState<JobRecord | null>(null);
 
   const refreshHistory = useCallback(async () => {
     const rows = await invoke<JobRecord[]>("list_job_history");
@@ -70,16 +73,38 @@ export default function App() {
   useEffect(() => {
     (async () => {
       const report = await invoke<{ ok: boolean; message: string }>("startup_check");
-      if (!report.ok) setStartupError(report.message);
-      await invoke("ensure_search_engine").catch((e) =>
-        setStartupError(String(e)),
-      );
+      if (!report.ok) {
+        setStartupError(report.message);
+        setEngineStarting(false);
+        return;
+      }
+      await invoke("ensure_search_engine")
+        .then(() => {
+          setEngineReady(true);
+          setEngineStarting(false);
+        })
+        .catch((e) => {
+          setStartupError(String(e));
+          setEngineStarting(false);
+        });
       await loadSettings();
       await refreshHistory();
       const st = await invoke<string[]>("list_states");
       setStates(st);
+      const open = await invoke<JobRecord | null>("get_unfinished_job");
+      if (open) setUnfinished(open);
     })();
   }, [loadSettings, refreshHistory]);
+
+  useEffect(() => {
+    const un = listen("engine-ready", () => {
+      setEngineReady(true);
+      setEngineStarting(false);
+    });
+    return () => {
+      un.then((f) => f());
+    };
+  }, []);
 
   useEffect(() => {
     const unsubs = [
@@ -125,6 +150,10 @@ export default function App() {
   };
 
   const startSearch = async (override?: Partial<SearchParams>) => {
+    if (!engineReady) {
+      setStatusMsg("The search engine is still starting. Please wait a moment.");
+      return;
+    }
     setStatusMsg("");
     const params: SearchParams = {
       keywords,
@@ -663,8 +692,48 @@ export default function App() {
       </div>
     );
 
+  if (engineStarting && !startupError) {
+    return (
+      <div className="splash">
+        <div className="splash-card">
+          <h2>Google Maps Scraper</h2>
+          <p className="muted">Preparing the built-in search engine…</p>
+          <p className="muted">First launch can take up to a minute.</p>
+          <div className="spinner" aria-hidden />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-shell">
+      {unfinished && (
+        <div className="card" style={{ margin: "16px 22px 0" }}>
+          <h2>An unfinished search was found</h2>
+          <p>{unfinished.name}</p>
+          <button
+            className="btn btn-primary"
+            onClick={async () => {
+              setActiveJobId(unfinished.id);
+              setResults(await invoke("get_job_results", { jobId: unfinished.id }));
+              setUnfinished(null);
+              setView("results");
+            }}
+          >
+            View partial results
+          </button>
+          <button
+            className="btn btn-secondary"
+            style={{ marginLeft: 8 }}
+            onClick={async () => {
+              await invoke("discard_unfinished_job", { jobId: unfinished.id });
+              setUnfinished(null);
+            }}
+          >
+            Discard
+          </button>
+        </div>
+      )}
       <header className="topbar">
         <h1>Google Maps Scraper</h1>
         <div>

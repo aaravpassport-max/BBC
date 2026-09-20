@@ -214,6 +214,21 @@ impl Storage {
         rows.collect::<Result<Vec<_>, _>>().map_err(|e| e.to_string())
     }
 
+    pub fn find_unfinished_job(&self) -> Result<Option<JobRecord>, String> {
+        let mut stmt = self
+            .db
+            .prepare(
+                "SELECT id,name,keywords_json,locations_json,status,result_count,duplicates_removed,engine_job_ids,created_at,updated_at,error_message
+                 FROM jobs WHERE status IN ('running','paused') ORDER BY updated_at DESC LIMIT 1",
+            )
+            .map_err(|e| e.to_string())?;
+        let mut rows = stmt.query([]).map_err(|e| e.to_string())?;
+        if let Some(row) = rows.next().map_err(|e| e.to_string())? {
+            return Ok(Some(map_job(row)?));
+        }
+        Ok(None)
+    }
+
     pub fn clear_all_results(&self) -> Result<(), String> {
         self.db.execute("DELETE FROM businesses", []).map_err(|e| e.to_string())?;
         self.db.execute("DELETE FROM jobs", []).map_err(|e| e.to_string())?;

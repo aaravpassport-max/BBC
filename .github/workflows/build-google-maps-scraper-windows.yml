@@ -49,20 +49,33 @@ jobs:
         env:
           CI: true
 
-      - name: Create portable ZIP
+      - name: Package release folder (installer + portable)
         shell: pwsh
         run: |
           $bundle = "src-tauri/target/release/bundle"
+          $release = "GoogleMapsScraper"
+          New-Item -ItemType Directory -Force -Path $release | Out-Null
+          $setup = Get-ChildItem -Path "$bundle/nsis" -Filter "*setup.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($setup) {
+            Copy-Item $setup.FullName "$release/GoogleMapsScraper-Setup.exe" -Force
+          }
+          $portableSrc = Get-ChildItem -Path "$bundle" -Recurse -Directory -Filter "Google Maps Scraper*" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $portableSrc) {
+            $portableSrc = Get-ChildItem -Path "$bundle/portable" -ErrorAction SilentlyContinue | Select-Object -First 1
+          }
           $portableRoot = "GoogleMapsScraper-Portable"
           New-Item -ItemType Directory -Force -Path $portableRoot | Out-Null
-          if (Test-Path "$bundle/portable") {
-            Copy-Item -Path "$bundle/portable/*" -Destination $portableRoot -Recurse -Force
+          if ($portableSrc) {
+            Copy-Item -Path $portableSrc.FullName -Destination $portableRoot -Recurse -Force
+          } else {
+            Get-ChildItem -Path $bundle -Recurse -Filter "Google Maps Scraper.exe" | ForEach-Object {
+              Copy-Item $_.Directory.FullName -Destination $portableRoot -Recurse -Force
+            }
           }
-          Get-ChildItem -Path $bundle -Recurse -Filter "*.exe" | ForEach-Object {
-            Copy-Item $_.FullName $portableRoot -Force
-          }
-          Copy-Item README.txt,LICENSE.txt,SECURITY.md $portableRoot -ErrorAction SilentlyContinue
-          Compress-Archive -Path $portableRoot -DestinationPath GoogleMapsScraper-Portable.zip -Force
+          Copy-Item README.txt,LICENSE.txt,SECURITY.md,TROUBLESHOOTING.md $release -ErrorAction SilentlyContinue
+          Copy-Item README.txt,LICENSE.txt,SECURITY.md,TROUBLESHOOTING.md $portableRoot -ErrorAction SilentlyContinue
+          Compress-Archive -Path $portableRoot -DestinationPath "$release/GoogleMapsScraper-Portable.zip" -Force
+          Copy-Item "$release/GoogleMapsScraper-Portable.zip" GoogleMapsScraper-Portable.zip -Force
 
       - name: SHA256 checksums
         shell: pwsh
@@ -81,10 +94,30 @@ jobs:
         with:
           name: GoogleMapsScraper-Windows-1.0.0
           path: |
-            google-maps-scraper-desktop/src-tauri/target/release/bundle/**/*.exe
+            google-maps-scraper-desktop/GoogleMapsScraper/**
             google-maps-scraper-desktop/GoogleMapsScraper-Portable.zip
             google-maps-scraper-desktop/SHA256SUMS.txt
           retention-days: 90
+
+      - name: Publish draft release (branch builds)
+        if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: gmaps-scraper-build-${{ github.run_number }}
+          name: Google Maps Scraper 1.0.0 (build ${{ github.run_number }})
+          draft: true
+          prerelease: true
+          files: |
+            google-maps-scraper-desktop/GoogleMapsScraper/**
+            google-maps-scraper-desktop/GoogleMapsScraper-Portable.zip
+            google-maps-scraper-desktop/SHA256SUMS.txt
+          body: |
+            Ready-to-install Windows build from CI.
+            - Run **GoogleMapsScraper-Setup.exe** to install
+            - Or extract **GoogleMapsScraper-Portable.zip** and double-click **Google Maps Scraper.exe**
+            No Docker, Python, or Node required.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Release on tag
         if: startsWith(github.ref, 'refs/tags/gmaps-scraper-v')
