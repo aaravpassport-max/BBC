@@ -1,0 +1,89 @@
+/*
+ * Design token layer — direct fix for audit finding C1: the old compiled
+ * app.css had zero CSS custom properties; every color/spacing/radius was a
+ * hardcoded literal per rule, which blocked theming and guaranteed drift.
+ * Every component in this app consumes these tokens, never a raw hex/px
+ * value, so a rebrand or dark-mode pass is a token-file edit, not a
+ * hunt-and-replace across hundreds of rules.
+ */
+:root {
+  /* Color — base palette */
+  --ia-bg: #0F0F1A;
+  --ia-bg-elevated: #171727;
+  --ia-bg-card: #1D1D30;
+  --ia-border: #2A2A40;
+  --ia-border-strong: #3A3A56;
+
+  --ia-text-primary: #F4F4F8;
+  --ia-text-secondary: #A8A8C0;
+  --ia-text-tertiary: #6E6E8A;
+
+  --ia-accent: #A78BFA;
+  --ia-accent-strong: #8B5CF6;
+  --ia-accent-bg: rgba(167, 139, 250, 0.12);
+
+  --ia-success: #34D399;
+  --ia-success-bg: rgba(52, 211, 153, 0.12);
+  --ia-warning: #FBBF24;
+  --ia-warning-bg: rgba(251, 191, 36, 0.12);
+  --ia-danger: #F87171;
+  --ia-danger-bg: rgba(248, 113, 113, 0.12);
+  --ia-info: #60A5FA;
+  --ia-info-bg: rgba(96, 165, 250, 0.12);
+
+  /* Spacing scale (4px base) */
+  --ia-space-1: 4px;
+  --ia-space-2: 8px;
+  --ia-space-3: 12px;
+  --ia-space-4: 16px;
+  --ia-space-5: 20px;
+  --ia-space-6: 24px;
+  --ia-space-8: 32px;
+  --ia-space-10: 40px;
+  --ia-space-12: 48px;
+  --ia-space-16: 64px;
+
+  /* Radius scale */
+  --ia-radius-sm: 6px;
+  --ia-radius-md: 10px;
+  --ia-radius-lg: 16px;
+  --ia-radius-full: 999px;
+
+  /* Shadow scale */
+  --ia-shadow-sm: 0 1px 2px rgba(0,0,0,.24);
+  --ia-shadow-md: 0 4px 16px rgba(0,0,0,.32);
+  --ia-shadow-lg: 0 12px 32px rgba(0,0,0,.40);
+  --ia-shadow-focus: 0 0 0 3px rgba(167, 139, 250, 0.45);
+
+  /* Typography scale */
+  --ia-font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --ia-text-xs: 12px;
+  --ia-text-sm: 13px;
+  --ia-text-base: 15px;
+  --ia-text-lg: 18px;
+  --ia-text-xl: 22px;
+  --ia-text-2xl: 28px;
+  --ia-text-3xl: 36px;
+  --ia-leading-tight: 1.25;
+  --ia-leading-normal: 1.5;
+
+  /* Motion */
+  --ia-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --ia-duration-fast: 120ms;
+  --ia-duration-base: 200ms;
+
+  /* Z-index scale */
+  --ia-z-nav: 100;
+  --ia-z-modal: 1000;
+  --ia-z-toast: 1100;
+
+  /* Breakpoints (referenced in comments; media queries can't read vars, but
+     documenting them here keeps a single source of truth instead of the old
+     ad-hoc 400px/768px/769px split). */
+  --ia-bp-phone-max: 480px;
+  --ia-bp-tablet-max: 1024px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --ia-duration-fast: 0ms; --ia-duration-base: 0ms; }
+}
