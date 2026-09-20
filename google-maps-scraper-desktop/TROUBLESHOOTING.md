@@ -1,5 +1,21 @@
 # TROUBLESHOOTING.md
 
+## Installer error: “Error opening file for writing … scraper-engine.exe”
+
+The old app or search engine is still running and Windows will not overwrite the file.
+
+1. Click **Abort** on the installer error.
+2. Close **Google Maps Scraper** if it is open.
+3. Open **Task Manager** (Ctrl+Shift+Esc) → end these if listed:
+   - `Google Maps Scraper.exe`
+   - `scraper-engine.exe`
+4. Run the installer again (right-click → **Run as administrator** is fine).
+5. If it still fails, delete the install folder (not your search data):
+   - `C:\Users\<You>\AppData\Local\Google Maps Scraper\`
+   - Then run the installer again.
+
+Your saved searches stay in `%LOCALAPPDATA%\GoogleMapsScraper\` (different folder).
+
 ## Application will not start
 
 **Message:** bundled browser/search engine is missing.
