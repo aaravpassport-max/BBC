@@ -29,6 +29,7 @@ Reinstall from the official installer or portable package. Do not delete files i
 - Close **Docker / old Maps scraper kit** on port 8080, or uninstall it. This app now uses port **8765** so it does not talk to the wrong engine.
 - On first run, keep the app open on the Searching screen for **10–15 minutes** while the browser runtime copies into your user data folder.
 - Check internet access and that Windows Firewall allows **Google Maps Scraper** and **scraper-engine.exe**.
+- If location lookup fails, use **City, State** (e.g. `Bangalore, Karnataka`). The app tries OpenStreetMap, then Photon, then offline hints for major Indian cities.
 - Open **Settings → Open logs folder** and check today’s log for `[engine]` or geocoding errors.
 
 ## “Search temporarily paused” / verification

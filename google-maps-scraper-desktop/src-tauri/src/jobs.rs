@@ -100,7 +100,23 @@ pub async fn run_search_job(
     let email = params.email_extraction;
     let fast_mode = params.depth_label.eq_ignore_ascii_case("fast");
     let api = ApiClient::new(&api_base)?;
-    api.health().await?;
+    let mut engine_ok = false;
+    for attempt in 1..=20 {
+        if api.health().await.is_ok() {
+            engine_ok = true;
+            break;
+        }
+        if attempt == 1 {
+            logging::warn("Search engine not ready yet; waiting before starting job");
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+    }
+    if !engine_ok {
+        return Err(
+            "Search engine is not running. Wait until the app finishes starting, then try again."
+                .into(),
+        );
+    }
 
     let started = std::time::Instant::now();
     let mut all_rows: Vec<BusinessRow> = Vec::new();

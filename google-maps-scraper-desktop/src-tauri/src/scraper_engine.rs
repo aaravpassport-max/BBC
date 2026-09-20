@@ -79,12 +79,34 @@ fn prepare_playwright_browsers(app: &AppHandle, data_dir: &Path) -> Option<PathB
     Some(local)
 }
 
+async fn engine_is_up(jobs_url: &str) -> bool {
+    reqwest::Client::new()
+        .get(jobs_url)
+        .send()
+        .await
+        .map(|r| r.status().is_success())
+        .unwrap_or(false)
+}
+
 pub async fn ensure_engine(app: &AppHandle, state: &Mutex<EngineState>) -> Result<(), String> {
+    let listen_addr = format!("127.0.0.1:{ENGINE_PORT}");
+    let jobs_url = format!("http://{listen_addr}/api/v1/jobs");
+    let api_base = format!("http://{listen_addr}");
+
     {
         let s = state.lock().map_err(|e| e.to_string())?;
-        if s.ready {
+        if s.ready && engine_is_up(&jobs_url).await {
             return Ok(());
         }
+    }
+
+    if engine_is_up(&jobs_url).await {
+        let mut s = state.lock().map_err(|e| e.to_string())?;
+        s.ready = true;
+        s.api_base = api_base.clone();
+        logging::info(&format!("Reusing search engine already listening on {api_base}"));
+        let _ = app.emit("engine-ready", ());
+        return Ok(());
     }
 
     let data_dir = {
@@ -116,9 +138,6 @@ pub async fn ensure_engine(app: &AppHandle, state: &Mutex<EngineState>) -> Resul
             "Built-in Chromium was not found in this install. Reinstall from the latest GoogleMapsScraper-Setup.exe (build 8+).",
         );
     }
-
-    let listen_addr = format!("127.0.0.1:{ENGINE_PORT}");
-    let jobs_url = format!("http://{listen_addr}/api/v1/jobs");
 
     let (mut rx, _child) = sidecar
         .args(["-web", "-addr", &listen_addr, "-data-folder"])
