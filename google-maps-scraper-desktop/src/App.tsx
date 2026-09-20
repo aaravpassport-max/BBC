@@ -18,6 +18,7 @@ import {
   RATE_OPTIONS,
   SEARCH_PRESETS,
 } from "./lib/presets";
+import LocationManager from "./LocationManager";
 import "./styles.css";
 
 function fmtTime(secs: number) {
@@ -48,7 +49,7 @@ export default function App() {
   const [states, setStates] = useState<string[]>([]);
   const [batchState, setBatchState] = useState("Karnataka");
   const [batchDistrict, setBatchDistrict] = useState("");
-  const [batchDistricts, setBatchDistricts] = useState<{ id: string; name: string; placeCount: number }[]>([]);
+  const [batchDistricts, setBatchDistricts] = useState<{ id: string; name: string }[]>([]);
   const [batchCities, setBatchCities] = useState<string[]>([]);
   const [batchPlaceFilter, setBatchPlaceFilter] = useState("");
   const [batchSelected, setBatchSelected] = useState<Record<string, boolean>>({});
@@ -130,17 +131,20 @@ export default function App() {
         });
       await loadSettings();
       await refreshHistory();
-      const st = await invoke<string[]>("list_states");
+      const st = await invoke<string[]>("list_states").catch(() => [] as string[]);
       setStates(st);
       try {
         const m = await invoke<{
+          activeStates: number;
           statesAndUnionTerritories: number;
+          activeDistricts: number;
           districts: number;
+          activePlaces: number;
           places: number;
           generatedAt: string;
         }>("india_location_manifest");
         setLocationDbInfo(
-          `${m.statesAndUnionTerritories} states/UTs · ${m.districts} districts · ${m.places} places (updated ${m.generatedAt.slice(0, 10)})`,
+          `${m.activeStates} active states/UTs · ${m.activeDistricts} districts · ${m.activePlaces} places (${m.places} total in database)`,
         );
       } catch {
         /* optional */
@@ -238,16 +242,26 @@ export default function App() {
 
   useEffect(() => {
     if (!batchState) return;
-    invoke<{ id: string; name: string; placeCount: number }[]>("list_districts", {
+    invoke<{ id: string; name: string }[]>("list_districts", {
       stateName: batchState,
-    }).then(setBatchDistricts);
+    })
+      .then((rows) => rows.map((d) => ({ id: d.id, name: d.name })))
+      .then(setBatchDistricts)
+      .catch(() => setBatchDistricts([]));
   }, [batchState]);
 
   const discoverCities = async () => {
     const cities = await invoke<string[]>("discover_cities", {
       stateName: batchState,
       districtName: batchDistrict || null,
+    }).catch((e) => {
+      setStatusMsg(String(e));
+      return [] as string[];
     });
+    if (cities.length === 0) {
+      setStatusMsg("No active places found for this state/district. Add or activate locations in Location Manager.");
+      return;
+    }
     setBatchCities(cities);
     setBatchPlaceFilter("");
     const sel: Record<string, boolean> = {};
@@ -428,7 +442,14 @@ export default function App() {
       </div>
       <div className="card">
         <h2>State batch research</h2>
-        {locationDbInfo && <p className="muted">India location database: {locationDbInfo}</p>}
+        {locationDbInfo && (
+          <p className="muted">
+            India location database: {locationDbInfo}.{" "}
+            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setView("locations")}>
+              Open Location Manager
+            </button>
+          </p>
+        )}
         <div className="row">
           <div>
             <label>State / UT</label>
@@ -444,7 +465,7 @@ export default function App() {
               <option value="">All districts in state</option>
               {batchDistricts.map((d) => (
                 <option key={d.id} value={d.name}>
-                  {d.name} ({d.placeCount} places)
+                  {d.name}
                 </option>
               ))}
             </select>
@@ -881,6 +902,9 @@ export default function App() {
           <button className="btn btn-ghost" onClick={() => setView("dashboard")}>
             Dashboard
           </button>
+          <button className="btn btn-ghost" onClick={() => setView("locations")}>
+            Locations
+          </button>
           <button className="btn btn-ghost" onClick={() => setView("settings")}>
             Settings
           </button>
@@ -897,6 +921,12 @@ export default function App() {
         {view === "results" && renderResults()}
         {view === "batch" && renderBatch()}
         {view === "settings" && renderSettings()}
+        {view === "locations" && (
+          <LocationManager
+            onManifestChange={setLocationDbInfo}
+            onStatesChange={setStates}
+          />
+        )}
       </main>
     </div>
   );

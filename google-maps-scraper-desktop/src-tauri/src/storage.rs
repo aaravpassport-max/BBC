@@ -1,3 +1,4 @@
+use crate::location_store;
 use crate::models::{AppSettings, BusinessRow, JobRecord};
 use rusqlite::{params, Connection};
 use std::path::{Path, PathBuf};
@@ -16,7 +17,12 @@ impl Storage {
         let db = Connection::open(&db_path).map_err(|e| e.to_string())?;
         let s = Self { root, db };
         s.migrate()?;
+        location_store::ensure_seeded(&s.db)?;
         Ok(s)
+    }
+
+    pub fn db(&self) -> &Connection {
+        &self.db
     }
 
     fn migrate(&self) -> Result<(), String> {

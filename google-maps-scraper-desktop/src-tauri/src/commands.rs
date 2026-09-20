@@ -2,7 +2,6 @@ use crate::export::{
     export_csv, export_csv_path, export_json, export_json_path, export_xlsx, export_xlsx_path,
     safe_filename,
 };
-use crate::india_locations;
 use crate::jobs::{run_search_job, JobRuntime};
 use crate::models::{AppSettings, BusinessRow, JobProgress, JobRecord, SearchParams};
 use crate::scraper_engine::{ensure_engine, validate_bundled_engine, EngineState};
@@ -136,44 +135,55 @@ pub fn stop_search(state: State<'_, AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn discover_cities(state_name: String, district_name: Option<String>) -> Vec<String> {
-    india_locations::IndiaLocations::global()
-        .location_labels(&state_name, district_name.as_deref())
+pub fn discover_cities(
+    state: State<'_, AppState>,
+    state_name: String,
+    district_name: Option<String>,
+) -> Result<Vec<String>, String> {
+    let s = state.storage.lock().map_err(|e| e.to_string())?;
+    crate::location_store::location_labels(s.db(), &state_name, district_name.as_deref())
 }
 
 #[tauri::command]
-pub fn list_states() -> Vec<String> {
-    india_locations::IndiaLocations::global().state_names()
+pub fn list_states(state: State<'_, AppState>) -> Result<Vec<String>, String> {
+    let s = state.storage.lock().map_err(|e| e.to_string())?;
+    crate::location_store::list_state_names(s.db(), false)
 }
 
 #[tauri::command]
-pub fn list_state_summaries() -> Vec<india_locations::StateSummary> {
-    india_locations::IndiaLocations::global().state_summaries()
-}
-
-#[tauri::command]
-pub fn list_districts(state_name: String) -> Vec<india_locations::DistrictSummary> {
-    india_locations::IndiaLocations::global().districts_for_state(&state_name)
+pub fn list_districts(
+    state: State<'_, AppState>,
+    state_name: String,
+) -> Result<Vec<crate::location_store::LocationNode>, String> {
+    let s = state.storage.lock().map_err(|e| e.to_string())?;
+    crate::location_store::list_districts_for_state(s.db(), &state_name, false)
 }
 
 #[tauri::command]
 pub fn search_india_locations(
+    state: State<'_, AppState>,
     query: String,
     state_name: Option<String>,
     district_name: Option<String>,
     limit: Option<u32>,
-) -> Vec<india_locations::LocationSearchHit> {
-    india_locations::IndiaLocations::global().search(
+) -> Result<Vec<crate::location_store::LocationSearchHit>, String> {
+    let s = state.storage.lock().map_err(|e| e.to_string())?;
+    crate::location_store::search_locations(
+        s.db(),
         &query,
         state_name.as_deref(),
         district_name.as_deref(),
+        true,
         limit.unwrap_or(50).min(200) as usize,
     )
 }
 
 #[tauri::command]
-pub fn india_location_manifest() -> india_locations::LocationManifest {
-    india_locations::IndiaLocations::manifest()
+pub fn india_location_manifest(
+    state: State<'_, AppState>,
+) -> Result<crate::location_store::LocationManifest, String> {
+    let s = state.storage.lock().map_err(|e| e.to_string())?;
+    crate::location_store::manifest_stats(s.db())
 }
 
 #[tauri::command]

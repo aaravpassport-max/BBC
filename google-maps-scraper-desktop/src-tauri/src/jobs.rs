@@ -172,15 +172,28 @@ pub async fn run_search_job(
         } else {
             format!("{location}, India")
         };
-        let coords = match crate::geocode::geocode_place(&geocode_query).await {
-            Ok(c) => c,
-            Err(e) => {
-                logging::warn(&e);
-                step_errors.push(format!("Could not locate \"{location}\" (check spelling and internet): {e}"));
-                if let Some(line) = batch_lines.iter_mut().find(|b| b.location == *location) {
-                    line.status = "Failed".into();
+        let coords = {
+            let db_hit = {
+                let guard = storage.lock().map_err(|e| e.to_string())?;
+                crate::geocode::coords_from_location_db(guard.db(), &geocode_query)
+            };
+            if let Some(c) = db_hit {
+                logging::info(&format!("Geocoding (location database): {geocode_query}"));
+                c
+            } else {
+                match crate::geocode::geocode_place(&geocode_query).await {
+                    Ok(c) => c,
+                    Err(e) => {
+                        logging::warn(&e);
+                        step_errors.push(format!(
+                            "Could not locate \"{location}\" (check spelling and internet): {e}"
+                        ));
+                        if let Some(line) = batch_lines.iter_mut().find(|b| b.location == *location) {
+                            line.status = "Failed".into();
+                        }
+                        continue;
+                    }
                 }
-                continue;
             }
         };
 

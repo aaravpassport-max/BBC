@@ -5,6 +5,8 @@ mod email_enrich;
 mod export;
 mod geocode;
 mod india_locations;
+mod location_commands;
+mod location_store;
 mod jobs;
 mod logging;
 mod models;
@@ -50,10 +52,26 @@ pub fn run() {
             commands::stop_search,
             commands::discover_cities,
             commands::list_states,
-            commands::list_state_summaries,
             commands::list_districts,
             commands::search_india_locations,
             commands::india_location_manifest,
+            location_commands::location_manifest,
+            location_commands::location_list_states,
+            location_commands::location_list_state_nodes,
+            location_commands::location_list_districts,
+            location_commands::location_list_children,
+            location_commands::location_get,
+            location_commands::location_upsert,
+            location_commands::location_delete,
+            location_commands::location_set_active,
+            location_commands::location_merge,
+            location_commands::location_search,
+            location_commands::location_duplicates,
+            location_commands::location_export_json,
+            location_commands::location_import_json,
+            location_commands::location_import_csv,
+            location_commands::location_reset_from_bundle,
+            location_commands::location_labels_for_batch,
             commands::delete_job,
             commands::clear_all_data,
             commands::open_logs_folder,

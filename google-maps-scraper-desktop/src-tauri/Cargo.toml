@@ -1,6 +1,6 @@
 [package]
 name = "google-maps-scraper-desktop"
-version = "1.0.0"
+version = "1.2.0"
 description = "Google Maps Scraper — Windows desktop application"
 authors = ["Google Maps Scraper"]
 edition = "2021"

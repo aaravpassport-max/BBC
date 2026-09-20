@@ -26,11 +26,12 @@ struct PhotonGeometry {
     coordinates: [f64; 2],
 }
 
+/// Synchronous lookup from the user-managed location database (no network).
+pub fn coords_from_location_db(conn: &rusqlite::Connection, place: &str) -> Option<(String, String)> {
+    crate::location_store::coords_for_label(conn, place)
+}
+
 pub async fn geocode_place(place: &str) -> Result<(String, String), String> {
-    if let Some(coords) = crate::india_locations::IndiaLocations::global().coords_for_label(place) {
-        logging::info(&format!("Geocoding (India DB): {place}"));
-        return Ok(coords);
-    }
     if let Ok(coords) = try_nominatim(place).await {
         return Ok(coords);
     }

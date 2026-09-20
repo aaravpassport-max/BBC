@@ -5,7 +5,8 @@ export type View =
   | "progress"
   | "results"
   | "settings"
-  | "batch";
+  | "batch"
+  | "locations";
 
 export interface AppSettings {
   welcomeDone: boolean;

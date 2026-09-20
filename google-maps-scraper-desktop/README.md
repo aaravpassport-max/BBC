@@ -14,7 +14,7 @@ Starting point: `Google-Maps-Scraper-Desktop-App-v3.zip` in [aaravpassport-max/B
 2. Double-click **Google Maps Scraper**.
 3. Search → review → export.
 
-See [README.txt](./README.txt). India states/districts/places: [DATA.md](./DATA.md).
+See [README.txt](./README.txt). India states/districts/places: [DATA.md](./DATA.md). Use **Locations** in the app to manage the full hierarchy (import/export, duplicates, merge) — the scraper reads your live SQLite database.
 
 ## Developers
 

@@ -245,3 +245,149 @@ th {
   content: "📍";
   margin-right: 8px;
 }
+
+.content:has(.location-manager) {
+  max-width: 1280px;
+}
+
+.location-manager .loc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.inline-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  margin-right: 8px;
+}
+
+.btn-sm {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+}
+
+.hint-banner {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin-top: 12px;
+  font-size: 0.85rem;
+  word-break: break-word;
+}
+
+.pill-warn {
+  background: #fef3c7;
+  color: #92400e;
+  margin-left: 6px;
+}
+
+.loc-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.loc-tab {
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.loc-tab.active {
+  border-color: #2563eb;
+  color: #1d4ed8;
+  font-weight: 600;
+}
+
+.loc-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.loc-pane {
+  margin-bottom: 0;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.loc-pane-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.loc-pane-head h3 {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.loc-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.loc-row:hover {
+  background: #f8fafc;
+}
+
+.loc-row-selected {
+  background: #eff6ff;
+}
+
+.loc-sub {
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+
+.loc-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.loc-search-list {
+  max-height: 480px;
+  overflow: auto;
+}
+
+.loc-dup-group {
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.loc-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: grid;
+  place-items: center;
+  z-index: 100;
+  padding: 20px;
+}
+
+.loc-modal {
+  width: min(480px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  margin: 0;
+}

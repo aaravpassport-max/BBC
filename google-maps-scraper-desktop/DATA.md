@@ -1,54 +1,56 @@
 # India location database
 
-The app ships a **hierarchical India location dataset** used for batch research, geocoding, and search.
+The app maintains a **hierarchical India location dataset** in SQLite on your machine. It powers batch research, typeahead search, and geocoding (coordinates are tried from this database before online geocoders).
 
 ## Hierarchy
 
 ```
-State or Union Territory (36)
-  └── District (~763, GeoNames admin2 / LGD-aligned)
-        └── City / town (populated places, pop ≥ 5,000 or administrative seats)
+State or Union Territory
+  └── District
+        └── City / town (place)
 ```
 
-Each place has a stable **`label`** for jobs and geocoding, e.g.:
+Each place has a stable **label** for jobs and geocoding, e.g.:
 
 - `Bengaluru, Bengaluru Urban, Karnataka`
-- `Shimla, Shimla, Himachal Pradesh` (district HQ)
+- `Shimla, Shimla, Himachal Pradesh`
 
-## Sources (authoritative open data)
+## User-managed data (Location Manager)
 
-| Layer | Source | License |
-|-------|--------|---------|
-| States & UTs, ISO names/types | [dr5hn/countries-states-cities-database](https://github.com/dr5hn/countries-states-cities-database) | ODbL |
-| Districts & places | [GeoNames](https://www.geonames.org/) `admin2Codes.txt`, `IN.zip` | CC BY 4.0 |
+| Storage | Path (typical) |
+|---------|----------------|
+| SQLite database | `%LOCALAPPDATA%\GoogleMapsScraper\config\app.db` |
+| Bundled seed (first run only) | `src-tauri/assets/india-locations/india-locations.json` |
 
-Government reference: [Local Government Directory (LGD)](https://lgdirectory.gov.in/) — GeoNames admin2 districts track LGD-style divisions; regenerate when boundaries change.
+On first launch, the app **seeds** `location_nodes` from the bundled JSON. After that, **your database is not overwritten** on app updates. Use **Location Manager** (top navigation → Locations) to:
 
-## Files
+- Add, edit, rename, activate/deactivate, merge, or delete locations
+- Import/export JSON or CSV in bulk
+- Find duplicates under the same parent
+- Reset to the bundled seed (destructive)
 
-| Path | Purpose |
-|------|---------|
-| `src-tauri/assets/india-locations/india-locations.json` | Bundled dataset (generated) |
-| `src-tauri/assets/india-locations/manifest.json` | Schema version, counts, generation time |
-| `src-tauri/assets/india-locations/ATTRIBUTION.md` | Credits |
-| `scripts/build-india-locations.mjs` | Regeneration script |
+Changes apply **immediately** to batch “Load places”, search, and scraping geocoding — no reinstall or code edits.
 
-## Updating the database
+## Developer: regenerating the bundled seed
 
-From `google-maps-scraper-desktop/`:
+For shipping updated default data in installers, from `google-maps-scraper-desktop/`:
 
 ```bash
 npm run build:india-locations
 ```
 
-Commit updated `india-locations.json` and `manifest.json`. CI should run the same script and fail if output drifts (optional check).
+Commit updated `india-locations.json` and `manifest.json`.
 
-## API (Tauri commands)
+## Sources (bundled seed)
 
-- `list_states` — all state/UT names  
-- `list_districts(stateName)` — districts in a state  
-- `discover_cities(stateName, districtName?)` — location labels for batch UI  
-- `search_india_locations(query, stateName?, districtName?, limit?)` — typeahead search  
-- `india_location_manifest()` — version and counts  
+| Layer | Source | License |
+|-------|--------|---------|
+| States & UTs | [dr5hn/countries-states-cities-database](https://github.com/dr5hn/countries-states-cities-database) | ODbL |
+| Districts & places | [GeoNames](https://www.geonames.org/) | CC BY 4.0 |
 
-Geocoding tries **India DB coordinates first**, then Nominatim, Photon, and offline hints.
+## Tauri commands (scraper integration)
+
+- `list_states`, `list_districts`, `discover_cities`, `search_india_locations`, `india_location_manifest` — read **active** data from SQLite
+- `location_*` — full Location Manager API (CRUD, import/export, duplicates, reset)
+
+Geocoding order: **location DB** → Nominatim → Photon → offline city hints.
