@@ -43,10 +43,7 @@
     "windows": {
       "nsis": {
         "displayLanguageSelector": false,
-        "installerIcon": "icons/icon.ico",
-        "installMode": "both",
-        "startMenuFolder": "Google Maps Scraper",
-        "shortcutName": "Google Maps Scraper"
+        "installerIcon": "icons/icon.ico"
       }
     },
     "shortDescription": "Google Maps business research for Windows",
