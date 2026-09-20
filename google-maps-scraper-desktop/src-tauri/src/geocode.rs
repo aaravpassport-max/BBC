@@ -27,6 +27,10 @@ struct PhotonGeometry {
 }
 
 pub async fn geocode_place(place: &str) -> Result<(String, String), String> {
+    if let Some(coords) = crate::india_locations::IndiaLocations::global().coords_for_label(place) {
+        logging::info(&format!("Geocoding (India DB): {place}"));
+        return Ok(coords);
+    }
     if let Ok(coords) = try_nominatim(place).await {
         return Ok(coords);
     }

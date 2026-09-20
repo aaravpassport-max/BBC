@@ -41,6 +41,9 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
+      - name: Verify India location dataset script
+        run: npm run build:india-locations
+
       - name: Download bundled search engine (Windows)
         run: npm run download-engine:win
 

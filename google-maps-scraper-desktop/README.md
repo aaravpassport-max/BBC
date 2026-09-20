@@ -14,7 +14,7 @@ Starting point: `Google-Maps-Scraper-Desktop-App-v3.zip` in [aaravpassport-max/B
 2. Double-click **Google Maps Scraper**.
 3. Search → review → export.
 
-See [README.txt](./README.txt).
+See [README.txt](./README.txt). India states/districts/places: [DATA.md](./DATA.md).
 
 ## Developers
 

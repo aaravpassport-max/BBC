@@ -1,7 +1,7 @@
 {
   "name": "google-maps-scraper-desktop",
   "private": true,
-  "version": "1.0.5",
+  "version": "1.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "download-engine": "node scripts/download-scraper-engine.js",
-    "download-engine:win": "node scripts/download-scraper-engine.js x86_64-pc-windows-msvc"
+    "download-engine:win": "node scripts/download-scraper-engine.js x86_64-pc-windows-msvc",
+    "build:india-locations": "node scripts/build-india-locations.mjs"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

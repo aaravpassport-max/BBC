@@ -47,8 +47,12 @@ export default function App() {
   const [selected, setSelected] = useState<BusinessRow | null>(null);
   const [states, setStates] = useState<string[]>([]);
   const [batchState, setBatchState] = useState("Karnataka");
+  const [batchDistrict, setBatchDistrict] = useState("");
+  const [batchDistricts, setBatchDistricts] = useState<{ id: string; name: string; placeCount: number }[]>([]);
   const [batchCities, setBatchCities] = useState<string[]>([]);
+  const [batchPlaceFilter, setBatchPlaceFilter] = useState("");
   const [batchSelected, setBatchSelected] = useState<Record<string, boolean>>({});
+  const [locationDbInfo, setLocationDbInfo] = useState<string>("");
   const [confirmBatch, setConfirmBatch] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
   const [engineStarting, setEngineStarting] = useState(true);
@@ -128,6 +132,19 @@ export default function App() {
       await refreshHistory();
       const st = await invoke<string[]>("list_states");
       setStates(st);
+      try {
+        const m = await invoke<{
+          statesAndUnionTerritories: number;
+          districts: number;
+          places: number;
+          generatedAt: string;
+        }>("india_location_manifest");
+        setLocationDbInfo(
+          `${m.statesAndUnionTerritories} states/UTs · ${m.districts} districts · ${m.places} places (updated ${m.generatedAt.slice(0, 10)})`,
+        );
+      } catch {
+        /* optional */
+      }
       const open = await invoke<JobRecord | null>("get_unfinished_job");
       if (open) setUnfinished(open);
     })();
@@ -219,11 +236,20 @@ export default function App() {
     setView("progress");
   };
 
+  useEffect(() => {
+    if (!batchState) return;
+    invoke<{ id: string; name: string; placeCount: number }[]>("list_districts", {
+      stateName: batchState,
+    }).then(setBatchDistricts);
+  }, [batchState]);
+
   const discoverCities = async () => {
     const cities = await invoke<string[]>("discover_cities", {
       stateName: batchState,
+      districtName: batchDistrict || null,
     });
     setBatchCities(cities);
+    setBatchPlaceFilter("");
     const sel: Record<string, boolean> = {};
     cities.forEach((c) => {
       sel[c] = true;
@@ -231,6 +257,12 @@ export default function App() {
     setBatchSelected(sel);
     setView("batch");
   };
+
+  const filteredBatchCities = useMemo(() => {
+    const q = batchPlaceFilter.trim().toLowerCase();
+    if (!q) return batchCities;
+    return batchCities.filter((c) => c.toLowerCase().includes(q));
+  }, [batchCities, batchPlaceFilter]);
 
   const renderWelcome = () => (
     <div className="welcome card">
@@ -396,18 +428,30 @@ export default function App() {
       </div>
       <div className="card">
         <h2>State batch research</h2>
+        {locationDbInfo && <p className="muted">India location database: {locationDbInfo}</p>}
         <div className="row">
           <div>
-            <label>State</label>
+            <label>State / UT</label>
             <select value={batchState} onChange={(e) => setBatchState(e.target.value)}>
               {states.map((s) => (
                 <option key={s}>{s}</option>
               ))}
             </select>
           </div>
+          <div>
+            <label>District (optional)</label>
+            <select value={batchDistrict} onChange={(e) => setBatchDistrict(e.target.value)}>
+              <option value="">All districts in state</option>
+              {batchDistricts.map((d) => (
+                <option key={d.id} value={d.name}>
+                  {d.name} ({d.placeCount} places)
+                </option>
+              ))}
+            </select>
+          </div>
           <div style={{ display: "flex", alignItems: "flex-end" }}>
             <button className="btn btn-secondary" onClick={discoverCities}>
-              Discover cities
+              Load places
             </button>
           </div>
         </div>
@@ -618,11 +662,20 @@ export default function App() {
 
   const renderBatch = () => (
     <div className="card">
-      <h2>{batchState}</h2>
+      <h2>
+        {batchState}
+        {batchDistrict ? ` · ${batchDistrict}` : ""}
+      </h2>
+      <p className="muted">{batchCities.length} places loaded</p>
       {!confirmBatch ? (
         <>
-          <div className="field-grid">
-            {batchCities.map((c) => (
+          <input
+            placeholder="Filter places…"
+            value={batchPlaceFilter}
+            onChange={(e) => setBatchPlaceFilter(e.target.value)}
+          />
+          <div className="field-grid" style={{ maxHeight: 360, overflow: "auto" }}>
+            {filteredBatchCities.map((c) => (
               <label key={c}>
                 <input
                   type="checkbox"
@@ -638,14 +691,14 @@ export default function App() {
           <button
             className="btn btn-ghost"
             onClick={() => {
-              const all: Record<string, boolean> = {};
-              batchCities.forEach((c) => {
+              const all: Record<string, boolean> = { ...batchSelected };
+              filteredBatchCities.forEach((c) => {
                 all[c] = true;
               });
               setBatchSelected(all);
             }}
           >
-            Select All
+            Select all (filtered)
           </button>
           <button
             className="btn btn-ghost"
@@ -663,7 +716,7 @@ export default function App() {
         <>
           <p>
             You are about to search:{" "}
-            {Object.values(batchSelected).filter(Boolean).length} cities ·{" "}
+            {Object.values(batchSelected).filter(Boolean).length} locations ·{" "}
             {keywords.length} keywords · estimated searches:{" "}
             {Object.values(batchSelected).filter(Boolean).length * keywords.length}
           </p>
@@ -672,7 +725,7 @@ export default function App() {
             className="btn btn-primary"
             onClick={async () => {
               setConfirmBatch(false);
-              const locs = batchCities.filter((c) => batchSelected[c]).map((c) => `${c}, ${batchState}`);
+              const locs = batchCities.filter((c) => batchSelected[c]);
               setLocations(locs);
               await startSearch({
                 locations: locs,

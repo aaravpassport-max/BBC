@@ -167,7 +167,12 @@ pub async fn run_search_job(
             line.status = "Running".into();
         }
 
-        let coords = match crate::geocode::geocode_place(&format!("{location}, India")).await {
+        let geocode_query = if location.contains(',') {
+            location.clone()
+        } else {
+            format!("{location}, India")
+        };
+        let coords = match crate::geocode::geocode_place(&geocode_query).await {
             Ok(c) => c,
             Err(e) => {
                 logging::warn(&e);

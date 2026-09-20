@@ -136,16 +136,44 @@ pub fn stop_search(state: State<'_, AppState>) -> Result<(), String> {
 }
 
 #[tauri::command]
-pub fn discover_cities(state_name: String) -> Vec<String> {
-    india_locations::cities_for_state(&state_name)
+pub fn discover_cities(state_name: String, district_name: Option<String>) -> Vec<String> {
+    india_locations::IndiaLocations::global()
+        .location_labels(&state_name, district_name.as_deref())
 }
 
 #[tauri::command]
 pub fn list_states() -> Vec<String> {
-    india_locations::states()
-        .into_iter()
-        .map(|s| s.name)
-        .collect()
+    india_locations::IndiaLocations::global().state_names()
+}
+
+#[tauri::command]
+pub fn list_state_summaries() -> Vec<india_locations::StateSummary> {
+    india_locations::IndiaLocations::global().state_summaries()
+}
+
+#[tauri::command]
+pub fn list_districts(state_name: String) -> Vec<india_locations::DistrictSummary> {
+    india_locations::IndiaLocations::global().districts_for_state(&state_name)
+}
+
+#[tauri::command]
+pub fn search_india_locations(
+    query: String,
+    state_name: Option<String>,
+    district_name: Option<String>,
+    limit: Option<u32>,
+) -> Vec<india_locations::LocationSearchHit> {
+    india_locations::IndiaLocations::global().search(
+        &query,
+        state_name.as_deref(),
+        district_name.as_deref(),
+        limit.unwrap_or(50).min(200) as usize,
+    )
+}
+
+#[tauri::command]
+pub fn india_location_manifest() -> india_locations::LocationManifest {
+    india_locations::IndiaLocations::manifest()
 }
 
 #[tauri::command]
