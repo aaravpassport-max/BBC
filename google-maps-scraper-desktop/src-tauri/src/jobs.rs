@@ -205,12 +205,18 @@ pub async fn run_search_job(
 
         let mut status = "working".to_string();
         let mut last_title = String::new();
-        for _ in 0..120 {
+        for poll in 0..450 {
             if runtime.stop.load(Ordering::SeqCst) {
                 break;
             }
             tokio::time::sleep(std::time::Duration::from_secs(8)).await;
             status = api.poll_status(&engine_id).await.unwrap_or_else(|_| "failed".into());
+            if poll == 15 && status == "working" && all_rows.is_empty() {
+                let _ = app.emit(
+                    "job-progress-hint",
+                    "Preparing the built-in browser (first search can take 5–15 minutes). Keep the app open.",
+                );
+            }
             update_progress(
                 &app,
                 &runtime,
@@ -236,6 +242,13 @@ pub async fn run_search_job(
                 );
                 break;
             }
+        }
+
+        if status == "working" {
+            job.error_message = Some(
+                "The search took too long to finish. If this is your first run, wait a few minutes and try again with Fast coverage."
+                    .into(),
+            );
         }
 
         if status == "ok" {
@@ -303,7 +316,23 @@ pub async fn run_search_job(
         false,
     );
 
-    let _ = app.emit("job-completed", job_id.clone());
+    if job.result_count == 0 && job.error_message.is_none() {
+        job.error_message = Some(
+            "No businesses were returned. Check your internet connection, try Fast coverage, or use a broader keyword."
+                .into(),
+        );
+        let s = storage.lock().map_err(|e| e.to_string())?;
+        s.update_job(&job)?;
+    }
+
+    let _ = app.emit(
+        "job-completed",
+        serde_json::json!({
+            "jobId": job_id,
+            "resultCount": job.result_count,
+            "errorMessage": job.error_message,
+        }),
+    );
     Ok(job_id)
 }
 

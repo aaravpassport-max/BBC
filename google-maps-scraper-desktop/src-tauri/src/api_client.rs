@@ -21,6 +21,7 @@ struct CreateJobBody {
 
 #[derive(Debug, Deserialize)]
 pub struct CreateJobResp {
+    #[serde(alias = "ID")]
     pub id: String,
 }
 
@@ -99,8 +100,19 @@ impl ApiClient {
             .send()
             .await
             .map_err(|e| e.to_string())?;
-        let parsed: JobStatusResp = resp.json().await.map_err(|e| e.to_string())?;
-        Ok(parsed.status)
+        let body = resp.text().await.map_err(|e| e.to_string())?;
+        if let Ok(parsed) = serde_json::from_str::<JobStatusResp>(&body) {
+            return Ok(parsed.status);
+        }
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(&body) {
+            if let Some(s) = v.get("Status").and_then(|x| x.as_str()) {
+                return Ok(s.to_string());
+            }
+            if let Some(s) = v.get("status").and_then(|x| x.as_str()) {
+                return Ok(s.to_string());
+            }
+        }
+        Err(format!("Unexpected job status response: {}", &body[..body.len().min(200)]))
     }
 
     pub async fn download_csv(&self, id: &str) -> Result<String, String> {

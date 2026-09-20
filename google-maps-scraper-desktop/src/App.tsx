@@ -112,15 +112,28 @@ export default function App() {
         setProgress(e.payload);
         setView("progress");
       }),
-      listen<string>("job-completed", async (e) => {
-        setActiveJobId(e.payload);
-        const rows = await invoke<BusinessRow[]>("get_job_results", {
-          jobId: e.payload,
-        });
-        setResults(rows);
-        await refreshHistory();
-        setView("results");
-        setStatusMsg("");
+      listen<{ jobId: string; resultCount?: number; errorMessage?: string }>(
+        "job-completed",
+        async (e) => {
+          const jobId = e.payload.jobId;
+          setActiveJobId(jobId);
+          const rows = await invoke<BusinessRow[]>("get_job_results", { jobId });
+          setResults(rows);
+          await refreshHistory();
+          setView("results");
+          if (rows.length === 0 && e.payload.errorMessage) {
+            setStatusMsg(e.payload.errorMessage);
+          } else if (rows.length === 0) {
+            setStatusMsg(
+              "No businesses were returned. Try Fast coverage, a broader keyword, or wait a few minutes on first run while the browser runtime prepares.",
+            );
+          } else {
+            setStatusMsg("");
+          }
+        },
+      ),
+      listen<string>("job-progress-hint", (e) => {
+        setStatusMsg(e.payload);
       }),
       listen<string>("job-error", (e) => {
         setStatusMsg(e.payload);

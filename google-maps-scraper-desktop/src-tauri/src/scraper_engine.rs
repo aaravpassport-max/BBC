@@ -1,7 +1,8 @@
 use crate::logging;
 use std::path::PathBuf;
 use std::sync::Mutex;
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
+use tauri::path::BaseDirectory;
 use tauri_plugin_shell::process::CommandEvent;
 use tauri_plugin_shell::ShellExt;
 
@@ -34,10 +35,17 @@ pub async fn ensure_engine(app: &AppHandle, state: &Mutex<EngineState>) -> Resul
     std::fs::create_dir_all(&data_dir).map_err(|e| e.to_string())?;
 
     logging::info("Starting bundled search engine");
-    let sidecar = app
+    let mut sidecar = app
         .shell()
         .sidecar("scraper-engine")
         .map_err(|e| format!("Bundled search engine is missing. Please reinstall the application. ({e})"))?;
+
+    if let Ok(pw) = app.path().resolve("ms-playwright", BaseDirectory::Resource) {
+        if pw.exists() {
+            logging::info(&format!("Using bundled browser runtime at {}", pw.display()));
+            sidecar = sidecar.env("PLAYWRIGHT_BROWSERS_PATH", pw.to_string_lossy().to_string());
+        }
+    }
 
     let (mut rx, _child) = sidecar
         .args(["-web", "-data-folder"])
