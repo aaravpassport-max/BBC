@@ -167,7 +167,7 @@ impl Storage {
             .map_err(|e| e.to_string())?;
         let mut rows = stmt.query(params![id]).map_err(|e| e.to_string())?;
         if let Some(row) = rows.next().map_err(|e| e.to_string())? {
-            return Ok(Some(map_job(row)?));
+            return Ok(Some(map_job(&row).map_err(|e| e.to_string())?));
         }
         Ok(None)
     }
