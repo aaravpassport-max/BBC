@@ -11,10 +11,25 @@ The old app or search engine is still running and Windows will not overwrite the
    - `scraper-engine.exe`
 4. Run the installer again (right-click → **Run as administrator** is fine).
 5. If it still fails, delete the install folder (not your search data):
-   - `C:\Users\<You>\AppData\Local\Google Maps Scraper\`
+   - `C:\Users\<You>\AppData\Local\Programs\Google Maps Scraper\` (per-user install), or
+   - `C:\Program Files\Google Maps Scraper\` (if you chose all users)
    - Then run the installer again.
 
 Your saved searches stay in `%LOCALAPPDATA%\GoogleMapsScraper\` (different folder).
+
+## Installer error: “Extract: error writing to file … chrome-headless-shell.exe”
+
+Same root cause: a **previous install** or a **running search** left Playwright/Chromium files locked. Windows Defender can also block large `.exe` writes during extract.
+
+1. Click **OK**, then **Cancel** on the installer.
+2. In Task Manager, end **Google Maps Scraper.exe**, **scraper-engine.exe**, **chrome-headless-shell.exe**, and any **Chrome** process started from your install folder.
+3. Delete only the browser folder inside the install directory (keeps the app shortcut path clear for reinstall):
+   - `%LOCALAPPDATA%\Programs\Google Maps Scraper\ms-playwright\`  
+   - or `C:\Program Files\Google Maps Scraper\ms-playwright\`
+4. Run **GoogleMapsScraper-Setup.exe** again. Prefer **Install for me only** (current user) if Program Files keeps failing.
+5. Temporarily allow the installer in Windows Security if SmartScreen/Defender blocked the write.
+
+**Build 17+** installers omit the optional headless-shell bundle and remove old `ms-playwright` before copying, which avoids this error on upgrades.
 
 ## Application will not start
 
