@@ -3,7 +3,7 @@ use crate::india_locations;
 use crate::jobs::{run_search_job, JobRuntime};
 use crate::models::{AppSettings, BusinessRow, JobProgress, JobRecord, SearchParams};
 use crate::scraper_engine::{ensure_engine, validate_bundled_engine, EngineState};
-use crate::storage::{default_data_root, Storage};
+use crate::storage::Storage;
 use chrono::Local;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, State};

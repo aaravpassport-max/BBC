@@ -261,7 +261,7 @@ pub async fn run_search_job(
             line.status = if status == "ok" {
                 "Complete".into()
             } else {
-                "Failed".into();
+                "Failed".into()
             };
         }
     }
