@@ -19,6 +19,7 @@ import {
   SEARCH_PRESETS,
 } from "./lib/presets";
 import LocationManager from "./LocationManager";
+import LocationPicker from "./LocationPicker";
 import "./styles.css";
 
 function fmtTime(secs: number) {
@@ -353,6 +354,26 @@ export default function App() {
           ))}
         </div>
         <label>Location</label>
+        <LocationPicker
+          states={states}
+          onAdd={(labels) => {
+            setLocations((prev) => {
+              const next = [...prev.filter((x) => x.trim())];
+              for (const label of labels) {
+                if (label.trim() && !next.includes(label)) next.push(label);
+              }
+              return next.length ? next : [""];
+            });
+            setStatusMsg(
+              labels.length === 1
+                ? `Added location: ${labels[0]}`
+                : `Added ${labels.length} locations to search`,
+            );
+          }}
+        />
+        <p className="muted" style={{ marginTop: -4 }}>
+          Selected locations (editable):
+        </p>
         {locations.map((l, i) => (
           <input
             key={i}
