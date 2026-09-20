@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
+import { open, save } from "@tauri-apps/plugin-dialog";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   AppSettings,
@@ -53,6 +54,42 @@ export default function App() {
   const [engineStarting, setEngineStarting] = useState(true);
   const [engineReady, setEngineReady] = useState(false);
   const [unfinished, setUnfinished] = useState<JobRecord | null>(null);
+  const [lastExportPath, setLastExportPath] = useState("");
+
+  const runExport = async (format: "csv" | "xlsx") => {
+    if (!activeJobId || !settings) return;
+    try {
+      const suggested = await invoke<string>("export_suggested_filename", {
+        jobId: activeJobId,
+        format,
+      });
+      const folder = settings.exportFolder.replace(/\\/g, "/").replace(/\/$/, "");
+      const defaultPath = `${folder}/${suggested}`;
+      const chosen = await save({
+        title: format === "csv" ? "Save CSV as" : "Save Excel as",
+        defaultPath,
+        filters: [
+          format === "csv"
+            ? { name: "CSV file", extensions: ["csv"] }
+            : { name: "Excel workbook", extensions: ["xlsx"] },
+        ],
+      });
+      if (!chosen) {
+        setStatusMsg("Export cancelled.");
+        return;
+      }
+      const path = await invoke<string>("export_job", {
+        jobId: activeJobId,
+        format,
+        savePath: chosen,
+      });
+      setLastExportPath(path);
+      setStatusMsg(`Saved: ${path}`);
+      await invoke("reveal_export_file", { path });
+    } catch (e) {
+      setStatusMsg(`Export failed: ${String(e)}`);
+    }
+  };
 
   const refreshHistory = useCallback(async () => {
     const rows = await invoke<JobRecord[]>("list_job_history");
@@ -508,33 +545,41 @@ export default function App() {
             </tbody>
           </table>
         </div>
-        <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-          <button
-            className="btn btn-primary"
-            onClick={async () => {
-              if (!activeJobId) return;
-              const path = await invoke<string>("export_job", {
-                jobId: activeJobId,
-                format: "csv",
-              });
-              setStatusMsg(`Exported CSV: ${path}`);
-            }}
-          >
-            Export CSV
+        {settings && (
+          <p className="muted" style={{ marginTop: 8 }}>
+            Choose where to save with the buttons below. Default folder:{" "}
+            <code>{settings.exportFolder}</code>
+          </p>
+        )}
+        {lastExportPath && (
+          <p className="muted">
+            Last saved file: <code>{lastExportPath}</code>
+          </p>
+        )}
+        <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button className="btn btn-primary" onClick={() => runExport("csv")}>
+            Save CSV as…
+          </button>
+          <button className="btn btn-primary" onClick={() => runExport("xlsx")}>
+            Save Excel as…
           </button>
           <button
-            className="btn btn-primary"
+            className="btn btn-secondary"
             onClick={async () => {
-              if (!activeJobId) return;
-              const path = await invoke<string>("export_job", {
-                jobId: activeJobId,
-                format: "xlsx",
-              });
-              setStatusMsg(`Exported Excel: ${path}`);
+              const dir = await invoke<string>("open_exports_folder");
+              setStatusMsg(`Opened folder: ${dir}`);
             }}
           >
-            Export Excel
+            Open exports folder
           </button>
+          {lastExportPath && (
+            <button
+              className="btn btn-secondary"
+              onClick={() => invoke("reveal_export_file", { path: lastExportPath })}
+            >
+              Show last file in Explorer
+            </button>
+          )}
           <button className="btn btn-secondary" onClick={() => setView("dashboard")}>
             Back
           </button>
@@ -660,11 +705,41 @@ export default function App() {
             </option>
           ))}
         </select>
-        <label>Default export folder</label>
-        <input
-          value={settings.exportFolder}
-          onChange={(e) => saveSettings({ exportFolder: e.target.value })}
-        />
+        <label>Default export folder (used as the starting location in Save dialogs)</label>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <input
+            style={{ flex: 1 }}
+            value={settings.exportFolder}
+            onChange={(e) => saveSettings({ exportFolder: e.target.value })}
+          />
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={async () => {
+              const picked = await open({
+                directory: true,
+                multiple: false,
+                defaultPath: settings.exportFolder,
+                title: "Choose default export folder",
+              });
+              if (typeof picked === "string" && picked) {
+                await saveSettings({ exportFolder: picked });
+              }
+            }}
+          >
+            Browse…
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={async () => {
+              const dir = await invoke<string>("open_exports_folder");
+              setStatusMsg(`Opened folder: ${dir}`);
+            }}
+          >
+            Open
+          </button>
+        </div>
         <label>
           <input
             type="checkbox"

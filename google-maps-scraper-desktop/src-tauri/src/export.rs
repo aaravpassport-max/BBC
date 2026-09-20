@@ -28,11 +28,13 @@ const HEADERS: [&str; 20] = [
     "Scrape timestamp",
 ];
 
-pub fn export_csv(folder: &str, filename: &str, rows: &[BusinessRow]) -> Result<PathBuf, String> {
-    let path = export_path(folder, filename);
+pub fn export_csv_path(path: &std::path::Path, rows: &[BusinessRow]) -> Result<PathBuf, String> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
     let mut wtr = csv::WriterBuilder::new()
         .has_headers(true)
-        .from_path(&path)
+        .from_path(path)
         .map_err(|e| e.to_string())?;
     wtr.write_record(HEADERS).map_err(|e| e.to_string())?;
     for r in rows {
@@ -61,19 +63,32 @@ pub fn export_csv(folder: &str, filename: &str, rows: &[BusinessRow]) -> Result<
         .map_err(|e| e.to_string())?;
     }
     wtr.flush().map_err(|e| e.to_string())?;
-    Ok(path)
+    Ok(path.to_path_buf())
+}
+
+pub fn export_csv(folder: &str, filename: &str, rows: &[BusinessRow]) -> Result<PathBuf, String> {
+    let path = export_path(folder, filename);
+    export_csv_path(&path, rows)
+}
+
+pub fn export_json_path(path: &std::path::Path, rows: &[BusinessRow]) -> Result<PathBuf, String> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let json = serde_json::to_string_pretty(rows).map_err(|e| e.to_string())?;
+    let mut f = File::create(path).map_err(|e| e.to_string())?;
+    f.write_all(json.as_bytes()).map_err(|e| e.to_string())?;
+    Ok(path.to_path_buf())
 }
 
 pub fn export_json(folder: &str, filename: &str, rows: &[BusinessRow]) -> Result<PathBuf, String> {
-    let path = export_path(folder, filename);
-    let json = serde_json::to_string_pretty(rows).map_err(|e| e.to_string())?;
-    let mut f = File::create(&path).map_err(|e| e.to_string())?;
-    f.write_all(json.as_bytes()).map_err(|e| e.to_string())?;
-    Ok(path)
+    export_json_path(&export_path(folder, filename), rows)
 }
 
-pub fn export_xlsx(folder: &str, filename: &str, rows: &[BusinessRow]) -> Result<PathBuf, String> {
-    let path = export_path(folder, filename);
+pub fn export_xlsx_path(path: &std::path::Path, rows: &[BusinessRow]) -> Result<PathBuf, String> {
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
     let mut workbook = Workbook::new();
     let sheet = workbook.add_worksheet();
     sheet.set_name("Results").map_err(|e| e.to_string())?;
@@ -113,8 +128,12 @@ pub fn export_xlsx(folder: &str, filename: &str, rows: &[BusinessRow]) -> Result
                 .map_err(|e| e.to_string())?;
         }
     }
-    workbook.save(&path).map_err(|e| e.to_string())?;
-    Ok(path)
+    workbook.save(path).map_err(|e| e.to_string())?;
+    Ok(path.to_path_buf())
+}
+
+pub fn export_xlsx(folder: &str, filename: &str, rows: &[BusinessRow]) -> Result<PathBuf, String> {
+    export_xlsx_path(&export_path(folder, filename), rows)
 }
 
 pub fn safe_filename(base: &str) -> String {

@@ -1,10 +1,14 @@
-use crate::export::{export_csv, export_json, export_xlsx, safe_filename};
+use crate::export::{
+    export_csv, export_csv_path, export_json, export_json_path, export_xlsx, export_xlsx_path,
+    safe_filename,
+};
 use crate::india_locations;
 use crate::jobs::{run_search_job, JobRuntime};
 use crate::models::{AppSettings, BusinessRow, JobProgress, JobRecord, SearchParams};
 use crate::scraper_engine::{ensure_engine, validate_bundled_engine, EngineState};
 use crate::storage::Storage;
 use chrono::Local;
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter, State};
 
@@ -191,6 +195,61 @@ pub async fn discard_unfinished_job(
         .update_job(&job)
 }
 
+fn open_folder_in_os(path: &PathBuf) -> Result<(), String> {
+    if !path.exists() {
+        std::fs::create_dir_all(path).map_err(|e| e.to_string())?;
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .arg(path.as_os_str())
+            .spawn()
+            .map_err(|e| format!("Could not open folder: {e}"))?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .arg(path.as_os_str())
+            .spawn()
+            .map_err(|e| format!("Could not open folder: {e}"))?;
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        std::process::Command::new("xdg-open")
+            .arg(path.as_os_str())
+            .spawn()
+            .map_err(|e| format!("Could not open folder: {e}"))?;
+    }
+    Ok(())
+}
+
+fn reveal_file_in_os(path: &PathBuf) -> Result<(), String> {
+    if !path.is_file() {
+        return Err("Exported file was not found.".into());
+    }
+    #[cfg(target_os = "windows")]
+    {
+        std::process::Command::new("explorer")
+            .args(["/select,", &path.to_string_lossy()])
+            .spawn()
+            .map_err(|e| format!("Could not open file location: {e}"))?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        std::process::Command::new("open")
+            .args(["-R", &path.to_string_lossy()])
+            .spawn()
+            .map_err(|e| format!("Could not open file location: {e}"))?;
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        if let Some(parent) = path.parent() {
+            open_folder_in_os(&parent.to_path_buf())?;
+        }
+    }
+    Ok(())
+}
+
 #[tauri::command]
 pub fn open_logs_folder(state: State<'_, AppState>) -> Result<String, String> {
     let dir = state
@@ -198,13 +257,45 @@ pub fn open_logs_folder(state: State<'_, AppState>) -> Result<String, String> {
         .lock()
         .map_err(|e| e.to_string())?
         .logs_dir();
+    open_folder_in_os(&dir)?;
     Ok(dir.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+pub fn open_exports_folder(state: State<'_, AppState>) -> Result<String, String> {
+    let storage = state.storage.lock().map_err(|e| e.to_string())?;
+    let settings = storage.load_settings();
+    let dir = PathBuf::from(&settings.export_folder);
+    open_folder_in_os(&dir)?;
+    Ok(settings.export_folder)
+}
+
+#[tauri::command]
+pub fn reveal_export_file(path: String) -> Result<(), String> {
+    reveal_file_in_os(&PathBuf::from(path))
+}
+
+#[tauri::command]
+pub fn export_suggested_filename(job_id: String, format: String, state: State<'_, AppState>) -> Result<String, String> {
+    let storage = state.storage.lock().map_err(|e| e.to_string())?;
+    let job = storage
+        .get_job(&job_id)?
+        .ok_or_else(|| "Search not found.".to_string())?;
+    let date = Local::now().format("%Y-%m-%d").to_string();
+    let base = safe_filename(&format!("{}_{}", job.name, date));
+    let ext = match format.as_str() {
+        "xlsx" => "xlsx",
+        "json" => "json",
+        _ => "csv",
+    };
+    Ok(format!("{base}.{ext}"))
 }
 
 #[tauri::command]
 pub fn export_job(
     job_id: String,
     format: String,
+    save_path: Option<String>,
     state: State<'_, AppState>,
 ) -> Result<String, String> {
     let storage = state.storage.lock().map_err(|e| e.to_string())?;
@@ -215,10 +306,19 @@ pub fn export_job(
     let rows = storage.list_businesses(&job_id)?;
     let date = Local::now().format("%Y-%m-%d").to_string();
     let base = safe_filename(&format!("{}_{}", job.name, date));
-    let path = match format.as_str() {
-        "xlsx" => export_xlsx(&settings.export_folder, &format!("{base}.xlsx"), &rows)?,
-        "json" => export_json(&settings.export_folder, &format!("{base}.json"), &rows)?,
-        _ => export_csv(&settings.export_folder, &format!("{base}.csv"), &rows)?,
+    let path = if let Some(dest) = save_path {
+        let pb = PathBuf::from(dest);
+        match format.as_str() {
+            "xlsx" => export_xlsx_path(&pb, &rows)?,
+            "json" => export_json_path(&pb, &rows)?,
+            _ => export_csv_path(&pb, &rows)?,
+        }
+    } else {
+        match format.as_str() {
+            "xlsx" => export_xlsx(&settings.export_folder, &format!("{base}.xlsx"), &rows)?,
+            "json" => export_json(&settings.export_folder, &format!("{base}.json"), &rows)?,
+            _ => export_csv(&settings.export_folder, &format!("{base}.csv"), &rows)?,
+        }
     };
     Ok(path.to_string_lossy().to_string())
 }

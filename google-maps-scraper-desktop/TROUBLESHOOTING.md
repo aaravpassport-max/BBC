@@ -52,6 +52,14 @@ Build **1.0.1 and later** include the browser runtime inside the installer so se
 
 The bundled search engine may take up to a minute to start its local service. This is normal.
 
+## Where did my CSV / Excel go?
+
+- Use **Save CSV as…** or **Save Excel as…** on the Results screen — Windows will ask where to save (Desktop, Downloads, etc.).
+- If you used an older build, files may have been saved silently to:
+  `C:\Users\<You>\AppData\Local\GoogleMapsScraper\results\`
+- Click **Open exports folder** on Results or **Settings → Open** next to the export folder path.
+- After saving, File Explorer should open with the new file selected.
+
 ## Exports
 
 Default export folder is under `%LOCALAPPDATA%\GoogleMapsScraper\results`. Change it in Settings.

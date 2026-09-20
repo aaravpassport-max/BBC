@@ -15,6 +15,8 @@ REQUIREMENTS
 
 USER DATA
 Stored in: %LOCALAPPDATA%\GoogleMapsScraper\
+Exports: click "Save CSV as…" or "Save Excel as…" to pick Desktop, Downloads, etc.
+         Default folder: %LOCALAPPDATA%\GoogleMapsScraper\results\
 
 DOCUMENTATION
 - BUILD.md (developers)
