@@ -17,9 +17,21 @@ Reinstall from the official installer or portable package. Do not delete files i
 
 Google Maps requested additional verification. Wait and try again later with conservative request behavior. The app does not bypass CAPTCHAs.
 
+## First search returns no results / takes a long time
+
+The built-in browser runtime (Playwright + Chromium) is downloaded on the **first real search**. This can take **5–15 minutes** on a normal connection.
+
+While searching:
+
+1. Stay on the **Searching** screen and keep the app open.
+2. Use **Fast** search coverage for the first test.
+3. Try a simple query: `coffee shops` and location `Bangalore, Karnataka`.
+
+Build **1.0.1 and later** include the browser runtime inside the installer so searches start faster.
+
 ## First launch is slow
 
-The bundled search engine may prepare its browser runtime on first run. This is normal and can take one to two minutes.
+The bundled search engine may take up to a minute to start its local service. This is normal.
 
 ## Exports
 

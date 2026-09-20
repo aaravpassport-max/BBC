@@ -88,9 +88,24 @@ impl ApiClient {
             let t = resp.text().await.unwrap_or_default();
             return Err(format!("Could not start search (HTTP {status}): {t}"));
         }
-        let parsed: CreateJobResp = resp.json().await.map_err(|e| e.to_string())?;
-        logging::info(&format!("Engine job created: {}", parsed.id));
-        Ok(parsed.id)
+        let body = resp.text().await.map_err(|e| e.to_string())?;
+        let id = serde_json::from_str::<CreateJobResp>(&body)
+            .map(|p| p.id)
+            .ok()
+            .filter(|s| !s.is_empty())
+            .or_else(|| {
+                serde_json::from_str::<serde_json::Value>(&body)
+                    .ok()
+                    .and_then(|v| {
+                        v.get("id")
+                            .or_else(|| v.get("ID"))
+                            .and_then(|x| x.as_str())
+                            .map(|s| s.to_string())
+                    })
+            })
+            .ok_or_else(|| format!("Engine did not return a job id: {}", &body[..body.len().min(200)]))?;
+        logging::info(&format!("Engine job created: {id}"));
+        Ok(id)
     }
 
     pub async fn poll_status(&self, id: &str) -> Result<String, String> {
