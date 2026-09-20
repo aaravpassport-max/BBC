@@ -271,7 +271,7 @@ pub async fn run_search_job(
                     let mut parsed = parse_csv_rows(&csv, &job_id, &query_label, location);
                     if parsed.is_empty() {
                         step_errors.push(format!(
-                            "Search for \"{location}\" finished with 0 listings. Try **Fast** depth, a simpler keyword (e.g. \"coffee shop\"), ensure no other Maps scraper is running, and wait 10–15 minutes on first launch while the browser prepares."
+                            "Search for \"{location}\" finished with 0 listings. Try Fast depth, a simpler keyword (e.g. \"coffee shop\"), close other Maps scraper tools, and wait 10–15 minutes on first launch while the browser prepares."
                         ));
                     }
                     if email {

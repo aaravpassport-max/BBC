@@ -24,10 +24,12 @@ Reinstall from the official installer or portable package. Do not delete files i
 
 ## Search returns no results
 
-- Try a broader keyword or larger city name.
-- Lower search coverage from Very Deep to Balanced.
-- Check your internet connection.
-- Wait if you recently saw a verification pause (rate limiting).
+- Install the **latest** `GoogleMapsScraper-Setup.exe` (about **230+ MB**). Older ~28 MB builds do not include Chromium and always return empty results.
+- Set **Search depth** to **Fast** and try a simple test: keyword `coffee shop`, location `Bangalore, Karnataka`.
+- Close **Docker / old Maps scraper kit** on port 8080, or uninstall it. This app now uses port **8765** so it does not talk to the wrong engine.
+- On first run, keep the app open on the Searching screen for **10–15 minutes** while the browser runtime copies into your user data folder.
+- Check internet access and that Windows Firewall allows **Google Maps Scraper** and **scraper-engine.exe**.
+- Open **Settings → Open logs folder** and check today’s log for `[engine]` or geocoding errors.
 
 ## “Search temporarily paused” / verification
 

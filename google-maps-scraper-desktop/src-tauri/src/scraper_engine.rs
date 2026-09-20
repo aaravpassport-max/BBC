@@ -170,13 +170,13 @@ pub fn validate_bundled_engine(app: &AppHandle) -> Result<(), String> {
         .sidecar("scraper-engine")
         .map(|_| ())
         .map_err(|_| {
-            "The bundled browser/search engine is missing from this installation.".into()
+            "The bundled browser/search engine is missing from this installation.".to_string()
         })?;
     if let Ok(pw) = app.path().resolve("ms-playwright", BaseDirectory::Resource) {
         if !playwright_has_chromium(&pw) {
             return Err(
                 "This install is missing the bundled Chromium browser (~200 MB). Download the latest GoogleMapsScraper-Setup.exe (not an older ~28 MB build) and reinstall."
-                    .into(),
+                    .to_string(),
             );
         }
     }
