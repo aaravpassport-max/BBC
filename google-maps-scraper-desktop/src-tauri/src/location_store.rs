@@ -439,6 +439,11 @@ pub fn search_locations(
             dn.replace('\'', "''")
         ));
     }
+    if q.len() >= 2 {
+        sql.push_str(&format!(
+            " AND (instr(p.normalized_name, '{q}') > 0 OR instr(d.normalized_name, '{q}') > 0 OR instr(s.normalized_name, '{q}') > 0)"
+        ));
+    }
     sql.push_str(" ORDER BY p.population DESC, p.name LIMIT ");
     sql.push_str(&limit.to_string());
 
@@ -879,9 +884,23 @@ pub fn import_csv(db: &Connection, csv_text: &str) -> Result<u32, String> {
         .from_reader(csv_text.as_bytes());
     let headers = rdr.headers().map_err(|e| e.to_string())?.clone();
     let idx = |h: &str| headers.iter().position(|x| x.eq_ignore_ascii_case(h));
+    let records: Vec<csv::StringRecord> = rdr
+        .records()
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())?;
+    if records.is_empty() {
+        return Err("CSV has a header row but no data rows.".into());
+    }
     let mut count = 0u32;
-    for rec in rdr.records() {
-        let rec = rec.map_err(|e| e.to_string())?;
+    for rec in records {
+        if rec.len() != headers.len() {
+            return Err(format!(
+                "CSV row has {} fields but header has {} (row: {:?})",
+                rec.len(),
+                headers.len(),
+                rec
+            ));
+        }
         let get = |h: &str| {
             idx(h)
                 .and_then(|i| rec.get(i))
@@ -1130,6 +1149,167 @@ pub fn format_label(place: &str, district: &str, state: &str) -> String {
         format!("{district}, {state}")
     } else {
         format!("{place}, {district}, {state}")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    fn test_db() -> Connection {
+        let conn = Connection::open_in_memory().expect("memory db");
+        migrate_locations(&conn).expect("migrate");
+        ensure_seeded(&conn).expect("seed");
+        conn
+    }
+
+    #[test]
+    fn seed_matches_manifest_counts() {
+        let db = test_db();
+        let m = manifest_stats(&db).expect("manifest");
+        let manifest: serde_json::Value =
+            serde_json::from_str(include_str!("../assets/india-locations/manifest.json"))
+                .expect("manifest json");
+        let expect = &manifest["counts"];
+        assert_eq!(
+            m.states_and_union_territories,
+            expect["statesAndUnionTerritories"].as_u64().unwrap() as u32
+        );
+        assert_eq!(m.districts, expect["districts"].as_u64().unwrap() as u32);
+        assert_eq!(m.places, expect["places"].as_u64().unwrap() as u32);
+        assert_eq!(m.active_states, m.states_and_union_territories);
+    }
+
+    #[test]
+    fn karnataka_bengaluru_in_hierarchy() {
+        let db = test_db();
+        let hits = search_locations(&db, "bengaluru", Some("Karnataka"), None, true, 20)
+            .expect("search");
+        assert!(
+            hits.iter().any(|h| h.label.contains("Karnataka")),
+            "expected Bengaluru hit in Karnataka"
+        );
+        let label = hits
+            .iter()
+            .find(|h| h.place_name.to_lowercase().contains("bengaluru"))
+            .map(|h| h.label.clone())
+            .expect("bengaluru row");
+        let coords = coords_for_label(&db, &label).expect("coords for seeded place");
+        assert!(!coords.0.is_empty() && !coords.1.is_empty());
+    }
+
+    #[test]
+    fn user_place_visible_to_batch_labels_and_geocode() {
+        let db = test_db();
+        let districts = list_districts_for_state(&db, "Karnataka", false).expect("districts");
+        let district = districts
+            .iter()
+            .find(|d| d.name.to_lowercase().contains("bengaluru"))
+            .or(districts.first())
+            .expect("district");
+        let custom = LocationNodeInput {
+            id: None,
+            parent_id: Some(district.id.clone()),
+            level: "place".into(),
+            name: "Cursor Test Village".into(),
+            active: true,
+            region_type: None,
+            place_type: Some("village".into()),
+            latitude: Some("12.5000".into()),
+            longitude: Some("77.5000".into()),
+            population: 100,
+            iso3166_2: None,
+            iso2: None,
+            aliases: vec![],
+        };
+        let saved = upsert_location(&db, &custom).expect("upsert");
+        let labels = location_labels(&db, "Karnataka", None).expect("labels");
+        assert!(
+            labels.iter().any(|l| l.contains("Cursor Test Village")),
+            "batch labels should include new place"
+        );
+        let label = labels
+            .iter()
+            .find(|l| l.contains("Cursor Test Village"))
+            .cloned()
+            .unwrap();
+        let coords = coords_for_label(&db, &label).expect("geocode coords");
+        assert_eq!(coords.0, "12.5000");
+        set_active(&db, &saved.id, false).expect("deactivate");
+        let labels_after = location_labels(&db, "Karnataka", None).expect("labels");
+        assert!(
+            !labels_after.iter().any(|l| l.contains("Cursor Test Village")),
+            "inactive place must not appear in batch labels"
+        );
+    }
+
+    #[test]
+    fn duplicate_name_rejected_under_same_parent() {
+        let db = test_db();
+        let districts = list_districts_for_state(&db, "Karnataka", false).unwrap();
+        let district = &districts[0];
+        let first = LocationNodeInput {
+            id: None,
+            parent_id: Some(district.id.clone()),
+            level: "place".into(),
+            name: "DupTest Place".into(),
+            active: true,
+            region_type: None,
+            place_type: None,
+            latitude: None,
+            longitude: None,
+            population: 0,
+            iso3166_2: None,
+            iso2: None,
+            aliases: vec![],
+        };
+        upsert_location(&db, &first).unwrap();
+        let err = upsert_location(&db, &first).unwrap_err();
+        assert!(err.contains("Duplicate"), "got: {err}");
+    }
+
+    #[test]
+    fn csv_import_and_export_roundtrip_contains_custom_row() {
+        let db = test_db();
+        const CSV: &str = "state,district,place,latitude,longitude,place_type,population,active,aliases\nKarnataka,Bagalkot,CSV Import Town,12.1,77.1,town,500,true,Alias1;Alias2\n";
+        assert_eq!(import_csv(&db, CSV).expect("import"), 1);
+        let hits =
+            search_locations(&db, "CSV Import Town", Some("Karnataka"), None, true, 50).unwrap();
+        assert!(
+            hits.iter().any(|h| h.place_name == "CSV Import Town"),
+            "search should find imported place"
+        );
+        let exported = export_json(&db).expect("export");
+        assert!(exported.contains("CSV Import Town"));
+    }
+
+    #[test]
+    fn delete_leaf_node() {
+        let db = test_db();
+        let districts = list_districts_for_state(&db, "Karnataka", false).unwrap();
+        let district = &districts[0];
+        let node = upsert_location(
+            &db,
+            &LocationNodeInput {
+                id: None,
+                parent_id: Some(district.id.clone()),
+                level: "place".into(),
+                name: "To Delete Town".into(),
+                active: true,
+                region_type: None,
+                place_type: None,
+                latitude: None,
+                longitude: None,
+                population: 0,
+                iso3166_2: None,
+                iso2: None,
+                aliases: vec![],
+            },
+        )
+        .unwrap();
+        delete_location(&db, &node.id).unwrap();
+        assert!(get_node(&db, &node.id).is_err());
     }
 }
 

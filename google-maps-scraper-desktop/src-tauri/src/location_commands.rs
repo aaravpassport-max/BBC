@@ -4,10 +4,7 @@ use crate::location_store::{
     delete_location, search_locations, set_active, upsert_location, LocationNodeInput,
 };
 use crate::storage::Storage;
-use std::sync::Mutex;
 use tauri::State;
-
-pub struct LocState<'a>(pub &'a Mutex<Storage>);
 
 fn with_storage<F, T>(state: &State<'_, crate::commands::AppState>, f: F) -> Result<T, String>
 where
