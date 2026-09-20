@@ -1,0 +1,99 @@
+name: Build Google Maps Scraper (Windows)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'cursor/**'
+    tags:
+      - 'gmaps-scraper-v*'
+    paths:
+      - 'google-maps-scraper-desktop/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: google-maps-scraper-desktop
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: google-maps-scraper-desktop/package-lock.json
+
+      - name: Setup Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: google-maps-scraper-desktop/src-tauri
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Download bundled search engine (Windows)
+        run: npm run download-engine:win
+
+      - name: Build Tauri (NSIS installer + portable)
+        run: npm run tauri build
+        env:
+          CI: true
+
+      - name: Create portable ZIP
+        shell: pwsh
+        run: |
+          $bundle = "src-tauri/target/release/bundle"
+          $portableRoot = "GoogleMapsScraper-Portable"
+          New-Item -ItemType Directory -Force -Path $portableRoot | Out-Null
+          if (Test-Path "$bundle/portable") {
+            Copy-Item -Path "$bundle/portable/*" -Destination $portableRoot -Recurse -Force
+          }
+          Get-ChildItem -Path $bundle -Recurse -Filter "*.exe" | ForEach-Object {
+            Copy-Item $_.FullName $portableRoot -Force
+          }
+          Copy-Item README.txt,LICENSE.txt,SECURITY.md $portableRoot -ErrorAction SilentlyContinue
+          Compress-Archive -Path $portableRoot -DestinationPath GoogleMapsScraper-Portable.zip -Force
+
+      - name: SHA256 checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path src-tauri/target/release/bundle -Recurse -Include *.exe | ForEach-Object {
+            $h = Get-FileHash $_.FullName -Algorithm SHA256
+            "$($h.Hash)  $($_.FullName)"
+          } | Out-File SHA256SUMS.txt -Encoding utf8
+          if (Test-Path GoogleMapsScraper-Portable.zip) {
+            $h = Get-FileHash GoogleMapsScraper-Portable.zip -Algorithm SHA256
+            "$($h.Hash)  GoogleMapsScraper-Portable.zip" | Add-Content SHA256SUMS.txt
+          }
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: GoogleMapsScraper-Windows-1.0.0
+          path: |
+            google-maps-scraper-desktop/src-tauri/target/release/bundle/**/*.exe
+            google-maps-scraper-desktop/GoogleMapsScraper-Portable.zip
+            google-maps-scraper-desktop/SHA256SUMS.txt
+          retention-days: 90
+
+      - name: Release on tag
+        if: startsWith(github.ref, 'refs/tags/gmaps-scraper-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            google-maps-scraper-desktop/src-tauri/target/release/bundle/**/*.exe
+            google-maps-scraper-desktop/GoogleMapsScraper-Portable.zip
+            google-maps-scraper-desktop/SHA256SUMS.txt
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

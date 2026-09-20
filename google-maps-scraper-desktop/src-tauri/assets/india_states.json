@@ -1,0 +1,85 @@
+[
+  {
+    "name": "Karnataka",
+    "cities": [
+      "Bangalore",
+      "Mysore",
+      "Mangalore",
+      "Hubli",
+      "Belgaum",
+      "Davangere",
+      "Tumkur",
+      "Hassan",
+      "Shimoga",
+      "Ballari",
+      "Bidar",
+      "Raichur",
+      "Udupi",
+      "Gulbarga"
+    ]
+  },
+  {
+    "name": "Maharashtra",
+    "cities": [
+      "Mumbai",
+      "Pune",
+      "Nagpur",
+      "Nashik",
+      "Aurangabad",
+      "Solapur",
+      "Kolhapur",
+      "Thane",
+      "Amravati",
+      "Navi Mumbai"
+    ]
+  },
+  {
+    "name": "Tamil Nadu",
+    "cities": [
+      "Chennai",
+      "Coimbatore",
+      "Madurai",
+      "Tiruchirappalli",
+      "Salem",
+      "Tirunelveli",
+      "Erode",
+      "Vellore"
+    ]
+  },
+  {
+    "name": "Delhi",
+    "cities": ["New Delhi", "North Delhi", "South Delhi", "East Delhi", "West Delhi"]
+  },
+  {
+    "name": "Gujarat",
+    "cities": ["Ahmedabad", "Surat", "Vadodara", "Rajkot", "Bhavnagar", "Jamnagar"]
+  },
+  {
+    "name": "Rajasthan",
+    "cities": ["Jaipur", "Jodhpur", "Udaipur", "Kota", "Ajmer", "Bikaner"]
+  },
+  {
+    "name": "Kerala",
+    "cities": ["Thiruvananthapuram", "Kochi", "Kozhikode", "Thrissur", "Kollam"]
+  },
+  {
+    "name": "Telangana",
+    "cities": ["Hyderabad", "Warangal", "Nizamabad", "Karimnagar", "Khammam"]
+  },
+  {
+    "name": "Andhra Pradesh",
+    "cities": ["Visakhapatnam", "Vijayawada", "Guntur", "Nellore", "Tirupati"]
+  },
+  {
+    "name": "West Bengal",
+    "cities": ["Kolkata", "Howrah", "Durgapur", "Siliguri", "Asansol"]
+  },
+  {
+    "name": "Uttar Pradesh",
+    "cities": ["Lucknow", "Kanpur", "Noida", "Ghaziabad", "Agra", "Varanasi"]
+  },
+  {
+    "name": "Punjab",
+    "cities": ["Chandigarh", "Ludhiana", "Amritsar", "Jalandhar", "Patiala"]
+  }
+]
