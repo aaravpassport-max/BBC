@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.49-chart-tv-parity-v1';
+const FNO_CORE_BUILD_MARKER = '16.37.50-watchlist-ind-alerts-v1';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -2970,6 +2970,10 @@ function fnoChartWireAnalysisExtensions(redraw) {
           setDrawMode(null);
           redraw();
         }
+      } else if (fnoChartViewState.drawMode === 'vline') {
+        FNO_CHART_EXTENSIONS.addDrawing(sym, { type: 'vline', t: ts, color: '#a78bfa' });
+        setDrawMode(null);
+        redraw();
       }
     });
   }
@@ -3063,9 +3067,84 @@ function fnoChartWireAnalysisExtensions(redraw) {
       const res = FNO_CHART_EXTENSIONS.addPriceAlert(sym, price, alertDir ? alertDir.value : 'above');
       if (!res.ok) { fnoChartShowToast(res.error); return; }
       fnoChartShowToast('Price alert armed');
+      fnoChartRefreshAlertsList();
       if (typeof Notification !== 'undefined' && Notification.permission === 'default') Notification.requestPermission();
     });
   }
+  const indAlertAdd = document.getElementById('chartIndAlertAdd');
+  const indAlertKind = document.getElementById('chartIndAlertKind');
+  const indAlertLevel = document.getElementById('chartIndAlertLevel');
+  const indAlertDir = document.getElementById('chartIndAlertDirection');
+  if (indAlertAdd) {
+    indAlertAdd.addEventListener('click', () => {
+      const sym = (fnoChartLastMarketCtx && fnoChartLastMarketCtx.symbol) || 'ANY';
+      const kind = indAlertKind ? indAlertKind.value : 'rsi';
+      const res = FNO_CHART_EXTENSIONS.addIndicatorAlert({
+        symbol: sym,
+        kind,
+        level: indAlertLevel ? Number(indAlertLevel.value) : 70,
+        direction: indAlertDir ? indAlertDir.value : 'above',
+      });
+      if (!res.ok) { fnoChartShowToast(res.error); return; }
+      fnoChartShowToast('Indicator alert armed');
+      fnoChartRefreshAlertsList();
+    });
+  }
+  fnoChartRenderWatchlistBar();
+  fnoChartRefreshAlertsList();
+}
+
+function fnoChartActivateSymbol(sym) {
+  const s = String(sym || '').toUpperCase();
+  const sel = document.getElementById('sym');
+  if (sel) sel.value = s;
+  if (typeof refreshBrain === 'function') refreshBrain();
+  fnoChartRenderWatchlistBar();
+}
+
+function fnoChartRenderWatchlistBar() {
+  if (typeof FNO_CHART_EXTENSIONS === 'undefined') return;
+  const bar = document.getElementById('chartWatchlistBar');
+  if (!bar) return;
+  const list = FNO_CHART_EXTENSIONS.loadWatchlist();
+  const active = (document.getElementById('sym') && document.getElementById('sym').value) || 'NIFTY';
+  const allowed = FNO_CHART_EXTENSIONS.ALLOWED_WATCHLIST_SYMBOLS || [];
+  bar.innerHTML = '<span style="font-size:10px;color:#64748b;margin-right:4px">Watchlist:</span>'
+    + list.map(s => `<button type="button" class="btn chart-wl-sym" data-sym="${s}" style="padding:2px 8px;font-size:10px;${s === active ? 'background:#166534;border:1px solid #22c55e' : ''}">${s}</button>`).join('')
+    + `<span style="margin-left:6px;font-size:10px;color:#64748b">Add/remove:</span>`
+    + allowed.filter(s => !list.includes(s)).map(s => `<button type="button" class="btn chart-wl-add" data-sym="${s}" style="padding:2px 6px;font-size:9px">+ ${s}</button>`).join('')
+    + list.filter(s => list.length > 1).map(s => `<button type="button" class="btn chart-wl-rm" data-sym="${s}" style="padding:2px 6px;font-size:9px;background:#334155">− ${s}</button>`).join('');
+  bar.querySelectorAll('.chart-wl-sym').forEach((btn) => {
+    btn.addEventListener('click', () => fnoChartActivateSymbol(btn.getAttribute('data-sym')));
+  });
+  bar.querySelectorAll('.chart-wl-add').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      FNO_CHART_EXTENSIONS.toggleWatchlistSymbol(btn.getAttribute('data-sym'));
+      fnoChartRenderWatchlistBar();
+    });
+  });
+  bar.querySelectorAll('.chart-wl-rm').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const res = FNO_CHART_EXTENSIONS.toggleWatchlistSymbol(btn.getAttribute('data-sym'));
+      if (!res.ok) fnoChartShowToast(res.error);
+      fnoChartRenderWatchlistBar();
+    });
+  });
+}
+
+function fnoChartRefreshAlertsList() {
+  if (typeof FNO_CHART_EXTENSIONS === 'undefined') return;
+  const el = document.getElementById('chartAlertsList');
+  if (!el) return;
+  const sym = (document.getElementById('sym') && document.getElementById('sym').value)
+    || (fnoChartLastMarketCtx && fnoChartLastMarketCtx.symbol) || 'NIFTY';
+  el.innerHTML = FNO_CHART_EXTENSIONS.formatAlertsListHtml(sym);
+  el.querySelectorAll('.chart-alert-del').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      FNO_CHART_EXTENSIONS.removeAlertById(btn.getAttribute('data-id'));
+      fnoChartRefreshAlertsList();
+    });
+  });
 }
 
 function fnoChartUpdateTfButtons() {
@@ -4124,7 +4203,7 @@ function renderPriceChart(marketCtx) {
   });
 
   if (typeof FNO_CHART_EXTENSIONS !== 'undefined' && marketCtx) {
-    const sym = marketCtx.symbol || 'DEFAULT';
+    const sym = (marketCtx.symbol || marketCtx.sym || 'DEFAULT');
     const drawings = FNO_CHART_EXTENSIONS.loadDrawingsForSymbol(sym);
     FNO_CHART_EXTENSIONS.renderDrawings(c2d, {
       drawings, visible, padL, padT, plotW, plotH, slot, yFor,
@@ -4265,12 +4344,17 @@ function renderPriceChart(marketCtx) {
   fnoChartRenderOscillatorPanels(document.getElementById('priceChartPanels'), indicatorBundle.panels, visible, startIdx, aggregated, crosshairBarIdx);
 
   if (typeof FNO_CHART_EXTENSIONS !== 'undefined' && marketCtx && visible.length) {
-    const sym = marketCtx.symbol || 'DEFAULT';
+    const sym = (marketCtx.symbol || marketCtx.sym || 'DEFAULT');
+    const lastBarIdx = endIdx - 1;
+    const prevBarIdx = lastBarIdx > 0 ? lastBarIdx - 1 : null;
     const lastClose = visible[visible.length - 1].c;
-    const prev = fnoChartPrevCloseBySymbol[sym];
-    const fired = FNO_CHART_EXTENSIONS.evaluatePriceAlerts(sym, lastClose, prev);
-    fired.forEach((a) => FNO_CHART_EXTENSIONS.notifyPriceAlert(a));
+    const prevClose = prevBarIdx != null && aggregated[prevBarIdx] ? aggregated[prevBarIdx].c : fnoChartPrevCloseBySymbol[sym];
+    const priceFired = FNO_CHART_EXTENSIONS.evaluatePriceAlerts(sym, lastClose, prevClose);
+    priceFired.forEach((a) => FNO_CHART_EXTENSIONS.notifyPriceAlert(a));
+    const indFired = FNO_CHART_EXTENSIONS.evaluateIndicatorAlerts(sym, indicatorBundle, lastClose, prevClose, lastBarIdx, prevBarIdx);
+    indFired.forEach((a) => FNO_CHART_EXTENSIONS.notifyChartAlert(a.message, 'Indicator alert'));
     fnoChartPrevCloseBySymbol[sym] = lastClose;
+    fnoChartRefreshAlertsList();
   }
 }
 
@@ -18834,6 +18918,7 @@ function render(){
         }
       }).catch(() => { /* non-critical */ });
       renderPriceChart(refreshCtx); // user's own direct request - live candle chart + entry/exit markers, redrawn every refresh alongside everything else
+  if (typeof fnoChartRenderWatchlistBar === 'function') fnoChartRenderWatchlistBar();
 
       // Real rolling-history snapshot (unblocks VIX 15m/PCR 30m/IV Rank/
       // Straddle-vs-Yesterday - see recordSnapshot's TRACE comment).

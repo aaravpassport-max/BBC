@@ -1,7 +1,7 @@
 # TradingView parity audit — FNO Lab standalone chart
 
 **Audit date:** 2026-09-24  
-**Build reference:** 16.37.49+ (`chart-tv-parity-v1`)  
+**Build reference:** 16.37.50+ (`watchlist-ind-alerts-v1`)  
 **Scope:** User-facing charting, indicators, drawings, layouts, alerts vs TradingView Supercharts (not full platform: social, broker, cloud sync).
 
 ## Executive summary
@@ -57,8 +57,11 @@ FNO Lab uses a **custom Canvas chart** fed by **NSE + Kite** (`fno_fetch_chart_f
 
 ## Verification
 
-- Node: `chart-custom-formula`, `chart-import-export`, `chart-drawings`, `chart-layout-presets`, `chart-price-alerts`
+- Node: `chart-custom-formula`, `chart-tv-extensions`, `chart-watchlist-alerts`, layout/drawing tests via extensions
 - Browser: `tests/chart-interactive-harness.html` + `chart-interactive-browser.test.js` (Puppeteer)
+
+### 16.37.50
+- Watchlist bar (persisted), indicator alerts (RSI, close×EMA), alerts list UI, V-line drawing
 
 ## What we explicitly do **not** claim
 

@@ -508,6 +508,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
   <div class="card card-accent-primary fno-chart-section" id="priceChartSection" style="margin-bottom:14px">
     <h3>📈 Live Price Chart <span class="card-subtitle">Underlying candles + real entry/exit markers</span></h3>
     <div style="font-size:10px;color:#64748b;margin-bottom:8px" id="priceChartCaption">Real underlying OHLC from the same live feed as the brain. With an open paper trade, the <b>option LTP</b> panel below plots real premium ticks (target/SL/entry lines) recorded each refresh — not underlying spot.</div>
+    <div id="chartWatchlistBar" style="display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:8px"></div>
     <div class="fno-chart-toolbar" style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
       <span style="font-size:10px;color:#94a3b8">Timeframe:</span>
       <button type="button" class="btn chart-tf-btn" data-tf="1" style="padding:3px 8px;font-size:11px">1m</button>
@@ -534,6 +535,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
       <span style="width:1px;height:16px;background:#1e293b;margin:0 4px"></span>
       <button type="button" class="btn chart-draw-btn" data-draw="hline" style="padding:3px 8px;font-size:11px" title="Draw horizontal line (click chart)">― H-line</button>
       <button type="button" class="btn chart-draw-btn" data-draw="trend" style="padding:3px 8px;font-size:11px" title="Draw trend line (two clicks)">／ Trend</button>
+      <button type="button" class="btn chart-draw-btn" data-draw="vline" style="padding:3px 8px;font-size:11px" title="Vertical line at bar">| V-line</button>
       <button type="button" class="btn" id="chartDrawClear" style="padding:3px 8px;font-size:11px;background:#334155">Clear drawings</button>
       <span style="font-size:10px;color:#64748b">F=fit · R=reset · 1/5=TF · Esc=exit full</span>
     </div>
@@ -550,7 +552,13 @@ body.fno-nse-disabled .nse-only-section{display:none}
       <input id="chartAlertPrice" class="input" placeholder="Alert price" style="font-size:11px;width:90px" inputmode="decimal">
       <select id="chartAlertDirection" class="input" style="font-size:11px;width:72px"><option value="above">Cross ↑</option><option value="below">Cross ↓</option></select>
       <button type="button" class="btn" id="chartAlertAdd" style="padding:3px 8px;font-size:11px;background:#7c2d12">Add alert</button>
+      <span style="width:1px;height:16px;background:#1e293b;margin:0 4px"></span>
+      <select id="chartIndAlertKind" class="input" style="font-size:11px;width:110px"><option value="rsi">RSI cross</option><option value="close_cross_ema">Close × EMA</option></select>
+      <input id="chartIndAlertLevel" class="input" value="70" style="font-size:11px;width:44px" title="RSI level (ignored for EMA cross)">
+      <select id="chartIndAlertDirection" class="input" style="font-size:11px;width:72px"><option value="above">Cross ↑</option><option value="below">Cross ↓</option></select>
+      <button type="button" class="btn" id="chartIndAlertAdd" style="padding:3px 8px;font-size:11px;background:#581c87">Ind. alert</button>
     </div>
+    <div id="chartAlertsList" style="font-size:10px;margin-bottom:8px;padding:6px 8px;background:#0f172a;border:1px solid #1e293b;border-radius:8px"></div>
     <div id="chartIndicatorList" style="margin-bottom:6px"></div>
     <div id="chartCustomIndicatorPanel" style="display:none;margin-bottom:8px;padding:8px;background:#0f172a;border:1px solid #334155;border-radius:8px;font-size:11px">
       <div style="font-weight:700;margin-bottom:6px;color:#e2e8f0">Custom indicator scripts (FNO Formula)</div>

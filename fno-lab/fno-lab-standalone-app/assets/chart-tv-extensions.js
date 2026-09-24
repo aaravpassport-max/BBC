@@ -8,7 +8,13 @@
   const DRAWINGS_KEY = 'fno_chart_drawings_v1';
   const PRESETS_KEY = 'fno_chart_layout_presets_v1';
   const ALERTS_KEY = 'fno_chart_price_alerts_v1';
+  const IND_ALERTS_KEY = 'fno_chart_indicator_alerts_v1';
+  const WATCHLIST_KEY = 'fno_chart_watchlist_v1';
   const VIEW_KEY = 'fno_chart_view_v1';
+  const ALLOWED_WATCHLIST_SYMBOLS = ['NIFTY', 'BANKNIFTY', 'FINNIFTY'];
+
+  /** Previous sampled values for indicator alert crossing (per alert id). */
+  const alertPrevSamples = {};
 
   function storageGet(key) {
     try {
@@ -106,8 +112,49 @@
         ctx.moveTo(x1, y1);
         ctx.lineTo(x2, y2);
         ctx.stroke();
+      } else if (d.type === 'vline' && typeof d.t === 'number') {
+        const i = barIndexForTs(visible, d.t);
+        if (i < 0) return;
+        const x = padL + slot * i + slot / 2;
+        ctx.beginPath();
+        ctx.moveTo(x, padT);
+        ctx.lineTo(x, padT + plotH);
+        ctx.stroke();
       }
     });
+  }
+
+  function loadWatchlist() {
+    try {
+      const raw = storageGet(WATCHLIST_KEY);
+      if (!raw) return ALLOWED_WATCHLIST_SYMBOLS.slice();
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return ALLOWED_WATCHLIST_SYMBOLS.slice();
+      const clean = parsed.map(s => String(s).toUpperCase()).filter(s => ALLOWED_WATCHLIST_SYMBOLS.includes(s));
+      return clean.length ? clean : ALLOWED_WATCHLIST_SYMBOLS.slice();
+    } catch (e) {
+      return ALLOWED_WATCHLIST_SYMBOLS.slice();
+    }
+  }
+
+  function saveWatchlist(symbols) {
+    const clean = (symbols || []).map(s => String(s).toUpperCase()).filter(s => ALLOWED_WATCHLIST_SYMBOLS.includes(s));
+    storageSet(WATCHLIST_KEY, JSON.stringify(clean.length ? clean : ALLOWED_WATCHLIST_SYMBOLS));
+    return clean.length ? clean : ALLOWED_WATCHLIST_SYMBOLS.slice();
+  }
+
+  function toggleWatchlistSymbol(symbol) {
+    const sym = String(symbol || '').toUpperCase();
+    if (!ALLOWED_WATCHLIST_SYMBOLS.includes(sym)) return { ok: false, error: 'Symbol not supported' };
+    let list = loadWatchlist();
+    if (list.includes(sym)) {
+      if (list.length <= 1) return { ok: false, error: 'Watchlist must keep at least one symbol' };
+      list = list.filter(s => s !== sym);
+    } else {
+      list = list.concat([sym]);
+    }
+    saveWatchlist(list);
+    return { ok: true, list };
   }
 
   function loadLayoutPresets() {
@@ -216,8 +263,11 @@
   }
 
   function notifyPriceAlert(alert) {
-    const title = 'Chart price alert';
-    const body = alert.message || `${alert.symbol} ${alert.direction} ${alert.price}`;
+    notifyChartAlert(alert.message || `${alert.symbol} ${alert.direction} ${alert.price}`, 'Chart price alert');
+  }
+
+  function notifyChartAlert(body, title) {
+    title = title || 'Chart alert';
     try {
       if (global.Notification && Notification.permission === 'granted') {
         new Notification(title, { body });
@@ -227,10 +277,138 @@
     else if (typeof global.console !== 'undefined') console.warn('[chart alert]', body);
   }
 
+  function loadIndicatorAlerts() {
+    try {
+      const raw = storageGet(IND_ALERTS_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) { return []; }
+  }
+
+  function saveIndicatorAlerts(list) {
+    storageSet(IND_ALERTS_KEY, JSON.stringify(list || []));
+  }
+
+  function addIndicatorAlert(opts) {
+    const o = opts || {};
+    const kind = o.kind === 'close_cross_ema' ? 'close_cross_ema' : 'rsi';
+    const level = Number(o.level);
+    if (kind === 'rsi' && !Number.isFinite(level)) return { ok: false, error: 'RSI level required' };
+    const direction = o.direction === 'below' ? 'below' : 'above';
+    const entry = {
+      id: 'ia_' + Date.now().toString(36),
+      kind,
+      symbol: String(o.symbol || 'ANY').toUpperCase(),
+      level: kind === 'rsi' ? level : null,
+      direction,
+      message: String(o.message || (kind === 'rsi' ? `RSI ${direction} ${level}` : 'Close crossed EMA')).slice(0, 200),
+      enabled: true,
+      triggeredAt: null,
+    };
+    const list = loadIndicatorAlerts();
+    list.push(entry);
+    saveIndicatorAlerts(list);
+    return { ok: true, alert: entry };
+  }
+
+  function removeIndicatorAlert(id) {
+    saveIndicatorAlerts(loadIndicatorAlerts().filter(a => a.id !== id));
+    delete alertPrevSamples[id];
+  }
+
+  function seriesValueAtBar(bundle, typeId, lineId, barIndex) {
+    if (!bundle || barIndex == null || barIndex < 0) return NaN;
+    const panels = bundle.panels || [];
+    for (let i = 0; i < panels.length; i++) {
+      const p = panels[i];
+      if (p.typeId !== typeId || !p.panel || !p.panel.lines) continue;
+      const line = p.panel.lines.find(l => l.id === lineId) || p.panel.lines[0];
+      if (line && line.values && Number.isFinite(line.values[barIndex])) return line.values[barIndex];
+    }
+    const overlays = bundle.overlays || [];
+    for (let j = 0; j < overlays.length; j++) {
+      const ov = overlays[j];
+      if (ov.typeId !== typeId || !ov.lines) continue;
+      const line = ov.lines.find(l => l.id === lineId) || ov.lines[0];
+      if (line && line.values && Number.isFinite(line.values[barIndex])) return line.values[barIndex];
+    }
+    return NaN;
+  }
+
+  function evaluateIndicatorAlerts(symbol, bundle, closePrice, prevClose, lastBarIdx, prevBarIdx) {
+    const sym = String(symbol || '').toUpperCase();
+    const list = loadIndicatorAlerts();
+    const fired = [];
+    list.forEach((a) => {
+      if (!a.enabled || a.triggeredAt) return;
+      if (a.symbol !== 'ANY' && a.symbol !== sym) return;
+      if (a.kind === 'rsi') {
+        const cur = seriesValueAtBar(bundle, 'rsi', 'rsi', lastBarIdx);
+        const prev = Number.isFinite(alertPrevSamples[a.id]) ? alertPrevSamples[a.id] : NaN;
+        if (Number.isFinite(cur)) alertPrevSamples[a.id] = cur;
+        if (!Number.isFinite(cur) || !Number.isFinite(prev)) return;
+        const crossedAbove = prev <= a.level && cur > a.level;
+        const crossedBelow = prev >= a.level && cur < a.level;
+        const hit = (a.direction === 'above' && crossedAbove) || (a.direction === 'below' && crossedBelow);
+        if (!hit) return;
+      } else if (a.kind === 'close_cross_ema') {
+        if (!Number.isFinite(closePrice) || !Number.isFinite(prevClose) || prevBarIdx == null) return;
+        const emaNow = seriesValueAtBar(bundle, 'ema', 'main', lastBarIdx);
+        const emaPrev = seriesValueAtBar(bundle, 'ema', 'main', prevBarIdx);
+        if (!Number.isFinite(emaNow) || !Number.isFinite(emaPrev)) return;
+        const wasBelow = prevClose <= emaPrev;
+        const wasAbove = prevClose >= emaPrev;
+        const nowAbove = closePrice > emaNow;
+        const nowBelow = closePrice < emaNow;
+        const hit = (a.direction === 'above' && wasBelow && nowAbove) || (a.direction === 'below' && wasAbove && nowBelow);
+        if (!hit) return;
+      } else return;
+      a.triggeredAt = Date.now();
+      a.enabled = false;
+      fired.push(a);
+    });
+    if (fired.length) saveIndicatorAlerts(list);
+    return fired;
+  }
+
+  function listAllAlerts() {
+    return {
+      price: loadPriceAlerts(),
+      indicator: loadIndicatorAlerts(),
+    };
+  }
+
+  function removeAlertById(id) {
+    if (String(id).startsWith('ia_')) removeIndicatorAlert(id);
+    else removePriceAlert(id);
+  }
+
+  function formatAlertsListHtml(activeSymbol) {
+    const all = listAllAlerts();
+    const sym = String(activeSymbol || '').toUpperCase();
+    const rows = [];
+    all.price.forEach((a) => {
+      if (a.symbol !== 'ANY' && a.symbol !== sym) return;
+      const st = a.triggeredAt ? 'triggered' : (a.enabled ? 'armed' : 'off');
+      rows.push(`<div style="display:flex;gap:6px;align-items:center;margin-bottom:3px"><span style="flex:1">💰 ${a.symbol} ${a.direction} ${a.price} <span style="color:#64748b">(${st})</span></span><button type="button" class="btn chart-alert-del" data-id="${a.id}" style="padding:1px 6px;font-size:9px">✕</button></div>`);
+    });
+    all.indicator.forEach((a) => {
+      if (a.symbol !== 'ANY' && a.symbol !== sym) return;
+      const st = a.triggeredAt ? 'triggered' : (a.enabled ? 'armed' : 'off');
+      const label = a.kind === 'close_cross_ema' ? `Close ${a.direction} EMA` : `RSI ${a.direction} ${a.level}`;
+      rows.push(`<div style="display:flex;gap:6px;align-items:center;margin-bottom:3px"><span style="flex:1">📊 ${a.symbol} ${label} <span style="color:#64748b">(${st})</span></span><button type="button" class="btn chart-alert-del" data-id="${a.id}" style="padding:1px 6px;font-size:9px">✕</button></div>`);
+    });
+    return rows.length ? rows.join('') : '<span style="color:#64748b">No active alerts for this symbol.</span>';
+  }
+
   global.FNO_CHART_EXTENSIONS = {
     DRAWINGS_KEY,
     PRESETS_KEY,
     ALERTS_KEY,
+    IND_ALERTS_KEY,
+    WATCHLIST_KEY,
+    ALLOWED_WATCHLIST_SYMBOLS,
     loadDrawingsForSymbol,
     saveDrawingsForSymbol,
     addDrawing,
@@ -248,5 +426,18 @@
     removePriceAlert,
     evaluatePriceAlerts,
     notifyPriceAlert,
+    notifyChartAlert,
+    loadWatchlist,
+    saveWatchlist,
+    toggleWatchlistSymbol,
+    loadIndicatorAlerts,
+    saveIndicatorAlerts,
+    addIndicatorAlert,
+    removeIndicatorAlert,
+    evaluateIndicatorAlerts,
+    seriesValueAtBar,
+    listAllAlerts,
+    removeAlertById,
+    formatAlertsListHtml,
   };
 })(typeof window !== 'undefined' ? window : global);

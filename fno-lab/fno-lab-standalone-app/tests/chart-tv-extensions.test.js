@@ -61,4 +61,6 @@ sandbox.FNO_CHART_EXTENSIONS.addPriceAlert('NIFTY', 101, 'above');
 const fired = sandbox.FNO_CHART_EXTENSIONS.evaluatePriceAlerts('NIFTY', 102, 100);
 assert.strictEqual(fired.length, 1);
 
+assert.ok(sandbox.FNO_CHART_EXTENSIONS.loadWatchlist().length >= 1);
+
 console.log('chart-tv-extensions tests passed');
