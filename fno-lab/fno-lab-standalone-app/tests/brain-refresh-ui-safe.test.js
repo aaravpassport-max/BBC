@@ -133,5 +133,32 @@ try {
 }
 check(!fm058Threw, 'evaluatePreTradeFailureModes does not throw when FM058 spreadPct is missing (lazy reason)');
 
+let volFactorsThrew = false;
+try {
+  const volOut = computeVolFactors(
+    { iv: undefined, now: { gamma: undefined, thetaPerDay: undefined } },
+    Array.from({ length: 25 }, (_, i) => 24000 + i),
+    { vix: null, isExpiry: true, ocRow: null }
+  );
+  check(Array.isArray(volOut) && volOut.length >= 10, 'computeVolFactors returns factors with missing snapshot.iv');
+} catch (e) {
+  volFactorsThrew = true;
+}
+check(!volFactorsThrew, 'computeVolFactors does not throw when snapshot.iv is undefined');
+
+let opIntelThrew = false;
+try {
+  const fakeRec = {
+    data: [
+      { strikePrice: 24000, CE: { changeinOpenInterest: 100, change: 1, openInterest: 1 }, PE: { changeinOpenInterest: 50, change: -1, openInterest: 1 } },
+      { strikePrice: 24100, CE: { changeinOpenInterest: 10, change: 0, openInterest: 1 }, PE: { changeinOpenInterest: 10, change: 0, openInterest: 1 } },
+    ],
+  };
+  computeOperatorIntel(fakeRec, 24050, undefined, null, 0.2, 5);
+} catch (e) {
+  opIntelThrew = true;
+}
+check(!opIntelThrew, 'computeOperatorIntel does not throw when PCR is undefined');
+
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

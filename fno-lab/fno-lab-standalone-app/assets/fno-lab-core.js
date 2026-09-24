@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.54-brain-refresh-tofixed-v2';
+const FNO_CORE_BUILD_MARKER = '16.37.55-brain-refresh-tofixed-v3';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -10452,6 +10452,21 @@ function classifyFailureModeEvent(category, context) {
  * real, traceable reason).
  */
 function evaluatePreTradeFailureModes(evalCtx) {
+  try {
+  return evaluatePreTradeFailureModesImpl(evalCtx);
+  } catch (fmEvalErr) {
+    console.warn('evaluatePreTradeFailureModes failed (non-fatal):', fmEvalErr);
+    const msg = fmEvalErr && fmEvalErr.message ? String(fmEvalErr.message) : String(fmEvalErr);
+    return {
+      finalAction: 'proceed',
+      triggered: [],
+      summary: `Failure-mode evaluation unavailable this refresh (${msg}).`,
+      error: msg,
+    };
+  }
+}
+
+function evaluatePreTradeFailureModesImpl(evalCtx) {
   const { brain, ctx, trapSignal, strikeShift, breakoutCondition, rejectionCheck, ivPercentile, execMode, latencyCheck, maxPainCheck, spreadLevelCheck, spreadWideningCheck, gapFillCheck, optionType, hypothesisDirectionStats, strategyVersionsCache, requestedStrike, portfolioPositions, portfolioPerPositionGreeks } = evalCtx || {};
   const triggered = [];
   const fmFmt = (n, digits, fallback) => fnoFormatFixed(n, digits, fallback != null ? fallback : '?');
@@ -11439,7 +11454,15 @@ function evaluatePreTradeFailureModes(evalCtx) {
     }
 
     if (typeof computeLiquidityTrapEngine === 'function' && ctx.liquidityInputs) {
-      const liqFM = computeLiquidityTrapEngine(ctx, brain, ctx.liquidityInputs);
+      let liqFM = null;
+      try {
+        liqFM = computeLiquidityTrapEngine(ctx, brain, ctx.liquidityInputs);
+      } catch (liqFmErr) {
+        console.warn('FM157 liquidity trap pre-check failed (non-fatal):', liqFmErr);
+      }
+      if (!liqFM) {
+        liqFM = { trapScore: 0, trapScoreLabel: 'unavailable', state: 'NORMAL', sweep: { detected: false }, stages: { activePattern: null }, probabilities: { bullTrap: 0, bearTrap: 0 } };
+      }
       const tradeDir = optionType === 'CE' ? 'bullish' : optionType === 'PE' ? 'bearish' : null;
       const opposesBull = tradeDir === 'bullish' && (liqFM.probabilities.bullTrap > 0.5 || liqFM.stages.activePattern === 'ce_trap_sequence');
       const opposesBear = tradeDir === 'bearish' && (liqFM.probabilities.bearTrap > 0.5 || liqFM.stages.activePattern === 'pe_trap_sequence');
@@ -12139,14 +12162,14 @@ function computeOptionWritingConditionsAssessment(ivPercentile, thetaPerDay, opt
   const reasons = [];
   let writingVotes = 0, buyingVotes = 0;
 
-  if (typeof ivPercentile === 'number') {
-    if (ivPercentile >= 70) { writingVotes++; reasons.push(`Real IV percentile is high (${ivPercentile.toFixed(0)}th) - historically more real premium available to collect, favoring the writing side`); }
-    else if (ivPercentile <= 30) { buyingVotes++; reasons.push(`Real IV percentile is low (${ivPercentile.toFixed(0)}th) - options are historically cheap right now, favoring the buying side`); }
+  if (typeof ivPercentile === 'number' && Number.isFinite(ivPercentile)) {
+    if (ivPercentile >= 70) { writingVotes++; reasons.push(`Real IV percentile is high (${fnoFormatFixed(ivPercentile, 0)}th) - historically more real premium available to collect, favoring the writing side`); }
+    else if (ivPercentile <= 30) { buyingVotes++; reasons.push(`Real IV percentile is low (${fnoFormatFixed(ivPercentile, 0)}th) - options are historically cheap right now, favoring the buying side`); }
   }
 
-  if (typeof thetaPerDay === 'number' && typeof optPrice === 'number' && optPrice > 0) {
+  if (typeof thetaPerDay === 'number' && Number.isFinite(thetaPerDay) && typeof optPrice === 'number' && optPrice > 0) {
     const thetaPctOfPremium = (Math.abs(thetaPerDay) / optPrice) * 100;
-    if (thetaPctOfPremium >= 5) { writingVotes++; reasons.push(`Real theta decay (${thetaPctOfPremium.toFixed(1)}% of premium/day) is genuinely steep - a real, meaningful daily cost to a buyer, a real, meaningful daily benefit to a writer`); }
+    if (thetaPctOfPremium >= 5) { writingVotes++; reasons.push(`Real theta decay (${fnoFormatFixed(thetaPctOfPremium, 1)}% of premium/day) is genuinely steep - a real, meaningful daily cost to a buyer, a real, meaningful daily benefit to a writer`); }
   }
 
   if (breakoutCondition && (breakoutCondition.condition === 'range_bound' || breakoutCondition.condition === 'choppy')) {
@@ -13015,6 +13038,10 @@ function computeDecayFactors(snapshot, optPrice, lot, ctx){
 
   const isEventDay = ctx.status && ctx.status.isEventDay; // true | false | null (null = unknown, no calendar provider configured - NOT the same as false)
   if (isEventDay === true) {
+    if (!Number.isFinite(snapshot.iv)) {
+      out.push({cat:'Decay', factor:'IV Crush After Event', pass:null, score:0,
+        reason:`Real event calendar flags today as an event day but live/entered IV is unavailable this refresh - IV crush model not applied (not guessed)`});
+    } else {
     const assumedIvDropPct = 20; // documented assumption: typical post-event IV crush observed on Indian index options is 15-30% relative; using midpoint, not fabricated as certain
     const ivAfter = snapshot.iv * (1 - assumedIvDropPct/100);
     const afterCrush = bsGreeksAtDays(snapshot.spot, snapshot.strike, days, ivAfter, snapshot.optionType, snapshot.r);
@@ -13022,7 +13049,8 @@ function computeDecayFactors(snapshot, optPrice, lot, ctx){
     const eventLabel = ctx.status.eventName ? ` (${ctx.status.eventName})` : '';
     out.push({cat:'Decay', factor:'IV Crush After Event', pass: valueLoss < optPrice*0.3,
       score: valueLoss < optPrice*0.3 ? 0 : -2,
-      reason:`Real event calendar flags today as an event day${eventLabel} - modeled ${assumedIvDropPct}% relative IV drop (${snapshot.iv.toFixed(1)}%→${ivAfter.toFixed(1)}%, documented assumption for the SIZE of the drop, not a live feed - the event's existence itself IS real/live) implies ~${valueLoss.toFixed(1)} Rs value loss on top of normal theta`});
+      reason:`Real event calendar flags today as an event day${eventLabel} - modeled ${assumedIvDropPct}% relative IV drop (${fnoFormatFixed(snapshot.iv, 1)}%→${fnoFormatFixed(ivAfter, 1)}%, documented assumption for the SIZE of the drop, not a live feed - the event's existence itself IS real/live) implies ~${fnoFormatFixed(valueLoss, 1)} Rs value loss on top of normal theta`});
+    }
   } else if (isEventDay === false) {
     out.push({cat:'Decay', factor:'IV Crush After Event', pass:null, score:0, reason:`Real event calendar confirms no flagged event today - IV crush model not applicable this refresh`});
   } else {
@@ -15027,6 +15055,8 @@ function computeTechFactors(candles, ctx){
 function computeVolFactors(snapshot, closes, ctx){
   const out = [];
   const vix = ctx.vix;
+  const snapshotIv = snapshot && Number.isFinite(snapshot.iv) ? snapshot.iv : null;
+  const greeksNow = snapshot && snapshot.now ? snapshot.now : null;
 
   // FIXED this session (naive-typeof NaN fail-open, same bug class
   // found throughout this audit): `typeof vix === 'number'` is true for
@@ -15044,15 +15074,20 @@ function computeVolFactors(snapshot, closes, ctx){
     out.push({cat:'Vol', factor:'India VIX Trend Up/Down', pass:null, score:0, reason:`VIX feed unavailable this refresh - not scored`});
   }
 
-  out.push({cat:'Vol', factor:'ATM IV', pass: snapshot.iv>10 && snapshot.iv<25, score: (snapshot.iv>10&&snapshot.iv<25)?0.5:-0.5,
-    reason:`Live/entered IV = ${snapshot.iv.toFixed(1)}% for the selected strike (same value feeding the BSM engine, not re-derived independently)`});
+  if (snapshotIv === null) {
+    out.push({cat:'Vol', factor:'ATM IV', pass:null, score:0,
+      reason:'Live/entered IV unavailable or non-finite this refresh - not scored, not guessed'});
+  } else {
+    out.push({cat:'Vol', factor:'ATM IV', pass: snapshotIv>10 && snapshotIv<25, score: (snapshotIv>10&&snapshotIv<25)?0.5:-0.5,
+      reason:`Live/entered IV = ${fnoFormatFixed(snapshotIv, 1)}% for the selected strike (same value feeding the BSM engine, not re-derived independently)`});
+  }
 
   {
     const history = getSnapshotHistory().filter(s=>typeof s.iv==='number');
-    const { percentile, sampleSize } = computeIVPercentileRank(snapshot.iv, history);
-    if (percentile !== null) {
+    const { percentile, sampleSize } = computeIVPercentileRank(snapshotIv, history);
+    if (percentile !== null && Number.isFinite(percentile)) {
       out.push({cat:'Vol', factor:'IV Rank/Percentile', pass: percentile>10 && percentile<90, score: (percentile>10&&percentile<90)?0.3:-0.5,
-        reason:`Real percentile rank of current IV ${snapshot.iv.toFixed(1)}% against ${sampleSize} actual readings collected during this app's own use (NOT a full 252-session backtest - honestly a small, session-limited sample; more history accumulates the longer the app stays in use) = ${percentile.toFixed(0)}th percentile`});
+        reason:`Real percentile rank of current IV ${snapshotIv !== null ? fnoFormatFixed(snapshotIv, 1) : '?'}% against ${sampleSize} actual readings collected during this app's own use (NOT a full 252-session backtest - honestly a small, session-limited sample; more history accumulates the longer the app stays in use) = ${fnoFormatFixed(percentile, 0)}th percentile`});
     } else {
       out.push({cat:'Vol', factor:'IV Rank/Percentile', pass:null, score:0,
         reason:`Only ${sampleSize} IV readings collected so far this session's rolling history (need 10+ for even a rough percentile) - a true 252-session IV rank would need this app running continuously for roughly a year; not fabricated from an inadequate sample`});
@@ -15072,10 +15107,10 @@ function computeVolFactors(snapshot, closes, ctx){
   }
 
   const hv = historicalVolPct(closes, 20);
-  if (hv!==null) {
-    const gap = snapshot.iv - hv;
+  if (hv!==null && snapshotIv !== null) {
+    const gap = snapshotIv - hv;
     out.push({cat:'Vol', factor:'Historical vs IV', pass: Math.abs(gap)<5, score: Math.abs(gap)<5?0.5:-0.5,
-      reason:`20-candle realized vol (annualized, from real close-to-close log returns) = ${hv.toFixed(1)}% vs IV ${snapshot.iv.toFixed(1)}% -> gap ${gap.toFixed(1)}pp ${gap>5?'(IV rich vs realized)':gap<-5?'(IV cheap vs realized)':'(in line)'}`});
+      reason:`20-candle realized vol (annualized, from real close-to-close log returns) = ${fnoFormatFixed(hv, 1)}% vs IV ${fnoFormatFixed(snapshotIv, 1)}% -> gap ${fnoFormatFixed(gap, 1)}pp ${gap>5?'(IV rich vs realized)':gap<-5?'(IV cheap vs realized)':'(in line)'}`});
   } else {
     out.push({cat:'Vol', factor:'Historical vs IV', pass:null, score:0, reason:`Fewer than 21 real candles this refresh - realized vol not computed on too short a window`});
   }
@@ -15111,7 +15146,7 @@ function computeVolFactors(snapshot, closes, ctx){
 
   const isExpiry = ctx.isExpiry;
   out.push({cat:'Vol', factor:'Expiry Day Volatility', pass: !isExpiry, score: isExpiry?-1:0.3,
-    reason: isExpiry ? `Today flagged as expiry (Thursday) - gamma ${snapshot.now.gamma.toFixed(5)} and theta ${snapshot.now.thetaPerDay.toFixed(2)} both elevated, expect wider intraday swings` : `Not expiry day`});
+    reason: isExpiry ? `Today flagged as expiry (Thursday) - gamma ${greeksNow && Number.isFinite(greeksNow.gamma) ? fnoFormatFixed(greeksNow.gamma, 5) : '?'} and theta ${greeksNow && Number.isFinite(greeksNow.thetaPerDay) ? fnoFormatFixed(greeksNow.thetaPerDay, 2) : '?'} both elevated, expect wider intraday swings` : `Not expiry day`});
 
   return out;
 }
@@ -16196,6 +16231,15 @@ function applyHistoricalDirectionTrackRecord(hypothesis, directionStats) {
 }
 
 function computeOperatorIntel(rec, spot, pcr, fiiLongShort, priceChangePct, daysToExpiry){
+  try {
+  return computeOperatorIntelImpl(rec, spot, pcr, fiiLongShort, priceChangePct, daysToExpiry);
+  } catch (opIntelErr) {
+    console.warn('computeOperatorIntel failed (non-fatal):', opIntelErr);
+    return {bias:'NEUTRAL', score:0, confidence:'LOW', signals:[{factor:'Operator Intel', reason:'Operator Intel computation error this refresh - treated as neutral, not guessed', contrib:0}]};
+  }
+}
+
+function computeOperatorIntelImpl(rec, spot, pcr, fiiLongShort, priceChangePct, daysToExpiry){
   const rows = (rec && rec.data) || [];
   const signals = [];
   let score = 0;
@@ -16250,9 +16294,9 @@ function computeOperatorIntel(rec, spot, pcr, fiiLongShort, priceChangePct, days
     const proximityScale = (typeof daysToExpiry === 'number' && daysToExpiry >= 0)
       ? Math.max(0.2, 1 - (daysToExpiry / 10))
       : 0.5; // real, honest neutral scale when daysToExpiry genuinely isn't available - never silently defaults to full confidence
-    const basePull = Math.abs(distPct) > 1.5 ? (distPct>0 ? -0.5 : 0.5) : 0;
+    const basePull = Number.isFinite(distPct) && Math.abs(distPct) > 1.5 ? (distPct>0 ? -0.5 : 0.5) : 0;
     const pullContrib = basePull * proximityScale;
-    signals.push({factor:'Max Pain Pull Strength', reason:`Max pain at ${maxPainStrike}, spot ${spot.toFixed(0)} is ${distPct.toFixed(2)}% away${typeof daysToExpiry === 'number' ? ` (${daysToExpiry.toFixed(1)} real days to expiry, proximity-scaled ${(proximityScale*100).toFixed(0)}% - max pain pull is a real, much weaker predictor far from expiry)` : ' (days-to-expiry unavailable this refresh, using a neutral 50% scale rather than full confidence)'}`, contrib:pullContrib});
+    signals.push({factor:'Max Pain Pull Strength', reason:`Max pain at ${maxPainStrike}, spot ${fnoFormatFixed(spot, 0)} is ${fnoFormatFixed(distPct, 2)}% away${typeof daysToExpiry === 'number' && Number.isFinite(daysToExpiry) ? ` (${fnoFormatFixed(daysToExpiry, 1)} real days to expiry, proximity-scaled ${fnoFormatFixed(proximityScale*100, 0)}% - max pain pull is a real, much weaker predictor far from expiry)` : ' (days-to-expiry unavailable this refresh, using a neutral 50% scale rather than full confidence)'}`, contrib:pullContrib});
     score += pullContrib;
   }
 
@@ -16299,10 +16343,12 @@ function computeOperatorIntel(rec, spot, pcr, fiiLongShort, priceChangePct, days
   // contrarian question: buying PUTS is a BEARISH bet (profits if
   // price falls), not "bullish" as the old text literally said; buying
   // CALLS is a BULLISH bet, not "bearish" - both corrected below.
+  const pcrNum = Number.isFinite(pcr) ? pcr : null;
   let pcrContrib=0, pcrReason;
-  if(pcr > 1.5){ pcrContrib=0.5; pcrReason=`PCR ${pcr.toFixed(2)} - retail heavily crowded on the put side (a bearish bet), historically read as a contrarian BULLISH tell (excess bearish positioning, oversold)`; }
-  else if(pcr < 0.6){ pcrContrib=-0.5; pcrReason=`PCR ${pcr.toFixed(2)} - retail heavily crowded on the call side (a bullish bet), historically read as a contrarian BEARISH tell (excess bullish positioning, overbought)`; }
-  else { pcrReason=`PCR ${pcr.toFixed(2)} - no extreme retail crowding`; }
+  if(pcrNum !== null && pcrNum > 1.5){ pcrContrib=0.5; pcrReason=`PCR ${fnoFormatFixed(pcrNum, 2)} - retail heavily crowded on the put side (a bearish bet), historically read as a contrarian BULLISH tell (excess bearish positioning, oversold)`; }
+  else if(pcrNum !== null && pcrNum < 0.6){ pcrContrib=-0.5; pcrReason=`PCR ${fnoFormatFixed(pcrNum, 2)} - retail heavily crowded on the call side (a bullish bet), historically read as a contrarian BEARISH tell (excess bullish positioning, overbought)`; }
+  else if(pcrNum === null) { pcrReason='PCR unavailable this refresh - not scored as extremity'; }
+  else { pcrReason=`PCR ${fnoFormatFixed(pcrNum, 2)} - no extreme retail crowding`; }
   signals.push({factor:'PCR Extremity - Retail Crowding Proxy', reason:pcrReason, contrib:pcrContrib});
   score += pcrContrib;
 
@@ -19510,8 +19556,10 @@ function render(){
         const writingBox = document.getElementById('optionWritingConditionsBox');
         if (writingBox) {
           const ivHistory = getSnapshotHistory().filter(s=>typeof s.iv==='number');
-          const { percentile: ivPercentile } = computeIVPercentileRank(decay.snapshot.iv, ivHistory);
-          const writing = computeOptionWritingConditionsAssessment(ivPercentile, decay.snapshot.now.thetaPerDay, optPrice, cond);
+          const snapIv = decay.snapshot && Number.isFinite(decay.snapshot.iv) ? decay.snapshot.iv : null;
+          const { percentile: ivPercentile } = computeIVPercentileRank(snapIv, ivHistory);
+          const thetaDay = decay.snapshot && decay.snapshot.now && Number.isFinite(decay.snapshot.now.thetaPerDay) ? decay.snapshot.now.thetaPerDay : null;
+          const writing = computeOptionWritingConditionsAssessment(ivPercentile, thetaDay, optPrice, cond);
           const writingColor = writing.favorsWriting === 'writing_favored' ? '#fde68a' : writing.favorsWriting === 'buying_favored' ? '#4ade80' : '#94a3b8';
           writingBox.innerHTML = `
             <div style="font-weight:700;color:${writingColor};margin-bottom:4px">${writing.favorsWriting.replace(/_/g,' ').toUpperCase()}</div>
