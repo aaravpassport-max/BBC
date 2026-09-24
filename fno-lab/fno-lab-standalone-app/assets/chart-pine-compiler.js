@@ -5,7 +5,7 @@
 (function (global) {
   'use strict';
 
-  const SUBSET_VERSION = 4;
+  const SUBSET_VERSION = 5;
   const MAX_SOURCE_LEN = 120000;
 
   const SUBSET_HELP =
@@ -79,7 +79,7 @@
       if (/\bmatrix\./.test(body)) return 'matrix.* is not supported';
       return null;
     }
-    if (/^\s*if\s+/i.test(body)) return 'if statements are not supported in this Pine subset';
+    if (/^\s*if\b/i.test(body)) return 'if statements are not supported in this Pine subset';
     if (/^\s*else\b/i.test(body)) return 'else branches are not supported in this Pine subset';
     if (/^\s*for\s+/i.test(body)) return 'for loops are not supported';
     if (/^\s*while\s+/i.test(body)) return 'while loops are not supported';
@@ -127,33 +127,60 @@
     return { msg: msg || 'Unsupported Pine construct', line: null, snippet: '', call: '' };
   }
 
+  function lineIndent(line) {
+    const m = String(line || '').match(/^(\s*)/);
+    return m ? m[1].length : 0;
+  }
+
   function lineBlockedForStrip(line) {
     const body = stripComments(String(line || '')).trim();
     if (!body) return true;
     if (/^\s*\/\//.test(line)) return true;
-    if (/^\s*if\s+/i.test(body)) return true;
+    if (/^\s*if\b/i.test(body)) return true;
     if (/^\s*else\b/i.test(body)) return true;
-    if (/^\s*for\s+/i.test(body)) return true;
-    if (/^\s*while\s+/i.test(body)) return true;
-    if (/^\s*switch\s+/i.test(body)) return true;
-    if (/^\s*var\s+/i.test(body)) return true;
-    if (/^\s*varip\s+/i.test(body)) return true;
+    if (/^\s*for\b/i.test(body)) return true;
+    if (/^\s*while\b/i.test(body)) return true;
+    if (/^\s*switch\b/i.test(body)) return true;
+    if (/^\s*var\b/i.test(body)) return true;
+    if (/^\s*varip\b/i.test(body)) return true;
+    if (/=\s*if\b/i.test(body) && !/^\s*plot\s*\(/i.test(body)) return true;
     if (/\b(array\.|matrix\.|barstate\.)\b/.test(body)) return true;
     if (/\bstrategy\s*\(|\blibrary\s*\(|\bimport\s+/.test(body)) return true;
     return false;
   }
 
+  function isBlockOpenerLine(line) {
+    const body = stripComments(String(line || '')).trim();
+    return /^\s*(if\b|for\b|while\b|switch\b|else\b)/i.test(body);
+  }
+
   function buildStrippedPineSource(raw) {
     const lines = String(raw || '').split(/\r?\n/);
     const kept = [];
+    let skipIndent = null;
+
     lines.forEach((line) => {
-      if (lineBlockedForStrip(line)) return;
-      const t = line.trim();
-      if (!t) return;
-      if (parseIndicatorMeta(t)) { kept.push(line); return; }
-      if (parseInputLine(t)) { kept.push(line); return; }
-      if (extractPlot(t)) { kept.push(line); return; }
-      if (/^[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*.+$/.test(t) && !/\b(input\.|plot\s*\()/.test(t.split('=')[1])) {
+      const body = stripComments(line);
+      const trimmed = body.trim();
+      if (!trimmed) return;
+
+      const indent = lineIndent(body);
+
+      if (skipIndent != null) {
+        if (indent > skipIndent) return;
+        skipIndent = null;
+      }
+
+      if (lineBlockedForStrip(line)) {
+        if (isBlockOpenerLine(line)) skipIndent = indent;
+        return;
+      }
+
+      if (parseIndicatorMeta(trimmed)) { kept.push(line); return; }
+      if (parseInputLine(trimmed)) { kept.push(line); return; }
+      if (extractPlot(trimmed)) { kept.push(line); return; }
+      if (/^[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*.+$/.test(trimmed) && !/\b(input\.|plot\s*\()/.test(trimmed.split('=')[1])) {
+        if (/=\s*if\b/i.test(trimmed)) return;
         kept.push(line);
       }
     });
@@ -348,22 +375,38 @@
     if (!raw.trim()) return { ok: false, error: 'Pine script is empty' };
     if (raw.length > MAX_SOURCE_LEN) return { ok: false, error: 'Pine script is too large' };
 
+    const body = stripComments(raw);
+    if (/\bstrategy\s*\(|\blibrary\s*\(|\bimport\s+/.test(body)) {
+      return { ok: false, error: formatUnsupportedMessage(raw, findUnsupported(raw)) };
+    }
+
+    const stripped = buildStrippedPineSource(raw);
+    if (
+      stripped
+      && stripped.trim() !== raw.trim()
+      && /\bindicator\s*\(/i.test(stripped)
+      && /\bplot\s*\(/i.test(stripped)
+    ) {
+      const retry = compilePineScriptInner(stripped, raw);
+      if (retry.ok) {
+        retry.warnings = (retry.warnings || []).concat([
+          'Auto-removed unsupported Pine lines (if/else bodies, arrays, var, loops, etc.). Confirm the compiled plot matches your intent.',
+        ]);
+        retry.strippedCompile = true;
+        return retry;
+      }
+    }
+
     const unsup = findUnsupported(raw);
     if (unsup) {
-      const body = stripComments(raw);
-      if (/\bstrategy\s*\(|\blibrary\s*\(|\bimport\s+/.test(body)) {
-        return { ok: false, error: formatUnsupportedMessage(raw, unsup) };
-      }
-      const stripped = buildStrippedPineSource(raw);
-      if (stripped && stripped.trim() !== raw.trim() && !findUnsupported(stripped)) {
-        const retry = compilePineScriptInner(stripped, raw);
-        if (retry.ok) {
-          retry.warnings = (retry.warnings || []).concat([
-            'Auto-removed unsupported lines (if/else, arrays, var, loops, etc.). Confirm the compiled plot matches your intent.',
-          ]);
-          retry.strippedCompile = true;
-          return retry;
-        }
+      if (stripped && stripped.trim() !== raw.trim()) {
+        const retry2 = compilePineScriptInner(stripped, raw);
+        return {
+          ok: false,
+          error: 'After removing if/else and other unsupported lines, compile still failed: '
+            + (retry2.error || 'plot() may depend on removed logic')
+            + '. Use a single plot(ta.ema(close, 14)) or Formula ema(close, 14). ' + SUBSET_HELP,
+        };
       }
       return { ok: false, error: formatUnsupportedMessage(raw, unsup) };
     }

@@ -98,6 +98,17 @@ assert.strictEqual(ifStrip.ok, true, ifStrip.error);
 assert.ok(ifStrip.strippedCompile);
 assert.strictEqual(ifStrip.formula, 'ema(close, len)');
 
+const ifIndented = `//@version=5
+indicator("If indent", overlay=true)
+len = input.int(9, "Len")
+if close > open
+    x = ta.ema(close, 5)
+    y = ta.sma(close, 10)
+plot(ta.ema(close, len))`;
+const ifInd = PINE.compilePineScript(ifIndented);
+assert.strictEqual(ifInd.ok, true, ifInd.error);
+assert.ok(ifInd.strippedCompile);
+
 const plotInlineIf = `//@version=5
 indicator("Inline if color", overlay=true)
 plot(ta.ema(close, 14), color=if close > open ? color.green : color.red)`;
