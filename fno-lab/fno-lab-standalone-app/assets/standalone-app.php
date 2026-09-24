@@ -542,6 +542,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
     <div class="fno-chart-toolbar" style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
       <label style="font-size:11px;color:#94a3b8"><input type="checkbox" id="chartShowEma" checked> EMA21</label>
       <label style="font-size:11px;color:#94a3b8"><input type="checkbox" id="chartShowVwap" checked> VWAP</label>
+      <label style="font-size:11px;color:#94a3b8"><input type="checkbox" id="chartShowVolume"> Show Volume</label>
       <label style="font-size:11px;color:#94a3b8"><input type="checkbox" id="chartShowOptionLtp" checked> Option LTP</label>
       <span style="width:1px;height:16px;background:#1e293b;margin:0 4px"></span>
       <input id="chartLayoutPresetName" class="input" placeholder="Preset name" style="font-size:11px;width:100px">

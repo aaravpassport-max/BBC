@@ -89,6 +89,8 @@ global.fetch = (url) => {
   return p.then(() => ({ json: () => Promise.resolve({ success: true, data: {} }) }));
 };
 
+const { extractCoreFunction } = require('./lib/extract-core-fn');
+
 const coreSource = fs.readFileSync(path.join(__dirname, '../assets/fno-lab-core.js'), 'utf8');
 const renderStart = coreSource.indexOf('\nfunction render(){');
 if (renderStart === -1) {
@@ -97,21 +99,14 @@ if (renderStart === -1) {
 }
 const baseSlice = coreSource.slice(0, renderStart);
 
-function extractFn(startMarker, endMarker) {
-  const start = coreSource.indexOf(startMarker);
-  if (start === -1) { console.error(`FATAL: could not locate "${startMarker}"`); process.exit(1); }
-  const end = coreSource.indexOf(endMarker, start);
-  if (end === -1) { console.error(`FATAL: could not locate closing marker after "${startMarker}"`); process.exit(1); }
-  return coreSource.slice(start, end + endMarker.length)
-    .split('\n').map(l => l.startsWith('  ') ? l.slice(2) : l).join('\n');
-}
-
-const closePartialSrc = extractFn(
+const closePartialSrc = extractCoreFunction(
+  coreSource,
   'async function closePartial(open, exitLeg, partialQty, sym) {',
   '} finally { fnoAutoTradeCloseInProgress = false; }\n  }'
 );
-const closeAutoTradeSrc = extractFn(
-  'async function closeAutoTrade(open, exitLeg, exitReason, sym) {',
+const closeAutoTradeSrc = extractCoreFunction(
+  coreSource,
+  'async function closeAutoTrade(open, exitLeg, exitReason, sym',
   '} finally { fnoAutoTradeCloseInProgress = false; }\n  }'
 );
 
@@ -132,16 +127,24 @@ eval(
   // this eval's own block scope (const does not leak out of even a
   // direct eval in sloppy mode) - explicitly exposed so the rest of
   // this test file (outside the eval) can drive/inspect them.
-  'global.STORAGE = STORAGE; global.save = save; global.load = load; global.loadObj = loadObj; global.closeAutoTrade = closeAutoTrade; global.closePartial = closePartial;'
+  'global.STORAGE = STORAGE; global.save = save; global.load = load; global.loadObj = loadObj; global.closeAutoTrade = closeAutoTrade; global.closePartial = closePartial;\n' +
+  'global.__setCurCtx = function(c){ curCtx = c; };'
 );
 
-function freshOpen() {
-  return {
-    id: 1, serverPositionId: 555, strike: 25000, optionType: 'CE',
-    entryPrice: 100, qty: 50, target: 130, sl: 80,
+function stubCurCtx() {
+  __setCurCtx({
+    spot: 23200,
+    candles: [{ t: Date.now(), o: 128, h: 132, l: 127, c: 130, v: 1000 }],
+  });
+}
+function freshOpen(overrides) {
+  return Object.assign({
+    id: Date.now(), serverPositionId: 555, strike: 25000, optionType: 'CE',
+    entryPrice: 100, qty: 75, target: 130, sl: 80,
     openedAt: Date.now(), tradingType: 'intraday',
     executionMode: 'theoretical', fillIsRealistic: true,
-  };
+    mfe: 130, mae: 95,
+  }, overrides || {});
 }
 const exitLeg = { lastPrice: 130, impliedVolatility: 18 };
 
@@ -156,6 +159,7 @@ async function testA() {
   localStorage.clear();
   fetchCalls = [];
   __resetCloseInProgress();
+  stubCurCtx();
   save(STORAGE.autoTrades, freshOpen());
 
   const open1 = freshOpen();
@@ -197,6 +201,7 @@ async function testB() {
   localStorage.clear();
   fetchCalls = [];
   __resetCloseInProgress();
+  stubCurCtx();
   save(STORAGE.autoTrades, freshOpen());
   const open1 = freshOpen();
   const p1 = closeAutoTrade(open1, exitLeg, 'target', 'NIFTY');
@@ -210,10 +215,12 @@ async function testB() {
 
   // A second, GENUINELY new position opens and closes later - must not
   // be silently swallowed by a stuck guard.
-  save(STORAGE.autoTrades, freshOpen());
-  const open2 = freshOpen();
+  save(STORAGE.autoTrades, freshOpen({ id: 9002, serverPositionId: 556 }));
+  const open2 = freshOpen({ id: 9002, serverPositionId: 556 });
+  stubCurCtx();
+  __resetCloseInProgress();
   const beforeCalls = fetchCalls.length;
-  const p2 = closeAutoTrade(open2, exitLeg, 'sl', 'BANKNIFTY');
+  const p2 = closeAutoTrade(open2, exitLeg, 'target', 'BANKNIFTY');
   check(fetchCalls.length === beforeCalls + 1, 'a genuinely later, non-overlapping close is NOT blocked by the guard (real fetch was made)');
   fetchCalls[fetchCalls.length - 1].resolveFn();
   await p2;

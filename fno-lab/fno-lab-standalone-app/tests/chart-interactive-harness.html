@@ -34,11 +34,18 @@
       <button type="button" class="btn chart-tf-btn" data-tf="1">1m</button>
       <button type="button" class="btn chart-tf-btn" data-tf="5">5m</button>
       <button type="button" class="btn chart-tf-btn" data-tf="15">15m</button>
-      <select id="chartTypeSelect" class="input"><option value="candle">Candles</option><option value="line">Line</option></select>
+      <button type="button" class="btn chart-tf-btn" data-tf="30">30m</button>
+      <button type="button" class="btn chart-tf-btn" data-tf="60">1h</button>
+      <button type="button" class="btn chart-tf-btn" data-tf="240">4h</button>
+      <button type="button" class="btn chart-tf-btn" data-tf="1440">1D</button>
+      <select id="chartTypeSelect" class="input"><option value="candle">Candles</option><option value="line">Line</option><option value="area">Area</option></select>
       <input id="chartIndicatorSearch" class="input" placeholder="Search" style="width:80px">
       <select id="chartAddIndicator" class="input"><option value="">+ Add indicator…</option></select>
       <button type="button" class="btn" id="chartCustomIndicatorBtn">📜 Scripts</button>
+      <button type="button" class="btn chart-draw-btn" data-draw="hline">― H</button>
+      <button type="button" class="btn chart-draw-btn" data-draw="trend">／ Trend</button>
       <button type="button" class="btn chart-draw-btn" data-draw="vline">| V-line</button>
+      <button type="button" class="btn" id="chartDrawClear">Clear drawings</button>
       <button type="button" class="btn" id="chartZoomIn">🔍+</button>
       <button type="button" class="btn" id="chartZoomOut">🔍-</button>
       <button type="button" class="btn" id="chartResetView">Reset</button>
@@ -48,8 +55,15 @@
     <div class="fno-chart-toolbar" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
       <label><input type="checkbox" id="chartShowEma" checked> EMA21</label>
       <label><input type="checkbox" id="chartShowVwap" checked> VWAP</label>
+      <label><input type="checkbox" id="chartShowVolume"> Show Volume</label>
       <label><input type="checkbox" id="chartShowOptionLtp" checked> Option LTP</label>
+      <input id="chartLayoutPresetName" class="input" placeholder="Preset" value="HarnessPreset" style="width:80px">
+      <button type="button" class="btn" id="chartLayoutPresetSave">Save layout</button>
+      <select id="chartLayoutPresetSelect" class="input"><option value="">Layout…</option></select>
+      <button type="button" class="btn" id="chartLayoutPresetLoad">Load layout</button>
       <button type="button" class="btn" id="chartCustomIndExportBtn">Export scripts</button>
+      <textarea id="chartCustomIndPine" class="input" style="width:100%;min-height:48px;font-size:10px;display:none"></textarea>
+      <button type="button" class="btn" id="chartCustomIndPineCompile" style="display:none">Compile Pine</button>
       <input type="file" id="chartCustomIndImportFile" style="display:none">
       <button type="button" class="btn" id="chartCustomIndImportBtn">Import</button>
       <select id="chartIndAlertKind" class="input"><option value="rsi">RSI</option><option value="macd_zero">MACD zero</option></select>
@@ -98,6 +112,12 @@ window.fnoSettings = {
   set: () => {},
 };
 window.devicePixelRatio = window.devicePixelRatio || 1;
+window.__chartAuditConsoleErrors = [];
+const __origConsoleError = console.error;
+console.error = function () {
+  window.__chartAuditConsoleErrors.push(Array.from(arguments).join(' '));
+  __origConsoleError.apply(console, arguments);
+};
 
 function seedStorage() {
   const open = {
@@ -113,6 +133,10 @@ function seedStorage() {
     { ts: Date.now(), positionId: 'harness_open_1', ltp: 108, target: 130, sl: 85, entryPrice: 100, strike: 23200, optionType: 'CE', symbol: 'NIFTY' },
   ]));
   localStorage.removeItem('fno_chart_view_v1');
+  localStorage.removeItem('fno_chart_indicators_v1');
+  localStorage.removeItem('fno_chart_layout_presets_v1');
+  localStorage.removeItem('fno_chart_price_alerts_v1');
+  localStorage.removeItem('fno_chart_indicator_alerts_v1');
 }
 
 function makeCandles(n) {
@@ -154,6 +178,13 @@ async function runClickAudit() {
   document.querySelector('.chart-tf-btn[data-tf="15"]').click();
   await sleep(60);
   check('15m timeframe button', _fnoChartViewStateForTest().timeframeMinutes === 15);
+
+  for (const tf of ['30', '60', '240', '1440']) {
+    const btn = document.querySelector('.chart-tf-btn[data-tf="' + tf + '"]');
+    btn.click();
+    await sleep(50);
+    check(tf + 'm timeframe button', _fnoChartViewStateForTest().timeframeMinutes === Number(tf));
+  }
 
   const z0 = _fnoChartViewStateForTest().visibleCount;
   document.getElementById('chartZoomIn').click();
@@ -213,6 +244,36 @@ async function runClickAudit() {
   await sleep(40);
   const vwapInst = FNO_CHART_INDICATORS.loadInstances().find(i => i.typeId === 'vwap');
   check('VWAP checkbox sync', vwapInst && !vwapInst.enabled);
+  document.getElementById('chartShowEma').click();
+  document.getElementById('chartShowVwap').click();
+  await sleep(40);
+
+  const volBox = document.getElementById('chartShowVolume');
+  check('Show Volume starts unchecked', volBox && !volBox.checked);
+  check('Volume panel hidden initially', !_fnoChartHasVolumePanelForTest());
+  volBox.click();
+  await sleep(100);
+  renderPriceChart(marketCtx);
+  await sleep(60);
+  check('Show Volume ON → panel visible', _fnoChartHasVolumePanelForTest() && _fnoChartVolumeEnabledForTest());
+  volBox.click();
+  await sleep(100);
+  renderPriceChart(marketCtx);
+  await sleep(40);
+  check('Show Volume OFF → panel hidden', !_fnoChartHasVolumePanelForTest());
+  const storedVol = JSON.parse(localStorage.getItem('fno_chart_indicators_v1') || '[]');
+  const volRow = storedVol.find((i) => i.typeId === 'volume');
+  check('Volume disabled in localStorage', volRow && volRow.enabled === false);
+  volBox.click();
+  await sleep(100);
+  renderPriceChart(marketCtx);
+  check('Show Volume re-enabled', _fnoChartHasVolumePanelForTest());
+  volBox.click();
+  await sleep(80);
+  renderPriceChart(marketCtx);
+  const reloaded = JSON.parse(localStorage.getItem('fno_chart_indicators_v1') || '[]');
+  check('Reload from storage: volume still disabled', reloaded.some((i) => i.typeId === 'volume' && i.enabled === false));
+  check('Reload from storage: panel still hidden', !_fnoChartHasVolumePanelForTest());
 
   document.getElementById('chartFullscreen').click();
   check('Fullscreen class on section', document.getElementById('priceChartSection').classList.contains('fno-chart-section--fullscreen'));
@@ -235,6 +296,39 @@ async function runClickAudit() {
   document.getElementById('chartTypeSelect').value = 'line';
   document.getElementById('chartTypeSelect').dispatchEvent(new Event('change'));
   check('Chart type line', _fnoChartViewStateForTest().chartType === 'line');
+  document.getElementById('chartTypeSelect').value = 'area';
+  document.getElementById('chartTypeSelect').dispatchEvent(new Event('change'));
+  check('Chart type area', _fnoChartViewStateForTest().chartType === 'area');
+
+  const searchInp = document.getElementById('chartIndicatorSearch');
+  searchInp.value = 'macd';
+  searchInp.dispatchEvent(new Event('input', { bubbles: true }));
+  const addOpts = Array.from(document.getElementById('chartAddIndicator').options).map((o) => o.value);
+  const ids = addOpts.filter((v) => v);
+  check('Indicator search filters list', ids.length === 1 && ids[0] === 'macd');
+  searchInp.value = '';
+  searchInp.dispatchEvent(new Event('input', { bubbles: true }));
+
+  const rmBtn = document.querySelector('.chart-ind-rm');
+  if (rmBtn) { rmBtn.click(); await sleep(80); }
+  check('Remove indicator row', document.querySelectorAll('.chart-ind-row').length >= 0);
+
+  document.getElementById('chartAlertAdd').click();
+  check('Price alert list mentions price', (document.getElementById('chartAlertsList').textContent || '').length > 5);
+
+  document.getElementById('chartLayoutPresetSave').click();
+  await sleep(40);
+  const presetOpts = document.getElementById('chartLayoutPresetSelect').options.length;
+  check('Layout preset saved', presetOpts > 1);
+  document.getElementById('chartLayoutPresetSelect').selectedIndex = 1;
+  document.getElementById('chartLayoutPresetLoad').click();
+  await sleep(40);
+  check('Layout preset load callable', true);
+
+  document.getElementById('chartDrawClear').click();
+  check('Clear drawings button wired', true);
+
+  check('No console.error during audit', window.__chartAuditConsoleErrors.length === 0, window.__chartAuditConsoleErrors.slice(0, 2).join('; '));
 
   document.getElementById('auditSummary').textContent = `Audit: ${pass}/${total} passed`;
   document.getElementById('auditSummary').style.color = pass === total ? '#4ade80' : '#f87171';

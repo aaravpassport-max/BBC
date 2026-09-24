@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.57-ledger-alert-sync-v1';
+const FNO_CORE_BUILD_MARKER = '16.37.58-chart-volume-audit-harness';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -2842,6 +2842,16 @@ let fnoChartViewState = {
 // `fnoChartViewState` by name directly. Zero effect on real browser
 // behavior - a real <script> tag has no such scoping quirk.
 function _fnoChartViewStateForTest() { return fnoChartViewState; }
+function _fnoChartHasVolumePanelForTest() {
+  const el = document.getElementById('priceChartPanels');
+  if (!el) return false;
+  return Array.from(el.querySelectorAll('div')).some((d) => (d.textContent || '').trim().startsWith('Volume'));
+}
+function _fnoChartVolumeEnabledForTest() {
+  if (typeof FNO_CHART_INDICATORS === 'undefined') return false;
+  const row = FNO_CHART_INDICATORS.loadInstances().find((i) => i.typeId === 'volume');
+  return !!(row && row.enabled);
+}
 // Real, last-rendered geometry - written by renderPriceChart every draw,
 // read by the drag/wheel handlers below to convert a real pixel delta
 // into a real candle-count delta (so panning speed matches what's
@@ -2880,11 +2890,25 @@ function fnoChartFormatOhlcPrice(v) {
   return v.toFixed(v >= 1000 ? 0 : 2);
 }
 
-function fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox) {
+function fnoChartSetVolumeIndicatorEnabled(enabled) {
+  if (typeof FNO_CHART_INDICATORS === 'undefined') return;
+  let inst = FNO_CHART_INDICATORS.loadInstances();
+  let row = inst.find((i) => i.typeId === 'volume');
+  if (!row && enabled) {
+    inst = FNO_CHART_INDICATORS.addInstance(inst, 'volume');
+    row = inst.find((i) => i.typeId === 'volume');
+  }
+  if (row) {
+    inst = FNO_CHART_INDICATORS.updateInstance(inst, row.instanceId, { enabled: !!enabled });
+    FNO_CHART_INDICATORS.saveInstances(inst);
+  }
+}
+function fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox, volumeBox) {
   if (typeof FNO_CHART_INDICATORS === 'undefined') return;
   const inst = FNO_CHART_INDICATORS.loadInstances();
   const emaRow = inst.find(i => i.typeId === 'ema');
   const vwapRow = inst.find(i => i.typeId === 'vwap');
+  const volRow = inst.find(i => i.typeId === 'volume');
   if (emaBox && emaRow) {
     emaBox.checked = !!emaRow.enabled;
     fnoChartViewState.showEma = !!emaRow.enabled;
@@ -2892,6 +2916,10 @@ function fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox) {
   if (vwapBox && vwapRow) {
     vwapBox.checked = !!vwapRow.enabled;
     fnoChartViewState.showVwap = !!vwapRow.enabled;
+  }
+  if (volumeBox) {
+    volumeBox.checked = !!(volRow && volRow.enabled);
+    fnoChartViewState.showVolume = !!(volRow && volRow.enabled);
   }
 }
 
@@ -3807,7 +3835,8 @@ function fnoChartWireIndicatorManager(redraw) {
   fnoChartViewState.indicatorUiWired = true;
   const emaBox = document.getElementById('chartShowEma');
   const vwapBox = document.getElementById('chartShowVwap');
-  fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox);
+  const volumeBox = document.getElementById('chartShowVolume');
+  fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox, volumeBox);
   const refreshIndicatorDropdown = () => {
     const types = FNO_CHART_INDICATORS.listTypes();
     addSel.innerHTML = '<option value="">+ Add indicator…</option>' + types.map(t => `<option value="${t.id}">${t.name} (${t.type})</option>`).join('');
@@ -3859,7 +3888,7 @@ function fnoChartWireIndicatorManager(redraw) {
   };
   const renderList = () => {
     const instances = FNO_CHART_INDICATORS.loadInstances();
-    fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox);
+    fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox, volumeBox);
     listEl.innerHTML = instances.map((inst) => {
       const def = FNO_CHART_INDICATORS.getDefinition(inst.typeId);
       const name = def ? def.name : inst.typeId;
@@ -3887,7 +3916,7 @@ function fnoChartWireIndicatorManager(redraw) {
         let inst = FNO_CHART_INDICATORS.loadInstances();
         inst = FNO_CHART_INDICATORS.updateInstance(inst, cb.getAttribute('data-id'), { enabled: cb.checked });
         FNO_CHART_INDICATORS.saveInstances(inst);
-        fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox);
+        fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox, volumeBox);
         redraw();
       });
     });
@@ -4015,6 +4044,12 @@ function fnoChartWireIndicatorManager(redraw) {
     if (row) inst = FNO_CHART_INDICATORS.updateInstance(inst, row.instanceId, { enabled: vwapBox.checked });
     FNO_CHART_INDICATORS.saveInstances(inst);
     renderList();
+    redraw();
+  });
+  if (volumeBox) volumeBox.addEventListener('change', () => {
+    fnoChartSetVolumeIndicatorEnabled(volumeBox.checked);
+    renderList();
+    fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox, volumeBox);
     redraw();
   });
   const optLtpBox = document.getElementById('chartShowOptionLtp');

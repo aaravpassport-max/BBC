@@ -70,6 +70,8 @@ global.fetch = (url) => {
   return Promise.resolve({ json: () => Promise.resolve({ success: true, data: { id: 1 } }) });
 };
 
+const { extractCoreFunction } = require('./lib/extract-core-fn');
+
 const coreSource = fs.readFileSync(path.join(__dirname, '../assets/fno-lab-core.js'), 'utf8');
 const renderStart = coreSource.indexOf('\nfunction render(){');
 if (renderStart === -1) {
@@ -78,17 +80,9 @@ if (renderStart === -1) {
 }
 const baseSlice = coreSource.slice(0, renderStart);
 
-function extractFn(startMarker, endMarker) {
-  const start = coreSource.indexOf(startMarker);
-  if (start === -1) { console.error(`FATAL: could not locate "${startMarker}"`); process.exit(1); }
-  const end = coreSource.indexOf(endMarker, start);
-  if (end === -1) { console.error(`FATAL: could not locate closing marker after "${startMarker}"`); process.exit(1); }
-  return coreSource.slice(start, end + endMarker.length)
-    .split('\n').map(l => l.startsWith('  ') ? l.slice(2) : l).join('\n');
-}
-
-const closeAutoTradeSrc = extractFn(
-  'async function closeAutoTrade(open, exitLeg, exitReason, sym) {',
+const closeAutoTradeSrc = extractCoreFunction(
+  coreSource,
+  'async function closeAutoTrade(open, exitLeg, exitReason, sym',
   '} finally { fnoAutoTradeCloseInProgress = false; }\n  }'
 );
 
@@ -104,7 +98,7 @@ eval(
 function freshOpen() {
   return {
     id: 1, serverPositionId: 555, strike: 25000, optionType: 'CE',
-    entryPrice: 100, qty: 50, target: 130, sl: 80,
+    entryPrice: 100, qty: 75, target: 130, sl: 80,
     openedAt: Date.now(), tradingType: 'intraday',
     executionMode: 'theoretical', fillIsRealistic: true,
   };

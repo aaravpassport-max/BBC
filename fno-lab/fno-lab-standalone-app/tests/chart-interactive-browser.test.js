@@ -1,37 +1,12 @@
 'use strict';
 /**
  * Real browser click audit for chart toolbar (Puppeteer drives the same
- * harness a human would open). Serves static files from app root on 8765.
+ * harness a human would open). Uses OS-assigned port to avoid EADDRINUSE.
  */
-const { spawn } = require('child_process');
-const http = require('http');
-const fs = require('fs');
 const path = require('path');
+const { startStaticServer, sleep } = require('./lib/static-visual-server');
 
-const PORT = Number(process.env.FNO_CHART_VISUAL_PORT || 8765);
 const ROOT = path.join(__dirname, '..');
-
-function startStaticServer() {
-  const server = http.createServer((req, res) => {
-    let urlPath = req.url.split('?')[0];
-    if (urlPath === '/') urlPath = '/tests/chart-interactive-harness.html';
-    const filePath = path.join(ROOT, urlPath.replace(/^\//, ''));
-    if (!filePath.startsWith(ROOT)) {
-      res.writeHead(403); res.end(); return;
-    }
-    fs.readFile(filePath, (err, data) => {
-      if (err) { res.writeHead(404); res.end('not found'); return; }
-      const ext = path.extname(filePath);
-      const types = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css' };
-      res.writeHead(200, { 'Content-Type': types[ext] || 'application/octet-stream' });
-      res.end(data);
-    });
-  });
-  return new Promise((resolve, reject) => {
-    server.listen(PORT, '127.0.0.1', () => resolve(server));
-    server.on('error', reject);
-  });
-}
 
 function waitForAudit(page, timeoutMs) {
   return page.waitForFunction(
@@ -57,15 +32,18 @@ async function main() {
     process.exit(0);
   }
 
-  const server = await startStaticServer();
+  const srv = await startStaticServer(ROOT, { defaultPath: '/tests/chart-interactive-harness.html' });
   try {
     const browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
     const page = await browser.newPage();
+    page.on('pageerror', (err) => {
+      console.error('pageerror:', err.message);
+    });
     await page.setViewport({ width: 1280, height: 900 });
-    await page.goto(`http://127.0.0.1:${PORT}/tests/chart-interactive-harness.html`, {
+    await page.goto(`http://127.0.0.1:${srv.port}/tests/chart-interactive-harness.html`, {
       waitUntil: 'networkidle0',
       timeout: 120000,
     });
@@ -79,15 +57,21 @@ async function main() {
       throw new Error(`Chart click audit ${result.pass}/${result.total}: ${fails.join(' | ') || 'unknown failure'}`);
     }
 
+    const consoleErrors = await page.evaluate(() => window.__chartAuditConsoleErrors || []);
+    if (consoleErrors.length) {
+      throw new Error(`Console errors during audit: ${consoleErrors.slice(0, 3).join(' | ')}`);
+    }
+
     await page.click('#runAuditBtn');
-    const result2Handle = await waitForAudit(page, 60000);
+    await sleep(800);
+    const result2Handle = await waitForAudit(page, 120000);
     const result2 = await result2Handle.jsonValue();
     if (!result2.ok) throw new Error(`Re-run audit failed ${result2.pass}/${result2.total}`);
 
     await browser.close();
-    console.log(`chart-interactive-browser: ${result.total} toolbar checks passed (auto + manual re-run)`);
+    console.log(`chart-interactive-browser: ${result.total} chart control checks passed (auto + manual re-run)`);
   } finally {
-    server.close();
+    await srv.close();
   }
 }
 

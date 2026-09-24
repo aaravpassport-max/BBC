@@ -64,14 +64,14 @@ async function main() {
     }
 
     await page.click('#btnSimOpen');
-    await page.waitForTimeout(500);
+    await new Promise((r) => setTimeout(r, 500));
     const openBody = await page.$eval('#tradeLedgerBody', (el) => el.textContent);
     if (!/Open|Live position/i.test(openBody)) {
       throw new Error('expected open row after simulate entry: ' + openBody.slice(0, 120));
     }
 
     await page.click('#btnSimClose');
-    await page.waitForTimeout(500);
+    await new Promise((r) => setTimeout(r, 500));
     const summaryAfter = await page.$eval('#tradeLedgerSummary', (el) => el.textContent);
     if (!/Total closed: 1 · Open: 0/.test(summaryAfter)) {
       throw new Error('expected Total Trades 1 after close: ' + summaryAfter.slice(0, 200));

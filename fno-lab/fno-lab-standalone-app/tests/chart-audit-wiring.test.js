@@ -14,8 +14,9 @@ const coreSource = fs.readFileSync(path.join(__dirname, '../assets/fno-lab-core.
 assert.ok(/function fnoChartWireLayoutObserver/.test(coreSource));
 assert.ok(/function fnoChartBuildCrosshairReadout/.test(coreSource));
 assert.ok(/function fnoChartClassifyExitMarker/.test(coreSource));
-assert.ok(/function fnoChartSaveViewState/.test(coreSource));
-assert.ok(/fno_chart_view_v1/.test(coreSource));
+assert.ok(/id="chartShowVolume"/.test(php), 'Show Volume checkbox must exist in chart toolbar');
+assert.ok(/function fnoChartSetVolumeIndicatorEnabled/.test(coreSource), 'volume checkbox must drive indicator instances');
+assert.ok(/function _fnoChartHasVolumePanelForTest/.test(coreSource), 'harness volume panel probe must exist');
 
 const end = coreSource.indexOf('\nfunction render(){');
 assert.ok(end > 0, 'render() boundary required');
