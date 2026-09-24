@@ -517,6 +517,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
       <label style="font-size:11px;color:#94a3b8"><input type="checkbox" id="chartShowVwap" checked> VWAP</label>
       <label style="font-size:11px;color:#94a3b8"><input type="checkbox" id="chartShowOptionLtp" checked> Option LTP</label>
       <select id="chartAddIndicator" class="input" style="font-size:11px;max-width:160px"><option value="">+ Add indicator…</option></select>
+      <button type="button" class="btn" id="chartCustomIndicatorBtn" style="padding:3px 8px;font-size:11px" title="Create TradingView-style custom formula indicator">✎ Custom</button>
       <span style="width:1px;height:16px;background:#1e293b;margin:0 4px"></span>
       <button type="button" class="btn" id="chartZoomIn" style="padding:3px 8px;font-size:11px">🔍+</button>
       <button type="button" class="btn" id="chartZoomOut" style="padding:3px 8px;font-size:11px">🔍-</button>
@@ -526,6 +527,20 @@ body.fno-nse-disabled .nse-only-section{display:none}
       <span style="font-size:10px;color:#64748b">Wheel=time · Ctrl+wheel=price · drag=pan · Shift+drag=price · Esc=exit full screen · dbl-click=reset</span>
     </div>
     <div id="chartIndicatorList" style="margin-bottom:6px"></div>
+    <div id="chartCustomIndicatorPanel" style="display:none;margin-bottom:8px;padding:8px;background:#0f172a;border:1px solid #334155;border-radius:8px;font-size:11px">
+      <div style="font-weight:700;margin-bottom:6px;color:#e2e8f0">Custom indicator (formula)</div>
+      <div style="font-size:10px;color:#64748b;margin-bottom:6px">Like TradingView Pine-lite: one expression per indicator. Sources: <code>close</code> <code>open</code> <code>high</code> <code>low</code> <code>hl2</code> <code>hlc3</code> · Functions: <code>ema(x,n)</code> <code>sma(x,n)</code> <code>rsi(x,n)</code> <code>vwap()</code> <code>highest(x,n)</code> <code>lowest(x,n)</code> · Ops: <code>+ - * /</code> · Example: <code>ema(close, 9)</code> or <code>ema(close, 12) - ema(close, 26)</code></div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px">
+        <input id="chartCustomIndName" class="input" placeholder="Name" style="width:120px;font-size:11px">
+        <select id="chartCustomIndType" class="input" style="font-size:11px;width:100px"><option value="overlay">Overlay</option><option value="panel">Panel</option></select>
+        <input id="chartCustomIndFormula" class="input" placeholder="Formula e.g. ema(close, 21)" style="flex:1;min-width:200px;font-size:11px">
+        <input type="color" id="chartCustomIndColor" value="#f472b6" style="width:36px;height:28px;padding:0;border:0">
+        <button type="button" class="btn" id="chartCustomIndSave" style="padding:4px 10px;font-size:11px;background:#166534">Save &amp; add</button>
+        <button type="button" class="btn" id="chartCustomIndCancel" style="padding:4px 10px;font-size:11px;background:#334155">Close</button>
+      </div>
+      <div id="chartCustomIndError" style="color:#f87171;font-size:10px;min-height:14px;margin-bottom:4px"></div>
+      <div id="chartCustomIndCatalog" style="font-size:10px;color:#94a3b8"></div>
+    </div>
     <div id="priceChartCrosshair" style="font-size:11px;color:#94a3b8;min-height:16px;margin-bottom:4px"></div>
     <canvas id="priceChartCanvas" style="width:100%;background:#020617;border-radius:10px;cursor:grab;touch-action:none"></canvas>
     <div id="priceChartOptionWrap" style="display:none;margin-top:8px;background:#020617;border:1px solid #1e293b;border-radius:10px;padding:6px 8px">

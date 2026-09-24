@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.47-option-ltp-chart-v1';
+const FNO_CORE_BUILD_MARKER = '16.37.48-custom-indicators-v1';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -3505,13 +3505,32 @@ function fnoChartWireIndicatorManager(redraw) {
   const emaBox = document.getElementById('chartShowEma');
   const vwapBox = document.getElementById('chartShowVwap');
   fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox);
-  const types = FNO_CHART_INDICATORS.listTypes();
-  addSel.innerHTML = '<option value="">+ Add indicator…</option>' + types.map(t => `<option value="${t.id}">${t.name} (${t.type})</option>`).join('');
+  const refreshIndicatorDropdown = () => {
+    const types = FNO_CHART_INDICATORS.listTypes();
+    addSel.innerHTML = '<option value="">+ Add indicator…</option>' + types.map(t => `<option value="${t.id}">${t.name} (${t.type})</option>`).join('');
+  };
+  refreshIndicatorDropdown();
+  const renderCustomCatalog = () => {
+    const catEl = document.getElementById('chartCustomIndCatalog');
+    if (!catEl) return;
+    const defs = FNO_CHART_INDICATORS.listCustomDefinitions();
+    if (!defs.length) { catEl.textContent = 'No saved custom indicators yet.'; return; }
+    catEl.innerHTML = defs.map(d => `<span style="display:inline-flex;align-items:center;gap:4px;margin:0 8px 4px 0;padding:2px 6px;background:#1e293b;border-radius:6px">${d.name} <code style="font-size:9px">${d.formula}</code> <button type="button" class="btn chart-custom-del" data-id="${d.id}" style="padding:1px 5px;font-size:9px">Delete</button></span>`).join('');
+    catEl.querySelectorAll('.chart-custom-del').forEach(btn => {
+      btn.addEventListener('click', () => {
+        FNO_CHART_INDICATORS.deleteCustomDefinition(btn.getAttribute('data-id'));
+        refreshIndicatorDropdown();
+        renderCustomCatalog();
+        renderList();
+        redraw();
+      });
+    });
+  };
   const applyParam = (instanceId, key, rawVal) => {
     let inst = FNO_CHART_INDICATORS.loadInstances();
     const row = inst.find(i => i.instanceId === instanceId);
     if (!row) return;
-    const def = FNO_CHART_INDICATORS.REGISTRY[row.typeId];
+    const def = FNO_CHART_INDICATORS.getDefinition(row.typeId);
     const field = def && def.paramSchema ? def.paramSchema.find(f => f.key === key) : null;
     let val = rawVal;
     if (field && field.type === 'number') {
@@ -3520,19 +3539,33 @@ function fnoChartWireIndicatorManager(redraw) {
       if (field.min != null) val = Math.max(field.min, val);
       if (field.max != null) val = Math.min(field.max, val);
     }
+    if (field && field.type === 'text' && key === 'formula') {
+      val = String(rawVal).trim();
+      const err = FNO_CHART_INDICATORS.validateCustomDefinition({ name: def.name, type: def.type, formula: val });
+      if (err) {
+        const errEl = document.getElementById('chartCustomIndError');
+        if (errEl) errEl.textContent = err;
+        return;
+      }
+    }
     inst = FNO_CHART_INDICATORS.updateInstance(inst, instanceId, { params: { [key]: val } });
     FNO_CHART_INDICATORS.saveInstances(inst);
+    const errEl = document.getElementById('chartCustomIndError');
+    if (errEl) errEl.textContent = '';
     redraw();
   };
   const renderList = () => {
     const instances = FNO_CHART_INDICATORS.loadInstances();
     fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox);
     listEl.innerHTML = instances.map((inst) => {
-      const def = FNO_CHART_INDICATORS.REGISTRY[inst.typeId];
+      const def = FNO_CHART_INDICATORS.getDefinition(inst.typeId);
       const name = def ? def.name : inst.typeId;
       const schema = def && def.paramSchema ? def.paramSchema : [];
       const paramInputs = schema.map((f) => {
         const val = inst.params && inst.params[f.key] != null ? inst.params[f.key] : '';
+        if (f.type === 'text') {
+          return `<label style="font-size:10px;color:#94a3b8;display:block;width:100%;margin-top:2px">${f.label} <input type="text" class="chart-ind-formula chart-ind-param" data-id="${inst.instanceId}" data-key="${f.key}" value="${String(val).replace(/"/g, '&quot;')}" style="width:100%;max-width:420px;font-size:10px;margin-top:2px"></label>`;
+        }
         const step = f.step != null ? f.step : 1;
         return `<label style="font-size:10px;color:#94a3b8">${f.label} <input type="number" class="chart-ind-param" data-id="${inst.instanceId}" data-key="${f.key}" min="${f.min != null ? f.min : ''}" max="${f.max != null ? f.max : ''}" step="${step}" value="${val}" style="width:52px;font-size:10px"></label>`;
       }).join('');
@@ -3575,6 +3608,7 @@ function fnoChartWireIndicatorManager(redraw) {
     });
   };
   renderList();
+  renderCustomCatalog();
   addSel.addEventListener('change', () => {
     const typeId = addSel.value;
     if (!typeId) return;
@@ -3585,6 +3619,39 @@ function fnoChartWireIndicatorManager(redraw) {
     renderList();
     redraw();
   });
+  const customBtn = document.getElementById('chartCustomIndicatorBtn');
+  const customPanel = document.getElementById('chartCustomIndicatorPanel');
+  const customSave = document.getElementById('chartCustomIndSave');
+  const customCancel = document.getElementById('chartCustomIndCancel');
+  if (customBtn && customPanel) {
+    customBtn.addEventListener('click', () => {
+      customPanel.style.display = customPanel.style.display === 'none' ? 'block' : 'none';
+      renderCustomCatalog();
+    });
+  }
+  if (customCancel && customPanel) customCancel.addEventListener('click', () => { customPanel.style.display = 'none'; });
+  if (customSave) {
+    customSave.addEventListener('click', () => {
+      const errEl = document.getElementById('chartCustomIndError');
+      const name = (document.getElementById('chartCustomIndName') || {}).value;
+      const type = (document.getElementById('chartCustomIndType') || {}).value;
+      const formula = (document.getElementById('chartCustomIndFormula') || {}).value;
+      const color = (document.getElementById('chartCustomIndColor') || {}).value || '#f472b6';
+      const res = FNO_CHART_INDICATORS.saveCustomDefinition({ name, type, formula, color });
+      if (!res.ok) {
+        if (errEl) errEl.textContent = res.error || 'Could not save custom indicator';
+        return;
+      }
+      if (errEl) errEl.textContent = '';
+      let inst = FNO_CHART_INDICATORS.loadInstances();
+      inst = FNO_CHART_INDICATORS.addInstance(inst, res.typeId);
+      FNO_CHART_INDICATORS.saveInstances(inst);
+      refreshIndicatorDropdown();
+      renderCustomCatalog();
+      renderList();
+      redraw();
+    });
+  }
   if (emaBox) emaBox.addEventListener('change', () => {
     let inst = FNO_CHART_INDICATORS.loadInstances();
     const row = inst.find(i => i.typeId === 'ema');

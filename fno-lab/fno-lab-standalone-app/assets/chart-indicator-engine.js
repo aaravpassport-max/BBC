@@ -7,6 +7,301 @@
   'use strict';
 
   const STORAGE_KEY = 'fno_chart_indicators_v1';
+  const CUSTOM_DEFS_KEY = 'fno_chart_custom_indicators_v1';
+  const CUSTOM_TYPE_PREFIX = 'custom:';
+
+  function candleSource(name, candles) {
+    const n = String(name || '').toLowerCase();
+    if (n === 'close') return candles.map(c => c.c);
+    if (n === 'open') return candles.map(c => (Number.isFinite(c.o) ? c.o : c.c));
+    if (n === 'high') return candles.map(c => (Number.isFinite(c.h) ? c.h : c.c));
+    if (n === 'low') return candles.map(c => (Number.isFinite(c.l) ? c.l : c.c));
+    if (n === 'volume') return candles.map(c => (Number.isFinite(c.v) ? c.v : 0));
+    if (n === 'hl2') return candles.map(c => ((Number.isFinite(c.h) ? c.h : c.c) + (Number.isFinite(c.l) ? c.l : c.c)) / 2);
+    if (n === 'hlc3') return candles.map(c => {
+      const h = Number.isFinite(c.h) ? c.h : c.c;
+      const l = Number.isFinite(c.l) ? c.l : c.c;
+      return (h + l + c.c) / 3;
+    });
+    if (n === 'ohlc4') return candles.map(c => {
+      const o = Number.isFinite(c.o) ? c.o : c.c;
+      const h = Number.isFinite(c.h) ? c.h : c.c;
+      const l = Number.isFinite(c.l) ? c.l : c.c;
+      return (o + h + l + c.c) / 4;
+    });
+    throw new Error(`Unknown source "${name}" — use close, open, high, low, volume, hl2, hlc3, ohlc4`);
+  }
+
+  function tokenizeFormula(input) {
+    const s = String(input || '').trim();
+    const tokens = [];
+    let i = 0;
+    while (i < s.length) {
+      const ch = s[i];
+      if (/\s/.test(ch)) { i++; continue; }
+      if ('(),+-*/'.includes(ch)) { tokens.push({ type: ch }); i++; continue; }
+      if (/[0-9.]/.test(ch)) {
+        let j = i + 1;
+        while (j < s.length && /[0-9.]/.test(s[j])) j++;
+        tokens.push({ type: 'number', value: parseFloat(s.slice(i, j)) });
+        i = j; continue;
+      }
+      if (/[a-zA-Z_]/.test(ch)) {
+        let j = i + 1;
+        while (j < s.length && /[a-zA-Z0-9_]/.test(s[j])) j++;
+        tokens.push({ type: 'ident', value: s.slice(i, j).toLowerCase() });
+        i = j; continue;
+      }
+      throw new Error(`Invalid character "${ch}" in formula`);
+    }
+    return tokens;
+  }
+
+  function parseFormula(input) {
+    const tokens = tokenizeFormula(input);
+    let pos = 0;
+    function peek() { return tokens[pos]; }
+    function consume(type) {
+      const t = tokens[pos];
+      if (!t || (type && t.type !== type)) throw new Error(`Formula parse error near token ${pos + 1}`);
+      pos++;
+      return t;
+    }
+    function parseExpr() {
+      let node = parseTerm();
+      while (peek() && (peek().type === '+' || peek().type === '-')) {
+        const op = consume().type;
+        node = { type: 'binop', op, left: node, right: parseTerm() };
+      }
+      return node;
+    }
+    function parseTerm() {
+      let node = parseFactor();
+      while (peek() && (peek().type === '*' || peek().type === '/')) {
+        const op = consume().type;
+        node = { type: 'binop', op, left: node, right: parseFactor() };
+      }
+      return node;
+    }
+    function parseFactor() {
+      const t = peek();
+      if (!t) throw new Error('Unexpected end of formula');
+      if (t.type === 'number') { consume('number'); return { type: 'number', value: t.value }; }
+      if (t.type === 'ident') {
+        consume('ident');
+        if (peek() && peek().type === '(') {
+          consume('(');
+          const args = [];
+          if (!(peek() && peek().type === ')')) {
+            args.push(parseExpr());
+            while (peek() && peek().type === ',') { consume(','); args.push(parseExpr()); }
+          }
+          consume(')');
+          return { type: 'call', name: t.value, args };
+        }
+        return { type: 'ident', name: t.value };
+      }
+      if (t.type === '(') {
+        consume('(');
+        const inner = parseExpr();
+        consume(')');
+        return inner;
+      }
+      throw new Error(`Unexpected token ${t.type}`);
+    }
+    const ast = parseExpr();
+    if (pos < tokens.length) throw new Error('Unexpected trailing tokens in formula');
+    return ast;
+  }
+
+  function evalSeriesNode(node, candles) {
+    if (node.type === 'number') {
+      return candles.map(() => node.value);
+    }
+    if (node.type === 'ident') {
+      return candleSource(node.name, candles);
+    }
+    if (node.type === 'binop') {
+      const a = evalSeriesNode(node.left, candles);
+      const b = evalSeriesNode(node.right, candles);
+      return a.map((v, i) => {
+        const x = v;
+        const y = b[i];
+        if (!Number.isFinite(x) || !Number.isFinite(y)) return NaN;
+        if (node.op === '+') return x + y;
+        if (node.op === '-') return x - y;
+        if (node.op === '*') return x * y;
+        if (node.op === '/') return y === 0 ? NaN : x / y;
+        return NaN;
+      });
+    }
+    if (node.type === 'call') {
+      const fn = node.name;
+      if (fn === 'vwap') {
+        if (node.args.length) throw new Error('vwap() takes no arguments');
+        return sessionVwapSeries(candles);
+      }
+      if (fn === 'ema' || fn === 'sma' || fn === 'rsi') {
+        if (node.args.length !== 2) throw new Error(`${fn}() requires 2 arguments`);
+        const src = evalSeriesNode(node.args[0], candles);
+        const periodNode = node.args[1];
+        if (periodNode.type !== 'number') throw new Error(`${fn}() period must be a number literal`);
+        const p = periodNode.value;
+        if (fn === 'ema') return emaSeries(src, p);
+        if (fn === 'sma') return smaSeries(src, p);
+        return rsiSeries(src, p);
+      }
+      if (fn === 'highest' || fn === 'lowest') {
+        if (node.args.length !== 2) throw new Error(`${fn}() requires 2 arguments`);
+        const src = evalSeriesNode(node.args[0], candles);
+        const periodNode = node.args[1];
+        if (periodNode.type !== 'number') throw new Error(`${fn}() period must be a number literal`);
+        const p = Math.max(1, periodNode.value | 0);
+        return src.map((_, i) => {
+          if (i + 1 < p) return NaN;
+          let hi = -Infinity;
+          let lo = Infinity;
+          for (let j = i - p + 1; j <= i; j++) {
+            if (Number.isFinite(src[j])) { hi = Math.max(hi, src[j]); lo = Math.min(lo, src[j]); }
+          }
+          return fn === 'highest' ? hi : lo;
+        });
+      }
+      throw new Error(`Unknown function "${fn}" — use ema, sma, rsi, vwap, highest, lowest`);
+    }
+    throw new Error('Invalid formula AST');
+  }
+
+  function evaluateFormula(formula, candles) {
+    if (!formula || !String(formula).trim()) return { error: 'Formula is empty', values: null };
+    if (!Array.isArray(candles) || !candles.length) return { error: 'No candles', values: null };
+    try {
+      const ast = parseFormula(String(formula).trim());
+      const values = evalSeriesNode(ast, candles);
+      if (!values || values.length !== candles.length) return { error: 'Formula did not produce a series', values: null };
+      return { error: null, values };
+    } catch (e) {
+      return { error: e.message || String(e), values: null };
+    }
+  }
+
+  function loadCustomDefinitions() {
+    try {
+      const raw = global.localStorage && global.localStorage.getItem(CUSTOM_DEFS_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+
+  function saveCustomDefinitions(defs) {
+    try {
+      if (global.localStorage) global.localStorage.setItem(CUSTOM_DEFS_KEY, JSON.stringify(defs || []));
+    } catch (e) { /* quota */ }
+  }
+
+  function validateCustomDefinition(def, sampleCandles) {
+    if (!def || !def.name || !String(def.name).trim()) return 'Name is required';
+    if (def.type !== 'overlay' && def.type !== 'panel') return 'Type must be overlay or panel';
+    const sample = sampleCandles && sampleCandles.length ? sampleCandles : [{ t: 1, o: 10, h: 11, l: 9, c: 10, v: 1 }];
+    const out = evaluateFormula(def.formula, sample);
+    if (out.error) return out.error;
+    return null;
+  }
+
+  function buildCustomRegistryEntry(def) {
+    const typeId = CUSTOM_TYPE_PREFIX + def.id;
+    return {
+      id: typeId,
+      name: def.name,
+      type: def.type,
+      custom: true,
+      customId: def.id,
+      defaultParams: {
+        formula: def.formula,
+        color: def.color || '#f472b6',
+        lineWidth: def.lineWidth != null ? def.lineWidth : 1.5,
+        lineStyle: def.lineStyle || 'solid',
+        panelMin: def.panelMin,
+        panelMax: def.panelMax,
+        panelHeight: def.panelHeight || 100,
+      },
+      paramSchema: [
+        { key: 'formula', label: 'Formula', type: 'text' },
+      ],
+      compute(candles, params) {
+        const p = Object.assign({}, def, params);
+        const ev = evaluateFormula(p.formula, candles);
+        if (ev.error || !ev.values) return def.type === 'panel' ? { panel: null } : { lines: [] };
+        const style = { color: p.color, lineWidth: p.lineWidth, lineStyle: p.lineStyle };
+        if (def.type === 'overlay') {
+          return { lines: [{ id: 'main', values: ev.values, ...style }] };
+        }
+        const panelMin = Number.isFinite(p.panelMin) ? p.panelMin : (String(p.formula).toLowerCase().includes('rsi') ? 0 : null);
+        const panelMax = Number.isFinite(p.panelMax) ? p.panelMax : (String(p.formula).toLowerCase().includes('rsi') ? 100 : null);
+        return {
+          panel: {
+            id: 'custom_' + def.id,
+            title: def.name,
+            min: panelMin,
+            max: panelMax,
+            autoScale: panelMin == null || panelMax == null,
+            panelHeight: p.panelHeight || 100,
+            lines: [{ id: 'main', values: ev.values, ...style }],
+          },
+        };
+      },
+    };
+  }
+
+  function getDefinition(typeId) {
+    if (REGISTRY[typeId]) return REGISTRY[typeId];
+    if (typeId && String(typeId).indexOf(CUSTOM_TYPE_PREFIX) === 0) {
+      const cid = String(typeId).slice(CUSTOM_TYPE_PREFIX.length);
+      const def = loadCustomDefinitions().find(d => d.id === cid);
+      if (def) return buildCustomRegistryEntry(def);
+    }
+    return null;
+  }
+
+  function listCustomDefinitions() {
+    return loadCustomDefinitions();
+  }
+
+  function saveCustomDefinition(def) {
+    const err = validateCustomDefinition(def);
+    if (err) return { ok: false, error: err };
+    const defs = loadCustomDefinitions();
+    const entry = {
+      id: def.id || ('c_' + Date.now().toString(36)),
+      name: String(def.name).trim().slice(0, 80),
+      type: def.type === 'panel' ? 'panel' : 'overlay',
+      formula: String(def.formula).trim().slice(0, 500),
+      color: def.color || '#f472b6',
+      lineWidth: def.lineWidth != null ? def.lineWidth : 1.5,
+      lineStyle: def.lineStyle || 'solid',
+      panelMin: def.panelMin,
+      panelMax: def.panelMax,
+      panelHeight: def.panelHeight || 100,
+    };
+    const idx = defs.findIndex(d => d.id === entry.id);
+    if (idx >= 0) defs[idx] = entry;
+    else defs.push(entry);
+    saveCustomDefinitions(defs);
+    return { ok: true, def: entry, typeId: CUSTOM_TYPE_PREFIX + entry.id };
+  }
+
+  function deleteCustomDefinition(customId) {
+    const defs = loadCustomDefinitions().filter(d => d.id !== customId);
+    saveCustomDefinitions(defs);
+    let inst = loadInstances();
+    const prefix = CUSTOM_TYPE_PREFIX + customId;
+    inst = inst.filter(i => i.typeId !== prefix);
+    saveInstances(inst);
+    return defs;
+  }
 
   function emaSeries(closes, period) {
     const p = Math.max(1, period | 0);
@@ -274,7 +569,7 @@
   }
 
   function mergeParams(typeId, params) {
-    const def = REGISTRY[typeId];
+    const def = getDefinition(typeId);
     if (!def) return params || {};
     return Object.assign({}, def.defaultParams, params || {});
   }
@@ -287,11 +582,11 @@
     }
     instances.forEach((inst) => {
       if (!inst || !inst.enabled) return;
-      const def = REGISTRY[inst.typeId];
+      const def = getDefinition(inst.typeId);
       if (!def) return;
       const params = mergeParams(inst.typeId, inst.params);
       const result = def.compute(candles, params);
-      if (def.type === 'overlay' && result && result.lines) {
+      if (def.type === 'overlay' && result && result.lines && result.lines.length) {
         overlays.push({ instanceId: inst.instanceId, typeId: inst.typeId, name: def.name, lines: result.lines });
       } else if (def.type === 'panel' && result && result.panel) {
         panels.push({ instanceId: inst.instanceId, typeId: inst.typeId, panel: result.panel });
@@ -301,16 +596,25 @@
   }
 
   function listTypes() {
-    return Object.keys(REGISTRY).map((id) => {
+    const builtIn = Object.keys(REGISTRY).map((id) => {
       const r = REGISTRY[id];
-      return { id, name: r.name, type: r.type, defaultParams: r.defaultParams, paramSchema: r.paramSchema || [] };
+      return { id, name: r.name, type: r.type, defaultParams: r.defaultParams, paramSchema: r.paramSchema || [], custom: false };
     });
+    const custom = loadCustomDefinitions().map((d) => ({
+      id: CUSTOM_TYPE_PREFIX + d.id,
+      name: d.name + ' (custom)',
+      type: d.type,
+      defaultParams: buildCustomRegistryEntry(d).defaultParams,
+      paramSchema: [{ key: 'formula', label: 'Formula', type: 'text' }],
+      custom: true,
+    }));
+    return builtIn.concat(custom);
   }
 
   function addInstance(instances, typeId) {
-    const def = REGISTRY[typeId];
+    const def = getDefinition(typeId);
     if (!def) return instances;
-    const instanceId = `${typeId}_${Date.now().toString(36)}`;
+    const instanceId = `${String(typeId).replace(/[^a-z0-9]/gi, '_')}_${Date.now().toString(36)}`;
     return instances.concat([{ instanceId, typeId, enabled: true, params: Object.assign({}, def.defaultParams) }]);
   }
 
@@ -325,6 +629,7 @@
   global.FNO_CHART_INDICATORS = {
     REGISTRY,
     STORAGE_KEY,
+    CUSTOM_DEFS_KEY,
     loadInstances,
     saveInstances,
     computeForCandles,
@@ -333,6 +638,13 @@
     removeInstance,
     updateInstance,
     mergeParams,
+    getDefinition,
+    evaluateFormula,
+    loadCustomDefinitions,
+    saveCustomDefinition,
+    deleteCustomDefinition,
+    listCustomDefinitions,
+    validateCustomDefinition,
     /** @deprecated chart uses session VWAP; brain factors may still use closeAvgProxy */
     sessionVwapSeries,
     emaSeries,
