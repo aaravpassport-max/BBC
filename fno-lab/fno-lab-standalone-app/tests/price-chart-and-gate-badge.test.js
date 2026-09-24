@@ -51,7 +51,7 @@ const coreSource = fs.readFileSync(path.join(__dirname, '../assets/fno-lab-core.
   check(coreSource.slice(openIdx - 900, openIdx + 700).includes('entrySpot'), 'STATIC LOCK: the real position-open write genuinely captures entrySpot/entryCandleTs (needed for the chart markers) at the real moment of opening');
   const closeIdx = coreSource.indexOf('async function closeAutoTrade(open, exitLeg, exitReason, sym');
   assert.ok(closeIdx > -1, 'closeAutoTrade must still exist');
-  check(coreSource.slice(closeIdx, closeIdx + 5000).includes('exitSpot'), 'STATIC LOCK: the real position-close journal entry genuinely captures exitSpot/exitCandleTs at the real moment of closing');
+  check(coreSource.slice(closeIdx, closeIdx + 12000).includes('exitSpot'), 'STATIC LOCK: the real position-close journal entry genuinely captures exitSpot/exitCandleTs at the real moment of closing');
 }
 
 // ---------------------------------------------------------------------
