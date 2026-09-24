@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.69-indicator-add-list-v1';
+const FNO_CORE_BUILD_MARKER = '16.37.70-prod-verify-indicators-v1';
 
 /** Classic scripts attach engines on globalThis; ES module scope does not see them as free vars. */
 let FNO_CHART_INDICATORS = typeof globalThis !== 'undefined' ? globalThis.FNO_CHART_INDICATORS : undefined;
@@ -2867,6 +2867,18 @@ function fnoChartRenderIndicatorList() {
   return false;
 }
 function _fnoChartRenderIndicatorListForTest() { return fnoChartRenderIndicatorList(); }
+
+/** ES module scope hides chart helpers; host page + E2E use globalThis. */
+function fnoChartPublishHostApi() {
+  if (typeof globalThis === 'undefined') return;
+  globalThis.renderPriceChart = renderPriceChart;
+  globalThis.fnoChartEnsureChartUiWired = fnoChartEnsureChartUiWired;
+  globalThis.fnoChartRenderIndicatorList = fnoChartRenderIndicatorList;
+  globalThis.fnoChartSetVolumeIndicatorEnabled = fnoChartSetVolumeIndicatorEnabled;
+  globalThis.FNO_CORE_BUILD_MARKER = FNO_CORE_BUILD_MARKER;
+  fnoChartSyncGlobalEngines();
+  if (FNO_CHART_INDICATORS) globalThis.FNO_CHART_INDICATORS = FNO_CHART_INDICATORS;
+}
 // Test-only accessor - direct eval() of this file (this repo's own
 // established Node test-harness pattern) does not reliably leak
 // top-level `let`/`const` bindings out to the rest of the eval'd
@@ -4293,6 +4305,7 @@ function fnoChartWireIndicatorManager(redraw) {
   }
   if (customCancel && customPanel) customCancel.addEventListener('click', () => { customPanel.style.display = 'none'; });
   fnoChartViewState.indicatorUiWired = true;
+  fnoChartPublishHostApi();
 }
 
 /**
@@ -4358,6 +4371,7 @@ function renderPriceChart(marketCtx) {
     if (legend) legend.textContent = 'No candle data available yet this refresh.';
     const crosshairElEmpty = document.getElementById('priceChartCrosshair');
     if (crosshairElEmpty) crosshairElEmpty.textContent = '';
+    fnoChartRenderIndicatorList();
     return;
   }
   const aggregated = fnoChartPrepareCandlesForTimeframe(rawCandles, fnoChartViewState.timeframeMinutes, marketCtx);
@@ -23450,6 +23464,7 @@ document.addEventListener('fnoSettingsChanged', (e) => {
   }
 });
 
+fnoChartPublishHostApi();
 try {
   render();
 } catch (bootRenderErr) {

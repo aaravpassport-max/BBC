@@ -13,6 +13,7 @@ check(core.includes('fnoChartSyncGlobalEngines();') && core.includes('function r
 check(core.includes('indicatorUiWired = true') && core.includes('function fnoChartWireIndicatorManager'), 'indicatorUiWired set only after manager wiring');
 check(core.includes('fnoChartRenderIndicatorListImpl = renderList'), 'indicator list impl wired for legacy toggles');
 check(core.includes('function fnoChartNotifyIndicatorAdded') && !core.includes('function fnoChartCommitAddedIndicator'), 'add flow keeps instances (no commit rollback)');
+check(core.includes('function fnoChartPublishHostApi') && core.includes('globalThis.renderPriceChart = renderPriceChart'), 'ES module publishes chart API on globalThis');
 check(core.includes('plotWOpt') && core.includes('recentTicks'), 'Option LTP uses tick-index plotting');
 if (failed) process.exit(1);
 console.log('chart-module-global-bridge static checks passed');
