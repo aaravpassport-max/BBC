@@ -256,6 +256,7 @@ async function runClickAudit() {
   const rsiOpt = Array.from(addSel.options).find(o => o.value === 'rsi');
   if (rsiOpt) { addSel.value = 'rsi'; addSel.dispatchEvent(new Event('change', { bubbles: true })); }
   await sleep(100);
+  check('Add RSI → indicator list row', (document.getElementById('chartIndicatorList').textContent || '').includes('RSI'));
   check('Add RSI indicator', document.getElementById('priceChartPanels').children.length > 0);
 
   document.getElementById('chartCustomIndicatorBtn').click();

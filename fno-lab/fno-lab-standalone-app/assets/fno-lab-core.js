@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.68-module-bridge-ltp-v1';
+const FNO_CORE_BUILD_MARKER = '16.37.69-indicator-add-list-v1';
 
 /** Classic scripts attach engines on globalThis; ES module scope does not see them as free vars. */
 let FNO_CHART_INDICATORS = typeof globalThis !== 'undefined' ? globalThis.FNO_CHART_INDICATORS : undefined;
@@ -2851,7 +2851,22 @@ function fnoChartResetUiWiringFlags() {
   fnoChartViewState.indicatorUiWired = false;
   fnoChartViewState.legacyTogglesWired = false;
   fnoChartViewState.analysisExtWired = false;
+  fnoChartRenderIndicatorListImpl = null;
 }
+/** Set by fnoChartWireIndicatorManager once; refreshes #chartIndicatorList from localStorage. */
+let fnoChartRenderIndicatorListImpl = null;
+function fnoChartRenderIndicatorList() {
+  fnoChartSyncGlobalEngines();
+  if (typeof fnoChartRenderIndicatorListImpl !== 'function') {
+    fnoChartEnsureChartUiWired();
+  }
+  if (typeof fnoChartRenderIndicatorListImpl === 'function') {
+    fnoChartRenderIndicatorListImpl();
+    return true;
+  }
+  return false;
+}
+function _fnoChartRenderIndicatorListForTest() { return fnoChartRenderIndicatorList(); }
 // Test-only accessor - direct eval() of this file (this repo's own
 // established Node test-harness pattern) does not reliably leak
 // top-level `let`/`const` bindings out to the rest of the eval'd
@@ -2909,7 +2924,8 @@ function fnoChartFormatOhlcPrice(v) {
 }
 
 function fnoChartSetVolumeIndicatorEnabled(enabled) {
-  if (typeof FNO_CHART_INDICATORS === 'undefined') return;
+  fnoChartSyncGlobalEngines();
+  if (typeof FNO_CHART_INDICATORS === 'undefined') return false;
   let inst = FNO_CHART_INDICATORS.loadInstances();
   let row = inst.find((i) => i.typeId === 'volume');
   if (!row && enabled) {
@@ -2919,7 +2935,9 @@ function fnoChartSetVolumeIndicatorEnabled(enabled) {
   if (row) {
     inst = FNO_CHART_INDICATORS.updateInstance(inst, row.instanceId, { enabled: !!enabled });
     FNO_CHART_INDICATORS.saveInstances(inst);
+    return true;
   }
+  return false;
 }
 function fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox, volumeBox) {
   if (typeof FNO_CHART_INDICATORS === 'undefined') return;
@@ -3588,35 +3606,42 @@ function fnoChartCountIndicatorOutputs(bundle) {
   return { overlays, panels };
 }
 
-function fnoChartCommitAddedIndicator(typeId, displayName, redraw) {
+/** After save: always keep instance + refresh list; never roll back on verify failure. */
+function fnoChartNotifyIndicatorAdded(typeId, displayName, redraw) {
   const errEl = typeof document !== 'undefined' ? document.getElementById('chartCustomIndError') : null;
-  if (typeof FNO_CHART_INDICATORS === 'undefined' || !fnoChartLastMarketCtx) {
-    if (errEl) errEl.textContent = 'Chart engine not ready — hard refresh and try again.';
-    return false;
+  if (typeof FNO_CHART_INDICATORS === 'undefined') {
+    if (errEl) errEl.textContent = 'Chart indicator engine not ready — hard refresh and try again.';
+    return;
   }
+  fnoChartRenderIndicatorList();
   const inst = FNO_CHART_INDICATORS.loadInstances();
-  const row = inst.find((i) => i.typeId === typeId && i.enabled);
+  const row = inst.find((i) => i.typeId === typeId);
   if (!row) {
-    if (errEl) errEl.textContent = `Could not attach ${displayName || typeId} to the chart (instance missing after save).`;
-    return false;
+    if (errEl) errEl.textContent = `Could not save ${displayName || typeId} — try again.`;
+    return;
   }
-  redraw();
-  const rawCandles = (fnoChartLastMarketCtx.candlesForChart || fnoChartLastMarketCtx.candles) || [];
-  const prep = fnoChartPrepareCandlesForTimeframe(rawCandles, fnoChartViewState.timeframeMinutes, fnoChartLastMarketCtx);
-  const bundle = fnoChartResolveIndicatorData(fnoChartLastMarketCtx, prep.candles);
-  const counts = fnoChartCountIndicatorOutputs(bundle);
-  const def = FNO_CHART_INDICATORS.getDefinition(typeId);
-  const isPanel = def && def.type === 'panel';
-  const ok = isPanel ? counts.panels > 0 : counts.overlays > 0;
-  if (!ok) {
-    if (errEl) errEl.textContent = `${displayName || typeId} saved but produced no visible output on the current candles — check formula/plot().`;
-    return false;
+  if (fnoChartLastMarketCtx) {
+    redraw();
+    const rawCandles = (fnoChartLastMarketCtx.candlesForChart || fnoChartLastMarketCtx.candles) || [];
+    const prep = fnoChartPrepareCandlesForTimeframe(rawCandles, fnoChartViewState.timeframeMinutes, fnoChartLastMarketCtx);
+    const bundle = fnoChartResolveIndicatorData(fnoChartLastMarketCtx, prep.candles);
+    const counts = fnoChartCountIndicatorOutputs(bundle);
+    const def = FNO_CHART_INDICATORS.getDefinition(typeId);
+    const isPanel = def && def.type === 'panel';
+    const visible = row.enabled && (isPanel ? counts.panels > 0 : counts.overlays > 0);
+    if (!visible && row.enabled) {
+      if (errEl) {
+        errEl.textContent = `${displayName || typeId} is on your list; no visible output on current candles yet (check data or formula).`;
+      }
+    } else if (errEl) {
+      errEl.textContent = '';
+    }
+  } else if (errEl) {
+    errEl.textContent = '';
   }
-  if (errEl) errEl.textContent = '';
-  fnoChartShowToast(`${displayName || typeId} added successfully.`);
+  fnoChartShowToast(`${displayName || typeId} added to chart indicators.`);
   const pinePanel = typeof document !== 'undefined' ? document.getElementById('chartCustomIndicatorPanel') : null;
   if (pinePanel && pinePanel.style.display !== 'none') pinePanel.style.display = 'none';
-  return true;
 }
 
 function fnoChartResolveIndicatorData(marketCtx, aggregated) {
@@ -4006,14 +4031,6 @@ function fnoChartWireLegacyIndicatorToggles(redraw) {
   if (!emaBox && !vwapBox && !volumeBox && !optLtpBox) return;
   fnoChartViewState.legacyTogglesWired = true;
   fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox, volumeBox);
-  const renderListFromManager = () => {
-    const listEl = document.getElementById('chartIndicatorList');
-    if (!listEl || !fnoChartViewState.indicatorUiWired) return;
-    listEl.querySelectorAll('.chart-ind-en').forEach((cb) => {
-      const typeId = FNO_CHART_INDICATORS.loadInstances().find((i) => i.instanceId === cb.getAttribute('data-id'));
-      if (typeId && typeId.typeId === 'ema') cb.checked = emaBox ? emaBox.checked : cb.checked;
-    });
-  };
   if (emaBox) emaBox.addEventListener('change', () => {
     let inst = FNO_CHART_INDICATORS.loadInstances();
     let row = inst.find(i => i.typeId === 'ema');
@@ -4022,7 +4039,7 @@ function fnoChartWireLegacyIndicatorToggles(redraw) {
     if (row) inst = FNO_CHART_INDICATORS.updateInstance(inst, row.instanceId, { enabled: emaBox.checked });
     fnoChartViewState.showEma = emaBox.checked;
     FNO_CHART_INDICATORS.saveInstances(inst);
-    renderListFromManager();
+    fnoChartRenderIndicatorList();
     redraw();
   });
   if (vwapBox) vwapBox.addEventListener('change', () => {
@@ -4033,12 +4050,13 @@ function fnoChartWireLegacyIndicatorToggles(redraw) {
     if (row) inst = FNO_CHART_INDICATORS.updateInstance(inst, row.instanceId, { enabled: vwapBox.checked });
     fnoChartViewState.showVwap = vwapBox.checked;
     FNO_CHART_INDICATORS.saveInstances(inst);
-    renderListFromManager();
+    fnoChartRenderIndicatorList();
     redraw();
   });
   if (volumeBox) volumeBox.addEventListener('change', () => {
     fnoChartSetVolumeIndicatorEnabled(volumeBox.checked);
     fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox, volumeBox);
+    fnoChartRenderIndicatorList();
     redraw();
   });
   if (optLtpBox) {
@@ -4163,6 +4181,7 @@ function fnoChartWireIndicatorManager(redraw) {
       });
     });
   };
+  fnoChartRenderIndicatorListImpl = renderList;
   renderList();
   renderCustomCatalog();
   addSel.addEventListener('change', () => {
@@ -4173,17 +4192,9 @@ function fnoChartWireIndicatorManager(redraw) {
     FNO_CHART_INDICATORS.saveInstances(inst);
     addSel.value = '';
     renderList();
+    redraw();
     const defName = FNO_CHART_INDICATORS.getDefinition(typeId)?.name || typeId;
-    if (!fnoChartCommitAddedIndicator(typeId, defName, redraw)) {
-      let rollback = FNO_CHART_INDICATORS.loadInstances();
-      const last = rollback[rollback.length - 1];
-      if (last && last.typeId === typeId) {
-        rollback = FNO_CHART_INDICATORS.removeInstance(rollback, last.instanceId);
-        FNO_CHART_INDICATORS.saveInstances(rollback);
-        renderList();
-        redraw();
-      }
-    }
+    fnoChartNotifyIndicatorAdded(typeId, defName, redraw);
   });
   const customBtn = document.getElementById('chartCustomIndicatorBtn');
   const customPanel = document.getElementById('chartCustomIndicatorPanel');
@@ -4221,17 +4232,9 @@ function fnoChartWireIndicatorManager(redraw) {
       refreshIndicatorDropdown();
       renderCustomCatalog();
       renderList();
+      redraw();
       const defName = res.def && res.def.name ? res.def.name : (name || 'Custom indicator');
-      if (!fnoChartCommitAddedIndicator(res.typeId, defName, redraw)) {
-        inst = FNO_CHART_INDICATORS.loadInstances();
-        const row = inst.find((i) => i.typeId === res.typeId);
-        if (row) {
-          inst = FNO_CHART_INDICATORS.removeInstance(inst, row.instanceId);
-          FNO_CHART_INDICATORS.saveInstances(inst);
-          renderList();
-          redraw();
-        }
-      }
+      fnoChartNotifyIndicatorAdded(res.typeId, defName, redraw);
     });
   }
   const pineCompileBtn = document.getElementById('chartCustomIndPineCompile');
@@ -4259,17 +4262,9 @@ function fnoChartWireIndicatorManager(redraw) {
       refreshIndicatorDropdown();
       renderCustomCatalog();
       renderList();
+      redraw();
       const pineName = res.def && res.def.name ? res.def.name : 'Pine indicator';
-      if (!fnoChartCommitAddedIndicator(res.typeId, pineName, redraw)) {
-        inst = FNO_CHART_INDICATORS.loadInstances();
-        const row = inst.find((i) => i.typeId === res.typeId);
-        if (row) {
-          inst = FNO_CHART_INDICATORS.removeInstance(inst, row.instanceId);
-          FNO_CHART_INDICATORS.saveInstances(inst);
-          renderList();
-          redraw();
-        }
-      }
+      fnoChartNotifyIndicatorAdded(res.typeId, pineName, redraw);
     });
   }
   const pineImportBtn = document.getElementById('chartCustomIndPineImportBtn');
