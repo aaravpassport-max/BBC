@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.44-chart-indicators-v2';
+const FNO_CORE_BUILD_MARKER = '16.37.45-chart-audit-v1';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -2819,6 +2819,8 @@ let fnoChartViewState = {
   pricePan: 0,
   autoFitPrice: true,
   controlsWired: false,
+  indicatorUiWired: false,
+  layoutWired: false,
   crosshair: null,
 };
 // Test-only accessor - direct eval() of this file (this repo's own
@@ -2872,8 +2874,87 @@ function fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox) {
   const inst = FNO_CHART_INDICATORS.loadInstances();
   const emaRow = inst.find(i => i.typeId === 'ema');
   const vwapRow = inst.find(i => i.typeId === 'vwap');
-  if (emaBox && emaRow) emaBox.checked = !!emaRow.enabled;
-  if (vwapBox && vwapRow) vwapBox.checked = !!vwapRow.enabled;
+  if (emaBox && emaRow) {
+    emaBox.checked = !!emaRow.enabled;
+    fnoChartViewState.showEma = !!emaRow.enabled;
+  }
+  if (vwapBox && vwapRow) {
+    vwapBox.checked = !!vwapRow.enabled;
+    fnoChartViewState.showVwap = !!vwapRow.enabled;
+  }
+}
+
+function fnoChartUpdateTfButtons() {
+  if (typeof document === 'undefined') return;
+  document.querySelectorAll('.chart-tf-btn').forEach((btn) => {
+    const tf = parseInt(btn.getAttribute('data-tf'), 10);
+    btn.classList.toggle('chart-tf-active', tf === fnoChartViewState.timeframeMinutes);
+  });
+}
+
+function fnoChartClassifyExitMarker(action) {
+  const a = String(action || '').toLowerCase();
+  if (a.includes('target')) return 'target';
+  if (a.includes('sl') || a.includes('stop')) return 'sl';
+  if (a.includes('square')) return 'square';
+  return 'other';
+}
+
+function fnoChartWireLayoutObserver(redraw) {
+  if (typeof window === 'undefined' || fnoChartViewState.layoutWired) return;
+  const section = document.getElementById('priceChartSection');
+  const canvas = document.getElementById('priceChartCanvas');
+  if (!section || !canvas || typeof ResizeObserver === 'undefined') return;
+  fnoChartViewState.layoutWired = true;
+  let roRaf = null;
+  const ro = new ResizeObserver(() => {
+    if (roRaf != null) return;
+    roRaf = requestAnimationFrame(() => { roRaf = null; redraw(); });
+  });
+  ro.observe(section);
+  ro.observe(canvas);
+}
+
+function fnoChartBuildCrosshairReadout(ch, visible, startIdx, padL, slot, plotW, indicatorBundle, isDailyFallbackChart) {
+  if (!ch || !Number.isFinite(ch.x) || ch.x < padL || ch.x > padL + plotW || !visible.length) return '';
+  const barIdx = Math.max(0, Math.min(visible.length - 1, Math.floor((ch.x - padL) / slot)));
+  const cd = visible[barIdx];
+  const absIdx = startIdx + barIdx;
+  const timeLabel = cd && typeof cd.t === 'number'
+    ? (isDailyFallbackChart ? formatISTDate(cd.t) : formatISTTime(cd.t))
+    : '—';
+  const ohlc = cd
+    ? `O ${fnoChartFormatOhlcPrice(cd.o)} · H ${fnoChartFormatOhlcPrice(cd.h)} · L ${fnoChartFormatOhlcPrice(cd.l)} · C ${fnoChartFormatOhlcPrice(cd.c)}`
+    : '';
+  const indParts = [];
+  indicatorBundle.overlays.forEach((ov) => {
+    (ov.lines || []).forEach((line) => {
+      const v = line.values[absIdx];
+      if (Number.isFinite(v)) indParts.push(`${ov.name}${line.id !== 'main' ? ' ' + line.id : ''} ${fnoChartFormatOhlcPrice(v)}`);
+    });
+  });
+  indicatorBundle.panels.forEach((pWrap) => {
+    const panel = pWrap.panel;
+    if (!panel || !panel.lines) return;
+    panel.lines.forEach((line) => {
+      const v = line.values[absIdx];
+      if (Number.isFinite(v)) indParts.push(`${panel.title || pWrap.typeId} ${line.id} ${fnoChartFormatOhlcPrice(v)}`);
+    });
+  });
+  const pricePart = Number.isFinite(ch.price) ? ` · Y ${fnoChartFormatOhlcPrice(ch.price)}` : '';
+  let openNote = '';
+  try {
+    const openPos = loadObj(STORAGE.autoTrades);
+    if (openPos && openPos.id) {
+      const prem = Number.isFinite(openPos.entryPrice) ? openPos.entryPrice : openPos.optPrice;
+      const t = Number.isFinite(openPos.target) ? openPos.target : null;
+      const sl = Number.isFinite(openPos.sl) ? openPos.sl : null;
+      if (Number.isFinite(prem) || t != null || sl != null) {
+        openNote = ` · Open ${openPos.optionType || ''} ${openPos.strike != null ? openPos.strike : ''} prem ${Number.isFinite(prem) ? fnoChartFormatOhlcPrice(prem) : '—'}${t != null ? ' T ' + fnoChartFormatOhlcPrice(t) : ''}${sl != null ? ' SL ' + fnoChartFormatOhlcPrice(sl) : ''} (option)`;
+      }
+    }
+  } catch (e) { /* storage unavailable in tests */ }
+  return `${timeLabel} · ${ohlc}${pricePart}${indParts.length ? ' · ' + indParts.join(' · ') : ''}${openNote}`;
 }
 
 /**
@@ -3104,7 +3185,7 @@ function fnoChartRenderOscillatorPanels(container, panels, visible, startIdx, fu
     canvas.style.display = 'block';
     wrap.appendChild(canvas);
     container.appendChild(wrap);
-    const cssW = canvas.clientWidth || 600;
+    const cssW = Math.max(wrap.clientWidth || 0, container.clientWidth || 0, 320);
     const cssH = panel.panelHeight || 100;
     const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
     canvas.width = Math.round(cssW * dpr);
@@ -3186,9 +3267,15 @@ function wireChartControls() {
   document.querySelectorAll('.chart-tf-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const tf = parseInt(btn.getAttribute('data-tf'), 10);
-      if (Number.isFinite(tf) && tf > 0) { fnoChartViewState.timeframeMinutes = tf; fnoChartViewState.offsetFromEnd = 0; redraw(); }
+      if (Number.isFinite(tf) && tf > 0) {
+        fnoChartViewState.timeframeMinutes = tf;
+        fnoChartViewState.offsetFromEnd = 0;
+        fnoChartUpdateTfButtons();
+        redraw();
+      }
     });
   });
+  fnoChartUpdateTfButtons();
   const zoomIn = document.getElementById('chartZoomIn');
   if (zoomIn) zoomIn.addEventListener('click', () => { fnoChartViewState.visibleCount = Math.max(15, Math.round(fnoChartViewState.visibleCount * 0.7)); redraw(); });
   const zoomOut = document.getElementById('chartZoomOut');
@@ -3209,6 +3296,17 @@ function wireChartControls() {
     fnoChartViewState.autoFitPrice = true;
     redraw();
   });
+  const fsBtn = document.getElementById('chartFullscreen');
+  if (fsBtn) {
+    fsBtn.addEventListener('click', () => {
+      const section = document.getElementById('priceChartSection');
+      if (!section) return;
+      const on = section.classList.toggle('fno-chart-section--fullscreen');
+      fsBtn.textContent = on ? '✕ Exit full screen' : '⛶ Full screen';
+      if (typeof document !== 'undefined' && document.body) document.body.style.overflow = on ? 'hidden' : '';
+      redraw();
+    });
+  }
 
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
@@ -3324,6 +3422,7 @@ function wireChartControls() {
   canvas.addEventListener('touchcancel', touchEnd, { passive: true });
 
   fnoChartWireIndicatorManager(redraw);
+  fnoChartWireLayoutObserver(redraw);
 }
 
 function fnoChartWireIndicatorManager(redraw) {
@@ -3672,7 +3771,8 @@ function renderPriceChart(marketCtx) {
       markers.push({ idx: nearestIdx(h.entryCandleTs), price: h.entrySpot, kind: 'entry', label: `${h.optionType || ''} ${h.strike != null ? h.strike : ''} entry` });
     }
     if (typeof h.exitSpot === 'number' && typeof h.exitCandleTs === 'number' && h.exitCandleTs >= windowStartTs && h.exitCandleTs <= windowEndTs) {
-      markers.push({ idx: nearestIdx(h.exitCandleTs), price: h.exitSpot, kind: 'exit', label: `${h.optionType || ''} ${h.strike != null ? h.strike : ''} exit (${h.action || ''})` });
+      const exitClass = fnoChartClassifyExitMarker(h.action);
+      markers.push({ idx: nearestIdx(h.exitCandleTs), price: h.exitSpot, kind: 'exit', exitClass, label: `${h.optionType || ''} ${h.strike != null ? h.strike : ''} exit (${h.action || ''})` });
     }
   });
   const openPos = loadObj(STORAGE.autoTrades);
@@ -3683,12 +3783,32 @@ function renderPriceChart(marketCtx) {
     if (m.idx < 0) return;
     const xCenter = padL + slot * m.idx + slot / 2;
     const y = yFor(m.price);
-    c2d.fillStyle = m.kind === 'entry' ? '#22c55e' : '#ef4444';
+    if (m.kind === 'entry') {
+      c2d.fillStyle = '#22c55e';
+      c2d.beginPath();
+      c2d.moveTo(xCenter, y + 8); c2d.lineTo(xCenter - 5, y + 16); c2d.lineTo(xCenter + 5, y + 16);
+      c2d.closePath(); c2d.fill();
+      return;
+    }
+    const exitClass = m.exitClass || 'other';
+    if (exitClass === 'target') c2d.fillStyle = '#4ade80';
+    else if (exitClass === 'sl') c2d.fillStyle = '#ef4444';
+    else if (exitClass === 'square') c2d.fillStyle = '#f97316';
+    else c2d.fillStyle = '#f87171';
     c2d.beginPath();
-    if (m.kind === 'entry') { c2d.moveTo(xCenter, y + 8); c2d.lineTo(xCenter - 5, y + 16); c2d.lineTo(xCenter + 5, y + 16); }
-    else { c2d.moveTo(xCenter, y - 8); c2d.lineTo(xCenter - 5, y - 16); c2d.lineTo(xCenter + 5, y - 16); }
-    c2d.closePath();
-    c2d.fill();
+    c2d.moveTo(xCenter, y - 8); c2d.lineTo(xCenter - 5, y - 16); c2d.lineTo(xCenter + 5, y - 16);
+    c2d.closePath(); c2d.fill();
+    if (exitClass === 'target') {
+      c2d.strokeStyle = '#4ade80'; c2d.lineWidth = 2;
+      c2d.beginPath(); c2d.arc(xCenter, y - 22, 4, 0, Math.PI * 2); c2d.stroke();
+    } else if (exitClass === 'sl') {
+      c2d.strokeStyle = '#ef4444'; c2d.lineWidth = 2;
+      c2d.beginPath();
+      c2d.moveTo(xCenter - 4, y - 26); c2d.lineTo(xCenter + 4, y - 18);
+      c2d.moveTo(xCenter + 4, y - 26); c2d.lineTo(xCenter - 4, y - 18);
+      c2d.stroke();
+    }
+    c2d.lineWidth = 1;
   });
 
   // Real live-price indicator line (TradingView-style last-traded-price
@@ -3735,30 +3855,10 @@ function renderPriceChart(marketCtx) {
 
   const crosshairEl = document.getElementById('priceChartCrosshair');
   if (crosshairEl) {
-    if (ch && Number.isFinite(ch.x) && ch.x >= padL && ch.x <= padL + plotW) {
-      const barIdx = Math.max(0, Math.min(visible.length - 1, Math.floor((ch.x - padL) / slot)));
-      const cd = visible[barIdx];
-      const absIdx = startIdx + barIdx;
-      const timeLabel = cd && typeof cd.t === 'number'
-        ? (isDailyFallbackChart ? formatISTDate(cd.t) : formatISTTime(cd.t))
-        : '—';
-      const ohlc = cd
-        ? `O ${fnoChartFormatOhlcPrice(cd.o)} · H ${fnoChartFormatOhlcPrice(cd.h)} · L ${fnoChartFormatOhlcPrice(cd.l)} · C ${fnoChartFormatOhlcPrice(cd.c)}`
-        : '';
-      const indParts = [];
-      indicatorBundle.overlays.forEach((ov) => {
-        (ov.lines || []).forEach((line) => {
-          const v = line.values[absIdx];
-          if (Number.isFinite(v)) indParts.push(`${ov.name}${line.id !== 'main' ? ' ' + line.id : ''} ${fnoChartFormatOhlcPrice(v)}`);
-        });
-      });
-      const pricePart = Number.isFinite(ch.price) ? ` · Y ${fnoChartFormatOhlcPrice(ch.price)}` : '';
-      crosshairEl.textContent = `${timeLabel} · ${ohlc}${pricePart}${indParts.length ? ' · ' + indParts.join(' · ') : ''}`;
-    } else {
-      crosshairEl.textContent = '';
-    }
+    crosshairEl.textContent = fnoChartBuildCrosshairReadout(ch, visible, startIdx, padL, slot, plotW, indicatorBundle, isDailyFallbackChart);
   }
 
+  fnoChartUpdateTfButtons();
   fnoChartRenderOscillatorPanels(document.getElementById('priceChartPanels'), indicatorBundle.panels, visible, startIdx, aggregated);
 }
 

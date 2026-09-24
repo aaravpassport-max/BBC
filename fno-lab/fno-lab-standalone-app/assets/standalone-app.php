@@ -96,6 +96,16 @@ input:checked + .slider:before{transform:translateX(24px)}
    they can genuinely shrink to the real, available width, letting
    each card's own internal scroll take over instead. */
 .grid>div{min-width:0}
+/* Trading chart: larger default plot + fullscreen analysis mode */
+.fno-chart-section #priceChartCanvas{width:100%;height:min(56vh,720px);min-height:480px;max-height:900px}
+.chart-tf-btn.chart-tf-active{background:#166534!important;border:1px solid #22c55e!important}
+.fno-chart-section--fullscreen{position:fixed;inset:0;z-index:10040;background:var(--bg);padding:12px 16px 16px;overflow:auto;display:flex;flex-direction:column}
+.fno-chart-section--fullscreen #priceChartCanvas{flex:1;min-height:55vh;height:auto!important;max-height:none}
+.fno-chart-section--fullscreen .fno-chart-toolbar{position:sticky;top:0;z-index:2;background:var(--bg);padding-bottom:8px}
+@media (max-width:900px){
+  .grid{grid-template-columns:1fr}
+  .fno-chart-section #priceChartCanvas{min-height:360px;height:min(45vh,520px)}
+}
 #tradeLedgerTable{table-layout:fixed;width:100%;min-width:860px;font-size:11px;border:1px solid #1e293b;border-radius:10px;overflow:hidden}
 #tradeLedgerTable thead th{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;background:#0b1220;white-space:nowrap}
 #tradeLedgerTable td,#tradeLedgerTable th{padding:8px 6px;vertical-align:middle;border-bottom:1px solid #111827}
@@ -493,10 +503,10 @@ body.fno-nse-disabled .nse-only-section{display:none}
 
 <div id="fno-root">
 
-  <div class="card card-accent-primary" style="margin-bottom:14px">
+  <div class="card card-accent-primary fno-chart-section" id="priceChartSection" style="margin-bottom:14px">
     <h3>📈 Live Price Chart <span class="card-subtitle">Underlying candles + real entry/exit markers</span></h3>
-    <div style="font-size:10px;color:#64748b;margin-bottom:8px" id="priceChartCaption">Real underlying candle data from the same live feed every other panel uses. 🔺 green marks a real trade open, 🔻 red marks a real trade close (target/SL/square-off/manual) - both plotted from the real spot price captured at that exact moment, not estimated. Redraws every refresh, same cadence as the rest of this page.</div>
-    <div style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+    <div style="font-size:10px;color:#64748b;margin-bottom:8px" id="priceChartCaption">Real underlying OHLC from the same live feed as the brain (not demo data). Markers use underlying spot at entry/exit. Option target/SL premiums appear in the crosshair line when a paper trade is open — they are not drawn on this underlying price scale. Redraws every refresh.</div>
+    <div class="fno-chart-toolbar" style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
       <span style="font-size:10px;color:#94a3b8">Timeframe:</span>
       <button type="button" class="btn chart-tf-btn" data-tf="1" style="padding:3px 8px;font-size:11px">1m</button>
       <button type="button" class="btn chart-tf-btn" data-tf="5" style="padding:3px 8px;font-size:11px">5m</button>
@@ -510,11 +520,12 @@ body.fno-nse-disabled .nse-only-section{display:none}
       <button type="button" class="btn" id="chartZoomOut" style="padding:3px 8px;font-size:11px">🔍-</button>
       <button type="button" class="btn" id="chartResetView" style="padding:3px 8px;font-size:11px">Reset</button>
       <button type="button" class="btn" id="chartFitPrice" style="padding:3px 8px;font-size:11px" title="Auto-fit price scale to visible candles and overlays">Fit price</button>
+      <button type="button" class="btn" id="chartFullscreen" style="padding:3px 8px;font-size:11px" title="Expand chart to full screen for analysis">⛶ Full screen</button>
       <span style="font-size:10px;color:#64748b">Wheel=time · Ctrl+wheel=price · drag=pan · Shift+drag=price · dbl-click=reset</span>
     </div>
     <div id="chartIndicatorList" style="margin-bottom:6px"></div>
     <div id="priceChartCrosshair" style="font-size:11px;color:#94a3b8;min-height:16px;margin-bottom:4px"></div>
-    <canvas id="priceChartCanvas" style="width:100%;height:420px;background:#020617;border-radius:10px;cursor:grab;touch-action:none"></canvas>
+    <canvas id="priceChartCanvas" style="width:100%;background:#020617;border-radius:10px;cursor:grab;touch-action:none"></canvas>
     <div id="priceChartPanels"></div>
     <div id="priceChartLegend" style="font-size:10px;color:#64748b;margin-top:6px"></div>
   </div>
