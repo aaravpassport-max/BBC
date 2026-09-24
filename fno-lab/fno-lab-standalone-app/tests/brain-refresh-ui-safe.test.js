@@ -69,5 +69,28 @@ try {
 }
 check(!regimeAdjThrew, 'computeRegimeAdjustedConfidence does not throw when winRatePct is missing');
 
+let fmPretradeThrew = false;
+try {
+  const origRegimeWin = computeRegimeWinRate;
+  computeRegimeWinRate = () => new Map([['BadRegime', { tradeCount: 25, winRatePct: undefined, sampleSizeWarning: false }]]);
+  evaluatePreTradeFailureModes({
+    brain: {
+      results: [],
+      criticalFails: [],
+      decision: 'BUY_READY',
+      confidence: 'Medium',
+      regime: { label: 'BadRegime', trend: 'Bullish', volatility: 'Normal Vol', extendedStates: [] },
+      factorRegistry: null,
+      regimeAdjustment: null,
+      failureLibraryAdjustment: null,
+    },
+    ctx: { regimeLabel: 'BadRegime', fullJournal: [{ pnl: 100, factorSnapshot: { regime: { label: 'BadRegime' } } }] },
+  });
+  computeRegimeWinRate = origRegimeWin;
+} catch (e) {
+  fmPretradeThrew = true;
+}
+check(!fmPretradeThrew, 'evaluatePreTradeFailureModes does not throw when regime winRatePct is missing');
+
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

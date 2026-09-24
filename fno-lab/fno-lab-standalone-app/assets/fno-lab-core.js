@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.52-pine-subset-v1';
+const FNO_CORE_BUILD_MARKER = '16.37.53-brain-refresh-tofixed-v1';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -1052,12 +1052,17 @@ function updateScalpingProfitEngineSettingsHint() {
 }
 
 function getEffectiveDecisionThresholds() {
+  let out;
   if (isScalpingProfitProfileActive() && typeof getModeEffectiveThresholds === 'function') {
-    return getModeEffectiveThresholds();
+    out = getModeEffectiveThresholds();
+  } else {
+    const override = getThresholdOverride();
+    if (override) out = { buyThreshold: override.buyThreshold, sellThreshold: override.sellThreshold, source: 'strategy_override' };
+    else out = { buyThreshold: 9, sellThreshold: -15, source: 'default' };
   }
-  const override = getThresholdOverride();
-  if (override) return { buyThreshold: override.buyThreshold, sellThreshold: override.sellThreshold, source: 'strategy_override' };
-  return { buyThreshold: 9, sellThreshold: -15, source: 'default' };
+  if (!Number.isFinite(out.buyThreshold)) out.buyThreshold = 9;
+  if (!Number.isFinite(out.sellThreshold)) out.sellThreshold = -15;
+  return out;
 }
 
 function getSimulateOrderRejectionOpts() {
@@ -4169,7 +4174,7 @@ function renderPriceChart(marketCtx) {
     if (typeof c2d.setLineDash === 'function') c2d.setLineDash([2, 3]);
     c2d.moveTo(padL, y); c2d.lineTo(padL + plotW, y); c2d.stroke();
     if (typeof c2d.setLineDash === 'function') c2d.setLineDash([]);
-    c2d.fillText(price.toFixed(price >= 1000 ? 0 : 2), padL + plotW + 4, y);
+    c2d.fillText(fnoChartFormatOhlcPrice(price), padL + plotW + 4, y);
   }
 
   // Real time-axis labels along the bottom (TradingView-style) - real
@@ -6593,7 +6598,7 @@ function computeFactorDataAvailability(registry, results, categoriesNotEvaluated
     notApplicableFactors,
     skippedCategories,
     categoriesNotEvaluated: categoriesNotEvaluated || [],
-    directionalCoveragePct: +directionalCoveragePct.toFixed(1),
+    directionalCoveragePct: Number.isFinite(directionalCoveragePct) ? +directionalCoveragePct.toFixed(1) : 0,
     catalogCoveragePct: registry ? registry.coveragePct : null,
     directionalUsedCount: dirUsed.length,
     directionalUnavailableCount: dirUnavailable.length,
@@ -10449,6 +10454,7 @@ function classifyFailureModeEvent(category, context) {
 function evaluatePreTradeFailureModes(evalCtx) {
   const { brain, ctx, trapSignal, strikeShift, breakoutCondition, rejectionCheck, ivPercentile, execMode, latencyCheck, maxPainCheck, spreadLevelCheck, spreadWideningCheck, gapFillCheck, optionType, hypothesisDirectionStats, strategyVersionsCache, requestedStrike, portfolioPositions, portfolioPerPositionGreeks } = evalCtx || {};
   const triggered = [];
+  const fmFmt = (n, digits, fallback) => fnoFormatFixed(n, digits, fallback != null ? fallback : '?');
   const check = (id, condition, severity, action, reason, fires) => {
     if (fires) triggered.push({ id, condition, severity, action, reason });
   };
@@ -10865,8 +10871,8 @@ function evaluatePreTradeFailureModes(evalCtx) {
       // entry to exist first.
       check('FM105', "Real regime label for the current conditions has genuinely never occurred before in this app's own history", 'medium', 'reduce_confidence', `Real regime "${ctx.regimeLabel}" has no entry at all in the real, logged journal history.`, !regimeStatsFM);
       if (regimeStatsFM && !regimeStatsFM.sampleSizeWarning) {
-        check('FM129', 'Real regime win rate at a MILD underperformance level (41-50%)', 'low', 'reduce_confidence', `Real regime "${ctx.regimeLabel}" has a ${regimeStatsFM.winRatePct.toFixed(0)}% win rate across ${regimeStatsFM.tradeCount} real trades.`, regimeStatsFM.winRatePct > 40 && regimeStatsFM.winRatePct <= 50);
-        check('FM130', 'Real regime win rate at a SEVERE underperformance level (below 20%)', 'critical', 'block', `Real regime "${ctx.regimeLabel}" has a ${regimeStatsFM.winRatePct.toFixed(0)}% win rate across ${regimeStatsFM.tradeCount} real trades - well below the standard 40% downgrade threshold.`, regimeStatsFM.winRatePct < 20);
+        check('FM129', 'Real regime win rate at a MILD underperformance level (41-50%)', 'low', 'reduce_confidence', `Real regime "${ctx.regimeLabel}" has a ${fmFmt(regimeStatsFM.winRatePct, 0)}% win rate across ${regimeStatsFM.tradeCount} real trades.`, Number.isFinite(regimeStatsFM.winRatePct) && regimeStatsFM.winRatePct > 40 && regimeStatsFM.winRatePct <= 50);
+        check('FM130', 'Real regime win rate at a SEVERE underperformance level (below 20%)', 'critical', 'block', `Real regime "${ctx.regimeLabel}" has a ${fmFmt(regimeStatsFM.winRatePct, 0)}% win rate across ${regimeStatsFM.tradeCount} real trades - well below the standard 40% downgrade threshold.`, Number.isFinite(regimeStatsFM.winRatePct) && regimeStatsFM.winRatePct < 20);
       }
     }
     // FM104: real, NEW wiring this backlog-triage pass - reuses the
@@ -10920,15 +10926,15 @@ function evaluatePreTradeFailureModes(evalCtx) {
 
       const driftResultsFM = computeFactorTimeframeDrift(ctx.fullJournal);
       const decliningContributingFM = driftResultsFM.find(d => !d.sampleSizeWarning && d.driftPct <= -15 && contributingIds.has(d.factorId));
-      check('FM057', "Real factor timeframe drift shows a factor genuinely contributing to THIS decision has a real, declining accuracy trend", 'medium', 'reduce_confidence', decliningContributingFM ? `Factor "${decliningContributingFM.factorId}" accuracy declined from ${decliningContributingFM.earliestAccuracyPct.toFixed(0)}% (${decliningContributingFM.earliestMonth}) to ${decliningContributingFM.latestAccuracyPct.toFixed(0)}% (${decliningContributingFM.latestMonth}).` : '', !!decliningContributingFM);
+      check('FM057', "Real factor timeframe drift shows a factor genuinely contributing to THIS decision has a real, declining accuracy trend", 'medium', 'reduce_confidence', decliningContributingFM ? `Factor "${decliningContributingFM.factorId}" accuracy declined from ${fmFmt(decliningContributingFM.earliestAccuracyPct, 0)}% (${decliningContributingFM.earliestMonth}) to ${fmFmt(decliningContributingFM.latestAccuracyPct, 0)}% (${decliningContributingFM.latestMonth}).` : '', !!decliningContributingFM);
 
       const corrResultFM = computeFactorCorrelationMatrix(ctx.fullJournal);
       const redundantPairFM = !corrResultFM.sampleSizeWarning ? corrResultFM.pairs.find(p => p.isLikelyRedundant && contributingIds.has(p.factorA) && contributingIds.has(p.factorB)) : null;
-      check('FM081', 'Real factor correlation matrix shows two factors genuinely contributing to THIS decision are genuinely redundant', 'low', 'reduce_confidence', redundantPairFM ? `Factors "${redundantPairFM.factorA}"/"${redundantPairFM.factorB}" correlate at ${redundantPairFM.correlation.toFixed(2)} across ${redundantPairFM.sharedTradeCount} shared trades.` : '', !!redundantPairFM);
+      check('FM081', 'Real factor correlation matrix shows two factors genuinely contributing to THIS decision are genuinely redundant', 'low', 'reduce_confidence', redundantPairFM ? `Factors "${redundantPairFM.factorA}"/"${redundantPairFM.factorB}" correlate at ${fmFmt(redundantPairFM.correlation, 2)} across ${redundantPairFM.sharedTradeCount} shared trades.` : '', !!redundantPairFM);
 
       const comboResultFM = computeFactorCombinationPerformance(ctx.fullJournal);
       const poorComboFM = comboResultFM.pairs.find(p => p.isConsistentlyFailing && contributingIds.has(p.factorA) && contributingIds.has(p.factorB));
-      check('FM082', 'Real factor combination performance for this exact combination (both genuinely contributing to THIS decision) is genuinely poor', 'medium', 'reduce_confidence', poorComboFM ? `When "${poorComboFM.factorA}" and "${poorComboFM.factorB}" agree, real win rate is only ${poorComboFM.agreeWinRatePct.toFixed(0)}% across ${poorComboFM.agreeSampleSize} trades.` : '', !!poorComboFM);
+      check('FM082', 'Real factor combination performance for this exact combination (both genuinely contributing to THIS decision) is genuinely poor', 'medium', 'reduce_confidence', poorComboFM ? `When "${poorComboFM.factorA}" and "${poorComboFM.factorB}" agree, real win rate is only ${fmFmt(poorComboFM.agreeWinRatePct, 0)}% across ${poorComboFM.agreeSampleSize} trades.` : '', !!poorComboFM);
 
       // FM072: real, NEW wiring this backlog-triage pass - aggregates
       // the real sampleSizeWarning flags already computed by multiple
@@ -10974,7 +10980,7 @@ function evaluatePreTradeFailureModes(evalCtx) {
         const bucketFM = bucketsFM.get(bucketKeyFM);
         const statedWinProbPctFM = brain.confidence === 'High' ? 65 : brain.confidence === 'Medium' ? 50 : 35;
         const poorlyCalibratedFM = bucketFM && !bucketFM.sampleSizeWarning && Math.abs(bucketFM.winRatePct - statedWinProbPctFM) >= 15;
-        check('FM071', 'Real calibration bucket for this confidence level is genuinely poorly calibrated', 'medium', 'reduce_confidence', bucketFM ? `Real observed win rate for "${bucketKeyFM}" is ${bucketFM.winRatePct.toFixed(0)}% across ${bucketFM.count} trades vs a stated-confidence-implied ~${statedWinProbPctFM}%.` : '', !!poorlyCalibratedFM);
+        check('FM071', 'Real calibration bucket for this confidence level is genuinely poorly calibrated', 'medium', 'reduce_confidence', bucketFM ? `Real observed win rate for "${bucketKeyFM}" is ${fmFmt(bucketFM.winRatePct, 0)}% across ${bucketFM.count} trades vs a stated-confidence-implied ~${statedWinProbPctFM}%.` : '', !!poorlyCalibratedFM);
       }
     }
   }
@@ -18966,7 +18972,13 @@ function render(){
           strikeShiftForRefresh = shift;
         }
       }).catch(() => { /* non-critical */ });
-      renderPriceChart(refreshCtx); // user's own direct request - live candle chart + entry/exit markers, redrawn every refresh alongside everything else
+      try {
+        renderPriceChart(refreshCtx); // user's own direct request - live candle chart + entry/exit markers, redrawn every refresh alongside everything else
+      } catch (chartRenderErr) {
+        console.warn('Price chart render failed (non-critical):', chartRenderErr);
+        const legendEl = document.getElementById('priceChartLegend');
+        if (legendEl) legendEl.textContent = `Chart render error this refresh: ${chartRenderErr && chartRenderErr.message ? chartRenderErr.message : String(chartRenderErr)} — brain/factors still active.`;
+      }
   if (typeof fnoChartRenderWatchlistBar === 'function') fnoChartRenderWatchlistBar();
 
       // Real rolling-history snapshot (unblocks VIX 15m/PCR 30m/IV Rank/
