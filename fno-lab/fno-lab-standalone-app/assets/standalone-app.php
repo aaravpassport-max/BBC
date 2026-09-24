@@ -743,6 +743,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
           <input id="apiSecret" class="input" type="password" placeholder="API Secret" style="flex:1;min-width:150px">
           <input id="brokerSquareOffTime" class="input" placeholder="Square-off HH:MM (e.g. 15:20)" style="width:170px">
           <button id="saveKite" class="btn">Save</button>
+          <button id="clearKite" type="button" class="btn" style="background:#450a0a;color:#fca5a5" title="Remove stored Kite key/secret/token and start fresh">Clear</button>
         </div>
         <div style="font-size:10px;color:#64748b;margin-top:4px">Square-off time is YOUR broker's actual MIS auto-square-off policy (check your broker's site - this varies by broker, e.g. Zerodha is commonly ~15:15-15:20 IST but that is not assumed for you). Powers the real "MTM Square Off Time" Regulatory factor.</div>
         <div id="kiteStatus" style="font-size:11px;color:#94a3b8;margin-top:6px"></div>

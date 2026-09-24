@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.41-kite-api-key-validation-v1';
+const FNO_CORE_BUILD_MARKER = '16.37.42-kite-zerodha-probe-v1';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -16528,8 +16528,13 @@ async function loadKiteSettings(){
       const tokenLabel = j.data.has_token ? '✅ Logged In (fresh today)' : (j.data.had_token_but_expired ? '⚠️ Expired at 6AM IST - please log in again' : '❌ Not logged in');
       const keyOk = j.data.api_key_valid_format !== false;
       const keyLabel = j.data.api_key ? (keyOk ? '✅' : '⚠️ bad format') : '❌';
+      const probe = j.data.zerodha_key_probe;
+      const probeLabel = probe && probe.accepted === false && probe.detail === 'zerodha_invalid'
+        ? ' · <span style="color:#f87171">Zerodha rejected this key</span>'
+        : (probe && probe.accepted === true ? ' · <span style="color:#4ade80">Key OK at Zerodha</span>' : '');
+      const preview = j.data.api_key_preview ? ` (${escapeHtml(j.data.api_key_preview)} len ${j.data.api_key_length || '?'})` : '';
       const hint = j.data.kite_setup_hint ? `<br><span style="color:#fde68a">${escapeHtml(j.data.kite_setup_hint)}</span>` : '';
-      document.getElementById('kiteStatus').innerHTML=`API Key: ${keyLabel} Secret: ${j.data.has_secret?'✅':'❌'} Token: ${tokenLabel}${hint}${j.data.login_url ? ` | <a href="${escapeHtml(j.data.login_url)}" target="_blank" rel="noopener" style="color:#60a5fa">Open Kite login</a>` : ''}`;
+      document.getElementById('kiteStatus').innerHTML=`Plugin ${typeof FNO_PLUGIN_VERSION !== 'undefined' ? FNO_PLUGIN_VERSION : '?'} · API Key: ${keyLabel}${preview} Secret: ${j.data.has_secret?'✅':'❌'} Token: ${tokenLabel}${probeLabel}${hint}${j.data.login_url ? ` | <a href="${escapeHtml(j.data.login_url)}" target="_blank" rel="noopener" style="color:#60a5fa">Open Kite login</a>` : ''}`;
       // FOUND via a real, direct user report: correctly, immediately
       // reflect the real OpenAI key status here - independent of
       // whether a real trading decision has been computed yet, so a
@@ -17148,13 +17153,29 @@ function render(){
     const apiSecret=document.getElementById('apiSecret').value;
     const squareOff=document.getElementById('brokerSquareOffTime').value;
     const r=await fetch(`${window.FNO_AJAX.url}?action=fno_save_kite_settings`, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:`api_key=${encodeURIComponent(apiKey)}&api_secret=${encodeURIComponent(apiSecret)}&broker_square_off_time=${encodeURIComponent(squareOff)}&nonce=${window.FNO_AJAX.nonce}`});
-    const j=await r.json(); document.getElementById('kiteStatus').textContent=j.data?.message||'Saved'; loadKiteSettings();
+    const j=await r.json();
+    if(!j.success){ alert(j.data?.message || 'Save failed'); return; }
+    document.getElementById('kiteStatus').textContent=j.data?.message||'Saved';
+    loadKiteSettings();
   };
+  document.getElementById('clearKite')?.addEventListener('click', async ()=>{
+    if(!confirm('Clear saved Kite API key, secret, and session token for this WordPress user?')) return;
+    const r=await fetch(`${window.FNO_AJAX.url}?action=fno_clear_kite_settings`, {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:`nonce=${window.FNO_AJAX.nonce}`});
+    const j=await r.json();
+    alert(j.success ? (j.data?.message || 'Cleared') : (j.data?.message || 'Clear failed'));
+    document.getElementById('apiKey').value='';
+    document.getElementById('apiSecret').value='';
+    loadKiteSettings();
+  });
   document.getElementById('kiteLoginBtn').onclick=async ()=>{
     const r=await fetch(`${window.FNO_AJAX.url}?action=fno_get_kite_settings&nonce=${window.FNO_AJAX.nonce}`);
     const j=await r.json();
     if(!j.success || !j.data?.login_url){
       alert(j.data?.kite_setup_hint || 'Save a valid Kite Connect API key and secret first.\n\nGet them from developers.kite.trade → your app → API key / API secret.\nDo not paste the secret into the API key field.');
+      return;
+    }
+    if(j.data.zerodha_key_probe && j.data.zerodha_key_probe.accepted === false && j.data.zerodha_key_probe.detail === 'zerodha_invalid'){
+      alert('Zerodha rejected the saved API key (Invalid api_key).\n\nFix at developers.kite.trade → your app → copy/regenerate API key, then Save again.\n\nOr click Clear Kite credentials and re-enter.');
       return;
     }
     window.open(j.data.login_url, '_blank', 'noopener');
