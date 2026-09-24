@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chart production module harness</title>
+  <style>
+    body{background:#020617;color:#e2e8f0;font-family:system-ui;margin:12px}
+    .btn{background:#2563eb;color:#fff;border:0;padding:6px 12px;border-radius:8px;font-size:11px;cursor:pointer}
+    .input{background:#020617;border:1px solid #334155;color:#fff;padding:6px 8px;border-radius:8px;font-size:11px}
+    #priceChartCanvas{width:100%;height:400px;background:#020617;border-radius:10px}
+    #status{font-weight:700;margin:8px 0}
+    .fail{color:#f87171}.pass{color:#4ade80}
+  </style>
+</head>
+<body>
+<div id="status">Booting…</div>
+<div id="priceChartSection" class="fno-chart-section">
+  <div class="fno-chart-toolbar" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+    <button type="button" class="btn chart-tf-btn" data-tf="1">1m</button>
+    <select id="chartAddIndicator" class="input"><option value="">+ Add indicator…</option></select>
+    <input id="chartIndicatorSearch" class="input" placeholder="Search" style="width:70px">
+  </div>
+  <div class="fno-chart-toolbar" style="margin-bottom:6px">
+    <label><input type="checkbox" id="chartShowEma" checked> EMA21</label>
+    <label><input type="checkbox" id="chartShowVwap" checked> VWAP</label>
+    <label><input type="checkbox" id="chartShowVolume"> Show Volume</label>
+    <label><input type="checkbox" id="chartShowOptionLtp"> Option LTP</label>
+  </div>
+  <div id="chartIndicatorList"></div>
+  <div id="priceChartCrosshair" style="font-size:11px;color:#94a3b8"></div>
+  <canvas id="priceChartCanvas"></canvas>
+  <div id="priceChartPanels"></div>
+  <div id="priceChartLegend" style="font-size:10px;color:#64748b"></div>
+  <div id="priceChartCaption"></div>
+</div>
+<div id="chartCustomIndicatorPanel" style="display:none"></div>
+<div id="chartCustomIndError"></div>
+<div id="chartCustomIndCatalog"></div>
+<div id="chartAlertsList"></div>
+<div id="chartWatchlistBar"></div>
+<div id="sym" style="display:none"><option selected>NIFTY</option></div>
+
+<script>
+window.FNO_AJAX = { isLoggedIn: false, url: '/ajax', nonce: 't' };
+window.fnoSettings = { get: () => ({ appearance: 'dark', nseIntegrationEnabled: true, tradingTypes: { scalping: true }, defaultLots: 1 }), set: () => {} };
+window.__prodModuleAudit = { errors: [], steps: [] };
+window.addEventListener('error', (e) => window.__prodModuleAudit.errors.push(e.message || String(e)));
+</script>
+<script src="../assets/chart-pine-compiler.js"></script>
+<script src="../assets/chart-indicator-engine.js"></script>
+<script src="../assets/chart-tv-extensions.js"></script>
+<script type="module" src="../assets/fno-lab-core.js"></script>
+<script type="module">
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function setStatus(msg, ok) {
+  const el = document.getElementById('status');
+  el.textContent = msg;
+  el.className = ok ? 'pass' : 'fail';
+}
+function makeCandles(n) {
+  const out = [];
+  let t = Date.now() - n * 60000;
+  for (let i = 0; i < n; i++) {
+    const c = 23200 + Math.sin(i / 8) * 30;
+    out.push({ t: t + i * 60000, o: c - 2, h: c + 5, l: c - 6, c, v: 500 + i * 3 });
+  }
+  return out;
+}
+async function run() {
+  localStorage.removeItem('fno_chart_indicators_v1');
+  for (let i = 0; i < 100; i++) {
+    if (typeof globalThis.renderPriceChart === 'function') break;
+    await sleep(50);
+  }
+  if (typeof globalThis.renderPriceChart !== 'function') {
+    setStatus('FAIL: renderPriceChart not published from ES module', false);
+    window.__prodModuleAudit.ready = false;
+    return;
+  }
+  const ctx = { candles: makeCandles(100), candlesForChart: makeCandles(100), chartBaseIntervalMinutes: 1, spot: 23240, symbol: 'NIFTY', sym: 'NIFTY' };
+  globalThis.renderPriceChart(ctx);
+  await sleep(250);
+  const listEl = document.getElementById('chartIndicatorList');
+  const rows0 = listEl.querySelectorAll('.chart-ind-row').length;
+  window.__prodModuleAudit.steps.push('defaultRows=' + rows0);
+  const addSel = document.getElementById('chartAddIndicator');
+  const macdOpt = Array.from(addSel.options).find(o => o.value === 'macd');
+  if (!macdOpt) {
+    setStatus('FAIL: MACD missing from dropdown', false);
+    window.__prodModuleAudit.ready = false;
+    return;
+  }
+  addSel.value = 'macd';
+  addSel.dispatchEvent(new Event('change', { bubbles: true }));
+  await sleep(200);
+  globalThis.renderPriceChart(ctx);
+  await sleep(150);
+  const listText = listEl.textContent || '';
+  const rows1 = listEl.querySelectorAll('.chart-ind-row').length;
+  const panels = document.getElementById('priceChartPanels').children.length;
+  const legend = document.getElementById('priceChartLegend').textContent || '';
+  window.__prodModuleAudit.steps.push('afterMacd rows=' + rows1 + ' panels=' + panels + ' legendInd=' + legend);
+  const vol = document.getElementById('chartShowVolume');
+  vol.checked = true;
+  vol.dispatchEvent(new Event('change', { bubbles: true }));
+  await sleep(150);
+  globalThis.renderPriceChart(ctx);
+  await sleep(100);
+  const volRow = globalThis.FNO_CHART_INDICATORS.loadInstances().find(i => i.typeId === 'volume');
+  const hasVolPanel = Array.from(document.getElementById('priceChartPanels').querySelectorAll('div')).some(d => (d.textContent || '').trim().startsWith('Volume'));
+  const panelsFinal = document.getElementById('priceChartPanels').children.length;
+  window.__prodModuleAudit.steps.push('volume enabled=' + !!(volRow && volRow.enabled) + ' panel=' + hasVolPanel + ' panelsFinal=' + panelsFinal);
+  const ok = rows0 >= 2
+    && rows1 >= 3
+    && listText.includes('MACD')
+    && panelsFinal >= 2
+    && /indicator\(s\)/.test(legend)
+    && volRow && volRow.enabled
+    && hasVolPanel
+    && window.__prodModuleAudit.errors.length === 0;
+  window.__prodModuleAudit.ready = ok;
+  setStatus(ok ? 'PASS production module indicator flow' : 'FAIL production module indicator flow', ok);
+}
+run();
+</script>
+</body>
+</html>
