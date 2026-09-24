@@ -5,6 +5,12 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ ! -f "$SCRIPT_DIR/fno-data-layer.php" ]] || [[ ! -d "$SCRIPT_DIR/autonomous-driver" ]]; then
+  echo "ERROR: Incomplete plugin source tree — refusing to build zip." >&2
+  echo "This folder is missing fno-data-layer.php and/or autonomous-driver/." >&2
+  echo "Restore the full plugin (or extract the last good fno-lab-standalone-app.zip) before running build-plugin-zip.sh." >&2
+  exit 1
+fi
 PLUGIN_SLUG="fno-lab-standalone-app"
 OUT_DIR="${1:-$(cd "$SCRIPT_DIR/../.." && pwd)}"
 BUILD_ROOT="$(mktemp -d)"
