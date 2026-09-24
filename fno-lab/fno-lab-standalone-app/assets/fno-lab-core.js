@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.39-brain-refresh-ui-safe-v5';
+const FNO_CORE_BUILD_MARKER = '16.37.40-open-position-exit-leg-v1';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -8393,6 +8393,42 @@ function fnoStrategyVersionLogEntryShape() {
   // and rendered client-side - kept as one named reference so both sides
   // can be checked against the same definition rather than drifting.
   return { version: '', changedFields: [], oldValues: {}, newValues: {}, reason: '', evidence: '', createdAt: 0 };
+}
+
+function resolveOcRowByStrike(ocRows, strike) {
+  if (!Array.isArray(ocRows) || typeof strike !== 'number' || !Number.isFinite(strike)) return null;
+  return ocRows.find(r => r && typeof r.strikePrice === 'number' && r.strikePrice === strike) || null;
+}
+
+/**
+ * Open-position monitor/exit MUST price open.strike + open.optionType, never the UI ocRow.
+ */
+function resolveOpenPositionLeg(open, ocRows) {
+  if (!open || (open.optionType !== 'CE' && open.optionType !== 'PE')) {
+    return { row: null, leg: null, reason: 'Open position missing a valid CE/PE optionType.' };
+  }
+  const strikeNum = typeof open.strike === 'number' ? open.strike : parseFloat(open.strike);
+  if (!Number.isFinite(strikeNum)) {
+    return { row: null, leg: null, reason: 'Open position strike is not a finite number.' };
+  }
+  const row = resolveOcRowByStrike(ocRows, strikeNum);
+  if (!row) {
+    return { row: null, leg: null, reason: `No option-chain row for open strike ${strikeNum} this refresh.` };
+  }
+  const leg = open.optionType === 'PE' ? row.PE : row.CE;
+  if (!leg) {
+    return { row, leg: null, reason: `Option chain row at ${strikeNum} has no ${open.optionType} leg this refresh.` };
+  }
+  return { row, leg, reason: null };
+}
+
+function clampExitPriceToObservedExcursion(open, exitPrice, exitReason) {
+  if (!Number.isFinite(exitPrice) || !open) return exitPrice;
+  if (exitReason !== 'target') return exitPrice;
+  const mfe = (typeof open.mfe === 'number' && Number.isFinite(open.mfe)) ? open.mfe : open.entryPrice;
+  if (!Number.isFinite(mfe)) return exitPrice;
+  if (exitPrice > mfe + 0.02) return mfe;
+  return exitPrice;
 }
 
 /**
@@ -18901,7 +18937,14 @@ function render(){
     const history = load(STORAGE.autoTrades + '_history');
 
     if (open && open.id) {
-      const leg = ocRow && (optionType==='PE' ? ocRow.PE : ocRow.CE);
+      const ocRows = (curCtx && Array.isArray(curCtx.ocRows) && curCtx.ocRows.length)
+        ? curCtx.ocRows
+        : (ocRow ? [ocRow] : []);
+      const resolved = resolveOpenPositionLeg(open, ocRows);
+      const leg = resolved.leg;
+      const uiStrikeNum = typeof strike === 'number' ? strike : parseFloat(strike);
+      const uiStrikeMismatch = Number.isFinite(uiStrikeNum) && Number.isFinite(open.strike) && uiStrikeNum !== open.strike;
+      const uiTypeMismatch = optionType && open.optionType && optionType !== open.optionType;
       // Fail-open-NaN audit (exit-side pass): naive `typeof x==='number'`
       // lets a NaN lastPrice through as if it were a real, usable price
       // (typeof NaN === 'number'), which would then silently poison
@@ -18989,10 +19032,12 @@ function render(){
       const mfeVal = Number.isFinite(open.mfe) ? open.mfe : open.entryPrice;
       const maeVal = Number.isFinite(open.mae) ? open.mae : open.entryPrice;
       openEl.innerHTML = liveNow!==null
-        ? `<b>${escapeHtml(sym)} ${escapeHtml(String(open.strike))}${escapeHtml(open.optionType)}</b> entry Rs${open.entryPrice}${open.fillIsRealistic?'':' (fallback fill, no spread sim)'} -> live Rs${fnoFormatFixed(liveNow, 1)} (target ${open.target}, SL ${trailSlTxt}${open.partialTaken?', partial taken':''})<br>MFE Rs${fnoFormatFixed(mfeVal, 1)} / MAE Rs${fnoFormatFixed(maeVal, 1)} <span style="color:#64748b">- Opened ${new Date(open.openedAt).toLocaleTimeString()}</span>`
-        : (ocStaleAtExit && ocStaleAtExit.stale
+        ? `<b>${escapeHtml(sym)} ${escapeHtml(String(open.strike))}${escapeHtml(open.optionType)}</b> entry Rs${open.entryPrice}${open.fillIsRealistic?'':' (fallback fill, no spread sim)'} -> live Rs${fnoFormatFixed(liveNow, 1)} (target ${open.target}, SL ${trailSlTxt}${open.partialTaken?', partial taken':''})<br>MFE Rs${fnoFormatFixed(mfeVal, 1)} / MAE Rs${fnoFormatFixed(maeVal, 1)} <span style="color:#64748b">- Opened ${new Date(open.openedAt).toLocaleTimeString()}</span>${uiStrikeMismatch || uiTypeMismatch ? `<br><span style="color:#fde68a">⚠️ Chain selector is ${uiStrikeNum}${optionType} but this open position is ${open.strike}${open.optionType} — exits use the open position strike only.</span>` : ''}`
+        : (resolved.reason
+            ? `<b>${escapeHtml(sym)} ${escapeHtml(String(open.strike))}${escapeHtml(open.optionType)}</b> entry Rs${open.entryPrice} - ${escapeHtml(resolved.reason)} — cannot verify target/SL until chain data for this strike returns`
+            : (ocStaleAtExit && ocStaleAtExit.stale
             ? `<b>${escapeHtml(sym)} ${escapeHtml(String(open.strike))}${escapeHtml(open.optionType)}</b> entry Rs${open.entryPrice} - live premium is ${fnoFormatFixed(ocStaleAtExit.ageMinutes, 1)} min stale this refresh (real NSE fetch timestamp), cannot trust target/SL check until a fresh quote returns`
-            : `<b>${escapeHtml(sym)} ${escapeHtml(String(open.strike))}${escapeHtml(open.optionType)}</b> entry Rs${open.entryPrice} - live premium unavailable this refresh (NSE data degraded), cannot check target/SL until it returns`);
+            : `<b>${escapeHtml(sym)} ${escapeHtml(String(open.strike))}${escapeHtml(open.optionType)}</b> entry Rs${open.entryPrice} - live premium unavailable this refresh (NSE data degraded), cannot check target/SL until it returns`));
 
       if (liveNow!==null) {
         const effectiveSl = open.trailingEnabled ? open.trailingSl : open.sl;
@@ -19082,7 +19127,8 @@ function render(){
       const hv = historicalVolPct(curCtx.candles.map(c=>c.c), 20);
       fill.price = simulateExecutionLatency(fill.price, 'sell', hv, 600).adjustedPrice;
     }
-    const exitPrice = fill.price !== null ? fill.price : (exitLeg && exitLeg.lastPrice) || open.entryPrice;
+    const exitPriceRaw = fill.price !== null ? fill.price : (exitLeg && exitLeg.lastPrice) || open.entryPrice;
+    const exitPrice = clampExitPriceToObservedExcursion(open, exitPriceRaw, 'target');
     const costs = computeTradeCosts(open.entryPrice, exitPrice, partialQty);
     const entry = {
       ts: Date.now(), symbol: normalizeTradeAlertSymbol(sym, open), strike: open.strike, optionType: open.optionType,
@@ -19153,7 +19199,7 @@ function render(){
       if (brainLogEl) brainLogEl.textContent += `\n⚠️ Exit blocked (market integrity): ${economics.note}`;
       return;
     }
-    let exitPrice = economics.exitPrice;
+    let exitPrice = clampExitPriceToObservedExcursion(open, economics.exitPrice, exitReason);
     const symResolved = normalizeTradeAlertSymbol(sym, open);
     const costs = computeTradeCosts(open.entryPrice, exitPrice, open.qty);
     // 'invalidated' (real, NEW this session - see checkSignalInvalidation's
@@ -19494,9 +19540,10 @@ function render(){
     }
     if (finalizedLot.reason) reportFn(finalizedLot.reason);
     lotSize = finalizedLot.qty;
-    if (!curCtx || !curCtx.ocRow) { reportFn('No live option-chain data this refresh - cannot open an Auto Trade position without a real live premium.'); return { opened: false }; }
-    const leg = optionType==='PE' ? curCtx.ocRow.PE : curCtx.ocRow.CE;
-    if (!leg || typeof leg.lastPrice!=='number') { reportFn('No live premium available for the selected strike/type this refresh.'); return { opened: false }; }
+    if (!curCtx || !Array.isArray(curCtx.ocRows) || !curCtx.ocRows.length) { reportFn('No live option-chain data this refresh - cannot open an Auto Trade position without a real live premium.'); return { opened: false }; }
+    const openRow = resolveOcRowByStrike(curCtx.ocRows, typeof strike === 'number' ? strike : parseFloat(strike));
+    const leg = openRow ? (optionType==='PE' ? openRow.PE : openRow.CE) : null;
+    if (!openRow || !leg || typeof leg.lastPrice!=='number') { reportFn(`No live premium for strike ${strike} ${optionType} this refresh (exact chain row required — nearest-strike substitution is not used for opens).`); return { opened: false }; }
     const existing = loadObj(STORAGE.autoTrades);
     if (existing && existing.id) { return { opened: false, reason: 'Position already open' }; } // real, honest no-op for the autonomous path - not an error, just nothing to do this cycle
     if (!target || !sl || sl>=leg.lastPrice || target<=leg.lastPrice) { reportFn('Target must be above, and SL below, the current live premium.'); return { opened: false }; }
@@ -20030,9 +20077,10 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
   document.getElementById('forceExit').addEventListener('click', async ()=>{
     const open = loadObj(STORAGE.autoTrades);
     if (!open || !open.id) { alert('No open Auto Trade position to exit.'); return; }
-    if (!curCtx || !curCtx.ocRow) { alert('No live premium available this refresh - cannot force-exit at a fabricated price. Try again next refresh.'); return; }
-    const leg = open.optionType==='PE' ? curCtx.ocRow.PE : curCtx.ocRow.CE;
-    if (!leg || typeof leg.lastPrice!=='number') { alert('No live premium for this leg this refresh.'); return; }
+    if (!curCtx || !Array.isArray(curCtx.ocRows) || !curCtx.ocRows.length) { alert('No live option-chain data this refresh - cannot force-exit at a fabricated price. Try again next refresh.'); return; }
+    const resolved = resolveOpenPositionLeg(open, curCtx.ocRows);
+    const leg = resolved.leg;
+    if (!leg || typeof leg.lastPrice!=='number') { alert(resolved.reason || 'No live premium for this open position strike this refresh.'); return; }
     await closeAutoTrade(open, leg, 'manual_force_exit', resolveUiSymbol(open.symbol), leg.lastPrice);
   });
 
