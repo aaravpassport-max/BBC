@@ -5,13 +5,14 @@
 (function (global) {
   'use strict';
 
-  const SUBSET_VERSION = 2;
+  const SUBSET_VERSION = 3;
   const MAX_SOURCE_LEN = 120000;
 
   const SUBSET_HELP =
     'This app compiles a Pine subset (not TradingView). Supported: indicator(), input.int/float, one plot(), '
-    + 'ta.ema/sma/rsi/highest/lowest/vwap, math, and same-chart request.security(syminfo.tickerid, "D", close) → higher timeframe OHLC. '
-    + 'Not supported: strategies, imports, if/for/while, arrays, other symbols in request.security.';
+    + 'ta.ema/sma/rsi/highest/lowest/vwap, math, and same-chart request.security(syminfo.tickerid, "D", close). '
+    + 'Not supported: strategies, imports, if/for/while, arrays in logic, other symbols in request.security. '
+    + 'Tip: click Load sample EMA, or paste a script whose plot() only uses ta.* / close — extra array/var lines may be auto-removed.';
 
   const UNSUPPORTED_PATTERNS = [
     { re: /\bstrategy\s*\(/, msg: 'strategy() scripts are not supported (indicators only)' },
@@ -82,6 +83,61 @@
       if (hit.re.test(body)) return hit.msg;
     }
     return null;
+  }
+
+  function findUnsupportedDetail(raw) {
+    const lines = String(raw || '').split(/\r?\n/);
+    for (let li = 0; li < lines.length; li++) {
+      const body = stripComments(lines[li]);
+      for (let i = 0; i < UNSUPPORTED_PATTERNS.length; i++) {
+        const hit = UNSUPPORTED_PATTERNS[i];
+        if (hit.re.test(body)) {
+          const call = body.match(/\b(array|matrix|barstate)\.[a-z_]+|\b(strategy|library)\s*\(|\bimport\s+\S+|\b(if|for|while|switch|var|varip)\b/i);
+          return { msg: hit.msg, line: li + 1, snippet: lines[li].trim().slice(0, 120), call: call ? call[0] : hit.msg };
+        }
+      }
+    }
+    return { msg: findUnsupported(raw) || 'Unsupported Pine construct', line: null, snippet: '', call: '' };
+  }
+
+  function lineBlockedForStrip(line) {
+    const body = stripComments(String(line || '')).trim();
+    if (!body) return true;
+    if (/^\s*\/\//.test(line)) return true;
+    if (/\b(array\.|matrix\.|barstate\.)\b/.test(body)) return true;
+    if (/\bstrategy\s*\(|\blibrary\s*\(|\bimport\s+/.test(body)) return true;
+    if (/\b(for\s+|while\s+|switch\s+)\b/.test(body)) return true;
+    if (/\bif\s+/.test(body)) return true;
+    if (/\bvar\s+|\bvarip\s+/.test(body)) return true;
+    return false;
+  }
+
+  function buildStrippedPineSource(raw) {
+    const lines = String(raw || '').split(/\r?\n/);
+    const kept = [];
+    lines.forEach((line) => {
+      if (lineBlockedForStrip(line)) return;
+      const t = line.trim();
+      if (!t) return;
+      if (parseIndicatorMeta(t)) { kept.push(line); return; }
+      if (parseInputLine(t)) { kept.push(line); return; }
+      if (extractPlot(t)) { kept.push(line); return; }
+      if (/^[a-zA-Z_][a-zA-Z0-9_]*\s*=\s*.+$/.test(t) && !/\b(input\.|plot\s*\()/.test(t.split('=')[1])) {
+        kept.push(line);
+      }
+    });
+    return kept.join('\n');
+  }
+
+  function formatUnsupportedMessage(raw, shortMsg) {
+    const d = findUnsupportedDetail(raw);
+    let out = d.msg || shortMsg || 'Unsupported Pine construct';
+    if (d.line) out += ` (line ${d.line}${d.call ? ': ' + d.call : ''})`;
+    if (/array/i.test(out)) {
+      out += '. Arrays cannot run in FNO — delete array blocks or use a single plot(ta.ema(close, 14)) / Formula tab.';
+    }
+    out += '. ' + SUBSET_HELP;
+    return out;
   }
 
   function parseIndicatorMeta(line) {
@@ -258,8 +314,31 @@
     const raw = String(source || '');
     if (!raw.trim()) return { ok: false, error: 'Pine script is empty' };
     if (raw.length > MAX_SOURCE_LEN) return { ok: false, error: 'Pine script is too large' };
+
     const unsup = findUnsupported(raw);
-    if (unsup) return { ok: false, error: unsup };
+    if (unsup) {
+      const body = stripComments(raw);
+      if (/\bstrategy\s*\(|\blibrary\s*\(|\bimport\s+/.test(body)) {
+        return { ok: false, error: formatUnsupportedMessage(raw, unsup) };
+      }
+      const stripped = buildStrippedPineSource(raw);
+      if (stripped && stripped.trim() !== raw.trim() && !findUnsupported(stripped)) {
+        const retry = compilePineScriptInner(stripped, raw);
+        if (retry.ok) {
+          retry.warnings = (retry.warnings || []).concat([
+            'Auto-removed unsupported lines (arrays, var, if/for, etc.). Confirm the compiled plot matches your intent.',
+          ]);
+          retry.strippedCompile = true;
+          return retry;
+        }
+      }
+      return { ok: false, error: formatUnsupportedMessage(raw, unsup) };
+    }
+    return compilePineScriptInner(raw, raw);
+  }
+
+  function compilePineScriptInner(workingSource, pineSourceOriginal) {
+    const raw = String(workingSource || '');
     if (!/\bindicator\s*\(/i.test(raw)) {
       return { ok: false, error: 'Pine subset requires indicator() — strategy and library scripts are not supported' };
     }
@@ -346,7 +425,7 @@
         panelMin: 0,
         panelMax: 100,
         warnings,
-        pineSource: raw.slice(0, MAX_SOURCE_LEN),
+        pineSource: String(pineSourceOriginal || raw).slice(0, MAX_SOURCE_LEN),
       };
     }
 
@@ -359,7 +438,7 @@
       params,
       color: plotColor || '#f472b6',
       warnings,
-      pineSource: raw.slice(0, MAX_SOURCE_LEN),
+      pineSource: String(pineSourceOriginal || raw).slice(0, MAX_SOURCE_LEN),
     };
   }
 

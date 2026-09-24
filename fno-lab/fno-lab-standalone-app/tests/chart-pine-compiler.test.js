@@ -67,6 +67,26 @@ plot(close)`);
 assert.strictEqual(strat.ok, false);
 assert.ok(/strategy/i.test(strat.error));
 
+const bloated = `//@version=5
+indicator("Strip test", overlay=true)
+var float[] buf = array.new_float(0)
+if barstate.islast
+    array.push(buf, close)
+len = input.int(14, "Len")
+plot(ta.ema(close, len))`;
+const strippedOk = PINE.compilePineScript(bloated);
+assert.strictEqual(strippedOk.ok, true, strippedOk.error);
+assert.ok(strippedOk.strippedCompile);
+assert.strictEqual(strippedOk.formula, 'ema(close, len)');
+
+const arrayPlot = `//@version=5
+indicator("Needs array")
+buf = array.new_float(5)
+plot(array.get(buf, 0))`;
+const arrayFail = PINE.compilePineScript(arrayPlot);
+assert.strictEqual(arrayFail.ok, false);
+assert.ok(/array/i.test(arrayFail.error));
+
 const candles = [];
 for (let i = 0; i < 40; i++) candles.push({ t: i, o: 100 + i, h: 101 + i, l: 99 + i, c: 100 + i, v: 10 });
 const saved = FNO.saveCustomDefinitionFromPine(emaPine);

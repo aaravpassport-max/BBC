@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.60-pine-htf-subset-ux';
+const FNO_CORE_BUILD_MARKER = '16.37.61-pine-array-strip';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -4005,7 +4005,8 @@ function fnoChartWireIndicatorManager(redraw) {
       const errEl = document.getElementById('chartCustomIndError');
       const res = FNO_CHART_INDICATORS.saveCustomDefinitionFromPine(pineTa.value);
       if (!res.ok) {
-        const hint = (typeof FNO_CHART_PINE !== 'undefined' && FNO_CHART_PINE.subsetHelpText) ? FNO_CHART_PINE.subsetHelpText() : '';
+        const hint = (typeof FNO_CHART_PINE !== 'undefined' && FNO_CHART_PINE.subsetHelpText && !/\bPine subset\b/.test(res.error || ''))
+          ? FNO_CHART_PINE.subsetHelpText() : '';
         if (errEl) errEl.textContent = (res.error || 'Pine compile failed') + (hint ? '. ' + hint : '');
         return;
       }
