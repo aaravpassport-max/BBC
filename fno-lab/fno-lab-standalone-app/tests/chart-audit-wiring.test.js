@@ -16,6 +16,10 @@ assert.ok(/function fnoChartBuildCrosshairReadout/.test(coreSource));
 assert.ok(/function fnoChartClassifyExitMarker/.test(coreSource));
 assert.ok(/id="chartShowVolume"/.test(php), 'Show Volume checkbox must exist in chart toolbar');
 assert.ok(/function fnoChartSetVolumeIndicatorEnabled/.test(coreSource), 'volume checkbox must drive indicator instances');
+assert.ok(/function fnoChartEnsureChartUiWired/.test(coreSource), 'chart UI wiring must retry until indicator scripts/DOM ready');
+const ensureIdx = coreSource.indexOf('fnoChartEnsureChartUiWired()');
+const guardIdx = coreSource.indexOf('if (fnoChartViewState.controlsWired) return', ensureIdx);
+assert.ok(ensureIdx > 0 && guardIdx > ensureIdx, 'indicator UI wiring must run before controlsWired early exit');
 assert.ok(/function _fnoChartHasVolumePanelForTest/.test(coreSource), 'harness volume panel probe must exist');
 
 const end = coreSource.indexOf('\nfunction render(){');

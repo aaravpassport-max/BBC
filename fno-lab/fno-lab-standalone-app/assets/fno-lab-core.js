@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.61-pine-array-strip';
+const FNO_CORE_BUILD_MARKER = '16.37.62-chart-indicator-wiring-fix';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -3634,10 +3634,24 @@ function fnoChartRenderOscillatorPanels(container, panels, visible, startIdx, fu
  * zooming/panning/switching timeframe is instant and never counts as a
  * real refresh cycle.
  */
-function wireChartControls() {
-  if (typeof document === 'undefined' || fnoChartViewState.controlsWired) return;
+function fnoChartEnsureChartUiWired() {
+  if (typeof document === 'undefined') return;
   const canvas = document.getElementById('priceChartCanvas');
   if (!canvas) return;
+  const redraw = () => {
+    if (fnoChartLastMarketCtx) renderPriceChart(fnoChartLastMarketCtx);
+  };
+  fnoChartWireIndicatorManager(redraw);
+  fnoChartWireAnalysisExtensions(redraw);
+  fnoChartWireLayoutObserver(redraw);
+}
+
+function wireChartControls() {
+  if (typeof document === 'undefined') return;
+  const canvas = document.getElementById('priceChartCanvas');
+  if (!canvas) return;
+  fnoChartEnsureChartUiWired();
+  if (fnoChartViewState.controlsWired) return;
   fnoChartViewState.controlsWired = true;
   fnoChartLoadViewState();
   const redraw = () => { if (fnoChartLastMarketCtx) renderPriceChart(fnoChartLastMarketCtx); };
@@ -3828,10 +3842,6 @@ function wireChartControls() {
   const touchEnd = () => { touchStartX = null; pinchStartDist = null; };
   canvas.addEventListener('touchend', touchEnd, { passive: true });
   canvas.addEventListener('touchcancel', touchEnd, { passive: true });
-
-  fnoChartWireIndicatorManager(redraw);
-  fnoChartWireLayoutObserver(redraw);
-  fnoChartWireAnalysisExtensions(redraw);
 }
 
 function fnoChartWireIndicatorManager(redraw) {
@@ -3957,6 +3967,7 @@ function fnoChartWireIndicatorManager(redraw) {
     addSel.value = '';
     renderList();
     redraw();
+    fnoChartShowToast('Added ' + (FNO_CHART_INDICATORS.getDefinition(typeId)?.name || typeId));
   });
   const customBtn = document.getElementById('chartCustomIndicatorBtn');
   const customPanel = document.getElementById('chartCustomIndicatorPanel');
@@ -4049,16 +4060,22 @@ function fnoChartWireIndicatorManager(redraw) {
   if (customCancel && customPanel) customCancel.addEventListener('click', () => { customPanel.style.display = 'none'; });
   if (emaBox) emaBox.addEventListener('change', () => {
     let inst = FNO_CHART_INDICATORS.loadInstances();
-    const row = inst.find(i => i.typeId === 'ema');
+    let row = inst.find(i => i.typeId === 'ema');
+    if (!row) inst = FNO_CHART_INDICATORS.addInstance(inst, 'ema');
+    row = inst.find(i => i.typeId === 'ema');
     if (row) inst = FNO_CHART_INDICATORS.updateInstance(inst, row.instanceId, { enabled: emaBox.checked });
+    fnoChartViewState.showEma = emaBox.checked;
     FNO_CHART_INDICATORS.saveInstances(inst);
     renderList();
     redraw();
   });
   if (vwapBox) vwapBox.addEventListener('change', () => {
     let inst = FNO_CHART_INDICATORS.loadInstances();
-    const row = inst.find(i => i.typeId === 'vwap');
+    let row = inst.find(i => i.typeId === 'vwap');
+    if (!row) inst = FNO_CHART_INDICATORS.addInstance(inst, 'vwap');
+    row = inst.find(i => i.typeId === 'vwap');
     if (row) inst = FNO_CHART_INDICATORS.updateInstance(inst, row.instanceId, { enabled: vwapBox.checked });
+    fnoChartViewState.showVwap = vwapBox.checked;
     FNO_CHART_INDICATORS.saveInstances(inst);
     renderList();
     redraw();
