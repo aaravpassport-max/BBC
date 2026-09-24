@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.53-brain-refresh-tofixed-v1';
+const FNO_CORE_BUILD_MARKER = '16.37.54-brain-refresh-tofixed-v2';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -10456,7 +10456,12 @@ function evaluatePreTradeFailureModes(evalCtx) {
   const triggered = [];
   const fmFmt = (n, digits, fallback) => fnoFormatFixed(n, digits, fallback != null ? fallback : '?');
   const check = (id, condition, severity, action, reason, fires) => {
-    if (fires) triggered.push({ id, condition, severity, action, reason });
+    if (!fires) return;
+    let reasonText = reason;
+    if (typeof reason === 'function') {
+      try { reasonText = reason(); } catch (e) { reasonText = `${id}: reason unavailable`; console.warn('FM reason format failed', id, e); }
+    }
+    triggered.push({ id, condition, severity, action, reason: reasonText });
   };
   // Real, reusable helper - finds a specific, already-computed factor
   // result by its real catalog name (now that Phase 128's 4 name-
@@ -10777,7 +10782,7 @@ function evaluatePreTradeFailureModes(evalCtx) {
     // fire for the one case (bad P&L data) where failing safe matters
     // most. Number.isFinite closes that gap; the todayPnL sum above is
     // also now NaN-sanitized as a second, independent layer.
-    check('FM048', 'Real daily loss limit has genuinely been reached', 'critical', 'block', `Real today's P&L is Rs${Number.isFinite(ctx.todayPnL) ? ctx.todayPnL.toFixed(0) : '?'}.`, Number.isFinite(ctx.todayPnL) && ctx.todayPnL <= -2000);
+    check('FM048', 'Real daily loss limit has genuinely been reached', 'critical', 'block', () => `Real today's P&L is Rs${Number.isFinite(ctx.todayPnL) ? ctx.todayPnL.toFixed(0) : '?'}.`, Number.isFinite(ctx.todayPnL) && ctx.todayPnL <= -2000);
     check('FM054', 'Real F&O ban list data genuinely could not be fetched (stale fallback in use)', 'low', 'reduce_confidence', `Real ban-list source this refresh: ${ctx.banListSource || 'unknown'}.`, ctx.banListSource && ctx.banListSource !== 'nse');
     check('FM055', 'Real option-chain rows for other strikes are genuinely incomplete this refresh', 'medium', 'reduce_confidence', `Real option-chain returned ${Array.isArray(ctx.ocRows) ? ctx.ocRows.length : 0} row(s) this refresh.`, Array.isArray(ctx.ocRows) && ctx.ocRows.length > 0 && ctx.ocRows.length < 5);
     // FM150: real, NEW wiring this pass - genuine gap found by direct
@@ -11087,12 +11092,12 @@ function evaluatePreTradeFailureModes(evalCtx) {
   // Number.isFinite closes the gap.
   if (ctx && ctx.decay && ctx.decay.snapshot && ctx.decay.snapshot.now && Number.isFinite(ctx.decay.snapshot.now.thetaPerDay) && Number.isFinite(ctx.optPrice) && ctx.optPrice > 0) {
     const thetaPctOfPremium = Math.abs(ctx.decay.snapshot.now.thetaPerDay) / ctx.optPrice * 100;
-    check('FM022', 'Real theta decay is a disproportionately large share of the option premium', 'high', 'reduce_position_size', `Real theta decay is Rs${ctx.decay.snapshot.now.thetaPerDay.toFixed(2)}/day, ${thetaPctOfPremium.toFixed(1)}% of the current real premium (Rs${ctx.optPrice}) - exceeds the catalog's own documented 5%/day threshold.`, thetaPctOfPremium >= 5);
+    check('FM022', 'Real theta decay is a disproportionately large share of the option premium', 'high', 'reduce_position_size', () => `Real theta decay is Rs${fmFmt(ctx.decay.snapshot.now.thetaPerDay, 2)}/day, ${fmFmt(thetaPctOfPremium, 1)}% of the current real premium (Rs${ctx.optPrice}) - exceeds the catalog's own documented 5%/day threshold.`, thetaPctOfPremium >= 5);
     // FM132: real, NEW wiring this backlog-triage pass - the doc's own
     // softer MILD band (2-5%) of the exact same thetaPctOfPremium
     // computation FM022 already makes above - no new computation, no
     // new threshold, both bounds are this doc row's own stated numbers.
-    check('FM132', 'Real theta decay at a MILD level (2-5% of premium/day)', 'low', 'reduce_confidence', `Real theta decay is Rs${ctx.decay.snapshot.now.thetaPerDay.toFixed(2)}/day, ${thetaPctOfPremium.toFixed(1)}% of the current real premium (Rs${ctx.optPrice}).`, thetaPctOfPremium >= 2 && thetaPctOfPremium < 5);
+    check('FM132', 'Real theta decay at a MILD level (2-5% of premium/day)', 'low', 'reduce_confidence', () => `Real theta decay is Rs${fmFmt(ctx.decay.snapshot.now.thetaPerDay, 2)}/day, ${fmFmt(thetaPctOfPremium, 1)}% of the current real premium (Rs${ctx.optPrice}).`, thetaPctOfPremium >= 2 && thetaPctOfPremium < 5);
   }
   // FM038-slot: real doc condition (target price doesn't clear real
   // transaction costs), freed by the FM038 -> FM092 rename above. Reuses
@@ -11111,7 +11116,7 @@ function evaluatePreTradeFailureModes(evalCtx) {
   // failing safe matters most. Number.isFinite closes that gap.
   if (ctx && Number.isFinite(ctx.optPrice) && ctx.optPrice > 0 && Number.isFinite(ctx.targetPrice) && Number.isFinite(ctx.lotSize) && ctx.lotSize > 0) {
     const targetCosts = computeTradeCosts(ctx.optPrice, ctx.targetPrice, ctx.lotSize);
-    check('FM038', 'Real target price does not genuinely clear real transaction costs', 'critical', 'block', `Real target Rs${ctx.targetPrice} vs entry Rs${ctx.optPrice} x lot ${ctx.lotSize}: net P&L after real transaction costs is Rs${targetCosts.netPnl.toFixed(2)}.`, targetCosts.netPnl <= 0);
+    check('FM038', 'Real target price does not genuinely clear real transaction costs', 'critical', 'block', () => `Real target Rs${ctx.targetPrice} vs entry Rs${ctx.optPrice} x lot ${ctx.lotSize}: net P&L after real transaction costs is Rs${fmFmt(targetCosts.netPnl, 2)}.`, targetCosts.netPnl <= 0);
   }
   // FM044: CLOSED this follow-up pass. Was tracked as needing "the real,
   // current account balance, which is only available via a separate
@@ -11149,7 +11154,7 @@ function evaluatePreTradeFailureModes(evalCtx) {
   // three real numeric inputs consistently.
   if (ctx && Number.isFinite(ctx.optPrice) && ctx.optPrice > 0 && Number.isFinite(ctx.lotSize) && ctx.lotSize > 0 && Number.isFinite(ctx.accountAvailableCapital)) {
     const requestedMargin = ctx.optPrice * ctx.lotSize;
-    check('FM044', 'Real available paper capital is genuinely insufficient for the requested lot size', 'critical', 'block', `Real requested margin is Rs${requestedMargin.toFixed(0)} (Rs${ctx.optPrice} x ${ctx.lotSize}), but real available capital is only Rs${ctx.accountAvailableCapital.toFixed(0)}.`, requestedMargin > ctx.accountAvailableCapital);
+    check('FM044', 'Real available paper capital is genuinely insufficient for the requested lot size', 'critical', 'block', () => `Real requested margin is Rs${fmFmt(requestedMargin, 0)} (Rs${ctx.optPrice} x ${ctx.lotSize}), but real available capital is only Rs${fmFmt(ctx.accountAvailableCapital, 0)}.`, requestedMargin > ctx.accountAvailableCapital);
   }
   // FM040-slot: real doc condition (poor risk/reward ratio), freed by
   // the FM040 -> FM127 rename above. Reuses the already-computed
@@ -11173,7 +11178,7 @@ function evaluatePreTradeFailureModes(evalCtx) {
   // this is a second, independent call rather than reusing the entry
   // flow's own later computation).
   if (latencyCheck) {
-    check('FM067', 'Real simulated execution latency cost is genuinely large relative to premium', 'medium', 'reduce_confidence', `Real simulated latency cost is Rs${latencyCheck.latencyCostRs.toFixed(2)}, ${latencyCheck.latencyCostPct === null ? '?' : latencyCheck.latencyCostPct.toFixed(1)}% of the pre-latency fill price - exceeds the real, documented ${FNO_LATENCY_COST_SIGNIFICANT_PCT}% threshold.`, latencyCheck.isSignificant === true);
+    check('FM067', 'Real simulated execution latency cost is genuinely large relative to premium', 'medium', 'reduce_confidence', () => `Real simulated latency cost is Rs${fmFmt(latencyCheck.latencyCostRs, 2)}, ${latencyCheck.latencyCostPct === null ? '?' : fmFmt(latencyCheck.latencyCostPct, 1)}% of the pre-latency fill price - exceeds the real, documented ${FNO_LATENCY_COST_SIGNIFICANT_PCT}% threshold.`, latencyCheck.isSignificant === true);
   }
   // FM020: real, NEW wiring this session - SELF-CAUGHT REAL BUG,
   // found and fixed in the same session it was introduced: the first
@@ -11247,7 +11252,7 @@ function evaluatePreTradeFailureModes(evalCtx) {
   // widened slightly since "limited runway" is a softer claim than
   // FM133's own harder near-expiry warning), not rediscovered constants.
   if (maxPainCheck) {
-    check('FM085', 'Real Max Pain distance suggests price is genuinely far from the pinning level with limited real expiry runway', 'low', 'reduce_confidence', `Spot is ${Math.abs(maxPainCheck.distPct).toFixed(1)}% from max pain strike ${maxPainCheck.strike}, with ${maxPainCheck.daysToExpiry} real day(s) to expiry - exceeds this session's own documented ${FNO_MAX_PAIN_DIST_SIGNIFICANT_PCT}% distance threshold at ${FNO_MAX_PAIN_LIMITED_RUNWAY_DAYS} days or fewer to expiry.`, Math.abs(maxPainCheck.distPct) > FNO_MAX_PAIN_DIST_SIGNIFICANT_PCT && maxPainCheck.daysToExpiry <= FNO_MAX_PAIN_LIMITED_RUNWAY_DAYS);
+    check('FM085', 'Real Max Pain distance suggests price is genuinely far from the pinning level with limited real expiry runway', 'low', 'reduce_confidence', () => `Spot is ${fmFmt(Math.abs(maxPainCheck.distPct), 1)}% from max pain strike ${maxPainCheck.strike}, with ${maxPainCheck.daysToExpiry} real day(s) to expiry - exceeds this session's own documented ${FNO_MAX_PAIN_DIST_SIGNIFICANT_PCT}% distance threshold at ${FNO_MAX_PAIN_LIMITED_RUNWAY_DAYS} days or fewer to expiry.`, Math.abs(maxPainCheck.distPct) > FNO_MAX_PAIN_DIST_SIGNIFICANT_PCT && maxPainCheck.daysToExpiry <= FNO_MAX_PAIN_LIMITED_RUNWAY_DAYS);
   }
   // FM131: real, NEW wiring this session - reuses checkSpreadLevel's
   // own real spread%/threshold logic (own TRACE explains the reused-
@@ -11256,14 +11261,14 @@ function evaluatePreTradeFailureModes(evalCtx) {
   // 2-signal-combined threshold) - this is the softer, single-signal,
   // below-hard-threshold caution FM131 is specifically for.
   if (spreadLevelCheck) {
-    check('FM131', 'Real bid-ask spread at a MILD widening level', 'low', 'reduce_confidence', `Real spread is ${spreadLevelCheck.spreadPct === null ? '?' : spreadLevelCheck.spreadPct.toFixed(1)}% of bid price - above this session's own documented ${FNO_SPREAD_MILD_WIDENING_MIN_PCT}% "worth a caution" floor but below the existing ${FNO_SPREAD_HARD_REJECTION_PCT}% hard-rejection threshold.`, spreadLevelCheck.isMildlyWide === true);
+    check('FM131', 'Real bid-ask spread at a MILD widening level', 'low', 'reduce_confidence', () => `Real spread is ${spreadLevelCheck.spreadPct === null ? '?' : fmFmt(spreadLevelCheck.spreadPct, 1)}% of bid price - above this session's own documented ${FNO_SPREAD_MILD_WIDENING_MIN_PCT}% "worth a caution" floor but below the existing ${FNO_SPREAD_HARD_REJECTION_PCT}% hard-rejection threshold.`, spreadLevelCheck.isMildlyWide === true);
   }
   // FM101: real, NEW wiring this session - distinct from FM131 above
   // (this app's own FM library doc explicitly frames it as "distinct
   // from a static wide-spread check") - a real, same-session WIDENING,
   // not an absolute level.
   if (spreadWideningCheck) {
-    check('FM101', 'Real bid-ask spread has genuinely widened compared to earlier in this same session', 'medium', 'reduce_confidence', `Real spread has widened by ${spreadWideningCheck.widenedPoints === null ? '?' : spreadWideningCheck.widenedPoints.toFixed(1)} points vs. a real snapshot from earlier this session - exceeds this session's own documented ${FNO_SPREAD_SESSION_WIDENING_MIN_POINTS}-point margin.`, spreadWideningCheck.isWidened === true);
+    check('FM101', 'Real bid-ask spread has genuinely widened compared to earlier in this same session', 'medium', 'reduce_confidence', () => `Real spread has widened by ${spreadWideningCheck.widenedPoints === null ? '?' : fmFmt(spreadWideningCheck.widenedPoints, 1)} points vs. a real snapshot from earlier this session - exceeds this session's own documented ${FNO_SPREAD_SESSION_WIDENING_MIN_POINTS}-point margin.`, spreadWideningCheck.isWidened === true);
   }
   if (typeof ivPercentile === 'number') {
     // FIXED: was mistagged 'FM014' (doc FM014 = RSI overbought, now
@@ -11271,13 +11276,13 @@ function evaluatePreTradeFailureModes(evalCtx) {
     // condition (severe IV-percentile extreme, 98th+) is FM126's catalog
     // condition - renamed (swap with the disabled duplicate earlier in
     // this function, now correctly labeled FM014).
-    check('FM126', 'Real IV percentile at a severe extreme (98th+)', 'high', 'require_confirmation', `Real IV percentile is ${ivPercentile.toFixed(0)}th - a severe, session-observed extreme.`, ivPercentile >= 98);
-    check('FM014b', 'Real IV percentile at a mild extreme (75th-90th)', 'low', 'reduce_confidence', `Real IV percentile is ${ivPercentile.toFixed(0)}th - a mild, elevated reading.`, ivPercentile >= 75 && ivPercentile < 90);
+    check('FM126', 'Real IV percentile at a severe extreme (98th+)', 'high', 'require_confirmation', () => `Real IV percentile is ${fmFmt(ivPercentile, 0)}th - a severe, session-observed extreme.`, ivPercentile >= 98);
+    check('FM014b', 'Real IV percentile at a mild extreme (75th-90th)', 'low', 'reduce_confidence', () => `Real IV percentile is ${fmFmt(ivPercentile, 0)}th - a mild, elevated reading.`, ivPercentile >= 75 && ivPercentile < 90);
     // FM018: CLOSED this follow-up pass. Was tracked as a "real, narrow
     // gap" - the doc's own >=90th threshold sat uncovered between
     // FM014b's <90 upper bound and FM126's 98+ lower bound. Reuses the
     // exact same already-computed ivPercentile value, no new signal.
-    check('FM018', 'Real IV percentile genuinely extreme (very high, 90th+) at entry', 'medium', 'reduce_confidence', `Real IV percentile is ${ivPercentile.toFixed(0)}th - a genuine historical extreme, raising vega mean-reversion risk even if direction is correct.`, ivPercentile >= 90);
+    check('FM018', 'Real IV percentile genuinely extreme (very high, 90th+) at entry', 'medium', 'reduce_confidence', () => `Real IV percentile is ${fmFmt(ivPercentile, 0)}th - a genuine historical extreme, raising vega mean-reversion risk even if direction is correct.`, ivPercentile >= 90);
     // FIXED (medium/low-tier NaN audit): this read `ctx.daysExp`, a field
     // that has never existed on the real ctx object built in this file -
     // days-to-expiry genuinely lives at `ctx.decay.days` (see the ctx
@@ -11288,7 +11293,7 @@ function evaluatePreTradeFailureModes(evalCtx) {
     // option genuinely was. Also switched to Number.isFinite for the same
     // reason as FM133/FM134/FM039 above: a corrupt (NaN) days value must
     // not silently satisfy a naive typeof guard either.
-    check('FM019', 'Real IV percentile genuinely extreme low with a short-dated option', 'medium', 'reduce_confidence', `Real IV percentile is ${ivPercentile.toFixed(0)}th - genuinely low, and this trade is short-dated.`, ivPercentile <= 10 && ctx && ctx.decay && Number.isFinite(ctx.decay.days) && ctx.decay.days <= 2);
+    check('FM019', 'Real IV percentile genuinely extreme low with a short-dated option', 'medium', 'reduce_confidence', () => `Real IV percentile is ${fmFmt(ivPercentile, 0)}th - genuinely low, and this trade is short-dated.`, ivPercentile <= 10 && ctx && ctx.decay && Number.isFinite(ctx.decay.days) && ctx.decay.days <= 2);
   }
 
   // Real, additional batch wired at the user's own direct, explicit
@@ -11523,7 +11528,7 @@ function evaluatePreTradeFailureModes(evalCtx) {
       const topLevelFM = levelsFM[0];
       const opposesFM = !!topLevelFM && Math.abs(topLevelFM.distPct) >= FNO_MAX_PAIN_DIST_SIGNIFICANT_PCT &&
         ((optionType === 'CE' && topLevelFM.distPct > 0) || (optionType === 'PE' && topLevelFM.distPct < 0));
-      check('FM086', "Real multi-level payoff map shows the strongest real positioning level opposes the trade direction", 'medium', 'reduce_confidence', topLevelFM ? `Strongest real payoff level ${topLevelFM.strike} is ${topLevelFM.distPct >= 0 ? '+' : ''}${topLevelFM.distPct.toFixed(2)}% from spot - the real aggregate option-writer pull opposes a ${optionType} trade.` : '', opposesFM);
+      check('FM086', "Real multi-level payoff map shows the strongest real positioning level opposes the trade direction", 'medium', 'reduce_confidence', () => (topLevelFM ? `Strongest real payoff level ${topLevelFM.strike} is ${topLevelFM.distPct >= 0 ? '+' : ''}${fmFmt(topLevelFM.distPct, 2)}% from spot - the real aggregate option-writer pull opposes a ${optionType} trade.` : ''), opposesFM);
     }
 
     // FM087: real, NEW wiring this backlog-triage pass - reuses the
@@ -11560,7 +11565,7 @@ function evaluatePreTradeFailureModes(evalCtx) {
         const worst = r.regimeBreakdown.reduce((a, b) => b.accuracyPct < a.accuracyPct ? b : a);
         return worst.regime === ctx.regimeLabel;
       });
-      check('FM058', "Real factor exhibits regime-dependent unreliability outside the current regime's own established pattern", 'medium', 'reduce_confidence', unreliableContributingFM ? `Factor "${unreliableContributingFM.factorId}" accuracy varies ${unreliableContributingFM.spreadPct.toFixed(0)}pp across regimes and is genuinely weakest in the CURRENT regime (${ctx.regimeLabel}).` : '', !!unreliableContributingFM);
+      check('FM058', "Real factor exhibits regime-dependent unreliability outside the current regime's own established pattern", 'medium', 'reduce_confidence', () => (unreliableContributingFM ? `Factor "${unreliableContributingFM.factorId}" accuracy varies ${fmFmt(unreliableContributingFM.spreadPct, 0)}pp across regimes and is genuinely weakest in the CURRENT regime (${ctx.regimeLabel}).` : ''), !!unreliableContributingFM);
     }
   }
 
@@ -12878,10 +12883,14 @@ function calculateDecay(spot, strike, days, iv, optPrice, lot, optionType, riskF
   const thetaPerDay = snapshot.now.thetaPerDay;
   const intrinsic = optionType === 'PE' ? Math.max(strike - spot, 0) : Math.max(spot - strike, 0);
   const timeValue = Math.max(optPrice - intrinsic, 0);
-  const decayPct = optPrice > 0 ? Math.abs(thetaPerDay) / optPrice * 100 : 0;
+  const decayPct = optPrice > 0 && Number.isFinite(thetaPerDay) ? Math.abs(thetaPerDay) / optPrice * 100 : 0;
+  const lotDecayVal = Number.isFinite(thetaPerDay) && Number.isFinite(lot) ? thetaPerDay * lot : null;
   return {
-    thetaPerDay: thetaPerDay.toFixed(2), timeValue: timeValue.toFixed(1),
-    decayPct: decayPct.toFixed(2), days, lotDecay: (thetaPerDay * lot).toFixed(0),
+    thetaPerDay: fnoFormatFixed(thetaPerDay, 2, '0'),
+    timeValue: fnoFormatFixed(timeValue, 1, '0'),
+    decayPct: fnoFormatFixed(decayPct, 2, '0'),
+    days,
+    lotDecay: fnoFormatFixed(lotDecayVal, 0, '0'),
     snapshot
   };
 }
@@ -17747,7 +17756,13 @@ function evaluateBrain(ctx){
   // check for the identical leg/ctx. `registry` is the exact same object
   // this function already returns as `factorRegistry` below.
   const pseudoBrainForGateCheck = { results, regime, decision, confidence, regimeAdjustment, criticalFails: critFails, factorRegistry: registry };
-  const pretradeGateCheck = computePretradeGateCheck(decision, pseudoBrainForGateCheck, ctx, currentEffectiveTradingType);
+  let pretradeGateCheck = null;
+  try {
+    pretradeGateCheck = computePretradeGateCheck(decision, pseudoBrainForGateCheck, ctx, currentEffectiveTradingType);
+  } catch (pretradeGateErr) {
+    console.warn('Pre-trade gate check failed (non-fatal):', pretradeGateErr);
+    pretradeGateCheck = { finalAction: 'none', triggered: [], summary: 'Pre-trade gate unavailable this refresh (formatting error).', error: pretradeGateErr && pretradeGateErr.message ? pretradeGateErr.message : String(pretradeGateErr) };
+  }
 
   return {results, totalScore, directionalScore, directionalScoreAvailableOnly, tradeQualityScore, modelQualityScore, humanOperatorScore, riskScore, passCount:pass, failCount:fail, criticalFails:critFails, decision, decisionTier, reason, operatorIntel:opIntel, factorRegistry:registry, factorDataAvailability, decisionAffectedByMissingData: !!(factorDataAvailability && factorDataAvailability.decisionAffectedByMissingData), confidenceAdjustedForMissingData: !!(factorDataAvailability && factorDataAvailability.confidenceAdjustedForMissingData), confidence, rawConfidence, regimeAdjustment, failureLibraryAdjustment, tradeTypeWeighting, tradeTypeWeightingAdjustment, tradeTypeAdjustment, categoriesNotEvaluated, regime, pretradeGateCheck, preWeightingDecision,
     // Real, NEW, additive fields (Decision Intelligence system, this

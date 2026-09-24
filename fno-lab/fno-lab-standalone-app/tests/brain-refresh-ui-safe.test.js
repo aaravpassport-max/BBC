@@ -92,5 +92,46 @@ try {
 }
 check(!fmPretradeThrew, 'evaluatePreTradeFailureModes does not throw when regime winRatePct is missing');
 
+let fm086Threw = false;
+try {
+  evaluatePreTradeFailureModes({
+    brain: { results: [], criticalFails: [], decision: 'BUY_READY', confidence: 'Medium', regime: { label: 'Trending', trend: 'Bullish', volatility: 'Normal Vol', extendedStates: [] }, factorRegistry: null, regimeAdjustment: null, failureLibraryAdjustment: null },
+    ctx: {
+      ocRows: [{ strikePrice: 24000, CE: { openInterest: 1 }, PE: { openInterest: 1 } }],
+      spot: 24100,
+      regimeLabel: 'Trending',
+      fullJournal: [],
+    },
+    optionType: 'CE',
+  });
+} catch (e) {
+  fm086Threw = true;
+}
+check(!fm086Threw, 'evaluatePreTradeFailureModes does not throw when FM086 payoff level exists but does not oppose (distPct evaluated lazily)');
+
+let fm058Threw = false;
+try {
+  const origDep = computeRegimeDependentFactors;
+  computeRegimeDependentFactors = () => [{ factorId: 'TestFactor', spreadPct: undefined, sampleSizeWarning: false, regimeBreakdown: [{ regime: 'Trending', accuracyPct: 10, tradesInfluenced: 30 }, { regime: 'Sideways', accuracyPct: 50, tradesInfluenced: 30 }] }];
+  evaluatePreTradeFailureModes({
+    brain: {
+      results: [],
+      criticalFails: [],
+      decision: 'BUY_READY',
+      confidence: 'Medium',
+      regime: { label: 'Trending', trend: 'Bullish', volatility: 'Normal Vol', extendedStates: [] },
+      factorRegistry: { byId: new Map([['TestFactor', { status: 'COMPUTED' }]]) },
+      regimeAdjustment: null,
+      failureLibraryAdjustment: null,
+    },
+    ctx: { regimeLabel: 'Trending', fullJournal: [{}] },
+    optionType: 'CE',
+  });
+  computeRegimeDependentFactors = origDep;
+} catch (e) {
+  fm058Threw = true;
+}
+check(!fm058Threw, 'evaluatePreTradeFailureModes does not throw when FM058 spreadPct is missing (lazy reason)');
+
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);
