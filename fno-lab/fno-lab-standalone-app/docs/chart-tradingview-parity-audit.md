@@ -19,14 +19,14 @@ FNO Lab uses a **custom Canvas chart** fed by **NSE + Kite** (`fno_fetch_chart_f
 | Indicator search | Command palette | Dropdown only | Search filter on add list | No global command palette |
 | Multiple indicators | Unlimited panes | Supported via instances | Same + layout presets | Panel height fixed per type |
 | Parameters | Full inputs | Built-ins + formula text | Built-ins + formula **+ JSON params** in custom defs | No Pine `input()` |
-| Drawings | 110+ tools | **None** | H-line, trendline, clear; **persist per symbol** | No fib/Gann/patterns |
+| Drawings | 110+ tools | **None** | H-line, trend, **V-line**; persist per symbol | No fib/Gann/patterns |
 | Chart types | Many | Candles only | Candle / line / area toggle | No Heikin/Renko |
 | Timeframes | Full set | 1/5/15m | + 30m, 1h, 4h, 1D aggregation | Seconds/tick N/A |
 | Layouts | Multi-chart, cloud | View localStorage only | **Named layout presets** (view + indicators) | Single chart only |
-| Alerts | Price/indicator/strategy | Trade open/close only | **Price cross alerts** (browser notify) | No indicator-cross yet |
+| Alerts | Price/indicator/strategy | Trade open/close only | **Price cross** + **RSI / close×EMA** (list + delete) | Cloud/webhook, MACD alerts |
 | Crosshair / zoom | Full | Implemented | Same + keyboard hints | |
 | Full screen | Yes | CSS fullscreen | Same | Not browser Fullscreen API |
-| Watchlists | Core product | **3-symbol `<select>` only** | Unchanged | Needs separate product decision |
+| Watchlists | Core product | **3-symbol `<select>` only** | **Persisted watchlist bar** on chart | Only NIFTY/BANKNIFTY/FINNIFTY |
 | Keyboard shortcuts | Extensive | Esc, wheel hints | + `F` fit, `R` reset, `1/5/15` TF | Partial |
 | Data | TV feeds | NSE/Kite; close-only fallback | Same | Daily fallback = date axis only |
 
