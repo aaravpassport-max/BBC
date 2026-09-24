@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.45-chart-audit-v1';
+const FNO_CORE_BUILD_MARKER = '16.37.46-chart-audit-v2';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -2892,6 +2892,53 @@ function fnoChartUpdateTfButtons() {
   });
 }
 
+const FNO_CHART_VIEW_STORAGE_KEY = 'fno_chart_view_v1';
+
+function fnoChartLoadViewState() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    const raw = localStorage.getItem(FNO_CHART_VIEW_STORAGE_KEY);
+    if (!raw) return;
+    const o = JSON.parse(raw);
+    if (Number.isFinite(o.timeframeMinutes) && o.timeframeMinutes > 0) fnoChartViewState.timeframeMinutes = o.timeframeMinutes;
+    if (Number.isFinite(o.visibleCount)) fnoChartViewState.visibleCount = Math.max(15, Math.min(500, o.visibleCount));
+    if (Number.isFinite(o.offsetFromEnd) && o.offsetFromEnd >= 0) fnoChartViewState.offsetFromEnd = o.offsetFromEnd;
+    if (Number.isFinite(o.priceZoom)) fnoChartViewState.priceZoom = Math.max(0.35, Math.min(8, o.priceZoom));
+    if (Number.isFinite(o.pricePan)) fnoChartViewState.pricePan = o.pricePan;
+    if (typeof o.autoFitPrice === 'boolean') fnoChartViewState.autoFitPrice = o.autoFitPrice;
+  } catch (e) { /* corrupt storage */ }
+}
+
+function fnoChartSaveViewState() {
+  if (typeof localStorage === 'undefined') return;
+  try {
+    localStorage.setItem(FNO_CHART_VIEW_STORAGE_KEY, JSON.stringify({
+      timeframeMinutes: fnoChartViewState.timeframeMinutes,
+      visibleCount: fnoChartViewState.visibleCount,
+      offsetFromEnd: fnoChartViewState.offsetFromEnd,
+      priceZoom: fnoChartViewState.priceZoom || 1,
+      pricePan: fnoChartViewState.pricePan || 0,
+      autoFitPrice: fnoChartViewState.autoFitPrice !== false,
+    }));
+  } catch (e) { /* quota */ }
+}
+
+function fnoChartCrosshairBarIndex(ch, padL, slot, plotW, visibleLen) {
+  if (!ch || !Number.isFinite(ch.x) || ch.x < padL || ch.x > padL + plotW || !visibleLen) return null;
+  return Math.max(0, Math.min(visibleLen - 1, Math.floor((ch.x - padL) / slot)));
+}
+
+function fnoChartExitFullscreen() {
+  if (typeof document === 'undefined') return;
+  const section = document.getElementById('priceChartSection');
+  const fsBtn = document.getElementById('chartFullscreen');
+  if (!section || !section.classList.contains('fno-chart-section--fullscreen')) return;
+  section.classList.remove('fno-chart-section--fullscreen');
+  if (fsBtn) fsBtn.textContent = '⛶ Full screen';
+  if (document.body) document.body.style.overflow = '';
+  if (fnoChartLastMarketCtx) renderPriceChart(fnoChartLastMarketCtx);
+}
+
 function fnoChartClassifyExitMarker(action) {
   const a = String(action || '').toLowerCase();
   if (a.includes('target')) return 'target';
@@ -2917,7 +2964,8 @@ function fnoChartWireLayoutObserver(redraw) {
 
 function fnoChartBuildCrosshairReadout(ch, visible, startIdx, padL, slot, plotW, indicatorBundle, isDailyFallbackChart) {
   if (!ch || !Number.isFinite(ch.x) || ch.x < padL || ch.x > padL + plotW || !visible.length) return '';
-  const barIdx = Math.max(0, Math.min(visible.length - 1, Math.floor((ch.x - padL) / slot)));
+  const barIdx = fnoChartCrosshairBarIndex(ch, padL, slot, plotW, visible.length);
+  if (barIdx == null) return '';
   const cd = visible[barIdx];
   const absIdx = startIdx + barIdx;
   const timeLabel = cd && typeof cd.t === 'number'
@@ -3160,7 +3208,7 @@ function fnoChartResolveIndicatorData(marketCtx, aggregated) {
   return { overlays, panels: [] };
 }
 
-function fnoChartRenderOscillatorPanels(container, panels, visible, startIdx, fullAggregated) {
+function fnoChartRenderOscillatorPanels(container, panels, visible, startIdx, fullAggregated, crosshairBarIdx) {
   if (!container) return;
   container.innerHTML = '';
   if (!panels || !panels.length || !visible.length) return;
@@ -3236,6 +3284,17 @@ function fnoChartRenderOscillatorPanels(container, panels, visible, startIdx, fu
     panel.lines.forEach((ln) => {
       fnoChartDrawLineSeries(ctx, visible, ln.values.slice(startIdx, startIdx + visible.length), yFor, padL, slot, ln);
     });
+    if (crosshairBarIdx != null && crosshairBarIdx >= 0 && crosshairBarIdx < visible.length) {
+      const xLine = padL + slot * crosshairBarIdx + slot / 2;
+      ctx.strokeStyle = '#475569';
+      ctx.lineWidth = 1;
+      if (typeof ctx.setLineDash === 'function') ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      ctx.moveTo(xLine, padT);
+      ctx.lineTo(xLine, padT + plotH);
+      ctx.stroke();
+      if (typeof ctx.setLineDash === 'function') ctx.setLineDash([]);
+    }
   });
 }
 
@@ -3262,7 +3321,15 @@ function wireChartControls() {
   const canvas = document.getElementById('priceChartCanvas');
   if (!canvas) return;
   fnoChartViewState.controlsWired = true;
+  fnoChartLoadViewState();
   const redraw = () => { if (fnoChartLastMarketCtx) renderPriceChart(fnoChartLastMarketCtx); };
+  const persistView = () => { fnoChartSaveViewState(); redraw(); };
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') fnoChartExitFullscreen();
+    });
+  }
 
   document.querySelectorAll('.chart-tf-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -3271,15 +3338,15 @@ function wireChartControls() {
         fnoChartViewState.timeframeMinutes = tf;
         fnoChartViewState.offsetFromEnd = 0;
         fnoChartUpdateTfButtons();
-        redraw();
+        persistView();
       }
     });
   });
   fnoChartUpdateTfButtons();
   const zoomIn = document.getElementById('chartZoomIn');
-  if (zoomIn) zoomIn.addEventListener('click', () => { fnoChartViewState.visibleCount = Math.max(15, Math.round(fnoChartViewState.visibleCount * 0.7)); redraw(); });
+  if (zoomIn) zoomIn.addEventListener('click', () => { fnoChartViewState.visibleCount = Math.max(15, Math.round(fnoChartViewState.visibleCount * 0.7)); persistView(); });
   const zoomOut = document.getElementById('chartZoomOut');
-  if (zoomOut) zoomOut.addEventListener('click', () => { fnoChartViewState.visibleCount = Math.min(500, Math.round(fnoChartViewState.visibleCount / 0.7)); redraw(); });
+  if (zoomOut) zoomOut.addEventListener('click', () => { fnoChartViewState.visibleCount = Math.min(500, Math.round(fnoChartViewState.visibleCount / 0.7)); persistView(); });
   const resetBtn = document.getElementById('chartResetView');
   if (resetBtn) resetBtn.addEventListener('click', () => {
     fnoChartViewState.visibleCount = 80;
@@ -3287,14 +3354,14 @@ function wireChartControls() {
     fnoChartViewState.priceZoom = 1;
     fnoChartViewState.pricePan = 0;
     fnoChartViewState.autoFitPrice = true;
-    redraw();
+    persistView();
   });
   const fitPriceBtn = document.getElementById('chartFitPrice');
   if (fitPriceBtn) fitPriceBtn.addEventListener('click', () => {
     fnoChartViewState.priceZoom = 1;
     fnoChartViewState.pricePan = 0;
     fnoChartViewState.autoFitPrice = true;
-    redraw();
+    persistView();
   });
   const fsBtn = document.getElementById('chartFullscreen');
   if (fsBtn) {
@@ -3318,7 +3385,7 @@ function wireChartControls() {
       const factor = e.deltaY > 0 ? 1 / 0.85 : 0.85;
       fnoChartViewState.visibleCount = Math.max(15, Math.min(500, Math.round(fnoChartViewState.visibleCount * factor)));
     }
-    redraw();
+    persistView();
   }, { passive: false });
 
   canvas.addEventListener('dblclick', () => {
@@ -3327,7 +3394,7 @@ function wireChartControls() {
     fnoChartViewState.priceZoom = 1;
     fnoChartViewState.pricePan = 0;
     fnoChartViewState.autoFitPrice = true;
-    redraw();
+    persistView();
   });
 
   let dragStartX = null, dragStartY = null, dragStartOffset = 0, dragStartPan = 0, dragMode = 'time';
@@ -3360,7 +3427,7 @@ function wireChartControls() {
       const plotH = Math.max(1, (canvas.clientHeight || 320) - 32);
       fnoChartViewState.autoFitPrice = false;
       fnoChartViewState.pricePan = dragStartPan + (dy / plotH) * 1.2;
-      redraw();
+      persistView();
       return;
     }
     const dxPixels = e.clientX - dragStartX;
@@ -3368,7 +3435,7 @@ function wireChartControls() {
     const candleDelta = Math.round(dxPixels / slot);
     const maxOffset = Math.max(0, fnoChartLastGeometry.aggregatedTotal - fnoChartViewState.visibleCount);
     fnoChartViewState.offsetFromEnd = Math.max(0, Math.min(maxOffset, dragStartOffset + candleDelta));
-    redraw();
+    persistView();
   });
   window.addEventListener('mouseup', () => {
     if (dragStartX !== null) { dragStartX = null; dragStartY = null; canvas.style.cursor = 'grab'; }
@@ -3406,7 +3473,7 @@ function wireChartControls() {
       if (dist > 0) {
         const factor = pinchStartDist / dist; // fingers spreading apart (dist grows) -> factor<1 -> zoom in (fewer visible candles)
         fnoChartViewState.visibleCount = Math.max(15, Math.min(500, Math.round(pinchStartVisibleCount * factor)));
-        redraw();
+        persistView();
       }
     } else if (e.touches.length === 1 && touchStartX !== null) {
       const dxPixels = e.touches[0].clientX - touchStartX;
@@ -3414,7 +3481,7 @@ function wireChartControls() {
       const candleDelta = Math.round(dxPixels / slot);
       const maxOffset = Math.max(0, fnoChartLastGeometry.aggregatedTotal - fnoChartViewState.visibleCount);
       fnoChartViewState.offsetFromEnd = Math.max(0, Math.min(maxOffset, touchStartOffset + candleDelta));
-      redraw();
+      persistView();
     }
   }, { passive: false });
   const touchEnd = () => { touchStartX = null; pinchStartDist = null; };
@@ -3859,7 +3926,8 @@ function renderPriceChart(marketCtx) {
   }
 
   fnoChartUpdateTfButtons();
-  fnoChartRenderOscillatorPanels(document.getElementById('priceChartPanels'), indicatorBundle.panels, visible, startIdx, aggregated);
+  const crosshairBarIdx = fnoChartCrosshairBarIndex(ch, padL, slot, plotW, visible.length);
+  fnoChartRenderOscillatorPanels(document.getElementById('priceChartPanels'), indicatorBundle.panels, visible, startIdx, aggregated, crosshairBarIdx);
 }
 
 const FNO_SNAP_HISTORY_KEY = 'fno_snap_history_v1';

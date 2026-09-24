@@ -34,8 +34,9 @@ const coreSource = fs.readFileSync(path.join(__dirname, '../assets/fno-lab-core.
   const windowAfter = coreSource.slice(Math.max(0, idx - 200), idx + 6000);
   check(windowAfter.includes('gateWarningHtml'), 'STATIC LOCK: a gateWarningHtml variable is genuinely computed near the real decEl rendering block');
   check(windowAfter.includes('brain.pretradeGateCheck'), 'STATIC LOCK: the warning is genuinely driven by the real brain.pretradeGateCheck field (the §2.2 fix), not a fabricated/generic warning');
-  check(windowAfter.includes('🟢 BUY READY - ${escapeHtml(brain.reason)} [${mode.toUpperCase()}]${confBadge}${modelBadge}${gateWarningHtml}'), 'STATIC LOCK: the BUY_READY branch genuinely appends gateWarningHtml to what is actually shown on screen');
-  check(windowAfter.includes('🟡 ${escapeHtml(brain.decision)} - ${escapeHtml(brain.reason)}${confBadge}${modelBadge}${gateWarningHtml}'), 'STATIC LOCK: the SELL_READY/WAIT (else) branch also genuinely appends gateWarningHtml - the warning is not BUY-only');
+  check(windowAfter.includes('BUY READY → CE - ${escapeHtml(brain.reason)} [${modeLabel}]${confBadge}${modelBadge}${gateWarningHtml}'), 'STATIC LOCK: the BUY_READY branch genuinely appends gateWarningHtml to what is actually shown on screen');
+  check(windowAfter.includes('SELL READY → PE - ${escapeHtml(brain.reason)} [${modeLabel}]${confBadge}${modelBadge}${gateWarningHtml}'), 'STATIC LOCK: the SELL_READY branch genuinely appends gateWarningHtml');
+  check(windowAfter.includes('🟡 ${escapeHtml(brain.decision)} - ${escapeHtml(brain.reason)}${confBadge}${modelBadge}${gateWarningHtml}'), 'STATIC LOCK: the WAIT/other branch also genuinely appends gateWarningHtml - the warning is not BUY-only');
 }
 
 // ---------------------------------------------------------------------

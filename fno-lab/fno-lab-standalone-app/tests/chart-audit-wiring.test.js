@@ -14,7 +14,8 @@ const coreSource = fs.readFileSync(path.join(__dirname, '../assets/fno-lab-core.
 assert.ok(/function fnoChartWireLayoutObserver/.test(coreSource));
 assert.ok(/function fnoChartBuildCrosshairReadout/.test(coreSource));
 assert.ok(/function fnoChartClassifyExitMarker/.test(coreSource));
-assert.ok(/ResizeObserver/.test(coreSource));
+assert.ok(/function fnoChartSaveViewState/.test(coreSource));
+assert.ok(/fno_chart_view_v1/.test(coreSource));
 
 const end = coreSource.indexOf('\nfunction render(){');
 assert.ok(end > 0, 'render() boundary required');
