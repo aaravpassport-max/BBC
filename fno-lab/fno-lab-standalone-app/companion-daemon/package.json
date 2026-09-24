@@ -1,0 +1,18 @@
+{
+  "name": "fno-lab-microstructure-daemon",
+  "version": "1.0.0",
+  "description": "Companion tick-level microstructure daemon for F&O Lab - connects to Kite Connect's WebSocket ticker (a persistent connection a WordPress AJAX request/response cycle cannot maintain) and computes Cumulative Delta, Volume Profile POC, Order Flow Imbalance, Footprint, Tick Speed, and an Iceberg-order heuristic from real ticks.",
+  "main": "kite-microstructure-daemon.js",
+  "scripts": {
+    "start": "node kite-microstructure-daemon.js",
+    "test": "node daemon-logic.test.js && node test-daemon-wp-ingest-fidelity.js && node test-secret-never-logged.js && node test-ticker-reconnect.js && node test-config-validation.js"
+  },
+  "dependencies": {
+    "kiteconnect": "^4.1.0"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
