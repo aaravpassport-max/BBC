@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.56-brain-refresh-tofixed-v4';
+const FNO_CORE_BUILD_MARKER = '16.37.57-ledger-alert-sync-v1';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -12547,10 +12547,15 @@ function journalRowsLikelySame(a, b) {
   const tsB = normalizeTradeTimestampMs(b.ts);
   if (tsA && tsB && tsA === tsB && a.qty === b.qty && a.strike === b.strike
       && (a.symbol || '') === (b.symbol || '') && (a.optionType || '') === (b.optionType || '')) {
-    if (typeof a.pnl === 'number' && typeof b.pnl === 'number') {
+    const aHasPnl = typeof a.pnl === 'number' && Number.isFinite(a.pnl);
+    const bHasPnl = typeof b.pnl === 'number' && Number.isFinite(b.pnl);
+    if (aHasPnl && bHasPnl) {
       return Math.abs(a.pnl - b.pnl) < 0.02;
     }
-    return true;
+    // Never treat an open marker (no pnl) as duplicate of a closed trade (has pnl) — that
+    // silently dropped real round-trips from the ledger while alerts still fired.
+    if (aHasPnl !== bHasPnl) return false;
+    return (a.action || '') === (b.action || '');
   }
   if (a.openedAt && b.openedAt && a.openedAt === b.openedAt && a.qty === b.qty && a.strike === b.strike
       && (a.symbol || '') === (b.symbol || '')) {
@@ -12606,10 +12611,8 @@ function reconcileLocalJournalFromServer(serverRows) {
   // Never shrink local journal during reconcile — a close may land in localStorage
   // while fno_journal_list is still in flight (exact “notified buy but not in ledger”).
   const union = dedupeJournalRows([...snapshotBefore, ...snapshotAfter, ...merged]);
-  try {
-    save(STORAGE.journal, union.map(stripJournalUiFields));
-  } catch (e) {
-    console.warn('[FNO] reconcileLocalJournalFromServer save failed:', e && e.message);
+  if (!saveJournalArray(union.map(stripJournalUiFields))) {
+    console.warn('[FNO] reconcileLocalJournalFromServer save failed (storage quota?)');
   }
   return loadLocalJournalArray();
 }
@@ -12617,7 +12620,7 @@ function journalClearOpenPositionMarker(openTradeId) {
   if (openTradeId == null) return;
   const j = loadLocalJournalArray();
   const next = j.filter((e) => !(e.ledgerPhase === 'open' && e.openTradeId === openTradeId));
-  if (next.length !== j.length) save(STORAGE.journal, next);
+  if (next.length !== j.length) saveJournalArray(next);
 }
 function journalRecordOpenPosition(open, tradeMode) {
   if (!open || !open.id) return;
@@ -12639,8 +12642,13 @@ function journalRecordOpenPosition(open, tradeMode) {
   };
   const j = loadLocalJournalArray().slice();
   j.push(row);
-  save(STORAGE.journal, j);
-  scheduleTradeLedgerRefresh();
+  if (saveJournalArray(j)) {
+    paintTradeLedgerFromLocalNow();
+    scheduleTradeLedgerRefresh();
+  } else {
+    console.warn('[FNO] journalRecordOpenPosition: could not persist open marker — ledger may lag until storage is freed');
+    scheduleTradeLedgerRefresh();
+  }
 }
 function openMarkerToLedgerRow(m) {
   if (!m || m.openTradeId == null) return null;
@@ -12681,7 +12689,8 @@ function isLedgerCompletedRoundTrip(t) {
   if (t._ledgerOpen) return false;
   const action = String(t.action || '');
   if (action === 'ORDER_PLACED' || t.source === 'order') return false;
-  if (typeof t.pnl !== 'number' || !Number.isFinite(t.pnl)) return false;
+  const pnlNum = typeof t.pnl === 'number' ? t.pnl : Number(t.pnl);
+  if (!Number.isFinite(pnlNum)) return false;
   return true;
 }
 function formatLedgerActionLabel(action) {
@@ -12742,6 +12751,26 @@ function loadLocalJournalArray() {
   const raw = load(STORAGE.journal);
   return Array.isArray(raw) ? raw : [];
 }
+function saveJournalArray(rows) {
+  const payload = JSON.stringify(rows);
+  try {
+    localStorage.setItem(STORAGE.journal, payload);
+    return true;
+  } catch (e) {
+    const isQuota = e && (e.name === 'QuotaExceededError' || /quota/i.test(String(e.message || '')));
+    if (isQuota) attemptStorageQuotaRecovery();
+    try {
+      localStorage.setItem(STORAGE.journal, payload);
+      return true;
+    } catch (e2) {
+      console.warn('[FNO] saveJournalArray failed:', e2 && e2.message ? e2.message : e2);
+      return false;
+    }
+  }
+}
+function paintTradeLedgerFromLocalNow() {
+  if (typeof window.__fnoPaintTradeLedgerLocal === 'function') window.__fnoPaintTradeLedgerLocal();
+}
 function ledgerTradeNetPnl(t) {
   return (typeof t.pnl === 'number' && Number.isFinite(t.pnl)) ? t.pnl : 0;
 }
@@ -12799,7 +12828,8 @@ async function journalAdd(entry) {
   }
   const j = loadLocalJournalArray().slice();
   j.push(entry);
-  save(STORAGE.journal, j);
+  saveJournalArray(j);
+  paintTradeLedgerFromLocalNow();
   scheduleTradeLedgerRefresh();
   if (window.FNO_AJAX && window.FNO_AJAX.isLoggedIn) {
     try {
@@ -12841,7 +12871,8 @@ async function journalAdd(entry) {
       if (j2.success && j2.data && j2.data.id) {
         entry.id = j2.data.id;
         j[j.length - 1] = entry;
-        save(STORAGE.journal, j);
+        saveJournalArray(j);
+        paintTradeLedgerFromLocalNow();
       }
       if (!j2.success) console.warn('Server journal write failed, entry kept in localStorage only:', j2.data && j2.data.message);
     } catch(e) { console.warn('Server journal write threw, entry kept in localStorage only:', e.message); }
@@ -22197,12 +22228,13 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
       bodyEl.innerHTML = `<tr><td colspan="13" style="padding:10px;color:#64748b">${escapeHtml(msg)}</td></tr>`;
     };
     let usedCachedServer = false;
-    const renderLedgerFromServerRows = (serverRowsFresh, cachedFootnote) => {
-      if (loadGen !== fnoLedgerLoadGeneration) return;
+    const renderLedgerFromServerRows = (serverRowsFresh, cachedFootnote, forceLocalPaint) => {
+      const genStale = () => !forceLocalPaint && loadGen !== fnoLedgerLoadGeneration;
+      if (genStale()) return;
       let trades = loggedIn ? buildUnifiedJournalForLedger(serverRowsFresh) : buildUnifiedJournalForLedger([]);
       const openRow = resolveOpenRowForLedger(trades);
       if (openRow) trades = [openRow, ...trades.filter(t => !t._ledgerOpen && t.ledgerPhase !== 'open')];
-      if (loadGen !== fnoLedgerLoadGeneration) return;
+      if (genStale()) return;
 
       if (!loggedIn && trades.length === 0) {
         summaryEl.innerHTML = '<div style="grid-column:1/-1;color:#64748b">Log in to persist the trade ledger server-side. Local closed trades still appear here after you exit a position.</div>';
@@ -22322,6 +22354,9 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
           <div style="font-size:10px;color:#64748b;margin-top:6px">Buy leg includes brokerage + exchange transaction charge + SEBI fee + stamp duty + GST on service fees. Sell leg includes the same, plus STT (no stamp duty on sell side) - the real, documented formula, not a flat estimate.</div>
         </div>`;
       };
+    };
+    window.__fnoPaintTradeLedgerLocal = function () {
+      renderLedgerFromServerRows(null, false, true);
     };
     try {
       let serverRowsFresh = null;

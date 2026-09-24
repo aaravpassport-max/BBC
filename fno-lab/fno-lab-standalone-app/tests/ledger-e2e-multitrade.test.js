@@ -45,6 +45,8 @@ function setLastGoodServerJournal(rows) {
 }
 function load(k){ try { return JSON.parse(store[k] || '[]'); } catch { return []; } }
 function save(k,v){ store[k] = JSON.stringify(v); }
+function saveJournalArray(rows) { save(STORAGE.journal, rows); return true; }
+function paintTradeLedgerFromLocalNow() {}
 function loadObj(k){ try { return JSON.parse(store[k] || '{}'); } catch { return {}; } }
 function loadLocalJournalArray() {
   const raw = load(STORAGE.journal);
@@ -243,5 +245,44 @@ api.save('fno_autotrades_v8', {});
 view = api.buildLedgerTableView(null, {});
 assert.strictEqual(view.openCount, 1, 'journal open marker visible without autoTrades object');
 console.log('OK scenario 7: open marker without live autoTrades');
+
+// --- Scenario 8: dedupe must not drop closed trade when open marker shares ts/qty/strike ---
+api.resetSimStorage();
+const sharedTs = Date.now();
+api.save('fno_journal_v8', [
+  {
+    ts: sharedTs,
+    openedAt: sharedTs,
+    openTradeId: 9001,
+    symbol: 'NIFTY',
+    strike: 25000,
+    optionType: 'CE',
+    action: 'POSITION_OPEN',
+    entryPrice: 200,
+    qty: 75,
+    ledgerPhase: 'open',
+    tradingType: 'scalping',
+  },
+  {
+    ts: sharedTs,
+    openedAt: sharedTs,
+    symbol: 'NIFTY',
+    strike: 25000,
+    optionType: 'CE',
+    action: 'AUTO_SL_EXIT',
+    entryPrice: 200,
+    exitPrice: 190,
+    qty: 75,
+    pnl: -850,
+    grossPnl: -750,
+    costsTotal: 100,
+    tradingType: 'scalping',
+  },
+]);
+const deduped = api.dedupeJournalRows(api.loadLocalJournalArray());
+assert.strictEqual(deduped.length, 2, 'open marker + close at same ts must both survive dedupe');
+view = api.buildLedgerTableView(null, {});
+assert.strictEqual(view.closed.length, 1, 'closed row visible after dedupe fix');
+console.log('OK scenario 8: same-ts open marker does not dedupe away close');
 
 console.log('\nAll ledger E2E multi-trade scenarios passed.\n');
