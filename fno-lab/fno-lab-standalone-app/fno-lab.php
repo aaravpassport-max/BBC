@@ -2,16 +2,16 @@
 /**
  * Plugin Name: F&O Lab - Standalone App - No Theme Needed
  * Description: Standalone F&O options research/paper-trading app for Indian index derivatives (NIFTY/BANKNIFTY/FINNIFTY). Activate plugin and yoursite.com/ IS the app - no theme, no shortcode needed for the app itself. Real 193-factor decision engine (never fabricates unavailable data), realistic paper trading (spread/slippage/costs/rejection simulation), a trained probability model, post-trade failure/correlation/regime analysis, an IV surface engine, and paper/live Kite Connect trading with explicit permission. A real Participant Payoff Hypothesis Engine (structured, falsifiable hypotheses tested against later price action, with a real historical track record feeding back into live confidence), real Dealer Gamma Exposure and Futures-Options/Multi-Instrument consistency checks, regime-conditional live confidence adjustment, a Six-Month Learning Objective progress dashboard, and a real, standalone Autonomous Driver (autonomous-driver/ folder) for genuinely unattended, browser-closed operation. Optional wp-admin settings page (Settings > F&O Lab Providers) for premium data providers, TrueData credentials, the companion tick daemon, the Autonomous Driver's secret/user attribution, and the raw observation store. Educational/research tool, not financial advice.
- * Version: 16.37.40
+ * Version: 16.37.41
  */
 
 if (!defined('ABSPATH')) exit;
 
 // WordPress reads * Version above for Plugins list; the app UI reads FNO_PLUGIN_VERSION.
 // Keep both identical — enforced by tests/plugin-version-sync.test.js
-define('FNO_PLUGIN_VERSION', '16.37.40');
+define('FNO_PLUGIN_VERSION', '16.37.41');
 // Fingerprint for support when semver alone is ambiguous (stale zip, duplicate folders, OPcache).
-define('FNO_PLUGIN_INSTALL_ID', '16.37.40-open-position-exit-leg-v1');
+define('FNO_PLUGIN_INSTALL_ID', '16.37.41-kite-api-key-validation-v1');
 
 // Only one plugin folder may be active — e.g. both fno-lab-standalone-app
 // AND fno-lab-standalone-app-v16.21.0 causes fatal "Cannot redeclare" errors.
@@ -3624,16 +3624,45 @@ function fno_get_provider_status_fn() {
     wp_send_json_success($out);
 }
 
+/**
+ * Trim + sanitize Kite Connect credentials (api_key is stored plaintext; secret encrypted).
+ */
+function fno_normalize_kite_credential($value) {
+    return sanitize_text_field(is_string($value) ? trim($value) : '');
+}
+
+/** Kite Connect app keys are alphanumeric; reject secret pasted into key field, etc. */
+function fno_is_plausible_kite_api_key($api_key) {
+    if ($api_key === '') {
+        return false;
+    }
+    return (bool) preg_match('/^[a-zA-Z0-9]{6,64}$/', $api_key);
+}
+
+function fno_build_kite_connect_login_url($api_key) {
+    if (!fno_is_plausible_kite_api_key($api_key)) {
+        return '';
+    }
+    return 'https://kite.trade/connect/login?api_key=' . rawurlencode($api_key) . '&v=3';
+}
+
 function fno_save_kite_fn() {
     fno_verify_app_nonce();
     if (!is_user_logged_in()) wp_send_json_error(['message' => 'Login required for live']);
     $user_id = get_current_user_id();
-    $api_key = sanitize_text_field($_POST['api_key'] ?? '');
-    $api_secret = sanitize_text_field($_POST['api_secret'] ?? '');
+    $api_key = fno_normalize_kite_credential($_POST['api_key'] ?? '');
+    $api_secret = fno_normalize_kite_credential($_POST['api_secret'] ?? '');
     $settings = get_user_meta($user_id, 'fno_kite_settings', true);
     if (!is_array($settings)) $settings = [];
-    $settings['api_key'] = $api_key;
-    $settings['api_secret'] = fno_encrypt_secret($api_secret);
+    if ($api_key !== '') {
+        if (!fno_is_plausible_kite_api_key($api_key)) {
+            wp_send_json_error(['message' => 'That does not look like a Kite Connect API key. Copy the API key from developers.kite.trade (not the secret, not your Zerodha password).']);
+        }
+        $settings['api_key'] = $api_key;
+    }
+    if ($api_secret !== '') {
+        $settings['api_secret'] = fno_encrypt_secret($api_secret);
+    }
     // Broker square-off time - real, user-configured (not a guessed
     // default) input for the MTM Square Off Time Regulatory factor. Only
     // saved if the field was actually submitted, so this can be set
@@ -3869,8 +3898,18 @@ function fno_get_kite_fn() {
     $user_id = get_current_user_id();
     $settings = get_user_meta($user_id, 'fno_kite_settings', true);
     if (!is_array($settings)) $settings = [];
+    $api_key = fno_normalize_kite_credential($settings['api_key'] ?? '');
+    $key_format_ok = fno_is_plausible_kite_api_key($api_key);
+    $kite_setup_hint = '';
+    if ($api_key !== '' && !$key_format_ok) {
+        $kite_setup_hint = 'Saved value does not look like a Kite Connect API key. Use the API key from developers.kite.trade (your app) — not the API secret, not your Zerodha login ID/password.';
+    } elseif ($api_key === '') {
+        $kite_setup_hint = 'Enter and Save your Kite Connect API key and secret first (developers.kite.trade → your app).';
+    }
     wp_send_json_success([
-        'api_key' => $settings['api_key'] ?? '',
+        'api_key' => $api_key,
+        'api_key_valid_format' => $key_format_ok,
+        'kite_setup_hint' => $kite_setup_hint,
         'has_secret' => !empty($settings['api_secret']),
         // FOUND via a real, direct user report: the AI narrative box
         // on the main page showed a permanent, misleading "not yet
@@ -3902,7 +3941,7 @@ function fno_get_kite_fn() {
         // itself is still physically present in storage.
         'has_token' => fno_is_kite_token_still_valid($settings),
         'had_token_but_expired' => !empty($settings['access_token']) && !fno_is_kite_token_still_valid($settings),
-        'login_url' => !empty($settings['api_key']) ? 'https://kite.trade/connect/login?api_key=' . $settings['api_key'] . '&v=3' : '',
+        'login_url' => fno_build_kite_connect_login_url($api_key),
         'broker_square_off_time' => $settings['broker_square_off_time'] ?? '',
     ]);
 }
@@ -3914,8 +3953,14 @@ function fno_kite_login_fn() {
     $request_token = sanitize_text_field($_POST['request_token'] ?? '');
     $settings = get_user_meta($user_id, 'fno_kite_settings', true);
     if (empty($settings['api_key']) || empty($settings['api_secret'])) wp_send_json_error(['message' => 'API Key/Secret not set']);
-    $api_key = $settings['api_key'];
+    $api_key = fno_normalize_kite_credential($settings['api_key']);
+    if (!fno_is_plausible_kite_api_key($api_key)) {
+        wp_send_json_error(['message' => 'Invalid Kite Connect API key format saved — re-enter the API key from developers.kite.trade (not the secret).']);
+    }
     $api_secret = fno_decrypt_secret($settings['api_secret']);
+    if ($api_secret === '') {
+        wp_send_json_error(['message' => 'API Secret missing or could not be decrypted — paste the secret again and click Save before Exchange.']);
+    }
     $checksum = hash('sha256', $api_key . $request_token . $api_secret);
     $response = wp_remote_post('https://api.kite.trade/session/token', ['timeout' => 15, 'body' => ['api_key' => $api_key, 'request_token' => $request_token, 'checksum' => $checksum]]);
     $body = wp_remote_retrieve_body($response);
