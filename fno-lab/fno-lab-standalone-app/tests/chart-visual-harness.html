@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>F&amp;O Chart visual harness — custom indicators</title>
+  <style>
+    body { background: #020617; color: #e2e8f0; font-family: system-ui, sans-serif; margin: 16px; }
+    #status { margin-bottom: 8px; font-size: 12px; }
+    .pass { color: #4ade80; }
+    .fail { color: #f87171; }
+    canvas { width: 100%; max-width: 900px; height: 380px; background: #0f172a; border-radius: 10px; display: block; }
+    #mini { margin-top: 12px; height: 120px; }
+  </style>
+</head>
+<body>
+  <h1 style="font-size:16px">Chart visual harness</h1>
+  <div id="status">Running…</div>
+  <canvas id="main" width="900" height="380"></canvas>
+  <canvas id="mini" width="900" height="120"></canvas>
+  <script src="../assets/chart-indicator-engine.js"></script>
+  <script>
+    (function () {
+      const status = document.getElementById('status');
+      const candles = [];
+      for (let i = 0; i < 80; i++) {
+        const c = 24000 + Math.sin(i / 6) * 40 + i * 2;
+        candles.push({ t: 1700000000000 + i * 60000, o: c - 5, h: c + 8, l: c - 10, c, v: 500 + i });
+      }
+      const custom = FNO_CHART_INDICATORS.saveCustomDefinition({
+        name: 'Visual EMA 9',
+        type: 'overlay',
+        formula: 'ema(close, 9)',
+        color: '#facc15',
+      });
+      if (!custom.ok) {
+        status.innerHTML = '<span class="fail">Custom save failed: ' + custom.error + '</span>';
+        return;
+      }
+      const inst = [{ instanceId: 'v1', typeId: custom.typeId, enabled: true, params: {} }];
+      const bundle = FNO_CHART_INDICATORS.computeForCandles(candles, inst);
+      const line = bundle.overlays[0].lines[0].values;
+      const canvas = document.getElementById('main');
+      const ctx = canvas.getContext('2d');
+      const W = 900, H = 380, padL = 40, padR = 50, padT = 20, padB = 30;
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, W, H);
+      let minP = Infinity, maxP = -Infinity;
+      candles.forEach(c => { minP = Math.min(minP, c.l); maxP = Math.max(maxP, c.h); });
+      line.forEach(v => { if (Number.isFinite(v)) { minP = Math.min(minP, v); maxP = Math.max(maxP, v); } });
+      const plotW = W - padL - padR, plotH = H - padT - padB;
+      const slot = plotW / candles.length;
+      const yFor = p => padT + plotH - ((p - minP) / (maxP - minP)) * plotH;
+      candles.forEach((cd, i) => {
+        const x = padL + slot * i + slot / 2;
+        const up = cd.c >= cd.o;
+        ctx.strokeStyle = up ? '#4ade80' : '#f87171';
+        ctx.beginPath();
+        ctx.moveTo(x, yFor(cd.h));
+        ctx.lineTo(x, yFor(cd.l));
+        ctx.stroke();
+      });
+      ctx.strokeStyle = '#facc15';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      let started = false;
+      line.forEach((v, i) => {
+        if (!Number.isFinite(v)) return;
+        const x = padL + slot * i + slot / 2;
+        const y = yFor(v);
+        if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+      const rsi = FNO_CHART_INDICATORS.evaluateFormula('rsi(close, 14)', candles);
+      const c2 = document.getElementById('mini').getContext('2d');
+      c2.fillStyle = '#0f172a';
+      c2.fillRect(0, 0, 900, 120);
+      c2.strokeStyle = '#f472b6';
+      c2.beginPath();
+      started = false;
+      rsi.values.forEach((v, i) => {
+        if (!Number.isFinite(v)) return;
+        const x = 40 + (820 / candles.length) * i;
+        const y = 10 + 100 - (v / 100) * 100;
+        if (!started) { c2.moveTo(x, y); started = true; } else c2.lineTo(x, y);
+      });
+      c2.stroke();
+      const finite = line.filter(Number.isFinite).length;
+      status.innerHTML = '<span class="pass">PASS</span> — Custom ema(close,9) overlay drawn (' + finite + ' points) + rsi(close,14) panel line. Yellow = custom EMA on candles.';
+    })();
+  </script>
+</body>
+</html>
