@@ -23529,3 +23529,5266 @@ try {
     }
   });
 }
+
+/**
+ * Scalping entry-mode ladder — Conservative through Maximum Opportunity.
+ * Existing Conservative + Balanced behavior is preserved exactly via their profiles.
+ * Progression relaxes ENTRY willingness and uses confidence-based sizing — not bigger blind risk.
+ */
+const FNO_MODE_TRADE_LOG_KEY = 'fno_mode_trade_log_v1';
+const FNO_MODE_TRADE_LOG_MAX = 2000;
+
+function fnoEscapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+const FNO_SCALPING_TRADING_MODES = {
+  conservative: {
+    id: 'conservative',
+    label: 'Conservative / Current',
+    shortLabel: 'Conservative',
+    order: 1,
+    buyThreshold: 6,
+    sellThreshold: -11,
+    scalpingFmSafetyProfile: 'strict',
+    spreadHardBlockPct: 13,
+    weightedScorePolicy: 'downgrade',
+    experimental: false,
+    capitalPreservation: {
+      enabled: true,
+      minConfidence: 'Medium',
+      blockWeightedScoreWait: false,
+      blockTrapWarnings: true,
+      maxLosingTradesPerDay: 2,
+      maxDailyLossPctPreservation: 1.5,
+    },
+    positionSizeMultiplier: { High: 1, Medium: 0.85, Low: 0.65 },
+    description: 'Strict FM escalation; Medium+ confidence; weighted-score downgrades (not hard WAIT).',
+  },
+  balanced: {
+    id: 'balanced',
+    label: 'Mode 2 — Balanced',
+    shortLabel: 'Balanced',
+    order: 2,
+    buyThreshold: 6,
+    sellThreshold: -11,
+    scalpingFmSafetyProfile: 'balanced',
+    spreadHardBlockPct: 13,
+    weightedScorePolicy: 'downgrade',
+    experimental: false,
+    capitalPreservation: {
+      enabled: true,
+      minConfidence: 'Medium',
+      blockWeightedScoreWait: false,
+      blockTrapWarnings: true,
+      maxLosingTradesPerDay: 2,
+      maxDailyLossPctPreservation: 1.5,
+    },
+    positionSizeMultiplier: { High: 1, Medium: 0.85, Low: 0.65 },
+    description: 'Same thresholds as Conservative; skips +1 FM severity escalation only.',
+  },
+  relaxed: {
+    id: 'relaxed',
+    label: 'Mode 3 — Relaxed',
+    shortLabel: 'Relaxed',
+    order: 3,
+    buyThreshold: 5,
+    sellThreshold: -10,
+    scalpingFmSafetyProfile: 'balanced',
+    spreadHardBlockPct: 14,
+    weightedScorePolicy: 'downgrade',
+    experimental: false,
+    capitalPreservation: {
+      enabled: true,
+      minConfidence: 'Medium',
+      blockWeightedScoreWait: false,
+      blockTrapWarnings: true,
+      maxLosingTradesPerDay: 1,
+      maxDailyLossPctPreservation: 1.5,
+    },
+    positionSizeMultiplier: { High: 1, Medium: 0.75, Low: 0.5 },
+    description: 'Earlier entries on developing momentum; Medium+ confidence; reduced size on weaker setups.',
+  },
+  opportunity: {
+    id: 'opportunity',
+    label: 'Mode 4 — Opportunity',
+    shortLabel: 'Opportunity',
+    order: 4,
+    buyThreshold: 4,
+    sellThreshold: -9,
+    scalpingFmSafetyProfile: 'balanced',
+    spreadHardBlockPct: 15,
+    weightedScorePolicy: 'off',
+    experimental: false,
+    capitalPreservation: {
+      enabled: true,
+      minConfidence: 'Medium',
+      blockWeightedScoreWait: false,
+      blockTrapWarnings: true,
+      maxLosingTradesPerDay: 2,
+      maxDailyLossPctPreservation: 1.5,
+    },
+    positionSizeMultiplier: { High: 1, Medium: 0.6, Low: 0.35 },
+    description: 'More borderline-but-defensible entries; dynamic size down on lower confidence.',
+  },
+  aggressive_controlled: {
+    id: 'aggressive_controlled',
+    label: 'Mode 5 — Aggressive Controlled',
+    shortLabel: 'Aggressive Controlled',
+    order: 5,
+    buyThreshold: 4,
+    sellThreshold: -9,
+    scalpingFmSafetyProfile: 'balanced',
+    spreadHardBlockPct: 15,
+    weightedScorePolicy: 'off',
+    experimental: false,
+    capitalPreservation: {
+      enabled: true,
+      minConfidence: 'Medium',
+      blockWeightedScoreWait: false,
+      blockTrapWarnings: true,
+      maxLosingTradesPerDay: 2,
+      maxDailyLossPctPreservation: 1.5,
+    },
+    positionSizeMultiplier: { High: 1, Medium: 0.5, Low: 0.25 },
+    description: 'More frequent controlled entries; tight invalidation required; fast exit bias.',
+  },
+  maximum_opportunity: {
+    id: 'maximum_opportunity',
+    label: 'Mode 6 — Maximum Opportunity (Experimental)',
+    shortLabel: 'Max Opportunity',
+    order: 6,
+    buyThreshold: 3,
+    sellThreshold: -8,
+    scalpingFmSafetyProfile: 'balanced',
+    spreadHardBlockPct: 16,
+    weightedScorePolicy: 'off',
+    experimental: true,
+    capitalPreservation: {
+      enabled: true,
+      minConfidence: 'Low',
+      blockWeightedScoreWait: false,
+      blockTrapWarnings: true,
+      maxLosingTradesPerDay: 3,
+      maxDailyLossPctPreservation: 1.5,
+    },
+    positionSizeMultiplier: { High: 0.75, Medium: 0.4, Low: 0.15 },
+    description: 'Paper/testing — smallest risk on low confidence; hard SL and daily caps never removed.',
+  },
+  experimental_trigger: {
+    id: 'experimental_trigger',
+    label: 'Mode 7 — Trade Trigger Test (Risky / simulated paper)',
+    shortLabel: 'Trigger Test',
+    order: 7,
+    buyThreshold: 2,
+    sellThreshold: -4,
+    scalpingFmSafetyProfile: 'balanced',
+    spreadHardBlockPct: 20,
+    weightedScorePolicy: 'off',
+    experimental: true,
+    relaxExecutionGates: true,
+    relaxFailureModeBlocks: true,
+    capitalPreservation: {
+      enabled: false,
+      minConfidence: 'Low',
+      blockWeightedScoreWait: false,
+      blockTrapWarnings: false,
+      maxLosingTradesPerDay: 10,
+      maxDailyLossPctPreservation: 5,
+    },
+    positionSizeMultiplier: { High: 1, Medium: 1, Low: 1 },
+    description: 'PAPER DIAGNOSTIC ONLY — eases brain thresholds and skips SPE/TSE/FM/capital-preservation blocks so you can verify CE/PE simulated auto-opens fire (Free Data or Kite Data toggle). Still uses realistic spread fill simulation + market hours. NOT for Real Money Trading.',
+  },
+  first_momentum_scalper: {
+    id: 'first_momentum_scalper',
+    label: 'Mode 8 — First Momentum Scalper',
+    shortLabel: 'First Momentum',
+    order: 8,
+    buyThreshold: 5,
+    sellThreshold: -9,
+    firstMomentumScalper: true,
+    scalpingFmSafetyProfile: 'balanced',
+    spreadHardBlockPct: 14,
+    weightedScorePolicy: 'off',
+    experimental: false,
+    minTierBScore: 6,
+    strongTierBScore: 8,
+    initialTargetPoints: 10,
+    extendedTargetPoints: 15,
+    momentumHalfLifeMinutes: 3,
+    capitalPreservation: {
+      enabled: true,
+      minConfidence: 'Medium',
+      blockWeightedScoreWait: false,
+      blockTrapWarnings: false,
+      maxLosingTradesPerDay: 3,
+      maxDailyLossPctPreservation: 1.5,
+    },
+    positionSizeMultiplier: { High: 1, Medium: 0.7, Low: 0.4 },
+    description: 'Micro-momentum scalp — Tier A safety + Tier B confluence (not all 193 factors). Enter on acceleration; book +Rs10–15 premium when momentum fades. Paper-test first.',
+  },
+};
+
+const FNO_TRADING_MODE_IDS = Object.keys(FNO_SCALPING_TRADING_MODES);
+
+function normalizeTradingModeId(id) {
+  return FNO_TRADING_MODE_IDS.includes(id) ? id : 'conservative';
+}
+
+function resolveScalpingTradingMode() {
+  if (typeof fnoSettings === 'undefined') return 'conservative';
+  const s = fnoSettings.get();
+  if (s.scalpingTradingMode) return normalizeTradingModeId(s.scalpingTradingMode);
+  return s.scalpingFmSafetyProfile === 'balanced' ? 'balanced' : 'conservative';
+}
+
+function getActiveTradingModeProfile() {
+  return FNO_SCALPING_TRADING_MODES[resolveScalpingTradingMode()] || FNO_SCALPING_TRADING_MODES.conservative;
+}
+
+function applyScalpingTradingModePreset(modeId) {
+  const mode = FNO_SCALPING_TRADING_MODES[normalizeTradingModeId(modeId)];
+  if (!mode || typeof fnoSettings === 'undefined') return mode;
+  try { localStorage.removeItem('fno_threshold_override_v1'); } catch (e) { /* no-op */ }
+  const cur = fnoSettings.get();
+  const next = {
+    scalpingTradingMode: mode.id,
+    scalpingProfitProfileEnabled: true,
+    scalpingFmSafetyProfile: mode.scalpingFmSafetyProfile,
+    tradingTypes: { intraday: false, scalping: true, swing: !!(cur.tradingTypes && cur.tradingTypes.swing) },
+    maxLosingTradesPerDay: mode.capitalPreservation.maxLosingTradesPerDay,
+    maxDailyLossPctPreservation: mode.capitalPreservation.maxDailyLossPctPreservation,
+    scalpingTrailingEnabled: true,
+    scalpingPartialExitEnabled: true,
+    defaultLots: 2,
+    scalpingBracketPreset: cur.scalpingBracketPreset || 'standard',
+  };
+  if (mode.experimental) next.autoCalibrateThresholdEnabled = false;
+  if (mode.firstMomentumScalper) {
+    next.scalpingProfitEngineMode = 'SIGNAL_ONLY';
+    next.tradeSetupEngineEnabled = true;
+    next.scalpingBracketPreset = 'micro10';
+    next.fmsInitialTargetPoints = mode.initialTargetPoints != null ? mode.initialTargetPoints : 10;
+    next.fmsExtendedTargetPoints = mode.extendedTargetPoints != null ? mode.extendedTargetPoints : 15;
+    next.fmsMomentumHalfLifeMinutes = mode.momentumHalfLifeMinutes != null ? mode.momentumHalfLifeMinutes : 3;
+  }
+  if (mode.relaxExecutionGates) {
+    next.scalpingProfitEngineMode = 'SIGNAL_ONLY';
+    next.scalpingCapitalPreservationEnabled = false;
+    try {
+      if (typeof safeStorageSetItem === 'function') {
+        safeStorageSetItem('fno_autonomous_mode_enabled', 'true');
+      } else {
+        localStorage.setItem('fno_autonomous_mode_enabled', 'true');
+      }
+    } catch (e) { /* quota */ }
+  }
+  fnoSettings.set(next);
+  if (typeof applyScalpingExecutionControlsFromSettings === 'function') applyScalpingExecutionControlsFromSettings();
+  if (typeof syncTargetSlUiFromPreset === 'function') syncTargetSlUiFromPreset();
+  if (typeof updateLotQtyHint === 'function') updateLotQtyHint();
+  return mode;
+}
+
+function confidenceRank(c) {
+  return c === 'High' ? 3 : (c === 'Medium' ? 2 : 1);
+}
+
+function modeMeetsMinConfidence(mode, confidence) {
+  const min = mode.capitalPreservation.minConfidence || 'High';
+  return confidenceRank(confidence || 'Low') >= confidenceRank(min);
+}
+
+function resolveModePositionSizeMultiplier(confidence, mode) {
+  mode = mode || getActiveTradingModeProfile();
+  const map = mode.positionSizeMultiplier || { High: 1, Medium: 0.85, Low: 0.65 };
+  return map[confidence] != null ? map[confidence] : map.Low;
+}
+
+function resolveModeAdjustedLotCount(baseLots, brain, mode) {
+  const base = Math.max(1, Math.round(Number(baseLots) || 1));
+  if (!brain) return base;
+  mode = mode || getActiveTradingModeProfile();
+  const mult = resolveModePositionSizeMultiplier(brain.confidence, mode);
+  return Math.max(1, Math.round(base * mult));
+}
+
+function getModeSpreadHardBlockPct(mode) {
+  mode = mode || getActiveTradingModeProfile();
+  return mode.spreadHardBlockPct != null ? mode.spreadHardBlockPct : FNO_SCALPING_PROFIT_PROFILE.spreadHardBlockPct;
+}
+
+function getModeEffectiveThresholds(mode) {
+  mode = mode || getActiveTradingModeProfile();
+  return { buyThreshold: mode.buyThreshold, sellThreshold: mode.sellThreshold, source: 'trading_mode_' + mode.id };
+}
+
+function wouldModeAcceptSetup(modeId, brain, opts) {
+  opts = opts || {};
+  const mode = FNO_SCALPING_TRADING_MODES[normalizeTradingModeId(modeId)];
+  if (!mode || !brain) return { accepted: false, reason: 'Missing mode or brain' };
+  if (brain.decision !== 'BUY_READY' && brain.decision !== 'SELL_READY') {
+    return { accepted: false, reason: `Decision is ${brain.decision}` };
+  }
+  const ds = typeof brain.directionalScore === 'number' ? brain.directionalScore : null;
+  const wds = typeof brain.weightedDirectionalScore === 'number' ? brain.weightedDirectionalScore : ds;
+  if (ds === null) return { accepted: false, reason: 'No directional score' };
+  const crosses = brain.decision === 'BUY_READY'
+    ? ds >= mode.buyThreshold
+    : ds <= mode.sellThreshold;
+  if (!crosses) return { accepted: false, reason: `Score ${ds.toFixed(1)} below mode threshold` };
+  if (mode.weightedScorePolicy === 'block' && wds !== null) {
+    const wCross = brain.decision === 'BUY_READY' ? wds >= mode.buyThreshold : wds <= mode.sellThreshold;
+    if (!wCross) return { accepted: false, reason: 'Weighted score safety block' };
+  }
+  if (!modeMeetsMinConfidence(mode, brain.confidence)) {
+    return { accepted: false, reason: `Requires ${mode.capitalPreservation.minConfidence}+ confidence` };
+  }
+  if (mode.relaxExecutionGates) {
+    return { accepted: true, reason: 'Experimental trigger-test mode (relaxed gates)', modeId: mode.id, sizeMultiplier: resolveModePositionSizeMultiplier(brain.confidence, mode) };
+  }
+  if (mode.capitalPreservation.blockTrapWarnings && brain.pretradeGateCheck) {
+    const ids = (brain.pretradeGateCheck.triggered || []).map(t => t.id);
+    if (brain.pretradeGateCheck.finalAction === 'block' || brain.pretradeGateCheck.finalAction === 'reject') {
+      return { accepted: false, reason: `Pre-trade gate ${brain.pretradeGateCheck.finalAction}` };
+    }
+    const trapIds = ['FM077', 'FM032', 'FM031', 'FM158', 'FM159'];
+    if (brain.pretradeGateCheck.finalAction === 'require_confirmation' && ids.some(id => trapIds.includes(id))) {
+      return { accepted: false, reason: `Trap/operator warning (${ids.filter(id => trapIds.includes(id)).join(', ')})` };
+    }
+  }
+  return { accepted: true, reason: 'Mode would accept this setup', modeId: mode.id, sizeMultiplier: resolveModePositionSizeMultiplier(brain.confidence, mode) };
+}
+
+function buildModeTradeAttribution(brain, ctx, opts) {
+  opts = opts || {};
+  const mode = getActiveTradingModeProfile();
+  const topSignals = (brain.results || [])
+    .filter(r => r.pass !== null && Math.abs(r.score || 0) >= 0.5)
+    .sort((a, b) => Math.abs(b.score || 0) - Math.abs(a.score || 0))
+    .slice(0, 8)
+    .map(r => ({ factor: r.factor, pass: r.pass, score: r.score, cat: r.cat }));
+  return {
+    mode: mode.id,
+    modeLabel: mode.label,
+    opportunity: brain.decision,
+    signals: topSignals,
+    confidence: brain.confidence,
+    entryReason: brain.reason || null,
+    risk: {
+      sizeMultiplier: resolveModePositionSizeMultiplier(brain.confidence, mode),
+      sl: ctx && ctx.slPrice,
+      target: ctx && ctx.targetPrice,
+      invalidation: ctx && ctx.slPrice,
+    },
+    expectedMove: ctx && ctx.targetPrice && ctx.spot ? { target: ctx.targetPrice, spot: ctx.spot } : null,
+    balancedWouldAccept: wouldModeAcceptSetup('balanced', brain, opts).accepted,
+    relaxedWouldAccept: wouldModeAcceptSetup('relaxed', brain, opts).accepted,
+  };
+}
+
+function logModeTradeEvent(entry) {
+  let log;
+  try { log = JSON.parse(localStorage.getItem(FNO_MODE_TRADE_LOG_KEY) || '[]'); } catch (e) { log = []; }
+  log.push({ ...entry, ts: entry.ts || Date.now() });
+  log = log.slice(-FNO_MODE_TRADE_LOG_MAX);
+  try { localStorage.setItem(FNO_MODE_TRADE_LOG_KEY, JSON.stringify(log)); } catch (e) { /* no-op */ }
+  return log;
+}
+
+function logModeTradeOpen(tradeId, brain, ctx, details) {
+  details = details || {};
+  const attr = buildModeTradeAttribution(brain, ctx, {});
+  return logModeTradeEvent({
+    tradeId,
+    phase: 'open',
+    sym: details.sym || (ctx && ctx.sym),
+    mode: attr.mode,
+    modeLabel: attr.modeLabel,
+    opportunity: attr.opportunity,
+    signals: attr.signals,
+    confidence: attr.confidence,
+    entryReason: attr.entryReason,
+    risk: Object.assign({}, attr.risk, details.risk || {}),
+    entry: details.entry || null,
+    expectedMove: attr.expectedMove,
+    invalidation: details.invalidation || (attr.risk && attr.risk.invalidation),
+    balancedWouldAccept: attr.balancedWouldAccept,
+    relaxedWouldAccept: attr.relaxedWouldAccept,
+    balancedRejectRelaxedAccept: !attr.balancedWouldAccept && attr.relaxedWouldAccept,
+    sizeMultiplier: attr.risk && attr.risk.sizeMultiplier,
+  });
+}
+
+function logModeTradeClose(tradeId, open, closeDetails) {
+  closeDetails = closeDetails || {};
+  const holdingMinutes = (open && open.openedAt && closeDetails.ts)
+    ? (closeDetails.ts - open.openedAt) / 60000 : null;
+  const fastExit = holdingMinutes != null && holdingMinutes <= 3;
+  const riskTakenRs = tradeRiskRs(Object.assign({}, open, closeDetails));
+  return logModeTradeEvent({
+    tradeId,
+    phase: 'close',
+    sym: closeDetails.sym,
+    mode: (open && open.entrySnapshot && open.entrySnapshot.tradingMode) || resolveScalpingTradingMode(),
+    exit: closeDetails.exitPrice,
+    exitReason: closeDetails.exitReason,
+    exitReasonLabel: closeDetails.exitReasonLabel,
+    pnl: closeDetails.pnl,
+    holdingMinutes: holdingMinutes != null ? +holdingMinutes.toFixed(2) : null,
+    fastExit,
+    riskTakenRs,
+    balancedRejectRelaxedAccept: !!(open && open.entrySnapshot && open.entrySnapshot.modeAttribution
+      && !open.entrySnapshot.modeAttribution.balancedWouldAccept && open.entrySnapshot.modeAttribution.relaxedWouldAccept),
+    outcome: classifyBalancedVsRelaxedOutcome(closeDetails, { holdingMinutes, fastExit, exitReason: closeDetails.exitReason }),
+  });
+}
+
+function getModeTradeLog() {
+  try { return JSON.parse(localStorage.getItem(FNO_MODE_TRADE_LOG_KEY) || '[]'); } catch (e) { return []; }
+}
+
+function tradeRiskRs(t) {
+  if (t.riskTakenRs != null && Number.isFinite(t.riskTakenRs)) return t.riskTakenRs;
+  const entry = t.entryPrice || (t.factorSnapshot && t.factorSnapshot.entryPrice);
+  const sl = t.sl || (t.factorSnapshot && t.factorSnapshot.sl);
+  const qty = t.qty || 1;
+  if (Number.isFinite(entry) && Number.isFinite(sl) && entry > sl) return Math.abs((entry - sl) * qty);
+  return null;
+}
+
+function tradeRewardRs(t) {
+  if (t.rewardGeneratedRs != null && Number.isFinite(t.rewardGeneratedRs)) return t.rewardGeneratedRs;
+  const entry = t.entryPrice || (t.factorSnapshot && t.factorSnapshot.entryPrice);
+  const target = t.target || (t.factorSnapshot && t.factorSnapshot.target);
+  const qty = t.qty || 1;
+  if (Number.isFinite(entry) && Number.isFinite(target) && target > entry) return Math.abs((target - entry) * qty);
+  return null;
+}
+
+function classifyBalancedVsRelaxedOutcome(trade, modeLogEntry) {
+  if (!trade || typeof trade.pnl !== 'number') return null;
+  const isTrap = !!(trade.failureModeCheck && (trade.failureModeCheck.finalAction === 'block' || trade.failureModeCheck.finalAction === 'reject'))
+    || (modeLogEntry && modeLogEntry.exitReason === 'trap');
+  if (isTrap) return 'trap';
+  if (trade.pnl > 0) return 'profitable';
+  if (trade.pnl < 0) {
+    const fast = modeLogEntry && (modeLogEntry.fastExit || (modeLogEntry.holdingMinutes != null && modeLogEntry.holdingMinutes <= 3));
+    if (fast) return 'avoidable';
+    return 'loss_making';
+  }
+  return 'breakeven';
+}
+
+function summarizeTradesForMode(trades, modeLog) {
+  const closed = (trades || []).filter(t => typeof t.pnl === 'number' && Number.isFinite(t.pnl));
+  const wins = closed.filter(t => t.pnl > 0);
+  const losses = closed.filter(t => t.pnl < 0);
+  const grossProfit = wins.reduce((s, t) => s + t.pnl, 0);
+  const grossLoss = losses.reduce((s, t) => s + t.pnl, 0);
+  const netPnl = closed.reduce((s, t) => s + t.pnl, 0);
+  const winRatePct = closed.length ? +(wins.length / closed.length * 100).toFixed(1) : null;
+  const profitFactor = grossLoss !== 0 ? +(grossProfit / Math.abs(grossLoss)).toFixed(2) : (grossProfit > 0 ? null : 0);
+  const expectancy = closed.length ? +(netPnl / closed.length).toFixed(2) : null;
+  let maxDrawdown = 0, peak = 0, cum = 0, maxConsecLoss = 0, streak = 0;
+  const rMultiples = [];
+  let fastExits = 0, stopLossExits = 0, trapTrades = 0, falseEntries = 0;
+  let totalRiskRs = 0, riskCount = 0, totalRewardRs = 0;
+  closed.sort((a, b) => a.ts - b.ts).forEach(t => {
+    cum += t.pnl;
+    peak = Math.max(peak, cum);
+    maxDrawdown = Math.max(maxDrawdown, peak - cum);
+    if (t.pnl < 0) { streak++; maxConsecLoss = Math.max(maxConsecLoss, streak); } else streak = 0;
+    const risk = tradeRiskRs(t);
+    if (risk != null && risk > 0) {
+      rMultiples.push(t.pnl / risk);
+      totalRiskRs += risk;
+      riskCount++;
+    }
+    const reward = tradeRewardRs(t);
+    if (reward != null) totalRewardRs += reward;
+    const src = (t.source || '').toLowerCase();
+    const act = (t.action || '').toLowerCase();
+    if (src === 'auto_sl' || act.includes('sl')) stopLossExits++;
+    const holdMin = (t.openedAt && t.ts) ? (t.ts - t.openedAt) / 60000 : null;
+    if (holdMin != null && holdMin <= 3) fastExits++;
+    if (t.failureModeCheck && (t.failureModeCheck.finalAction === 'block' || t.failureModeCheck.finalAction === 'reject')) trapTrades++;
+    if (t.pnl < 0 && t.mfe != null && t.entryPrice != null && t.mfe <= t.entryPrice * 1.002) falseEntries++;
+  });
+  const avgWin = wins.length ? +(wins.reduce((s, t) => s + t.pnl, 0) / wins.length).toFixed(2) : null;
+  const avgLoss = losses.length ? +(losses.reduce((s, t) => s + t.pnl, 0) / losses.length).toFixed(2) : null;
+  const withHold = closed.filter(t => t.openedAt && t.ts);
+  const avgHold = withHold.length ? +(withHold.reduce((s, t) => s + (t.ts - t.openedAt) / 60000, 0) / withHold.length).toFixed(1) : null;
+  const avgR = rMultiples.length ? +(rMultiples.reduce((s, v) => s + v, 0) / rMultiples.length).toFixed(2) : null;
+  const pnlPerTrade = closed.length ? +(netPnl / closed.length).toFixed(2) : null;
+  const pnlPerUnitRisk = totalRiskRs > 0 ? +(netPnl / totalRiskRs).toFixed(3) : null;
+  return {
+    tradesTaken: closed.length,
+    wins: wins.length,
+    losses: losses.length,
+    winRatePct,
+    avgWin,
+    avgLoss,
+    profitFactor,
+    expectancy,
+    avgR,
+    maxDrawdown: +maxDrawdown.toFixed(2),
+    maxConsecutiveLosses: maxConsecLoss,
+    avgHoldingMinutes: avgHold,
+    fastExits,
+    stopLossExits,
+    trapTrades,
+    falseEntries,
+    netPnl: +netPnl.toFixed(2),
+    grossProfit: +grossProfit.toFixed(2),
+    grossLoss: +grossLoss.toFixed(2),
+    riskTakenRs: +totalRiskRs.toFixed(2),
+    rewardGeneratedRs: +totalRewardRs.toFixed(2),
+    pnlPerTrade,
+    pnlPerUnitRisk,
+  };
+}
+
+function computeModeComparisonDashboard(opts) {
+  opts = opts || {};
+  const decisionLog = typeof getDecisionLog === 'function' ? getDecisionLog() : [];
+  const journal = typeof load === 'function' ? (load(typeof STORAGE !== 'undefined' ? STORAGE.autoTrades + '_history' : 'fno_autotrades_v8_history') || []) : [];
+  const modeLog = getModeTradeLog();
+  const sym = opts.symbol || null;
+  let entries = decisionLog.slice();
+  if (sym) entries = entries.filter(e => e.sym === sym);
+
+  const byMode = {};
+  FNO_TRADING_MODE_IDS.forEach(id => {
+    const modeEntries = entries.filter(e => (e.tradingMode || e.indicatorSettings && e.indicatorSettings.tradingMode || 'conservative') === id);
+    const modeJournal = journal.filter(t => {
+      const m = (t.factorSnapshot && t.factorSnapshot.modeAttribution && t.factorSnapshot.modeAttribution.mode)
+        || (t.factorSnapshot && t.factorSnapshot.tradingMode)
+        || (t.modeAttribution && t.modeAttribution.mode)
+        || (t.tradingMode);
+      return m === id;
+    });
+    const modeLog = getModeTradeLog().filter(e => e.mode === id || (e.phase === 'close' && e.tradeId));
+    const setups = modeEntries.filter(e => e.decision === 'BUY_READY' || e.decision === 'SELL_READY').length;
+    const opportunities = modeEntries.filter(e => e.decision === 'BUY_READY' || e.decision === 'SELL_READY').length;
+    const rejected = modeEntries.filter(e => (e.decision === 'BUY_READY' || e.decision === 'SELL_READY') && !e.tradeOpened).length;
+    const missed = modeEntries.filter(e => (e.decision === 'BUY_READY' || e.decision === 'SELL_READY') && !e.tradeOpened
+      && e.blockReason && !/autonomous mode is not enabled/i.test(e.blockReason)).length;
+    byMode[id] = {
+      mode: FNO_SCALPING_TRADING_MODES[id],
+      opportunitiesDetected: opportunities,
+      potentialSetups: setups,
+      tradesRejected: rejected,
+      missedOpportunities: missed,
+      ...summarizeTradesForMode(modeJournal, modeLog),
+    };
+  });
+
+  const balancedVsRelaxed = [];
+  const modeLogAll = getModeTradeLog();
+  entries.forEach(e => {
+    if (e.decision !== 'BUY_READY' && e.decision !== 'SELL_READY') return;
+    const pseudoBrain = {
+      decision: e.decision,
+      confidence: e.confidence,
+      directionalScore: e.directionalScore,
+      weightedDirectionalScore: e.weightedDirectionalScore,
+      pretradeGateCheck: e.pretradeGateTriggeredIds ? { finalAction: e.pretradeGateFinalAction, triggered: e.pretradeGateTriggeredIds.map(id => ({ id })) } : null,
+      results: e.topFactors || [],
+      reason: e.reason,
+    };
+    const bal = wouldModeAcceptSetup('balanced', pseudoBrain);
+    const rel = wouldModeAcceptSetup('relaxed', pseudoBrain);
+    if (!bal.accepted && rel.accepted) {
+      const closeLog = modeLogAll.find(l => l.phase === 'close' && l.ts >= e.ts && l.ts <= e.ts + 86400000);
+      balancedVsRelaxed.push({
+        ts: e.ts,
+        sym: e.sym,
+        decision: e.decision,
+        score: e.directionalScore,
+        confidence: e.confidence,
+        tradeOpened: e.tradeOpened,
+        blockReason: e.blockReason,
+        relaxedReason: rel.reason,
+        outcome: closeLog ? closeLog.outcome : (e.tradeOpened ? 'opened_pending' : 'not_taken'),
+        pnl: closeLog ? closeLog.pnl : null,
+      });
+    }
+  });
+
+  const activeModeStats = byMode[resolveScalpingTradingMode()] || {};
+  const balancedStats = byMode.balanced || {};
+  const relaxedStats = byMode.relaxed || {};
+  const vsBalanced = {
+    additionalTrades: (activeModeStats.tradesTaken || 0) - (balancedStats.tradesTaken || 0),
+    additionalNetPnl: +((activeModeStats.netPnl || 0) - (balancedStats.netPnl || 0)).toFixed(2),
+    additionalMaxDrawdown: +((activeModeStats.maxDrawdown || 0) - (balancedStats.maxDrawdown || 0)).toFixed(2),
+    additionalRiskRs: +((activeModeStats.riskTakenRs || 0) - (balancedStats.riskTakenRs || 0)).toFixed(2),
+    expectancyDelta: (activeModeStats.expectancy != null && balancedStats.expectancy != null)
+      ? +(activeModeStats.expectancy - balancedStats.expectancy).toFixed(2) : null,
+    relaxedVsBalancedExtraTrades: (relaxedStats.tradesTaken || 0) - (balancedStats.tradesTaken || 0),
+    relaxedVsBalancedExtraPnl: +((relaxedStats.netPnl || 0) - (balancedStats.netPnl || 0)).toFixed(2),
+    relaxedVsBalancedExtraDrawdown: +((relaxedStats.maxDrawdown || 0) - (balancedStats.maxDrawdown || 0)).toFixed(2),
+    relaxedVsBalancedExpectancyDelta: (relaxedStats.expectancy != null && balancedStats.expectancy != null)
+      ? +(relaxedStats.expectancy - balancedStats.expectancy).toFixed(2) : null,
+    balancedVsRelaxedExtraSetups: balancedVsRelaxed.length,
+  };
+
+  return {
+    activeMode: resolveScalpingTradingMode(),
+    activeModeProfile: getActiveTradingModeProfile(),
+    byMode,
+    balancedVsRelaxed: balancedVsRelaxed.slice(-30),
+    vsBalanced,
+    modeTradeLogSample: modeLog.slice(-50),
+    sampleSize: entries.length,
+  };
+}
+
+function renderModeComparisonDashboard(sym) {
+  if (typeof document === 'undefined') return null;
+  const box = document.getElementById('modeComparisonDashboard');
+  if (!box) return null;
+  if (typeof isScalpingProfitProfileActive === 'function' && !isScalpingProfitProfileActive()) {
+    box.style.display = 'none';
+    return null;
+  }
+  box.style.display = 'block';
+  const palette = typeof fnoThemePalette === 'function' ? fnoThemePalette() : { panel: '#020617', muted: '#94a3b8', text: '#e2e8f0', pass: '#4ade80', fail: '#f87171', warn: '#fde68a', warnBg: '#422006', line: '#1e293b' };
+  const dash = computeModeComparisonDashboard({ symbol: sym || null });
+  const active = dash.activeModeProfile;
+  const rows = FNO_TRADING_MODE_IDS.map(id => {
+    const m = dash.byMode[id];
+    if (!m) return '';
+    const isActive = id === dash.activeMode;
+    return `<tr style="${isActive ? 'background:' + palette.warnBg : ''}">
+      <td style="padding:4px;white-space:nowrap">${fnoEscapeHtml(m.mode.shortLabel)}${isActive ? ' ✓' : ''}</td>
+      <td style="padding:4px;text-align:right">${m.opportunitiesDetected}</td>
+      <td style="padding:4px;text-align:right">${m.tradesTaken}</td>
+      <td style="padding:4px;text-align:right">${m.tradesRejected}</td>
+      <td style="padding:4px;text-align:right">${m.winRatePct != null ? m.winRatePct + '%' : '—'}</td>
+      <td style="padding:4px;text-align:right">${m.expectancy != null ? m.expectancy : '—'}</td>
+      <td style="padding:4px;text-align:right">${m.avgR != null ? m.avgR : '—'}</td>
+      <td style="padding:4px;text-align:right;color:${m.netPnl >= 0 ? palette.pass : palette.fail}">${m.netPnl != null ? m.netPnl : '—'}</td>
+      <td style="padding:4px;text-align:right">${m.maxDrawdown != null ? m.maxDrawdown : '—'}</td>
+      <td style="padding:4px;text-align:right">${m.pnlPerUnitRisk != null ? m.pnlPerUnitRisk : '—'}</td>
+    </tr>`;
+  }).join('');
+
+  const bvrRows = dash.balancedVsRelaxed.slice(-8).map(r => {
+    const outcomeColor = r.outcome === 'profitable' ? palette.pass
+      : (r.outcome === 'loss_making' || r.outcome === 'trap' ? palette.fail : palette.warn);
+    const outcomeLabel = r.outcome === 'profitable' ? 'Profitable'
+      : r.outcome === 'loss_making' ? 'Loss-making'
+      : r.outcome === 'avoidable' ? 'Avoidable (fast exit)'
+      : r.outcome === 'trap' ? 'Trap'
+      : r.outcome === 'opened_pending' ? 'Opened (pending)'
+      : r.outcome === 'not_taken' ? 'Not taken' : (r.outcome || '?');
+    const scoreTxt = Number.isFinite(r.score) ? r.score.toFixed(1) : '?';
+    const pnlTxt = Number.isFinite(r.pnl) ? ' (₹' + r.pnl.toFixed(0) + ')' : '';
+    return `<div style="font-size:10px;padding:3px 0;border-bottom:1px solid ${palette.line}">${new Date(r.ts).toLocaleTimeString()} ${fnoEscapeHtml(r.sym)} ${r.decision} score ${scoreTxt} — Balanced REJECT / Relaxed ACCEPT · <span style="color:${outcomeColor}">${outcomeLabel}${pnlTxt}</span></div>`;
+  }).join('') || `<span style="color:${palette.muted}">No Balanced-reject / Relaxed-accept cases in log yet.</span>`;
+
+  const activeStats = dash.byMode[dash.activeMode] || {};
+  box.innerHTML = `
+    <div style="font-size:11px;margin-bottom:8px"><b>Active:</b> ${fnoEscapeHtml(active.label)} — ${fnoEscapeHtml(active.description)}</div>
+    <div style="overflow:auto">
+      <table style="width:100%;font-size:10px;border-collapse:collapse">
+        <thead><tr style="color:${palette.muted}">
+          <th align="left">Mode</th><th>Opps</th><th>Trades</th><th>Rejected</th><th>Win%</th><th>Exp</th><th>Avg R</th><th>Net P&L</th><th>Max DD</th><th>P&L/Risk</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+    <div style="margin-top:8px;font-size:10px;color:${palette.muted};display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:4px">
+      <span>Fast exits: ${activeStats.fastExits != null ? activeStats.fastExits : '—'}</span>
+      <span>SL exits: ${activeStats.stopLossExits != null ? activeStats.stopLossExits : '—'}</span>
+      <span>Trap trades: ${activeStats.trapTrades != null ? activeStats.trapTrades : '—'}</span>
+      <span>False entries: ${activeStats.falseEntries != null ? activeStats.falseEntries : '—'}</span>
+      <span>Missed opps: ${activeStats.missedOpportunities != null ? activeStats.missedOpportunities : '—'}</span>
+      <span>Avg hold: ${activeStats.avgHoldingMinutes != null ? activeStats.avgHoldingMinutes + 'm' : '—'}</span>
+      <span>Profit factor: ${activeStats.profitFactor != null ? activeStats.profitFactor : '—'}</span>
+      <span>Risk taken: ${activeStats.riskTakenRs != null ? '₹' + activeStats.riskTakenRs : '—'}</span>
+    </div>
+    <div style="margin-top:10px;font-size:10px;color:${palette.muted}">
+      <b>Additional Trades vs Additional Risk (active vs Balanced):</b> +${dash.vsBalanced.additionalTrades} trades · +₹${dash.vsBalanced.additionalRiskRs} risk · ΔP&L ${dash.vsBalanced.additionalNetPnl} · Δexpectancy ${dash.vsBalanced.expectancyDelta != null ? dash.vsBalanced.expectancyDelta : '—'} · ΔmaxDD ${dash.vsBalanced.additionalMaxDrawdown}
+    </div>
+    <div style="margin-top:4px;font-size:10px;color:${palette.muted}">
+      <b>Additional Profit vs Additional Drawdown (Relaxed vs Balanced):</b> +${dash.vsBalanced.relaxedVsBalancedExtraTrades} trades · ΔP&L ${dash.vsBalanced.relaxedVsBalancedExtraPnl} · Δexpectancy ${dash.vsBalanced.relaxedVsBalancedExpectancyDelta != null ? dash.vsBalanced.relaxedVsBalancedExpectancyDelta : '—'} · ΔmaxDD ${dash.vsBalanced.relaxedVsBalancedExtraDrawdown}
+    </div>
+    <div style="margin-top:8px;font-weight:700;font-size:11px">Balanced REJECT → Relaxed ACCEPT (recent)</div>
+    <div style="max-height:100px;overflow:auto">${bvrRows}</div>
+  `;
+  return dash;
+}
+
+function isExperimentalTradeTriggerMode() {
+  const mode = getActiveTradingModeProfile();
+  return !!(mode && mode.relaxExecutionGates);
+}
+
+/**
+ * Operator Behaviour, Liquidity & Crowded-Position Trap Detection Engine
+ * Integrates with existing Operator Intel / trap / breakout systems — does NOT
+ * duplicate "CE buyers = down" simplistic rules. Outputs probabilistic scores
+ * and a real-time state machine for the main brain + pre-trade gates.
+ */
+const FNO_LIQUIDITY_TRAP_STATES = {
+  NORMAL: 'NORMAL',
+  CROWDED_POSITIONING: 'CROWDED_POSITIONING',
+  KEY_LEVEL_APPROACHING: 'KEY_LEVEL_APPROACHING',
+  BREAKOUT_ATTEMPT: 'BREAKOUT_ATTEMPT',
+  ACCEPTANCE_OR_REJECTION: 'ACCEPTANCE_OR_REJECTION',
+  POTENTIAL_LIQUIDITY_SWEEP: 'POTENTIAL_LIQUIDITY_SWEEP',
+  TRAPPED_POSITIONING: 'TRAPPED_POSITIONING',
+  FORCED_EXIT: 'FORCED_EXIT',
+  MOMENTUM_CONFIRMATION: 'MOMENTUM_CONFIRMATION',
+  DIRECTIONAL_EXPANSION: 'DIRECTIONAL_EXPANSION',
+};
+
+const FNO_LIQUIDITY_TRAP_LOG_KEY = 'fno_liquidity_trap_log_v1';
+const FNO_LIQUIDITY_TRAP_STATE_KEY = 'fno_liquidity_trap_state_v1';
+const FNO_LIQUIDITY_TRAP_OUTCOME_HORIZONS_MS = {
+  m5: 5 * 60 * 1000,
+  m10: 10 * 60 * 1000,
+  m15: 15 * 60 * 1000,
+  m30: 30 * 60 * 1000,
+};
+
+function computeLiquidityMap(ctx) {
+  const spot = ctx && Number.isFinite(ctx.spot) ? ctx.spot : null;
+  const candles = (ctx && ctx.candles) || [];
+  const zones = [];
+  if (!spot || !candles.length) return { zones, spot, disclaimer: 'Insufficient candle data for liquidity map' };
+
+  const closes = candles.map(c => c.c).filter(Number.isFinite);
+  const n = closes.length;
+  const sessionOpen = closes[0];
+  const sessionHigh = Math.max(...closes);
+  const sessionLow = Math.min(...closes);
+  const prevClose = Number.isFinite(ctx.spotPrevClose) ? ctx.spotPrevClose : (n > 1 ? closes[n - 2] : null);
+
+  const addZone = (label, price, kind, weight) => {
+    if (!Number.isFinite(price)) return;
+    zones.push({
+      label, price, kind, weight: weight || 1,
+      distPct: ((spot - price) / spot) * 100,
+      side: price >= spot ? 'above' : 'below',
+    });
+  };
+
+  addZone('Session high', sessionHigh, 'swing_high', 1.2);
+  addZone('Session low', sessionLow, 'swing_low', 1.2);
+  addZone('Session open', sessionOpen, 'open', 0.9);
+  if (Number.isFinite(prevClose)) addZone('Previous close', prevClose, 'prior_close', 1);
+  if (Number.isFinite(ctx.vwap)) addZone('VWAP proxy', ctx.vwap, 'vwap', 1.1);
+
+  const rangeCond = typeof computeBreakoutReversalCondition === 'function'
+    ? computeBreakoutReversalCondition(candles, 20) : null;
+  if (rangeCond && Number.isFinite(rangeCond.rangeHigh)) addZone('20-bar range high', rangeCond.rangeHigh, 'range_resistance', 1.3);
+  if (rangeCond && Number.isFinite(rangeCond.rangeLow)) addZone('20-bar range low', rangeCond.rangeLow, 'range_support', 1.3);
+
+  const payoffLevels = typeof computeMultiLevelPayoffMap === 'function' && ctx.ocRows
+    ? computeMultiLevelPayoffMap(ctx.ocRows, spot, 3) : [];
+  payoffLevels.forEach((lv, i) => addZone(`OI payoff L${i + 1}`, lv.strike, 'oi_concentration', 1.1));
+
+  if (ctx.ocRows && ctx.ocRows.length) {
+    let maxCeStrike = null, maxCeOi = 0, maxPeStrike = null, maxPeOi = 0;
+    ctx.ocRows.forEach(row => {
+      const ceOi = row.CE && row.CE.openInterest ? row.CE.openInterest : 0;
+      const peOi = row.PE && row.PE.openInterest ? row.PE.openInterest : 0;
+      if (ceOi > maxCeOi) { maxCeOi = ceOi; maxCeStrike = row.strikePrice; }
+      if (peOi > maxPeOi) { maxPeOi = peOi; maxPeStrike = row.strikePrice; }
+    });
+    if (maxCeStrike != null) addZone('Max CE OI strike', maxCeStrike, 'call_oi_wall', 1.15);
+    if (maxPeStrike != null) addZone('Max PE OI strike', maxPeStrike, 'put_oi_wall', 1.15);
+  }
+
+  zones.sort((a, b) => Math.abs(a.distPct) - Math.abs(b.distPct));
+  const nearestSupport = zones.filter(z => z.side === 'below').sort((a, b) => b.price - a.price)[0] || null;
+  const nearestResistance = zones.filter(z => z.side === 'above').sort((a, b) => a.price - b.price)[0] || null;
+
+  return { zones, spot, nearestSupport, nearestResistance, rangeCond, disclaimer: null };
+}
+
+function computePathBetweenLevels(candles, levelA, levelB) {
+  if (!candles || candles.length < 5 || !levelA || !levelB || !Number.isFinite(levelA.price) || !Number.isFinite(levelB.price)) {
+    return { available: false, reason: 'Need two valid liquidity levels and candle history' };
+  }
+  const closes = candles.map(c => c.c).filter(Number.isFinite);
+  const recent = closes.slice(-10);
+  const start = recent[0], end = recent[recent.length - 1];
+  const displacement = end - start;
+  const displacementPct = start !== 0 ? (displacement / start) * 100 : 0;
+  const velocity = recent.length > 1 ? displacement / (recent.length - 1) : 0;
+  const mid = (levelA.price + levelB.price) / 2;
+  const towardB = levelB.price > levelA.price ? end > start : end < start;
+  let testsA = 0, testsB = 0;
+  const tol = Math.max(Math.abs(levelA.price), Math.abs(levelB.price)) * 0.001;
+  recent.forEach(c => {
+    if (Math.abs(c - levelA.price) <= tol) testsA++;
+    if (Math.abs(c - levelB.price) <= tol) testsB++;
+  });
+  return {
+    available: true,
+    from: levelA.label, to: levelB.label,
+    fromPrice: levelA.price, toPrice: levelB.price,
+    displacementPct, velocity, towardTarget: towardB,
+    testsAtStart: testsA, testsAtEnd: testsB,
+    summary: `${levelA.label} (${levelA.price.toFixed(1)}) → ${levelB.label} (${levelB.price.toFixed(1)}): ${displacementPct >= 0 ? '+' : ''}${displacementPct.toFixed(2)}% over ${recent.length} bars, ${testsB} test(s) at target`,
+  };
+}
+
+function computeLiquiditySweepSignal(candles, liquidityMap, breakoutCondition, reversalSignal, trapSignal) {
+  if (!breakoutCondition) return { detected: false, direction: null, confidence: 0, reason: 'No breakout classification available' };
+
+  const falseUp = breakoutCondition.condition === 'false_breakout_up';
+  const falseDown = breakoutCondition.condition === 'false_breakdown';
+  if (!falseUp && !falseDown) {
+    return { detected: false, direction: null, confidence: 0, reason: 'No liquidity sweep pattern (needs failed breakout/breakdown — price returned inside range after probing outside)' };
+  }
+
+  let confidence = 35;
+  const confirmations = [];
+  if (trapSignal && trapSignal.isTrapSignature === true) { confidence += 20; confirmations.push('OI buildup without price follow-through'); }
+  if (reversalSignal && reversalSignal.isReversal) {
+    const opp = (falseUp && reversalSignal.direction === 'bearish') || (falseDown && reversalSignal.direction === 'bullish');
+    if (opp) { confidence += 15; confirmations.push(`Recent ${reversalSignal.direction} reversal`); }
+  }
+  if (liquidityMap && liquidityMap.nearestResistance && falseUp) confirmations.push(`Rejected near ${liquidityMap.nearestResistance.label}`);
+  if (liquidityMap && liquidityMap.nearestSupport && falseDown) confirmations.push(`Rejected near ${liquidityMap.nearestSupport.label}`);
+
+  const direction = falseUp ? 'bearish_trap' : 'bullish_trap';
+  return {
+    detected: true,
+    direction,
+    type: falseUp ? 'upside_liquidity_sweep' : 'downside_liquidity_sweep',
+    confidence: Math.min(100, confidence),
+    reason: `${falseUp ? 'Bull trap / upside sweep' : 'Bear trap / downside sweep'}: ${breakoutCondition.reason}${confirmations.length ? ' | ' + confirmations.join('; ') : ''}`,
+    confirmations,
+  };
+}
+
+function computeAbsorptionProxy(candles) {
+  if (!candles || candles.length < 6) return { detected: false, side: null, reason: 'Insufficient candles for absorption check' };
+  const recent = candles.slice(-6);
+  const closes = recent.map(c => c.c).filter(Number.isFinite);
+  if (closes.length < 6) return { detected: false, side: null, reason: 'Non-finite candle data' };
+
+  const range = Math.max(...closes) - Math.min(...closes);
+  const netMove = Math.abs(closes[closes.length - 1] - closes[0]);
+  const chopRatio = range > 0 ? netMove / range : 0;
+  const smallProgress = range > 0 && netMove / range < 0.35 && range / closes[0] * 100 > 0.15;
+
+  if (!smallProgress) return { detected: false, side: null, reason: 'Price displacement proportional to range — no absorption signature' };
+
+  const drift = closes[closes.length - 1] - closes[0];
+  const side = drift > 0 ? 'sell_side_absorption' : drift < 0 ? 'buy_side_absorption' : null;
+  return {
+    detected: !!side,
+    side,
+    chopRatio,
+    reason: side === 'sell_side_absorption'
+      ? 'Heavy two-way activity with limited upward progress — possible selling absorption'
+      : side === 'buy_side_absorption'
+        ? 'Heavy two-way activity with limited downward progress — possible buying absorption'
+        : 'Choppy range without directional absorption',
+  };
+}
+
+function computeCEPETrapStages(ctx, inputs) {
+  const stages = { ce: [], pe: [], activePattern: null };
+  const { pcr, operatorIntel, breakoutCondition, trapSignal, reversalSignal, netOIChange, priceChangePct, liquidityMap } = inputs;
+  const oi = ctx && ctx.ocRow;
+
+  const ceVol = oi && oi.CE ? (oi.CE.totalTradedVolume || 0) : 0;
+  const peVol = oi && oi.PE ? (oi.PE.totalTradedVolume || 0) : 0;
+  const ceOiCh = oi && oi.CE ? (oi.CE.changeinOpenInterest || 0) : 0;
+  const peOiCh = oi && oi.PE ? (oi.PE.changeinOpenInterest || 0) : 0;
+
+  if (Number.isFinite(pcr) && pcr < 0.75 && ceVol > peVol * 1.2) {
+    stages.ce.push({ stage: 1, label: 'Heavy CE positioning', detail: `PCR ${pcr.toFixed(2)}, elevated CE volume/OI activity` });
+  }
+  if (liquidityMap && liquidityMap.nearestResistance && Math.abs(liquidityMap.nearestResistance.distPct) < 0.4) {
+    stages.ce.push({ stage: 2, label: 'Approaching resistance', detail: liquidityMap.nearestResistance.label });
+  }
+  if (breakoutCondition && breakoutCondition.condition === 'false_breakout_up') {
+    stages.ce.push({ stage: 3, label: 'Breakout failure', detail: breakoutCondition.reason });
+  }
+  if (trapSignal && trapSignal.isTrapSignature && Number.isFinite(priceChangePct) && priceChangePct < 0.2) {
+    stages.ce.push({ stage: 4, label: 'Premium/conviction deterioration', detail: trapSignal.reason });
+  }
+  if (Number.isFinite(netOIChange) && netOIChange < 0 && ceOiCh < 0) {
+    stages.ce.push({ stage: 5, label: 'Crowded CE unwind', detail: `Net OI ${netOIChange.toLocaleString()}, CE OI change ${ceOiCh.toLocaleString()}` });
+  }
+  if (reversalSignal && reversalSignal.isReversal && reversalSignal.direction === 'bearish' && stages.ce.length >= 3) {
+    stages.ce.push({ stage: 6, label: 'Downside acceleration', detail: reversalSignal.reason });
+  }
+
+  if (Number.isFinite(pcr) && pcr > 1.4 && peVol > ceVol * 1.2) {
+    stages.pe.push({ stage: 1, label: 'Heavy PE positioning', detail: `PCR ${pcr.toFixed(2)}, elevated PE volume/OI activity` });
+  }
+  if (liquidityMap && liquidityMap.nearestSupport && Math.abs(liquidityMap.nearestSupport.distPct) < 0.4) {
+    stages.pe.push({ stage: 2, label: 'Approaching support', detail: liquidityMap.nearestSupport.label });
+  }
+  if (breakoutCondition && breakoutCondition.condition === 'false_breakdown') {
+    stages.pe.push({ stage: 3, label: 'Breakdown failure', detail: breakoutCondition.reason });
+  }
+  if (trapSignal && trapSignal.isTrapSignature && Number.isFinite(priceChangePct) && priceChangePct > -0.2) {
+    stages.pe.push({ stage: 4, label: 'Premium/conviction deterioration', detail: trapSignal.reason });
+  }
+  if (Number.isFinite(netOIChange) && netOIChange < 0 && peOiCh < 0) {
+    stages.pe.push({ stage: 5, label: 'Crowded PE unwind', detail: `Net OI ${netOIChange.toLocaleString()}, PE OI change ${peOiCh.toLocaleString()}` });
+  }
+  if (reversalSignal && reversalSignal.isReversal && reversalSignal.direction === 'bullish' && stages.pe.length >= 3) {
+    stages.pe.push({ stage: 6, label: 'Upside acceleration', detail: reversalSignal.reason });
+  }
+
+  if (stages.ce.length >= 4) stages.activePattern = 'ce_trap_sequence';
+  else if (stages.pe.length >= 4) stages.activePattern = 'pe_trap_sequence';
+  return stages;
+}
+
+function computeLiquidityDisproofChecks(trapEngine, ctx, inputs) {
+  const disproofs = [];
+  const { breakoutCondition, trapSignal } = inputs;
+  if (ctx && ctx.regime && ctx.regime.extendedStates && ctx.regime.extendedStates.includes('vol_expansion')) {
+    disproofs.push({ id: 'news_vol', text: 'Sudden vol expansion — move may be event-driven, not a structural trap' });
+  }
+  if (breakoutCondition && (breakoutCondition.condition === 'breakout_up' || breakoutCondition.condition === 'breakdown')) {
+    if (trapSignal && trapSignal.confirmed === true) disproofs.push({ id: 'genuine_break', text: 'Breakout with OI+price confirmation — may be genuine continuation' });
+    else disproofs.push({ id: 'active_break', text: 'Active sustained breakout — trap hypothesis weaker until rejection' });
+  }
+  if (!trapEngine.sweep.detected && trapEngine.trapScore < 40) {
+    disproofs.push({ id: 'weak_evidence', text: 'Insufficient multi-factor trap evidence this refresh' });
+  }
+  return disproofs;
+}
+
+function advanceLiquidityTrapState(prevState, signals) {
+  const prev = prevState || FNO_LIQUIDITY_TRAP_STATES.NORMAL;
+  const { crowded, approaching, breakoutActive, rejected, sweep, trapped, unwind, momentum, expansion } = signals;
+
+  if (expansion) return FNO_LIQUIDITY_TRAP_STATES.DIRECTIONAL_EXPANSION;
+  if (momentum) return FNO_LIQUIDITY_TRAP_STATES.MOMENTUM_CONFIRMATION;
+  if (unwind) return FNO_LIQUIDITY_TRAP_STATES.FORCED_EXIT;
+  if (trapped) return FNO_LIQUIDITY_TRAP_STATES.TRAPPED_POSITIONING;
+  if (sweep) return FNO_LIQUIDITY_TRAP_STATES.POTENTIAL_LIQUIDITY_SWEEP;
+  if (rejected) return FNO_LIQUIDITY_TRAP_STATES.ACCEPTANCE_OR_REJECTION;
+  if (breakoutActive) return FNO_LIQUIDITY_TRAP_STATES.BREAKOUT_ATTEMPT;
+  if (approaching) return FNO_LIQUIDITY_TRAP_STATES.KEY_LEVEL_APPROACHING;
+  if (crowded) return FNO_LIQUIDITY_TRAP_STATES.CROWDED_POSITIONING;
+  return FNO_LIQUIDITY_TRAP_STATES.NORMAL;
+}
+
+function computeMicrostructureAbsorptionBoost(ctx) {
+  const m = ctx && ctx.microstructure;
+  if (!m) return { boost: 0, detected: false, reason: null };
+  let boost = 0;
+  const reasons = [];
+  if (Number.isFinite(m.flowImbalancePct) && Math.abs(m.flowImbalancePct - 50) >= 20) {
+    boost += 0.12;
+    reasons.push(`Executed flow imbalance ${m.flowImbalancePct.toFixed(1)}%`);
+  }
+  if (Number.isFinite(m.cumulativeDelta) && Math.abs(m.cumulativeDelta) >= 5000) {
+    boost += 0.1;
+    reasons.push(`Cumulative delta ${m.cumulativeDelta >= 0 ? '+' : ''}${Math.round(m.cumulativeDelta).toLocaleString()}`);
+  }
+  if (m.domSpoofDetected) {
+    boost += 0.08;
+    reasons.push(`${m.domSpoofDetected} probable spoof event(s) this session`);
+  }
+  return {
+    boost: Math.min(0.35, boost),
+    detected: boost > 0,
+    reason: reasons.length ? reasons.join('; ') : null,
+  };
+}
+
+function computeLiquidityTrapScore(components) {
+  let score = 0;
+  const weights = {
+    crowded: 12, sweep: 18, failedBreak: 15, absorption: 10,
+    oiTrap: 12, stageProgress: 15, reversal: 10, wrongSide: 8, disproof: -15,
+    microstructure: 10,
+  };
+  if (components.crowded) score += weights.crowded;
+  if (components.sweep) score += weights.sweep * (components.sweepStrength || 0.5);
+  if (components.failedBreak) score += weights.failedBreak;
+  if (components.absorption) score += weights.absorption;
+  if (components.microstructureAbsorption) score += weights.microstructure * (components.microstructureBoost || 0.5);
+  if (components.oiTrap) score += weights.oiTrap;
+  if (components.stageProgress) score += weights.stageProgress * Math.min(1, components.stageCount / 6);
+  if (components.reversal) score += weights.reversal;
+  if (components.wrongSide) score += weights.wrongSide;
+  score += (components.disproofCount || 0) * weights.disproof;
+  return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+function liquidityTrapScoreLabel(score) {
+  if (score <= 30) return 'Weak evidence';
+  if (score <= 50) return 'Possible';
+  if (score <= 70) return 'Significant';
+  if (score <= 85) return 'Strong';
+  return 'Extreme';
+}
+
+/**
+ * Main orchestrator — reuses existing computeTrapSignal, computeBreakoutReversalCondition, etc.
+ */
+function computeLiquidityTrapEngine(ctx, brain, inputs) {
+  inputs = inputs || {};
+  const liquidityMap = computeLiquidityMap(ctx);
+  const breakoutCondition = inputs.breakoutCondition || (typeof computeBreakoutReversalCondition === 'function' && ctx.candles
+    ? computeBreakoutReversalCondition(ctx.candles, 20) : null);
+  const reversalSignal = inputs.reversalSignal || (typeof computeReversalSignal === 'function' && ctx.candles
+    ? computeReversalSignal(ctx.candles) : null);
+  const trapSignal = inputs.trapSignal || null;
+  const absorption = computeAbsorptionProxy(ctx.candles);
+  const microAbsorption = computeMicrostructureAbsorptionBoost(ctx);
+  const absorptionDetected = absorption.detected || microAbsorption.detected;
+  const sweep = computeLiquiditySweepSignal(ctx.candles, liquidityMap, breakoutCondition, reversalSignal, trapSignal);
+  const stages = computeCEPETrapStages(ctx, { ...inputs, breakoutCondition, trapSignal, reversalSignal, liquidityMap });
+
+  const path = liquidityMap.nearestSupport && liquidityMap.nearestResistance
+    ? computePathBetweenLevels(ctx.candles, liquidityMap.nearestSupport, liquidityMap.nearestResistance)
+    : { available: false };
+
+  const crowdedBull = Number.isFinite(ctx.pcr) && ctx.pcr < 0.65;
+  const crowdedBear = Number.isFinite(ctx.pcr) && ctx.pcr > 1.5;
+  const approaching = liquidityMap.nearestSupport && Math.abs(liquidityMap.nearestSupport.distPct) < 0.5
+    || liquidityMap.nearestResistance && Math.abs(liquidityMap.nearestResistance.distPct) < 0.5;
+  const breakoutActive = breakoutCondition && (breakoutCondition.condition === 'breakout_up' || breakoutCondition.condition === 'breakdown');
+  const rejected = breakoutCondition && (breakoutCondition.condition === 'false_breakout_up' || breakoutCondition.condition === 'false_breakdown');
+
+  let wrongSide = null;
+  if (typeof computeWrongSidePositioningCheck === 'function') {
+    const opt = brain && brain.decision === 'SELL_READY' ? 'PE' : brain && brain.decision === 'BUY_READY' ? 'CE' : null;
+    if (opt) wrongSide = computeWrongSidePositioningCheck(opt, ctx.pcr, inputs.multiInstrument || null, ctx.operatorIntel ? ctx.operatorIntel.bias : null);
+  }
+
+  const stageCount = Math.max(stages.ce.length, stages.pe.length);
+  const disproofs = computeLiquidityDisproofChecks({ sweep, trapScore: 0 }, ctx, { breakoutCondition, trapSignal });
+
+  const trapScore = computeLiquidityTrapScore({
+    crowded: crowdedBull || crowdedBear,
+    sweep: sweep.detected,
+    sweepStrength: sweep.confidence / 100,
+    failedBreak: rejected,
+    absorption: absorptionDetected,
+    microstructureAbsorption: microAbsorption.detected,
+    microstructureBoost: microAbsorption.boost,
+    oiTrap: trapSignal && trapSignal.isTrapSignature === true,
+    stageProgress: stageCount >= 3,
+    stageCount,
+    reversal: reversalSignal && reversalSignal.isReversal,
+    wrongSide: wrongSide && wrongSide.isWrongSideWarning,
+    disproofCount: disproofs.length,
+  });
+
+  let prevState = FNO_LIQUIDITY_TRAP_STATES.NORMAL;
+  try {
+    const raw = sessionStorage.getItem(FNO_LIQUIDITY_TRAP_STATE_KEY);
+    if (raw) prevState = JSON.parse(raw).state || prevState;
+  } catch (e) { /* ignore */ }
+
+  const state = advanceLiquidityTrapState(prevState, {
+    crowded: crowdedBull || crowdedBear,
+    approaching,
+    breakoutActive,
+    rejected,
+    sweep: sweep.detected,
+    trapped: stageCount >= 4,
+    unwind: stages.ce.some(s => s.stage === 5) || stages.pe.some(s => s.stage === 5),
+    momentum: reversalSignal && reversalSignal.isReversal,
+    expansion: trapScore >= 70 && sweep.detected && reversalSignal && reversalSignal.isReversal,
+  });
+
+  try {
+    sessionStorage.setItem(FNO_LIQUIDITY_TRAP_STATE_KEY, JSON.stringify({ state, ts: Date.now(), sym: ctx.sym }));
+  } catch (e) { /* ignore */ }
+
+  const bearTrapProb = sweep.direction === 'bearish_trap' ? sweep.confidence / 100
+    : stages.pe.length >= 3 ? Math.min(0.7, stages.pe.length / 8) : crowdedBear ? 0.25 : 0;
+  const bullTrapProb = sweep.direction === 'bullish_trap' ? sweep.confidence / 100
+    : stages.ce.length >= 3 ? Math.min(0.7, stages.ce.length / 8) : crowdedBull ? 0.25 : 0;
+
+  const continuationProb = breakoutActive && trapSignal && trapSignal.confirmed ? 0.65 : breakoutActive ? 0.45 : 0.2;
+  const reversalProb = Math.min(0.9, trapScore / 100);
+
+  return {
+    liquidityMap,
+    pathBetweenLevels: path,
+    sweep,
+    absorption,
+    microAbsorption,
+    stages,
+    trapScore,
+    trapScoreLabel: liquidityTrapScoreLabel(trapScore),
+    state,
+    stateHistory: prevState !== state ? { from: prevState, to: state } : null,
+    disproofs,
+    wrongSide,
+    probabilities: {
+      bullish: Math.max(0, Math.min(1, 0.5 + (bullTrapProb * -0.3) + (stages.pe.length >= 4 ? 0.2 : 0))),
+      bearish: Math.max(0, Math.min(1, 0.5 + (bearTrapProb * -0.3) + (stages.ce.length >= 4 ? 0.2 : 0))),
+      bullTrap: bullTrapProb,
+      bearTrap: bearTrapProb,
+      liquiditySweep: sweep.detected ? sweep.confidence / 100 : 0,
+      continuation: continuationProb,
+      reversal: reversalProb,
+    },
+    psychology: buildLiquidityPsychologyNarrative(state, sweep, stages),
+    generatedAt: Date.now(),
+  };
+}
+
+function buildLiquidityPsychologyNarrative(state, sweep, stages) {
+  const lines = [];
+  if (state === FNO_LIQUIDITY_TRAP_STATES.KEY_LEVEL_APPROACHING) lines.push('Market expectation: a key level break may happen.');
+  if (state === FNO_LIQUIDITY_TRAP_STATES.BREAKOUT_ATTEMPT) lines.push('Retail confidence rises as price probes outside the range.');
+  if (state === FNO_LIQUIDITY_TRAP_STATES.ACCEPTANCE_OR_REJECTION) lines.push('Confidence deteriorates if the break fails to hold.');
+  if (state === FNO_LIQUIDITY_TRAP_STATES.POTENTIAL_LIQUIDITY_SWEEP) lines.push('Stops may have been triggered; watch for rapid return inside the range.');
+  if (state === FNO_LIQUIDITY_TRAP_STATES.TRAPPED_POSITIONING) lines.push('Crowded participants may be underwater on the failed move.');
+  if (state === FNO_LIQUIDITY_TRAP_STATES.FORCED_EXIT) lines.push('Forced exits can add liquidity to the opposite-side move.');
+  if (stages.activePattern === 'ce_trap_sequence') lines.push('CE trap sequence active — failed upside breakout risk elevated.');
+  if (stages.activePattern === 'pe_trap_sequence') lines.push('PE trap sequence active — failed downside breakdown risk elevated.');
+  if (sweep.detected) lines.push(sweep.reason);
+  return lines;
+}
+
+function applyLiquidityTrapInfluence(brain, trapEngine, optionType) {
+  if (!brain || !trapEngine) return brain;
+  brain.liquidityBehaviour = trapEngine;
+
+  const score = trapEngine.trapScore;
+  const probs = trapEngine.probabilities;
+  brain.liquidityProbabilities = probs;
+
+  if (score < 31) return brain;
+
+  const tradeDir = optionType === 'CE' ? 'bullish' : optionType === 'PE' ? 'bearish' : null;
+  const opposesBullTrap = tradeDir === 'bullish' && (probs.bullTrap > 0.5 || trapEngine.stages.activePattern === 'ce_trap_sequence');
+  const opposesBearTrap = tradeDir === 'bearish' && (probs.bearTrap > 0.5 || trapEngine.stages.activePattern === 'pe_trap_sequence');
+
+  if (score >= 51 && (opposesBullTrap || opposesBearTrap) && brain.confidence === 'High') {
+    brain.confidence = 'Medium';
+    brain.liquidityConfidenceAdjustment = `Liquidity trap score ${score} (${trapEngine.trapScoreLabel}) — confidence reduced; crowded positioning may be vulnerable`;
+  } else if (score >= 51 && (opposesBullTrap || opposesBearTrap)) {
+    brain.liquidityConfidenceAdjustment = `Liquidity trap score ${score} — possible trap opposes ${tradeDir} entry; see Liquidity Behaviour panel`;
+  }
+
+  return brain;
+}
+
+function inferLiquidityTrapExpectedDirection(trapEngine) {
+  if (!trapEngine) return null;
+  if (trapEngine.sweep && trapEngine.sweep.detected) {
+    if (trapEngine.sweep.direction === 'bearish_trap') return 'bearish';
+    if (trapEngine.sweep.direction === 'bullish_trap') return 'bullish';
+  }
+  if (trapEngine.stages && trapEngine.stages.activePattern === 'ce_trap_sequence') return 'bearish';
+  if (trapEngine.stages && trapEngine.stages.activePattern === 'pe_trap_sequence') return 'bullish';
+  if (trapEngine.probabilities && trapEngine.probabilities.reversal >= 0.55) {
+    if ((trapEngine.probabilities.bearTrap || 0) > (trapEngine.probabilities.bullTrap || 0)) return 'bearish';
+    if ((trapEngine.probabilities.bullTrap || 0) > (trapEngine.probabilities.bearTrap || 0)) return 'bullish';
+  }
+  return null;
+}
+
+function evaluateLiquidityTrapOutcomes(currentSpot, sym) {
+  if (!Number.isFinite(currentSpot) || !sym) return null;
+  try {
+    const log = JSON.parse(localStorage.getItem(FNO_LIQUIDITY_TRAP_LOG_KEY) || '[]');
+    const now = Date.now();
+    let updated = false;
+    log.forEach(entry => {
+      if (!entry || entry.sym !== sym || !Number.isFinite(entry.spotAtLog)) return;
+      if (!entry.outcomes) entry.outcomes = {};
+      Object.entries(FNO_LIQUIDITY_TRAP_OUTCOME_HORIZONS_MS).forEach(([key, ms]) => {
+        if (entry.outcomes[key] || now - entry.ts < ms) return;
+        const movePct = ((currentSpot - entry.spotAtLog) / entry.spotAtLog) * 100;
+        const expected = entry.expectedDirection;
+        let favorableMovePct = movePct;
+        if (expected === 'bearish') favorableMovePct = -movePct;
+        else if (expected === 'bullish') favorableMovePct = movePct;
+        else favorableMovePct = Math.abs(movePct);
+        entry.outcomes[key] = {
+          spot: currentSpot,
+          movePct: Math.round(movePct * 100) / 100,
+          mfePct: Math.round(Math.max(0, favorableMovePct) * 100) / 100,
+          maePct: Math.round(Math.max(0, -favorableMovePct) * 100) / 100,
+          evaluatedAt: now,
+          confirmed: expected ? favorableMovePct >= 0.2 : null,
+        };
+        updated = true;
+      });
+      if (entry.outcomes.m30) entry.outcomesComplete = true;
+    });
+    if (updated) localStorage.setItem(FNO_LIQUIDITY_TRAP_LOG_KEY, JSON.stringify(log));
+    return computeLiquidityTrapValidationStats(log, sym);
+  } catch (e) { return null; }
+}
+
+function computeLiquidityTrapValidationStats(log, sym) {
+  const rows = (log || []).filter(r => r && (!sym || r.sym === sym) && r.outcomes && r.outcomes.m30);
+  const decisive = rows.filter(r => r.expectedDirection && typeof r.outcomes.m30.confirmed === 'boolean');
+  const confirmed = decisive.filter(r => r.outcomes.m30.confirmed === true).length;
+  const falsePositives = decisive.filter(r => r.outcomes.m30.confirmed === false).length;
+  const avg = (arr, pick) => {
+    const vals = arr.map(pick).filter(Number.isFinite);
+    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+  };
+  return {
+    sampleSize: rows.length,
+    decisiveTotal: decisive.length,
+    confirmedCount: confirmed,
+    falsePositiveCount: falsePositives,
+    confirmedRatePct: decisive.length ? Math.round((confirmed / decisive.length) * 100) : null,
+    falsePositiveRatePct: decisive.length ? Math.round((falsePositives / decisive.length) * 100) : null,
+    avgMfeM5Pct: avg(rows, r => r.outcomes.m5 && r.outcomes.m5.mfePct),
+    avgMaeM5Pct: avg(rows, r => r.outcomes.m5 && r.outcomes.m5.maePct),
+    avgMfeM30Pct: avg(rows, r => r.outcomes.m30 && r.outcomes.m30.mfePct),
+    avgMaeM30Pct: avg(rows, r => r.outcomes.m30 && r.outcomes.m30.maePct),
+    pendingCount: (log || []).filter(r => r && (!sym || r.sym === sym) && !r.outcomesComplete).length,
+  };
+}
+
+function logLiquidityTrapObservation(trapEngine, sym, spot, brain) {
+  if (!trapEngine || trapEngine.trapScore < 31) return;
+  try {
+    const log = JSON.parse(localStorage.getItem(FNO_LIQUIDITY_TRAP_LOG_KEY) || '[]');
+    const last = log.length ? log[log.length - 1] : null;
+    if (last && last.sym === sym && Date.now() - last.ts < 5 * 60 * 1000 && last.trapScore === trapEngine.trapScore && last.state === trapEngine.state) return;
+    log.push({
+      ts: Date.now(),
+      sym,
+      spot,
+      spotAtLog: spot,
+      trapScore: trapEngine.trapScore,
+      state: trapEngine.state,
+      sweep: trapEngine.sweep.detected ? trapEngine.sweep.type : null,
+      pattern: trapEngine.stages.activePattern,
+      expectedDirection: inferLiquidityTrapExpectedDirection(trapEngine),
+      decision: brain ? brain.decision : null,
+      probabilities: trapEngine.probabilities,
+      path: trapEngine.pathBetweenLevels.available ? trapEngine.pathBetweenLevels.summary : null,
+      outcomes: {},
+      outcomesComplete: false,
+    });
+    while (log.length > 500) log.shift();
+    localStorage.setItem(FNO_LIQUIDITY_TRAP_LOG_KEY, JSON.stringify(log));
+  } catch (e) { /* ignore */ }
+}
+
+function renderLiquidityBehaviourPanel(trapEngine, validationStats) {
+  const box = document.getElementById('liquidityBehaviourBox');
+  if (!box) return;
+  if (!trapEngine) { box.innerHTML = '<span style="color:#64748b">Loading liquidity behaviour analysis...</span>'; return; }
+  const fmt = (typeof fnoFormatFixed === 'function') ? fnoFormatFixed
+    : (n, d, fb) => (Number.isFinite(n) ? n.toFixed(d) : (fb != null ? fb : '—'));
+
+  const tp = typeof fnoThemePalette === 'function' ? fnoThemePalette() : { text: '#e2e8f0', muted: '#94a3b8', warn: '#fde68a', pass: '#4ade80', fail: '#f87171', panel: '#0e152a', line: '#1e293b' };
+  const trapScore = Number.isFinite(trapEngine.trapScore) ? trapEngine.trapScore : 0;
+  const scoreColor = trapScore >= 71 ? tp.fail : trapScore >= 51 ? tp.warn : tp.muted;
+  const zones = (trapEngine.liquidityMap && trapEngine.liquidityMap.zones || []).slice(0, 6).map(z =>
+    `<div style="padding:2px 0">${escapeHtml(z.label)}: ${fmt(z.price, 1)} (${Number.isFinite(z.distPct) && z.distPct >= 0 ? '+' : ''}${fmt(z.distPct, 2)}%)</div>`
+  ).join('') || `<span style="color:${tp.muted}">No zones mapped</span>`;
+
+  const probs = trapEngine.probabilities || {};
+  const contPct = Number.isFinite(probs.continuation) ? probs.continuation * 100 : null;
+  const revPct = Number.isFinite(probs.reversal) ? probs.reversal * 100 : null;
+
+  const stageHtml = (arr, title) => arr.length
+    ? `<div style="margin-top:6px"><b>${title}</b>${arr.map(s => `<div style="font-size:10px;color:${tp.muted};padding:2px 0">S${s.stage}: ${escapeHtml(s.label)} — ${escapeHtml(s.detail)}</div>`).join('')}</div>`
+    : '';
+
+  box.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <div><b style="color:${scoreColor}">Trap score: ${trapScore}/100</b> <span style="color:${tp.muted};font-size:10px">(${escapeHtml(trapEngine.trapScoreLabel || '—')})</span></div>
+      <div style="font-size:10px;color:${tp.muted}">State: <b style="color:${tp.text}">${escapeHtml(String(trapEngine.state || 'NORMAL').replace(/_/g, ' '))}</b></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;font-size:10px;margin-bottom:8px">
+      <div style="background:${tp.panel};padding:6px;border-radius:6px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Sweep</div><div style="color:${trapEngine.sweep && trapEngine.sweep.detected ? tp.warn : tp.muted}">${trapEngine.sweep && trapEngine.sweep.detected ? 'YES' : 'No'}</div></div>
+      <div style="background:${tp.panel};padding:6px;border-radius:6px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Continuation</div><div>${fmt(contPct, 0, '—')}${contPct != null ? '%' : ''}</div></div>
+      <div style="background:${tp.panel};padding:6px;border-radius:6px;border:1px solid ${tp.line}"><div style="color:${tp.muted}">Reversal</div><div>${fmt(revPct, 0, '—')}${revPct != null ? '%' : ''}</div></div>
+    </div>
+    <div style="font-size:11px;margin-bottom:6px"><b>Liquidity map</b>${zones}</div>
+    ${trapEngine.pathBetweenLevels && trapEngine.pathBetweenLevels.available ? `<div style="font-size:10px;color:${tp.muted};margin-bottom:6px"><b>Path:</b> ${escapeHtml(trapEngine.pathBetweenLevels.summary)}</div>` : ''}
+    ${trapEngine.sweep && trapEngine.sweep.detected ? `<div style="padding:6px;border-radius:6px;background:${tp.panel};border:1px solid ${tp.line};font-size:10px;margin-bottom:6px;color:${tp.warn}">${escapeHtml(trapEngine.sweep.reason)}</div>` : ''}
+    ${stageHtml((trapEngine.stages && trapEngine.stages.ce) || [], 'CE trap stages')}
+    ${stageHtml((trapEngine.stages && trapEngine.stages.pe) || [], 'PE trap stages')}
+    ${trapEngine.microAbsorption && trapEngine.microAbsorption.detected ? `<div style="font-size:10px;color:${tp.warn};margin-bottom:6px"><b>Microstructure absorption:</b> ${escapeHtml(trapEngine.microAbsorption.reason || 'Live daemon flow supports absorption/trap read')}</div>` : ''}
+    ${trapEngine.disproofs && trapEngine.disproofs.length ? `<div style="margin-top:6px;font-size:10px;color:${tp.muted}"><b>Disproof checks:</b> ${trapEngine.disproofs.map(d => escapeHtml(d.text)).join(' · ')}</div>` : ''}
+    ${trapEngine.psychology && trapEngine.psychology.length ? `<div style="margin-top:6px;font-size:10px;color:${tp.muted}"><b>Psychology:</b> ${trapEngine.psychology.map(p => escapeHtml(p)).join(' · ')}</div>` : ''}
+    ${validationStats && validationStats.decisiveTotal > 0 ? `<div style="margin-top:8px;padding:6px;border-radius:6px;background:${tp.panel};border:1px solid ${tp.line};font-size:10px">
+      <b>Historical validation (30m outcomes)</b>
+      <div style="margin-top:4px;color:${validationStats.confirmedRatePct >= 55 ? tp.pass : validationStats.confirmedRatePct <= 45 ? tp.fail : tp.muted}">
+        Confirmed ${validationStats.confirmedRatePct}% · False-positive ${validationStats.falsePositiveRatePct}% · ${validationStats.decisiveTotal} decisive / ${validationStats.sampleSize} logged
+      </div>
+      <div style="color:${tp.muted};margin-top:2px">Avg MFE/MAE @30m: ${Number.isFinite(validationStats.avgMfeM30Pct) ? validationStats.avgMfeM30Pct.toFixed(2) : 'n/a'}% / ${Number.isFinite(validationStats.avgMaeM30Pct) ? validationStats.avgMaeM30Pct.toFixed(2) : 'n/a'}%</div>
+      ${validationStats.pendingCount ? `<div style="color:${tp.muted};margin-top:2px">${validationStats.pendingCount} setup(s) awaiting 5/10/15/30m outcome checks</div>` : ''}
+    </div>` : ''}
+  `;
+}
+
+/**
+ * TradeSetupEngine — real short-term setup detection, confirmation, target selection,
+ * and trade eligibility. All UI/settings must route through makeTradeDecision().
+ */
+const FNO_TSE_LOG_KEY = 'fno_trade_setup_decision_log_v1';
+const FNO_TSE_LOG_MAX = 3000;
+const FNO_TSE_PERF_KEY = 'fno_trade_setup_perf_v1';
+const FNO_TSE_STATE_KEY = 'fno_trade_setup_state_v1';
+const FNO_TSE_VALIDATION_KEY = 'fno_trade_setup_paper_validation_v1';
+const FNO_TSE_VALIDATION_MAX = 2000;
+const FNO_TSE_TARGET_POINTS = { slow: 10, medium: 15, fast: 20 };
+const FNO_TSE_MIN_SAMPLE_FOR_STATS = 10;
+const FNO_TSE_TRAIN_SPLIT = 0.7;
+
+const FNO_TSE_SETUP_TYPES = {
+  EMA_PULLBACK: 'ema_pullback_continuation',
+  BREAKOUT_RETEST: 'breakout_retest',
+  STRUCTURE_CONTINUATION: 'structure_continuation',
+  VWAP_RECLAIM: 'vwap_reclaim_rejection',
+  CONSOLIDATION_BREAKOUT: 'consolidation_breakout',
+  EMA_COMPRESSION: 'ema_compression_expansion',
+  FAILED_BREAKOUT: 'failed_breakout_reversal',
+  MOMENTUM_EXPANSION: 'momentum_expansion',
+};
+
+const FNO_TSE_SETUP_STATE = {
+  DETECTED: 'DETECTED',
+  WAITING_FOR_CONFIRMATION: 'WAITING_FOR_CONFIRMATION',
+  CONFIRMED: 'CONFIRMED',
+  INVALIDATED: 'INVALIDATED',
+  EXPIRED: 'EXPIRED',
+};
+
+const FNO_TSE_DECISION = {
+  SETUP_DETECTED: 'SETUP_DETECTED',
+  SETUP_WAITING: 'SETUP_WAITING',
+  NO_SETUP: 'NO_SETUP',
+  TRADE_ALLOWED: 'TRADE_ALLOWED',
+  TRADE_BLOCKED: 'TRADE_BLOCKED',
+};
+
+function fnoTseEscapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function getTradeSetupSettings() {
+  const s = typeof fnoSettings !== 'undefined' ? fnoSettings.get() : {};
+  return {
+    enabled: s.tradeSetupEngineEnabled !== false && s.pullbackContinuationEnabled !== false,
+    fastThreshold: typeof s.fastMovementThreshold === 'number' ? s.fastMovementThreshold : 65,
+    mediumThreshold: typeof s.mediumMovementThreshold === 'number' ? s.mediumMovementThreshold : 40,
+    insufficientThreshold: typeof s.insufficientMovementThreshold === 'number' ? s.insufficientMovementThreshold : 25,
+    minSetupScore: typeof s.minimumSetupScore === 'number' ? s.minimumSetupScore : 65,
+    minRiskReward: typeof s.minimumRiskReward === 'number' ? s.minimumRiskReward : 1.5,
+    confirmMaxCandles: typeof s.setupConfirmationMaxCandles === 'number' ? s.setupConfirmationMaxCandles : 8,
+    targetFast: typeof s.targetPointsFast === 'number' ? s.targetPointsFast : 20,
+    targetMedium: typeof s.targetPointsMedium === 'number' ? s.targetPointsMedium : 15,
+    targetSlow: typeof s.targetPointsSlow === 'number' ? s.targetPointsSlow : 10,
+    minEmaSlopePts: typeof s.minEmaSlopePoints === 'number' ? s.minEmaSlopePoints : 0.15,
+    minImpulsePts: typeof s.minImpulsePoints === 'number' ? s.minImpulsePoints : 8,
+    openingRangeMinutes: typeof s.openingRangeMinutes === 'number' ? s.openingRangeMinutes : 15,
+    candleIntervalMinutes: typeof s.candleIntervalMinutes === 'number' ? s.candleIntervalMinutes : 1,
+  };
+}
+
+function computeOpeningRange(candles, minutes, barMinutes) {
+  minutes = minutes || 15;
+  barMinutes = barMinutes || 1;
+  if (!candles || !candles.length) return { high: null, low: null, method: 'none' };
+  const closes = candles.map(c => c.c).filter(Number.isFinite);
+  if (!closes.length) return { high: null, low: null, method: 'none' };
+  const firstT = candles[0].t;
+  if (Number.isFinite(firstT) && firstT > 1e9) {
+    const orEnd = firstT + minutes * 60 * 1000;
+    const orCloses = candles.filter(c => Number.isFinite(c.t) && c.t <= orEnd).map(c => c.c).filter(Number.isFinite);
+    if (orCloses.length) {
+      return { high: Math.max(...orCloses), low: Math.min(...orCloses), method: 'time_' + minutes + 'min', bars: orCloses.length };
+    }
+  }
+  const barCount = Math.max(1, Math.round(minutes / barMinutes));
+  const slice = closes.slice(0, Math.min(barCount, closes.length));
+  return { high: Math.max(...slice), low: Math.min(...slice), method: 'bars_' + barCount, bars: slice.length };
+}
+
+function isTradeSetupEngineActive() {
+  if (typeof fnoSettings === 'undefined') return false;
+  const s = fnoSettings.get();
+  if (s.tradeSetupEngineEnabled === false || s.pullbackContinuationEnabled === false) return false;
+  return !!(s.scalpingProfitProfileEnabled && s.tradingTypes && s.tradingTypes.scalping);
+}
+
+function isPullbackContinuationActive() { return isTradeSetupEngineActive(); }
+
+function buildMarketState(ctx, brain) {
+  const candles = (ctx && ctx.candles) || [];
+  const closes = candles.map(c => c.c).filter(Number.isFinite);
+  const last = closes.length - 1;
+  const spot = Number.isFinite(ctx && ctx.spot) ? ctx.spot : (last >= 0 ? closes[last] : null);
+  const ms = {
+    valid: closes.length >= 21 && Number.isFinite(spot),
+    spot, closes, candles, last, ctx, brain,
+    e9: [], e21: [], rsi: [], macd: null,
+    ema9: null, ema21: null, ema9Slope: null, ema21Slope: null, emaSpreadPct: null,
+    atr: null, sessionHigh: null, sessionLow: null, sessionOpen: null,
+    vwap: Number.isFinite(ctx && ctx.vwap) ? ctx.vwap : null,
+    regime: null, choppy: false,
+  };
+  if (!ms.valid) return ms;
+  ms.e9 = ema(closes, 9);
+  ms.e21 = ema(closes, 21);
+  ms.ema9 = ms.e9[last];
+  ms.ema21 = ms.e21[last];
+  if (last >= 3) {
+    ms.ema9Slope = ms.e9[last] - ms.e9[last - 3];
+    ms.ema21Slope = ms.e21[last] - ms.e21[last - 3];
+  }
+  if (ms.ema21 > 0) ms.emaSpreadPct = ((ms.ema9 - ms.ema21) / ms.ema21) * 100;
+  if (typeof rsiCalc === 'function') ms.rsi = rsiCalc(closes, 14);
+  if (typeof macdCalc === 'function') ms.macd = macdCalc(closes);
+  ms.sessionHigh = Math.max(...closes);
+  ms.sessionLow = Math.min(...closes);
+  ms.sessionOpen = closes[0];
+  const cfg = getTradeSetupSettings();
+  const or = computeOpeningRange(candles, cfg.openingRangeMinutes, cfg.candleIntervalMinutes);
+  ms.openingRangeHigh = or.high;
+  ms.openingRangeLow = or.low;
+  ms.openingRangeMethod = or.method;
+  const ranges = [];
+  for (let i = Math.max(1, last - 13); i <= last; i++) ranges.push(Math.abs(closes[i] - closes[i - 1]));
+  ms.atr = ranges.length ? ranges.reduce((a, b) => a + b, 0) / ranges.length : null;
+  if (typeof computeMarketRegime === 'function') ms.regime = computeMarketRegime(ctx);
+  if (typeof computeBreakoutReversalCondition === 'function') {
+    const br = computeBreakoutReversalCondition(candles, 20);
+    ms.choppy = br && (br.condition === 'choppy' || br.condition === 'range_bound');
+    ms.rangeHigh = br && br.rangeHigh;
+    ms.rangeLow = br && br.rangeLow;
+  }
+  return ms;
+}
+
+function detectKeyLevels(ms) {
+  const levels = [];
+  if (!ms.valid) return levels;
+  const add = (label, price, kind) => {
+    if (!Number.isFinite(price)) return;
+    levels.push({
+      label, price, kind,
+      distPts: price - ms.spot,
+      distAbs: Math.abs(price - ms.spot),
+      side: price >= ms.spot ? 'above' : 'below',
+    });
+  };
+  add('Session high', ms.sessionHigh, 'swing_high');
+  add('Session low', ms.sessionLow, 'swing_low');
+  add('Session open', ms.sessionOpen, 'open');
+  add('Opening range high', ms.openingRangeHigh, 'or_high');
+  add('Opening range low', ms.openingRangeLow, 'or_low');
+  if (ms.rangeHigh != null) add('Range high', ms.rangeHigh, 'range_high');
+  if (ms.rangeLow != null) add('Range low', ms.rangeLow, 'range_low');
+  if (ms.vwap != null) add('VWAP proxy', ms.vwap, 'vwap');
+  const win = ms.closes.slice(Math.max(0, ms.last - 19), ms.last + 1);
+  add('Swing high (20)', Math.max(...win), 'swing_high');
+  add('Swing low (20)', Math.min(...win), 'swing_low');
+  return levels.sort((a, b) => a.distAbs - b.distAbs);
+}
+
+function headroomPoints(ms, direction) {
+  const lv = detectKeyLevels(ms);
+  if (direction === 'bullish') {
+    const above = lv.filter(l => l.side === 'above' && l.kind !== 'open');
+    return above.length ? above[0].distPts : (ms.sessionHigh - ms.spot);
+  }
+  const below = lv.filter(l => l.side === 'below' && l.kind !== 'open');
+  return below.length ? Math.abs(below[0].distPts) : (ms.spot - ms.sessionLow);
+}
+
+function resistanceDistance(ms, direction) {
+  return headroomPoints(ms, direction);
+}
+
+function computeMovementMetrics(ms) {
+  const cfg = getTradeSetupSettings();
+  const out = {
+    spot: ms.spot, velocityPointsPerMin: null, velocityScore: 0, momentumScore: 0,
+    trendStrengthScore: 0, candleStructureScore: 0, volatilityScore: 0, compositeScore: 0,
+    expectedPoints5Min: null, emaSeparationScore: 0, reasons: [],
+  };
+  if (!ms.valid) return out;
+  const lookback = Math.min(5, ms.last);
+  const start = ms.closes[ms.last - lookback];
+  out.velocityPointsPerMin = Math.abs(ms.spot - start) / lookback;
+  out.expectedPoints5Min = out.velocityPointsPerMin * 5;
+  if (out.velocityPointsPerMin >= 3.5) out.velocityScore = 100;
+  else if (out.velocityPointsPerMin >= 2.0) out.velocityScore = 80;
+  else if (out.velocityPointsPerMin >= 1.0) out.velocityScore = 55;
+  else if (out.velocityPointsPerMin >= 0.4) out.velocityScore = 30;
+  else out.velocityScore = 10;
+  const rsiNow = ms.rsi && ms.rsi[ms.last];
+  if (Number.isFinite(rsiNow)) {
+    out.momentumScore = Math.min(100, Math.round(Math.abs(rsiNow - 50) * 2));
+  }
+  if (ms.macd && Number.isFinite(ms.macd.histogram[ms.last])) {
+    out.momentumScore = Math.min(100, out.momentumScore + Math.min(35, Math.abs(ms.macd.histogram[ms.last]) * 70));
+  }
+  if (Number.isFinite(ms.emaSpreadPct)) {
+    out.trendStrengthScore = Math.min(100, Math.round(Math.abs(ms.emaSpreadPct) * 400));
+    out.emaSeparationScore = out.trendStrengthScore;
+  }
+  const bodies = [];
+  for (let i = Math.max(1, ms.last - 4); i <= ms.last; i++) bodies.push(Math.abs(ms.closes[i] - ms.closes[i - 1]));
+  const sessionRange = ms.sessionHigh - ms.sessionLow;
+  const avgBody = bodies.length ? bodies.reduce((a, b) => a + b, 0) / bodies.length : 0;
+  if (sessionRange > 0) out.candleStructureScore = Math.min(100, Math.round((avgBody / sessionRange) * 300));
+  if (typeof historicalVolPct === 'function') {
+    const hv = historicalVolPct(ms.closes, 20);
+    if (Number.isFinite(hv)) out.volatilityScore = hv >= 18 ? 90 : hv >= 14 ? 70 : hv >= 10 ? 45 : 25;
+  } else if (sessionRange > 0) {
+    out.volatilityScore = ((sessionRange / ms.spot) * 100) >= 0.8 ? 75 : 45;
+  }
+  out.volumeScore = 0;
+  if (ms.candles && ms.candles.length >= 3) {
+    const vols = ms.candles.slice(-5).map(c => c.v || c.volume).filter(Number.isFinite);
+    if (vols.length >= 2) {
+      const avgVol = vols.reduce((a, b) => a + b, 0) / vols.length;
+      const lastVol = vols[vols.length - 1];
+      if (avgVol > 0) {
+        const volRatio = lastVol / avgVol;
+        out.volumeScore = volRatio >= 1.5 ? 85 : volRatio >= 1.1 ? 65 : volRatio >= 0.8 ? 45 : 25;
+      }
+    }
+  }
+  out.compositeScore = out.volumeScore
+    ? Math.round(
+      out.velocityScore * 0.28 + out.momentumScore * 0.23 + out.trendStrengthScore * 0.14
+      + out.candleStructureScore * 0.14 + out.volatilityScore * 0.14 + out.volumeScore * 0.07
+    )
+    : Math.round(
+      out.velocityScore * 0.30 + out.momentumScore * 0.25 + out.trendStrengthScore * 0.15
+      + out.candleStructureScore * 0.15 + out.volatilityScore * 0.15
+    );
+  return out;
+}
+
+function classifyMovement(marketState) {
+  const cfg = getTradeSetupSettings();
+  const metrics = computeMovementMetrics(marketState);
+  let movementClass = 'INSUFFICIENT';
+  let targetPoints = null;
+  if (metrics.compositeScore >= cfg.fastThreshold) {
+    movementClass = 'FAST';
+    targetPoints = cfg.targetFast;
+  } else if (metrics.compositeScore >= cfg.mediumThreshold) {
+    movementClass = 'MEDIUM';
+    targetPoints = cfg.targetMedium;
+  } else if (metrics.compositeScore >= cfg.insufficientThreshold) {
+    movementClass = 'SLOW';
+    targetPoints = cfg.targetSlow;
+  }
+  return {
+    movementClass, targetPoints, compositeScore: metrics.compositeScore, metrics,
+    reason: movementClass === 'INSUFFICIENT'
+      ? `Movement score ${metrics.compositeScore} below minimum ${cfg.insufficientThreshold} — NO TRADE`
+      : `${movementClass} movement (score ${metrics.compositeScore}) → ${targetPoints}-point target candidate`,
+  };
+}
+
+function determineProfitTarget(marketState, setup, movement) {
+  movement = movement || classifyMovement(marketState);
+  if (movement.movementClass === 'INSUFFICIENT' || !movement.targetPoints) {
+    return {
+      target_points: null, movement_class: 'INSUFFICIENT', target_confidence: 0,
+      reason: movement.reason, feasible: false,
+    };
+  }
+  const dir = setup && setup.direction;
+  const headroom = dir ? resistanceDistance(marketState, dir) : null;
+  let confidence = Math.min(0.95, movement.compositeScore / 100);
+  if (headroom != null && headroom < movement.targetPoints) {
+    return {
+      target_points: null, movement_class: movement.movementClass, target_confidence: 0,
+      reason: `${movement.movementClass} selected ${movement.targetPoints}pt but only ${headroom.toFixed(1)}pt room — REJECT`,
+      feasible: false, headroomPoints: headroom,
+    };
+  }
+  if (headroom != null && headroom < movement.targetPoints * 1.1) confidence *= 0.75;
+  return {
+    target_points: movement.targetPoints,
+    movement_class: movement.movementClass,
+    target_confidence: +confidence.toFixed(2),
+    reason: `${movement.movementClass} momentum + ${headroom != null ? headroom.toFixed(0) : '?'}pt room → ${movement.targetPoints}pt target`,
+    feasible: true,
+    headroomPoints: headroom,
+    expectedPoints5Min: movement.metrics.expectedPoints5Min,
+  };
+}
+
+function mkSetup(type, direction, state, score, reason, extra) {
+  return Object.assign({
+    type, direction, state, score, reason, setupQuality: score,
+  }, extra || {});
+}
+
+function detectEmaPullbackSetup(ms, direction) {
+  const cfg = getTradeSetupSettings();
+  if (!ms.valid) return null;
+  const bull = direction === 'bullish';
+  const last = ms.last;
+  const slope9 = ms.ema9Slope;
+  const slope21 = ms.ema21Slope;
+  const trendOk = bull
+    ? (ms.ema9 > ms.ema21 && ms.spot > ms.ema21 && slope9 > cfg.minEmaSlopePts && slope21 >= 0)
+    : (ms.ema9 < ms.ema21 && ms.spot < ms.ema21 && slope9 < -cfg.minEmaSlopePts && slope21 <= 0);
+  if (!trendOk) return null;
+
+  const impulseLb = Math.min(8, last);
+  const impulsePts = bull ? (ms.spot - ms.closes[last - impulseLb]) : (ms.closes[last - impulseLb] - ms.spot);
+  if (impulsePts < cfg.minImpulsePts) {
+    return mkSetup(FNO_TSE_SETUP_TYPES.EMA_PULLBACK, direction, FNO_TSE_SETUP_STATE.DETECTED, 45,
+      `Trend OK, impulse building (${impulsePts.toFixed(1)}pt)`, { impulsePoints: impulsePts });
+  }
+
+  const window = ms.closes.slice(last - 5, last + 1);
+  const extreme = bull ? Math.max(...window) : Math.min(...window);
+  const retracePts = bull ? (extreme - ms.spot) : (ms.spot - extreme);
+  const nearEma = Math.abs(ms.spot - ms.ema9) <= Math.max(3, Math.abs(ms.spot - ms.ema21) * 0.35)
+    || Math.abs(ms.spot - ms.ema21) <= Math.max(4, ms.atr || 3);
+  const lastMove = ms.closes[last] - ms.closes[last - 1];
+  const rsiNow = ms.rsi && ms.rsi[last];
+  const sellMomentumFade = bull ? (Number.isFinite(rsiNow) ? rsiNow > 40 : lastMove >= 0) : (Number.isFinite(rsiNow) ? rsiNow < 60 : lastMove <= 0);
+  const confirm = bull ? lastMove > 0.5 : lastMove < -0.5;
+
+  if (retracePts >= 2 && nearEma && confirm && sellMomentumFade) {
+    return mkSetup(FNO_TSE_SETUP_TYPES.EMA_PULLBACK, direction, FNO_TSE_SETUP_STATE.CONFIRMED, 88,
+      `Trend→impulse→pullback→EMA zone→confirmation (${retracePts.toFixed(1)}pt retrace)`,
+      { impulsePoints: impulsePts, retracePoints: retracePts });
+  }
+  if (retracePts >= 2 && nearEma) {
+    return mkSetup(FNO_TSE_SETUP_TYPES.EMA_PULLBACK, direction, FNO_TSE_SETUP_STATE.WAITING_FOR_CONFIRMATION, 72,
+      `Pullback to EMA zone — awaiting continuation candle`, { impulsePoints: impulsePts, retracePoints: retracePts });
+  }
+  if (impulsePts >= cfg.minImpulsePts) {
+    return mkSetup(FNO_TSE_SETUP_TYPES.EMA_PULLBACK, direction, FNO_TSE_SETUP_STATE.DETECTED, 58,
+      `Impulse ${impulsePts.toFixed(1)}pt — waiting for pullback`, { impulsePoints: impulsePts });
+  }
+  return null;
+}
+
+function detectBreakoutRetestSetup(ms, direction) {
+  if (!ms.valid || ms.rangeHigh == null || ms.rangeLow == null) return null;
+  const bull = direction === 'bullish';
+  const level = bull ? ms.rangeHigh : ms.rangeLow;
+  const last = ms.last;
+  const prev = ms.closes[last - 1];
+  const broke = bull ? (prev <= level && ms.spot > level) : (prev >= level && ms.spot < level);
+  const heldOutside = bull ? ms.spot > level : ms.spot < level;
+  const retesting = bull ? (ms.spot <= level + (ms.atr || 5) && ms.spot >= level - (ms.atr || 3)) : (ms.spot >= level - (ms.atr || 5) && ms.spot <= level + (ms.atr || 3));
+  const failed = bull ? ms.spot < level : ms.spot > level;
+  const lastMove = ms.closes[last] - ms.closes[last - 1];
+
+  if (failed && (bull ? prev > level : prev < level)) {
+    return mkSetup(FNO_TSE_SETUP_TYPES.FAILED_BREAKOUT, direction === 'bullish' ? 'bearish' : 'bullish',
+      FNO_TSE_SETUP_STATE.CONFIRMED, 70, 'Breakout failed — price back inside level', { level });
+  }
+  if (heldOutside && retesting && (bull ? lastMove > 0.3 : lastMove < -0.3)) {
+    return mkSetup(FNO_TSE_SETUP_TYPES.BREAKOUT_RETEST, direction, FNO_TSE_SETUP_STATE.CONFIRMED, 80,
+      `Breakout retest held at ${level.toFixed(0)} with momentum`, { level });
+  }
+  if (broke || heldOutside) {
+    return mkSetup(FNO_TSE_SETUP_TYPES.BREAKOUT_RETEST, direction, FNO_TSE_SETUP_STATE.WAITING_FOR_CONFIRMATION, 65,
+      'Breakout seen — waiting for retest hold (no chase)', { level });
+  }
+  return null;
+}
+
+function detectStructureContinuationSetup(ms, direction) {
+  if (!ms.valid || ms.last < 12) return null;
+  const seg = ms.closes.slice(ms.last - 11, ms.last + 1);
+  const bull = direction === 'bullish';
+  const thirds = [seg.slice(0, 4), seg.slice(4, 8), seg.slice(8)];
+  const highs = thirds.map(t => Math.max(...t));
+  const lows = thirds.map(t => Math.min(...t));
+  let structureOk = false;
+  if (bull) structureOk = highs[1] > highs[0] && highs[2] > highs[1] && lows[1] > lows[0] && lows[2] > lows[1];
+  else structureOk = highs[1] < highs[0] && highs[2] < highs[1] && lows[1] < lows[0] && lows[2] < lows[1];
+  if (!structureOk) return null;
+  const pullBack = bull ? (highs[2] - ms.spot) : (ms.spot - lows[2]);
+  const lastMove = ms.closes[ms.last] - ms.closes[ms.last - 1];
+  const breaking = bull ? (ms.spot >= highs[2] - 1 && lastMove > 0.5) : (ms.spot <= lows[2] + 1 && lastMove < -0.5);
+  if (breaking) {
+    return mkSetup(FNO_TSE_SETUP_TYPES.STRUCTURE_CONTINUATION, direction, FNO_TSE_SETUP_STATE.CONFIRMED, 82,
+      `${bull ? 'HH/HL' : 'LL/LH'} structure — continuation break`, { pullBack });
+  }
+  if (pullBack >= 3) {
+    return mkSetup(FNO_TSE_SETUP_TYPES.STRUCTURE_CONTINUATION, direction, FNO_TSE_SETUP_STATE.WAITING_FOR_CONFIRMATION, 68,
+      'Structure intact — pullback completing', { pullBack });
+  }
+  return mkSetup(FNO_TSE_SETUP_TYPES.STRUCTURE_CONTINUATION, direction, FNO_TSE_SETUP_STATE.DETECTED, 55,
+    'Structure forming', {});
+}
+
+function detectVwapSetup(ms, direction) {
+  if (!ms.valid || !Number.isFinite(ms.vwap)) return null;
+  const bull = direction === 'bullish';
+  const last = ms.last;
+  const prev = ms.closes[last - 1];
+  const wasBelow = prev < ms.vwap;
+  const wasAbove = prev > ms.vwap;
+  const lastMove = ms.closes[last] - ms.closes[last - 1];
+  if (bull && wasBelow && ms.spot > ms.vwap && Math.abs(ms.spot - ms.vwap) <= (ms.atr || 4) && lastMove > 0.4) {
+    return mkSetup(FNO_TSE_SETUP_TYPES.VWAP_RECLAIM, 'bullish', FNO_TSE_SETUP_STATE.CONFIRMED, 75,
+      'Reclaimed VWAP with hold + bullish momentum', {});
+  }
+  if (!bull && wasAbove && ms.spot < ms.vwap && Math.abs(ms.spot - ms.vwap) <= (ms.atr || 4) && lastMove < -0.4) {
+    return mkSetup(FNO_TSE_SETUP_TYPES.VWAP_RECLAIM, 'bearish', FNO_TSE_SETUP_STATE.CONFIRMED, 75,
+      'Rejected VWAP with bearish momentum', {});
+  }
+  if (bull && ms.spot < ms.vwap && ms.spot > ms.vwap - (ms.atr || 6)) {
+    return mkSetup(FNO_TSE_SETUP_TYPES.VWAP_RECLAIM, 'bullish', FNO_TSE_SETUP_STATE.WAITING_FOR_CONFIRMATION, 60,
+      'Below VWAP — waiting reclaim confirmation', {});
+  }
+  if (!bull && ms.spot > ms.vwap && ms.spot < ms.vwap + (ms.atr || 6)) {
+    return mkSetup(FNO_TSE_SETUP_TYPES.VWAP_RECLAIM, 'bearish', FNO_TSE_SETUP_STATE.WAITING_FOR_CONFIRMATION, 60,
+      'Above VWAP — waiting rejection confirmation', {});
+  }
+  return null;
+}
+
+function detectConsolidationBreakoutSetup(ms, direction) {
+  if (!ms.valid) return null;
+  const win = ms.closes.slice(Math.max(0, ms.last - 14), ms.last + 1);
+  const range = Math.max(...win) - Math.min(...win);
+  const compressed = ms.atr && range < ms.atr * 4;
+  const emaCompressed = Number.isFinite(ms.emaSpreadPct) && Math.abs(ms.emaSpreadPct) < 0.05;
+  if (!compressed && !emaCompressed) return null;
+  const bull = direction === 'bullish';
+  const hi = Math.max(...win);
+  const lo = Math.min(...win);
+  const lastMove = ms.closes[ms.last] - ms.closes[ms.last - 1];
+  const broke = bull ? ms.spot > hi && lastMove > 0.5 : ms.spot < lo && lastMove < -0.5;
+  if (broke) {
+    return mkSetup(FNO_TSE_SETUP_TYPES.CONSOLIDATION_BREAKOUT, direction, FNO_TSE_SETUP_STATE.CONFIRMED, 78,
+      'Consolidation break with momentum expansion', { rangeWidth: range });
+  }
+  if (compressed) {
+    return mkSetup(FNO_TSE_SETUP_TYPES.CONSOLIDATION_BREAKOUT, direction, FNO_TSE_SETUP_STATE.WAITING_FOR_CONFIRMATION, 55,
+      'Inside consolidation — no trade until break', { rangeWidth: range });
+  }
+  return null;
+}
+
+function detectEmaCompressionSetup(ms, direction) {
+  if (!ms.valid || !Number.isFinite(ms.emaSpreadPct)) return null;
+  const compressed = Math.abs(ms.emaSpreadPct) < 0.04;
+  const expanding = Math.abs(ms.emaSpreadPct) > 0.08;
+  const bull = direction === 'bullish';
+  const aligned = bull ? ms.ema9 > ms.ema21 : ms.ema9 < ms.ema21;
+  const lastMove = ms.closes[ms.last] - ms.closes[ms.last - 1];
+  if (expanding && aligned && (bull ? lastMove > 0.5 : lastMove < -0.5)) {
+    return mkSetup(FNO_TSE_SETUP_TYPES.EMA_COMPRESSION, direction, FNO_TSE_SETUP_STATE.CONFIRMED, 76,
+      'EMA compression released with directional expansion', { emaSpreadPct: ms.emaSpreadPct });
+  }
+  if (compressed) {
+    return mkSetup(FNO_TSE_SETUP_TYPES.EMA_COMPRESSION, direction, FNO_TSE_SETUP_STATE.WAITING_FOR_CONFIRMATION, 50,
+      'EMA compression — awaiting expansion', { emaSpreadPct: ms.emaSpreadPct });
+  }
+  return null;
+}
+
+function detectMomentumExpansionSetup(ms, direction) {
+  const movement = classifyMovement(ms);
+  if (movement.movementClass === 'INSUFFICIENT') return null;
+  const bull = direction === 'bullish';
+  const aligned = bull ? ms.ema9 > ms.ema21 : ms.ema9 < ms.ema21;
+  if (!aligned) return null;
+  const state = movement.movementClass === 'FAST' ? FNO_TSE_SETUP_STATE.CONFIRMED : FNO_TSE_SETUP_STATE.WAITING_FOR_CONFIRMATION;
+  return mkSetup(FNO_TSE_SETUP_TYPES.MOMENTUM_EXPANSION, direction, state, movement.compositeScore,
+    `Momentum expansion ${movement.movementClass}`, { movementClass: movement.movementClass });
+}
+
+function findAllSetups(ms) {
+  const setups = [];
+  ['bullish', 'bearish'].forEach(direction => {
+    [
+      detectEmaPullbackSetup,
+      detectBreakoutRetestSetup,
+      detectStructureContinuationSetup,
+      detectVwapSetup,
+      detectConsolidationBreakoutSetup,
+      detectEmaCompressionSetup,
+      detectMomentumExpansionSetup,
+    ].forEach(fn => {
+      const s = fn(ms, direction);
+      if (s) setups.push(s);
+    });
+  });
+  return setups.sort((a, b) => b.score - a.score);
+}
+
+function invalidateSetup(setup, ms) {
+  if (!setup || !ms.valid) return setup;
+  const bull = setup.direction === 'bullish';
+  if (setup.type === FNO_TSE_SETUP_TYPES.EMA_PULLBACK) {
+    if (bull && (ms.ema9 <= ms.ema21 || ms.spot < ms.sessionLow + (ms.atr || 5))) {
+      setup.state = FNO_TSE_SETUP_STATE.INVALIDATED;
+      setup.reason = 'Bullish structure or EMA relationship invalidated';
+    }
+    if (!bull && (ms.ema9 >= ms.ema21 || ms.spot > ms.sessionHigh - (ms.atr || 5))) {
+      setup.state = FNO_TSE_SETUP_STATE.INVALIDATED;
+      setup.reason = 'Bearish structure or EMA relationship invalidated';
+    }
+  }
+  if (setup.type === FNO_TSE_SETUP_TYPES.BREAKOUT_RETEST && setup.level != null) {
+    const failed = bull ? ms.spot < setup.level : ms.spot > setup.level;
+    if (failed) {
+      setup.state = FNO_TSE_SETUP_STATE.INVALIDATED;
+      setup.reason = 'Breakout level failed — price back inside';
+    }
+  }
+  if (setup.type === FNO_TSE_SETUP_TYPES.STRUCTURE_CONTINUATION) {
+    if (bull && ms.ema9 <= ms.ema21) {
+      setup.state = FNO_TSE_SETUP_STATE.INVALIDATED;
+      setup.reason = 'Structure trend invalidated';
+    }
+    if (!bull && ms.ema9 >= ms.ema21) {
+      setup.state = FNO_TSE_SETUP_STATE.INVALIDATED;
+      setup.reason = 'Structure trend invalidated';
+    }
+  }
+  if (setup.type === FNO_TSE_SETUP_TYPES.VWAP_RECLAIM && Number.isFinite(ms.vwap)) {
+    if (bull && ms.spot < ms.vwap - (ms.atr || 6)) {
+      setup.state = FNO_TSE_SETUP_STATE.INVALIDATED;
+      setup.reason = 'Lost VWAP support after reclaim attempt';
+    }
+    if (!bull && ms.spot > ms.vwap + (ms.atr || 6)) {
+      setup.state = FNO_TSE_SETUP_STATE.INVALIDATED;
+      setup.reason = 'Rejected VWAP rejection — back above VWAP';
+    }
+  }
+  return setup;
+}
+
+function getTseSetupWaitState() {
+  try { return JSON.parse(localStorage.getItem(FNO_TSE_STATE_KEY) || '{}'); } catch (e) { return {}; }
+}
+
+function saveTseSetupWaitState(state) {
+  try { localStorage.setItem(FNO_TSE_STATE_KEY, JSON.stringify(state)); } catch (e) { /* quota */ }
+}
+
+function applySetupExpiration(setups, ms) {
+  const cfg = getTradeSetupSettings();
+  const state = getTseSetupWaitState();
+  const candleIdx = ms.last;
+  setups.forEach(setup => {
+    if (setup.state !== FNO_TSE_SETUP_STATE.WAITING_FOR_CONFIRMATION
+      && setup.state !== FNO_TSE_SETUP_STATE.DETECTED) return;
+    const key = setup.type + '_' + setup.direction;
+    if (!state[key]) state[key] = { firstCandle: candleIdx, ts: Date.now() };
+    const waited = candleIdx - state[key].firstCandle;
+    if (waited >= cfg.confirmMaxCandles) {
+      setup.state = FNO_TSE_SETUP_STATE.EXPIRED;
+      setup.reason = `Setup expired after ${waited} candles (max ${cfg.confirmMaxCandles})`;
+      delete state[key];
+    }
+  });
+  Object.keys(state).forEach(k => {
+    if (!setups.some(s => (s.type + '_' + s.direction) === k
+      && (s.state === FNO_TSE_SETUP_STATE.WAITING_FOR_CONFIRMATION || s.state === FNO_TSE_SETUP_STATE.DETECTED))) {
+      delete state[k];
+    }
+  });
+  saveTseSetupWaitState(state);
+  return setups;
+}
+
+function calculateSetupScore(setup, ms, targetInfo, riskReward) {
+  const movement = classifyMovement(ms);
+  const trend = Math.min(20, Math.round((movement.metrics.trendStrengthScore / 100) * 20));
+  const momentum = Math.min(20, Math.round((movement.metrics.momentumScore / 100) * 20));
+  const volatility = Math.min(20, Math.round((movement.metrics.volatilityScore / 100) * 20));
+  const structure = setup.type === FNO_TSE_SETUP_TYPES.STRUCTURE_CONTINUATION ? 18 : setup.type === FNO_TSE_SETUP_TYPES.EMA_PULLBACK ? 17 : 14;
+  const setupQuality = Math.min(20, Math.round((setup.score || 50) / 100 * 20));
+  const targetFeas = targetInfo && targetInfo.feasible ? (targetInfo.target_confidence >= 0.8 ? 10 : 7) : 0;
+  const rr = riskReward >= 2 ? 10 : riskReward >= 1.5 ? 8 : riskReward >= 1 ? 5 : 0;
+  const location = headroomPoints(ms, setup.direction) >= (targetInfo.target_points || 10) ? 10 : 4;
+  const raw = trend + momentum + volatility + structure + setupQuality + targetFeas + rr + location;
+  return {
+    trend, momentum, volatility, structure, setupQuality, targetFeasibility: targetFeas, riskReward: rr, location,
+    total: raw, normalized: Math.min(100, Math.round((raw / 130) * 100)),
+  };
+}
+
+function evaluateHardBlocks(ms, setup, targetInfo, brain, ctx, opts) {
+  opts = opts || {};
+  const blockers = [];
+  if (!ms.valid) return blockers;
+  if (ms.choppy) blockers.push('Market classified as choppy/range-bound');
+  if (!setup) blockers.push('No valid setup');
+  else if (setup.state === FNO_TSE_SETUP_STATE.INVALIDATED) blockers.push('Setup invalidated: ' + setup.reason);
+  else if (setup.state === FNO_TSE_SETUP_STATE.EXPIRED) blockers.push('Setup expired: ' + setup.reason);
+  else if (setup.state !== FNO_TSE_SETUP_STATE.CONFIRMED) blockers.push('Setup not confirmed (' + setup.state + ')');
+  if (!targetInfo || !targetInfo.feasible || !targetInfo.target_points) blockers.push(targetInfo ? targetInfo.reason : 'No feasible target');
+  const movement = classifyMovement(ms);
+  if (movement.movementClass === 'INSUFFICIENT') blockers.push(movement.reason);
+  if (typeof checkScalpingCapitalPreservation === 'function' && brain && (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY')) {
+    const journalToday = (opts.journalToday) || (ctx && ctx.journalToday) || [];
+    const cp = checkScalpingCapitalPreservation(brain, ctx || ms.ctx || {}, { journalToday });
+    if (!cp.allowed) blockers.push(cp.reason);
+  }
+  return blockers;
+}
+
+function evaluateTradeEligibility(ctx, brain, opts) {
+  opts = opts || {};
+  if (!isTradeSetupEngineActive()) {
+    return { action: 'ALLOW', reason: 'Trade Setup Engine disabled', bypass: true };
+  }
+  const ms = buildMarketState(ctx, brain);
+  if (!ms.valid) {
+    return {
+      action: 'BYPASS', bypass: true,
+      reason: 'Insufficient candles — TSE skipped (unavailable data not scored as block)',
+      blockers: [], setups: [], movement: classifyMovement(ms),
+      factorDataAvailability: {
+        unavailableInputs: ['candles'],
+        usedLayers: [],
+        missingDataImpact: 'high',
+        decisionAffectedByMissingData: true,
+        summary: 'TSE bypassed — candle data unavailable, not auto-failed',
+      },
+    };
+  }
+
+  const brainDir = brain && brain.decision === 'BUY_READY' ? 'bullish' : brain && brain.decision === 'SELL_READY' ? 'bearish' : null;
+  const setups = applySetupExpiration(findAllSetups(ms).map(s => invalidateSetup(s, ms)), ms);
+  const confirmed = setups.filter(s => s.state === FNO_TSE_SETUP_STATE.CONFIRMED);
+  const waiting = setups.filter(s => s.state === FNO_TSE_SETUP_STATE.WAITING_FOR_CONFIRMATION);
+
+  let best = null;
+  if (brainDir) {
+    best = confirmed.find(s => s.direction === brainDir) || waiting.find(s => s.direction === brainDir) || setups.find(s => s.direction === brainDir);
+  } else {
+    best = confirmed[0] || waiting[0] || setups[0];
+  }
+
+  if (!best) {
+    return { action: 'BLOCK', reason: 'NO VALID SETUP — no trade', engineDecision: FNO_TSE_DECISION.NO_SETUP, setups, movement: classifyMovement(ms) };
+  }
+  if (best.state === FNO_TSE_SETUP_STATE.WAITING_FOR_CONFIRMATION) {
+    return { action: 'WAIT', reason: best.reason, setup: best, engineDecision: FNO_TSE_DECISION.SETUP_WAITING, setups, movement: classifyMovement(ms) };
+  }
+  if (best.state !== FNO_TSE_SETUP_STATE.CONFIRMED) {
+    return { action: 'WAIT', reason: best.reason, setup: best, engineDecision: FNO_TSE_DECISION.SETUP_DETECTED, setups, movement: classifyMovement(ms) };
+  }
+
+  const targetInfo = determineProfitTarget(ms, best, classifyMovement(ms));
+  const stopPts = targetInfo && targetInfo.target_points ? targetInfo.target_points * 0.5 : null;
+  const rr = stopPts && targetInfo.target_points ? +(targetInfo.target_points / stopPts).toFixed(2) : 0;
+  const scores = calculateSetupScore(best, ms, targetInfo, rr);
+  const cfg = getTradeSetupSettings();
+  const blockers = evaluateHardBlocks(ms, best, targetInfo, brain, ctx, opts);
+  if (scores.normalized < cfg.minSetupScore) blockers.push(`Setup score ${scores.normalized} below minimum ${cfg.minSetupScore}`);
+  if (rr < cfg.minRiskReward) blockers.push(`Risk/reward ${rr} below minimum ${cfg.minRiskReward}`);
+
+  if (blockers.length) {
+    return {
+      action: 'BLOCK', reason: blockers[0], blockers, setup: best, targetInfo, scores,
+      engineDecision: FNO_TSE_DECISION.TRADE_BLOCKED, setups, movement: classifyMovement(ms),
+    };
+  }
+  return {
+    action: 'ALLOW', reason: `A-grade ${best.type} with ${targetInfo.target_points}pt target`,
+    setup: best, targetInfo, scores, engineDecision: FNO_TSE_DECISION.TRADE_ALLOWED,
+    setups, movement: classifyMovement(ms),
+  };
+}
+
+function brainDecisionMatchesSetupDirection(brain, setup) {
+  if (!brain || !setup || !setup.direction) return false;
+  if (setup.direction === 'bullish') return brain.decision === 'BUY_READY';
+  if (setup.direction === 'bearish') return brain.decision === 'SELL_READY';
+  return false;
+}
+
+function computeTseEntryAllowed(engineStatus, brain, setup) {
+  if (engineStatus === 'BYPASS') {
+    return !!(brain && (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY'));
+  }
+  if (engineStatus !== FNO_TSE_DECISION.TRADE_ALLOWED || !brain || !setup) return false;
+  return brainDecisionMatchesSetupDirection(brain, setup);
+}
+
+function describeTseEntryGate(tsd, brain) {
+  brain = brain || (typeof window !== 'undefined' && window.FNO_LAST_BRAIN) || null;
+  const brainDec = (brain && brain.decision) || tsd.brainDecision || 'unknown';
+  const setupDir = tsd.setup && tsd.setup.direction;
+  const needLabel = setupDir === 'bearish' ? 'SELL_READY (buy PE)'
+    : setupDir === 'bullish' ? 'BUY_READY (buy CE)' : 'BUY_READY or SELL_READY';
+  if (tsd.entryAllowed) {
+    return { headline: 'Entry: OPEN', detail: `Brain ${brainDec} matches ${setupDir || 'setup'} direction`, tone: 'pass' };
+  }
+  if (tsd.engineStatus === FNO_TSE_DECISION.TRADE_ALLOWED) {
+    if (brainDec === 'BUY_READY' && setupDir === 'bearish') {
+      return {
+        headline: 'Setup passed — Brain direction mismatch',
+        detail: `Confirmed bearish setup (e.g. momentum_expansion) needs SELL_READY for PE; Brain is BUY_READY (CE).`,
+        tone: 'warn',
+      };
+    }
+    if (brainDec === 'SELL_READY' && setupDir === 'bullish') {
+      return {
+        headline: 'Setup passed — Brain direction mismatch',
+        detail: `Confirmed bullish setup needs BUY_READY for CE; Brain is SELL_READY (PE).`,
+        tone: 'warn',
+      };
+    }
+    return {
+      headline: 'Setup passed — waiting on Brain',
+      detail: `TSE quality gate passed (${tsd.setup ? tsd.setup.type : 'setup'}). Brain is ${brainDec}; need ${needLabel} to open.`,
+      tone: 'warn',
+    };
+  }
+  if (tsd.engineStatus === FNO_TSE_DECISION.SETUP_WAITING || tsd.decision === 'WAIT') {
+    return { headline: 'Setup not confirmed', detail: tsd.blockReason || (tsd.reasons && tsd.reasons[0]) || 'Waiting for confirmation', tone: 'warn' };
+  }
+  if (tsd.engineStatus === FNO_TSE_DECISION.TRADE_BLOCKED || tsd.blockers && tsd.blockers.length) {
+    return { headline: 'Setup blocked', detail: (tsd.blockers && tsd.blockers[0]) || tsd.blockReason || 'Hard block', tone: 'fail' };
+  }
+  return { headline: 'No trade', detail: tsd.blockReason || 'No valid setup', tone: 'muted' };
+}
+
+function makeTradeDecision(ctx, brain, opts) {
+  opts = opts || {};
+  const eligibility = evaluateTradeEligibility(ctx, brain, opts);
+  const ms = buildMarketState(ctx, brain);
+  const movement = eligibility.movement || classifyMovement(ms);
+  const cfg = getTradeSetupSettings();
+
+  let decision = 'NO_TRADE';
+  let engineStatus = eligibility.engineDecision || FNO_TSE_DECISION.NO_SETUP;
+
+  if (!isTradeSetupEngineActive()) {
+    return {
+      active: false, decision: brain ? brain.decision : 'NO_TRADE', engineStatus: 'BYPASS',
+      eligibility, movement, setups: [], blockers: [], reasons: ['Engine off'],
+    };
+  }
+
+  if (eligibility.bypass) {
+    decision = brain && (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY') ? brain.decision : 'WAIT';
+    engineStatus = 'BYPASS';
+  } else if (eligibility.action === 'ALLOW') {
+    decision = eligibility.setup.direction === 'bullish' ? 'BUY' : 'SELL';
+    engineStatus = FNO_TSE_DECISION.TRADE_ALLOWED;
+  } else if (eligibility.action === 'WAIT') {
+    decision = 'WAIT';
+    engineStatus = eligibility.engineDecision || FNO_TSE_DECISION.SETUP_WAITING;
+  } else {
+    decision = 'NO_TRADE';
+    engineStatus = FNO_TSE_DECISION.TRADE_BLOCKED;
+  }
+
+  const targetInfo = eligibility.targetInfo || determineProfitTarget(ms, eligibility.setup, movement);
+  const scores = eligibility.scores || (eligibility.setup ? calculateSetupScore(eligibility.setup, ms, targetInfo, 2) : null);
+  const regimeLabel = ms.regime ? ms.regime.label : (ms.choppy ? 'Choppy' : 'Unknown');
+
+  const setupForEntry = eligibility.setup || null;
+  const entryAllowed = computeTseEntryAllowed(engineStatus, brain, setupForEntry);
+  const gateCopy = describeTseEntryGate({
+    entryAllowed, engineStatus, setup: setupForEntry, blockReason: eligibility.action === 'BLOCK' ? eligibility.reason : (eligibility.action === 'WAIT' ? eligibility.reason : null),
+    blockers: eligibility.blockers || [], reasons: [eligibility.reason].filter(Boolean), decision,
+  }, brain);
+
+  return {
+    active: true,
+    ts: Date.now(),
+    decision,
+    engineStatus,
+    regime: regimeLabel,
+    movement,
+    movementClass: movement.movementClass,
+    movementScore: movement.compositeScore,
+    setup: setupForEntry,
+    setups: eligibility.setups || [],
+    bestSetupType: setupForEntry ? setupForEntry.type : null,
+    setupScore: scores,
+    targetInfo,
+    spotTargetPoints: targetInfo && targetInfo.target_points,
+    spotTargetPrice: targetInfo && targetInfo.target_points && Number.isFinite(ms.spot)
+      ? +(ms.spot + (setupForEntry && setupForEntry.direction === 'bullish' ? 1 : -1) * targetInfo.target_points).toFixed(2) : null,
+    targetConfidence: targetInfo ? targetInfo.target_confidence : 0,
+    blockers: eligibility.blockers || [],
+    reasons: [eligibility.reason].filter(Boolean),
+    entryAllowed,
+    brainDecision: brain ? brain.decision : null,
+    entryGateHeadline: gateCopy.headline,
+    entryGateDetail: gateCopy.detail,
+    blockReason: eligibility.action === 'BLOCK' ? eligibility.reason : (eligibility.action === 'WAIT' ? eligibility.reason : (!entryAllowed && engineStatus === FNO_TSE_DECISION.TRADE_ALLOWED ? gateCopy.detail : null)),
+    factorDataAvailability: eligibility.factorDataAvailability || null,
+    decisionAffectedByMissingData: !!(eligibility.factorDataAvailability && eligibility.factorDataAvailability.decisionAffectedByMissingData),
+    settings: cfg,
+  };
+}
+
+function convertSpotTargetToOptionBracket(optPrice, ctx, spotTargetPoints, direction) {
+  if (!Number.isFinite(optPrice) || optPrice <= 0 || !Number.isFinite(spotTargetPoints)) {
+    return { target: null, sl: null, premiumMove: null, deltaUsed: null };
+  }
+  let delta = 0.45;
+  if (ctx && ctx.decay && ctx.decay.snapshot && ctx.decay.snapshot.now && Number.isFinite(ctx.decay.snapshot.now.delta)) {
+    delta = Math.max(0.15, Math.min(0.85, Math.abs(ctx.decay.snapshot.now.delta)));
+  }
+  const premiumMove = +(delta * spotTargetPoints).toFixed(2);
+  const slMove = +(premiumMove * 0.5).toFixed(2);
+  return {
+    target: +(optPrice + premiumMove).toFixed(2),
+    sl: +(Math.max(0.05, optPrice - slMove)).toFixed(2),
+    premiumMove, deltaUsed: delta, spotTargetPoints,
+  };
+}
+
+function resolveTradeSetupBracket(optPrice, ctx, brain, tradingType, optionType) {
+  if (!isTradeSetupEngineActive()) return null;
+  const tsd = makeTradeDecision(ctx, brain, {});
+  if (!tsd.active || !tsd.spotTargetPoints || !tsd.entryAllowed) return null;
+  const dir = optionType === 'PE' ? 'bearish' : 'bullish';
+  if (tsd.setup && tsd.setup.direction !== dir) return null;
+  const bracket = convertSpotTargetToOptionBracket(optPrice, ctx, tsd.spotTargetPoints, dir);
+  if (!bracket.target || bracket.sl >= optPrice) return null;
+  return {
+    ...bracket,
+    source: 'trade_setup_' + tsd.movementClass + '_' + tsd.spotTargetPoints + 'pt',
+    tradeSetupDecision: tsd,
+    config: {
+      id: 'tse_' + tsd.spotTargetPoints + 'pt',
+      label: `TSE ${tsd.spotTargetPoints}pt (${tsd.movementClass})`,
+      autoAdjusted: true, trailingEnabled: true, partialExitEnabled: true,
+    },
+  };
+}
+
+function resolvePullbackContinuationBracket(optPrice, ctx, brain, tradingType, optionType) {
+  return resolveTradeSetupBracket(optPrice, ctx, brain, tradingType, optionType);
+}
+
+function applyTradeSetupInfluence(brain, tsd) {
+  if (!brain || !tsd || !tsd.active) return brain;
+  brain.tradeSetupDecision = tsd;
+  brain.pullbackContinuation = legacyPullbackFromTsd(tsd);
+  if (tsd.entryAllowed) return brain;
+  if (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY') {
+    brain.decision = tsd.decision === 'NO_TRADE' ? 'NO_TRADE' : 'WAIT';
+    brain.reason = (brain.reason || '') + ` [TSE: ${tsd.blockReason || (tsd.reasons && tsd.reasons[0]) || tsd.engineStatus}]`;
+    brain.tradeSetupBlocked = true;
+  }
+  return brain;
+}
+
+function applyPullbackContinuationInfluence(brain, setup) {
+  if (setup && setup.active && setup.engineStatus) return applyTradeSetupInfluence(brain, setup);
+  if (setup && setup.active) {
+    const tsd = makeTradeDecision(setup.ctx || {}, brain, {});
+    return applyTradeSetupInfluence(brain, tsd);
+  }
+  return brain;
+}
+
+function legacyPullbackFromTsd(tsd) {
+  if (!tsd || !tsd.active) return { active: false };
+  return {
+    active: true, ts: tsd.ts, direction: tsd.setup ? tsd.setup.direction : null,
+    phase: tsd.setup ? tsd.setup.state : tsd.engineStatus,
+    phaseReason: tsd.blockReason || (tsd.reasons && tsd.reasons[0]),
+    movementTier: tsd.movementClass && tsd.movementClass.toLowerCase(),
+    spotTargetPoints: tsd.spotTargetPoints,
+    spotTargetPrice: tsd.spotTargetPrice,
+    selectionReason: tsd.targetInfo ? tsd.targetInfo.reason : null,
+    feasibility: { feasible: !!(tsd.targetInfo && tsd.targetInfo.feasible), reason: tsd.targetInfo ? tsd.targetInfo.reason : '' },
+    entryAllowed: tsd.entryAllowed,
+    blockReason: tsd.blockReason,
+    classification: tsd.movement,
+    factorBreakdown: tsd.movement && tsd.movement.metrics ? {
+      velocity: tsd.movement.metrics.velocityScore,
+      momentum: tsd.movement.metrics.momentumScore,
+      trendStrength: tsd.movement.metrics.trendStrengthScore,
+      candleStructure: tsd.movement.metrics.candleStructureScore,
+      volatility: tsd.movement.metrics.volatilityScore,
+    } : {},
+  };
+}
+
+function computePullbackContinuationSetup(ctx, brain, opts) {
+  const tsd = makeTradeDecision(ctx, brain, opts);
+  return legacyPullbackFromTsd(tsd);
+}
+
+function checkTradeSetupEntryGate(brain, ctx, optionType) {
+  if (!isTradeSetupEngineActive()) return { allowed: true };
+  const tsd = (brain && brain.tradeSetupDecision) ? brain.tradeSetupDecision : makeTradeDecision(ctx, brain, {});
+  if (!tsd.active) return { allowed: true };
+  if (tsd.engineStatus === 'BYPASS') return { allowed: true, tsd, bypass: true };
+  const dir = optionType === 'PE' ? 'bearish' : 'bullish';
+  if (tsd.entryAllowed && tsd.setup && tsd.setup.direction === dir) return { allowed: true, tsd };
+  const reason = tsd.entryGateDetail
+    || tsd.blockReason
+    || (tsd.reasons && tsd.reasons[0])
+    || tsd.engineStatus;
+  return { allowed: false, reason: `Trade Setup Engine: ${reason}`, tsd };
+}
+
+function checkPullbackContinuationEntryGate(brain, ctx, optionType) {
+  return checkTradeSetupEntryGate(brain, ctx, optionType);
+}
+
+function logTradeSetupDecision(tsd, sym, brain, outcome) {
+  if (!tsd || !tsd.active) return;
+  try {
+    const stopPts = tsd.spotTargetPoints ? tsd.spotTargetPoints * 0.5 : null;
+    const rr = stopPts && tsd.spotTargetPoints ? +(tsd.spotTargetPoints / stopPts).toFixed(2) : null;
+    const log = JSON.parse(localStorage.getItem(FNO_TSE_LOG_KEY) || '[]');
+    log.push({
+      ts: tsd.ts, sym, instrument: sym,
+      direction: tsd.setup ? tsd.setup.direction : null,
+      decision: tsd.decision, engineStatus: tsd.engineStatus,
+      regime: tsd.regime, setupType: tsd.bestSetupType,
+      movementClass: tsd.movementClass, movementScore: tsd.movementScore,
+      trendScore: tsd.setupScore ? tsd.setupScore.trend : null,
+      momentumScore: tsd.setupScore ? tsd.setupScore.momentum : null,
+      volatilityScore: tsd.setupScore ? tsd.setupScore.volatility : null,
+      structureScore: tsd.setupScore ? tsd.setupScore.structure : null,
+      setupScore: tsd.setupScore, targetPoints: tsd.spotTargetPoints,
+      stopLossPoints: stopPts,
+      spotTargetPrice: tsd.spotTargetPrice,
+      entryPrice: tsd.spotTargetPrice && tsd.spotTargetPoints
+        ? +(tsd.spotTargetPrice - (tsd.setup && tsd.setup.direction === 'bullish' ? 1 : -1) * tsd.spotTargetPoints).toFixed(2) : null,
+      riskReward: rr,
+      targetFeasibility: tsd.targetInfo, targetConfidence: tsd.targetConfidence,
+      brainDecision: brain ? brain.decision : null,
+      blockers: tsd.blockers, reasons: tsd.reasons, entryAllowed: tsd.entryAllowed,
+      blockingReasons: tsd.blockers,
+      outcome: outcome || null,
+    });
+    while (log.length > FNO_TSE_LOG_MAX) log.shift();
+    localStorage.setItem(FNO_TSE_LOG_KEY, JSON.stringify(log));
+  } catch (e) { /* quota */ }
+}
+
+function logPullbackContinuationObservation(setup, sym, brain) {
+  logTradeSetupDecision(setup && setup.engineStatus ? setup : legacyPullbackFromTsd(setup), sym, brain);
+}
+
+function getTradeSetupDecisionLog() {
+  try { return JSON.parse(localStorage.getItem(FNO_TSE_LOG_KEY) || '[]'); } catch (e) { return []; }
+}
+
+function computeSetupPerformanceStats(log) {
+  log = log || getTradeSetupDecisionLog();
+  const bySetup = {};
+  const byMovement = { FAST: { n: 0, wins: 0, pnl: 0, losses: 0 }, MEDIUM: { n: 0, wins: 0, pnl: 0, losses: 0 }, SLOW: { n: 0, wins: 0, pnl: 0, losses: 0 } };
+  const byDirection = { bullish: { n: 0, wins: 0, pnl: 0 }, bearish: { n: 0, wins: 0, pnl: 0 } };
+  const byRegime = {};
+  const targetSuccess = { t10: { n: 0, hit: 0, pnl: 0 }, t15: { n: 0, hit: 0, pnl: 0 }, t20: { n: 0, hit: 0, pnl: 0 } };
+  let totalPnl = 0, grossWins = 0, grossLosses = 0, winCount = 0, lossCount = 0;
+  const equityCurve = [];
+  let peak = 0, maxDrawdown = 0, runningPnl = 0;
+  const completed = log.filter(e => e.outcome && typeof e.outcome.pnl === 'number').sort((a, b) => (a.ts || 0) - (b.ts || 0));
+
+  completed.forEach(e => {
+    const k = e.setupType || 'unknown';
+    if (!bySetup[k]) bySetup[k] = {
+      trades: 0, wins: 0, losses: 0, pnl: 0, winPnl: 0, lossPnl: 0,
+      target10: 0, target15: 0, target20: 0, target10Hit: 0, target15Hit: 0, target20Hit: 0,
+      mfeSum: 0, maeSum: 0, holdMsSum: 0,
+    };
+    const b = bySetup[k];
+    b.trades++;
+    if (e.outcome.pnl > 0) { b.wins++; b.winPnl += e.outcome.pnl; winCount++; grossWins += e.outcome.pnl; }
+    else { b.losses++; b.lossPnl += Math.abs(e.outcome.pnl); lossCount++; grossLosses += Math.abs(e.outcome.pnl); }
+    b.pnl += e.outcome.pnl;
+    totalPnl += e.outcome.pnl;
+    runningPnl += e.outcome.pnl;
+    peak = Math.max(peak, runningPnl);
+    maxDrawdown = Math.max(maxDrawdown, peak - runningPnl);
+    equityCurve.push({ ts: e.ts, pnl: runningPnl });
+    if (e.targetPoints === 10) { b.target10++; targetSuccess.t10.n++; targetSuccess.t10.pnl += e.outcome.pnl; if (e.outcome.reachedTarget) { b.target10Hit++; targetSuccess.t10.hit++; } }
+    if (e.targetPoints === 15) { b.target15++; targetSuccess.t15.n++; targetSuccess.t15.pnl += e.outcome.pnl; if (e.outcome.reachedTarget) { b.target15Hit++; targetSuccess.t15.hit++; } }
+    if (e.targetPoints === 20) { b.target20++; targetSuccess.t20.n++; targetSuccess.t20.pnl += e.outcome.pnl; if (e.outcome.reachedTarget) { b.target20Hit++; targetSuccess.t20.hit++; } }
+    if (typeof e.outcome.mfe === 'number') b.mfeSum += e.outcome.mfe;
+    if (typeof e.outcome.mae === 'number') b.maeSum += e.outcome.pnl < 0 ? e.outcome.mae : e.outcome.mae;
+    if (typeof e.outcome.holdingMs === 'number') b.holdMsSum += e.outcome.holdingMs;
+    const mc = e.movementClass || 'SLOW';
+    if (byMovement[mc]) { byMovement[mc].n++; byMovement[mc].pnl += e.outcome.pnl; if (e.outcome.pnl > 0) byMovement[mc].wins++; else byMovement[mc].losses++; }
+    const dir = e.direction || 'bullish';
+    if (byDirection[dir]) { byDirection[dir].n++; byDirection[dir].pnl += e.outcome.pnl; if (e.outcome.pnl > 0) byDirection[dir].wins++; }
+    const reg = e.regime || 'Unknown';
+    if (!byRegime[reg]) byRegime[reg] = { n: 0, wins: 0, pnl: 0 };
+    byRegime[reg].n++;
+    byRegime[reg].pnl += e.outcome.pnl;
+    if (e.outcome.pnl > 0) byRegime[reg].wins++;
+  });
+
+  Object.keys(bySetup).forEach(k => {
+    const b = bySetup[k];
+    b.winRate = b.trades ? +((b.wins / b.trades) * 100).toFixed(1) : null;
+    b.expectancy = b.trades ? +(b.pnl / b.trades).toFixed(2) : null;
+    b.avgWin = b.wins ? +(b.winPnl / b.wins).toFixed(2) : null;
+    b.avgLoss = b.losses ? +(b.lossPnl / b.losses).toFixed(2) : null;
+    b.profitFactor = b.lossPnl > 0 ? +((b.winPnl / b.lossPnl).toFixed(2)) : null;
+    b.avgMfe = b.trades && b.mfeSum ? +(b.mfeSum / b.trades).toFixed(2) : null;
+    b.avgMae = b.trades && b.maeSum ? +(b.maeSum / b.trades).toFixed(2) : null;
+    b.avgTimeToTargetMs = b.trades && b.holdMsSum ? Math.round(b.holdMsSum / b.trades) : null;
+    b.target10Success = b.target10 ? +((b.target10Hit / b.target10) * 100).toFixed(1) : null;
+    b.target15Success = b.target15 ? +((b.target15Hit / b.target15) * 100).toFixed(1) : null;
+    b.target20Success = b.target20 ? +((b.target20Hit / b.target20) * 100).toFixed(1) : null;
+    b.sampleSufficient = b.trades >= FNO_TSE_MIN_SAMPLE_FOR_STATS;
+  });
+
+  ['t10', 't15', 't20'].forEach(k => {
+    const t = targetSuccess[k];
+    t.successRate = t.n ? +((t.hit / t.n) * 100).toFixed(1) : null;
+    t.expectancy = t.n ? +(t.pnl / t.n).toFixed(2) : null;
+  });
+
+  Object.keys(byMovement).forEach(k => {
+    const m = byMovement[k];
+    m.winRate = m.n ? +((m.wins / m.n) * 100).toFixed(1) : null;
+    m.expectancy = m.n ? +(m.pnl / m.n).toFixed(2) : null;
+  });
+
+  return {
+    bySetup, byMovement, byDirection, byRegime, targetSuccess, totalLogged: log.length,
+    completedTrades: completed.length,
+    overall: {
+      trades: winCount + lossCount,
+      winRate: (winCount + lossCount) ? +((winCount / (winCount + lossCount)) * 100).toFixed(1) : null,
+      expectancy: (winCount + lossCount) ? +(totalPnl / (winCount + lossCount)).toFixed(2) : null,
+      profitFactor: grossLosses > 0 ? +((grossWins / grossLosses).toFixed(2)) : null,
+      maxDrawdown: +(maxDrawdown.toFixed(2)),
+      avgWin: winCount ? +(grossWins / winCount).toFixed(2) : null,
+      avgLoss: lossCount ? +(grossLosses / lossCount).toFixed(2) : null,
+      totalPnl: +(totalPnl.toFixed(2)),
+    },
+    sampleWarning: (winCount + lossCount) < FNO_TSE_MIN_SAMPLE_FOR_STATS
+      ? `Only ${winCount + lossCount} completed trades — need ${FNO_TSE_MIN_SAMPLE_FOR_STATS}+ for reliable stats`
+      : null,
+  };
+}
+
+function computeTargetExpectancyAnalysis(log) {
+  log = log || getTradeSetupDecisionLog();
+  const completed = log.filter(e => e.outcome && typeof e.outcome.pnl === 'number').sort((a, b) => (a.ts || 0) - (b.ts || 0));
+  const splitIdx = Math.floor(completed.length * FNO_TSE_TRAIN_SPLIT);
+  const train = completed.slice(0, splitIdx || completed.length);
+  const validation = splitIdx > 0 ? completed.slice(splitIdx) : [];
+
+  function analyzeSubset(entries, label) {
+    const byTarget = { 10: { n: 0, wins: 0, pnl: 0, hit: 0 }, 15: { n: 0, wins: 0, pnl: 0, hit: 0 }, 20: { n: 0, wins: 0, pnl: 0, hit: 0 } };
+    entries.forEach(e => {
+      const tp = e.targetPoints;
+      if (!byTarget[tp]) return;
+      byTarget[tp].n++;
+      byTarget[tp].pnl += e.outcome.pnl;
+      if (e.outcome.pnl > 0) byTarget[tp].wins++;
+      if (e.outcome.reachedTarget) byTarget[tp].hit++;
+    });
+    [10, 15, 20].forEach(tp => {
+      const b = byTarget[tp];
+      b.winRate = b.n ? +((b.wins / b.n) * 100).toFixed(1) : null;
+      b.expectancy = b.n ? +(b.pnl / b.n).toFixed(2) : null;
+      b.targetHitRate = b.n ? +((b.hit / b.n) * 100).toFixed(1) : null;
+      b.sampleSufficient = b.n >= FNO_TSE_MIN_SAMPLE_FOR_STATS;
+    });
+    let bestTarget = null, bestExpectancy = -Infinity;
+    [10, 15, 20].forEach(tp => {
+      if (byTarget[tp].n >= 3 && byTarget[tp].expectancy != null && byTarget[tp].expectancy > bestExpectancy) {
+        bestExpectancy = byTarget[tp].expectancy;
+        bestTarget = tp;
+      }
+    });
+    return { label, byTarget, bestTarget, bestExpectancy: bestTarget ? bestExpectancy : null, sampleSize: entries.length };
+  }
+
+  const trainAnalysis = analyzeSubset(train, 'train');
+  const validationAnalysis = analyzeSubset(validation, 'validation');
+  const fullAnalysis = analyzeSubset(completed, 'full');
+
+  const byMovementTarget = {};
+  ['FAST', 'MEDIUM', 'SLOW'].forEach(mc => {
+    byMovementTarget[mc] = { 10: { n: 0, pnl: 0 }, 15: { n: 0, pnl: 0 }, 20: { n: 0, pnl: 0 } };
+    completed.filter(e => (e.movementClass || 'SLOW') === mc).forEach(e => {
+      const tp = e.targetPoints;
+      if (byMovementTarget[mc][tp]) { byMovementTarget[mc][tp].n++; byMovementTarget[mc][tp].pnl += e.outcome.pnl; }
+    });
+    [10, 15, 20].forEach(tp => {
+      const b = byMovementTarget[mc][tp];
+      b.expectancy = b.n ? +(b.pnl / b.n).toFixed(2) : null;
+    });
+    let best = null, bestExp = -Infinity;
+    [10, 15, 20].forEach(tp => {
+      if (byMovementTarget[mc][tp].n >= 2 && byMovementTarget[mc][tp].expectancy > bestExp) {
+        bestExp = byMovementTarget[mc][tp].expectancy;
+        best = tp;
+      }
+    });
+    byMovementTarget[mc].recommendedTarget = best;
+    byMovementTarget[mc].recommendedExpectancy = best != null ? bestExp : null;
+  });
+
+  let overfitWarning = null;
+  if (trainAnalysis.bestTarget && validationAnalysis.bestTarget && trainAnalysis.bestTarget !== validationAnalysis.bestTarget
+    && validation.length >= 5) {
+    overfitWarning = `Train favours ${trainAnalysis.bestTarget}pt but validation favours ${validationAnalysis.bestTarget}pt — possible overfit`;
+  }
+
+  return {
+    full: fullAnalysis,
+    train: trainAnalysis,
+    validation: validationAnalysis,
+    byMovementTarget,
+    overfitWarning,
+    recommendation: {
+      overall: fullAnalysis.bestTarget,
+      FAST: byMovementTarget.FAST.recommendedTarget || 20,
+      MEDIUM: byMovementTarget.MEDIUM.recommendedTarget || 15,
+      SLOW: byMovementTarget.SLOW.recommendedTarget || 10,
+    },
+  };
+}
+
+function getPaperValidationLog() {
+  try { return JSON.parse(localStorage.getItem(FNO_TSE_VALIDATION_KEY) || '[]'); } catch (e) { return []; }
+}
+
+function recordPaperValidationSignal(tsd, sym, brain, tradeId) {
+  if (!tsd || !tsd.active) return;
+  try {
+    const log = getPaperValidationLog();
+    log.push({
+      ts: tsd.ts || Date.now(),
+      sym,
+      tradeId: tradeId || null,
+      setupType: tsd.bestSetupType,
+      direction: tsd.setup ? tsd.setup.direction : null,
+      movementClass: tsd.movementClass,
+      targetPoints: tsd.spotTargetPoints,
+      stopLossPoints: tsd.spotTargetPoints ? tsd.spotTargetPoints * 0.5 : null,
+      spotTargetPrice: tsd.spotTargetPrice,
+      entrySpot: tsd.spotTargetPrice && tsd.spotTargetPoints && tsd.setup
+        ? +(tsd.spotTargetPrice - (tsd.setup.direction === 'bullish' ? 1 : -1) * tsd.spotTargetPoints).toFixed(2) : null,
+      entryAllowed: tsd.entryAllowed,
+      engineStatus: tsd.engineStatus,
+      setupScore: tsd.setupScore ? tsd.setupScore.normalized : null,
+      targetFeasible: !!(tsd.targetInfo && tsd.targetInfo.feasible),
+      blockReason: tsd.blockReason,
+      validated: false,
+      outcome: null,
+    });
+    while (log.length > FNO_TSE_VALIDATION_MAX) log.shift();
+    localStorage.setItem(FNO_TSE_VALIDATION_KEY, JSON.stringify(log));
+  } catch (e) { /* quota */ }
+}
+
+function computePaperValidationReport(log) {
+  log = log || getPaperValidationLog();
+  const withOutcome = log.filter(e => e.outcome);
+  const entries = log.filter(e => e.entryAllowed);
+  let reachedTarget = 0, hitStop = 0, targetFeasibleCorrect = 0, targetFeasibleTotal = 0;
+
+  withOutcome.forEach(e => {
+    if (e.outcome.reachedTarget) reachedTarget++;
+    if (e.outcome.hitStop) hitStop++;
+    if (e.targetFeasible != null) {
+      targetFeasibleTotal++;
+      const wasFeasible = e.targetFeasible;
+      const actuallyReached = e.outcome.reachedTarget || (e.outcome.maxFavorablePoints && e.targetPoints && e.outcome.maxFavorablePoints >= e.targetPoints * 0.8);
+      if (wasFeasible === !!actuallyReached || (wasFeasible && e.outcome.reachedTarget)) targetFeasibleCorrect++;
+    }
+  });
+
+  const recent = log.slice(-20).reverse();
+  return {
+    totalSignals: log.length,
+    entryAllowedCount: entries.length,
+    completedValidations: withOutcome.length,
+    targetHitRate: withOutcome.length ? +((reachedTarget / withOutcome.length) * 100).toFixed(1) : null,
+    stopHitRate: withOutcome.length ? +((hitStop / withOutcome.length) * 100).toFixed(1) : null,
+    feasibilityAccuracy: targetFeasibleTotal ? +((targetFeasibleCorrect / targetFeasibleTotal) * 100).toFixed(1) : null,
+    recent,
+    pendingValidation: log.filter(e => e.entryAllowed && !e.outcome).length,
+  };
+}
+
+function updatePaperValidationOutcome(tradeId, outcome, tsd) {
+  try {
+    const log = getPaperValidationLog();
+    for (let i = log.length - 1; i >= 0; i--) {
+      if ((tradeId && log[i].tradeId === tradeId) || (!log[i].outcome && log[i].entryAllowed && !log[i].validated)) {
+        log[i].outcome = outcome;
+        log[i].validated = true;
+        log[i].validatedAt = Date.now();
+        if (tsd) {
+          log[i].actualTargetPoints = tsd.spotTargetPoints;
+          log[i].actualSetupType = tsd.bestSetupType;
+        }
+        break;
+      }
+    }
+    localStorage.setItem(FNO_TSE_VALIDATION_KEY, JSON.stringify(log));
+  } catch (e) { /* no-op */ }
+}
+
+function linkPaperValidationTradeId(tradeId) {
+  if (!tradeId) return;
+  try {
+    const log = getPaperValidationLog();
+    for (let i = log.length - 1; i >= 0; i--) {
+      if (log[i].entryAllowed && !log[i].tradeId) {
+        log[i].tradeId = tradeId;
+        break;
+      }
+    }
+    localStorage.setItem(FNO_TSE_VALIDATION_KEY, JSON.stringify(log));
+  } catch (e) { /* no-op */ }
+}
+
+function buildPullbackContinuationAttribution(setup) {
+  if (!setup) return null;
+  if (setup.engineStatus) {
+    return {
+      engine: 'TradeSetupEngine', engineStatus: setup.engineStatus,
+      setupType: setup.bestSetupType, movementClass: setup.movementClass,
+      spotTargetPoints: setup.spotTargetPoints, setupScore: setup.setupScore,
+      targetInfo: setup.targetInfo, entryAllowed: setup.entryAllowed, blockReason: setup.blockReason,
+    };
+  }
+  return setup.active ? setup : null;
+}
+
+function renderTradeSetupMonitor(tsd) {
+  if (typeof document === 'undefined') return;
+  const box = document.getElementById('tradeSetupMonitorBox') || document.getElementById('pullbackContinuationBox');
+  if (!box) return;
+  if (!tsd || !tsd.active) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  const tp = typeof fnoThemePalette === 'function' ? fnoThemePalette() : {
+    panel: '#422006', line: '#92400e', text: '#e2e8f0', muted: '#94a3b8', pass: '#4ade80', fail: '#f87171', warn: '#fde68a',
+  };
+  box.style.background = tp.panel;
+  box.style.borderColor = tp.line;
+  box.style.color = tp.text;
+  const sc = tsd.setupScore || {};
+  const setupsHtml = (tsd.setups || []).slice(0, 5).map(s => {
+    const stColor = s.state === FNO_TSE_SETUP_STATE.CONFIRMED ? tp.pass : s.state === FNO_TSE_SETUP_STATE.WAITING_FOR_CONFIRMATION ? tp.warn : tp.muted;
+    return `<div style="font-size:10px;padding:2px 0"><span style="color:${stColor}">${fnoTseEscapeHtml(s.type)}</span> ${s.score}/100 · ${fnoTseEscapeHtml(s.state)}</div>`;
+  }).join('') || `<div style="color:${tp.muted};font-size:10px">No active setups</div>`;
+
+  const decColor = tsd.entryAllowed ? tp.pass
+    : (tsd.engineStatus === FNO_TSE_DECISION.TRADE_ALLOWED ? tp.warn
+      : (tsd.engineStatus === FNO_TSE_DECISION.SETUP_WAITING ? tp.warn : tp.fail));
+  const gate = describeTseEntryGate(tsd, typeof window !== 'undefined' ? window.FNO_LAST_BRAIN : null);
+  const gateColor = gate.tone === 'pass' ? tp.pass : gate.tone === 'warn' ? tp.warn : gate.tone === 'fail' ? tp.fail : tp.muted;
+  const setupDir = tsd.setup && tsd.setup.direction ? ` · ${fnoTseEscapeHtml(tsd.setup.direction)}` : '';
+  box.innerHTML = [
+    `<b style="color:${tp.warn}">📊 Trade Setup Engine</b>`,
+    `<div style="font-size:11px;margin-top:4px"><b>CURRENT MARKET</b></div>`,
+    `Regime: ${fnoTseEscapeHtml(tsd.regime)} · Movement: <b>${fnoTseEscapeHtml(tsd.movementClass || '—')}</b> (score ${tsd.movementScore != null ? tsd.movementScore : '—'})`,
+    `<div style="font-size:11px;margin-top:6px"><b>ACTIVE SETUPS</b></div>`,
+    setupsHtml,
+    `<div style="font-size:11px;margin-top:6px"><b>BEST SETUP</b></div>`,
+    tsd.setup ? `${fnoTseEscapeHtml(tsd.setup.type)}${setupDir} · ${fnoTseEscapeHtml(tsd.setup.state)} · score ${sc.normalized != null ? sc.normalized : '—'}/100` : 'None',
+    tsd.spotTargetPoints ? `Target: <b>${tsd.spotTargetPoints} points</b> · confidence ${((tsd.targetConfidence || 0) * 100).toFixed(0)}%` : 'Target: —',
+    tsd.brainDecision ? `Brain decision: <b>${fnoTseEscapeHtml(tsd.brainDecision)}</b>` : '',
+    tsd.blockers && tsd.blockers.length ? `<span style="color:${tp.fail}">Blockers: ${fnoTseEscapeHtml(tsd.blockers.join('; '))}</span>` : '',
+    `<div style="margin-top:6px;font-size:12px;color:${gateColor}"><b>${fnoTseEscapeHtml(gate.headline)}</b></div>`,
+    `<div style="font-size:10px;color:${tp.muted};margin-top:2px">${fnoTseEscapeHtml(gate.detail)}</div>`,
+    `<div style="font-size:10px;color:${tp.muted};margin-top:4px">Internal: ${fnoTseEscapeHtml(tsd.engineStatus)}${tsd.entryAllowed ? ' · entry open' : ''}</div>`,
+  ].join('');
+}
+
+function renderPullbackContinuationPanel(setup) {
+  renderTradeSetupMonitor(setup && setup.engineStatus ? setup : null);
+}
+
+function recordTradeSetupOutcome(tradeId, outcome) {
+  try {
+    const log = getTradeSetupDecisionLog();
+    for (let i = log.length - 1; i >= 0; i--) {
+      if (!log[i].outcome && log[i].entryAllowed) {
+        log[i].outcome = outcome;
+        log[i].tradeId = tradeId;
+        break;
+      }
+    }
+    localStorage.setItem(FNO_TSE_LOG_KEY, JSON.stringify(log));
+    updatePaperValidationOutcome(tradeId, outcome);
+  } catch (e) { /* no-op */ }
+}
+
+function renderTradeSetupPerformanceDashboard(stats, targetAnalysis) {
+  if (typeof document === 'undefined') return;
+  const box = document.getElementById('tradeSetupPerformanceBox');
+  if (!box) return;
+  if (!isTradeSetupEngineActive()) { box.style.display = 'none'; return; }
+  stats = stats || computeSetupPerformanceStats();
+  targetAnalysis = targetAnalysis || computeTargetExpectancyAnalysis();
+  box.style.display = 'block';
+  const tp = typeof fnoThemePalette === 'function' ? fnoThemePalette() : {
+    panel: '#0c1a2e', line: '#1e3a5f', text: '#e2e8f0', muted: '#94a3b8', pass: '#4ade80', fail: '#f87171', warn: '#fde68a',
+  };
+  box.style.background = tp.panel;
+  box.style.borderColor = tp.line;
+  box.style.color = tp.text;
+
+  const o = stats.overall || {};
+  const setupRows = Object.keys(stats.bySetup || {}).map(k => {
+    const b = stats.bySetup[k];
+    const short = k.replace(/_/g, ' ').slice(0, 22);
+    return `<tr><td>${fnoTseEscapeHtml(short)}</td><td>${b.trades}</td><td>${b.winRate != null ? b.winRate + '%' : '—'}</td><td>${b.expectancy != null ? b.expectancy : '—'}</td><td>${b.profitFactor != null ? b.profitFactor : '—'}</td><td>${b.target10Success != null ? b.target10Success + '%' : '—'}</td><td>${b.target15Success != null ? b.target15Success + '%' : '—'}</td><td>${b.target20Success != null ? b.target20Success + '%' : '—'}</td></tr>`;
+  }).join('') || '<tr><td colspan="8" style="color:' + tp.muted + '">No completed trades yet</td></tr>';
+
+  const movRows = ['FAST', 'MEDIUM', 'SLOW'].map(mc => {
+    const m = (stats.byMovement || {})[mc] || {};
+    const rec = (targetAnalysis.byMovementTarget || {})[mc] || {};
+    return `<div style="font-size:10px">${mc}: ${m.n || 0} trades · WR ${m.winRate != null ? m.winRate + '%' : '—'} · exp ${m.expectancy != null ? m.expectancy : '—'} · best target <b>${rec.recommendedTarget != null ? rec.recommendedTarget + 'pt' : '—'}</b></div>`;
+  }).join('');
+
+  const ta = targetAnalysis.full && targetAnalysis.full.byTarget ? targetAnalysis.full.byTarget : {};
+  const targetCompare = [10, 15, 20].map(tp2 => {
+    const t = ta[tp2] || {};
+    return `<div style="font-size:10px">${tp2}pt: n=${t.n || 0} · WR ${t.winRate != null ? t.winRate + '%' : '—'} · exp ${t.expectancy != null ? t.expectancy : '—'} · hit ${t.targetHitRate != null ? t.targetHitRate + '%' : '—'}</div>`;
+  }).join('');
+
+  box.innerHTML = [
+    `<b style="color:${tp.warn}">📈 Trade Setup Performance</b>`,
+    stats.sampleWarning ? `<div style="font-size:10px;color:${tp.warn};margin-top:4px">${fnoTseEscapeHtml(stats.sampleWarning)}</div>` : '',
+    `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;font-size:10px">`,
+    `<div>Trades<b style="display:block;font-size:14px">${o.trades || 0}</b></div>`,
+    `<div>Win rate<b style="display:block;font-size:14px;color:${tp.pass}">${o.winRate != null ? o.winRate + '%' : '—'}</b></div>`,
+    `<div>Expectancy<b style="display:block;font-size:14px">${o.expectancy != null ? o.expectancy : '—'}</b></div>`,
+    `<div>Max DD<b style="display:block;font-size:14px;color:${tp.fail}">${o.maxDrawdown != null ? o.maxDrawdown : '—'}</b></div>`,
+    `</div>`,
+    `<div style="font-size:11px;margin-top:8px"><b>BY SETUP TYPE</b></div>`,
+    `<table style="width:100%;font-size:9px;border-collapse:collapse;margin-top:4px"><tr style="color:${tp.muted}"><th align="left">Setup</th><th>N</th><th>WR</th><th>Exp</th><th>PF</th><th>10%</th><th>15%</th><th>20%</th></tr>${setupRows}</table>`,
+    `<div style="font-size:11px;margin-top:8px"><b>BY MOVEMENT → RECOMMENDED TARGET</b></div>`,
+    movRows,
+    `<div style="font-size:11px;margin-top:8px"><b>10 / 15 / 20 POINT TARGET COMPARISON</b></div>`,
+    targetCompare,
+    targetAnalysis.overfitWarning ? `<div style="font-size:10px;color:${tp.warn};margin-top:6px">⚠ ${fnoTseEscapeHtml(targetAnalysis.overfitWarning)}</div>` : '',
+    `<div style="font-size:10px;color:${tp.muted};margin-top:6px">Train/validation split ${Math.round(FNO_TSE_TRAIN_SPLIT * 100)}/${Math.round((1 - FNO_TSE_TRAIN_SPLIT) * 100)} · min sample ${FNO_TSE_MIN_SAMPLE_FOR_STATS}</div>`,
+  ].join('');
+}
+
+function renderPaperValidationReport(report) {
+  if (typeof document === 'undefined') return;
+  const box = document.getElementById('tradeSetupValidationBox');
+  if (!box) return;
+  if (!isTradeSetupEngineActive()) { box.style.display = 'none'; return; }
+  report = report || computePaperValidationReport();
+  box.style.display = 'block';
+  const tp = typeof fnoThemePalette === 'function' ? fnoThemePalette() : {
+    panel: '#0f172a', line: '#334155', text: '#e2e8f0', muted: '#94a3b8', pass: '#4ade80', fail: '#f87171', warn: '#fde68a',
+  };
+  box.style.background = tp.panel;
+  box.style.borderColor = tp.line;
+  box.style.color = tp.text;
+
+  const recentHtml = (report.recent || []).slice(0, 8).map(r => {
+    const oc = r.outcome;
+    const status = oc ? (oc.reachedTarget ? tp.pass : oc.hitStop ? tp.fail : tp.warn) : tp.muted;
+    const label = oc
+      ? (oc.reachedTarget ? 'TARGET' : oc.hitStop ? 'STOP' : 'CLOSED')
+      : (r.entryAllowed ? 'PENDING' : 'BLOCKED');
+    return `<div style="font-size:10px;padding:3px 0;border-bottom:1px solid ${tp.line}"><span style="color:${status}">${label}</span> · ${fnoTseEscapeHtml(r.setupType || '—')} · ${r.targetPoints || '—'}pt · ${r.movementClass || '—'} · score ${r.setupScore != null ? r.setupScore : '—'}${oc && oc.pnl != null ? ' · PnL ' + oc.pnl.toFixed(0) : ''}</div>`;
+  }).join('') || `<div style="color:${tp.muted};font-size:10px">No validation signals yet — paper trades will populate this log</div>`;
+
+  box.innerHTML = [
+    `<b style="color:${tp.warn}">🧪 Paper Trading Validation</b>`,
+    `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px;font-size:10px">`,
+    `<div>Signals<b style="display:block;font-size:13px">${report.totalSignals || 0}</b></div>`,
+    `<div>Entries<b style="display:block;font-size:13px">${report.entryAllowedCount || 0}</b></div>`,
+    `<div>Target hit<b style="display:block;font-size:13px;color:${tp.pass}">${report.targetHitRate != null ? report.targetHitRate + '%' : '—'}</b></div>`,
+    `<div>Feasibility<b style="display:block;font-size:13px">${report.feasibilityAccuracy != null ? report.feasibilityAccuracy + '%' : '—'}</b></div>`,
+    `</div>`,
+    `<div style="font-size:10px;color:${tp.muted};margin-top:4px">Pending: ${report.pendingValidation || 0} · Completed: ${report.completedValidations || 0} · Stop rate: ${report.stopHitRate != null ? report.stopHitRate + '%' : '—'}</div>`,
+    `<div style="font-size:11px;margin-top:8px"><b>RECENT SIGNALS</b></div>`,
+    recentHtml,
+  ].join('');
+}
+
+function renderTradeSetupAnalytics() {
+  if (!isTradeSetupEngineActive()) return;
+  const stats = computeSetupPerformanceStats();
+  const targetAnalysis = computeTargetExpectancyAnalysis();
+  const validation = computePaperValidationReport();
+  renderTradeSetupPerformanceDashboard(stats, targetAnalysis);
+  renderPaperValidationReport(validation);
+  try { localStorage.setItem(FNO_TSE_PERF_KEY, JSON.stringify({ stats, targetAnalysis, ts: Date.now() })); } catch (e) { /* quota */ }
+}
+
+/**
+ * ScalpingProfitEngine — independent layered decision pipeline for short-duration
+ * scalping opportunities. Works alongside (never replaces) existing brain/TSE logic.
+ * Pipeline: Market Safety → Regime → Direction → Setup → Entry Timing → Trade Quality
+ * → Execution Quality → Enter/NO TRADE → Active Management → Analytics.
+ */
+const FNO_SPE_LOG_KEY = 'fno_scalping_profit_log_v1';
+const FNO_SPE_LOG_MAX = 4000;
+const FNO_SPE_STATS_KEY = 'fno_scalping_profit_stats_v1';
+const FNO_SPE_STATE_KEY = 'fno_scalping_profit_session_v1';
+const FNO_SPE_MISSED_KEY = 'fno_scalping_profit_missed_v1';
+const FNO_SPE_LEARNING_KEY = 'fno_scalping_profit_learning_v1';
+const FNO_SPE_MIN_SAMPLE_WF = 12;
+const FNO_SPE_MIN_SAMPLE_MC = 8;
+const FNO_SPE_TRAIN_SPLIT = 0.6;
+const FNO_SPE_VALIDATION_SPLIT = 0.2;
+const FNO_SPE_MC_SIMULATIONS = 500;
+
+const FNO_SPE_MODE = { OFF: 'OFF', ON: 'ON', PAPER_ONLY: 'PAPER_ONLY', SIGNAL_ONLY: 'SIGNAL_ONLY' };
+
+const FNO_SPE_REGIME = {
+  TREND_UP: 'TREND_UP', TREND_DOWN: 'TREND_DOWN', RANGE: 'RANGE',
+  BREAKOUT: 'BREAKOUT', BREAKDOWN: 'BREAKDOWN', HIGH_VOLATILITY: 'HIGH_VOLATILITY',
+  LOW_VOLATILITY: 'LOW_VOLATILITY', CHOP: 'CHOP', EXHAUSTION: 'EXHAUSTION', UNKNOWN: 'UNKNOWN',
+};
+
+const FNO_SPE_SETUP = {
+  MOMENTUM_CONTINUATION: 'momentum_continuation',
+  PULLBACK_ENTRY: 'pullback_entry',
+  BREAKOUT: 'breakout',
+  BREAKOUT_FAILURE: 'breakout_failure',
+  MOMENTUM_EXHAUSTION: 'momentum_exhaustion',
+  RANGE_REVERSAL: 'range_reversal',
+};
+
+const FNO_SPE_EXIT = {
+  TARGET_HIT: 'TARGET_HIT', STOP_HIT: 'STOP_HIT', MOMENTUM_FAILURE: 'MOMENTUM_FAILURE',
+  STRUCTURE_FAILURE: 'STRUCTURE_FAILURE', TIME_STOP: 'TIME_STOP', EXHAUSTION: 'EXHAUSTION',
+  OPPOSITE_SIGNAL: 'OPPOSITE_SIGNAL', PROFIT_PROTECTION: 'PROFIT_PROTECTION',
+  RISK_LOCK: 'RISK_LOCK', MANUAL_OVERRIDE: 'MANUAL_OVERRIDE', SYSTEM_ERROR: 'SYSTEM_ERROR',
+};
+
+const FNO_SPE_NO_TRADE = {
+  LOW_SCORE: 'LOW_SCORE', WIDE_SPREAD: 'WIDE_SPREAD', INSUFFICIENT_LIQUIDITY: 'INSUFFICIENT_LIQUIDITY',
+  EXCESSIVE_EXTENSION: 'EXCESSIVE_EXTENSION', INSUFFICIENT_ROOM: 'INSUFFICIENT_ROOM',
+  LOW_REGIME_CONFIDENCE: 'LOW_REGIME_CONFIDENCE', CHOP: 'CHOP', EVENT_RISK: 'EVENT_RISK',
+  EXPECTED_MOVE_TOO_SMALL: 'EXPECTED_MOVE_TOO_SMALL', POOR_RR: 'POOR_RR',
+  EXCESSIVE_SLIPPAGE: 'EXCESSIVE_SLIPPAGE', COOLDOWN: 'COOLDOWN', DAILY_LIMIT: 'DAILY_LIMIT',
+  CONSECUTIVE_LOSS_LIMIT: 'CONSECUTIVE_LOSS_LIMIT', SESSION_LOCK: 'SESSION_LOCK',
+  STALE_DATA: 'STALE_DATA', ENGINE_OFF: 'ENGINE_OFF', SIGNAL_ONLY: 'SIGNAL_ONLY',
+  WEAK_DIRECTION: 'WEAK_DIRECTION', NO_SETUP: 'NO_SETUP', THESIS_UNCLEAR: 'THESIS_UNCLEAR',
+};
+
+const FNO_SPE_FAILURE = {
+  LATE_ENTRY: 'Late Entry', CHASING: 'Chasing', FALSE_BREAKOUT: 'False Breakout',
+  MOMENTUM_FAILURE: 'Momentum Failure', TREND_FAILURE: 'Trend Failure', RANGE_NOISE: 'Range Noise',
+  POOR_LIQUIDITY: 'Poor Liquidity', WIDE_SPREAD: 'Wide Spread', SLIPPAGE: 'Slippage',
+  UNEXPECTED_VOLATILITY: 'Unexpected Volatility', SR_COLLISION: 'Support/Resistance Collision',
+  INSUFFICIENT_ROOM: 'Insufficient Room', BAD_TIMING: 'Bad Timing', WRONG_REGIME: 'Wrong Regime',
+  SIGNAL_CONFLICT: 'Signal Conflict', OVERTRADING: 'Overtrading', REPEATED_ENTRY: 'Repeated Entry',
+  EXIT_TOO_LATE: 'Exit Too Late', EXIT_TOO_EARLY: 'Exit Too Early', TIME_DECAY: 'Time Decay',
+  EXECUTION_FAILURE: 'Execution Failure', DATA_DELAY: 'Data Delay', DATA_QUALITY: 'Data Quality Issue',
+};
+
+const FNO_SPE_SESSION = {
+  NORMAL: 'NORMAL', HOT: 'HOT', COLD: 'COLD', CAUTIOUS: 'CAUTIOUS', RECOVERY: 'RECOVERY', LOCKED: 'LOCKED',
+};
+
+const FNO_SPE_VELOCITY = {
+  SLOW: 'SLOW', NORMAL: 'NORMAL', FAST: 'FAST', EXPLOSIVE: 'EXPLOSIVE',
+  DECELERATING: 'DECELERATING', EXHAUSTING: 'EXHAUSTING',
+};
+
+const FNO_SPE_SETTING_META = {
+  scalpingProfitEngineEnabled: { default: true, min: 0, max: 1, desc: 'Master SPE toggle', reason: 'Independent scalping methodology layer' },
+  scalpingProfitEngineMode: { default: 'PAPER_ONLY', allowed: ['OFF', 'ON', 'PAPER_ONLY', 'SIGNAL_ONLY'], desc: 'Runtime mode', reason: 'Paper-first validation per spec §45' },
+  speMinTradeQualityScore: { default: 70, min: 40, max: 95, desc: 'Minimum composite trade quality', reason: 'Below 60 = no trade per spec §14' },
+  speMinRegimeConfidence: { default: 60, min: 30, max: 95, desc: 'Minimum regime confidence', reason: 'Avoid low-confidence regime trades' },
+  speMinDirectionConfidence: { default: 65, min: 40, max: 95, desc: 'Minimum direction confidence', reason: 'Weak direction must not force trades' },
+  speAntiChaseThresholdPct: { default: 75, min: 50, max: 95, desc: 'Max move completion % before reject', reason: 'Anti-chase engine §11' },
+  speSpreadThresholdPct: { default: 0.12, min: 0.05, max: 0.5, desc: 'Max spread % of price', reason: 'Market safety §6' },
+  speMinExpectedMovePts: { default: 8, min: 4, max: 30, desc: 'Minimum expected favorable move (pts)', reason: 'Must cover costs §15' },
+  speMinRiskReward: { default: 1.5, min: 1, max: 4, desc: 'Minimum net R:R after costs', reason: 'Cost-aware profitability §27' },
+  speMaxHoldingMinutes: { default: 12, min: 2, max: 60, desc: 'Maximum scalp holding time', reason: 'Time stop §18' },
+  speTimeStopMinutes: { default: 8, min: 1, max: 30, desc: 'Thesis must develop within (min)', reason: 'Trade decay §19' },
+  speMaxTradesPerSession: { default: 8, min: 1, max: 30, desc: 'Max trades per session', reason: 'Anti-overtrade §28' },
+  speMaxConsecutiveLosses: { default: 3, min: 1, max: 10, desc: 'Consecutive loss cap', reason: 'Loss protection §23' },
+  speCooldownSeconds: { default: 90, min: 0, max: 600, desc: 'Base cooldown after trade', reason: 'Cooldown engine §29' },
+  speMinLiquidityScore: { default: 50, min: 20, max: 95, desc: 'Minimum liquidity score', reason: 'Market safety §6' },
+  speMinTimeBetweenTradesSec: { default: 60, min: 0, max: 600, desc: 'Minimum gap between entries', reason: 'Trade frequency §28' },
+  speChopMinScoreBoost: { default: 10, min: 0, max: 30, desc: 'Extra min score in chop', reason: 'Chop detector §34' },
+  speTargetSlow: { default: 10, min: 5, max: 15, desc: 'Slow movement target pts', reason: 'Dynamic target §16' },
+  speTargetMedium: { default: 15, min: 10, max: 20, desc: 'Medium movement target pts', reason: 'Dynamic target §16' },
+  speTargetFast: { default: 20, min: 15, max: 30, desc: 'Fast movement target pts', reason: 'Dynamic target §16' },
+  speProfitProtectionPct: { default: 50, min: 20, max: 90, desc: 'Protect % of target when momentum fades', reason: 'Profit protection §21' },
+  speTradeHealthExitThreshold: { default: 30, min: 10, max: 60, desc: 'Exit when trade health below', reason: 'Trade decay §19' },
+  speMomentumThreshold: { default: 55, min: 20, max: 90, desc: 'Minimum momentum score', reason: 'Momentum monitor §20' },
+  speSlippageEstimatePts: { default: 0.5, min: 0.1, max: 5, desc: 'Expected slippage (spot pts)', reason: 'Execution quality §26' },
+  speSafetyMarginPts: { default: 1, min: 0, max: 5, desc: 'Extra safety margin pts', reason: 'Market safety §6' },
+  speEventRiskEnabled: { default: false, min: 0, max: 1, desc: 'Optional event-risk input', reason: 'Event risk §6 — off when no calendar' },
+};
+
+function fnoSpeEscapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function getScalpingProfitSettings() {
+  const s = typeof fnoSettings !== 'undefined' ? fnoSettings.get() : {};
+  const g = (key) => {
+    const m = FNO_SPE_SETTING_META[key];
+    const v = s[key];
+    if (v != null && typeof v === typeof m.default) return v;
+    return m ? m.default : null;
+  };
+  return {
+    enabled: s.scalpingProfitEngineEnabled !== false,
+    mode: g('scalpingProfitEngineMode') || FNO_SPE_MODE.PAPER_ONLY,
+    minTradeQuality: g('speMinTradeQualityScore'),
+    minRegimeConfidence: g('speMinRegimeConfidence'),
+    minDirectionConfidence: g('speMinDirectionConfidence'),
+    antiChasePct: g('speAntiChaseThresholdPct'),
+    spreadThresholdPct: g('speSpreadThresholdPct'),
+    minExpectedMove: g('speMinExpectedMovePts'),
+    minRiskReward: g('speMinRiskReward'),
+    maxHoldingMinutes: g('speMaxHoldingMinutes'),
+    timeStopMinutes: g('speTimeStopMinutes'),
+    maxTradesPerSession: g('speMaxTradesPerSession'),
+    maxConsecutiveLosses: g('speMaxConsecutiveLosses'),
+    cooldownSeconds: g('speCooldownSeconds'),
+    minLiquidityScore: g('speMinLiquidityScore'),
+    minTimeBetweenTrades: g('speMinTimeBetweenTradesSec'),
+    chopScoreBoost: g('speChopMinScoreBoost'),
+    targetSlow: g('speTargetSlow'),
+    targetMedium: g('speTargetMedium'),
+    targetFast: g('speTargetFast'),
+    profitProtectionPct: g('speProfitProtectionPct'),
+    tradeHealthExit: g('speTradeHealthExitThreshold'),
+    momentumThreshold: g('speMomentumThreshold'),
+    slippageEstimate: g('speSlippageEstimatePts'),
+    safetyMargin: g('speSafetyMarginPts'),
+    eventRiskEnabled: s.speEventRiskEnabled === true,
+  };
+}
+
+function isScalpingProfitEngineActive() {
+  if (typeof fnoSettings === 'undefined') return false;
+  const s = fnoSettings.get();
+  if (s.scalpingProfitEngineEnabled === false) return false;
+  if (s.scalpingProfitEngineMode === FNO_SPE_MODE.OFF) return false;
+  return !!(s.scalpingProfitProfileEnabled && s.tradingTypes && s.tradingTypes.scalping);
+}
+
+function isScalpingProfitEngineEntryBlocking() {
+  if (!isScalpingProfitEngineActive()) return false;
+  const mode = getScalpingProfitSettings().mode;
+  return mode === FNO_SPE_MODE.ON || mode === FNO_SPE_MODE.PAPER_ONLY;
+}
+
+function buildSpeMarketState(ctx, brain) {
+  if (typeof buildMarketState === 'function') return buildMarketState(ctx, brain);
+  const candles = (ctx && ctx.candles) || [];
+  const closes = candles.map(c => c.c).filter(Number.isFinite);
+  const last = closes.length - 1;
+  const spot = Number.isFinite(ctx && ctx.spot) ? ctx.spot : (last >= 0 ? closes[last] : null);
+  return { valid: closes.length >= 21 && Number.isFinite(spot), spot, closes, candles, last, ctx, brain };
+}
+
+function getSpeSessionState() {
+  try { return JSON.parse(localStorage.getItem(FNO_SPE_STATE_KEY) || '{}'); } catch (e) { return {}; }
+}
+
+function saveSpeSessionState(st) {
+  try { localStorage.setItem(FNO_SPE_STATE_KEY, JSON.stringify(st)); } catch (e) { /* quota */ }
+}
+
+/** Normalize SPE/TSE direction strings — BULLISH/bullish/BUY_READY → 'bullish'. */
+function speDirectionToTradeDir(dir) {
+  if (!dir) return null;
+  const d = String(dir).toUpperCase();
+  if (d === 'BULLISH' || d === 'BUY_READY' || d === 'BUY') return 'bullish';
+  if (d === 'BEARISH' || d === 'SELL_READY' || d === 'SELL') return 'bearish';
+  return null;
+}
+
+function speDirectionToOptionType(dir) {
+  const t = speDirectionToTradeDir(dir);
+  return t === 'bearish' ? 'PE' : t === 'bullish' ? 'CE' : null;
+}
+
+function resolveSpeOptionLeg(ctx, optionTypeOrDirection) {
+  if (!ctx || !ctx.ocRow) return null;
+  if (optionTypeOrDirection === 'PE') return ctx.ocRow.PE || null;
+  if (optionTypeOrDirection === 'CE') return ctx.ocRow.CE || null;
+  const t = speDirectionToTradeDir(optionTypeOrDirection);
+  return t === 'bearish' ? (ctx.ocRow.PE || null) : t === 'bullish' ? (ctx.ocRow.CE || null) : null;
+}
+
+function evaluateMarketSafety(ms, ctx, cfg, optionType) {
+  const out = {
+    safe: true, liquidityScore: null, spreadPts: null, spreadPct: null, spreadOk: null, spreadSkipped: false,
+    liquiditySkipped: false, staleDataSkipped: false, skippedLayers: [], unavailableInputs: [],
+    slippageEstimate: cfg.slippageEstimate, volatilityClass: 'NORMAL', eventRisk: false,
+    reasons: [], blockers: [],
+  };
+  if (!ms.valid) {
+    out.skippedLayers.push('marketSafety');
+    out.unavailableInputs.push('candles');
+    out.reasons.push('Candle data unavailable — market safety skipped (not scored as fail)');
+    return out;
+  }
+  const leg = resolveSpeOptionLeg(ctx, optionType);
+  const bid = leg && Number.isFinite(leg.bidprice) ? leg.bidprice : null;
+  const ask = leg && Number.isFinite(leg.askPrice) ? leg.askPrice : null;
+  const hasDepth = leg && (Number.isFinite(leg.bidQty) || Number.isFinite(leg.askQty));
+  const bidQty = hasDepth && Number.isFinite(leg.bidQty) ? leg.bidQty : null;
+  const askQty = hasDepth && Number.isFinite(leg.askQty) ? leg.askQty : null;
+  if (bid != null && ask != null && ask >= bid) {
+    out.spreadPts = +(ask - bid).toFixed(4);
+    out.spreadPct = bid > 0 ? +((out.spreadPts / bid) * 100).toFixed(3) : null;
+    out.spreadOk = out.spreadPct == null || out.spreadPct <= cfg.spreadThresholdPct;
+    if (!out.spreadOk) out.blockers.push(FNO_SPE_NO_TRADE.WIDE_SPREAD);
+  } else {
+    out.spreadSkipped = true;
+    out.unavailableInputs.push('bidAsk');
+    out.reasons.push('Bid/ask unavailable — spread check skipped (not treated as pass or fail)');
+  }
+  if (bidQty != null || askQty != null) {
+    const depthScore = Math.min(100, Math.round(((bidQty || 0) + (askQty || 0)) / 100));
+    out.liquidityScore = Math.max(depthScore, ms.atr && ms.atr > 0 ? 55 : 40);
+    if (out.liquidityScore < cfg.minLiquidityScore) out.blockers.push(FNO_SPE_NO_TRADE.INSUFFICIENT_LIQUIDITY);
+  } else {
+    out.liquiditySkipped = true;
+    out.unavailableInputs.push('orderBookDepth');
+    out.reasons.push('Order-book depth unavailable — liquidity check skipped');
+  }
+  let volClass = 'NORMAL';
+  if (typeof computeMarketRegime === 'function' && ms.regime) {
+    if (ms.regime.volatility === 'High Vol') volClass = 'HIGH';
+    else if (ms.regime.volatility === 'Low Vol') volClass = 'LOW';
+  }
+  out.volatilityClass = volClass;
+  if (cfg.eventRiskEnabled && ctx && ctx.eventRisk === true) {
+    out.eventRisk = true;
+    out.blockers.push(FNO_SPE_NO_TRADE.EVENT_RISK);
+  }
+  if (ctx && typeof ctx.ocFetchedAt === 'number' && typeof checkOptionChainFreshness === 'function') {
+    const fresh = checkOptionChainFreshness(ctx.ocFetchedAt, Date.now());
+    if (fresh.stale) out.blockers.push(FNO_SPE_NO_TRADE.STALE_DATA);
+  } else if (ctx && ctx.ocRow && typeof ctx.ocFetchedAt !== 'number') {
+    out.staleDataSkipped = true;
+    out.unavailableInputs.push('ocFetchedAt');
+    out.reasons.push('Option-chain freshness timestamp unavailable — stale-data check skipped');
+  }
+  out.safe = out.blockers.length === 0;
+  return out;
+}
+
+function detectSpeRegime(ms, ctx) {
+  let regime = FNO_SPE_REGIME.UNKNOWN;
+  let confidence = 40;
+  let strength = 'LOW';
+  if (!ms.valid) return { regime, confidence, strength, label: regime, skipped: true, unavailableInputs: ['candles'] };
+  const br = ms.choppy ? 'choppy' : null;
+  if (br || ms.choppy) {
+    regime = FNO_SPE_REGIME.CHOP;
+    confidence = 72;
+    strength = 'MEDIUM';
+  } else if (ms.regime) {
+    const t = ms.regime.trend;
+    const v = ms.regime.volatility;
+    const ext = ms.regime.extendedStates || {};
+    if (ext.breakout) { regime = FNO_SPE_REGIME.BREAKOUT; confidence = 78; strength = 'HIGH'; }
+    else if (ext.breakdown) { regime = FNO_SPE_REGIME.BREAKDOWN; confidence = 78; strength = 'HIGH'; }
+    else if (v === 'High Vol') { regime = FNO_SPE_REGIME.HIGH_VOLATILITY; confidence = 70; strength = 'MEDIUM'; }
+    else if (v === 'Low Vol') { regime = FNO_SPE_REGIME.LOW_VOLATILITY; confidence = 65; strength = 'LOW'; }
+    else if (t === 'Bullish') { regime = FNO_SPE_REGIME.TREND_UP; confidence = 75; strength = ms.emaSpreadPct > 0.2 ? 'HIGH' : 'MEDIUM'; }
+    else if (t === 'Bearish') { regime = FNO_SPE_REGIME.TREND_DOWN; confidence = 75; strength = ms.emaSpreadPct < -0.2 ? 'HIGH' : 'MEDIUM'; }
+    else { regime = FNO_SPE_REGIME.RANGE; confidence = 60; strength = 'MEDIUM'; }
+  }
+  if (typeof classifyMovement === 'function') {
+    const mv = classifyMovement(ms);
+    if (mv.movementClass === 'INSUFFICIENT' && ms.last >= 5) {
+      const recent = ms.closes.slice(-5);
+      const swing = Math.max(...recent) - Math.min(...recent);
+      if (swing > (ms.atr || 1) * 3) { regime = FNO_SPE_REGIME.EXHAUSTION; confidence = 68; strength = 'MEDIUM'; }
+    }
+  }
+  return { regime, confidence, strength, label: regime };
+}
+
+function evaluateSpeDirection(ms, regimeInfo, brain) {
+  let direction = 'NEUTRAL';
+  let confidence = 40;
+  const reasons = [];
+  if (!ms.valid) return { direction, confidence, reasons, skipped: true, unavailableInputs: ['candles'] };
+  if (brain && brain.decision === 'BUY_READY') { direction = 'BULLISH'; confidence += 25; reasons.push('Brain BUY_READY'); }
+  else if (brain && brain.decision === 'SELL_READY') { direction = 'BEARISH'; confidence += 25; reasons.push('Brain SELL_READY'); }
+  if (ms.ema9 != null && ms.ema21 != null) {
+    if (ms.ema9 > ms.ema21) { if (direction !== 'BEARISH') direction = 'BULLISH'; confidence += 15; reasons.push('EMA9>EMA21'); }
+    else if (ms.ema9 < ms.ema21) { if (direction !== 'BULLISH') direction = 'BEARISH'; confidence += 15; reasons.push('EMA9<EMA21'); }
+  }
+  if (regimeInfo.regime === FNO_SPE_REGIME.TREND_UP && direction === 'BULLISH') confidence += 10;
+  if (regimeInfo.regime === FNO_SPE_REGIME.TREND_DOWN && direction === 'BEARISH') confidence += 10;
+  if (regimeInfo.regime === FNO_SPE_REGIME.CHOP) confidence -= 15;
+  confidence = Math.max(0, Math.min(100, confidence));
+  if (direction === 'BULLISH') direction = 'bullish';
+  else if (direction === 'BEARISH') direction = 'bearish';
+  else if (direction === 'NEUTRAL') direction = 'neutral';
+  return { direction, confidence, reasons };
+}
+
+function detectSpeSetups(ms, directionInfo, regimeInfo) {
+  const setups = [];
+  if (!ms.valid || directionInfo.direction === 'neutral' || directionInfo.direction === 'NEUTRAL') return setups;
+  const dir = speDirectionToTradeDir(directionInfo.direction) || directionInfo.direction;
+  const look = ms.closes.slice(Math.max(0, ms.last - 8), ms.last + 1);
+  const impulse = look.length >= 2 ? look[look.length - 1] - look[0] : 0;
+  const pullback = look.length >= 4 ? look[look.length - 2] - look[look.length - 1] : 0;
+
+  if (Math.abs(impulse) >= (ms.atr || 2) * 2 && Math.sign(impulse) === (dir === 'bullish' ? 1 : -1)) {
+    setups.push({ type: FNO_SPE_SETUP.MOMENTUM_CONTINUATION, direction: dir, score: 70, reason: 'Directional impulse with trend alignment' });
+  }
+  if (Math.abs(pullback) >= (ms.atr || 1) * 0.5 && Math.sign(pullback) !== (dir === 'bullish' ? 1 : -1)) {
+    setups.push({ type: FNO_SPE_SETUP.PULLBACK_ENTRY, direction: dir, score: 72, reason: 'Pullback within trend' });
+  }
+  if (regimeInfo.regime === FNO_SPE_REGIME.BREAKOUT && dir === 'bullish') {
+    setups.push({ type: FNO_SPE_SETUP.BREAKOUT, direction: 'bullish', score: 75, reason: 'Breakout regime' });
+  }
+  if (regimeInfo.regime === FNO_SPE_REGIME.BREAKDOWN && dir === 'bearish') {
+    setups.push({ type: FNO_SPE_SETUP.BREAKOUT, direction: 'bearish', score: 75, reason: 'Breakdown regime' });
+  }
+  if (regimeInfo.regime === FNO_SPE_REGIME.RANGE || regimeInfo.regime === FNO_SPE_REGIME.CHOP) {
+    if (typeof headroomPoints === 'function') {
+      const room = headroomPoints(ms, dir);
+      if (room >= (ms.atr || 3) * 2) {
+        setups.push({ type: FNO_SPE_SETUP.RANGE_REVERSAL, direction: dir, score: 62, reason: 'Range boundary rejection candidate' });
+      }
+    }
+  }
+  if (regimeInfo.regime === FNO_SPE_REGIME.EXHAUSTION) {
+    setups.push({ type: FNO_SPE_SETUP.MOMENTUM_EXHAUSTION, direction: dir === 'bullish' ? 'bearish' : 'bullish', score: 58, reason: 'Exhaustion — exit/reversal watch only' });
+  }
+  if (typeof findAllSetups === 'function') {
+    const tseSetups = findAllSetups(ms);
+    tseSetups.forEach(ts => {
+      if (ts.direction === dir && ts.state === 'CONFIRMED') {
+        setups.push({ type: ts.type, direction: ts.direction, score: 80, reason: 'TSE confirmed: ' + ts.type, fromTse: true });
+      }
+    });
+  }
+  return setups.sort((a, b) => b.score - a.score);
+}
+
+function evaluateEntryTiming(ms, setup, cfg) {
+  const out = { velocityClass: FNO_SPE_VELOCITY.SLOW, velocityPtsMin: 0, acceleration: 0, timingScore: 50, extended: false, reasons: [] };
+  if (!ms.valid || !setup) return out;
+  const lookback = Math.min(5, ms.last);
+  const start = ms.closes[ms.last - lookback];
+  out.velocityPtsMin = Math.abs(ms.spot - start) / Math.max(1, lookback);
+  if (out.velocityPtsMin >= 3.5) out.velocityClass = FNO_SPE_VELOCITY.EXPLOSIVE;
+  else if (out.velocityPtsMin >= 2) out.velocityClass = FNO_SPE_VELOCITY.FAST;
+  else if (out.velocityPtsMin >= 0.8) out.velocityClass = FNO_SPE_VELOCITY.NORMAL;
+  if (ms.last >= 6) {
+    const v1 = ms.closes[ms.last] - ms.closes[ms.last - 3];
+    const v0 = ms.closes[ms.last - 3] - ms.closes[ms.last - 6];
+    out.acceleration = v1 - v0;
+    if (out.acceleration < 0 && out.velocityClass === FNO_SPE_VELOCITY.FAST) out.velocityClass = FNO_SPE_VELOCITY.DECELERATING;
+    if (out.acceleration < 0 && out.velocityPtsMin >= 2.5) out.velocityClass = FNO_SPE_VELOCITY.EXHAUSTING;
+  }
+  out.timingScore = out.velocityClass === FNO_SPE_VELOCITY.EXPLOSIVE ? 35 : out.velocityClass === FNO_SPE_VELOCITY.FAST ? 70 : out.velocityClass === FNO_SPE_VELOCITY.NORMAL ? 85 : 60;
+  if (out.velocityClass === FNO_SPE_VELOCITY.EXHAUSTING || out.velocityClass === FNO_SPE_VELOCITY.EXPLOSIVE) {
+    out.extended = true;
+    out.reasons.push('Extended or exhausting velocity');
+  }
+  return out;
+}
+
+function evaluateAntiChase(ms, expectedMove, cfg) {
+  if (!ms.valid || !expectedMove || !expectedMove.favorablePts) return { chasePct: 0, blocked: false };
+  const lookback = Math.min(8, ms.last);
+  const moveDone = Math.abs(ms.spot - ms.closes[ms.last - lookback]);
+  const chasePct = expectedMove.favorablePts > 0 ? Math.round((moveDone / expectedMove.favorablePts) * 100) : 0;
+  return { chasePct, blocked: chasePct >= cfg.antiChasePct, moveDone, expected: expectedMove.favorablePts };
+}
+
+function computeAvailableRoom(ms, direction, targetPts) {
+  if (typeof headroomPoints === 'function') {
+    const room = headroomPoints(ms, direction);
+    return { roomPts: room, sufficient: room >= targetPts, nearestDist: room };
+  }
+  return { roomPts: ms.sessionHigh - ms.spot, sufficient: true, nearestDist: null };
+}
+
+function evaluateExpectedMove(ms, timing, cfg, movement) {
+  let favorablePts = cfg.minExpectedMove;
+  let adversePts = cfg.minExpectedMove * 0.5;
+  const vel = timing.velocityClass;
+  if (vel === FNO_SPE_VELOCITY.SLOW || (movement && movement.movementClass === 'SLOW')) {
+    favorablePts = cfg.targetSlow;
+    adversePts = cfg.targetSlow * 0.5;
+  } else if (vel === FNO_SPE_VELOCITY.FAST || (movement && movement.movementClass === 'FAST')) {
+    favorablePts = cfg.targetFast;
+    adversePts = cfg.targetFast * 0.5;
+  } else {
+    favorablePts = cfg.targetMedium;
+    adversePts = cfg.targetMedium * 0.5;
+  }
+  if (timing.expectedPoints5Min && Number.isFinite(timing.expectedPoints5Min)) {
+    favorablePts = Math.max(favorablePts, Math.min(cfg.targetFast, timing.expectedPoints5Min));
+  } else if (typeof classifyMovement === 'function') {
+    const mv = movement || classifyMovement(ms);
+    if (mv.targetPoints) favorablePts = mv.targetPoints;
+  }
+  const costPts = cfg.slippageEstimate + cfg.safetyMargin + (ms.spot > 0 ? (cfg.spreadThresholdPct / 100) * ms.spot * 0.01 : 0.5);
+  const netEdge = favorablePts - adversePts - costPts;
+  const rr = adversePts > 0 ? favorablePts / adversePts : 0;
+  return {
+    favorablePts, adversePts, holdingMinutes: cfg.timeStopMinutes, costPts, netEdge,
+    netEdgePositive: netEdge > 0, riskReward: rr, estimatedSlippage: cfg.slippageEstimate,
+  };
+}
+
+function evaluateTradeQuality(layers, cfg) {
+  const weights = {
+    marketSafety: 12, regime: 10, direction: 12, setup: 15, timing: 12,
+    momentum: 8, room: 8, expectedMove: 10, execution: 8, session: 5,
+  };
+  const breakdown = {};
+  const usedLayers = [];
+  const skippedLayers = [];
+  const scoreFor = (key, val) => {
+    if (val == null) { skippedLayers.push(key); return null; }
+    usedLayers.push(key);
+    return val;
+  };
+  const safetySkipped = layers.safety && layers.safety.skippedLayers && layers.safety.skippedLayers.includes('marketSafety');
+  breakdown.marketSafety = safetySkipped ? null : scoreFor('marketSafety', layers.safety ? (layers.safety.safe ? 90 : 30) : null);
+  breakdown.regime = scoreFor('regime', layers.regime && !layers.regime.skipped ? layers.regime.confidence : null);
+  breakdown.direction = scoreFor('direction', layers.direction && !layers.direction.skipped ? layers.direction.confidence : null);
+  breakdown.setup = scoreFor('setup', layers.setup ? layers.setup.score : null);
+  breakdown.timing = scoreFor('timing', layers.timing ? layers.timing.timingScore : null);
+  breakdown.momentum = scoreFor('momentum', layers.timing ? (layers.timing.velocityPtsMin >= 1 ? 70 : 40) : null);
+  breakdown.room = scoreFor('room', layers.room ? (layers.room.sufficient ? 85 : 25) : null);
+  breakdown.expectedMove = scoreFor('expectedMove', layers.expectedMove ? (layers.expectedMove.netEdgePositive ? 80 : 35) : null);
+  breakdown.execution = scoreFor('execution', layers.execution && !layers.execution.skipped ? layers.execution.score : null);
+  breakdown.session = scoreFor('session', layers.session && layers.session.state !== FNO_SPE_SESSION.LOCKED ? 75 : (layers.session ? 20 : null));
+  let sum = 0;
+  let totalW = 0;
+  Object.keys(weights).forEach(k => {
+    if (breakdown[k] == null) return;
+    sum += breakdown[k] * weights[k];
+    totalW += weights[k];
+  });
+  const normalized = totalW > 0 ? Math.round(sum / totalW) : null;
+  let grade = 'No Trade';
+  if (normalized == null) grade = 'Insufficient Data';
+  else if (normalized >= 90) grade = 'Exceptional';
+  else if (normalized >= 80) grade = 'High Quality';
+  else if (normalized >= 70) grade = 'Acceptable';
+  else if (normalized >= 60) grade = 'Selective';
+  return {
+    normalized, grade, breakdown, weights, usedLayers, skippedLayers,
+    layersUsedCount: usedLayers.length, layersSkippedCount: skippedLayers.length,
+    recalculatedFromAvailableOnly: skippedLayers.length > 0,
+  };
+}
+
+function buildSpeFactorDataAvailability(ms, layers, quality, safety, execution) {
+  const unavailable = [];
+  const used = [];
+  const layerMap = [
+    ['marketSafety', layers.safety, layers.safety && layers.safety.skippedLayers && layers.safety.skippedLayers.includes('marketSafety')],
+    ['regime', layers.regime, layers.regime && layers.regime.skipped],
+    ['direction', layers.direction, layers.direction && layers.direction.skipped],
+    ['setup', layers.setup, !layers.setup],
+    ['timing', layers.timing, !ms.valid || !layers.setup],
+    ['execution', layers.execution, layers.execution && layers.execution.skipped],
+  ];
+  layerMap.forEach(([name, layer, skipped]) => {
+    if (skipped) unavailable.push(name);
+    else if (layer) used.push(name);
+  });
+  (safety && safety.unavailableInputs || []).forEach(u => { if (!unavailable.includes(u)) unavailable.push(u); });
+  const skippedCount = unavailable.length;
+  const usedCount = used.length;
+  const total = skippedCount + usedCount;
+  const coveragePct = total > 0 ? +(usedCount / total * 100).toFixed(1) : 0;
+  let missingDataImpact = 'none';
+  if (!ms.valid || coveragePct < 35) missingDataImpact = 'high';
+  else if (coveragePct < 60 || skippedCount >= 2) missingDataImpact = 'low';
+  return {
+    unavailableInputs: unavailable,
+    usedLayers: used,
+    coveragePct,
+    tradeQualityScoreAvailableOnly: quality && quality.normalized != null ? quality.normalized : null,
+    missingDataImpact,
+    decisionAffectedByMissingData: skippedCount > 0,
+    summary: `${usedCount} SPE layers used, ${skippedCount} skipped — unavailable inputs never scored as fail`,
+  };
+}
+
+function evaluateExecutionQuality(ctx, expectedMove, cfg, optionType) {
+  const leg = resolveSpeOptionLeg(ctx, optionType);
+  const spreadPct = leg && leg.bidprice > 0 && leg.askPrice > leg.bidprice
+    ? ((leg.askPrice - leg.bidprice) / leg.bidprice) * 100 : null;
+  if (spreadPct == null) {
+    return { score: null, spreadPct: null, slippageVsProfit: null, acceptable: true, skipped: true,
+      reason: 'Spread data unavailable — execution quality skipped (not scored as fail)' };
+  }
+  let score = 75;
+  if (spreadPct > cfg.spreadThresholdPct) score -= 30;
+  const slippageVsProfit = expectedMove && expectedMove.favorablePts > 0
+    ? (cfg.slippageEstimate / expectedMove.favorablePts) * 100 : 0;
+  if (slippageVsProfit > 25) score -= 20;
+  return { score: Math.max(0, score), spreadPct, slippageVsProfit, acceptable: score >= 55, skipped: false };
+}
+
+function evaluateSpeSessionState(journalToday, regimeInfo, cfg) {
+  const st = getSpeSessionState();
+  const today = journalToday || st.journalToday || [];
+  const speTrades = today.filter(t => t.source === 'scalping_profit' || (t.factorSnapshot && t.factorSnapshot.scalpingProfitDecision));
+  const losses = speTrades.filter(t => typeof t.pnl === 'number' && t.pnl < 0);
+  const wins = speTrades.filter(t => typeof t.pnl === 'number' && t.pnl > 0);
+  let consecutiveLosses = 0;
+  for (let i = speTrades.length - 1; i >= 0; i--) {
+    if (typeof speTrades[i].pnl !== 'number') continue;
+    if (speTrades[i].pnl < 0) consecutiveLosses++;
+    else break;
+  }
+  let state = FNO_SPE_SESSION.NORMAL;
+  if (st.locked) state = FNO_SPE_SESSION.LOCKED;
+  else if (consecutiveLosses >= cfg.maxConsecutiveLosses) state = FNO_SPE_SESSION.CAUTIOUS;
+  else if (losses.length >= cfg.maxConsecutiveLosses) state = FNO_SPE_SESSION.RECOVERY;
+  else if (wins.length >= 3 && losses.length === 0) state = FNO_SPE_SESSION.HOT;
+  else if (losses.length > wins.length) state = FNO_SPE_SESSION.COLD;
+  if (regimeInfo.regime === FNO_SPE_REGIME.CHOP) state = state === FNO_SPE_SESSION.HOT ? FNO_SPE_SESSION.CAUTIOUS : state;
+  const minScoreBoost = regimeInfo.regime === FNO_SPE_REGIME.CHOP ? cfg.chopScoreBoost : 0;
+  return { state, consecutiveLosses, tradeCount: speTrades.length, minScoreBoost, locked: state === FNO_SPE_SESSION.LOCKED };
+}
+
+function evaluateSpeCooldown(cfg) {
+  const st = getSpeSessionState();
+  if (!st.lastTradeTs) return { allowed: true, remainingSec: 0 };
+  const elapsed = (Date.now() - st.lastTradeTs) / 1000;
+  let cd = cfg.cooldownSeconds;
+  if (st.lastExitReason === FNO_SPE_EXIT.STOP_HIT) cd = Math.max(cd, cfg.cooldownSeconds * 1.5);
+  if (st.consecutiveLosses >= 2) cd = Math.max(cd, cfg.cooldownSeconds * 2);
+  const remaining = Math.max(0, cd - elapsed);
+  return { allowed: remaining <= 0, remainingSec: Math.ceil(remaining), cooldownSec: cd };
+}
+
+function evaluateAntiOvertrade(sessionInfo, cooldown, cfg) {
+  const blockers = [];
+  if (sessionInfo.tradeCount >= cfg.maxTradesPerSession) blockers.push(FNO_SPE_NO_TRADE.DAILY_LIMIT);
+  if (sessionInfo.consecutiveLosses >= cfg.maxConsecutiveLosses) blockers.push(FNO_SPE_NO_TRADE.CONSECUTIVE_LOSS_LIMIT);
+  if (sessionInfo.locked) blockers.push(FNO_SPE_NO_TRADE.SESSION_LOCK);
+  if (!cooldown.allowed) blockers.push(FNO_SPE_NO_TRADE.COOLDOWN);
+  return { allowed: blockers.length === 0, blockers };
+}
+
+function buildSpeExplanation(layers, quality, decision) {
+  const lines = [];
+  if (decision === 'ENTER') {
+    const tradeDir = layers.direction ? speDirectionToTradeDir(layers.direction.direction) : null;
+    lines.push(`SCALP ${tradeDir === 'bearish' ? 'SHORT (PE)' : 'LONG (CE)'}`);
+    lines.push(`Regime: ${layers.regime ? layers.regime.regime : '?'} (${layers.regime ? layers.regime.confidence : 0}%)`);
+    lines.push(`Setup: ${layers.setup ? layers.setup.type : 'none'}`);
+    lines.push(`Trade Quality: ${quality.normalized}/100 (${quality.grade})`);
+    if (layers.expectedMove) {
+      lines.push(`Expected Move: ${layers.expectedMove.favorablePts}pt / Risk: ${layers.expectedMove.adversePts}pt`);
+      lines.push(`Target: ${layers.expectedMove.favorablePts} Stop: ${layers.expectedMove.adversePts}`);
+    }
+    if (layers.room) lines.push(`Available Room: ${Number.isFinite(layers.room.roomPts) ? layers.room.roomPts.toFixed(1) : '?'} points`);
+    lines.push('Invalidation: Momentum collapse OR structure break OR time decay');
+  } else {
+    lines.push(`NO TRADE — ${layers.noTradeReason || 'Insufficient edge'}`);
+  }
+  return lines.join('\n');
+}
+
+function computeScalpingProfitEngine(ctx, brain, opts) {
+  opts = opts || {};
+  const cfg = getScalpingProfitSettings();
+  const ms = buildSpeMarketState(ctx, brain);
+  const movement = typeof classifyMovement === 'function' ? classifyMovement(ms) : null;
+
+  if (!isScalpingProfitEngineActive()) {
+    return {
+      active: false, decision: 'BYPASS', entryAllowed: true, mode: cfg.mode,
+      reasons: ['Scalping Profit Engine disabled or OFF mode'],
+    };
+  }
+
+  const journalToday = opts.journalToday || [];
+  const regime = detectSpeRegime(ms, ctx);
+  const direction = evaluateSpeDirection(ms, regime, brain);
+  const optionTypeForSpe = speDirectionToOptionType(direction.direction)
+    || (brain && brain.decision === 'SELL_READY' ? 'PE' : brain && brain.decision === 'BUY_READY' ? 'CE' : null);
+  const safety = evaluateMarketSafety(ms, ctx, cfg, optionTypeForSpe);
+  const setups = detectSpeSetups(ms, direction, regime);
+  const bestSetup = setups[0] || null;
+  const timing = evaluateEntryTiming(ms, bestSetup, cfg);
+  const expectedMove = evaluateExpectedMove(ms, timing, cfg, movement);
+  const antiChase = evaluateAntiChase(ms, expectedMove, cfg);
+  const room = bestSetup ? computeAvailableRoom(ms, bestSetup.direction, expectedMove.favorablePts) : { sufficient: false, roomPts: 0 };
+  const execution = evaluateExecutionQuality(ctx, expectedMove, cfg, optionTypeForSpe);
+  const session = evaluateSpeSessionState(journalToday, regime, cfg);
+  const cooldown = evaluateSpeCooldown(cfg);
+  const overtrade = evaluateAntiOvertrade(session, cooldown, cfg);
+
+  const layers = { safety, regime, direction, setup: bestSetup, timing, expectedMove, room, execution, session };
+  const quality = evaluateTradeQuality(layers, cfg);
+  const factorDataAvailability = buildSpeFactorDataAvailability(ms, layers, quality, safety, execution);
+  const minScore = cfg.minTradeQuality + session.minScoreBoost;
+
+  const blockers = [];
+  const noTradeReasons = [];
+
+  if (!safety.skippedLayers.includes('marketSafety') && !safety.safe) { blockers.push(...safety.blockers); noTradeReasons.push(...safety.blockers); }
+  if (!regime.skipped && regime.confidence < cfg.minRegimeConfidence) { blockers.push(FNO_SPE_NO_TRADE.LOW_REGIME_CONFIDENCE); noTradeReasons.push(FNO_SPE_NO_TRADE.LOW_REGIME_CONFIDENCE); }
+  if (!direction.skipped && direction.confidence < cfg.minDirectionConfidence) { blockers.push(FNO_SPE_NO_TRADE.WEAK_DIRECTION); noTradeReasons.push(FNO_SPE_NO_TRADE.WEAK_DIRECTION); }
+  if (ms.valid && !bestSetup) { blockers.push(FNO_SPE_NO_TRADE.NO_SETUP); noTradeReasons.push(FNO_SPE_NO_TRADE.NO_SETUP); }
+  if (ms.valid && antiChase.blocked) { blockers.push(FNO_SPE_NO_TRADE.EXCESSIVE_EXTENSION); noTradeReasons.push(FNO_SPE_NO_TRADE.EXCESSIVE_EXTENSION); }
+  if (ms.valid && !room.sufficient && bestSetup && bestSetup.type !== FNO_SPE_SETUP.BREAKOUT) {
+    blockers.push(FNO_SPE_NO_TRADE.INSUFFICIENT_ROOM); noTradeReasons.push(FNO_SPE_NO_TRADE.INSUFFICIENT_ROOM);
+  }
+  if (ms.valid && expectedMove.favorablePts < cfg.minExpectedMove) { blockers.push(FNO_SPE_NO_TRADE.EXPECTED_MOVE_TOO_SMALL); noTradeReasons.push(FNO_SPE_NO_TRADE.EXPECTED_MOVE_TOO_SMALL); }
+  if (ms.valid && expectedMove.riskReward < cfg.minRiskReward) { blockers.push(FNO_SPE_NO_TRADE.POOR_RR); noTradeReasons.push(FNO_SPE_NO_TRADE.POOR_RR); }
+  if (ms.valid && !expectedMove.netEdgePositive) { blockers.push(FNO_SPE_NO_TRADE.POOR_RR); }
+  if (!execution.skipped && !execution.acceptable) { blockers.push(FNO_SPE_NO_TRADE.EXCESSIVE_SLIPPAGE); noTradeReasons.push(FNO_SPE_NO_TRADE.EXCESSIVE_SLIPPAGE); }
+  if (quality.normalized != null && quality.normalized < minScore) { blockers.push(FNO_SPE_NO_TRADE.LOW_SCORE); noTradeReasons.push(FNO_SPE_NO_TRADE.LOW_SCORE); }
+  if (ms.valid && regime.regime === FNO_SPE_REGIME.CHOP && quality.normalized != null && quality.normalized < minScore + cfg.chopScoreBoost) {
+    blockers.push(FNO_SPE_NO_TRADE.CHOP); noTradeReasons.push(FNO_SPE_NO_TRADE.CHOP);
+  }
+  if (!overtrade.allowed) { blockers.push(...overtrade.blockers); noTradeReasons.push(...overtrade.blockers); }
+  if (typeof checkScalpingCapitalPreservation === 'function' && brain && (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY')) {
+    const cp = checkScalpingCapitalPreservation(brain, ctx || {}, { journalToday });
+    if (!cp.allowed) { blockers.push(FNO_SPE_NO_TRADE.DAILY_LIMIT); noTradeReasons.push(FNO_SPE_NO_TRADE.DAILY_LIMIT); }
+  }
+
+  layers.noTradeReason = noTradeReasons[0] || null;
+  const tradeDir = speDirectionToTradeDir(direction.direction);
+  const brainAligned = brain && (
+    (brain.decision === 'BUY_READY' && tradeDir === 'bullish') ||
+    (brain.decision === 'SELL_READY' && tradeDir === 'bearish')
+  );
+
+  let decision = 'NO_TRADE';
+  let entryAllowed = false;
+  if (blockers.length === 0 && brainAligned && bestSetup) {
+    decision = 'ENTER';
+    entryAllowed = cfg.mode !== FNO_SPE_MODE.SIGNAL_ONLY;
+  } else if (cfg.mode === FNO_SPE_MODE.SIGNAL_ONLY && blockers.length === 0 && bestSetup) {
+    decision = 'SIGNAL';
+    entryAllowed = true;
+  }
+
+  if (cfg.mode === FNO_SPE_MODE.SIGNAL_ONLY && blockers.length) entryAllowed = true;
+
+  const explanation = buildSpeExplanation(layers, quality, decision);
+  const dirOpt = optionTypeForSpe || speDirectionToOptionType(direction.direction);
+
+  return {
+    active: true,
+    ts: Date.now(),
+    mode: cfg.mode,
+    decision,
+    entryAllowed: entryAllowed && brainAligned,
+    engineStatus: decision,
+    regime: regime.regime,
+    regimeConfidence: regime.confidence,
+    regimeStrength: regime.strength,
+    direction: direction.direction,
+    directionConfidence: direction.confidence,
+    setup: bestSetup,
+    setups,
+    timing,
+    movement,
+    expectedMove,
+    antiChase,
+    room,
+    safety,
+    execution,
+    session: session.state,
+    sessionDetail: session,
+    quality,
+    tradeQualityScore: quality.normalized,
+    tradeQualityGrade: quality.grade,
+    spotTargetPoints: expectedMove.favorablePts,
+    spotStopPoints: expectedMove.adversePts,
+    spotTargetPrice: Number.isFinite(ms.spot) && bestSetup
+      ? +(ms.spot + (bestSetup.direction === 'bullish' ? 1 : -1) * expectedMove.favorablePts).toFixed(2) : null,
+    blockers,
+    noTradeReasons,
+    noTradeReason: layers.noTradeReason,
+    explanation,
+    settings: cfg,
+    optionType: dirOpt,
+    layers,
+    factorDataAvailability,
+    decisionAffectedByMissingData: factorDataAvailability.decisionAffectedByMissingData,
+  };
+}
+
+function applyScalpingProfitInfluence(brain, spe) {
+  if (!brain || !spe || !spe.active) return brain;
+  brain.scalpingProfitDecision = spe;
+  if (!isScalpingProfitEngineEntryBlocking()) return brain;
+  if (spe.entryAllowed) return brain;
+  if (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY') {
+    brain.decision = spe.decision === 'NO_TRADE' ? 'NO_TRADE' : 'WAIT';
+    brain.reason = (brain.reason || '') + ` [SPE: ${spe.noTradeReason || (spe.blockers && spe.blockers[0]) || spe.engineStatus}]`;
+    brain.scalpingProfitBlocked = true;
+  }
+  return brain;
+}
+
+function checkScalpingProfitEntryGate(brain, ctx, optionType) {
+  if (!isScalpingProfitEngineEntryBlocking()) return { allowed: true };
+  const spe = (brain && brain.scalpingProfitDecision)
+    ? brain.scalpingProfitDecision
+    : computeScalpingProfitEngine(ctx, brain, {});
+  if (!spe.active) return { allowed: true };
+  const dir = optionType === 'PE' ? 'bearish' : 'bullish';
+  const setupDir = spe.setup ? speDirectionToTradeDir(spe.setup.direction) : null;
+  if (spe.entryAllowed && setupDir === dir) return { allowed: true, spe };
+  return {
+    allowed: false,
+    reason: `Scalping Profit Engine: ${spe.noTradeReason || (spe.blockers && spe.blockers[0]) || spe.engineStatus}`,
+    spe,
+  };
+}
+
+function resolveScalpingProfitBracket(optPrice, ctx, brain, tradingType, optionType) {
+  if (!isScalpingProfitEngineActive() || tradingType !== 'scalping') return null;
+  const spe = (brain && brain.scalpingProfitDecision)
+    ? brain.scalpingProfitDecision
+    : computeScalpingProfitEngine(ctx, brain, {});
+  if (!spe.active || !spe.entryAllowed || !spe.spotTargetPoints) return null;
+  if (typeof convertSpotTargetToOptionBracket === 'function') {
+    const dir = spe.setup ? spe.setup.direction : (optionType === 'PE' ? 'bearish' : 'bullish');
+    const bracket = convertSpotTargetToOptionBracket(optPrice, ctx, spe.spotTargetPoints, dir);
+    if (bracket && bracket.target && bracket.sl) {
+      return { ...bracket, source: 'scalping_profit_engine', spe };
+    }
+  }
+  return null;
+}
+
+function computeTradeHealth(open, ctx, brain) {
+  if (!open || !open.entrySpot || !ctx || !Number.isFinite(ctx.spot)) return { health: 50, phase: 'NORMAL' };
+  const spe = open.scalpingProfitSnapshot || (brain && brain.scalpingProfitDecision);
+  const favorable = open.optionType === 'PE'
+    ? open.entrySpot - ctx.spot
+    : ctx.spot - open.entrySpot;
+  const targetPts = spe && spe.spotTargetPoints ? spe.spotTargetPoints : 15;
+  const progress = targetPts > 0 ? Math.min(100, (favorable / targetPts) * 100) : 0;
+  const holdMin = open.openedAt ? (Date.now() - open.openedAt) / 60000 : 0;
+  const cfg = getScalpingProfitSettings();
+  let health = 75;
+  if (progress >= 50) health += 15;
+  if (favorable < 0) health -= 25;
+  if (holdMin > cfg.timeStopMinutes && progress < 30) health -= 30;
+  if (holdMin > cfg.maxHoldingMinutes) health -= 40;
+  health = Math.max(0, Math.min(100, health));
+  let phase = 'NORMAL';
+  if (health >= 75) phase = 'HEALTHY';
+  else if (health >= 60) phase = 'NORMAL';
+  else if (health >= 45) phase = 'WEAKENING';
+  else if (health >= 30) phase = 'POOR';
+  else phase = 'EXIT_CANDIDATE';
+  return { health, phase, progress, holdMin, favorable };
+}
+
+function evaluateScalpingProfitExit(open, ctx, brain, livePrice) {
+  if (!open || !open.scalpingProfitTrade) return null;
+  const cfg = getScalpingProfitSettings();
+  const health = computeTradeHealth(open, ctx, brain);
+  const holdMin = open.openedAt ? (Date.now() - open.openedAt) / 60000 : 0;
+
+  if (health.health < cfg.tradeHealthExit) {
+    return { exit: true, reason: FNO_SPE_EXIT.MOMENTUM_FAILURE, label: 'SPE trade health collapsed' };
+  }
+  if (holdMin >= cfg.maxHoldingMinutes) {
+    return { exit: true, reason: FNO_SPE_EXIT.TIME_STOP, label: 'SPE max holding time' };
+  }
+  if (holdMin >= cfg.timeStopMinutes && health.progress < 25) {
+    return { exit: true, reason: FNO_SPE_EXIT.TIME_STOP, label: 'SPE thesis time decay' };
+  }
+  if (health.progress >= cfg.profitProtectionPct && health.phase === 'WEAKENING') {
+    return { exit: true, reason: FNO_SPE_EXIT.PROFIT_PROTECTION, label: 'SPE profit protection' };
+  }
+  if (brain && open.optionType === 'CE' && brain.decision === 'SELL_READY') {
+    return { exit: true, reason: FNO_SPE_EXIT.OPPOSITE_SIGNAL, label: 'SPE opposite brain signal' };
+  }
+  if (brain && open.optionType === 'PE' && brain.decision === 'BUY_READY') {
+    return { exit: true, reason: FNO_SPE_EXIT.OPPOSITE_SIGNAL, label: 'SPE opposite brain signal' };
+  }
+  return null;
+}
+
+function logScalpingProfitDecision(spe, sym, brain) {
+  if (!spe || !spe.active) return;
+  try {
+    const log = JSON.parse(localStorage.getItem(FNO_SPE_LOG_KEY) || '[]');
+    log.push({
+      ts: spe.ts, sym,
+      decision: spe.decision, entryAllowed: spe.entryAllowed,
+      regime: spe.regime, regimeConfidence: spe.regimeConfidence,
+      direction: spe.direction, directionConfidence: spe.directionConfidence,
+      setupType: spe.setup ? spe.setup.type : null,
+      tradeQualityScore: spe.tradeQualityScore, tradeQualityGrade: spe.tradeQualityGrade,
+      spotTargetPoints: spe.spotTargetPoints, spotStopPoints: spe.spotStopPoints,
+      noTradeReasons: spe.noTradeReasons, blockers: spe.blockers,
+      brainDecision: brain ? brain.decision : null,
+      mode: spe.mode, explanation: spe.explanation,
+    });
+    while (log.length > FNO_SPE_LOG_MAX) log.shift();
+    localStorage.setItem(FNO_SPE_LOG_KEY, JSON.stringify(log));
+    if (spe.decision === 'NO_TRADE' && spe.tradeQualityScore >= 75) {
+      const missed = JSON.parse(localStorage.getItem(FNO_SPE_MISSED_KEY) || '[]');
+      missed.push({ ts: spe.ts, sym, score: spe.tradeQualityScore, reason: spe.noTradeReason, spe: { regime: spe.regime, setup: spe.setup && spe.setup.type } });
+      while (missed.length > 500) missed.shift();
+      localStorage.setItem(FNO_SPE_MISSED_KEY, JSON.stringify(missed));
+    }
+  } catch (e) { /* quota */ }
+}
+
+function getScalpingProfitLog() {
+  try { return JSON.parse(localStorage.getItem(FNO_SPE_LOG_KEY) || '[]'); } catch (e) { return []; }
+}
+
+function classifySpeFailureMode(outcome, spe) {
+  if (!outcome || outcome.pnl >= 0) return null;
+  const reason = outcome.exitReason || '';
+  if (reason === FNO_SPE_EXIT.TIME_STOP) return FNO_SPE_FAILURE.TIME_DECAY;
+  if (spe && spe.antiChase && spe.antiChase.chasePct > 70) return FNO_SPE_FAILURE.CHASING;
+  if (spe && spe.noTradeReasons && spe.noTradeReasons.includes(FNO_SPE_NO_TRADE.WIDE_SPREAD)) return FNO_SPE_FAILURE.WIDE_SPREAD;
+  if (reason === FNO_SPE_EXIT.MOMENTUM_FAILURE) return FNO_SPE_FAILURE.MOMENTUM_FAILURE;
+  if (reason === FNO_SPE_EXIT.STOP_HIT) return FNO_SPE_FAILURE.TREND_FAILURE;
+  return FNO_SPE_FAILURE.BAD_TIMING;
+}
+
+function recordScalpingProfitOutcome(tradeId, outcome) {
+  try {
+    const log = getScalpingProfitLog();
+    const entry = log.filter(e => e.tradeId === tradeId).pop();
+    if (entry) {
+      entry.outcome = outcome;
+      entry.failureMode = classifySpeFailureMode(outcome, entry.spe);
+      localStorage.setItem(FNO_SPE_LOG_KEY, JSON.stringify(log));
+    }
+    const st = getSpeSessionState();
+    st.lastTradeTs = Date.now();
+    st.lastExitReason = outcome.exitReason;
+    if (typeof outcome.pnl === 'number' && outcome.pnl < 0) st.consecutiveLosses = (st.consecutiveLosses || 0) + 1;
+    else st.consecutiveLosses = 0;
+    saveSpeSessionState(st);
+  } catch (e) { /* quota */ }
+}
+
+function linkScalpingProfitTradeId(tradeId, spe) {
+  try {
+    const log = getScalpingProfitLog();
+    if (log.length) {
+      log[log.length - 1].tradeId = tradeId;
+      log[log.length - 1].spe = { regime: spe.regime, setup: spe.setup && spe.setup.type, quality: spe.tradeQualityScore };
+      localStorage.setItem(FNO_SPE_LOG_KEY, JSON.stringify(log));
+    }
+  } catch (e) { /* quota */ }
+}
+
+function computeScalpingProfitStatistics(log) {
+  log = log || getScalpingProfitLog();
+  const completed = log.filter(e => e.outcome && typeof e.outcome.pnl === 'number');
+  let wins = 0, losses = 0, grossWins = 0, grossLosses = 0, totalPnl = 0;
+  const bySetup = {};
+  const byRegime = {};
+  const byNoTrade = {};
+  log.filter(e => e.decision === 'NO_TRADE').forEach(e => {
+    (e.noTradeReasons || [e.noTradeReason || 'unknown']).forEach(r => {
+      byNoTrade[r] = (byNoTrade[r] || 0) + 1;
+    });
+  });
+  completed.forEach(e => {
+    const pnl = e.outcome.pnl;
+    totalPnl += pnl;
+    if (pnl >= 0) { wins++; grossWins += pnl; } else { losses++; grossLosses += Math.abs(pnl); }
+    const sk = e.setupType || 'unknown';
+    if (!bySetup[sk]) bySetup[sk] = { n: 0, wins: 0, pnl: 0 };
+    bySetup[sk].n++; bySetup[sk].pnl += pnl; if (pnl >= 0) bySetup[sk].wins++;
+    const rk = e.regime || 'unknown';
+    if (!byRegime[rk]) byRegime[rk] = { n: 0, wins: 0, pnl: 0 };
+    byRegime[rk].n++; byRegime[rk].pnl += pnl; if (pnl >= 0) byRegime[rk].wins++;
+  });
+  const n = completed.length;
+  const winRate = n ? (wins / n) * 100 : 0;
+  const avgWin = wins ? grossWins / wins : 0;
+  const avgLoss = losses ? grossLosses / losses : 0;
+  const expectancy = n ? (winRate / 100 * avgWin) - ((100 - winRate) / 100 * avgLoss) : 0;
+  const profitFactor = grossLosses > 0 ? grossWins / grossLosses : grossWins > 0 ? Infinity : 0;
+  return {
+    n, wins, losses, winRate, avgWin, avgLoss, expectancy, profitFactor, totalPnl,
+    bySetup, byRegime, byNoTrade, noTradeCount: log.filter(e => e.decision === 'NO_TRADE').length,
+  };
+}
+
+function renderScalpingProfitDashboard(spe, stats) {
+  const box = typeof document !== 'undefined' ? document.getElementById('scalpingProfitEngineBox') : null;
+  if (!box) return;
+  if (typeof isScalpingProfitProfileActive === 'function' && !isScalpingProfitProfileActive()) {
+    box.style.display = 'none';
+    return;
+  }
+  box.style.display = 'block';
+  const cfg = getScalpingProfitSettings();
+  stats = stats || computeScalpingProfitStatistics();
+  const modeLabel = cfg.mode;
+  const onOff = isScalpingProfitEngineActive() ? 'ON' : 'OFF';
+  let html = `<div style="font-weight:700;color:#fde68a;margin-bottom:6px">⚡ Scalping Profit Engine <span style="color:${onOff === 'ON' ? '#4ade80' : '#94a3b8'}">● ${onOff}</span> <span style="color:#64748b;font-weight:400">(${modeLabel})</span></div>`;
+  if (spe && spe.active) {
+    const dc = spe.decision === 'ENTER' ? '#4ade80' : spe.decision === 'SIGNAL' ? '#fbbf24' : '#94a3b8';
+    html += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:6px;margin-bottom:8px">`;
+    html += `<div><span style="color:#64748b">Decision</span><br><b style="color:${dc}">${fnoSpeEscapeHtml(spe.decision)}</b></div>`;
+    html += `<div><span style="color:#64748b">Regime</span><br>${fnoSpeEscapeHtml(spe.regime)} (${spe.regimeConfidence}%)</div>`;
+    html += `<div><span style="color:#64748b">Session</span><br>${fnoSpeEscapeHtml(spe.session)}</div>`;
+    html += `<div><span style="color:#64748b">Quality</span><br>${spe.tradeQualityScore}/100 (${fnoSpeEscapeHtml(spe.tradeQualityGrade)})</div>`;
+    html += `<div><span style="color:#64748b">Setup</span><br>${spe.setup ? fnoSpeEscapeHtml(spe.setup.type) : '—'}</div>`;
+    html += `<div><span style="color:#64748b">Target/Stop</span><br>${spe.spotTargetPoints || '—'}/${spe.spotStopPoints || '—'} pt</div>`;
+    html += `</div>`;
+    if (spe.noTradeReasons && spe.noTradeReasons.length) {
+      html += `<div style="color:#94a3b8;font-size:10px;margin-bottom:6px">No-trade: ${spe.noTradeReasons.slice(0, 4).map(fnoSpeEscapeHtml).join(', ')}</div>`;
+    }
+    if (spe.explanation) {
+      html += `<pre style="font-size:10px;color:#cbd5e1;white-space:pre-wrap;margin:0;background:#020617;padding:8px;border-radius:6px">${fnoSpeEscapeHtml(spe.explanation)}</pre>`;
+    }
+  } else {
+    html += `<div style="color:#64748b">Engine inactive — enable in Settings.</div>`;
+  }
+  if (stats.n > 0 || stats.noTradeCount > 0) {
+    const fmt = (typeof fnoFormatFixed === 'function') ? fnoFormatFixed
+      : (n, d, fb) => (Number.isFinite(n) ? n.toFixed(d) : (fb != null ? fb : '—'));
+    const wr = Number.isFinite(stats.winRate) ? fmt(stats.winRate, 0) : '—';
+    const net = Number.isFinite(stats.totalPnl) ? fmt(stats.totalPnl, 0) : '—';
+    const pf = stats.profitFactor === Infinity ? '∞'
+      : Number.isFinite(stats.profitFactor) ? fmt(stats.profitFactor, 2) : '—';
+    const exp = Number.isFinite(stats.expectancy) ? fmt(stats.expectancy, 0) : '—';
+    html += `<div style="margin-top:8px;padding-top:8px;border-top:1px solid #334155;font-size:10px;color:#94a3b8">`;
+    html += `Today: ${stats.n} trades · WR ${wr}% · Net ₹${net} · PF ${pf} · Expectancy ₹${exp} · NO TRADE logged: ${stats.noTradeCount}`;
+    html += `</div>`;
+  }
+  box.innerHTML = html;
+}
+
+function renderScalpingProfitAnalytics() {
+  const stats = computeScalpingProfitStatistics();
+  renderScalpingProfitDashboard(window.FNO_LAST_SPE || null, stats);
+  if (typeof renderScalpingProfitLearningPanel === 'function') {
+    renderScalpingProfitLearningPanel(computeSpeLearningReport());
+  }
+}
+
+function buildScalpingProfitAttribution(spe) {
+  if (!spe || !spe.active) return null;
+  return {
+    decision: spe.decision, quality: spe.tradeQualityScore, regime: spe.regime,
+    setup: spe.setup && spe.setup.type, targetPts: spe.spotTargetPoints,
+  };
+}
+
+function notifyScalpingProfitAlert(kind, spe, extra) {
+  if (typeof notifyTradeExecution !== 'function') return;
+  const labels = {
+    OPPORTUNITY: 'SCALP OPPORTUNITY', ENTRY: 'SCALP ENTRY', EXIT: 'SCALP EXIT',
+    LOCKED: 'SCALP ENGINE LOCKED', COOLDOWN: 'SCALP ENGINE COOLDOWN',
+  };
+  if (kind === 'OPPORTUNITY' && spe && spe.decision !== 'ENTER') return;
+}
+
+// --- Phase 8: Learning Engine (observation only — never auto-applies) ---
+
+function getSpeCompletedTrades(log) {
+  log = log || getScalpingProfitLog();
+  return log.filter(e => e.outcome && typeof e.outcome.pnl === 'number').sort((a, b) => (a.ts || 0) - (b.ts || 0));
+}
+
+function summarizeSpeTradeSubset(entries, label) {
+  let wins = 0, grossW = 0, grossL = 0, total = 0, peak = 0, run = 0, maxDd = 0;
+  entries.forEach(e => {
+    const pnl = e.outcome.pnl;
+    total += pnl;
+    run += pnl;
+    if (run > peak) peak = run;
+    const dd = peak - run;
+    if (dd > maxDd) maxDd = dd;
+    if (pnl >= 0) { wins++; grossW += pnl; } else grossL += Math.abs(pnl);
+  });
+  const n = entries.length;
+  const winRate = n ? (wins / n) * 100 : 0;
+  const avgWin = wins ? grossW / wins : 0;
+  const avgLoss = (n - wins) ? grossL / (n - wins) : 0;
+  const expectancy = n ? (winRate / 100 * avgWin) - ((100 - winRate) / 100 * avgLoss) : 0;
+  const profitFactor = grossL > 0 ? grossW / grossL : grossW > 0 ? Infinity : 0;
+  return {
+    label, n, wins, losses: n - wins, winRate: +winRate.toFixed(1),
+    expectancy: +expectancy.toFixed(2), profitFactor: profitFactor === Infinity ? null : +profitFactor.toFixed(2),
+    totalPnl: +total.toFixed(2), maxDrawdown: +maxDd.toFixed(2),
+    sampleSufficient: n >= FNO_SPE_MIN_SAMPLE_WF,
+  };
+}
+
+function computeSpeWalkForwardReport(log) {
+  const completed = getSpeCompletedTrades(log);
+  const n = completed.length;
+  if (n < FNO_SPE_MIN_SAMPLE_WF) {
+    return {
+      sufficient: false,
+      warning: `Need at least ${FNO_SPE_MIN_SAMPLE_WF} completed SPE trades (have ${n}). Run paper mode to accumulate data.`,
+      train: null, validation: null, outOfSample: null, folds: [], overfitWarning: null,
+    };
+  }
+  const trainEnd = Math.floor(n * FNO_SPE_TRAIN_SPLIT);
+  const valEnd = Math.floor(n * (FNO_SPE_TRAIN_SPLIT + FNO_SPE_VALIDATION_SPLIT));
+  const train = completed.slice(0, trainEnd);
+  const validation = completed.slice(trainEnd, valEnd);
+  const outOfSample = completed.slice(valEnd);
+
+  const trainSum = summarizeSpeTradeSubset(train, 'train');
+  const valSum = summarizeSpeTradeSubset(validation, 'validation');
+  const oosSum = summarizeSpeTradeSubset(outOfSample, 'out_of_sample');
+
+  const foldCount = Math.min(4, Math.max(2, Math.floor(n / 6)));
+  const foldSize = Math.floor(n / foldCount);
+  const folds = [];
+  for (let i = 0; i < foldCount; i++) {
+    const slice = completed.slice(i * foldSize, (i + 1) * foldSize);
+    if (slice.length >= 3) folds.push(summarizeSpeTradeSubset(slice, 'fold_' + (i + 1)));
+  }
+
+  let overfitWarning = null;
+  if (trainSum.sampleSufficient && valSum.n >= 3) {
+    if (trainSum.expectancy > 0 && valSum.expectancy <= 0) {
+      overfitWarning = 'Train expectancy positive but validation negative — possible overfit';
+    } else if (trainSum.expectancy > valSum.expectancy * 2 && valSum.expectancy > 0) {
+      overfitWarning = 'Train expectancy much higher than validation — review parameter stability';
+    }
+  }
+  if (oosSum.n >= 3 && valSum.n >= 3 && valSum.expectancy > 0 && oosSum.expectancy <= 0) {
+    overfitWarning = (overfitWarning ? overfitWarning + '; ' : '') + 'Validation positive but out-of-sample negative — fragile edge';
+  }
+
+  const stable = folds.length >= 2 && folds.every(f => f.expectancy >= 0 || f.n < 4);
+  return {
+    sufficient: true, train: trainSum, validation: valSum, outOfSample: oosSum,
+    folds, overfitWarning, stable, totalTrades: n,
+  };
+}
+
+function shuffleArray(arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+
+function computeSpeMonteCarloAnalysis(log, opts) {
+  opts = opts || {};
+  const sims = opts.simulations || FNO_SPE_MC_SIMULATIONS;
+  const completed = getSpeCompletedTrades(log);
+  const pnls = completed.map(e => e.outcome.pnl);
+  if (pnls.length < FNO_SPE_MIN_SAMPLE_MC) {
+    return {
+      sufficient: false,
+      warning: `Need at least ${FNO_SPE_MIN_SAMPLE_MC} completed trades for Monte Carlo (have ${pnls.length}).`,
+      simulations: 0,
+    };
+  }
+
+  function runMcSeries(pnlSeries) {
+    const drawdowns = [];
+    const finals = [];
+    const streaks = [];
+    for (let s = 0; s < sims; s++) {
+      const seq = shuffleArray(pnlSeries);
+      let equity = 0, peak = 0, maxDd = 0, lossStreak = 0, maxLossStreak = 0;
+      seq.forEach(p => {
+        equity += p;
+        if (equity > peak) peak = equity;
+        const dd = peak - equity;
+        if (dd > maxDd) maxDd = dd;
+        if (p < 0) { lossStreak++; if (lossStreak > maxLossStreak) maxLossStreak = lossStreak; }
+        else lossStreak = 0;
+      });
+      drawdowns.push(maxDd);
+      finals.push(equity);
+      streaks.push(maxLossStreak);
+    }
+    drawdowns.sort((a, b) => a - b);
+    finals.sort((a, b) => a - b);
+    streaks.sort((a, b) => a - b);
+    const pct = (arr, p) => arr[Math.min(arr.length - 1, Math.floor(arr.length * p))];
+    return {
+      medianMaxDrawdown: +pct(drawdowns, 0.5).toFixed(2),
+      p95MaxDrawdown: +pct(drawdowns, 0.95).toFixed(2),
+      medianFinalPnl: +pct(finals, 0.5).toFixed(2),
+      p5FinalPnl: +pct(finals, 0.05).toFixed(2),
+      p95FinalPnl: +pct(finals, 0.95).toFixed(2),
+      medianMaxLossStreak: pct(streaks, 0.5),
+      p95MaxLossStreak: pct(streaks, 0.95),
+      ruinRatePct: +((finals.filter(f => f < -Math.abs(pct(finals, 0.5)) * 2).length / sims) * 100).toFixed(1),
+    };
+  }
+
+  const baseline = runMcSeries(pnls);
+  const costStress = [1, 1.5, 2].map(mult => {
+    const stressed = pnls.map(p => p - (mult - 1) * Math.abs(p) * 0.08);
+    const r = runMcSeries(stressed);
+    return { multiplier: mult, medianFinalPnl: r.medianFinalPnl, p5FinalPnl: r.p5FinalPnl, fragile: r.p5FinalPnl < 0 };
+  });
+  const fragile = costStress.some(c => c.fragile);
+
+  return {
+    sufficient: true, simulations: sims, sampleSize: pnls.length, baseline, costStress, fragile,
+    warning: fragile ? 'Edge may collapse under modest cost increase (×1.5 slippage stress)' : null,
+  };
+}
+
+function computeSpeRegimeSetupMatrix(log) {
+  log = log || getScalpingProfitLog();
+  const completed = getSpeCompletedTrades(log);
+  const matrix = {};
+  completed.forEach(e => {
+    const setup = e.setupType || 'unknown';
+    const regime = e.regime || 'UNKNOWN';
+    const key = setup + '|' + regime;
+    if (!matrix[key]) matrix[key] = { setup, regime, n: 0, wins: 0, pnl: 0 };
+    matrix[key].n++;
+    matrix[key].pnl += e.outcome.pnl;
+    if (e.outcome.pnl >= 0) matrix[key].wins++;
+  });
+  const rows = Object.values(matrix).map(r => {
+    r.winRate = r.n ? +((r.wins / r.n) * 100).toFixed(1) : 0;
+    r.expectancy = r.n ? +(r.pnl / r.n).toFixed(2) : 0;
+    r.grade = r.n < 3 ? '--' : r.expectancy > 50 ? '++' : r.expectancy > 0 ? '+' : r.expectancy > -50 ? '-' : '--';
+    r.sampleSufficient = r.n >= 5;
+    return r;
+  }).sort((a, b) => b.expectancy - a.expectancy);
+  return { rows, sufficient: completed.length >= FNO_SPE_MIN_SAMPLE_WF };
+}
+
+function computeSpeMissedTradeAnalysis() {
+  try {
+    const missed = JSON.parse(localStorage.getItem(FNO_SPE_MISSED_KEY) || '[]');
+    const validated = missed.filter(m => m.validated != null);
+    const pending = missed.length - validated.length;
+    let wouldWin = 0, wouldLose = 0;
+    validated.forEach(m => {
+      if (m.wouldHaveWon) wouldWin++;
+      else wouldLose++;
+    });
+    const byReason = {};
+    missed.forEach(m => {
+      const r = m.reason || 'unknown';
+      byReason[r] = (byReason[r] || 0) + 1;
+    });
+    return {
+      total: missed.length, pending, validated: validated.length,
+      wouldWin, wouldLose, byReason,
+      filterBeneficial: wouldLose >= wouldWin,
+      note: pending > 0 ? `${pending} high-quality rejections not yet back-tested against subsequent price action` : null,
+    };
+  } catch (e) {
+    return { total: 0, pending: 0, validated: 0, wouldWin: 0, wouldLose: 0, byReason: {} };
+  }
+}
+
+function computeSpeFilterCalibration(log) {
+  log = log || getScalpingProfitLog();
+  const noTrades = log.filter(e => e.decision === 'NO_TRADE');
+  const byFilter = {};
+  noTrades.forEach(e => {
+    (e.noTradeReasons || [e.noTradeReason || 'unknown']).forEach(r => {
+      if (!byFilter[r]) byFilter[r] = { count: 0, avgQuality: 0, _q: 0 };
+      byFilter[r].count++;
+      byFilter[r]._q += e.tradeQualityScore || 0;
+    });
+  });
+  Object.keys(byFilter).forEach(r => {
+    byFilter[r].avgQuality = byFilter[r].count ? Math.round(byFilter[r]._q / byFilter[r].count) : 0;
+    delete byFilter[r]._q;
+  });
+  return { totalNoTrade: noTrades.length, byFilter };
+}
+
+function computeSpeTargetBucketAnalysis(log) {
+  const completed = getSpeCompletedTrades(log);
+  const buckets = { 10: { n: 0, pnl: 0, wins: 0 }, 15: { n: 0, pnl: 0, wins: 0 }, 20: { n: 0, pnl: 0, wins: 0 } };
+  completed.forEach(e => {
+    const tp = e.spotTargetPoints;
+    const b = tp <= 12 ? 10 : tp <= 17 ? 15 : 20;
+    buckets[b].n++;
+    buckets[b].pnl += e.outcome.pnl;
+    if (e.outcome.pnl >= 0) buckets[b].wins++;
+  });
+  [10, 15, 20].forEach(b => {
+    buckets[b].expectancy = buckets[b].n ? +(buckets[b].pnl / buckets[b].n).toFixed(2) : null;
+    buckets[b].winRate = buckets[b].n ? +((buckets[b].wins / buckets[b].n) * 100).toFixed(1) : null;
+  });
+  return buckets;
+}
+
+function computeSpeParameterCandidates(log, wf, mc, matrix) {
+  log = log || getScalpingProfitLog();
+  wf = wf || computeSpeWalkForwardReport(log);
+  mc = mc || computeSpeMonteCarloAnalysis(log);
+  matrix = matrix || computeSpeRegimeSetupMatrix(log);
+  const cfg = getScalpingProfitSettings();
+  const candidates = [];
+  const now = Date.now();
+
+  if (wf.overfitWarning) {
+    candidates.push({
+      id: 'wf_overfit_' + now, status: 'CANDIDATE', parameter: 'multiple',
+      oldValue: 'current', newValue: 'tighten filters', reason: wf.overfitWarning,
+      dataset: 'walk_forward', performanceBefore: wf.train && wf.train.expectancy,
+      performanceAfter: wf.validation && wf.validation.expectancy,
+      oosPerformance: wf.outOfSample && wf.outOfSample.expectancy,
+      autoApply: false,
+    });
+  }
+  if (mc.fragile) {
+    candidates.push({
+      id: 'mc_fragile_' + now, status: 'CANDIDATE', parameter: 'speSlippageEstimatePts',
+      oldValue: cfg.slippageEstimate, newValue: +(cfg.slippageEstimate * 1.25).toFixed(2),
+      reason: mc.warning || 'Cost stress test shows fragile edge',
+      dataset: 'monte_carlo', autoApply: false,
+    });
+  }
+  matrix.rows.filter(r => r.sampleSufficient && r.expectancy < 0).forEach(r => {
+    candidates.push({
+      id: 'disable_' + r.setup + '_' + r.regime + '_' + now, status: 'CANDIDATE',
+      parameter: 'setup_regime_allowlist', oldValue: 'allowed',
+      newValue: 'disable ' + r.setup + ' in ' + r.regime,
+      reason: `${r.setup} during ${r.regime}: ${r.n} trades, expectancy ₹${r.expectancy}`,
+      dataset: 'regime_setup_matrix', performanceBefore: r.expectancy, autoApply: false,
+    });
+  });
+
+  const completed = getSpeCompletedTrades(log);
+  const chasingLosses = completed.filter(e => e.failureMode === FNO_SPE_FAILURE.CHASING).length;
+  if (chasingLosses >= 2) {
+    candidates.push({
+      id: 'anti_chase_' + now, status: 'CANDIDATE', parameter: 'speAntiChaseThresholdPct',
+      oldValue: cfg.antiChasePct, newValue: Math.max(50, cfg.antiChasePct - 5),
+      reason: `${chasingLosses} losses classified as Chasing`,
+      dataset: 'failure_library', autoApply: false,
+    });
+  }
+
+  const lowScoreLosses = completed.filter(e => e.outcome.pnl < 0 && (e.tradeQualityScore || 0) < cfg.minTradeQuality + 5);
+  if (lowScoreLosses.length >= 2) {
+    candidates.push({
+      id: 'min_quality_' + now, status: 'CANDIDATE', parameter: 'speMinTradeQualityScore',
+      oldValue: cfg.minTradeQuality, newValue: Math.min(95, cfg.minTradeQuality + 3),
+      reason: `${lowScoreLosses.length} losses entered near minimum quality threshold`,
+      dataset: 'trade_quality', autoApply: false,
+    });
+  }
+
+  const chopRows = matrix.rows.filter(r => r.regime === FNO_SPE_REGIME.CHOP && r.sampleSufficient && r.expectancy < 0);
+  if (chopRows.length) {
+    candidates.push({
+      id: 'chop_boost_' + now, status: 'CANDIDATE', parameter: 'speChopMinScoreBoost',
+      oldValue: cfg.chopScoreBoost, newValue: Math.min(30, cfg.chopScoreBoost + 5),
+      reason: 'Negative expectancy setups in CHOP regime',
+      dataset: 'regime_setup_matrix', autoApply: false,
+    });
+  }
+
+  return candidates;
+}
+
+function saveSpeLearningCandidates(candidates) {
+  try {
+    const existing = JSON.parse(localStorage.getItem(FNO_SPE_LEARNING_KEY) || '[]');
+    const merged = existing.concat(candidates).slice(-100);
+    localStorage.setItem(FNO_SPE_LEARNING_KEY, JSON.stringify(merged));
+  } catch (e) { /* quota */ }
+}
+
+function getSpeLearningCandidates() {
+  try { return JSON.parse(localStorage.getItem(FNO_SPE_LEARNING_KEY) || '[]'); } catch (e) { return []; }
+}
+
+function computeSpeLearningReport(log) {
+  log = log || getScalpingProfitLog();
+  const wf = computeSpeWalkForwardReport(log);
+  const mc = computeSpeMonteCarloAnalysis(log);
+  const matrix = computeSpeRegimeSetupMatrix(log);
+  const missed = computeSpeMissedTradeAnalysis();
+  const filters = computeSpeFilterCalibration(log);
+  const targets = computeSpeTargetBucketAnalysis(log);
+  const stats = computeScalpingProfitStatistics(log);
+  const candidates = computeSpeParameterCandidates(log, wf, mc, matrix);
+  saveSpeLearningCandidates(candidates.filter(c => c.status === 'CANDIDATE'));
+  return { wf, mc, matrix, missed, filters, targets, stats, candidates, generatedAt: Date.now() };
+}
+
+function renderScalpingProfitLearningPanel(report) {
+  const box = typeof document !== 'undefined' ? document.getElementById('scalpingProfitLearningBox') : null;
+  if (!box) return;
+  if (typeof isScalpingProfitProfileActive === 'function' && !isScalpingProfitProfileActive()) {
+    box.style.display = 'none';
+    return;
+  }
+  if (!isScalpingProfitEngineActive()) {
+    box.style.display = 'none';
+    return;
+  }
+  box.style.display = 'block';
+  report = report || computeSpeLearningReport();
+  const { wf, mc, matrix, missed, filters, targets, candidates, stats } = report;
+
+  let html = `<div style="font-weight:700;color:#c4b5fd;margin-bottom:6px">🧠 SPE Learning Engine <span style="color:#64748b;font-weight:400">(Phase 8 — observation only, never auto-applies)</span></div>`;
+
+  if (!wf.sufficient) {
+    html += `<div style="color:#94a3b8;font-size:10px;margin-bottom:8px">${fnoSpeEscapeHtml(wf.warning)}</div>`;
+  } else {
+    html += `<div style="font-size:10px;margin-bottom:8px"><b style="color:#fde68a">Walk-forward</b> `;
+    html += `Train ${wf.train.n}t · ₹${wf.train.expectancy} exp · `;
+    html += `Val ${wf.validation.n}t · ₹${wf.validation.expectancy} exp · `;
+    html += `OOS ${wf.outOfSample.n}t · ₹${wf.outOfSample.expectancy} exp`;
+    if (wf.overfitWarning) html += `<br><span style="color:#fbbf24">⚠ ${fnoSpeEscapeHtml(wf.overfitWarning)}</span>`;
+    html += `</div>`;
+  }
+
+  if (!mc.sufficient) {
+    html += `<div style="color:#64748b;font-size:10px;margin-bottom:8px">${fnoSpeEscapeHtml(mc.warning)}</div>`;
+  } else {
+    html += `<div style="font-size:10px;margin-bottom:8px"><b style="color:#fde68a">Monte Carlo</b> (${mc.simulations} sims, n=${mc.sampleSize}) · `;
+    html += `Med DD ₹${mc.baseline.medianMaxDrawdown} · P95 DD ₹${mc.baseline.p95MaxDrawdown} · `;
+    html += `Med final ₹${mc.baseline.medianFinalPnl} · P5 ₹${mc.baseline.p5FinalPnl}`;
+    if (mc.fragile) html += `<br><span style="color:#f87171">⚠ ${fnoSpeEscapeHtml(mc.warning)}</span>`;
+    html += `</div>`;
+    html += `<div style="font-size:10px;color:#64748b;margin-bottom:8px">Cost stress: `;
+    html += mc.costStress.map(c => `×${c.multiplier} → P5 ₹${c.p5FinalPnl}${c.fragile ? ' ⚠' : ''}`).join(' · ');
+    html += `</div>`;
+  }
+
+  if (matrix.sufficient && matrix.rows.length) {
+    html += `<div style="font-size:10px;margin-bottom:6px"><b style="color:#fde68a">Setup × Regime</b> (top rows)</div>`;
+    html += `<div style="font-size:10px;color:#94a3b8;margin-bottom:8px">`;
+    matrix.rows.slice(0, 6).forEach(r => {
+      html += `<div>${fnoSpeEscapeHtml(r.setup)} / ${fnoSpeEscapeHtml(r.regime)}: ${r.n}t ${r.grade} exp ₹${r.expectancy}</div>`;
+    });
+    html += `</div>`;
+  }
+
+  html += `<div style="font-size:10px;margin-bottom:6px"><b style="color:#fde68a">Target buckets</b> `;
+  html += [10, 15, 20].map(b => `${b}pt: ${targets[b].n}t exp ₹${targets[b].expectancy != null ? targets[b].expectancy : '—'}`).join(' · ');
+  html += `</div>`;
+
+  if (filters.totalNoTrade > 0) {
+    const topFilters = Object.entries(filters.byFilter).sort((a, b) => b[1].count - a[1].count).slice(0, 4);
+    html += `<div style="font-size:10px;margin-bottom:6px"><b style="color:#fde68a">No-trade filters</b> (${filters.totalNoTrade} total): `;
+    html += topFilters.map(([k, v]) => `${fnoSpeEscapeHtml(k)}×${v.count}`).join(', ');
+    html += `</div>`;
+  }
+
+  if (missed.total > 0) {
+    html += `<div style="font-size:10px;margin-bottom:6px"><b style="color:#fde68a">Missed trades</b> ${missed.total} logged`;
+    if (missed.validated > 0) html += ` · validated ${missed.wouldWin}W/${missed.wouldLose}L`;
+    if (missed.note) html += `<br><span style="color:#64748b">${fnoSpeEscapeHtml(missed.note)}</span>`;
+    html += `</div>`;
+  }
+
+  if (candidates.length) {
+    html += `<div style="font-size:10px;margin-top:8px;padding-top:8px;border-top:1px solid #4c1d95"><b style="color:#fde68a">Parameter candidates</b> (require manual approval — never auto-applied)</div>`;
+    candidates.slice(0, 5).forEach(c => {
+      html += `<div style="padding:4px 0;font-size:10px;color:#cbd5e1">`;
+      html += `<span style="color:#a78bfa">CANDIDATE</span> ${fnoSpeEscapeHtml(c.parameter)}: ${fnoSpeEscapeHtml(String(c.oldValue))} → ${fnoSpeEscapeHtml(String(c.newValue))}`;
+      html += `<br><span style="color:#64748b">${fnoSpeEscapeHtml(c.reason)}</span></div>`;
+    });
+  } else if (stats.n >= FNO_SPE_MIN_SAMPLE_WF) {
+    html += `<div style="font-size:10px;color:#4ade80;margin-top:6px">No parameter changes suggested — current settings appear stable on available sample.</div>`;
+  }
+
+  box.innerHTML = html;
+}
+
+function renderScalpingProfitLearningAnalytics() {
+  renderScalpingProfitLearningPanel(computeSpeLearningReport());
+}
+
+/**
+ * First Momentum Scalper (Mode 8) — micro-momentum options scalping.
+ * Tier A safety → market-state filter → Tier B confluence (not all 193 factors) →
+ * acceleration entry → premium +Rs targets with momentum-aware exits.
+ */
+const FNO_FMS_LOG_KEY = 'fno_first_momentum_log_v1';
+const FNO_FMS_LOG_MAX = 2000;
+
+const FNO_FMS_MARKET_STATE = {
+  STRONG_BULL: 'strong_bullish_momentum',
+  STRONG_BEAR: 'strong_bearish_momentum',
+  SLOW_BULL: 'slow_bullish',
+  SLOW_BEAR: 'slow_bearish',
+  RANGE: 'range_choppy',
+  NO_TRADE: 'extremely_low_vol_no_trade',
+};
+
+function fmsEscapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function isFirstMomentumScalperModeActive() {
+  if (typeof getActiveTradingModeProfile !== 'function') return false;
+  const m = getActiveTradingModeProfile();
+  return !!(m && (m.firstMomentumScalper || m.id === 'first_momentum_scalper'));
+}
+
+function getFirstMomentumScalperConfig() {
+  const mode = typeof getActiveTradingModeProfile === 'function' ? getActiveTradingModeProfile() : {};
+  const s = typeof fnoSettings !== 'undefined' ? fnoSettings.get() : {};
+  return {
+    minTierBScore: mode.minTierBScore != null ? mode.minTierBScore : (s.fmsMinTierBScore != null ? s.fmsMinTierBScore : 6),
+    strongTierBScore: mode.strongTierBScore != null ? mode.strongTierBScore : (s.fmsStrongTierBScore != null ? s.fmsStrongTierBScore : 8),
+    initialTargetPoints: mode.initialTargetPoints != null ? mode.initialTargetPoints : (s.fmsInitialTargetPoints != null ? s.fmsInitialTargetPoints : 10),
+    extendedTargetPoints: mode.extendedTargetPoints != null ? mode.extendedTargetPoints : (s.fmsExtendedTargetPoints != null ? s.fmsExtendedTargetPoints : 15),
+    momentumHalfLifeMinutes: mode.momentumHalfLifeMinutes != null ? mode.momentumHalfLifeMinutes : (s.fmsMomentumHalfLifeMinutes != null ? s.fmsMomentumHalfLifeMinutes : 3),
+    maxHoldingMinutes: s.fmsMaxHoldingMinutes != null ? s.fmsMaxHoldingMinutes : 8,
+    thesisMinutes: s.fmsThesisMinutes != null ? s.fmsThesisMinutes : 2,
+    minPremiumPctForTarget: s.fmsMinPremiumPctForTarget != null ? s.fmsMinPremiumPctForTarget : 6,
+    microRangeWindow: s.fmsMicroRangeWindow != null ? s.fmsMicroRangeWindow : 12,
+    stopPremiumPoints: s.fmsStopPremiumPoints != null ? s.fmsStopPremiumPoints : 12,
+  };
+}
+
+function classifyFirstMomentumMarketState(ctx, breakout) {
+  const vix = ctx && typeof ctx.vix === 'number' ? ctx.vix : null;
+  const candles = ctx && ctx.candles;
+  if (vix != null && vix < 10) return { state: FNO_FMS_MARKET_STATE.NO_TRADE, tradeable: false, reason: `VIX ${vix.toFixed(1)} — extremely low vol, wait for imbalance` };
+  const cond = breakout && breakout.condition ? breakout.condition : 'insufficient_data';
+  if (cond === 'insufficient_data') return { state: FNO_FMS_MARKET_STATE.RANGE, tradeable: true, reason: 'Building micro-range — need more candles' };
+  if (cond === 'choppy') return { state: FNO_FMS_MARKET_STATE.RANGE, tradeable: false, reason: 'Choppy microstructure — no continuous scalping' };
+  if (cond === 'range_bound') return { state: FNO_FMS_MARKET_STATE.RANGE, tradeable: true, reason: 'Range-bound — wait for micro breakout only' };
+  if (cond === 'breakout_up' || cond === 'reversal_up') {
+    const strong = vix != null && vix >= 14;
+    return { state: strong ? FNO_FMS_MARKET_STATE.STRONG_BULL : FNO_FMS_MARKET_STATE.SLOW_BULL, tradeable: true, reason: breakout.reason };
+  }
+  if (cond === 'breakdown' || cond === 'reversal_down') {
+    const strong = vix != null && vix >= 14;
+    return { state: strong ? FNO_FMS_MARKET_STATE.STRONG_BEAR : FNO_FMS_MARKET_STATE.SLOW_BEAR, tradeable: true, reason: breakout.reason };
+  }
+  if (cond === 'false_breakout_up' || cond === 'false_breakdown') {
+    return { state: FNO_FMS_MARKET_STATE.RANGE, tradeable: false, reason: breakout.reason };
+  }
+  return { state: FNO_FMS_MARKET_STATE.RANGE, tradeable: true, reason: 'Neutral micro state' };
+}
+
+function computeFirstMomentumTierA(ctx, brain, optionType) {
+  const blockers = [];
+  if (brain && brain.criticalFails && brain.criticalFails.length) {
+    blockers.push(`Critical: ${brain.criticalFails.map(f => f.factor).join(', ')}`);
+  }
+  const timeCheck = typeof checkSufficientTimeRemaining === 'function'
+    ? checkSufficientTimeRemaining(ctx || {}, 'scalping') : { sufficient: true };
+  if (!timeCheck.sufficient) blockers.push(timeCheck.reason || 'Insufficient time before square-off');
+  const leg = optionType === 'PE'
+    ? (ctx && ctx.ocRow && ctx.ocRow.PE)
+    : (ctx && ctx.ocRow && ctx.ocRow.CE);
+  if (!leg || typeof leg.lastPrice !== 'number' || leg.lastPrice <= 0) {
+    blockers.push('Option premium unavailable');
+  } else if (typeof checkSpreadLevel === 'function') {
+    const sp = checkSpreadLevel(leg);
+    const maxPct = typeof getModeSpreadHardBlockPct === 'function' ? getModeSpreadHardBlockPct() : 14;
+    if (sp.spreadPct != null && sp.spreadPct > maxPct) blockers.push(`Spread ${sp.spreadPct.toFixed(1)}% > ${maxPct}%`);
+  }
+  return { pass: blockers.length === 0, blockers };
+}
+
+function spotMomentumPoints(ctx, direction) {
+  const candles = ctx && ctx.candles;
+  if (!candles || candles.length < 6) return 0;
+  const closes = candles.map(c => c.c);
+  const n = closes.length;
+  const move = closes[n - 1] - closes[n - 6];
+  if (direction === 'bullish' && move > 0) return move >= 12 ? 2 : 1;
+  if (direction === 'bearish' && move < 0) return move <= -12 ? 2 : 1;
+  return 0;
+}
+
+function computeFirstMomentumTierB(ctx, brain, direction, breakout) {
+  let score = 0;
+  const parts = [];
+  const cond = breakout && breakout.condition;
+  if (direction === 'bullish' && (cond === 'breakout_up' || cond === 'reversal_up')) { score += 2; parts.push('micro breakout up +2'); }
+  if (direction === 'bearish' && (cond === 'breakdown' || cond === 'reversal_down')) { score += 2; parts.push('micro breakdown +2'); }
+  const mom = spotMomentumPoints(ctx, direction);
+  if (mom) { score += mom; parts.push(`spot impulse +${mom}`); }
+  if (ctx && Number.isFinite(ctx.spot) && Number.isFinite(ctx.vwap)) {
+    if (direction === 'bullish' && ctx.spot > ctx.vwap) { score += 1; parts.push('above close-avg +1'); }
+    if (direction === 'bearish' && ctx.spot < ctx.vwap) { score += 1; parts.push('below close-avg +1'); }
+  }
+  if (ctx && Number.isFinite(ctx.futuresPrice) && Number.isFinite(ctx.spot)) {
+    const futPrem = ctx.futuresPrice - ctx.spot;
+    if (direction === 'bullish' && futPrem >= 0) { score += 1; parts.push('futures not discounting +1'); }
+    if (direction === 'bearish' && futPrem <= 0) { score += 1; parts.push('futures not premium +1'); }
+  }
+  const ds = brain && typeof brain.directionalScoreAvailableOnly === 'number'
+    ? brain.directionalScoreAvailableOnly
+    : (brain && typeof brain.directionalScore === 'number' ? brain.directionalScore : 0);
+  const th = typeof getEffectiveDecisionThresholds === 'function' ? getEffectiveDecisionThresholds() : { buyThreshold: 5, sellThreshold: -9 };
+  if (direction === 'bullish' && ds >= th.buyThreshold - 1) { score += 2; parts.push('brain directional aligned +2'); }
+  else if (direction === 'bullish' && ds >= th.buyThreshold - 3) { score += 1; parts.push('brain directional developing +1'); }
+  if (direction === 'bearish' && ds <= th.sellThreshold + 1) { score += 2; parts.push('brain directional aligned +2'); }
+  else if (direction === 'bearish' && ds <= th.sellThreshold + 3) { score += 1; parts.push('brain directional developing +1'); }
+  const li = ctx && ctx.liquidityInputs;
+  if (li && li.breakoutCondition) {
+    const bc = li.breakoutCondition.condition || li.breakoutCondition;
+    if (direction === 'bullish' && bc === 'breakout_up') { score += 1; parts.push('liquidity breakout +1'); }
+    if (direction === 'bearish' && bc === 'breakdown') { score += 1; parts.push('liquidity breakdown +1'); }
+  }
+  if (typeof isMicrostructureDaemonOnline === 'function' && isMicrostructureDaemonOnline(ctx)) {
+    score += 1; parts.push('microstructure live +1');
+  }
+  return { score, parts, maxConceptual: 12 };
+}
+
+function inferFirstMomentumDirection(ctx, brain, breakout) {
+  const cond = breakout && breakout.condition;
+  if (cond === 'breakout_up' || cond === 'reversal_up') return 'bullish';
+  if (cond === 'breakdown' || cond === 'reversal_down') return 'bearish';
+  if (brain && brain.decision === 'BUY_READY') return 'bullish';
+  if (brain && brain.decision === 'SELL_READY') return 'bearish';
+  const ds = brain && typeof brain.directionalScoreAvailableOnly === 'number' ? brain.directionalScoreAvailableOnly : 0;
+  if (ds > 2) return 'bullish';
+  if (ds < -2) return 'bearish';
+  return null;
+}
+
+function premiumTargetRs(optPrice, cfg, extended) {
+  const pts = extended ? cfg.extendedTargetPoints : cfg.initialTargetPoints;
+  const pctTarget = optPrice * (cfg.minPremiumPctForTarget / 100);
+  const rs = Math.max(pts, pctTarget);
+  return +rs.toFixed(2);
+}
+
+function computeFirstMomentumScalper(ctx, brain, opts) {
+  opts = opts || {};
+  const cfg = getFirstMomentumScalperConfig();
+  const active = isFirstMomentumScalperModeActive();
+  const ts = Date.now();
+  if (!active) {
+    return { active: false, ts, entryAllowed: false, engineStatus: 'MODE_OFF' };
+  }
+  const window = cfg.microRangeWindow;
+  const breakout = typeof computeBreakoutReversalCondition === 'function'
+    ? computeBreakoutReversalCondition(ctx && ctx.candles, window)
+    : { condition: 'insufficient_data' };
+  const market = classifyFirstMomentumMarketState(ctx, breakout);
+  const direction = inferFirstMomentumDirection(ctx, brain, breakout);
+  const optionType = direction === 'bearish' ? 'PE' : direction === 'bullish' ? 'CE' : null;
+  const tierA = computeFirstMomentumTierA(ctx, brain, optionType || 'CE');
+  const tierB = direction ? computeFirstMomentumTierB(ctx, brain, direction, breakout) : { score: 0, parts: [] };
+
+  let entryAllowed = false;
+  let blockReason = null;
+  if (!market.tradeable && market.state !== FNO_FMS_MARKET_STATE.RANGE) {
+    blockReason = market.reason;
+  } else if (!tierA.pass) {
+    blockReason = tierA.blockers[0];
+  } else if (!direction) {
+    blockReason = 'No micro-momentum direction yet';
+  } else if (market.state === FNO_FMS_MARKET_STATE.RANGE && tierB.score < cfg.strongTierBScore) {
+    blockReason = `Range/chop — need tier B ≥ ${cfg.strongTierBScore} (have ${tierB.score})`;
+  } else if (tierB.score < cfg.minTierBScore) {
+    blockReason = `Confluence ${tierB.score} < min ${cfg.minTierBScore}`;
+  } else {
+    entryAllowed = true;
+  }
+
+  const optPrice = ctx && ctx.optPrice;
+  let targetRs = null;
+  let stopRs = null;
+  if (Number.isFinite(optPrice) && optPrice > 0) {
+    targetRs = premiumTargetRs(optPrice, cfg, false);
+    stopRs = Math.max(cfg.stopPremiumPoints, optPrice * 0.08);
+  }
+
+  const summary = entryAllowed
+    ? `${direction === 'bullish' ? 'Long CE' : 'Long PE'} · tier B ${tierB.score} · target +Rs${targetRs || cfg.initialTargetPoints}`
+    : (blockReason || 'Waiting');
+
+  return {
+    active: true,
+    ts,
+    marketState: market.state,
+    marketReason: market.reason,
+    tradeable: market.tradeable,
+    direction,
+    optionType,
+    tierA,
+    tierB,
+    tierBScore: tierB.score,
+    entryAllowed,
+    blockReason,
+    summary,
+    premiumTargetRs: targetRs,
+    premiumExtendedTargetRs: targetRs != null ? premiumTargetRs(optPrice, cfg, true) : null,
+    premiumStopRs: stopRs,
+    momentumHalfLifeMinutes: cfg.momentumHalfLifeMinutes,
+    maxHoldingMinutes: cfg.maxHoldingMinutes,
+    thesisMinutes: cfg.thesisMinutes,
+    breakout,
+    cfg,
+  };
+}
+
+function applyFirstMomentumScalperInfluence(brain, fms) {
+  if (!fms || !fms.active) return;
+  brain.firstMomentumScalper = fms;
+  if (!fms.entryAllowed) {
+    if (brain.decision === 'BUY_READY' || brain.decision === 'SELL_READY') {
+      brain.decision = 'WAIT';
+      brain.reason = `First Momentum Scalper blocked: ${fms.blockReason}`;
+    }
+    return;
+  }
+  const want = fms.direction === 'bullish' ? 'BUY_READY' : 'SELL_READY';
+  brain.decision = want;
+  brain.reason = `First Momentum Scalper — ${fms.summary} (${fms.marketState})`;
+  if (fms.tierBScore >= fms.cfg.strongTierBScore && brain.confidence === 'Low') {
+    brain.confidence = 'Medium';
+  }
+}
+
+function resolveFirstMomentumScalperBracket(optPrice, ctx, brain, tradingType, optionType) {
+  if (!isFirstMomentumScalperModeActive() || tradingType !== 'scalping') return null;
+  const fms = (brain && brain.firstMomentumScalper)
+    ? brain.firstMomentumScalper
+    : computeFirstMomentumScalper(ctx, brain, {});
+  if (!fms.active || !fms.entryAllowed || !Number.isFinite(optPrice) || optPrice <= 0) return null;
+  const cfg = fms.cfg || getFirstMomentumScalperConfig();
+  const tgtRs = fms.premiumTargetRs != null ? fms.premiumTargetRs : premiumTargetRs(optPrice, cfg, false);
+  const extRs = fms.premiumExtendedTargetRs != null ? fms.premiumExtendedTargetRs : premiumTargetRs(optPrice, cfg, true);
+  const stopRs = fms.premiumStopRs != null ? fms.premiumStopRs : cfg.stopPremiumPoints;
+  return {
+    target: +(optPrice + extRs).toFixed(2),
+    sl: +(Math.max(0.05, optPrice - stopRs)).toFixed(2),
+    source: 'first_momentum_scalper',
+    fms,
+    initialTargetPrice: +(optPrice + tgtRs).toFixed(2),
+    extendedTargetPrice: +(optPrice + extRs).toFixed(2),
+    initialTargetRs: tgtRs,
+    extendedTargetRs: extRs,
+  };
+}
+
+function computeFirstMomentumPremiumProgress(open, livePrice) {
+  if (!open || !Number.isFinite(open.entryPrice) || !Number.isFinite(livePrice)) return { pts: 0, pct: 0 };
+  const pts = livePrice - open.entryPrice;
+  const pct = open.entryPrice > 0 ? (pts / open.entryPrice) * 100 : 0;
+  return { pts, pct };
+}
+
+function isFirstMomentumAccelerating(ctx, open, livePrice) {
+  const prog = computeFirstMomentumPremiumProgress(open, livePrice);
+  if (prog.pts >= 8) return true;
+  const mfe = open.mfe != null ? open.mfe : open.entryPrice;
+  if (livePrice >= mfe - 0.5 && prog.pts >= 5) return true;
+  const dir = open.optionType === 'PE' ? 'bearish' : 'bullish';
+  return spotMomentumPoints(ctx, dir) >= 2;
+}
+
+function evaluateFirstMomentumScalperExit(open, ctx, brain, livePrice) {
+  if (!open || !open.firstMomentumScalperTrade) return null;
+  const fms = open.firstMomentumSnapshot || (brain && brain.firstMomentumScalper) || {};
+  const cfg = fms.cfg || getFirstMomentumScalperConfig();
+  const holdMin = open.openedAt ? (Date.now() - open.openedAt) / 60000 : 0;
+  const prog = computeFirstMomentumPremiumProgress(open, livePrice);
+  const initRs = open.fmsInitialTargetRs != null ? open.fmsInitialTargetRs : cfg.initialTargetPoints;
+  const extRs = open.fmsExtendedTargetRs != null ? open.fmsExtendedTargetRs : cfg.extendedTargetPoints;
+
+  if (prog.pts >= extRs) {
+    return { exit: true, reason: 'FMS_EXTENDED_TARGET', label: `+Rs${prog.pts.toFixed(1)} premium (≥ +${extRs})` };
+  }
+  if (prog.pts >= initRs) {
+    if (!isFirstMomentumAccelerating(ctx, open, livePrice)) {
+      return { exit: true, reason: 'FMS_INITIAL_TARGET', label: `+Rs${prog.pts.toFixed(1)} booked — momentum fading` };
+    }
+  }
+  if (holdMin >= cfg.momentumHalfLifeMinutes && prog.pts < initRs * 0.35) {
+    return { exit: true, reason: 'FMS_HALF_LIFE', label: 'Momentum half-life — thesis did not develop' };
+  }
+  if (holdMin >= cfg.thesisMinutes && prog.pts < 2) {
+    return { exit: true, reason: 'FMS_TIME_STOP', label: 'Time stop — no impulse' };
+  }
+  if (holdMin >= cfg.maxHoldingMinutes) {
+    return { exit: true, reason: 'FMS_MAX_HOLD', label: 'Max scalp holding time' };
+  }
+  const leg = open.optionType === 'PE' ? (ctx && ctx.ocRow && ctx.ocRow.PE) : (ctx && ctx.ocRow && ctx.ocRow.CE);
+  if (leg && typeof checkSpreadLevel === 'function') {
+    const sp = checkSpreadLevel(leg);
+    const entrySpread = open.fmsEntrySpreadPct;
+    if (entrySpread != null && sp.spreadPct != null && sp.spreadPct > entrySpread + 4) {
+      return { exit: true, reason: 'FMS_SPREAD_WIDEN', label: 'Spread widened — exit' };
+    }
+  }
+  if (brain && open.optionType === 'CE' && brain.decision === 'SELL_READY') {
+    return { exit: true, reason: 'FMS_OPPOSITE', label: 'Opposite momentum signal' };
+  }
+  if (brain && open.optionType === 'PE' && brain.decision === 'BUY_READY') {
+    return { exit: true, reason: 'FMS_OPPOSITE', label: 'Opposite momentum signal' };
+  }
+  if (open.fmsTriggerSpot != null && ctx && Number.isFinite(ctx.spot)) {
+    if (open.optionType === 'CE' && ctx.spot < open.fmsTriggerSpot - 4) {
+      return { exit: true, reason: 'FMS_SPOT_REVERSAL', label: 'Spot reversed through trigger' };
+    }
+    if (open.optionType === 'PE' && ctx.spot > open.fmsTriggerSpot + 4) {
+      return { exit: true, reason: 'FMS_SPOT_REVERSAL', label: 'Spot reversed through trigger' };
+    }
+  }
+  return null;
+}
+
+function logFirstMomentumObservation(fms, sym, brain) {
+  if (!fms || !fms.active) return;
+  try {
+    const log = JSON.parse(localStorage.getItem(FNO_FMS_LOG_KEY) || '[]');
+    log.push({
+      ts: fms.ts, sym,
+      entryAllowed: fms.entryAllowed,
+      blockReason: fms.blockReason,
+      marketState: fms.marketState,
+      tierBScore: fms.tierBScore,
+      direction: fms.direction,
+      brainDecision: brain ? brain.decision : null,
+      summary: fms.summary,
+    });
+    while (log.length > FNO_FMS_LOG_MAX) log.shift();
+    localStorage.setItem(FNO_FMS_LOG_KEY, JSON.stringify(log));
+  } catch (e) { /* quota */ }
+}
+
+function renderFirstMomentumScalperPanel(fms) {
+  if (typeof document === 'undefined') return;
+  const box = document.getElementById('firstMomentumScalperBox');
+  if (!box) return;
+  if (!fms || !fms.active) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  const tp = typeof fnoThemePalette === 'function' ? fnoThemePalette() : { pass: '#4ade80', fail: '#f87171', muted: '#94a3b8', text: '#e2e8f0' };
+  const statusColor = fms.entryAllowed ? tp.pass : tp.fail;
+  const tierParts = (fms.tierB && fms.tierB.parts) ? fms.tierB.parts.join(' · ') : '—';
+  box.innerHTML = `
+    <div style="font-weight:700;color:#fde68a;margin-bottom:6px">⚡ Mode 8 — First Momentum Scalper</div>
+    <div style="font-size:11px;line-height:1.45">
+      <div>Market: <b>${fmsEscapeHtml(fms.marketState)}</b> — ${fmsEscapeHtml(fms.marketReason || '')}</div>
+      <div>Tier B confluence: <b>${fms.tierBScore}</b> / min ${fms.cfg.minTierBScore} (strong ${fms.cfg.strongTierBScore})</div>
+      <div style="color:${tp.muted};font-size:10px;margin:4px 0">${fmsEscapeHtml(tierParts)}</div>
+      <div style="color:${statusColor};font-weight:600">${fms.entryAllowed ? 'ENTRY OK' : 'WAIT'} — ${fmsEscapeHtml(fms.summary)}</div>
+      <div style="color:${tp.muted};font-size:10px;margin-top:4px">Targets: +Rs${fms.cfg.initialTargetPoints} (book if fade) → +Rs${fms.cfg.extendedTargetPoints} if accelerating · half-life ${fms.cfg.momentumHalfLifeMinutes}m · max hold ${fms.cfg.maxHoldingMinutes}m</div>
+    </div>`;
+}
+
+// ====================================================================
+// Strategy Performance & Diagnostic Report Generator (v1.0)
+// Measurement/diagnostic layer only — never modifies trading rules.
+// ====================================================================
+
+const FNO_DIAGNOSTIC_REPORT_SCHEMA = '1.0.0';
+
+// getDecisionLogSetupDecision / isLogSetupDecision live in fno-lab-core.js (same module bundle).
+
+function summarizeDecisionLogBlockers(log) {
+  const crit = {};
+  let noTrade = 0;
+  let wait = 0;
+  let setups = 0;
+  (log || []).forEach(e => {
+    if (isLogSetupDecision(e)) setups++;
+    else if (e.decision === 'NO_TRADE') {
+      noTrade++;
+      (e.critFailIds || []).forEach(id => { crit[id] = (crit[id] || 0) + 1; });
+    } else wait++;
+  });
+  const topCrit = Object.entries(crit).sort((a, b) => b[1] - a[1]).slice(0, 3)
+    .map(([k, v]) => `${k} (${v}×)`).join(', ');
+  return { noTrade, wait, setups, topCrit };
+}
+
+function filterReportWindow(entries, opts) {
+  opts = opts || {};
+  const startTs = typeof opts.startTs === 'number' ? opts.startTs : null;
+  const endTs = typeof opts.endTs === 'number' ? opts.endTs : null;
+  const sym = opts.symbol || null;
+  const strategyVersion = opts.strategyVersion || null;
+  return (entries || []).filter(e => {
+    const ts = e.ts != null ? e.ts : e.timestamp;
+    if (startTs != null && ts < startTs) return false;
+    if (endTs != null && ts > endTs) return false;
+    if (sym && e.sym !== sym && e.symbol !== sym) return false;
+    if (strategyVersion && e.strategyVersion && e.strategyVersion !== strategyVersion) return false;
+    return true;
+  });
+}
+
+function computePerformanceMetrics(trades) {
+  const closed = (trades || []).filter(t => typeof t.pnl === 'number');
+  const wins = closed.filter(t => t.pnl > 0);
+  const losses = closed.filter(t => t.pnl < 0);
+  const breakeven = closed.filter(t => t.pnl === 0);
+  const grossProfit = wins.reduce((s, t) => s + (typeof t.grossPnl === 'number' ? t.grossPnl : t.pnl), 0);
+  const grossLoss = losses.reduce((s, t) => s + Math.abs(typeof t.grossPnl === 'number' ? t.grossPnl : t.pnl), 0);
+  const totalCharges = closed.reduce((s, t) => s + (t.costsTotal || 0), 0);
+  const netPnl = closed.reduce((s, t) => s + t.pnl, 0);
+  const winRate = closed.length ? (wins.length / closed.length) * 100 : null;
+  const avgWin = wins.length ? wins.reduce((s, t) => s + t.pnl, 0) / wins.length : null;
+  const avgLoss = losses.length ? losses.reduce((s, t) => s + t.pnl, 0) / losses.length : null;
+  const profitFactor = grossLoss > 0 ? grossProfit / grossLoss : (grossProfit > 0 ? null : 0);
+  const expectancy = closed.length ? netPnl / closed.length : null;
+
+  let peak = 0, equity = 0, maxDrawdown = 0, maxConsecWins = 0, maxConsecLosses = 0, cw = 0, cl = 0;
+  const sorted = closed.slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+  sorted.forEach(t => {
+    equity += t.pnl;
+    if (equity > peak) peak = equity;
+    const dd = peak - equity;
+    if (dd > maxDrawdown) maxDrawdown = dd;
+    if (t.pnl > 0) { cw++; cl = 0; if (cw > maxConsecWins) maxConsecWins = cw; }
+    else if (t.pnl < 0) { cl++; cw = 0; if (cl > maxConsecLosses) maxConsecLosses = cl; }
+    else { cw = 0; cl = 0; }
+  });
+
+  const holdingTimes = sorted.filter(t => t.openedAt && t.ts).map(t => (t.ts - t.openedAt) / 60000);
+  const avgHoldingMin = holdingTimes.length ? holdingTimes.reduce((a, b) => a + b, 0) / holdingTimes.length : null;
+
+  const mfeStats = sorted.filter(t => typeof t.mfe === 'number' && typeof t.entryPrice === 'number');
+  const maeStats = mfeStats.filter(t => typeof t.mae === 'number');
+  const avgMfePct = mfeStats.length
+    ? mfeStats.reduce((s, t) => s + ((t.mfe - t.entryPrice) / t.entryPrice * 100), 0) / mfeStats.length
+    : null;
+  const avgMaePct = maeStats.length
+    ? maeStats.reduce((s, t) => s + ((t.entryPrice - t.mae) / t.entryPrice * 100), 0) / maeStats.length
+    : null;
+
+  const targetHits = sorted.filter(t => (t.source || t.action || '').includes('target')).length;
+  const slHits = sorted.filter(t => (t.source || t.action || '').includes('sl') || (t.action || '').includes('SL')).length;
+
+  return {
+    totalTrades: closed.length,
+    wins: wins.length,
+    losses: losses.length,
+    breakeven: breakeven.length,
+    grossProfit: +grossProfit.toFixed(2),
+    grossLoss: +grossLoss.toFixed(2),
+    totalCharges: +totalCharges.toFixed(2),
+    netPnl: +netPnl.toFixed(2),
+    winRatePct: Number.isFinite(winRate) ? +winRate.toFixed(1) : null,
+    avgWin: Number.isFinite(avgWin) ? +avgWin.toFixed(2) : null,
+    avgLoss: Number.isFinite(avgLoss) ? +avgLoss.toFixed(2) : null,
+    profitFactor: Number.isFinite(profitFactor) ? +profitFactor.toFixed(2) : null,
+    expectancy: Number.isFinite(expectancy) ? +expectancy.toFixed(2) : null,
+    maxDrawdown: +maxDrawdown.toFixed(2),
+    maxConsecutiveWins: maxConsecWins,
+    maxConsecutiveLosses: maxConsecLosses,
+    avgHoldingMinutes: Number.isFinite(avgHoldingMin) ? +avgHoldingMin.toFixed(1) : null,
+    avgMfePct: Number.isFinite(avgMfePct) ? +avgMfePct.toFixed(2) : null,
+    avgMaePct: Number.isFinite(avgMaePct) ? +avgMaePct.toFixed(2) : null,
+    targetExits: targetHits,
+    stopLossExits: slHits,
+    trades: sorted,
+  };
+}
+
+function buildSignalAndRejectionStats(decisionLog, blockedAttempts) {
+  const log = decisionLog || [];
+  const signals = log.filter(e => isLogSetupDecision(e));
+  const opened = signals.filter(e => e.tradeOpened);
+  const blockedSetups = signals.filter(e => !e.tradeOpened);
+  const rejections = [];
+
+  blockedSetups.forEach(e => {
+    rejections.push({
+      ts: e.ts,
+      sym: e.sym,
+      decision: e.decision,
+      tradingType: e.tradingType,
+      blockReason: e.blockReason || 'unspecified',
+      rejectionCategory: e.rejectionCategory || null,
+      rejectionSubcategory: e.rejectionSubcategory || null,
+      pretradeGateFinalAction: e.pretradeGateFinalAction || null,
+      pretradeGateTriggeredIds: e.pretradeGateTriggeredIds || [],
+      directionalScore: e.directionalScore,
+      weightedDirectionalScore: e.weightedDirectionalScore,
+      operatorIntelBias: e.operatorIntelBias || null,
+      operatorIntelConfidence: e.operatorIntelConfidence || null,
+      operatorIntelScore: e.operatorIntelScore || null,
+      regimeLabel: e.regimeLabel || null,
+      strategyVersion: e.strategyVersion || null,
+      signalOptionType: e.signalOptionType || null,
+      atmStrike: e.atmStrike || null,
+      signalEntryPremium: e.signalEntryPremium || null,
+      reason: e.reason || null,
+      topFactors: e.topFactors || null,
+      indicatorSettings: e.indicatorSettings || null,
+    });
+  });
+
+  (blockedAttempts || []).forEach(a => {
+    rejections.push({
+      ts: a.timestamp,
+      sym: a.symbol || null,
+      decision: null,
+      tradingType: a.tradingType,
+      blockReason: (a.triggered || []).map(t => `${t.id}: ${t.reason || t.condition || ''}`).join(' | ') || a.summary || 'Failure-mode block',
+      rejectionCategory: 'failure_mode_attempt',
+      pretradeGateTriggeredIds: (a.triggered || []).map(t => t.id),
+      strike: a.strike,
+      optionType: a.optionType,
+      lastPrice: a.lastPrice,
+      finalAction: a.finalAction,
+    });
+  });
+
+  rejections.sort((a, b) => (b.ts || 0) - (a.ts || 0));
+
+  const reasonCounts = {};
+  rejections.forEach(r => {
+    const key = (r.blockReason || 'unspecified').slice(0, 160);
+    reasonCounts[key] = (reasonCounts[key] || 0) + 1;
+  });
+  const topReasons = Object.entries(reasonCounts).sort((a, b) => b[1] - a[1]).slice(0, 15)
+    .map(([reason, count]) => ({ reason, count }));
+
+  return {
+    totalRefreshes: log.length,
+    totalSignals: signals.length,
+    buySignals: signals.filter(e => getDecisionLogSetupDecision(e) === 'BUY_READY').length,
+    sellSignals: signals.filter(e => getDecisionLogSetupDecision(e) === 'SELL_READY').length,
+    tradesTaken: opened.length,
+    setupsBlocked: blockedSetups.length,
+    blockedAttemptsLogged: (blockedAttempts || []).length,
+    rejectionRecords: rejections,
+    topRejectionReasons: topReasons,
+  };
+}
+
+function buildEligibilityPipeline(decisionLog) {
+  const log = decisionLog || [];
+  const pipeline = {
+    totalRefreshes: log.length,
+    waitBelowThreshold: log.filter(e => e.decision === 'WAIT').length,
+    noTradeCritical: log.filter(e => e.decision === 'NO_TRADE').length,
+    weightedScoreBlocked: log.filter(e => e.tradeTypeWeightingAdjustment).length,
+    strategyPassed: 0,
+    operatorGateClean: 0,
+    riskGateClean: 0,
+    executionPassed: 0,
+    actualTrades: 0,
+  };
+  log.forEach(e => {
+    const setupDecision = getDecisionLogSetupDecision(e);
+    const isSetup = setupDecision === 'BUY_READY' || setupDecision === 'SELL_READY';
+    if (!isSetup) return;
+    pipeline.strategyPassed++;
+    const opIds = e.pretradeGateTriggeredIds || [];
+    const operatorBlocked = opIds.some(id => id === 'FM077' || id === 'FM032' || id === 'FM031');
+    if (!operatorBlocked) pipeline.operatorGateClean++;
+    const gate = e.pretradeGateFinalAction || 'none';
+    if (gate !== 'block' && gate !== 'reject') pipeline.riskGateClean++;
+    if (e.tradeOpened) {
+      pipeline.executionPassed++;
+      pipeline.actualTrades++;
+    }
+  });
+  const eligibilityRate = pipeline.totalRefreshes
+    ? +(pipeline.strategyPassed / pipeline.totalRefreshes * 100).toFixed(1)
+    : null;
+  const executionRate = pipeline.strategyPassed
+    ? +(pipeline.actualTrades / pipeline.strategyPassed * 100).toFixed(1)
+    : null;
+  let overRestricted = null;
+  const blockSummary = summarizeDecisionLogBlockers(log);
+  const lowEligibilityLabel = 'Low BUY/SELL rate (diagnostic — not a trading mode)';
+  if (pipeline.totalRefreshes >= 30 && eligibilityRate != null && eligibilityRate < 5) {
+    const critHint = blockSummary.topCrit ? ` Critical fails: ${blockSummary.topCrit}.` : '';
+    overRestricted = {
+      level: 'warning',
+      label: lowEligibilityLabel,
+      detail: `Only ${eligibilityRate}% of refreshes logged a strategy BUY/SELL signal (${pipeline.totalRefreshes} refreshes). NO_TRADE: ${blockSummary.noTrade}, WAIT: ${blockSummary.wait}.${critHint} This flag measures filter strictness — it does not change how the brain trades.`,
+    };
+  } else if (pipeline.strategyPassed >= 15 && executionRate != null && executionRate < 5) {
+    overRestricted = {
+      level: 'warning',
+      label: lowEligibilityLabel,
+      detail: `${pipeline.strategyPassed} strategy setups but ${executionRate}% paper execution rate — Autonomous Mode, TSE/SPE entry gates, spread simulation, or failure-mode blocks are stopping most opens (see top rejection reasons).`,
+    };
+  }
+  return { ...pipeline, eligibilityRatePct: eligibilityRate, executionRatePct: executionRate, overRestrictedAlert: overRestricted };
+}
+
+function buildOperatorIntelAnalysis(decisionLog, trades, missedOpp) {
+  const log = decisionLog || [];
+  const trapBlocks = log.filter(e => (e.pretradeGateTriggeredIds || []).some(id => id === 'FM077' || id === 'FM032') || /TRAP|wrong.?side/i.test(e.blockReason || ''));
+  const withBias = log.filter(e => e.operatorIntelBias);
+  const biasCounts = {};
+  withBias.forEach(e => { biasCounts[e.operatorIntelBias] = (biasCounts[e.operatorIntelBias] || 0) + 1; });
+
+  const missedWithOperator = (missedOpp && missedOpp.blockedButFavorable || []).filter(m =>
+    /operator|FM077|FM032|trap/i.test(m.blockReason || '') || (m.pretradeGateTriggeredIds || []).some(id => id === 'FM077' || id === 'FM032')
+  );
+
+  const tradesWithBias = (trades || []).filter(t => t.factorSnapshot && t.factorSnapshot.operatorBias);
+  const winsByBias = {};
+  const lossesByBias = {};
+  tradesWithBias.forEach(t => {
+    const b = t.factorSnapshot.operatorBias;
+    if (t.pnl > 0) winsByBias[b] = (winsByBias[b] || 0) + 1;
+    if (t.pnl < 0) lossesByBias[b] = (lossesByBias[b] || 0) + 1;
+  });
+
+  return {
+    biasFrequency: biasCounts,
+    operatorRelatedBlocks: trapBlocks.length,
+    operatorRelatedMissedOpportunities: missedWithOperator.length,
+    tradeOutcomesByOperatorBias: { wins: winsByBias, losses: lossesByBias },
+    sampleMissedWithOperator: missedWithOperator.slice(0, 10),
+  };
+}
+
+function buildRegimeAndTimeAnalysis(trades, decisionLog) {
+  const regimeStats = {};
+  (trades || []).forEach(t => {
+    const regime = (t.factorSnapshot && t.factorSnapshot.regime && t.factorSnapshot.regime.label) || 'unknown';
+    if (!regimeStats[regime]) regimeStats[regime] = { trades: 0, netPnl: 0, wins: 0, losses: 0 };
+    regimeStats[regime].trades++;
+    regimeStats[regime].netPnl += t.pnl || 0;
+    if (t.pnl > 0) regimeStats[regime].wins++;
+    if (t.pnl < 0) regimeStats[regime].losses++;
+  });
+
+  const hourStats = {};
+  const hourLabel = (ts) => {
+    const h = new Date(ts).getHours();
+    return `${String(h).padStart(2, '0')}:00–${String(h).padStart(2, '0')}:59 (local)`;
+  };
+  (decisionLog || []).forEach(e => {
+    if (e.decision === 'BUY_READY' || e.decision === 'SELL_READY') {
+      const label = hourLabel(e.ts);
+      if (!hourStats[label]) hourStats[label] = { signals: 0, trades: 0, netPnl: 0 };
+      hourStats[label].signals++;
+    }
+  });
+  (trades || []).forEach(t => {
+    const label = hourLabel(t.ts);
+    if (!hourStats[label]) hourStats[label] = { signals: 0, trades: 0, netPnl: 0 };
+    hourStats[label].trades++;
+    hourStats[label].netPnl += t.pnl || 0;
+  });
+
+  return { byRegime: regimeStats, byHour: hourStats };
+}
+
+function buildIndicatorCategoryAnalysis(trades) {
+  const cats = ['Market', 'Flow', 'Tech', 'Vol', 'Microstructure', 'Operator Intel'];
+  const out = {};
+  cats.forEach(cat => {
+    out[cat] = { supportingWins: 0, opposingWins: 0, supportingLosses: 0, opposingLosses: 0 };
+  });
+  (trades || []).forEach(t => {
+    if (!t.factorSnapshot || !t.factorSnapshot.factors) return;
+    const isWin = t.pnl > 0;
+    Object.values(t.factorSnapshot.factors).forEach(f => {
+      if (!f || !f.cat || !cats.includes(f.cat)) return;
+      if (f.pass === null || typeof f.score !== 'number' || f.score === 0) return;
+      const bucket = out[f.cat];
+      if (f.score > 0) { if (isWin) bucket.supportingWins++; else bucket.supportingLosses++; }
+      if (f.score < 0) { if (isWin) bucket.opposingWins++; else bucket.opposingLosses++; }
+    });
+  });
+  return out;
+}
+
+function buildEntryExitAnalysis(trades) {
+  const rows = [];
+  let goodEntry = 0, poorEntry = 0, goodExit = 0, poorExit = 0, mfeCapturedSum = 0, mfeCapturedN = 0;
+  (trades || []).forEach(t => {
+    const q = typeof diagnoseEntryExitQuality === 'function' ? diagnoseEntryExitQuality(t) : null;
+    if (!q) return;
+    rows.push({ ts: t.ts, symbol: t.symbol, pnl: t.pnl, ...q });
+    if (/Good/.test(q.entryQuality)) goodEntry++; else if (/Poor/.test(q.entryQuality)) poorEntry++;
+    if (/Good/.test(q.exitQuality)) goodExit++; else if (/Poor/.test(q.exitQuality)) poorExit++;
+    mfeCapturedSum += q.mfeCapturedPct;
+    mfeCapturedN++;
+  });
+  return {
+    samples: rows.slice(-30),
+    goodEntries: goodEntry,
+    poorEntries: poorEntry,
+    goodExits: goodExit,
+    poorExits: poorExit,
+    avgMfeCapturedPct: mfeCapturedN ? +(mfeCapturedSum / mfeCapturedN).toFixed(1) : null,
+  };
+}
+
+function buildComponentCounterfactualHints(trades, decisionLog) {
+  const hints = [];
+  const perf = computePerformanceMetrics(trades);
+  if (perf.totalTrades >= 5) {
+    hints.push({
+      component: 'Full strategy (as executed)',
+      sampleTrades: perf.totalTrades,
+      winRatePct: perf.winRatePct,
+      netPnl: perf.netPnl,
+      note: 'Baseline — all closed trades with current rule set.',
+    });
+  }
+  const catAnalysis = buildIndicatorCategoryAnalysis(trades);
+  Object.entries(catAnalysis).forEach(([cat, s]) => {
+    const supWin = s.supportingWins, oppLoss = s.opposingLosses;
+    if (supWin + oppLoss >= 3 && oppLoss > supWin) {
+      hints.push({
+        component: `${cat} category (when score opposed trade direction)`,
+        sampleTrades: oppLoss,
+        note: `${oppLoss} losing trade(s) had negative ${cat} factor scores — worth testing whether tightening ${cat} weight reduces losses (counterfactual — not auto-applied).`,
+      });
+    }
+  });
+  const nearMiss = (decisionLog || []).filter(e => e.decision === 'WAIT' && e.tradeTypeWeightingAdjustment);
+  if (nearMiss.length >= 10) {
+    hints.push({
+      component: 'Weighted-score safety gate',
+      sampleSignals: nearMiss.length,
+      note: `${nearMiss.length} refreshes downgraded/blocked by trade-type category weighting — review whether this protects or over-filters (see eligibility funnel).`,
+    });
+  }
+  return hints;
+}
+
+function buildStrategyAssumptions(report) {
+  const items = [];
+  const push = (area, evidence, suggestion, confidence) => {
+    items.push({ area, evidence, suggestion, confidence, autoApply: false });
+  };
+
+  const p = report.performance;
+  const pipe = report.eligibilityPipeline;
+  const sig = report.signalsAndRejections;
+  const missed = report.missedOpportunityAnalysis;
+
+  if (pipe.overRestrictedAlert) {
+    push('Trade frequency / filter stack', pipe.overRestrictedAlert.detail,
+      'Review top rejection reasons and eligibility funnel before loosening any rule — test one change at a time in paper mode.', 'high');
+  }
+  if (sig.topRejectionReasons[0] && /autonomous mode/i.test(sig.topRejectionReasons[0].reason)) {
+    push('Execution path', `${sig.topRejectionReasons[0].count} blocks: Autonomous Mode OFF`,
+      'Start Autonomous Mode during market hours — not a strategy change.', 'high');
+  }
+  if (sig.topRejectionReasons.some(r => /spread|rejection|execution/i.test(r.reason))) {
+    const r = sig.topRejectionReasons.find(x => /spread|rejection|execution/i.test(x.reason));
+    push('Execution realism', `${r.count} blocks tied to spread/execution simulation`,
+      'Verify strikes have tight spreads; consider session times with better liquidity — do not disable realistic execution without evidence.', 'medium');
+  }
+  if (missed && missed.blockedButFavorable && missed.blockedButFavorable.length >= 5) {
+    const opMissed = missed.blockedButFavorable.filter(m => /FM0|failure|operator/i.test(m.blockReason || '')).length;
+    if (opMissed >= 3) {
+      push('Operator Intel / FM gates', `${opMissed} favorable moves blocked by operator or FM-related reasons`,
+        'Compare missed-opportunity premium estimates vs actual trade outcomes — test hard-veto vs soft-warning only if evidence shows net benefit.', 'medium');
+    } else {
+      push('Thresholds / FM gates', `${missed.blockedButFavorable.length} blocked setups saw favorable spot/premium move afterward`,
+        'Inspect each block reason — some may be protective, some may be over-tight. Do not loosen globally.', 'medium');
+    }
+  }
+  if (p.totalTrades >= 5 && p.winRatePct != null && p.winRatePct < 40) {
+    push('Overall edge', `Win rate ${p.winRatePct}% over ${p.totalTrades} trades, net Rs${p.netPnl}`,
+      'Review losing-trade failure categories and entry/exit quality before changing thresholds.', 'medium');
+  }
+  if (report.entryExitAnalysis && report.entryExitAnalysis.poorExits >= 3 && report.entryExitAnalysis.poorExits > report.entryExitAnalysis.goodExits) {
+    push('Exit logic', `${report.entryExitAnalysis.poorExits} poor exits vs ${report.entryExitAnalysis.goodExits} good (MFE capture)`,
+      'Consider trailing stop or partial exit tests — target/SL may be leaving profit on table.', 'medium');
+  }
+  if (p.totalTrades >= 5 && p.profitFactor != null && p.profitFactor < 1) {
+    push('Risk/reward', `Profit factor ${p.profitFactor} below 1.0`,
+      'Average loss magnitude vs average win — review stop width and target distance for scalping profile.', 'medium');
+  }
+  if (items.length === 0) {
+    push('Insufficient sample', 'Not enough closed trades and/or logged refreshes yet',
+      'Continue paper trading with Autonomous Mode ON to build evidence before changing rules.', 'low');
+  }
+  return items;
+}
+
+function buildRecommendedTests(assumptions, componentHints) {
+  const tests = [];
+  assumptions.forEach(a => {
+    if (a.confidence === 'high' || a.confidence === 'medium') {
+      tests.push({ priority: a.confidence, area: a.area, proposedTest: a.suggestion, requiresVersionBump: /threshold|weight|filter|operator/i.test(a.suggestion) });
+    }
+  });
+  componentHints.forEach(h => {
+    tests.push({ priority: 'medium', area: h.component, proposedTest: h.note, requiresVersionBump: true });
+  });
+  return tests.slice(0, 12);
+}
+
+function compareStrategyVersions(decisionLog, trades, versionA, versionB) {
+  const logA = filterReportWindow(decisionLog, { strategyVersion: versionA });
+  const logB = filterReportWindow(decisionLog, { strategyVersion: versionB });
+  const tradesA = (trades || []).filter(t => (t.factorSnapshot && t.factorSnapshot.strategyVersion === versionA));
+  const tradesB = (trades || []).filter(t => (t.factorSnapshot && t.factorSnapshot.strategyVersion === versionB));
+  return {
+    versionA: { version: versionA, refreshes: logA.length, signals: logA.filter(e => e.decision === 'BUY_READY' || e.decision === 'SELL_READY').length, performance: computePerformanceMetrics(tradesA) },
+    versionB: { version: versionB, refreshes: logB.length, signals: logB.filter(e => e.decision === 'BUY_READY' || e.decision === 'SELL_READY').length, performance: computePerformanceMetrics(tradesB) },
+    caveat: 'Version tags must be present on decision-log rows and trade factor snapshots — bump FNO_STRATEGY_VERSION when changing rules so periods are comparable.',
+  };
+}
+
+function buildStrategyDiagnosticReport(opts) {
+  opts = opts || {};
+  const period = {
+    startTs: opts.startTs || null,
+    endTs: opts.endTs || null,
+    symbol: opts.symbol || null,
+    strategyVersion: opts.strategyVersion || null,
+    label: opts.periodLabel || 'All available history',
+  };
+
+  const rawDecisionLog = opts.decisionLog || (typeof getDecisionLog === 'function' ? getDecisionLog() : []);
+  const rawTrades = opts.tradeHistory || (typeof load === 'function' && typeof STORAGE !== 'undefined'
+    ? load(STORAGE.autoTrades + '_history') : []);
+  const rawBlocked = opts.blockedAttempts || (typeof loadBlockedTradeAttempts === 'function'
+    ? loadBlockedTradeAttempts() : (typeof load === 'function' && typeof STORAGE !== 'undefined' ? load(STORAGE.blockedAttempts) : []));
+
+  const decisionLog = filterReportWindow(rawDecisionLog, period);
+  const tradeHistory = filterReportWindow(rawTrades, period);
+  const blockedAttempts = filterReportWindow(rawBlocked, period);
+
+  const performance = computePerformanceMetrics(tradeHistory);
+  const signalsAndRejections = buildSignalAndRejectionStats(decisionLog, blockedAttempts);
+  const eligibilityPipeline = buildEligibilityPipeline(decisionLog);
+  const missedOpportunityAnalysis = typeof computeMissedOpportunityAnalysis === 'function'
+    ? computeMissedOpportunityAnalysis(decisionLog, opts.missedOppOpts || { lookforwardMinutes: 15 })
+    : { blockedButFavorable: [], waitNearMissButMoved: [], unpredictableMoves: [] };
+  const falsePositiveAnalysis = typeof computeFalsePositiveAnalysis === 'function'
+    ? computeFalsePositiveAnalysis(tradeHistory) : { losingTrades: [], byFmId: {} };
+  const operatorIntel = buildOperatorIntelAnalysis(decisionLog, tradeHistory, missedOpportunityAnalysis);
+  const regimeAndTime = buildRegimeAndTimeAnalysis(tradeHistory, decisionLog);
+  const indicatorPerformance = buildIndicatorCategoryAnalysis(tradeHistory);
+  const entryExitAnalysis = buildEntryExitAnalysis(tradeHistory);
+  const componentHints = buildComponentCounterfactualHints(tradeHistory, decisionLog);
+  const failureAnalysis = typeof computeFailureAnalysis === 'function'
+    ? computeFailureAnalysis(tradeHistory) : { categories: new Map(), totalLosses: 0 };
+
+  const report = {
+    meta: {
+      schemaVersion: FNO_DIAGNOSTIC_REPORT_SCHEMA,
+      generatedAt: new Date().toISOString(),
+      generatedAtISTHint: 'Use browser local time; server IST available in PHP exports when logged in.',
+      pluginVersion: opts.pluginVersion || (typeof FNO_PLUGIN_VERSION !== 'undefined' ? FNO_PLUGIN_VERSION : null),
+      activeStrategyVersion: typeof FNO_STRATEGY_VERSION !== 'undefined' ? FNO_STRATEGY_VERSION : null,
+      period,
+      disclaimer: 'Diagnostic report only — does not modify trading rules. Findings are evidence for human review and controlled A/B tests.',
+    },
+    executiveSummary: {
+      totalRefreshes: signalsAndRejections.totalRefreshes,
+      totalSignals: signalsAndRejections.totalSignals,
+      tradesTaken: signalsAndRejections.tradesTaken,
+      setupsBlocked: signalsAndRejections.setupsBlocked,
+      netPnl: performance.netPnl,
+      winRatePct: performance.winRatePct,
+      profitFactor: performance.profitFactor,
+      eligibilityRatePct: eligibilityPipeline.eligibilityRatePct,
+      executionRatePct: eligibilityPipeline.executionRatePct,
+      overRestricted: eligibilityPipeline.overRestrictedAlert,
+      topBlockReason: signalsAndRejections.topRejectionReasons[0] || null,
+      missedOpportunitiesGenuine: (missedOpportunityAnalysis.blockedButFavorable || []).length,
+    },
+    performance,
+    signalsAndRejections,
+    eligibilityPipeline,
+    missedOpportunityAnalysis,
+    falsePositiveAnalysis,
+    operatorIntel,
+    regimeAndTime,
+    indicatorPerformance,
+    entryExitAnalysis,
+    componentCounterfactualHints: componentHints,
+    failureAnalysis: {
+      totalLosses: failureAnalysis.totalLosses,
+      categories: failureAnalysis.categories instanceof Map
+        ? Array.from(failureAnalysis.categories.entries()).map(([cat, v]) => ({ category: cat, ...v }))
+        : [],
+    },
+    winningTrades: performance.trades.filter(t => t.pnl > 0).slice(-50),
+    losingTrades: performance.trades.filter(t => t.pnl < 0).slice(-50),
+    strategyAssumptionsAndImprovements: [],
+    recommendedFurtherTests: [],
+    rawData: {
+      decisionLogSample: decisionLog.slice(-200),
+      rejectionSample: signalsAndRejections.rejectionRecords.slice(0, 100),
+      tradeSample: tradeHistory.slice(-100),
+    },
+  };
+
+  report.strategyAssumptionsAndImprovements = buildStrategyAssumptions(report);
+  report.recommendedFurtherTests = buildRecommendedTests(report.strategyAssumptionsAndImprovements, componentHints);
+
+  if (opts.compareVersionA && opts.compareVersionB) {
+    report.strategyVersionComparison = compareStrategyVersions(rawDecisionLog, rawTrades, opts.compareVersionA, opts.compareVersionB);
+  }
+
+  return report;
+}
+
+function formatDiagnosticReportMarkdown(report) {
+  const r = report;
+  const lines = [];
+  const h = (t) => { lines.push(`\n## ${t}\n`); };
+  const p = (t) => lines.push(t);
+
+  lines.push('# F&O Lab — Trading Performance & Strategy Diagnostic Report');
+  p(`Generated: ${r.meta.generatedAt}`);
+  p(`Schema: ${r.meta.schemaVersion} | Plugin: ${r.meta.pluginVersion || 'n/a'} | Strategy: ${r.meta.activeStrategyVersion || 'n/a'}`);
+  p(`Period: ${r.meta.period.label}`);
+  p(`\n*${r.meta.disclaimer}*`);
+
+  h('1. Executive Summary');
+  const e = r.executiveSummary;
+  p(`- Refreshes logged: **${e.totalRefreshes}**`);
+  p(`- BUY/SELL signals: **${e.totalSignals}** | Trades opened: **${e.tradesTaken}** | Setups blocked: **${e.setupsBlocked}**`);
+  p(`- Net P&L: **Rs${e.netPnl}** | Win rate: **${e.winRatePct != null ? e.winRatePct + '%' : 'n/a'}** | Profit factor: **${e.profitFactor != null ? e.profitFactor : 'n/a'}**`);
+  p(`- Eligibility: **${e.eligibilityRatePct != null ? e.eligibilityRatePct + '%' : 'n/a'}** | Execution rate: **${e.executionRatePct != null ? e.executionRatePct + '%' : 'n/a'}**`);
+  if (e.overRestricted) p(`- ⚠️ **${e.overRestricted.label}**: ${e.overRestricted.detail}`);
+  if (e.topBlockReason) p(`- Top block reason (${e.topBlockReason.count}×): ${e.topBlockReason.reason}`);
+
+  h('2. Overall Performance');
+  const perf = r.performance;
+  p(`| Metric | Value |`);
+  p(`|--------|-------|`);
+  ['totalTrades', 'wins', 'losses', 'breakeven', 'grossProfit', 'grossLoss', 'totalCharges', 'netPnl', 'winRatePct', 'avgWin', 'avgLoss', 'profitFactor', 'expectancy', 'maxDrawdown', 'maxConsecutiveWins', 'maxConsecutiveLosses', 'avgHoldingMinutes', 'avgMfePct', 'avgMaePct', 'targetExits', 'stopLossExits'].forEach(k => {
+    if (perf[k] != null) p(`| ${k} | ${perf[k]} |`);
+  });
+
+  h('3. Trade Statistics');
+  p(`See Overall Performance and raw trade sample in JSON export.`);
+
+  h('4–5. Winning / Losing Trade Analysis');
+  p(`Winning trades in sample: ${r.winningTrades.length} | Losing: ${r.losingTrades.length}`);
+
+  h('6. Rejected Trade Analysis');
+  p(`Total rejection records: ${r.signalsAndRejections.rejectionRecords.length}`);
+  r.signalsAndRejections.topRejectionReasons.forEach(x => p(`- (${x.count}×) ${x.reason}`));
+
+  h('7. Missed Opportunity Analysis');
+  p(`Genuine blocked-but-favorable: ${(r.missedOpportunityAnalysis.blockedButFavorable || []).length}`);
+  p(`Near-miss WAIT moves: ${(r.missedOpportunityAnalysis.waitNearMissButMoved || []).length}`);
+
+  h('8. Operator Intel Performance');
+  p(JSON.stringify(r.operatorIntel.biasFrequency, null, 2));
+
+  h('9. Indicator Performance (by category)');
+  p(JSON.stringify(r.indicatorPerformance, null, 2));
+
+  h('10. Entry/Exit Analysis');
+  p(`Good entries: ${r.entryExitAnalysis.goodEntries} | Poor: ${r.entryExitAnalysis.poorEntries}`);
+  p(`Good exits: ${r.entryExitAnalysis.goodExits} | Poor: ${r.entryExitAnalysis.poorExits}`);
+  p(`Avg MFE captured: ${r.entryExitAnalysis.avgMfeCapturedPct != null ? r.entryExitAnalysis.avgMfeCapturedPct + '%' : 'n/a'}`);
+
+  h('11. Market Regime Analysis');
+  p(JSON.stringify(r.regimeAndTime.byRegime, null, 2));
+
+  h('12. Risk Analysis');
+  p(`Max drawdown Rs${perf.maxDrawdown} | Max consecutive losses ${perf.maxConsecutiveLosses}`);
+
+  h('13. Strategy Assumptions & Potential Improvements');
+  r.strategyAssumptionsAndImprovements.forEach(a => {
+    p(`### ${a.area} (${a.confidence} confidence)`);
+    p(`**Evidence:** ${a.evidence}`);
+    p(`**Suggested test (NOT auto-applied):** ${a.suggestion}`);
+  });
+
+  h('14. Over-Restriction Detection — Trade Eligibility Pipeline');
+  const pipe = r.eligibilityPipeline;
+  p(`Potential setups (BUY/SELL): ${pipe.strategyPassed}`);
+  p(`→ Operator gate clean: ${pipe.operatorGateClean}`);
+  p(`→ Risk gate clean: ${pipe.riskGateClean}`);
+  p(`→ Actual trades: ${pipe.actualTrades}`);
+
+  h('15. Recommended Areas for Further Testing');
+  r.recommendedFurtherTests.forEach(t => p(`- [${t.priority}] ${t.area}: ${t.proposedTest}`));
+
+  h('16. Raw Data');
+  p(`Full machine-readable data included in JSON export (decision log sample, rejections, trades).`);
+
+  if (r.strategyVersionComparison) {
+    h('Appendix: Strategy Version Comparison');
+    p(JSON.stringify(r.strategyVersionComparison, null, 2));
+  }
+
+  return lines.join('\n');
+}
+
+function formatDiagnosticReportCsv(report) {
+  const rows = [];
+  const add = (section, cols) => { rows.push([section, ...cols]); };
+  rows.push(['F&O Lab Strategy Diagnostic Report', report.meta.generatedAt, report.meta.schemaVersion]);
+  rows.push([]);
+  add('EXECUTIVE', ['metric', 'value']);
+  Object.entries(report.executiveSummary).forEach(([k, v]) => {
+    if (typeof v === 'object') return;
+    rows.push(['EXECUTIVE', k, v]);
+  });
+  rows.push([]);
+  add('PERFORMANCE', ['metric', 'value']);
+  Object.entries(report.performance).forEach(([k, v]) => {
+    if (k === 'trades' || typeof v === 'object') return;
+    rows.push(['PERFORMANCE', k, v]);
+  });
+  rows.push([]);
+  add('REJECTIONS', ['count', 'reason']);
+  report.signalsAndRejections.topRejectionReasons.forEach(r => rows.push(['REJECTIONS', r.count, r.reason]));
+  rows.push([]);
+  add('ASSUMPTIONS', ['area', 'confidence', 'evidence', 'suggestion']);
+  report.strategyAssumptionsAndImprovements.forEach(a => rows.push(['ASSUMPTIONS', a.area, a.confidence, a.evidence, a.suggestion]));
+  return rows.map(r => r.map(c => {
+    const s = c == null ? '' : String(c);
+    return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s;
+  }).join(',')).join('\n');
+}
+
+function downloadStrategyDiagnosticReport(format, opts) {
+  if (typeof document === 'undefined') return null;
+  const report = buildStrategyDiagnosticReport(opts);
+  const stamp = new Date().toISOString().slice(0, 10);
+  let blob, filename, mime;
+  if (format === 'json') {
+    blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+    filename = `fno-strategy-diagnostic-${stamp}.json`;
+    mime = 'application/json';
+  } else if (format === 'csv') {
+    blob = new Blob([formatDiagnosticReportCsv(report)], { type: 'text/csv;charset=utf-8' });
+    filename = `fno-strategy-diagnostic-${stamp}.csv`;
+    mime = 'text/csv';
+  } else {
+    blob = new Blob([formatDiagnosticReportMarkdown(report)], { type: 'text/markdown;charset=utf-8' });
+    filename = `fno-strategy-diagnostic-${stamp}.md`;
+    mime = 'text/markdown';
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  return report;
+}
+
+function renderStrategyDiagnosticPreview(opts) {
+  if (typeof document === 'undefined') return null;
+  const el = document.getElementById('strategyDiagnosticPreview');
+  if (!el) return null;
+  const report = buildStrategyDiagnosticReport(opts);
+  const e = report.executiveSummary;
+  const alert = e.overRestricted
+    ? `<div style="padding:6px;margin-bottom:8px;background:#422006;border-radius:6px;color:#fde68a;font-size:11px">⚠️ ${escapeHtml(e.overRestricted.label)}: ${escapeHtml(e.overRestricted.detail)}</div>`
+    : '';
+  el.innerHTML = alert + `
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-size:11px;margin-bottom:8px">
+      <div style="background:#020617;padding:6px;border-radius:6px;text-align:center"><div style="color:#94a3b8">Signals</div><div style="font-weight:800">${e.totalSignals}</div></div>
+      <div style="background:#020617;padding:6px;border-radius:6px;text-align:center"><div style="color:#94a3b8">Opened</div><div style="font-weight:800;color:#4ade80">${e.tradesTaken}</div></div>
+      <div style="background:#020617;padding:6px;border-radius:6px;text-align:center"><div style="color:#94a3b8">Blocked</div><div style="font-weight:800;color:#f87171">${e.setupsBlocked}</div></div>
+      <div style="background:#020617;padding:6px;border-radius:6px;text-align:center"><div style="color:#94a3b8">Net P&L</div><div style="font-weight:800">${e.netPnl != null ? 'Rs' + e.netPnl : '—'}</div></div>
+    </div>
+    <div style="font-size:10px;color:#64748b">Win rate ${e.winRatePct != null ? e.winRatePct + '%' : 'n/a'} · PF ${e.profitFactor != null ? e.profitFactor : 'n/a'} · Eligibility ${e.eligibilityRatePct != null ? e.eligibilityRatePct + '%' : 'n/a'} · ${report.strategyAssumptionsAndImprovements.length} assumption review item(s)</div>
+  `;
+  return report;
+}
+
+function getStrategyReportUiOptions() {
+  const periodEl = document.getElementById('strategyReportPeriod');
+  const symEl = document.getElementById('sym');
+  const compareA = document.getElementById('strategyReportCompareA');
+  const compareB = document.getElementById('strategyReportCompareB');
+  const period = periodEl ? periodEl.value : 'all';
+  const sym = symEl ? String(symEl.value || 'NIFTY').trim().toUpperCase() : 'NIFTY';
+  const now = Date.now();
+  let startTs = null;
+  const endTs = now;
+  let periodLabel = 'All available history';
+  if (period === 'today') {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    startTs = d.getTime();
+    periodLabel = 'Today';
+  } else if (period === '7d') {
+    startTs = now - 7 * 86400000;
+    periodLabel = 'Last 7 days';
+  } else if (period === '21d') {
+    startTs = now - 21 * 86400000;
+    periodLabel = 'Last 21 days';
+  }
+  const opts = {
+    symbol: sym,
+    startTs,
+    endTs,
+    periodLabel,
+    pluginVersion: typeof FNO_PLUGIN_VERSION !== 'undefined' ? FNO_PLUGIN_VERSION : null,
+  };
+  if (compareA && compareA.value.trim()) opts.compareVersionA = compareA.value.trim();
+  if (compareB && compareB.value.trim()) opts.compareVersionB = compareB.value.trim();
+  return opts;
+}
+
+function bindStrategyDiagnosticReportUi() {
+  const periodEl = document.getElementById('strategyReportPeriod');
+  const compareA = document.getElementById('strategyReportCompareA');
+  const compareB = document.getElementById('strategyReportCompareB');
+  const refresh = () => renderStrategyDiagnosticPreview(getStrategyReportUiOptions());
+  if (periodEl) periodEl.addEventListener('change', refresh);
+  if (compareA) compareA.addEventListener('change', refresh);
+  if (compareB) compareB.addEventListener('change', refresh);
+  const jsonBtn = document.getElementById('downloadStrategyReportJson');
+  const mdBtn = document.getElementById('downloadStrategyReportMd');
+  const csvBtn = document.getElementById('downloadStrategyReportCsv');
+  if (jsonBtn) jsonBtn.addEventListener('click', () => downloadStrategyDiagnosticReport('json', getStrategyReportUiOptions()));
+  if (mdBtn) mdBtn.addEventListener('click', () => downloadStrategyDiagnosticReport('md', getStrategyReportUiOptions()));
+  if (csvBtn) csvBtn.addEventListener('click', () => downloadStrategyDiagnosticReport('csv', getStrategyReportUiOptions()));
+  refresh();
+}
+
+if (typeof window !== 'undefined') {
+  window.getStrategyReportUiOptions = getStrategyReportUiOptions;
+  window.buildStrategyDiagnosticReport = buildStrategyDiagnosticReport;
+  window.downloadStrategyDiagnosticReport = downloadStrategyDiagnosticReport;
+  window.renderStrategyDiagnosticPreview = renderStrategyDiagnosticPreview;
+  window.compareStrategyVersions = compareStrategyVersions;
+  window.formatDiagnosticReportMarkdown = formatDiagnosticReportMarkdown;
+  window.formatDiagnosticReportCsv = formatDiagnosticReportCsv;
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', bindStrategyDiagnosticReportUi);
+  } else {
+    bindStrategyDiagnosticReportUi();
+  }
+}
+

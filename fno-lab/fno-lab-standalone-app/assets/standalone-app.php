@@ -569,7 +569,11 @@ body.fno-nse-disabled .nse-only-section{display:none}
       <button type="button" class="btn" id="chartIndAlertAdd" style="padding:3px 8px;font-size:11px;background:#581c87">Ind. alert</button>
     </div>
     <div id="chartAlertsList" style="font-size:10px;margin-bottom:8px;padding:6px 8px;background:#0f172a;border:1px solid #1e293b;border-radius:8px"></div>
-    <div id="chartIndicatorList" style="margin-bottom:6px"></div>
+    <div id="chartIndicatorListWrap" style="margin-bottom:8px;padding:8px;background:#0f172a;border:1px solid #334155;border-radius:8px">
+      <div style="font-size:11px;font-weight:700;color:#e2e8f0;margin-bottom:4px">Active chart indicators</div>
+      <div id="chartIndicatorDiagnostics" style="font-size:10px;color:#94a3b8;margin-bottom:6px;line-height:1.45">Indicator status: loading…</div>
+      <div id="chartIndicatorList" style="margin-bottom:0"></div>
+    </div>
     <div id="chartCustomIndicatorPanel" style="display:none;margin-bottom:8px;padding:8px;background:#0f172a;border:1px solid #334155;border-radius:8px;font-size:11px">
       <div style="font-weight:700;margin-bottom:6px;color:#e2e8f0">Custom indicators — FNO Formula &amp; Pine subset (not full TradingView)</div>
       <div style="font-size:10px;color:#64748b;margin-bottom:6px;line-height:1.45">Paste Pine → <strong>Save &amp; add to chart</strong> (one step). Works: <code>indicator()</code>, inputs, one <code>plot()</code>, <code>ta.*</code>. Advanced FNO formula fields below are optional.</div>
