@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.42-kite-zerodha-probe-v1';
+const FNO_CORE_BUILD_MARKER = '16.37.43-chart-indicators-v1';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -2809,7 +2809,18 @@ function renderDecisionIntelligence() {
 // real number of (post-aggregation) candles shown; offsetFromEnd is how
 // many candles back from the most-recent the view is scrolled (0 =
 // latest/live edge).
-let fnoChartViewState = { timeframeMinutes: 1, visibleCount: 80, offsetFromEnd: 0, showEma: true, showVwap: true, controlsWired: false };
+let fnoChartViewState = {
+  timeframeMinutes: 1,
+  visibleCount: 80,
+  offsetFromEnd: 0,
+  showEma: true,
+  showVwap: true,
+  priceZoom: 1,
+  pricePan: 0,
+  autoFitPrice: true,
+  controlsWired: false,
+  crosshair: null,
+};
 // Test-only accessor - direct eval() of this file (this repo's own
 // established Node test-harness pattern) does not reliably leak
 // top-level `let`/`const` bindings out to the rest of the eval'd
@@ -2982,6 +2993,146 @@ function nearestSeriesValue(rawCandles, series, targetTs) {
   return best >= 0 && Number.isFinite(series[best]) ? series[best] : null;
 }
 
+function fnoChartApplyPriceScale(minP, maxP, viewState) {
+  const zoom = Math.max(0.35, Math.min(8, viewState.priceZoom || 1));
+  const pan = viewState.pricePan || 0;
+  const center = (minP + maxP) / 2;
+  const half = ((maxP - minP) / 2) / zoom;
+  const panShift = pan * (maxP - minP);
+  return { minP: center - half + panShift, maxP: center + half + panShift };
+}
+
+function fnoChartDrawLineSeries(c2d, visible, values, yFor, padL, slot, style) {
+  if (!Array.isArray(values) || values.length !== visible.length) return;
+  c2d.strokeStyle = style.color || '#facc15';
+  c2d.lineWidth = style.lineWidth || 1.5;
+  if (typeof c2d.setLineDash === 'function') {
+    c2d.setLineDash(style.lineStyle === 'dashed' ? [4, 3] : []);
+  }
+  c2d.beginPath();
+  let started = false;
+  visible.forEach((cd, i) => {
+    const v = values[i];
+    if (!Number.isFinite(v)) return;
+    const x = padL + slot * i + slot / 2;
+    const y = yFor(v);
+    if (!started) { c2d.moveTo(x, y); started = true; } else { c2d.lineTo(x, y); }
+  });
+  if (started) c2d.stroke();
+  if (typeof c2d.setLineDash === 'function') c2d.setLineDash([]);
+  c2d.lineWidth = 1;
+}
+
+function fnoChartResolveIndicatorData(marketCtx, aggregated) {
+  if (typeof FNO_CHART_INDICATORS !== 'undefined' && FNO_CHART_INDICATORS.computeForCandles) {
+    const instances = FNO_CHART_INDICATORS.loadInstances();
+    return FNO_CHART_INDICATORS.computeForCandles(aggregated, instances);
+  }
+  const overlays = [];
+  if (marketCtx && Array.isArray(marketCtx.ema21Series) && marketCtx.ema21Series.length === aggregated.length) {
+    overlays.push({ lines: [{ values: marketCtx.ema21Series, color: '#facc15', lineWidth: 1.5 }] });
+  } else if (marketCtx && Array.isArray(marketCtx.candles) && marketCtx.ema21Series && marketCtx.ema21Series.length === marketCtx.candles.length) {
+    const mapped = aggregated.map(cd => nearestSeriesValue(marketCtx.candles, marketCtx.ema21Series, cd.t));
+    overlays.push({ lines: [{ values: mapped, color: '#facc15', lineWidth: 1.5 }] });
+  }
+  if (marketCtx && fnoChartViewState.showVwap) {
+    let vwapVals = null;
+    if (marketCtx.vwapSeries && marketCtx.vwapSeries.length === aggregated.length) {
+      vwapVals = marketCtx.vwapSeries;
+    } else if (marketCtx.vwapSeries && marketCtx.candles && marketCtx.vwapSeries.length === marketCtx.candles.length) {
+      vwapVals = aggregated.map(cd => nearestSeriesValue(marketCtx.candles, marketCtx.vwapSeries, cd.t));
+    } else if (typeof FNO_CHART_INDICATORS !== 'undefined') {
+      vwapVals = FNO_CHART_INDICATORS.sessionVwapSeries(aggregated);
+    }
+    if (vwapVals) overlays.push({ lines: [{ values: vwapVals, color: '#38bdf8', lineWidth: 1.5 }] });
+  }
+  if (marketCtx && fnoChartViewState.showEma && !overlays.length) {
+    const closes = aggregated.map(c => c.c);
+    const ema21 = ema(closes, 21);
+    overlays.push({ lines: [{ values: ema21, color: '#facc15', lineWidth: 1.5 }] });
+  }
+  return { overlays, panels: [] };
+}
+
+function fnoChartRenderOscillatorPanels(container, panels, visible, startIdx, fullAggregated) {
+  if (!container) return;
+  container.innerHTML = '';
+  if (!panels || !panels.length || !visible.length) return;
+  panels.forEach((pWrap) => {
+    const panel = pWrap.panel;
+    if (!panel) return;
+    const wrap = document.createElement('div');
+    wrap.style.marginTop = '6px';
+    wrap.style.background = '#020617';
+    wrap.style.borderRadius = '10px';
+    wrap.style.border = '1px solid #1e293b';
+    const title = document.createElement('div');
+    title.textContent = panel.title || pWrap.typeId;
+    title.style.fontSize = '10px';
+    title.style.color = '#64748b';
+    title.style.padding = '4px 8px';
+    wrap.appendChild(title);
+    const canvas = document.createElement('canvas');
+    canvas.className = 'fno-chart-panel-canvas';
+    canvas.style.width = '100%';
+    canvas.style.height = `${panel.panelHeight || 100}px`;
+    canvas.style.display = 'block';
+    wrap.appendChild(canvas);
+    container.appendChild(wrap);
+    const cssW = canvas.clientWidth || 600;
+    const cssH = panel.panelHeight || 100;
+    const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(cssH * dpr);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, cssW, cssH);
+    const padL = 8, padR = 8, padT = 4, padB = 14;
+    const plotW = cssW - padL - padR;
+    const plotH = cssH - padT - padB;
+    const slot = plotW / visible.length;
+    let minY = panel.min != null ? panel.min : Infinity;
+    let maxY = panel.max != null ? panel.max : -Infinity;
+    if (panel.autoScale) {
+      panel.lines.forEach((ln) => {
+        const slice = ln.values.slice(startIdx, startIdx + visible.length);
+        slice.forEach(v => { if (Number.isFinite(v)) { minY = Math.min(minY, v); maxY = Math.max(maxY, v); } });
+      });
+      if (panel.histogram) {
+        panel.histogram.values.slice(startIdx, startIdx + visible.length).forEach(v => { if (Number.isFinite(v)) { minY = Math.min(minY, v); maxY = Math.max(maxY, v); } });
+      }
+      if (!Number.isFinite(minY)) { minY = -1; maxY = 1; }
+      const pad = (maxY - minY) * 0.08 || 1;
+      minY -= pad; maxY += pad;
+    }
+    const yFor = v => padT + plotH - ((v - minY) / (maxY - minY)) * plotH;
+    if (panel.bands) {
+      ctx.strokeStyle = '#334155'; ctx.lineWidth = 1;
+      panel.bands.forEach(b => {
+        if (!Number.isFinite(b.y)) return;
+        const y = yFor(b.y);
+        ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(padL + plotW, y); ctx.stroke();
+      });
+    }
+    if (panel.histogram) {
+      const hist = panel.histogram.values.slice(startIdx, startIdx + visible.length);
+      hist.forEach((v, i) => {
+        if (!Number.isFinite(v)) return;
+        const x = padL + slot * i + slot * 0.15;
+        const w = slot * 0.7;
+        const y0 = yFor(0);
+        const y1 = yFor(v);
+        ctx.fillStyle = v >= 0 ? (panel.histogram.upColor || '#4ade80') : (panel.histogram.downColor || '#f87171');
+        ctx.fillRect(x, Math.min(y0, y1), w, Math.max(1, Math.abs(y1 - y0)));
+      });
+    }
+    panel.lines.forEach((ln) => {
+      fnoChartDrawLineSeries(ctx, visible, ln.values.slice(startIdx, startIdx + visible.length), yFor, padL, slot, ln);
+    });
+  });
+}
+
 /**
  * TRACE: wires the chart's real interactive controls (timeframe
  * buttons, EMA/VWAP toggles, zoom buttons, mouse wheel zoom, click-drag
@@ -3013,37 +3164,82 @@ function wireChartControls() {
       if (Number.isFinite(tf) && tf > 0) { fnoChartViewState.timeframeMinutes = tf; fnoChartViewState.offsetFromEnd = 0; redraw(); }
     });
   });
-  const emaBox = document.getElementById('chartShowEma');
-  if (emaBox) emaBox.addEventListener('change', () => { fnoChartViewState.showEma = !!emaBox.checked; redraw(); });
-  const vwapBox = document.getElementById('chartShowVwap');
-  if (vwapBox) vwapBox.addEventListener('change', () => { fnoChartViewState.showVwap = !!vwapBox.checked; redraw(); });
   const zoomIn = document.getElementById('chartZoomIn');
   if (zoomIn) zoomIn.addEventListener('click', () => { fnoChartViewState.visibleCount = Math.max(15, Math.round(fnoChartViewState.visibleCount * 0.7)); redraw(); });
   const zoomOut = document.getElementById('chartZoomOut');
   if (zoomOut) zoomOut.addEventListener('click', () => { fnoChartViewState.visibleCount = Math.min(500, Math.round(fnoChartViewState.visibleCount / 0.7)); redraw(); });
   const resetBtn = document.getElementById('chartResetView');
-  if (resetBtn) resetBtn.addEventListener('click', () => { fnoChartViewState.visibleCount = 80; fnoChartViewState.offsetFromEnd = 0; redraw(); });
+  if (resetBtn) resetBtn.addEventListener('click', () => {
+    fnoChartViewState.visibleCount = 80;
+    fnoChartViewState.offsetFromEnd = 0;
+    fnoChartViewState.priceZoom = 1;
+    fnoChartViewState.pricePan = 0;
+    fnoChartViewState.autoFitPrice = true;
+    redraw();
+  });
 
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const factor = e.deltaY > 0 ? 1 / 0.85 : 0.85; // scroll down = zoom out, scroll up = zoom in
-    fnoChartViewState.visibleCount = Math.max(15, Math.min(500, Math.round(fnoChartViewState.visibleCount * factor)));
+    if (e.ctrlKey || e.metaKey) {
+      const factor = e.deltaY > 0 ? 0.9 : 1.1;
+      fnoChartViewState.priceZoom = Math.max(0.35, Math.min(8, (fnoChartViewState.priceZoom || 1) * factor));
+    } else {
+      const factor = e.deltaY > 0 ? 1 / 0.85 : 0.85;
+      fnoChartViewState.visibleCount = Math.max(15, Math.min(500, Math.round(fnoChartViewState.visibleCount * factor)));
+    }
     redraw();
   }, { passive: false });
 
-  let dragStartX = null, dragStartOffset = 0;
-  canvas.addEventListener('mousedown', (e) => { dragStartX = e.clientX; dragStartOffset = fnoChartViewState.offsetFromEnd; canvas.style.cursor = 'grabbing'; });
+  canvas.addEventListener('dblclick', () => {
+    fnoChartViewState.visibleCount = 80;
+    fnoChartViewState.offsetFromEnd = 0;
+    fnoChartViewState.priceZoom = 1;
+    fnoChartViewState.pricePan = 0;
+    redraw();
+  });
+
+  let dragStartX = null, dragStartY = null, dragStartOffset = 0, dragStartPan = 0, dragMode = 'time';
+  canvas.addEventListener('mousedown', (e) => {
+    dragStartX = e.clientX;
+    dragStartY = e.clientY;
+    dragStartOffset = fnoChartViewState.offsetFromEnd;
+    dragStartPan = fnoChartViewState.pricePan || 0;
+    dragMode = e.shiftKey ? 'price' : 'time';
+    canvas.style.cursor = 'grabbing';
+  });
   window.addEventListener('mousemove', (e) => {
-    if (dragStartX === null) return;
+    if (dragStartX === null) {
+      const rect = canvas.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      const padL = 8, padR = 60, padT = 10, padB = 22;
+      const plotW = Math.max(1, (canvas.clientWidth || 600) - padL - padR);
+      const plotH = Math.max(1, (canvas.clientHeight || 320) - padT - padB);
+      if (x >= padL && x <= padL + plotW && y >= padT && y <= padT + plotH) {
+        fnoChartViewState.crosshair = { x, y, price: null };
+      } else {
+        fnoChartViewState.crosshair = null;
+      }
+      if (fnoChartLastMarketCtx) redraw();
+      return;
+    }
+    if (dragMode === 'price') {
+      const dy = e.clientY - dragStartY;
+      const plotH = Math.max(1, (canvas.clientHeight || 320) - 32);
+      fnoChartViewState.pricePan = dragStartPan + (dy / plotH) * 1.2;
+      redraw();
+      return;
+    }
     const dxPixels = e.clientX - dragStartX;
     const slot = fnoChartLastGeometry.slot || 10;
     const candleDelta = Math.round(dxPixels / slot);
     const maxOffset = Math.max(0, fnoChartLastGeometry.aggregatedTotal - fnoChartViewState.visibleCount);
-    // Dragging right (positive dx) reveals OLDER candles -> increases offsetFromEnd.
     fnoChartViewState.offsetFromEnd = Math.max(0, Math.min(maxOffset, dragStartOffset + candleDelta));
     redraw();
   });
-  window.addEventListener('mouseup', () => { if (dragStartX !== null) { dragStartX = null; canvas.style.cursor = 'grab'; } });
+  window.addEventListener('mouseup', () => {
+    if (dragStartX !== null) { dragStartX = null; dragStartY = null; canvas.style.cursor = 'grab'; }
+  });
 
   // Real touch support (direct fix for a real, reported bug: the chart
   // had real mouse drag-to-pan/wheel-to-zoom already wired above, but
@@ -3091,6 +3287,76 @@ function wireChartControls() {
   const touchEnd = () => { touchStartX = null; pinchStartDist = null; };
   canvas.addEventListener('touchend', touchEnd, { passive: true });
   canvas.addEventListener('touchcancel', touchEnd, { passive: true });
+
+  fnoChartWireIndicatorManager(redraw);
+}
+
+function fnoChartWireIndicatorManager(redraw) {
+  if (typeof FNO_CHART_INDICATORS === 'undefined' || fnoChartViewState.indicatorUiWired) return;
+  const addSel = document.getElementById('chartAddIndicator');
+  const listEl = document.getElementById('chartIndicatorList');
+  if (!addSel || !listEl) return;
+  fnoChartViewState.indicatorUiWired = true;
+  const types = FNO_CHART_INDICATORS.listTypes();
+  addSel.innerHTML = '<option value="">+ Add indicator…</option>' + types.map(t => `<option value="${t.id}">${t.name} (${t.type})</option>`).join('');
+  const renderList = () => {
+    const instances = FNO_CHART_INDICATORS.loadInstances();
+    listEl.innerHTML = instances.map((inst) => {
+      const def = FNO_CHART_INDICATORS.REGISTRY[inst.typeId];
+      const name = def ? def.name : inst.typeId;
+      const period = inst.params && inst.params.period != null ? ` · ${inst.params.period}` : '';
+      return `<div class="chart-ind-row" data-id="${inst.instanceId}" style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
+        <label style="font-size:11px;color:#e2e8f0"><input type="checkbox" class="chart-ind-en" data-id="${inst.instanceId}" ${inst.enabled ? 'checked' : ''}> ${name}${period}</label>
+        <button type="button" class="btn chart-ind-rm" data-id="${inst.instanceId}" style="padding:2px 6px;font-size:10px">Remove</button>
+      </div>`;
+    }).join('');
+    listEl.querySelectorAll('.chart-ind-en').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        let inst = FNO_CHART_INDICATORS.loadInstances();
+        inst = FNO_CHART_INDICATORS.updateInstance(inst, cb.getAttribute('data-id'), { enabled: cb.checked });
+        FNO_CHART_INDICATORS.saveInstances(inst);
+        redraw();
+      });
+    });
+    listEl.querySelectorAll('.chart-ind-rm').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        let inst = FNO_CHART_INDICATORS.loadInstances();
+        inst = FNO_CHART_INDICATORS.removeInstance(inst, btn.getAttribute('data-id'));
+        FNO_CHART_INDICATORS.saveInstances(inst);
+        renderList();
+        redraw();
+      });
+    });
+  };
+  renderList();
+  addSel.addEventListener('change', () => {
+    const typeId = addSel.value;
+    if (!typeId) return;
+    let inst = FNO_CHART_INDICATORS.loadInstances();
+    inst = FNO_CHART_INDICATORS.addInstance(inst, typeId);
+    FNO_CHART_INDICATORS.saveInstances(inst);
+    addSel.value = '';
+    renderList();
+    redraw();
+  });
+  const emaBox = document.getElementById('chartShowEma');
+  const vwapBox = document.getElementById('chartShowVwap');
+  if (emaBox) emaBox.addEventListener('change', () => {
+    let inst = FNO_CHART_INDICATORS.loadInstances();
+    const row = inst.find(i => i.typeId === 'ema');
+    if (row) inst = FNO_CHART_INDICATORS.updateInstance(inst, row.instanceId, { enabled: emaBox.checked });
+    FNO_CHART_INDICATORS.saveInstances(inst);
+    renderList();
+    redraw();
+  });
+  if (vwapBox) vwapBox.addEventListener('change', () => {
+    let inst = FNO_CHART_INDICATORS.loadInstances();
+    const row = inst.find(i => i.typeId === 'vwap');
+    if (row) inst = FNO_CHART_INDICATORS.updateInstance(inst, row.instanceId, { enabled: vwapBox.checked });
+    FNO_CHART_INDICATORS.saveInstances(inst);
+    renderList();
+    redraw();
+  });
 }
 
 /**
@@ -3196,16 +3462,29 @@ function renderPriceChart(marketCtx) {
   const highs = visible.map(c => Number.isFinite(c.h) ? c.h : c.c);
   const lows = visible.map(c => Number.isFinite(c.l) ? c.l : c.c);
   let maxP = Math.max(...highs), minP = Math.min(...lows);
+  const indicatorBundle = fnoChartResolveIndicatorData(marketCtx, aggregated);
+  if (fnoChartViewState.autoFitPrice !== false) {
+    indicatorBundle.overlays.forEach((ov) => {
+      (ov.lines || []).forEach((line) => {
+        const slice = line.values.slice(startIdx, endIdx);
+        slice.forEach((v) => {
+          if (Number.isFinite(v)) { maxP = Math.max(maxP, v); minP = Math.min(minP, v); }
+        });
+      });
+    });
+  }
   if (!Number.isFinite(maxP) || !Number.isFinite(minP) || maxP === minP) { maxP = (maxP || 0) + 1; minP = (minP || 0) - 1; }
-  // Real, small headroom above/below the real high/low (matches
-  // TradingView's own convention of never letting the extreme wick
-  // touch the very top/bottom edge of the plot) - purely visual, never
-  // changes what price a given y-coordinate represents beyond this
-  // consistent, real padding.
   const priceHeadroom = (maxP - minP) * 0.06 || 1;
   maxP += priceHeadroom; minP -= priceHeadroom;
+  const scaled = fnoChartApplyPriceScale(minP, maxP, fnoChartViewState);
+  minP = scaled.minP; maxP = scaled.maxP;
   const priceRange = maxP - minP;
   const yFor = p => padT + plotH - ((p - minP) / priceRange) * plotH;
+  const xForIndex = i => padL + slot * i + slot / 2;
+  if (fnoChartViewState.crosshair && Number.isFinite(fnoChartViewState.crosshair.y)) {
+    const chy = fnoChartViewState.crosshair.y;
+    fnoChartViewState.crosshair.price = minP + ((padT + plotH - chy) / plotH) * priceRange;
+  }
   const slot = plotW / visible.length;
   const bodyW = Math.max(1, Math.min(10, slot * 0.6));
   fnoChartLastGeometry.slot = slot;
@@ -3278,25 +3557,27 @@ function renderPriceChart(marketCtx) {
     }
   });
 
-  // Real EMA21/VWAP overlay lines - only drawn when the user has them
-  // toggled on AND the real raw series data is actually available this
-  // refresh (honestly skipped, never a fabricated flat line, when
-  // ema21Series/vwapSeries weren't threaded onto marketCtx).
-  const drawSeries = (seriesArr, color) => {
-    if (!Array.isArray(seriesArr) || !seriesArr.length) return;
-    c2d.strokeStyle = color; c2d.lineWidth = 1.5; c2d.beginPath();
-    let started = false;
-    visible.forEach((cd, i) => {
-      const v = nearestSeriesValue(rawCandles, seriesArr, cd.t);
-      if (v === null) return;
-      const x = padL + slot * i + slot / 2, y = yFor(v);
-      if (!started) { c2d.moveTo(x, y); started = true; } else { c2d.lineTo(x, y); }
+  // Indicator overlays (EMA, VWAP, SMA, Bollinger, …) — computed on the
+  // same aggregated candle series shown on chart (fixes misaligned series).
+  indicatorBundle.overlays.forEach((ov) => {
+    (ov.lines || []).forEach((line) => {
+      const slice = line.values.slice(startIdx, endIdx);
+      if (slice.length !== visible.length) return;
+      fnoChartDrawLineSeries(c2d, visible, slice, yFor, padL, slot, line);
     });
-    if (started) c2d.stroke();
-    c2d.lineWidth = 1;
-  };
-  if (fnoChartViewState.showEma) drawSeries(marketCtx.ema21Series, '#facc15');
-  if (fnoChartViewState.showVwap) drawSeries(marketCtx.vwapSeries, '#38bdf8');
+  });
+
+  // Crosshair
+  const ch = fnoChartViewState.crosshair;
+  if (ch && Number.isFinite(ch.x) && ch.x >= padL && ch.x <= padL + plotW) {
+    c2d.strokeStyle = '#475569'; c2d.lineWidth = 1;
+    if (typeof c2d.setLineDash === 'function') c2d.setLineDash([3, 3]);
+    c2d.beginPath(); c2d.moveTo(ch.x, padT); c2d.lineTo(ch.x, padT + plotH); c2d.stroke();
+    if (Number.isFinite(ch.y)) {
+      c2d.beginPath(); c2d.moveTo(padL, ch.y); c2d.lineTo(padL + plotW, ch.y); c2d.stroke();
+    }
+    if (typeof c2d.setLineDash === 'function') c2d.setLineDash([]);
+  }
 
   // Real entry/exit markers - matched to the nearest visible bucket by
   // real timestamp (never by array index), and only plotted when the
@@ -3371,8 +3652,12 @@ function renderPriceChart(marketCtx) {
     const realCount = visible.filter(cd => !(cd.o === cd.h && cd.h === cd.l && cd.l === cd.c)).length;
     const tfLabel = fnoChartViewState.timeframeMinutes === 1 ? '1m' : `${fnoChartViewState.timeframeMinutes}m`;
     const dailyFallbackNote = isDailyFallbackChart ? ' - NSE intraday feed unreachable this session: showing real DAILY candles from your Kite connection instead (axis shows date, not time-of-day).' : '';
-    legend.textContent = `${tfLabel} view - showing ${visible.length} candles (${realCount} real OHLC, ${visible.length - realCount} close-only placeholder) - ${markers.length} entry/exit marker(s) in this window${offset > 0 ? `, scrolled back ${offset} candle(s)` : ''}. Full history in the Trade Ledger panel.${dailyFallbackNote}`;
+    const indCount = indicatorBundle.overlays.length + indicatorBundle.panels.length;
+    const chNote = (ch && Number.isFinite(ch.price)) ? ` | crosshair ${ch.price.toFixed(ch.price >= 1000 ? 0 : 2)}` : '';
+    legend.textContent = `${tfLabel} view - showing ${visible.length} candles (${realCount} real OHLC) - ${indCount} indicator(s) - ${markers.length} marker(s)${offset > 0 ? `, scrolled back ${offset} candle(s)` : ''}${chNote}. Wheel=time zoom · Ctrl+wheel=price scale · drag=pan time · Shift+drag=pan price · dbl-click=reset.${dailyFallbackNote}`;
   }
+
+  fnoChartRenderOscillatorPanels(document.getElementById('priceChartPanels'), indicatorBundle.panels, visible, startIdx, aggregated);
 }
 
 const FNO_SNAP_HISTORY_KEY = 'fno_snap_history_v1';

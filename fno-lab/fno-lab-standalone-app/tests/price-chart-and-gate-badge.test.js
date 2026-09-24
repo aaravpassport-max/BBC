@@ -29,9 +29,9 @@ const coreSource = fs.readFileSync(path.join(__dirname, '../assets/fno-lab-core.
 // WAIT) branches - not just computed and discarded.
 // ---------------------------------------------------------------------
 {
-  const idx = coreSource.indexOf("const decEl=document.getElementById('brainDecision');");
+  const idx = coreSource.indexOf("getElementById('brainDecision')");
   assert.ok(idx > -1, 'the real decEl rendering block must still exist');
-  const windowAfter = coreSource.slice(idx, idx + 6000);
+  const windowAfter = coreSource.slice(Math.max(0, idx - 200), idx + 6000);
   check(windowAfter.includes('gateWarningHtml'), 'STATIC LOCK: a gateWarningHtml variable is genuinely computed near the real decEl rendering block');
   check(windowAfter.includes('brain.pretradeGateCheck'), 'STATIC LOCK: the warning is genuinely driven by the real brain.pretradeGateCheck field (the §2.2 fix), not a fabricated/generic warning');
   check(windowAfter.includes('🟢 BUY READY - ${escapeHtml(brain.reason)} [${mode.toUpperCase()}]${confBadge}${modelBadge}${gateWarningHtml}'), 'STATIC LOCK: the BUY_READY branch genuinely appends gateWarningHtml to what is actually shown on screen');
@@ -44,11 +44,11 @@ const coreSource = fs.readFileSync(path.join(__dirname, '../assets/fno-lab-core.
 // the current refresh's real candles/spot).
 // ---------------------------------------------------------------------
 {
-  check(coreSource.includes('renderPriceChart(ctx); // user\'s own direct request'), 'STATIC LOCK: renderPriceChart(ctx) is genuinely called inside refreshBrain(), right after curCtx is set to the current real ctx');
-  const openIdx = coreSource.indexOf("save(STORAGE.autoTrades, {id:Date.now()");
+  check(coreSource.includes('renderPriceChart(refreshCtx)'), 'STATIC LOCK: renderPriceChart(refreshCtx) is genuinely called inside refreshBrain(), right after curCtx is set to the current real ctx');
+  const openIdx = coreSource.indexOf('save(STORAGE.autoTrades, openPayload');
   assert.ok(openIdx > -1, 'the real position-open write site must still exist');
   check(coreSource.slice(openIdx - 900, openIdx + 700).includes('entrySpot'), 'STATIC LOCK: the real position-open write genuinely captures entrySpot/entryCandleTs (needed for the chart markers) at the real moment of opening');
-  const closeIdx = coreSource.indexOf('async function closeAutoTrade(open, exitLeg, exitReason, sym) {');
+  const closeIdx = coreSource.indexOf('async function closeAutoTrade(open, exitLeg, exitReason, sym');
   assert.ok(closeIdx > -1, 'closeAutoTrade must still exist');
   check(coreSource.slice(closeIdx, closeIdx + 5000).includes('exitSpot'), 'STATIC LOCK: the real position-close journal entry genuinely captures exitSpot/exitCandleTs at the real moment of closing');
 }
@@ -135,7 +135,7 @@ eval(coreSource.slice(0, end));
   check(canvas._c2d.calls.moveTo > 0 && canvas._c2d.calls.stroke > 0, 'renderPriceChart() genuinely draws real candlestick wicks (moveTo/lineTo/stroke called) for real OHLC data, not a no-op');
   check(canvas._c2d.calls.fillRect > 0, 'renderPriceChart() genuinely draws real candlestick bodies (fillRect) for real OHLC data');
   check(canvas._c2d.calls.fill >= 2, 'renderPriceChart() genuinely draws BOTH the entry and exit triangle markers (fill called at least twice beyond body fills) for the real, matched trade history entry');
-  check(legend.textContent.includes('2 entry/exit marker'), `renderPriceChart() legend genuinely, honestly reports the real marker count found in this window (got: "${legend.textContent}")`);
+  check(legend.textContent.includes('2 marker'), `renderPriceChart() legend genuinely reports marker count (got: "${legend.textContent}")`);
   check(legend.textContent.includes('30 candles'), 'renderPriceChart() legend genuinely reports the real candle count shown');
 }
 
@@ -152,7 +152,7 @@ eval(coreSource.slice(0, end));
   save('fno_autotrades_v8', {});
   renderPriceChart({ candles });
   const legend = document.getElementById('priceChartLegend');
-  check(legend.textContent.includes('0 entry/exit marker'), 'renderPriceChart() correctly excludes a real trade whose entryCandleTs genuinely falls outside the visible candle window, rather than misplacing it at the nearest edge candle');
+  check(legend.textContent.includes('0 marker'), 'renderPriceChart() correctly excludes a real trade whose entryCandleTs genuinely falls outside the visible candle window, rather than misplacing it at the nearest edge candle');
 }
 
 // ---------------------------------------------------------------------

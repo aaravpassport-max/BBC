@@ -504,13 +504,16 @@ body.fno-nse-disabled .nse-only-section{display:none}
       <span style="width:1px;height:16px;background:#1e293b;margin:0 4px"></span>
       <label style="font-size:11px;color:#94a3b8"><input type="checkbox" id="chartShowEma" checked> EMA21</label>
       <label style="font-size:11px;color:#94a3b8"><input type="checkbox" id="chartShowVwap" checked> VWAP</label>
+      <select id="chartAddIndicator" class="input" style="font-size:11px;max-width:160px"><option value="">+ Add indicator…</option></select>
       <span style="width:1px;height:16px;background:#1e293b;margin:0 4px"></span>
       <button type="button" class="btn" id="chartZoomIn" style="padding:3px 8px;font-size:11px">🔍+</button>
       <button type="button" class="btn" id="chartZoomOut" style="padding:3px 8px;font-size:11px">🔍-</button>
       <button type="button" class="btn" id="chartResetView" style="padding:3px 8px;font-size:11px">Reset</button>
-      <span style="font-size:10px;color:#64748b">(scroll to zoom, drag to pan)</span>
+      <span style="font-size:10px;color:#64748b">Wheel=time · Ctrl+wheel=price · drag=pan · Shift+drag=price · dbl-click=reset</span>
     </div>
+    <div id="chartIndicatorList" style="margin-bottom:6px"></div>
     <canvas id="priceChartCanvas" style="width:100%;height:420px;background:#020617;border-radius:10px;cursor:grab;touch-action:none"></canvas>
+    <div id="priceChartPanels"></div>
     <div id="priceChartLegend" style="font-size:10px;color:#64748b;margin-top:6px"></div>
   </div>
 
@@ -1007,6 +1010,9 @@ window.FNO_FACTORS_CATALOG = <?php echo $json ? wp_json_encode($json) : '[]'; ?>
 
 <script>
 <?php include __DIR__ . '/greeks-engine.js'; ?>
+</script>
+<script>
+<?php include __DIR__ . '/chart-indicator-engine.js'; ?>
 </script>
 <script type="module">
 <?php include __DIR__ . '/fno-lab-core.js'; ?>
