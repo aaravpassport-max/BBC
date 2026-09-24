@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.66-chart-functional-e2e-v1';
+const FNO_CORE_BUILD_MARKER = '16.37.67-intraday-all-paths-v1';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -3590,6 +3590,8 @@ function fnoChartCommitAddedIndicator(typeId, displayName, redraw) {
   }
   if (errEl) errEl.textContent = '';
   fnoChartShowToast(`${displayName || typeId} added successfully.`);
+  const pinePanel = typeof document !== 'undefined' ? document.getElementById('chartCustomIndicatorPanel') : null;
+  if (pinePanel && pinePanel.style.display !== 'none') pinePanel.style.display = 'none';
   return true;
 }
 
@@ -3809,6 +3811,9 @@ function wireChartControls() {
         fnoChartViewState.offsetFromEnd = 0;
         fnoChartUpdateTfButtons();
         persistView();
+        if (tf < 1440 && fnoChartLastMarketCtx && fnoChartLastMarketCtx.chartIsDailyOnly && typeof refreshBrain === 'function') {
+          refreshBrain();
+        }
       }
     });
   });
@@ -18965,12 +18970,9 @@ function render(){
       const chartBaseIntervalMinutes = Number.isFinite(chart.chartIntervalMinutes)
         ? chart.chartIntervalMinutes
         : fnoChartInferBaseIntervalMinutes(chartCandles);
-      // True only when the real candles about to drive the chart display
-      // are genuinely daily-only (the 'kite_historical' fallback with NO
-      // real 15-min chartGrapthData available this refresh) - used so the
-      // chart's time-axis honestly shows real calendar DATES instead of a
-      // fabricated-looking time-of-day for data that genuinely has none.
-      const chartIsDailyOnly = (chart && chart.sourceStatus === 'kite_historical') && !Array.isArray(chart.chartGrapthData);
+      // Daily-only chart display: coarse bars with no separate intraday series
+      // (honest 1D axis). Intraday TF buttons still aggregate when chartBaseIntervalMinutes < 1440.
+      const chartIsDailyOnly = chartBaseIntervalMinutes >= 1440;
       const closes=candles.map(c=>c.c);
       const vwap=vwapCalc(candles);
       const ema21=ema(closes,21);

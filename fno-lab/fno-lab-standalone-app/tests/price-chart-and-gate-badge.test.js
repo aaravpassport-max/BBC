@@ -390,15 +390,16 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../assets/chart-tv-exte
   domElements.priceChartLegend = legend;
 
   // Case A: real daily-only data (no 15-min series available this refresh) -> date labels + disclosure.
-  renderPriceChart({ candles: dailyCandles, candlesForChart: dailyCandles, chartIsDailyOnly: true });
+  renderPriceChart({ candles: dailyCandles, candlesForChart: dailyCandles, chartIsDailyOnly: true, chartBaseIntervalMinutes: 1440 });
   check(legend.textContent.includes('NSE intraday feed unreachable this session'), `renderPriceChart() legend honestly discloses the real daily-candle Kite fallback when chartIsDailyOnly is true (got: "${legend.textContent}")`);
   check(!legend.textContent.includes('00:00'), 'renderPriceChart() legend never leaks a fabricated-looking "00:00" for genuinely daily data');
 
   // Case B: the real daily `candles` series is still 'kite_historical', BUT a real 15-min
   // candlesForChart series IS available this refresh -> real time labels, no daily disclosure,
   // and no reference to '00:00' since every real intraday bar has a genuine non-midnight time.
-  renderPriceChart({ candles: dailyCandles, candlesForChart: intradayCandles, chartIsDailyOnly: false });
-  check(!legend.textContent.includes('NSE intraday feed unreachable'), 'renderPriceChart() does NOT show the daily-fallback disclosure when a real 15-min candlesForChart series is genuinely available (chartIsDailyOnly: false), even though the underlying daily `candles` series is still present');
+  renderPriceChart({ candles: dailyCandles, candlesForChart: intradayCandles, chartIsDailyOnly: false, chartBaseIntervalMinutes: 1 });
+  check(!legend.textContent.includes('NSE intraday feed unreachable'), 'renderPriceChart() does NOT show the daily-fallback disclosure when a real intraday candlesForChart series is available (chartIsDailyOnly: false)');
+  check(!legend.textContent.includes('needs intraday candles'), 'intraday candlesForChart avoids daily-only TF warning');
   check(legend.textContent.includes('showing 12 candles'), `renderPriceChart() genuinely draws the real candlesForChart series (12 real 15-min bars), not the daily candles array (got: "${legend.textContent}")`);
 
   // Case C: ordinary NSE-direct/intraday path - no candlesForChart at all, falls back to candles.
