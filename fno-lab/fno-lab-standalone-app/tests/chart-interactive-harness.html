@@ -61,9 +61,6 @@
       <button type="button" class="btn" id="chartLayoutPresetSave">Save layout</button>
       <select id="chartLayoutPresetSelect" class="input"><option value="">Layout…</option></select>
       <button type="button" class="btn" id="chartLayoutPresetLoad">Load layout</button>
-      <button type="button" class="btn" id="chartCustomIndExportBtn">Export scripts</button>
-      <textarea id="chartCustomIndPine" class="input" style="width:100%;min-height:48px;font-size:10px;display:none"></textarea>
-      <button type="button" class="btn" id="chartCustomIndPineCompile" style="display:none">Compile Pine</button>
       <input type="file" id="chartCustomIndImportFile" style="display:none">
       <button type="button" class="btn" id="chartCustomIndImportBtn">Import</button>
       <select id="chartIndAlertKind" class="input"><option value="rsi">RSI</option><option value="macd_zero">MACD zero</option></select>
@@ -76,7 +73,13 @@
     </div>
     <div id="chartAlertsList" style="font-size:10px;margin-bottom:6px"></div>
     <div id="chartIndicatorList" style="margin-bottom:6px"></div>
-    <div id="chartCustomIndicatorPanel" style="display:none;padding:8px;background:#0f172a;border:1px solid #334155;border-radius:8px;margin-bottom:6px">
+    <div id="chartCustomIndicatorPanel" style="display:none;padding:8px;background:#0f172a;border:1px solid #334155;border-radius:8px;margin-bottom:6px;font-size:11px">
+      <textarea id="chartCustomIndPine" class="input" placeholder="//@version=5 Pine subset" style="width:100%;min-height:72px;font-size:10px;font-family:ui-monospace,monospace;margin-bottom:6px"></textarea>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">
+        <button type="button" class="btn" id="chartCustomIndPineCompile" style="padding:4px 10px;font-size:11px;background:#7c3aed">Compile Pine &amp; add</button>
+        <button type="button" class="btn" id="chartCustomIndPineImportBtn" style="padding:4px 10px;font-size:11px;background:#5b21b6">Import .pine…</button>
+        <input type="file" id="chartCustomIndPineImportFile" accept=".pine,.txt,text/plain" style="display:none">
+      </div>
       <input id="chartCustomIndName" class="input" placeholder="Name" value="Harness EMA 7">
       <select id="chartCustomIndType" class="input"><option value="overlay">Overlay</option><option value="panel">Panel</option></select>
       <input id="chartCustomIndFormula" class="input" value="ema(close, 7)" style="min-width:180px">
@@ -84,6 +87,7 @@
       <input type="color" id="chartCustomIndColor" value="#f472b6">
       <button type="button" class="btn" id="chartCustomIndSave">Save &amp; add</button>
       <button type="button" class="btn" id="chartCustomIndCancel">Close</button>
+      <button type="button" class="btn" id="chartCustomIndExportBtn">Export all scripts</button>
       <div id="chartCustomIndError"></div>
       <div id="chartCustomIndCatalog"></div>
     </div>
@@ -137,6 +141,33 @@ function seedStorage() {
   localStorage.removeItem('fno_chart_layout_presets_v1');
   localStorage.removeItem('fno_chart_price_alerts_v1');
   localStorage.removeItem('fno_chart_indicator_alerts_v1');
+  localStorage.removeItem('fno_chart_custom_indicators_v1');
+}
+
+const HARNESS_EMA_PINE = `//@version=5
+indicator("Harness Pine EMA", overlay=true)
+len = input.int(14, "Length")
+plot(ta.ema(close, len), color=color.orange)`;
+
+const HARNESS_RSI_PINE = `//@version=5
+indicator("Harness Pine RSI", overlay=false)
+length = input.int(14, "RSI length")
+plot(ta.rsi(close, length))`;
+
+const HARNESS_IMPORT_PINE = `//@version=5
+indicator("File Import EMA", overlay=true)
+len = input.int(9, "Length")
+plot(ta.ema(close, len))`;
+
+function harnessAssignPineFile(inputEl, fileName, content) {
+  const dt = new DataTransfer();
+  dt.items.add(new File([content], fileName, { type: 'text/plain' }));
+  inputEl.files = dt.files;
+  inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function harnessPineDefCount() {
+  return FNO_CHART_INDICATORS.listCustomDefinitions().filter((d) => d.source === 'pine').length;
 }
 
 function makeCandles(n) {
@@ -224,6 +255,54 @@ async function runClickAudit() {
   document.getElementById('chartCustomIndSave').click();
   await sleep(120);
   check('Custom formula save & add', FNO_CHART_INDICATORS.listCustomDefinitions().some(d => d.formula === 'ema(close, 7)'));
+
+  const pineTa = document.getElementById('chartCustomIndPine');
+  const pineErr = document.getElementById('chartCustomIndError');
+  const catEl = document.getElementById('chartCustomIndCatalog');
+  pineTa.value = HARNESS_EMA_PINE;
+  document.getElementById('chartCustomIndPineCompile').click();
+  await sleep(120);
+  const emaPineDef = FNO_CHART_INDICATORS.listCustomDefinitions().find((d) => d.name === 'Harness Pine EMA');
+  check('Compile Pine & add → pine source def', emaPineDef && emaPineDef.source === 'pine' && emaPineDef.formula === 'ema(close, len)');
+  check('Pine catalog badge', (catEl.innerHTML || '').includes('Pine') && (catEl.textContent || '').includes('Harness Pine EMA'));
+  const emaPineInst = FNO_CHART_INDICATORS.loadInstances().some((i) => i.typeId === 'custom:' + emaPineDef.id && i.enabled);
+  check('Pine EMA instance on chart', emaPineInst);
+  const evLen14 = FNO_CHART_INDICATORS.evaluateFormula(emaPineDef.formula, marketCtx.candles, emaPineDef.params);
+  const evLen7 = FNO_CHART_INDICATORS.evaluateFormula(emaPineDef.formula, marketCtx.candles, { len: 7 });
+  check(
+    'Pine input.int len affects series',
+    evLen14.error == null && evLen7.error == null
+      && Math.abs(evLen14.values[evLen14.values.length - 1] - evLen7.values[evLen7.values.length - 1]) > 0.001
+  );
+
+  const pineBeforeBad = harnessPineDefCount();
+  pineTa.value = `//@version=5
+indicator("Bad")
+x = request.security("NSE:NIFTY", "D", close)
+plot(x)`;
+  document.getElementById('chartCustomIndPineCompile').click();
+  await sleep(60);
+  check('Pine rejects request.security', /request\.security/i.test(pineErr.textContent || ''));
+  check('Invalid Pine does not add def', harnessPineDefCount() === pineBeforeBad);
+
+  pineTa.value = HARNESS_RSI_PINE;
+  document.getElementById('chartCustomIndPineCompile').click();
+  await sleep(120);
+  renderPriceChart(marketCtx);
+  await sleep(60);
+  const rsiPineDef = FNO_CHART_INDICATORS.listCustomDefinitions().find((d) => d.name === 'Harness Pine RSI');
+  check('Pine RSI panel type', rsiPineDef && rsiPineDef.type === 'panel');
+  check('Pine RSI adds indicator panel', document.getElementById('priceChartPanels').children.length > 0);
+
+  const defsBeforeImport = FNO_CHART_INDICATORS.listCustomDefinitions().length;
+  harnessAssignPineFile(document.getElementById('chartCustomIndPineImportFile'), 'audit-harness.pine', HARNESS_IMPORT_PINE);
+  await sleep(250);
+  check(
+    'Import .pine → auto compile',
+    FNO_CHART_INDICATORS.listCustomDefinitions().some((d) => d.name === 'File Import EMA')
+      && FNO_CHART_INDICATORS.listCustomDefinitions().length > defsBeforeImport
+  );
+
   document.getElementById('chartCustomIndCancel').click();
   check('Custom panel closes', document.getElementById('chartCustomIndicatorPanel').style.display === 'none');
 
