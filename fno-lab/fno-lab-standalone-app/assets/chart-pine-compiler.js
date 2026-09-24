@@ -5,7 +5,7 @@
 (function (global) {
   'use strict';
 
-  const SUBSET_VERSION = 5;
+  const SUBSET_VERSION = 6;
   const MAX_SOURCE_LEN = 120000;
 
   const SUBSET_HELP =
@@ -127,6 +127,17 @@
     return { msg: msg || 'Unsupported Pine construct', line: null, snippet: '', call: '' };
   }
 
+  function lineHasPlotCall(line) {
+    return /\bplot\s*\(/i.test(stripComments(String(line || '')));
+  }
+
+  function plotLineIsSupported(line) {
+    if (!lineHasPlotCall(line)) return false;
+    const body = stripComments(String(line || ''));
+    if (/\barray\.|\bmatrix\.|\bbarstate\./i.test(body)) return false;
+    return true;
+  }
+
   function lineIndent(line) {
     const m = String(line || '').match(/^(\s*)/);
     return m ? m[1].length : 0;
@@ -157,6 +168,7 @@
   function buildStrippedPineSource(raw) {
     const lines = String(raw || '').split(/\r?\n/);
     const kept = [];
+    const hoistedPlots = [];
     let skipIndent = null;
 
     lines.forEach((line) => {
@@ -167,12 +179,16 @@
       const indent = lineIndent(body);
 
       if (skipIndent != null) {
-        if (indent > skipIndent) return;
+        if (indent > skipIndent) {
+          if (lineHasPlotCall(line) && plotLineIsSupported(line)) hoistedPlots.push(trimmed);
+          return;
+        }
         skipIndent = null;
       }
 
       if (lineBlockedForStrip(line)) {
-        if (isBlockOpenerLine(line)) skipIndent = indent;
+        if (isBlockOpenerLine(line) && !lineHasPlotCall(line)) skipIndent = indent;
+        if (lineHasPlotCall(line) && plotLineIsSupported(line)) hoistedPlots.push(trimmed);
         return;
       }
 
@@ -184,6 +200,16 @@
         kept.push(line);
       }
     });
+
+    hoistedPlots.forEach((p) => {
+      if (!kept.some((k) => stripComments(k).trim() === p)) kept.push(p);
+    });
+    if (!kept.some((k) => lineHasPlotCall(k))) {
+      String(raw || '').split(/\r?\n/).forEach((line) => {
+        const t = stripComments(line).trim();
+        if (t && plotLineIsSupported(line)) kept.push(t);
+      });
+    }
     return kept.join('\n');
   }
 
@@ -319,6 +345,9 @@
   function validateFormulaShape(expr) {
     const s = String(expr || '').trim();
     if (!s) return 'Plot expression is empty';
+    if (/\.get\s*\(|\barray\b|\bmatrix\b/i.test(s)) {
+      return 'Expression uses arrays/matrix calls — not supported; use ta.ema/sma/rsi(close,…) only';
+    }
     if (/[^a-zA-Z0-9_(),.+\-*/\s]/.test(s)) {
       return 'Expression uses constructs outside the Pine subset (only price sources, ta.ema/sma/rsi/highest/lowest, +−*/ and inputs)';
     }

@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.64-pine-if-block-strip';
+const FNO_CORE_BUILD_MARKER = '16.37.65-pine-hoist-plot';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {

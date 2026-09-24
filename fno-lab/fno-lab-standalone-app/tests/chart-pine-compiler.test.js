@@ -109,6 +109,17 @@ const ifInd = PINE.compilePineScript(ifIndented);
 assert.strictEqual(ifInd.ok, true, ifInd.error);
 assert.ok(ifInd.strippedCompile);
 
+const plotInsideIf = `//@version=5
+indicator("Plot in if", overlay=true)
+len = input.int(14, "Len")
+if close > open
+    plot(ta.ema(close, len), color=color.green)
+else
+    plot(ta.ema(close, len), color=color.red)`;
+const plotIf = PINE.compilePineScript(plotInsideIf);
+assert.strictEqual(plotIf.ok, true, plotIf.error);
+assert.ok(/ema\(close, len\)/.test(plotIf.formula));
+
 const plotInlineIf = `//@version=5
 indicator("Inline if color", overlay=true)
 plot(ta.ema(close, 14), color=if close > open ? color.green : color.red)`;
