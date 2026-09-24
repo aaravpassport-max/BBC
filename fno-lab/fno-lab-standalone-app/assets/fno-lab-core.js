@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.43-chart-indicators-v1';
+const FNO_CORE_BUILD_MARKER = '16.37.44-chart-indicators-v2';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -2850,6 +2850,31 @@ let fnoChartLastGeometry = { slot: 10, visibleLen: 80, aggregatedTotal: 80 };
 // candles - real, honest "there is no data yet" is itself the correct
 // current state to redraw from if a user clicks a control mid-outage.
 let fnoChartLastMarketCtx = null;
+let fnoChartRedrawRaf = null;
+
+function fnoChartScheduleRedraw() {
+  if (fnoChartRedrawRaf != null) return;
+  const run = () => {
+    fnoChartRedrawRaf = null;
+    if (fnoChartLastMarketCtx) renderPriceChart(fnoChartLastMarketCtx);
+  };
+  if (typeof requestAnimationFrame === 'function') fnoChartRedrawRaf = requestAnimationFrame(run);
+  else run();
+}
+
+function fnoChartFormatOhlcPrice(v) {
+  if (!Number.isFinite(v)) return '—';
+  return v.toFixed(v >= 1000 ? 0 : 2);
+}
+
+function fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox) {
+  if (typeof FNO_CHART_INDICATORS === 'undefined') return;
+  const inst = FNO_CHART_INDICATORS.loadInstances();
+  const emaRow = inst.find(i => i.typeId === 'ema');
+  const vwapRow = inst.find(i => i.typeId === 'vwap');
+  if (emaBox && emaRow) emaBox.checked = !!emaRow.enabled;
+  if (vwapBox && vwapRow) vwapBox.checked = !!vwapRow.enabled;
+}
 
 /**
  * TRACE: real, browser-timezone-INDEPENDENT IST (India Standard Time,
@@ -3177,11 +3202,19 @@ function wireChartControls() {
     fnoChartViewState.autoFitPrice = true;
     redraw();
   });
+  const fitPriceBtn = document.getElementById('chartFitPrice');
+  if (fitPriceBtn) fitPriceBtn.addEventListener('click', () => {
+    fnoChartViewState.priceZoom = 1;
+    fnoChartViewState.pricePan = 0;
+    fnoChartViewState.autoFitPrice = true;
+    redraw();
+  });
 
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     if (e.ctrlKey || e.metaKey) {
       const factor = e.deltaY > 0 ? 0.9 : 1.1;
+      fnoChartViewState.autoFitPrice = false;
       fnoChartViewState.priceZoom = Math.max(0.35, Math.min(8, (fnoChartViewState.priceZoom || 1) * factor));
     } else {
       const factor = e.deltaY > 0 ? 1 / 0.85 : 0.85;
@@ -3195,6 +3228,7 @@ function wireChartControls() {
     fnoChartViewState.offsetFromEnd = 0;
     fnoChartViewState.priceZoom = 1;
     fnoChartViewState.pricePan = 0;
+    fnoChartViewState.autoFitPrice = true;
     redraw();
   });
 
@@ -3220,12 +3254,13 @@ function wireChartControls() {
       } else {
         fnoChartViewState.crosshair = null;
       }
-      if (fnoChartLastMarketCtx) redraw();
+      fnoChartScheduleRedraw();
       return;
     }
     if (dragMode === 'price') {
       const dy = e.clientY - dragStartY;
       const plotH = Math.max(1, (canvas.clientHeight || 320) - 32);
+      fnoChartViewState.autoFitPrice = false;
       fnoChartViewState.pricePan = dragStartPan + (dy / plotH) * 1.2;
       redraw();
       return;
@@ -3297,16 +3332,47 @@ function fnoChartWireIndicatorManager(redraw) {
   const listEl = document.getElementById('chartIndicatorList');
   if (!addSel || !listEl) return;
   fnoChartViewState.indicatorUiWired = true;
+  const emaBox = document.getElementById('chartShowEma');
+  const vwapBox = document.getElementById('chartShowVwap');
+  fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox);
   const types = FNO_CHART_INDICATORS.listTypes();
   addSel.innerHTML = '<option value="">+ Add indicator…</option>' + types.map(t => `<option value="${t.id}">${t.name} (${t.type})</option>`).join('');
+  const applyParam = (instanceId, key, rawVal) => {
+    let inst = FNO_CHART_INDICATORS.loadInstances();
+    const row = inst.find(i => i.instanceId === instanceId);
+    if (!row) return;
+    const def = FNO_CHART_INDICATORS.REGISTRY[row.typeId];
+    const field = def && def.paramSchema ? def.paramSchema.find(f => f.key === key) : null;
+    let val = rawVal;
+    if (field && field.type === 'number') {
+      val = Number(rawVal);
+      if (!Number.isFinite(val)) return;
+      if (field.min != null) val = Math.max(field.min, val);
+      if (field.max != null) val = Math.min(field.max, val);
+    }
+    inst = FNO_CHART_INDICATORS.updateInstance(inst, instanceId, { params: { [key]: val } });
+    FNO_CHART_INDICATORS.saveInstances(inst);
+    redraw();
+  };
   const renderList = () => {
     const instances = FNO_CHART_INDICATORS.loadInstances();
+    fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox);
     listEl.innerHTML = instances.map((inst) => {
       const def = FNO_CHART_INDICATORS.REGISTRY[inst.typeId];
       const name = def ? def.name : inst.typeId;
-      const period = inst.params && inst.params.period != null ? ` · ${inst.params.period}` : '';
+      const schema = def && def.paramSchema ? def.paramSchema : [];
+      const paramInputs = schema.map((f) => {
+        const val = inst.params && inst.params[f.key] != null ? inst.params[f.key] : '';
+        const step = f.step != null ? f.step : 1;
+        return `<label style="font-size:10px;color:#94a3b8">${f.label} <input type="number" class="chart-ind-param" data-id="${inst.instanceId}" data-key="${f.key}" min="${f.min != null ? f.min : ''}" max="${f.max != null ? f.max : ''}" step="${step}" value="${val}" style="width:52px;font-size:10px"></label>`;
+      }).join('');
+      const colorVal = (inst.params && inst.params.color) ? inst.params.color : (def && def.defaultParams ? def.defaultParams.color : '#94a3b8');
+      const lw = inst.params && inst.params.lineWidth != null ? inst.params.lineWidth : (def && def.defaultParams ? def.defaultParams.lineWidth : 1.5);
+      const styleInputs = `<label style="font-size:10px;color:#94a3b8">Color <input type="color" class="chart-ind-color" data-id="${inst.instanceId}" value="${colorVal}" style="width:32px;height:20px;padding:0;border:0;background:transparent"></label>
+        <label style="font-size:10px;color:#94a3b8">Width <input type="number" class="chart-ind-lw" data-id="${inst.instanceId}" min="0.5" max="4" step="0.5" value="${lw}" style="width:44px;font-size:10px"></label>`;
       return `<div class="chart-ind-row" data-id="${inst.instanceId}" style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
-        <label style="font-size:11px;color:#e2e8f0"><input type="checkbox" class="chart-ind-en" data-id="${inst.instanceId}" ${inst.enabled ? 'checked' : ''}> ${name}${period}</label>
+        <label style="font-size:11px;color:#e2e8f0"><input type="checkbox" class="chart-ind-en" data-id="${inst.instanceId}" ${inst.enabled ? 'checked' : ''}> ${name}</label>
+        ${paramInputs}${styleInputs}
         <button type="button" class="btn chart-ind-rm" data-id="${inst.instanceId}" style="padding:2px 6px;font-size:10px">Remove</button>
       </div>`;
     }).join('');
@@ -3315,8 +3381,18 @@ function fnoChartWireIndicatorManager(redraw) {
         let inst = FNO_CHART_INDICATORS.loadInstances();
         inst = FNO_CHART_INDICATORS.updateInstance(inst, cb.getAttribute('data-id'), { enabled: cb.checked });
         FNO_CHART_INDICATORS.saveInstances(inst);
+        fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox);
         redraw();
       });
+    });
+    listEl.querySelectorAll('.chart-ind-param').forEach((inp) => {
+      inp.addEventListener('change', () => applyParam(inp.getAttribute('data-id'), inp.getAttribute('data-key'), inp.value));
+    });
+    listEl.querySelectorAll('.chart-ind-color').forEach((inp) => {
+      inp.addEventListener('change', () => applyParam(inp.getAttribute('data-id'), 'color', inp.value));
+    });
+    listEl.querySelectorAll('.chart-ind-lw').forEach((inp) => {
+      inp.addEventListener('change', () => applyParam(inp.getAttribute('data-id'), 'lineWidth', Number(inp.value)));
     });
     listEl.querySelectorAll('.chart-ind-rm').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -3339,8 +3415,6 @@ function fnoChartWireIndicatorManager(redraw) {
     renderList();
     redraw();
   });
-  const emaBox = document.getElementById('chartShowEma');
-  const vwapBox = document.getElementById('chartShowVwap');
   if (emaBox) emaBox.addEventListener('change', () => {
     let inst = FNO_CHART_INDICATORS.loadInstances();
     const row = inst.find(i => i.typeId === 'ema');
@@ -3419,6 +3493,8 @@ function renderPriceChart(marketCtx) {
     const c2d = canvas.getContext('2d');
     if (c2d) { c2d.clearRect(0, 0, canvas.width || 0, canvas.height || 0); }
     if (legend) legend.textContent = 'No candle data available yet this refresh.';
+    const crosshairElEmpty = document.getElementById('priceChartCrosshair');
+    if (crosshairElEmpty) crosshairElEmpty.textContent = '';
     return;
   }
   const aggregated = aggregateCandlesByTimeframe(rawCandles, fnoChartViewState.timeframeMinutes);
@@ -3654,7 +3730,33 @@ function renderPriceChart(marketCtx) {
     const dailyFallbackNote = isDailyFallbackChart ? ' - NSE intraday feed unreachable this session: showing real DAILY candles from your Kite connection instead (axis shows date, not time-of-day).' : '';
     const indCount = indicatorBundle.overlays.length + indicatorBundle.panels.length;
     const chNote = (ch && Number.isFinite(ch.price)) ? ` | crosshair ${ch.price.toFixed(ch.price >= 1000 ? 0 : 2)}` : '';
-    legend.textContent = `${tfLabel} view - showing ${visible.length} candles (${realCount} real OHLC) - ${indCount} indicator(s) - ${markers.length} marker(s)${offset > 0 ? `, scrolled back ${offset} candle(s)` : ''}${chNote}. Wheel=time zoom · Ctrl+wheel=price scale · drag=pan time · Shift+drag=pan price · dbl-click=reset.${dailyFallbackNote}`;
+    legend.textContent = `${tfLabel} view - showing ${visible.length} candles (${realCount} real OHLC) - ${indCount} indicator(s) - ${markers.length} marker(s)${offset > 0 ? `, scrolled back ${offset} candle(s)` : ''}${chNote}. Wheel=time zoom · Ctrl+wheel=price scale · drag=pan time · Shift+drag=pan price · Fit price=auto Y · dbl-click=reset.${dailyFallbackNote}`;
+  }
+
+  const crosshairEl = document.getElementById('priceChartCrosshair');
+  if (crosshairEl) {
+    if (ch && Number.isFinite(ch.x) && ch.x >= padL && ch.x <= padL + plotW) {
+      const barIdx = Math.max(0, Math.min(visible.length - 1, Math.floor((ch.x - padL) / slot)));
+      const cd = visible[barIdx];
+      const absIdx = startIdx + barIdx;
+      const timeLabel = cd && typeof cd.t === 'number'
+        ? (isDailyFallbackChart ? formatISTDate(cd.t) : formatISTTime(cd.t))
+        : '—';
+      const ohlc = cd
+        ? `O ${fnoChartFormatOhlcPrice(cd.o)} · H ${fnoChartFormatOhlcPrice(cd.h)} · L ${fnoChartFormatOhlcPrice(cd.l)} · C ${fnoChartFormatOhlcPrice(cd.c)}`
+        : '';
+      const indParts = [];
+      indicatorBundle.overlays.forEach((ov) => {
+        (ov.lines || []).forEach((line) => {
+          const v = line.values[absIdx];
+          if (Number.isFinite(v)) indParts.push(`${ov.name}${line.id !== 'main' ? ' ' + line.id : ''} ${fnoChartFormatOhlcPrice(v)}`);
+        });
+      });
+      const pricePart = Number.isFinite(ch.price) ? ` · Y ${fnoChartFormatOhlcPrice(ch.price)}` : '';
+      crosshairEl.textContent = `${timeLabel} · ${ohlc}${pricePart}${indParts.length ? ' · ' + indParts.join(' · ') : ''}`;
+    } else {
+      crosshairEl.textContent = '';
+    }
   }
 
   fnoChartRenderOscillatorPanels(document.getElementById('priceChartPanels'), indicatorBundle.panels, visible, startIdx, aggregated);

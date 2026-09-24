@@ -509,9 +509,11 @@ body.fno-nse-disabled .nse-only-section{display:none}
       <button type="button" class="btn" id="chartZoomIn" style="padding:3px 8px;font-size:11px">🔍+</button>
       <button type="button" class="btn" id="chartZoomOut" style="padding:3px 8px;font-size:11px">🔍-</button>
       <button type="button" class="btn" id="chartResetView" style="padding:3px 8px;font-size:11px">Reset</button>
+      <button type="button" class="btn" id="chartFitPrice" style="padding:3px 8px;font-size:11px" title="Auto-fit price scale to visible candles and overlays">Fit price</button>
       <span style="font-size:10px;color:#64748b">Wheel=time · Ctrl+wheel=price · drag=pan · Shift+drag=price · dbl-click=reset</span>
     </div>
     <div id="chartIndicatorList" style="margin-bottom:6px"></div>
+    <div id="priceChartCrosshair" style="font-size:11px;color:#94a3b8;min-height:16px;margin-bottom:4px"></div>
     <canvas id="priceChartCanvas" style="width:100%;height:420px;background:#020617;border-radius:10px;cursor:grab;touch-action:none"></canvas>
     <div id="priceChartPanels"></div>
     <div id="priceChartLegend" style="font-size:10px;color:#64748b;margin-top:6px"></div>
