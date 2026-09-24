@@ -182,6 +182,11 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../assets/chart-tv-exte
   check(agg15.length === 1, `15 real 1-min candles aggregate into exactly 1 real 15-min bucket (got ${agg15.length})`);
 
   check(aggregateCandlesByTimeframe([], 5).length === 0, 'aggregateCandlesByTimeframe honestly returns an empty array for empty input, never fabricating a bucket');
+
+  const prep5 = fnoChartPrepareCandlesForTimeframe(raw, 5, { chartBaseIntervalMinutes: 1 });
+  check(prep5.candles.length === 3, `fnoChartPrepareCandlesForTimeframe(5m) yields 3 buckets from 15×1m (got ${prep5.candles.length})`);
+  const prep15 = fnoChartPrepareCandlesForTimeframe(raw, 15, { chartBaseIntervalMinutes: 1 });
+  check(prep15.candles.length === 1, `fnoChartPrepareCandlesForTimeframe(15m) yields 1 bucket (got ${prep15.candles.length})`);
 }
 
 // ---------------------------------------------------------------------
@@ -228,13 +233,17 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../assets/chart-tv-exte
   const realAggBuckets = aggregateCandlesByTimeframe(candles, 5).length;
   check(legend.textContent.includes(`showing ${realAggBuckets} candles`), `40 real 1-min candles genuinely aggregate into the real, independently-computed ${realAggBuckets}-bucket 5-min view (got: "${legend.textContent}")`);
 
-  // Overlay isolation: same candles/timeframe/zoom, only the series
-  // arrays differ (populated vs empty) - isolates the overlay's own
-  // stroke() calls from the candle wicks' own stroke() calls, which
-  // fire regardless of the overlay toggle.
-  _fnoChartViewStateForTest().timeframeMinutes = 1; _fnoChartViewStateForTest().visibleCount = 80; _fnoChartViewStateForTest().offsetFromEnd = 0; _fnoChartViewStateForTest().showEma = true; _fnoChartViewStateForTest().showVwap = true;
-  renderPriceChart({ candles, ema21Series: [], vwapSeries: [] });
+  // Overlay isolation: disable EMA/VWAP instances (indicator engine path),
+  // not legacy series arrays — isolates overlay stroke() from candle wicks.
+  _fnoChartViewStateForTest().timeframeMinutes = 1; _fnoChartViewStateForTest().visibleCount = 80; _fnoChartViewStateForTest().offsetFromEnd = 0;
+  let inst = (global.window.FNO_CHART_INDICATORS || global.FNO_CHART_INDICATORS).loadInstances();
+  inst = inst.map((row) => (row.typeId === 'ema' || row.typeId === 'vwap' ? Object.assign({}, row, { enabled: false }) : row));
+  (global.window.FNO_CHART_INDICATORS || global.FNO_CHART_INDICATORS).saveInstances(inst);
+  renderPriceChart({ candles, ema21Series, vwapSeries });
   const strokeWithoutOverlay = canvas._c2d.calls.stroke;
+  inst = (global.window.FNO_CHART_INDICATORS || global.FNO_CHART_INDICATORS).loadInstances();
+  inst = inst.map((row) => (row.typeId === 'ema' || row.typeId === 'vwap' ? Object.assign({}, row, { enabled: true }) : row));
+  (global.window.FNO_CHART_INDICATORS || global.FNO_CHART_INDICATORS).saveInstances(inst);
   renderPriceChart({ candles, ema21Series, vwapSeries });
   const strokeWithOverlay = canvas._c2d.calls.stroke;
   check(strokeWithOverlay > strokeWithoutOverlay, 'renderPriceChart() genuinely draws additional stroke() calls for the real EMA21/VWAP overlay lines specifically (isolated from the candle wicks\' own stroke calls, which fire either way)');

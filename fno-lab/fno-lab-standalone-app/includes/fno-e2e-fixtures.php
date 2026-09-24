@@ -25,13 +25,16 @@ function fno_e2e_fixture_chart() {
     for ($i = 59; $i >= 0; $i--) {
         $grapthData[] = [$now - ($i * 60000), $spot + sin($i / 8) * 35];
     }
-    $ohlcvData = array_map(function ($row) {
+    $ohlcvData = [];
+    foreach ($grapthData as $row) {
+        $ts = $row[0];
         $c = $row[1];
-        return ['o' => $c, 'h' => $c + 5, 'l' => $c - 5, 'v' => 100000];
-    }, $grapthData);
+        $ohlcvData[] = [$ts, $c - 2, $c + 5, $c - 5, $c, 100000];
+    }
     wp_send_json_success([
         'grapthData' => $grapthData,
         'ohlcvData' => $ohlcvData,
+        'chartIntervalMinutes' => 1,
         'sourceStatus' => 'e2e_fixture',
         'isFallback' => false,
         'message' => 'E2E fixture chart (local test only)',

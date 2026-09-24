@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.65-pine-hoist-plot';
+const FNO_CORE_BUILD_MARKER = '16.37.66-chart-functional-e2e-v1';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -2830,6 +2830,7 @@ let fnoChartViewState = {
   pendingTrendPoint: null,
   controlsWired: false,
   indicatorUiWired: false,
+  legacyTogglesWired: false,
   layoutWired: false,
   analysisExtWired: false,
   crosshair: null,
@@ -3415,6 +3416,54 @@ function formatLedgerWhenRangeIST(openedAt, closedTs) {
  * the same {t,o,h,l,c,v} shape, one entry per real N-minute bucket that
  * had at least one raw candle.
  */
+function fnoChartInferBaseIntervalMinutes(candles) {
+  if (!Array.isArray(candles) || candles.length < 2) return 1;
+  const gaps = [];
+  const n = Math.min(candles.length, 40);
+  for (let i = 1; i < n; i++) {
+    const a = candles[i - 1].t;
+    const b = candles[i].t;
+    if (typeof a === 'number' && typeof b === 'number' && b > a) gaps.push(b - a);
+  }
+  if (!gaps.length) return 1;
+  gaps.sort((x, y) => x - y);
+  const medianMs = gaps[Math.floor(gaps.length / 2)];
+  if (medianMs >= 12 * 60 * 60 * 1000) return 1440;
+  return Math.max(1, Math.round(medianMs / 60000));
+}
+
+/**
+ * Applies the user's selected chart timeframe to the raw intraday series.
+ * Returns aggregated candles plus an honest legend note when the feed cannot
+ * satisfy the requested resolution (e.g. daily-only data with 5m selected).
+ */
+function fnoChartPrepareCandlesForTimeframe(rawCandles, tfMinutes, marketCtx) {
+  const tf = Number.isFinite(tfMinutes) && tfMinutes > 0 ? tfMinutes : 1;
+  const base = (marketCtx && Number.isFinite(marketCtx.chartBaseIntervalMinutes))
+    ? marketCtx.chartBaseIntervalMinutes
+    : fnoChartInferBaseIntervalMinutes(rawCandles);
+  const dailyOnly = !!(marketCtx && marketCtx.chartIsDailyOnly);
+  if (dailyOnly && tf < 1440) {
+    return {
+      candles: rawCandles || [],
+      baseIntervalMinutes: base,
+      tfNote: ` — ${tf}m needs intraday candles; showing real daily bars instead (connect Kite or enable NSE intraday feed).`,
+    };
+  }
+  if (tf <= 1 || tf <= base) {
+    let tfNote = '';
+    if (tf < base && !dailyOnly) {
+      tfNote = ` — ${tf}m view uses ${base}m source bars (finer history not available this refresh).`;
+    }
+    return { candles: rawCandles || [], baseIntervalMinutes: base, tfNote };
+  }
+  return {
+    candles: aggregateCandlesByTimeframe(rawCandles, tf),
+    baseIntervalMinutes: base,
+    tfNote: '',
+  };
+}
+
 function aggregateCandlesByTimeframe(rawCandles, minutes) {
   if (!Array.isArray(rawCandles) || !rawCandles.length || !(minutes > 1)) return rawCandles || [];
   const bucketMs = minutes * 60000;
@@ -3488,6 +3537,62 @@ function fnoChartDrawLineSeries(c2d, visible, values, yFor, padL, slot, style) {
   c2d.lineWidth = 1;
 }
 
+function fnoChartGetEffectiveIndicatorInstances() {
+  if (typeof FNO_CHART_INDICATORS === 'undefined') return [];
+  let inst = FNO_CHART_INDICATORS.loadInstances();
+  const emaBox = typeof document !== 'undefined' ? document.getElementById('chartShowEma') : null;
+  const vwapBox = typeof document !== 'undefined' ? document.getElementById('chartShowVwap') : null;
+  const volBox = typeof document !== 'undefined' ? document.getElementById('chartShowVolume') : null;
+  if (emaBox) {
+    fnoChartViewState.showEma = !!emaBox.checked;
+    inst = inst.map((row) => (row.typeId === 'ema' ? Object.assign({}, row, { enabled: !!emaBox.checked }) : row));
+  }
+  if (vwapBox) {
+    fnoChartViewState.showVwap = !!vwapBox.checked;
+    inst = inst.map((row) => (row.typeId === 'vwap' ? Object.assign({}, row, { enabled: !!vwapBox.checked }) : row));
+  }
+  if (volBox) {
+    inst = inst.map((row) => (row.typeId === 'volume' ? Object.assign({}, row, { enabled: !!volBox.checked }) : row));
+  }
+  return inst;
+}
+
+function fnoChartCountIndicatorOutputs(bundle) {
+  if (!bundle) return { overlays: 0, panels: 0 };
+  const overlays = (bundle.overlays || []).reduce((n, ov) => n + ((ov.lines || []).filter((ln) => Array.isArray(ln.values) && ln.values.some(Number.isFinite)).length), 0);
+  const panels = (bundle.panels || []).filter((p) => p && p.panel).length;
+  return { overlays, panels };
+}
+
+function fnoChartCommitAddedIndicator(typeId, displayName, redraw) {
+  const errEl = typeof document !== 'undefined' ? document.getElementById('chartCustomIndError') : null;
+  if (typeof FNO_CHART_INDICATORS === 'undefined' || !fnoChartLastMarketCtx) {
+    if (errEl) errEl.textContent = 'Chart engine not ready — hard refresh and try again.';
+    return false;
+  }
+  const inst = FNO_CHART_INDICATORS.loadInstances();
+  const row = inst.find((i) => i.typeId === typeId && i.enabled);
+  if (!row) {
+    if (errEl) errEl.textContent = `Could not attach ${displayName || typeId} to the chart (instance missing after save).`;
+    return false;
+  }
+  redraw();
+  const rawCandles = (fnoChartLastMarketCtx.candlesForChart || fnoChartLastMarketCtx.candles) || [];
+  const prep = fnoChartPrepareCandlesForTimeframe(rawCandles, fnoChartViewState.timeframeMinutes, fnoChartLastMarketCtx);
+  const bundle = fnoChartResolveIndicatorData(fnoChartLastMarketCtx, prep.candles);
+  const counts = fnoChartCountIndicatorOutputs(bundle);
+  const def = FNO_CHART_INDICATORS.getDefinition(typeId);
+  const isPanel = def && def.type === 'panel';
+  const ok = isPanel ? counts.panels > 0 : counts.overlays > 0;
+  if (!ok) {
+    if (errEl) errEl.textContent = `${displayName || typeId} saved but produced no visible output on the current candles — check formula/plot().`;
+    return false;
+  }
+  if (errEl) errEl.textContent = '';
+  fnoChartShowToast(`${displayName || typeId} added successfully.`);
+  return true;
+}
+
 function fnoChartResolveIndicatorData(marketCtx, aggregated) {
   if (typeof FNO_CHART_INDICATORS !== 'undefined' && FNO_CHART_INDICATORS.computeForCandles) {
     const rawCandles = (marketCtx && (marketCtx.candlesForChart || marketCtx.candles)) || [];
@@ -3497,7 +3602,7 @@ function fnoChartResolveIndicatorData(marketCtx, aggregated) {
         chartTfMinutes: fnoChartViewState.timeframeMinutes || 1,
       });
     }
-    const instances = FNO_CHART_INDICATORS.loadInstances();
+    const instances = fnoChartGetEffectiveIndicatorInstances();
     return FNO_CHART_INDICATORS.computeForCandles(aggregated, instances);
   }
   const overlays = [];
@@ -3642,6 +3747,7 @@ function fnoChartEnsureChartUiWired() {
     if (fnoChartLastMarketCtx) renderPriceChart(fnoChartLastMarketCtx);
   };
   if (typeof FNO_CHART_INDICATORS === 'undefined') return;
+  fnoChartWireLegacyIndicatorToggles(redraw);
   fnoChartWireIndicatorManager(redraw);
   fnoChartWireAnalysisExtensions(redraw);
   fnoChartWireLayoutObserver(redraw);
@@ -3853,6 +3959,60 @@ function wireChartControls() {
   canvas.addEventListener('touchcancel', touchEnd, { passive: true });
 }
 
+function fnoChartWireLegacyIndicatorToggles(redraw) {
+  if (typeof FNO_CHART_INDICATORS === 'undefined' || fnoChartViewState.legacyTogglesWired) return;
+  const emaBox = document.getElementById('chartShowEma');
+  const vwapBox = document.getElementById('chartShowVwap');
+  const volumeBox = document.getElementById('chartShowVolume');
+  const optLtpBox = document.getElementById('chartShowOptionLtp');
+  if (!emaBox && !vwapBox && !volumeBox && !optLtpBox) return;
+  fnoChartViewState.legacyTogglesWired = true;
+  fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox, volumeBox);
+  const renderListFromManager = () => {
+    const listEl = document.getElementById('chartIndicatorList');
+    if (!listEl || !fnoChartViewState.indicatorUiWired) return;
+    listEl.querySelectorAll('.chart-ind-en').forEach((cb) => {
+      const typeId = FNO_CHART_INDICATORS.loadInstances().find((i) => i.instanceId === cb.getAttribute('data-id'));
+      if (typeId && typeId.typeId === 'ema') cb.checked = emaBox ? emaBox.checked : cb.checked;
+    });
+  };
+  if (emaBox) emaBox.addEventListener('change', () => {
+    let inst = FNO_CHART_INDICATORS.loadInstances();
+    let row = inst.find(i => i.typeId === 'ema');
+    if (!row) inst = FNO_CHART_INDICATORS.addInstance(inst, 'ema');
+    row = inst.find(i => i.typeId === 'ema');
+    if (row) inst = FNO_CHART_INDICATORS.updateInstance(inst, row.instanceId, { enabled: emaBox.checked });
+    fnoChartViewState.showEma = emaBox.checked;
+    FNO_CHART_INDICATORS.saveInstances(inst);
+    renderListFromManager();
+    redraw();
+  });
+  if (vwapBox) vwapBox.addEventListener('change', () => {
+    let inst = FNO_CHART_INDICATORS.loadInstances();
+    let row = inst.find(i => i.typeId === 'vwap');
+    if (!row) inst = FNO_CHART_INDICATORS.addInstance(inst, 'vwap');
+    row = inst.find(i => i.typeId === 'vwap');
+    if (row) inst = FNO_CHART_INDICATORS.updateInstance(inst, row.instanceId, { enabled: vwapBox.checked });
+    fnoChartViewState.showVwap = vwapBox.checked;
+    FNO_CHART_INDICATORS.saveInstances(inst);
+    renderListFromManager();
+    redraw();
+  });
+  if (volumeBox) volumeBox.addEventListener('change', () => {
+    fnoChartSetVolumeIndicatorEnabled(volumeBox.checked);
+    fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox, volumeBox);
+    redraw();
+  });
+  if (optLtpBox) {
+    optLtpBox.checked = fnoChartViewState.showOptionLtp !== false;
+    optLtpBox.addEventListener('change', () => {
+      fnoChartViewState.showOptionLtp = optLtpBox.checked;
+      fnoChartSaveViewState();
+      redraw();
+    });
+  }
+}
+
 function fnoChartWireIndicatorManager(redraw) {
   if (typeof FNO_CHART_INDICATORS === 'undefined' || fnoChartViewState.indicatorUiWired) return;
   const addSel = document.getElementById('chartAddIndicator');
@@ -3975,8 +4135,17 @@ function fnoChartWireIndicatorManager(redraw) {
     FNO_CHART_INDICATORS.saveInstances(inst);
     addSel.value = '';
     renderList();
-    redraw();
-    fnoChartShowToast('Added ' + (FNO_CHART_INDICATORS.getDefinition(typeId)?.name || typeId));
+    const defName = FNO_CHART_INDICATORS.getDefinition(typeId)?.name || typeId;
+    if (!fnoChartCommitAddedIndicator(typeId, defName, redraw)) {
+      let rollback = FNO_CHART_INDICATORS.loadInstances();
+      const last = rollback[rollback.length - 1];
+      if (last && last.typeId === typeId) {
+        rollback = FNO_CHART_INDICATORS.removeInstance(rollback, last.instanceId);
+        FNO_CHART_INDICATORS.saveInstances(rollback);
+        renderList();
+        redraw();
+      }
+    }
   });
   const customBtn = document.getElementById('chartCustomIndicatorBtn');
   const customPanel = document.getElementById('chartCustomIndicatorPanel');
@@ -4008,14 +4177,23 @@ function fnoChartWireIndicatorManager(redraw) {
         if (errEl) errEl.textContent = res.error || 'Could not save custom indicator';
         return;
       }
-      if (errEl) errEl.textContent = '';
       let inst = FNO_CHART_INDICATORS.loadInstances();
       inst = FNO_CHART_INDICATORS.addInstance(inst, res.typeId);
       FNO_CHART_INDICATORS.saveInstances(inst);
       refreshIndicatorDropdown();
       renderCustomCatalog();
       renderList();
-      redraw();
+      const defName = res.def && res.def.name ? res.def.name : (name || 'Custom indicator');
+      if (!fnoChartCommitAddedIndicator(res.typeId, defName, redraw)) {
+        inst = FNO_CHART_INDICATORS.loadInstances();
+        const row = inst.find((i) => i.typeId === res.typeId);
+        if (row) {
+          inst = FNO_CHART_INDICATORS.removeInstance(inst, row.instanceId);
+          FNO_CHART_INDICATORS.saveInstances(inst);
+          renderList();
+          redraw();
+        }
+      }
     });
   }
   const pineCompileBtn = document.getElementById('chartCustomIndPineCompile');
@@ -4030,8 +4208,12 @@ function fnoChartWireIndicatorManager(redraw) {
         if (errEl) errEl.textContent = (res.error || 'Pine compile failed') + (hint ? '. ' + hint : '');
         return;
       }
-      if (errEl) {
-        errEl.textContent = res.warnings && res.warnings.length ? ('Saved with notes: ' + res.warnings.join('; ')) : 'Pine script compiled and saved';
+      if (res.warnings && res.warnings.length && errEl) {
+        errEl.style.color = '#94a3b8';
+        errEl.textContent = 'Notes: ' + res.warnings.join('; ');
+      } else if (errEl) {
+        errEl.style.color = '#f87171';
+        errEl.textContent = '';
       }
       let inst = FNO_CHART_INDICATORS.loadInstances();
       inst = FNO_CHART_INDICATORS.addInstance(inst, res.typeId);
@@ -4039,7 +4221,17 @@ function fnoChartWireIndicatorManager(redraw) {
       refreshIndicatorDropdown();
       renderCustomCatalog();
       renderList();
-      redraw();
+      const pineName = res.def && res.def.name ? res.def.name : 'Pine indicator';
+      if (!fnoChartCommitAddedIndicator(res.typeId, pineName, redraw)) {
+        inst = FNO_CHART_INDICATORS.loadInstances();
+        const row = inst.find((i) => i.typeId === res.typeId);
+        if (row) {
+          inst = FNO_CHART_INDICATORS.removeInstance(inst, row.instanceId);
+          FNO_CHART_INDICATORS.saveInstances(inst);
+          renderList();
+          redraw();
+        }
+      }
     });
   }
   const pineImportBtn = document.getElementById('chartCustomIndPineImportBtn');
@@ -4067,43 +4259,6 @@ function fnoChartWireIndicatorManager(redraw) {
     });
   }
   if (customCancel && customPanel) customCancel.addEventListener('click', () => { customPanel.style.display = 'none'; });
-  if (emaBox) emaBox.addEventListener('change', () => {
-    let inst = FNO_CHART_INDICATORS.loadInstances();
-    let row = inst.find(i => i.typeId === 'ema');
-    if (!row) inst = FNO_CHART_INDICATORS.addInstance(inst, 'ema');
-    row = inst.find(i => i.typeId === 'ema');
-    if (row) inst = FNO_CHART_INDICATORS.updateInstance(inst, row.instanceId, { enabled: emaBox.checked });
-    fnoChartViewState.showEma = emaBox.checked;
-    FNO_CHART_INDICATORS.saveInstances(inst);
-    renderList();
-    redraw();
-  });
-  if (vwapBox) vwapBox.addEventListener('change', () => {
-    let inst = FNO_CHART_INDICATORS.loadInstances();
-    let row = inst.find(i => i.typeId === 'vwap');
-    if (!row) inst = FNO_CHART_INDICATORS.addInstance(inst, 'vwap');
-    row = inst.find(i => i.typeId === 'vwap');
-    if (row) inst = FNO_CHART_INDICATORS.updateInstance(inst, row.instanceId, { enabled: vwapBox.checked });
-    fnoChartViewState.showVwap = vwapBox.checked;
-    FNO_CHART_INDICATORS.saveInstances(inst);
-    renderList();
-    redraw();
-  });
-  if (volumeBox) volumeBox.addEventListener('change', () => {
-    fnoChartSetVolumeIndicatorEnabled(volumeBox.checked);
-    renderList();
-    fnoChartSyncLegacyIndicatorCheckboxes(emaBox, vwapBox, volumeBox);
-    redraw();
-  });
-  const optLtpBox = document.getElementById('chartShowOptionLtp');
-  if (optLtpBox) {
-    optLtpBox.checked = fnoChartViewState.showOptionLtp !== false;
-    optLtpBox.addEventListener('change', () => {
-      fnoChartViewState.showOptionLtp = optLtpBox.checked;
-      fnoChartSaveViewState();
-      redraw();
-    });
-  }
 }
 
 /**
@@ -4170,7 +4325,9 @@ function renderPriceChart(marketCtx) {
     if (crosshairElEmpty) crosshairElEmpty.textContent = '';
     return;
   }
-  const aggregated = aggregateCandlesByTimeframe(rawCandles, fnoChartViewState.timeframeMinutes);
+  const aggregated = fnoChartPrepareCandlesForTimeframe(rawCandles, fnoChartViewState.timeframeMinutes, marketCtx);
+  const aggregatedCandles = aggregated.candles;
+  const tfLegendNote = aggregated.tfNote || '';
 
   // Real DPI-aware canvas sizing - the CSS width/height (set in the
   // panel's markup) is the LAYOUT size; the actual drawing buffer is
@@ -4191,13 +4348,13 @@ function renderPriceChart(marketCtx) {
   // Real, current visible slice - honors the real zoom (visibleCount)
   // and pan (offsetFromEnd) state, clamped to what's actually available
   // so panning/zooming can never index past the real data.
-  const visibleCount = Math.max(5, Math.min(fnoChartViewState.visibleCount, aggregated.length));
-  const maxOffset = Math.max(0, aggregated.length - visibleCount);
+  const visibleCount = Math.max(5, Math.min(fnoChartViewState.visibleCount, aggregatedCandles.length));
+  const maxOffset = Math.max(0, aggregatedCandles.length - visibleCount);
   const offset = Math.max(0, Math.min(fnoChartViewState.offsetFromEnd, maxOffset));
-  const endIdx = aggregated.length - offset;
+  const endIdx = aggregatedCandles.length - offset;
   const startIdx = Math.max(0, endIdx - visibleCount);
-  const visible = aggregated.slice(startIdx, endIdx);
-  fnoChartLastGeometry.aggregatedTotal = aggregated.length;
+  const visible = aggregatedCandles.slice(startIdx, endIdx);
+  fnoChartLastGeometry.aggregatedTotal = aggregatedCandles.length;
   if (!visible.length) { if (legend) legend.textContent = 'No candle data in the current view - click Reset.'; return; }
 
   // Real, TradingView-style axis space (user's own direct follow-up
@@ -4211,7 +4368,7 @@ function renderPriceChart(marketCtx) {
   const highs = visible.map(c => Number.isFinite(c.h) ? c.h : c.c);
   const lows = visible.map(c => Number.isFinite(c.l) ? c.l : c.c);
   let maxP = Math.max(...highs), minP = Math.min(...lows);
-  const indicatorBundle = fnoChartResolveIndicatorData(marketCtx, aggregated);
+  const indicatorBundle = fnoChartResolveIndicatorData(marketCtx, aggregatedCandles);
   if (fnoChartViewState.autoFitPrice !== false) {
     indicatorBundle.overlays.forEach((ov) => {
       (ov.lines || []).forEach((line) => {
@@ -4460,7 +4617,7 @@ function renderPriceChart(marketCtx) {
     const dailyFallbackNote = isDailyFallbackChart ? ' - NSE intraday feed unreachable this session: showing real DAILY candles from your Kite connection instead (axis shows date, not time-of-day).' : '';
     const indCount = indicatorBundle.overlays.length + indicatorBundle.panels.length;
     const chNote = (ch && Number.isFinite(ch.price)) ? ` | crosshair ${ch.price.toFixed(ch.price >= 1000 ? 0 : 2)}` : '';
-    legend.textContent = `${tfLabel} view - showing ${visible.length} candles (${realCount} real OHLC) - ${indCount} indicator(s) - ${markers.length} marker(s)${offset > 0 ? `, scrolled back ${offset} candle(s)` : ''}${chNote}. Wheel=time zoom · Ctrl+wheel=price scale · drag=pan time · Shift+drag=pan price · Fit price=auto Y · dbl-click=reset.${dailyFallbackNote}`;
+    legend.textContent = `${tfLabel} view - showing ${visible.length} candles (${realCount} real OHLC) - ${indCount} indicator(s) - ${markers.length} marker(s)${offset > 0 ? `, scrolled back ${offset} candle(s)` : ''}${chNote}. Wheel=time zoom · Ctrl+wheel=price scale · drag=pan time · Shift+drag=pan price · Fit price=auto Y · dbl-click=reset.${dailyFallbackNote}${tfLegendNote}`;
   }
 
   const crosshairEl = document.getElementById('priceChartCrosshair');
@@ -4473,14 +4630,14 @@ function renderPriceChart(marketCtx) {
   const openForChart = loadObj(STORAGE.autoTrades);
   const ltpHist = getPositionLtpSeriesForOpen(openForChart);
   fnoChartRenderOptionLtpPanel(openForChart, ltpHist, visible, startIdx, padL, slot, plotW, cssWidth, crosshairBarIdx);
-  fnoChartRenderOscillatorPanels(document.getElementById('priceChartPanels'), indicatorBundle.panels, visible, startIdx, aggregated, crosshairBarIdx);
+  fnoChartRenderOscillatorPanels(document.getElementById('priceChartPanels'), indicatorBundle.panels, visible, startIdx, aggregatedCandles, crosshairBarIdx);
 
   if (typeof FNO_CHART_EXTENSIONS !== 'undefined' && marketCtx && visible.length) {
     const sym = (marketCtx.symbol || marketCtx.sym || 'DEFAULT');
     const lastBarIdx = endIdx - 1;
     const prevBarIdx = lastBarIdx > 0 ? lastBarIdx - 1 : null;
     const lastClose = visible[visible.length - 1].c;
-    const prevClose = prevBarIdx != null && aggregated[prevBarIdx] ? aggregated[prevBarIdx].c : fnoChartPrevCloseBySymbol[sym];
+    const prevClose = prevBarIdx != null && aggregatedCandles[prevBarIdx] ? aggregatedCandles[prevBarIdx].c : fnoChartPrevCloseBySymbol[sym];
     const priceFired = FNO_CHART_EXTENSIONS.evaluatePriceAlerts(sym, lastClose, prevClose);
     priceFired.forEach((a) => FNO_CHART_EXTENSIONS.notifyPriceAlert(a));
     const indFired = FNO_CHART_EXTENSIONS.evaluateIndicatorAlerts(sym, indicatorBundle, lastClose, prevClose, lastBarIdx, prevBarIdx);
@@ -18805,6 +18962,9 @@ function render(){
       const chartCandles = Array.isArray(chart.chartGrapthData)
         ? parseCandles({ grapthData: chart.chartGrapthData, ohlcvData: chart.chartOhlcvData })
         : candles;
+      const chartBaseIntervalMinutes = Number.isFinite(chart.chartIntervalMinutes)
+        ? chart.chartIntervalMinutes
+        : fnoChartInferBaseIntervalMinutes(chartCandles);
       // True only when the real candles about to drive the chart display
       // are genuinely daily-only (the 'kite_historical' fallback with NO
       // real 15-min chartGrapthData available this refresh) - used so the
@@ -19135,6 +19295,7 @@ function render(){
         // real calendar DATE labels instead of a fabricated-looking
         // time-of-day for data that genuinely has none.
         candlesForChart: chartCandles,
+        chartBaseIntervalMinutes,
         chartIsDailyOnly,
         ocRows: (rec.data||[]),
         expiryDates: rec.expiryDates || [],

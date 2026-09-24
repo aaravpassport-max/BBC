@@ -198,17 +198,25 @@ async function runClickAudit() {
 
   document.querySelector('.chart-tf-btn[data-tf="1"]').click();
   await sleep(60);
+  renderPriceChart(marketCtx);
+  const legend1m = document.getElementById('priceChartLegend').textContent || '';
   check('1m timeframe button', _fnoChartViewStateForTest().timeframeMinutes === 1);
 
   const tf5 = document.querySelector('.chart-tf-btn[data-tf="5"]');
   tf5.click();
   await sleep(60);
+  renderPriceChart(marketCtx);
+  const legend5m = document.getElementById('priceChartLegend').textContent || '';
   check('5m timeframe button', _fnoChartViewStateForTest().timeframeMinutes === 5, 'tf=' + _fnoChartViewStateForTest().timeframeMinutes);
   check('5m active CSS class', tf5.classList.contains('chart-tf-active'));
+  check('5m changes candle count vs 1m', legend1m !== legend5m && /showing \d+ candles/.test(legend5m), legend5m);
 
   document.querySelector('.chart-tf-btn[data-tf="15"]').click();
   await sleep(60);
+  renderPriceChart(marketCtx);
+  const legend15m = document.getElementById('priceChartLegend').textContent || '';
   check('15m timeframe button', _fnoChartViewStateForTest().timeframeMinutes === 15);
+  check('15m fewer candles than 1m', legend15m !== legend1m, legend15m);
 
   for (const tf of ['30', '60', '240', '1440']) {
     const btn = document.querySelector('.chart-tf-btn[data-tf="' + tf + '"]');
@@ -323,10 +331,17 @@ plot(ta.ema(d, 9))`;
   await sleep(40);
   check('Option LTP toggle shows panel', document.getElementById('priceChartOptionWrap').style.display !== 'none');
 
+  renderPriceChart(marketCtx);
+  const legendEmaOn = document.getElementById('priceChartLegend').textContent || '';
+  const indOn = Number((legendEmaOn.match(/(\d+) indicator/) || [])[1] || 0);
   document.getElementById('chartShowEma').click();
   await sleep(40);
+  renderPriceChart(marketCtx);
   const emaInst = FNO_CHART_INDICATORS.loadInstances().find(i => i.typeId === 'ema');
   check('EMA checkbox sync', emaInst && !emaInst.enabled);
+  const legendEmaOff = document.getElementById('priceChartLegend').textContent || '';
+  const indOff = Number((legendEmaOff.match(/(\d+) indicator/) || [])[1] || 0);
+  check('EMA off reduces indicator output count', indOff < indOn, `on=${indOn} off=${indOff}`);
 
   document.getElementById('chartShowVwap').click();
   await sleep(40);
@@ -430,7 +445,7 @@ function bootChart() {
     return;
   }
   seedStorage();
-  marketCtx = { candles: makeCandles(120), candlesForChart: makeCandles(120), spot: 23240, symbol: 'NIFTY', sym: 'NIFTY' };
+  marketCtx = { candles: makeCandles(120), candlesForChart: makeCandles(120), chartBaseIntervalMinutes: 1, spot: 23240, symbol: 'NIFTY', sym: 'NIFTY' };
   window.refreshBrain = function () { renderPriceChart(marketCtx); fnoChartRenderWatchlistBar(); };
   renderPriceChart(marketCtx);
   document.getElementById('runAuditBtn').onclick = () => runClickAudit();
