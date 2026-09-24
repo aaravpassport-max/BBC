@@ -241,6 +241,39 @@
     return null;
   }
 
+  function compilePineScript(source) {
+    const pine = global.FNO_CHART_PINE;
+    if (!pine || typeof pine.compilePineScript !== 'function') {
+      return { ok: false, error: 'Pine compiler is not loaded' };
+    }
+    return pine.compilePineScript(source);
+  }
+
+  function compiledPineToDefinition(compiled) {
+    if (!compiled || !compiled.ok) return null;
+    return {
+      name: compiled.name,
+      type: compiled.type,
+      formula: compiled.formula,
+      params: compiled.params,
+      color: compiled.color,
+      panelMin: compiled.panelMin,
+      panelMax: compiled.panelMax,
+      source: 'pine',
+      pineSource: compiled.pineSource,
+      pineSubsetVersion: compiled.subsetVersion,
+    };
+  }
+
+  function saveCustomDefinitionFromPine(source) {
+    const compiled = compilePineScript(source);
+    if (!compiled.ok) return { ok: false, error: compiled.error, warnings: compiled.warnings };
+    const def = compiledPineToDefinition(compiled);
+    const saved = saveCustomDefinition(def);
+    if (!saved.ok) return saved;
+    return { ok: true, def: saved.def, typeId: saved.typeId, warnings: compiled.warnings, compiled };
+  }
+
   function buildCustomRegistryEntry(def) {
     const typeId = CUSTOM_TYPE_PREFIX + def.id;
     return {
@@ -309,7 +342,7 @@
       id: def.id || ('c_' + Date.now().toString(36)),
       name: String(def.name).trim().slice(0, 80),
       type: def.type === 'panel' ? 'panel' : 'overlay',
-      formula: String(def.formula).trim().slice(0, 500),
+      formula: String(def.formula).trim().slice(0, 2000),
       params: normalizeCustomParams(def.params),
       color: def.color || '#f472b6',
       lineWidth: def.lineWidth != null ? def.lineWidth : 1.5,
@@ -317,7 +350,12 @@
       panelMin: def.panelMin,
       panelMax: def.panelMax,
       panelHeight: def.panelHeight || 100,
+      source: def.source === 'pine' ? 'pine' : 'formula',
+      pineSource: def.pineSource ? String(def.pineSource).slice(0, 120000) : undefined,
+      pineSubsetVersion: def.pineSubsetVersion,
     };
+    if (!entry.pineSource) delete entry.pineSource;
+    if (!entry.pineSubsetVersion) delete entry.pineSubsetVersion;
     const idx = defs.findIndex(d => d.id === entry.id);
     if (idx >= 0) defs[idx] = entry;
     else defs.push(entry);
@@ -677,11 +715,18 @@
 
   function importCustomDefinitionsPack(raw, options) {
     const opts = options || { merge: true, addToChart: false };
+    const rawStr = typeof raw === 'string' ? raw : JSON.stringify(raw);
+    const pine = global.FNO_CHART_PINE;
+    if (pine && typeof pine.looksLikePineSource === 'function' && pine.looksLikePineSource(rawStr)) {
+      const res = saveCustomDefinitionFromPine(rawStr);
+      if (!res.ok) return { ok: false, error: res.error || 'Pine compile failed' };
+      return { ok: true, saved: [res.def], errors: res.warnings || [], addToChart: !!opts.addToChart, pine: true };
+    }
     let data;
     try {
       data = typeof raw === 'string' ? JSON.parse(raw) : raw;
     } catch (e) {
-      return { ok: false, error: 'Invalid JSON file' };
+      return { ok: false, error: 'Invalid JSON file (or paste Pine in the Pine panel)' };
     }
     let list = [];
     if (data && data.format === 'fno-indicator-pack-v1' && Array.isArray(data.indicators)) {
@@ -740,6 +785,8 @@
     validateCustomDefinition,
     exportCustomDefinitionsPack,
     importCustomDefinitionsPack,
+    compilePineScript,
+    saveCustomDefinitionFromPine,
     normalizeCustomParams,
     /** @deprecated chart uses session VWAP; brain factors may still use closeAvgProxy */
     sessionVwapSeries,

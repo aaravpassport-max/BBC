@@ -526,7 +526,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
       <span style="width:1px;height:16px;background:#1e293b;margin:0 4px"></span>
       <input id="chartIndicatorSearch" class="input" placeholder="Search indicators…" style="font-size:11px;width:130px" title="Filter add-indicator list">
       <select id="chartAddIndicator" class="input" style="font-size:11px;max-width:160px"><option value="">+ Add indicator…</option></select>
-      <button type="button" class="btn" id="chartCustomIndicatorBtn" style="padding:3px 8px;font-size:11px" title="Create or import custom formula scripts (FNO Formula — not Pine Script)">📜 Scripts</button>
+      <button type="button" class="btn" id="chartCustomIndicatorBtn" style="padding:3px 8px;font-size:11px" title="FNO Formula or Pine Script subset — import .fnoind.json or .pine">📜 Scripts</button>
       <button type="button" class="btn" id="chartZoomIn" style="padding:3px 8px;font-size:11px">🔍+</button>
       <button type="button" class="btn" id="chartZoomOut" style="padding:3px 8px;font-size:11px">🔍-</button>
       <button type="button" class="btn" id="chartResetView" style="padding:3px 8px;font-size:11px">Reset</button>
@@ -570,8 +570,14 @@ body.fno-nse-disabled .nse-only-section{display:none}
     <div id="chartAlertsList" style="font-size:10px;margin-bottom:8px;padding:6px 8px;background:#0f172a;border:1px solid #1e293b;border-radius:8px"></div>
     <div id="chartIndicatorList" style="margin-bottom:6px"></div>
     <div id="chartCustomIndicatorPanel" style="display:none;margin-bottom:8px;padding:8px;background:#0f172a;border:1px solid #334155;border-radius:8px;font-size:11px">
-      <div style="font-weight:700;margin-bottom:6px;color:#e2e8f0">Custom indicator scripts (FNO Formula)</div>
-      <div style="font-size:10px;color:#64748b;margin-bottom:6px"><strong>Not Pine Script.</strong> TradingView Pine cannot run in this app. Use our formula language, then <strong>Save</strong>, <strong>Export</strong>, or <strong>Import</strong> <code>.fnoind.json</code> packs. Sources: <code>close</code> <code>open</code> <code>high</code> <code>low</code> · Functions: <code>ema(x,n)</code> <code>sma</code> <code>rsi</code> <code>vwap()</code> <code>highest</code> <code>lowest</code> · Params: JSON + formula e.g. <code>ema(close, period)</code> with params <code>{"period":21}</code></div>
+      <div style="font-weight:700;margin-bottom:6px;color:#e2e8f0">Custom indicators — FNO Formula &amp; Pine subset</div>
+      <div style="font-size:10px;color:#64748b;margin-bottom:6px"><strong>Pine Script (subset):</strong> paste or import <code>.pine</code> with <code>indicator()</code>, optional <code>input.int</code>, and <code>plot()</code> using <code>ta.ema</code> / <code>sma</code> / <code>rsi</code> / <code>highest</code> / <code>lowest</code> — compiled to the same engine as formula scripts (not full TradingView Pine). <strong>Formula:</strong> single expression; import <code>.fnoind.json</code> packs.</div>
+      <textarea id="chartCustomIndPine" class="input" placeholder="//@version=5&#10;indicator(&quot;My EMA&quot;, overlay=true)&#10;len = input.int(14, &quot;Length&quot;)&#10;plot(ta.ema(close, len), color=color.orange)" style="width:100%;min-height:72px;font-size:10px;font-family:ui-monospace,monospace;margin-bottom:6px"></textarea>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px">
+        <button type="button" class="btn" id="chartCustomIndPineCompile" style="padding:4px 10px;font-size:11px;background:#7c3aed">Compile Pine &amp; add</button>
+        <button type="button" class="btn" id="chartCustomIndPineImportBtn" style="padding:4px 10px;font-size:11px;background:#5b21b6">Import .pine…</button>
+        <input type="file" id="chartCustomIndPineImportFile" accept=".pine,.txt,text/plain" style="display:none">
+      </div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px">
         <input id="chartCustomIndName" class="input" placeholder="Name" style="width:120px;font-size:11px">
         <select id="chartCustomIndType" class="input" style="font-size:11px;width:100px"><option value="overlay">Overlay</option><option value="panel">Panel</option></select>
@@ -581,7 +587,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
         <button type="button" class="btn" id="chartCustomIndSave" style="padding:4px 10px;font-size:11px;background:#166534">Save &amp; add</button>
         <button type="button" class="btn" id="chartCustomIndCancel" style="padding:4px 10px;font-size:11px;background:#334155">Close</button>
         <button type="button" class="btn" id="chartCustomIndImportBtn" style="padding:4px 10px;font-size:11px;background:#1d4ed8">Import file…</button>
-        <input type="file" id="chartCustomIndImportFile" accept=".json,.fnoind.json,application/json" style="display:none">
+        <input type="file" id="chartCustomIndImportFile" accept=".json,.fnoind.json,.pine,application/json,text/plain" style="display:none">
         <button type="button" class="btn" id="chartCustomIndExportBtn" style="padding:4px 10px;font-size:11px;background:#334155">Export all scripts</button>
       </div>
       <div id="chartCustomIndError" style="color:#f87171;font-size:10px;min-height:14px;margin-bottom:4px"></div>
@@ -1090,6 +1096,9 @@ window.FNO_FACTORS_CATALOG = <?php echo $json ? wp_json_encode($json) : '[]'; ?>
 
 <script>
 <?php include __DIR__ . '/greeks-engine.js'; ?>
+</script>
+<script>
+<?php include __DIR__ . '/chart-pine-compiler.js'; ?>
 </script>
 <script>
 <?php include __DIR__ . '/chart-indicator-engine.js'; ?>

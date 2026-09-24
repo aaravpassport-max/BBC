@@ -1,7 +1,7 @@
 # TradingView parity audit — FNO Lab standalone chart
 
 **Audit date:** 2026-09-24  
-**Build reference:** 16.37.50+ (`watchlist-ind-alerts-v1`)  
+**Build reference:** 16.37.52+ (`pine-subset-v1`)  
 **Scope:** User-facing charting, indicators, drawings, layouts, alerts vs TradingView Supercharts (not full platform: social, broker, cloud sync).
 
 ## Executive summary
@@ -15,10 +15,10 @@ FNO Lab uses a **custom Canvas chart** fed by **NSE + Kite** (`fno_fetch_chart_f
 | TV feature | TV behavior | FNO Lab (before 16.37.49) | FNO Lab (16.37.49 target) | Gap / notes |
 |------------|-------------|---------------------------|---------------------------|-------------|
 | Built-in indicators | 400+ | 7 registry types | 8 (+ volume panel) | No marketplace; add via custom pack |
-| Custom scripts | Pine Editor, publish | Single-line “formula” only; **no upload** | **FNO Formula Script** + **import/export `.fnoind.json`** | **Not Pine**; documented honestly |
+| Custom scripts | Pine Editor, publish | Single-line “formula” only; **no upload** | **FNO Formula** + **Pine subset** (compile `.pine`) + **`.fnoind.json`** | **Not full Pine**; subset documented |
 | Indicator search | Command palette | Dropdown only | Search filter on add list | No global command palette |
 | Multiple indicators | Unlimited panes | Supported via instances | Same + layout presets | Panel height fixed per type |
-| Parameters | Full inputs | Built-ins + formula text | Built-ins + formula **+ JSON params** in custom defs | No Pine `input()` |
+| Parameters | Full inputs | Built-ins + formula text | Built-ins + formula **+ JSON params**; Pine **`input.int`** → params | No Pine `input()` beyond int/float defaults |
 | Drawings | 110+ tools | **None** | H-line, trend, **V-line**; persist per symbol | No fib/Gann/patterns |
 | Chart types | Many | Candles only | Candle / line / area toggle | No Heikin/Renko |
 | Timeframes | Full set | 1/5/15m | + 30m, 1h, 4h, 1D aggregation | Seconds/tick N/A |
@@ -57,17 +57,20 @@ FNO Lab uses a **custom Canvas chart** fed by **NSE + Kite** (`fno_fetch_chart_f
 
 ## Verification
 
-- Node: `chart-custom-formula`, `chart-tv-extensions`, `chart-watchlist-alerts`, layout/drawing tests via extensions
+- Node: `chart-pine-compiler`, `chart-custom-formula`, `chart-tv-extensions`, `chart-watchlist-alerts`, layout/drawing tests via extensions
 - Browser: `tests/chart-interactive-harness.html` + `chart-interactive-browser.test.js` (Puppeteer)
 
 ### 16.37.50
 - Watchlist bar (persisted), indicator alerts (RSI, close×EMA), alerts list UI, V-line drawing
 
+### 16.37.52
+- **Pine Script subset:** paste/import `.pine`, transpile `indicator()` + `input.int` + `plot()` with `ta.ema/sma/rsi/highest/lowest` to FNO formula engine; stored with `source: pine` + optional `pineSource`
+
 ## What we explicitly do **not** claim
 
-- Pine Script compatibility or community script import  
+- **Full** Pine Script (strategies, `request.security`, loops, arrays, libraries, community publish)  
 - TradingView multi-layout (2×2 charts)  
 - Cloud-synced layouts across devices  
 - Full alert webhook/cloud server  
 
-Custom scripts use **FNO Formula Script** (documented DSL). Users can **upload** packs in JSON format (`fno-indicator-pack-v1`).
+Custom scripts use **FNO Formula Script** or a **documented Pine subset** (compiled to the same formula runtime). Users can **upload** `.fnoind.json` packs or `.pine` files.

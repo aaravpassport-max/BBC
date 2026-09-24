@@ -1,0 +1,4 @@
+//@version=5
+indicator("Sample EMA (FNO Pine subset)", overlay=true)
+len = input.int(21, "Length")
+plot(ta.ema(close, len), color=color.blue)

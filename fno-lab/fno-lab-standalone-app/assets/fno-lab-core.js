@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.51-macd-bb-alerts-v1';
+const FNO_CORE_BUILD_MARKER = '16.37.52-pine-subset-v1';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -3813,7 +3813,7 @@ function fnoChartWireIndicatorManager(redraw) {
     if (!catEl) return;
     const defs = FNO_CHART_INDICATORS.listCustomDefinitions();
     if (!defs.length) { catEl.textContent = 'No saved custom indicators yet.'; return; }
-    catEl.innerHTML = defs.map(d => `<span style="display:inline-flex;align-items:center;gap:4px;margin:0 8px 4px 0;padding:2px 6px;background:#1e293b;border-radius:6px">${d.name} <code style="font-size:9px">${d.formula}</code> <button type="button" class="btn chart-custom-del" data-id="${d.id}" style="padding:1px 5px;font-size:9px">Delete</button></span>`).join('');
+    catEl.innerHTML = defs.map(d => `<span style="display:inline-flex;align-items:center;gap:4px;margin:0 8px 4px 0;padding:2px 6px;background:#1e293b;border-radius:6px">${d.name}${d.source === 'pine' ? ' <span style="color:#c4b5fd">Pine</span>' : ''} <code style="font-size:9px">${d.formula}</code> <button type="button" class="btn chart-custom-del" data-id="${d.id}" style="padding:1px 5px;font-size:9px">Delete</button></span>`).join('');
     catEl.querySelectorAll('.chart-custom-del').forEach(btn => {
       btn.addEventListener('click', () => {
         FNO_CHART_INDICATORS.deleteCustomDefinition(btn.getAttribute('data-id'));
@@ -3927,7 +3927,6 @@ function fnoChartWireIndicatorManager(redraw) {
       renderCustomCatalog();
     });
   }
-  if (customCancel && customPanel) customCancel.addEventListener('click', () => { customPanel.style.display = 'none'; });
   if (customSave) {
     customSave.addEventListener('click', () => {
       const errEl = document.getElementById('chartCustomIndError');
@@ -3958,6 +3957,45 @@ function fnoChartWireIndicatorManager(redraw) {
       redraw();
     });
   }
+  const pineCompileBtn = document.getElementById('chartCustomIndPineCompile');
+  const pineTa = document.getElementById('chartCustomIndPine');
+  if (pineCompileBtn && pineTa) {
+    pineCompileBtn.addEventListener('click', () => {
+      const errEl = document.getElementById('chartCustomIndError');
+      const res = FNO_CHART_INDICATORS.saveCustomDefinitionFromPine(pineTa.value);
+      if (!res.ok) {
+        if (errEl) errEl.textContent = res.error || 'Pine compile failed';
+        return;
+      }
+      if (errEl) {
+        errEl.textContent = res.warnings && res.warnings.length ? ('Saved with notes: ' + res.warnings.join('; ')) : 'Pine script compiled and saved';
+      }
+      let inst = FNO_CHART_INDICATORS.loadInstances();
+      inst = FNO_CHART_INDICATORS.addInstance(inst, res.typeId);
+      FNO_CHART_INDICATORS.saveInstances(inst);
+      refreshIndicatorDropdown();
+      renderCustomCatalog();
+      renderList();
+      redraw();
+    });
+  }
+  const pineImportBtn = document.getElementById('chartCustomIndPineImportBtn');
+  const pineImportFile = document.getElementById('chartCustomIndPineImportFile');
+  if (pineImportBtn && pineImportFile && pineTa) {
+    pineImportBtn.addEventListener('click', () => pineImportFile.click());
+    pineImportFile.addEventListener('change', () => {
+      const file = pineImportFile.files && pineImportFile.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        pineTa.value = String(reader.result || '');
+        if (pineCompileBtn) pineCompileBtn.click();
+      };
+      reader.readAsText(file);
+      pineImportFile.value = '';
+    });
+  }
+  if (customCancel && customPanel) customCancel.addEventListener('click', () => { customPanel.style.display = 'none'; });
   if (emaBox) emaBox.addEventListener('change', () => {
     let inst = FNO_CHART_INDICATORS.loadInstances();
     const row = inst.find(i => i.typeId === 'ema');
