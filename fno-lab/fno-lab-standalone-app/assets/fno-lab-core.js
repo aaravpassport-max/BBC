@@ -89,7 +89,19 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.67-intraday-all-paths-v1';
+const FNO_CORE_BUILD_MARKER = '16.37.68-module-bridge-ltp-v1';
+
+/** Classic scripts attach engines on globalThis; ES module scope does not see them as free vars. */
+let FNO_CHART_INDICATORS = typeof globalThis !== 'undefined' ? globalThis.FNO_CHART_INDICATORS : undefined;
+let FNO_CHART_EXTENSIONS = typeof globalThis !== 'undefined' ? globalThis.FNO_CHART_EXTENSIONS : undefined;
+let FNO_CHART_PINE = typeof globalThis !== 'undefined' ? globalThis.FNO_CHART_PINE : undefined;
+
+function fnoChartSyncGlobalEngines() {
+  if (typeof globalThis === 'undefined') return;
+  if (!FNO_CHART_INDICATORS && globalThis.FNO_CHART_INDICATORS) FNO_CHART_INDICATORS = globalThis.FNO_CHART_INDICATORS;
+  if (!FNO_CHART_EXTENSIONS && globalThis.FNO_CHART_EXTENSIONS) FNO_CHART_EXTENSIONS = globalThis.FNO_CHART_EXTENSIONS;
+  if (!FNO_CHART_PINE && globalThis.FNO_CHART_PINE) FNO_CHART_PINE = globalThis.FNO_CHART_PINE;
+}
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -2835,6 +2847,11 @@ let fnoChartViewState = {
   analysisExtWired: false,
   crosshair: null,
 };
+function fnoChartResetUiWiringFlags() {
+  fnoChartViewState.indicatorUiWired = false;
+  fnoChartViewState.legacyTogglesWired = false;
+  fnoChartViewState.analysisExtWired = false;
+}
 // Test-only accessor - direct eval() of this file (this repo's own
 // established Node test-harness pattern) does not reliably leak
 // top-level `let`/`const` bindings out to the rest of the eval'd
@@ -2942,9 +2959,11 @@ function fnoChartShowToast(message) {
 }
 
 function fnoChartWireAnalysisExtensions(redraw) {
+  fnoChartSyncGlobalEngines();
   if (typeof FNO_CHART_EXTENSIONS === 'undefined' || fnoChartViewState.analysisExtWired) return;
-  fnoChartViewState.analysisExtWired = true;
   const canvas = document.getElementById('priceChartCanvas');
+  if (!canvas) return;
+  fnoChartViewState.analysisExtWired = true;
   const setDrawMode = (mode) => {
     fnoChartViewState.drawMode = mode;
     fnoChartViewState.pendingTrendPoint = null;
@@ -3194,9 +3213,14 @@ function fnoChartRefreshAlertsList() {
 
 function fnoChartUpdateTfButtons() {
   if (typeof document === 'undefined') return;
+  const dailyOnly = !!(fnoChartLastMarketCtx && fnoChartLastMarketCtx.chartIsDailyOnly);
   document.querySelectorAll('.chart-tf-btn').forEach((btn) => {
     const tf = parseInt(btn.getAttribute('data-tf'), 10);
     btn.classList.toggle('chart-tf-active', tf === fnoChartViewState.timeframeMinutes);
+    const needsIntraday = Number.isFinite(tf) && tf > 0 && tf < 1440;
+    btn.disabled = dailyOnly && needsIntraday;
+    btn.style.opacity = btn.disabled ? '0.45' : '';
+    btn.title = btn.disabled ? 'Intraday candles unavailable — connect Kite or wait for intraday feed' : '';
   });
 }
 
@@ -3743,12 +3767,21 @@ function fnoChartRenderOscillatorPanels(container, panels, visible, startIdx, fu
  */
 function fnoChartEnsureChartUiWired() {
   if (typeof document === 'undefined') return;
+  fnoChartSyncGlobalEngines();
   const canvas = document.getElementById('priceChartCanvas');
   if (!canvas) return;
   const redraw = () => {
     if (fnoChartLastMarketCtx) renderPriceChart(fnoChartLastMarketCtx);
   };
-  if (typeof FNO_CHART_INDICATORS === 'undefined') return;
+  if (typeof FNO_CHART_INDICATORS === 'undefined') {
+    const cap = document.getElementById('priceChartCaption');
+    if (cap && !cap.dataset.fnoIndEngineMissing) {
+      cap.dataset.fnoIndEngineMissing = '1';
+      cap.innerHTML += ' <span style="color:#f87171">Chart indicator engine failed to load — hard refresh (Ctrl+Shift+R). Build: '
+        + FNO_CORE_BUILD_MARKER + '</span>';
+    }
+    return;
+  }
   fnoChartWireLegacyIndicatorToggles(redraw);
   fnoChartWireIndicatorManager(redraw);
   fnoChartWireAnalysisExtensions(redraw);
@@ -4023,7 +4056,6 @@ function fnoChartWireIndicatorManager(redraw) {
   const addSel = document.getElementById('chartAddIndicator');
   const listEl = document.getElementById('chartIndicatorList');
   if (!addSel || !listEl) return;
-  fnoChartViewState.indicatorUiWired = true;
   const emaBox = document.getElementById('chartShowEma');
   const vwapBox = document.getElementById('chartShowVwap');
   const volumeBox = document.getElementById('chartShowVolume');
@@ -4102,6 +4134,7 @@ function fnoChartWireIndicatorManager(redraw) {
         <button type="button" class="btn chart-ind-rm" data-id="${inst.instanceId}" style="padding:2px 6px;font-size:10px">Remove</button>
       </div>`;
     }).join('');
+    if (typeof listEl.querySelectorAll !== 'function') return;
     listEl.querySelectorAll('.chart-ind-en').forEach((cb) => {
       cb.addEventListener('change', () => {
         let inst = FNO_CHART_INDICATORS.loadInstances();
@@ -4264,6 +4297,7 @@ function fnoChartWireIndicatorManager(redraw) {
     });
   }
   if (customCancel && customPanel) customCancel.addEventListener('click', () => { customPanel.style.display = 'none'; });
+  fnoChartViewState.indicatorUiWired = true;
 }
 
 /**
@@ -4309,6 +4343,7 @@ function fnoChartWireIndicatorManager(redraw) {
  */
 function renderPriceChart(marketCtx) {
   if (typeof document === 'undefined') return;
+  fnoChartSyncGlobalEngines();
   const canvas = document.getElementById('priceChartCanvas');
   const legend = document.getElementById('priceChartLegend');
   if (!canvas || typeof canvas.getContext !== 'function') return;
@@ -4800,6 +4835,7 @@ function recordPositionLtpTick(open, marketCtx, ltp) {
     spot: marketCtx && Number.isFinite(marketCtx.spot) ? marketCtx.spot : null,
   }));
   persistPositionLtpHistory(history.filter(Boolean));
+  if (fnoChartLastMarketCtx) fnoChartScheduleRedraw();
 }
 
 function getPositionLtpSeriesForOpen(open) {
@@ -4854,10 +4890,12 @@ function fnoChartRenderOptionLtpPanel(open, history, visible, startIdx, padL, sl
   const padB = 18;
   const padR = 52;
   const plotH = cssH - padT - padB;
-  const ltpSeries = fnoChartMapHistoryToVisibleBars(history, visible);
+  const plotWOpt = Math.max(1, (cssWidth || 600) - padL - padR);
+  const recentTicks = history.slice(-Math.max(2, Math.min(visible.length, history.length)));
+  const ltpValues = recentTicks.map((h) => h.ltp);
   let minP = Infinity;
   let maxP = -Infinity;
-  ltpSeries.forEach(v => { if (Number.isFinite(v)) { minP = Math.min(minP, v); maxP = Math.max(maxP, v); } });
+  ltpValues.forEach(v => { if (Number.isFinite(v)) { minP = Math.min(minP, v); maxP = Math.max(maxP, v); } });
   [open.entryPrice, open.target, open.sl, open.trailingEnabled ? open.trailingSl : null].forEach((v) => {
     if (Number.isFinite(v)) { minP = Math.min(minP, v); maxP = Math.max(maxP, v); }
   });
@@ -4879,7 +4917,7 @@ function fnoChartRenderOptionLtpPanel(open, history, visible, startIdx, padL, sl
     const y = yFor(price);
     ctx.beginPath();
     ctx.moveTo(padL, y);
-    ctx.lineTo(padL + plotW, y);
+    ctx.lineTo(padL + plotWOpt, y);
     ctx.stroke();
     if (typeof ctx.setLineDash === 'function') ctx.setLineDash([]);
   };
@@ -4888,17 +4926,13 @@ function fnoChartRenderOptionLtpPanel(open, history, visible, startIdx, padL, sl
   drawHLine(open.sl, '#ef4444', false);
   if (open.trailingEnabled) drawHLine(open.trailingSl, '#f97316', true);
 
-  fnoChartDrawLineSeries(ctx, visible, ltpSeries, yFor, padL, slot, { color: '#38bdf8', lineWidth: 2, lineStyle: 'solid' });
+  const tickSlot = plotWOpt / Math.max(1, recentTicks.length);
+  const tickStub = recentTicks.map((_, i) => ({ t: i, c: ltpValues[i] }));
+  fnoChartDrawLineSeries(ctx, tickStub, ltpValues, yFor, padL, tickSlot, { color: '#38bdf8', lineWidth: 2, lineStyle: 'solid' });
 
-  history.forEach((h) => {
-    let bestIdx = -1;
-    let bestDiff = Infinity;
-    visible.forEach((cd, i) => {
-      const d = Math.abs(cd.t - h.ts);
-      if (d < bestDiff) { bestDiff = d; bestIdx = i; }
-    });
-    if (bestIdx < 0 || bestDiff > 90 * 60 * 1000 || !Number.isFinite(h.ltp)) return;
-    const x = padL + slot * bestIdx + slot / 2;
+  recentTicks.forEach((h, i) => {
+    if (!Number.isFinite(h.ltp)) return;
+    const x = padL + tickSlot * i + tickSlot / 2;
     const y = yFor(h.ltp);
     ctx.fillStyle = '#38bdf8';
     ctx.beginPath();
@@ -4921,8 +4955,8 @@ function fnoChartRenderOptionLtpPanel(open, history, visible, startIdx, padL, sl
   ctx.fillStyle = '#64748b';
   ctx.font = '10px sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText(maxP.toFixed(2), padL + plotW + 4, yFor(maxP));
-  ctx.fillText(minP.toFixed(2), padL + plotW + 4, yFor(minP));
+  ctx.fillText(maxP.toFixed(2), padL + plotWOpt + 4, yFor(maxP));
+  ctx.fillText(minP.toFixed(2), padL + plotWOpt + 4, yFor(minP));
 }
 
 // ====================================================================
@@ -18235,6 +18269,7 @@ async function loadRealMoneyJournal(){
 }
 
 function render(){
+  fnoChartSyncGlobalEngines();
   fnoChartEnsureChartUiWired();
   const savedMode = localStorage.getItem(STORAGE.mode) || 'paper';
   syncPaperTradingModeLabels(savedMode);
@@ -20764,6 +20799,9 @@ function render(){
     histEl.innerHTML = history.length
       ? history.slice(-10).reverse().map(h=>`<div style="padding:4px 0;border-bottom:1px solid #111827">${escapeHtml(h.symbol)} ${escapeHtml(String(h.strike))}${escapeHtml(h.optionType)} - ${h.source==='auto_target'?'🎯 Target':h.source==='square_off'?'⏰ Square-off':h.source==='manual_force_exit'?'👆 Manual':h.source==='partial'?'✂️ Partial':h.source==='auto_invalidated'?'⚠️ Invalidated':'🛑 SL'} - Gross Rs${fnoFormatFixed(h.grossPnl, 0)} / Net Rs${fnoFormatFixed(h.pnl, 0)} (costs Rs${fnoFormatFixed(h.costsTotal, 0)}) <span style="color:#64748b">${new Date(h.ts).toLocaleTimeString()}</span></div>`).join('')
       : `<span style="color:#64748b">No closed trades yet</span>`;
+    if (curCtx && typeof renderPriceChart === 'function') {
+      try { renderPriceChart(curCtx); } catch (ltpChartErr) { /* LTP panel refresh after ticks recorded */ }
+    }
   }
 
   /**

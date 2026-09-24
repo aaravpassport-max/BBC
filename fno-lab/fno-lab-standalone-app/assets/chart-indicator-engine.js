@@ -865,3 +865,7 @@
     emaSeries,
   };
 })(typeof window !== 'undefined' ? window : global);
+if (typeof globalThis !== 'undefined') {
+  const g = typeof window !== 'undefined' ? window : global;
+  if (g && g.FNO_CHART_INDICATORS) globalThis.FNO_CHART_INDICATORS = g.FNO_CHART_INDICATORS;
+}
