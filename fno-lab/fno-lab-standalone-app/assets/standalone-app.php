@@ -100,6 +100,7 @@ input:checked + .slider:before{transform:translateX(24px)}
 .fno-chart-section #priceChartCanvas{width:100%;height:min(56vh,720px);min-height:480px;max-height:900px}
 .fno-chart-section #priceChartOptionCanvas{width:100%;height:140px;min-height:120px}
 .chart-tf-btn.chart-tf-active{background:#166534!important;border:1px solid #22c55e!important}
+.chart-draw-btn.chart-draw-active{background:#854d0e!important;border:1px solid #eab308!important}
 .fno-chart-section--fullscreen{position:fixed;inset:0;z-index:10040;background:var(--bg);padding:12px 16px 16px;overflow:auto;display:flex;flex-direction:column}
 .fno-chart-section--fullscreen #priceChartCanvas{flex:1;min-height:55vh;height:auto!important;max-height:none}
 .fno-chart-section--fullscreen .fno-chart-toolbar{position:sticky;top:0;z-index:2;background:var(--bg);padding-bottom:8px}
@@ -512,31 +513,59 @@ body.fno-nse-disabled .nse-only-section{display:none}
       <button type="button" class="btn chart-tf-btn" data-tf="1" style="padding:3px 8px;font-size:11px">1m</button>
       <button type="button" class="btn chart-tf-btn" data-tf="5" style="padding:3px 8px;font-size:11px">5m</button>
       <button type="button" class="btn chart-tf-btn" data-tf="15" style="padding:3px 8px;font-size:11px">15m</button>
+      <button type="button" class="btn chart-tf-btn" data-tf="30" style="padding:3px 8px;font-size:11px">30m</button>
+      <button type="button" class="btn chart-tf-btn" data-tf="60" style="padding:3px 8px;font-size:11px">1h</button>
+      <button type="button" class="btn chart-tf-btn" data-tf="240" style="padding:3px 8px;font-size:11px">4h</button>
+      <button type="button" class="btn chart-tf-btn" data-tf="1440" style="padding:3px 8px;font-size:11px">1D</button>
+      <select id="chartTypeSelect" class="input" style="font-size:11px;width:88px" title="Chart display type">
+        <option value="candle">Candles</option>
+        <option value="line">Line</option>
+        <option value="area">Area</option>
+      </select>
       <span style="width:1px;height:16px;background:#1e293b;margin:0 4px"></span>
-      <label style="font-size:11px;color:#94a3b8"><input type="checkbox" id="chartShowEma" checked> EMA21</label>
-      <label style="font-size:11px;color:#94a3b8"><input type="checkbox" id="chartShowVwap" checked> VWAP</label>
-      <label style="font-size:11px;color:#94a3b8"><input type="checkbox" id="chartShowOptionLtp" checked> Option LTP</label>
+      <input id="chartIndicatorSearch" class="input" placeholder="Search indicators…" style="font-size:11px;width:130px" title="Filter add-indicator list">
       <select id="chartAddIndicator" class="input" style="font-size:11px;max-width:160px"><option value="">+ Add indicator…</option></select>
-      <button type="button" class="btn" id="chartCustomIndicatorBtn" style="padding:3px 8px;font-size:11px" title="Create TradingView-style custom formula indicator">✎ Custom</button>
-      <span style="width:1px;height:16px;background:#1e293b;margin:0 4px"></span>
+      <button type="button" class="btn" id="chartCustomIndicatorBtn" style="padding:3px 8px;font-size:11px" title="Create or import custom formula scripts (FNO Formula — not Pine Script)">📜 Scripts</button>
       <button type="button" class="btn" id="chartZoomIn" style="padding:3px 8px;font-size:11px">🔍+</button>
       <button type="button" class="btn" id="chartZoomOut" style="padding:3px 8px;font-size:11px">🔍-</button>
       <button type="button" class="btn" id="chartResetView" style="padding:3px 8px;font-size:11px">Reset</button>
       <button type="button" class="btn" id="chartFitPrice" style="padding:3px 8px;font-size:11px" title="Auto-fit price scale to visible candles and overlays">Fit price</button>
       <button type="button" class="btn" id="chartFullscreen" style="padding:3px 8px;font-size:11px" title="Expand chart to full screen for analysis">⛶ Full screen</button>
-      <span style="font-size:10px;color:#64748b">Wheel=time · Ctrl+wheel=price · drag=pan · Shift+drag=price · Esc=exit full screen · dbl-click=reset</span>
+      <span style="width:1px;height:16px;background:#1e293b;margin:0 4px"></span>
+      <button type="button" class="btn chart-draw-btn" data-draw="hline" style="padding:3px 8px;font-size:11px" title="Draw horizontal line (click chart)">― H-line</button>
+      <button type="button" class="btn chart-draw-btn" data-draw="trend" style="padding:3px 8px;font-size:11px" title="Draw trend line (two clicks)">／ Trend</button>
+      <button type="button" class="btn" id="chartDrawClear" style="padding:3px 8px;font-size:11px;background:#334155">Clear drawings</button>
+      <span style="font-size:10px;color:#64748b">F=fit · R=reset · 1/5=TF · Esc=exit full</span>
+    </div>
+    <div class="fno-chart-toolbar" style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
+      <label style="font-size:11px;color:#94a3b8"><input type="checkbox" id="chartShowEma" checked> EMA21</label>
+      <label style="font-size:11px;color:#94a3b8"><input type="checkbox" id="chartShowVwap" checked> VWAP</label>
+      <label style="font-size:11px;color:#94a3b8"><input type="checkbox" id="chartShowOptionLtp" checked> Option LTP</label>
+      <span style="width:1px;height:16px;background:#1e293b;margin:0 4px"></span>
+      <input id="chartLayoutPresetName" class="input" placeholder="Preset name" style="font-size:11px;width:100px">
+      <button type="button" class="btn" id="chartLayoutPresetSave" style="padding:3px 8px;font-size:11px">Save layout</button>
+      <select id="chartLayoutPresetSelect" class="input" style="font-size:11px;max-width:140px"><option value="">Layout preset…</option></select>
+      <button type="button" class="btn" id="chartLayoutPresetLoad" style="padding:3px 8px;font-size:11px">Load layout</button>
+      <span style="width:1px;height:16px;background:#1e293b;margin:0 4px"></span>
+      <input id="chartAlertPrice" class="input" placeholder="Alert price" style="font-size:11px;width:90px" inputmode="decimal">
+      <select id="chartAlertDirection" class="input" style="font-size:11px;width:72px"><option value="above">Cross ↑</option><option value="below">Cross ↓</option></select>
+      <button type="button" class="btn" id="chartAlertAdd" style="padding:3px 8px;font-size:11px;background:#7c2d12">Add alert</button>
     </div>
     <div id="chartIndicatorList" style="margin-bottom:6px"></div>
     <div id="chartCustomIndicatorPanel" style="display:none;margin-bottom:8px;padding:8px;background:#0f172a;border:1px solid #334155;border-radius:8px;font-size:11px">
-      <div style="font-weight:700;margin-bottom:6px;color:#e2e8f0">Custom indicator (formula)</div>
-      <div style="font-size:10px;color:#64748b;margin-bottom:6px">Like TradingView Pine-lite: one expression per indicator. Sources: <code>close</code> <code>open</code> <code>high</code> <code>low</code> <code>hl2</code> <code>hlc3</code> · Functions: <code>ema(x,n)</code> <code>sma(x,n)</code> <code>rsi(x,n)</code> <code>vwap()</code> <code>highest(x,n)</code> <code>lowest(x,n)</code> · Ops: <code>+ - * /</code> · Example: <code>ema(close, 9)</code> or <code>ema(close, 12) - ema(close, 26)</code></div>
+      <div style="font-weight:700;margin-bottom:6px;color:#e2e8f0">Custom indicator scripts (FNO Formula)</div>
+      <div style="font-size:10px;color:#64748b;margin-bottom:6px"><strong>Not Pine Script.</strong> TradingView Pine cannot run in this app. Use our formula language, then <strong>Save</strong>, <strong>Export</strong>, or <strong>Import</strong> <code>.fnoind.json</code> packs. Sources: <code>close</code> <code>open</code> <code>high</code> <code>low</code> · Functions: <code>ema(x,n)</code> <code>sma</code> <code>rsi</code> <code>vwap()</code> <code>highest</code> <code>lowest</code> · Params: JSON + formula e.g. <code>ema(close, period)</code> with params <code>{"period":21}</code></div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:6px">
         <input id="chartCustomIndName" class="input" placeholder="Name" style="width:120px;font-size:11px">
         <select id="chartCustomIndType" class="input" style="font-size:11px;width:100px"><option value="overlay">Overlay</option><option value="panel">Panel</option></select>
-        <input id="chartCustomIndFormula" class="input" placeholder="Formula e.g. ema(close, 21)" style="flex:1;min-width:200px;font-size:11px">
+        <input id="chartCustomIndFormula" class="input" placeholder="Formula e.g. ema(close, period)" style="flex:1;min-width:200px;font-size:11px">
+        <input id="chartCustomIndParams" class="input" placeholder='Params JSON e.g. {"period":14}' style="width:160px;font-size:11px">
         <input type="color" id="chartCustomIndColor" value="#f472b6" style="width:36px;height:28px;padding:0;border:0">
         <button type="button" class="btn" id="chartCustomIndSave" style="padding:4px 10px;font-size:11px;background:#166534">Save &amp; add</button>
         <button type="button" class="btn" id="chartCustomIndCancel" style="padding:4px 10px;font-size:11px;background:#334155">Close</button>
+        <button type="button" class="btn" id="chartCustomIndImportBtn" style="padding:4px 10px;font-size:11px;background:#1d4ed8">Import file…</button>
+        <input type="file" id="chartCustomIndImportFile" accept=".json,.fnoind.json,application/json" style="display:none">
+        <button type="button" class="btn" id="chartCustomIndExportBtn" style="padding:4px 10px;font-size:11px;background:#334155">Export all scripts</button>
       </div>
       <div id="chartCustomIndError" style="color:#f87171;font-size:10px;min-height:14px;margin-bottom:4px"></div>
       <div id="chartCustomIndCatalog" style="font-size:10px;color:#94a3b8"></div>
@@ -1047,6 +1076,9 @@ window.FNO_FACTORS_CATALOG = <?php echo $json ? wp_json_encode($json) : '[]'; ?>
 </script>
 <script>
 <?php include __DIR__ . '/chart-indicator-engine.js'; ?>
+</script>
+<script>
+<?php include __DIR__ . '/chart-tv-extensions.js'; ?>
 </script>
 <script type="module">
 <?php include __DIR__ . '/fno-lab-core.js'; ?>

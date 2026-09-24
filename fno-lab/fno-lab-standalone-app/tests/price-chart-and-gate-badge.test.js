@@ -14,6 +14,7 @@
 const assert = require('assert');
 const fs = require('fs');
 const path = require('path');
+const vm = require('vm');
 
 let passed = 0, failed = 0;
 function check(cond, label) {
@@ -91,7 +92,7 @@ global.document = {
   getElementById: (id) => {
     if (!domElements[id]) {
       if (id === 'priceChartCanvas') domElements[id] = makeCanvasStub();
-      else domElements[id] = { id, innerHTML: '', textContent: '', addEventListener: (evt, fn) => { capturedHandlers[id] = fn; }, checked: true };
+      else domElements[id] = { id, innerHTML: '', textContent: '', style: {}, addEventListener: (evt, fn) => { capturedHandlers[id] = fn; }, checked: true };
     }
     return domElements[id];
   },
@@ -104,6 +105,8 @@ global.window.FNO_FACTORS_CATALOG = null;
 const end = coreSource.indexOf('\nfunction render(){');
 if (end === -1) { console.error('FATAL: render() boundary marker not found'); process.exit(1); }
 eval(coreSource.slice(0, end));
+vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../assets/chart-indicator-engine.js'), 'utf8'), global);
+vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../assets/chart-tv-extensions.js'), 'utf8'), global);
 
 {
   localStorage.clear();

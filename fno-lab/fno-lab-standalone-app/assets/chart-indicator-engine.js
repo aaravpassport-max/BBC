@@ -114,16 +114,27 @@
     return ast;
   }
 
-  function evalSeriesNode(node, candles) {
+  function resolveParamIdent(name, params) {
+    if (!params || typeof params !== 'object') return null;
+    const key = String(name || '').toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(params, key) && Number.isFinite(Number(params[key]))) {
+      return Number(params[key]);
+    }
+    return null;
+  }
+
+  function evalSeriesNode(node, candles, params) {
     if (node.type === 'number') {
       return candles.map(() => node.value);
     }
     if (node.type === 'ident') {
+      const paramVal = resolveParamIdent(node.name, params);
+      if (paramVal != null) return candles.map(() => paramVal);
       return candleSource(node.name, candles);
     }
     if (node.type === 'binop') {
-      const a = evalSeriesNode(node.left, candles);
-      const b = evalSeriesNode(node.right, candles);
+      const a = evalSeriesNode(node.left, candles, params);
+      const b = evalSeriesNode(node.right, candles, params);
       return a.map((v, i) => {
         const x = v;
         const y = b[i];
@@ -143,20 +154,29 @@
       }
       if (fn === 'ema' || fn === 'sma' || fn === 'rsi') {
         if (node.args.length !== 2) throw new Error(`${fn}() requires 2 arguments`);
-        const src = evalSeriesNode(node.args[0], candles);
+        const src = evalSeriesNode(node.args[0], candles, params);
         const periodNode = node.args[1];
-        if (periodNode.type !== 'number') throw new Error(`${fn}() period must be a number literal`);
-        const p = periodNode.value;
+        let p = null;
+        if (periodNode.type === 'number') p = periodNode.value;
+        else if (periodNode.type === 'ident') {
+          p = resolveParamIdent(periodNode.name, params);
+          if (p == null) throw new Error(`${fn}() period must be a number or param name (e.g. period)`);
+        } else throw new Error(`${fn}() period must be a number or param`);
         if (fn === 'ema') return emaSeries(src, p);
         if (fn === 'sma') return smaSeries(src, p);
         return rsiSeries(src, p);
       }
       if (fn === 'highest' || fn === 'lowest') {
         if (node.args.length !== 2) throw new Error(`${fn}() requires 2 arguments`);
-        const src = evalSeriesNode(node.args[0], candles);
+        const src = evalSeriesNode(node.args[0], candles, params);
         const periodNode = node.args[1];
-        if (periodNode.type !== 'number') throw new Error(`${fn}() period must be a number literal`);
-        const p = Math.max(1, periodNode.value | 0);
+        let pRaw = null;
+        if (periodNode.type === 'number') pRaw = periodNode.value;
+        else if (periodNode.type === 'ident') {
+          pRaw = resolveParamIdent(periodNode.name, params);
+          if (pRaw == null) throw new Error(`${fn}() period must be a number or param name`);
+        } else throw new Error(`${fn}() period must be a number or param`);
+        const p = Math.max(1, pRaw | 0);
         return src.map((_, i) => {
           if (i + 1 < p) return NaN;
           let hi = -Infinity;
@@ -172,12 +192,12 @@
     throw new Error('Invalid formula AST');
   }
 
-  function evaluateFormula(formula, candles) {
+  function evaluateFormula(formula, candles, params) {
     if (!formula || !String(formula).trim()) return { error: 'Formula is empty', values: null };
     if (!Array.isArray(candles) || !candles.length) return { error: 'No candles', values: null };
     try {
       const ast = parseFormula(String(formula).trim());
-      const values = evalSeriesNode(ast, candles);
+      const values = evalSeriesNode(ast, candles, params || null);
       if (!values || values.length !== candles.length) return { error: 'Formula did not produce a series', values: null };
       return { error: null, values };
     } catch (e) {
@@ -202,11 +222,21 @@
     } catch (e) { /* quota */ }
   }
 
+  function normalizeCustomParams(raw) {
+    if (!raw || typeof raw !== 'object') return {};
+    const out = {};
+    Object.keys(raw).forEach((k) => {
+      const v = Number(raw[k]);
+      if (Number.isFinite(v)) out[String(k).toLowerCase()] = v;
+    });
+    return out;
+  }
+
   function validateCustomDefinition(def, sampleCandles) {
     if (!def || !def.name || !String(def.name).trim()) return 'Name is required';
     if (def.type !== 'overlay' && def.type !== 'panel') return 'Type must be overlay or panel';
     const sample = sampleCandles && sampleCandles.length ? sampleCandles : [{ t: 1, o: 10, h: 11, l: 9, c: 10, v: 1 }];
-    const out = evaluateFormula(def.formula, sample);
+    const out = evaluateFormula(def.formula, sample, normalizeCustomParams(def.params));
     if (out.error) return out.error;
     return null;
   }
@@ -230,10 +260,11 @@
       },
       paramSchema: [
         { key: 'formula', label: 'Formula', type: 'text' },
+        { key: 'params', label: 'Params (JSON)', type: 'text' },
       ],
       compute(candles, params) {
         const p = Object.assign({}, def, params);
-        const ev = evaluateFormula(p.formula, candles);
+        const ev = evaluateFormula(p.formula, candles, normalizeCustomParams(p.params || def.params));
         if (ev.error || !ev.values) return def.type === 'panel' ? { panel: null } : { lines: [] };
         const style = { color: p.color, lineWidth: p.lineWidth, lineStyle: p.lineStyle };
         if (def.type === 'overlay') {
@@ -279,6 +310,7 @@
       name: String(def.name).trim().slice(0, 80),
       type: def.type === 'panel' ? 'panel' : 'overlay',
       formula: String(def.formula).trim().slice(0, 500),
+      params: normalizeCustomParams(def.params),
       color: def.color || '#f472b6',
       lineWidth: def.lineWidth != null ? def.lineWidth : 1.5,
       lineStyle: def.lineStyle || 'solid',
@@ -518,6 +550,26 @@
         };
       },
     },
+    volume: {
+      id: 'volume',
+      name: 'Volume',
+      type: 'panel',
+      defaultParams: { color: '#64748b', panelHeight: 72 },
+      paramSchema: [],
+      compute(candles, params) {
+        const vols = candles.map(c => (Number.isFinite(c.v) ? c.v : 0));
+        return {
+          panel: {
+            id: 'volume',
+            title: 'Volume',
+            autoScale: true,
+            panelHeight: params.panelHeight || 72,
+            histogram: { values: vols, upColor: '#4ade80', downColor: '#f87171' },
+            lines: [],
+          },
+        };
+      },
+    },
     stochastic: {
       id: 'stochastic',
       name: 'Stochastic',
@@ -595,7 +647,8 @@
     return { overlays, panels };
   }
 
-  function listTypes() {
+  function listTypes(filterQuery) {
+    const q = filterQuery ? String(filterQuery).trim().toLowerCase() : '';
     const builtIn = Object.keys(REGISTRY).map((id) => {
       const r = REGISTRY[id];
       return { id, name: r.name, type: r.type, defaultParams: r.defaultParams, paramSchema: r.paramSchema || [], custom: false };
@@ -608,7 +661,47 @@
       paramSchema: [{ key: 'formula', label: 'Formula', type: 'text' }],
       custom: true,
     }));
-    return builtIn.concat(custom);
+    const all = builtIn.concat(custom);
+    if (!q) return all;
+    return all.filter((t) => t.name.toLowerCase().includes(q) || t.id.toLowerCase().includes(q));
+  }
+
+  function exportCustomDefinitionsPack() {
+    return {
+      format: 'fno-indicator-pack-v1',
+      version: 1,
+      exportedAt: Date.now(),
+      indicators: loadCustomDefinitions(),
+    };
+  }
+
+  function importCustomDefinitionsPack(raw, options) {
+    const opts = options || { merge: true, addToChart: false };
+    let data;
+    try {
+      data = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    } catch (e) {
+      return { ok: false, error: 'Invalid JSON file' };
+    }
+    let list = [];
+    if (data && data.format === 'fno-indicator-pack-v1' && Array.isArray(data.indicators)) {
+      list = data.indicators;
+    } else if (data && data.name && data.formula) {
+      list = [data];
+    } else if (Array.isArray(data)) {
+      list = data;
+    } else {
+      return { ok: false, error: 'Unrecognized indicator pack (use fno-indicator-pack-v1 or single indicator object)' };
+    }
+    const saved = [];
+    const errors = [];
+    list.forEach((item) => {
+      const res = saveCustomDefinition(item);
+      if (res.ok) saved.push(res.def);
+      else errors.push((item.name || 'indicator') + ': ' + res.error);
+    });
+    if (!saved.length) return { ok: false, error: errors.join('; ') || 'Nothing imported' };
+    return { ok: true, saved, errors, addToChart: !!opts.addToChart };
   }
 
   function addInstance(instances, typeId) {
@@ -645,6 +738,9 @@
     deleteCustomDefinition,
     listCustomDefinitions,
     validateCustomDefinition,
+    exportCustomDefinitionsPack,
+    importCustomDefinitionsPack,
+    normalizeCustomParams,
     /** @deprecated chart uses session VWAP; brain factors may still use closeAvgProxy */
     sessionVwapSeries,
     emaSeries,
