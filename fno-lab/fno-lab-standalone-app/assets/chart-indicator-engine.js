@@ -10,6 +10,64 @@
   const CUSTOM_DEFS_KEY = 'fno_chart_custom_indicators_v1';
   const CUSTOM_TYPE_PREFIX = 'custom:';
 
+  let formulaEvalContext = null;
+
+  function setFormulaEvalContext(ctx) {
+    formulaEvalContext = ctx && typeof ctx === 'object' ? ctx : null;
+  }
+
+  function aggregateCandlesByTimeframe(rawCandles, minutes) {
+    if (!Array.isArray(rawCandles) || !rawCandles.length || !(minutes > 1)) return rawCandles || [];
+    const bucketMs = minutes * 60000;
+    const out = [];
+    let cur = null;
+    let curBucketStart = null;
+    rawCandles.forEach((cd) => {
+      if (typeof cd.t !== 'number') return;
+      const bucketStart = Math.floor(cd.t / bucketMs) * bucketMs;
+      if (cur === null || bucketStart !== curBucketStart) {
+        if (cur) out.push(cur);
+        curBucketStart = bucketStart;
+        cur = { t: cd.t, o: cd.o, h: cd.h, l: cd.l, c: cd.c, v: Number.isFinite(cd.v) ? cd.v : 0 };
+      } else {
+        cur.t = cd.t;
+        cur.h = Math.max(cur.h, cd.h);
+        cur.l = Math.min(cur.l, cd.l);
+        cur.c = cd.c;
+        if (Number.isFinite(cd.v)) cur.v += cd.v;
+      }
+    });
+    if (cur) out.push(cur);
+    return out;
+  }
+
+  function bucketStartTs(ts, minutes) {
+    const bucketMs = minutes * 60000;
+    return Math.floor(ts / bucketMs) * bucketMs;
+  }
+
+  function htfSeries(field, minutes, chartCandles) {
+    const ctx = formulaEvalContext;
+    const raw = ctx && Array.isArray(ctx.rawCandles) ? ctx.rawCandles : null;
+    const chartTf = ctx && ctx.chartTfMinutes ? ctx.chartTfMinutes : 1;
+    if (!raw || !raw.length) return chartCandles.map(() => NaN);
+    if (minutes <= chartTf) return candleSource(field, chartCandles);
+    const htfBars = aggregateCandlesByTimeframe(raw, minutes);
+    const htfMap = {};
+    htfBars.forEach((b) => {
+      if (typeof b.t !== 'number') return;
+      htfMap[bucketStartTs(b.t, minutes)] = b;
+    });
+    return chartCandles.map((cd) => {
+      if (typeof cd.t !== 'number') return NaN;
+      const b = htfMap[bucketStartTs(cd.t, minutes)];
+      if (!b) return NaN;
+      const row = [b];
+      const vals = candleSource(field, row);
+      return vals[0];
+    });
+  }
+
   function candleSource(name, candles) {
     const n = String(name || '').toLowerCase();
     if (n === 'close') return candles.map(c => c.c);
@@ -187,7 +245,20 @@
           return fn === 'highest' ? hi : lo;
         });
       }
-      throw new Error(`Unknown function "${fn}" — use ema, sma, rsi, vwap, highest, lowest`);
+      if (fn === 'htf') {
+        if (node.args.length !== 2) throw new Error('htf() requires field and timeframe minutes');
+        const fieldNode = node.args[0];
+        if (fieldNode.type !== 'ident') throw new Error('htf() first arg must be close/open/high/low/volume/hl2/hlc3/ohlc4');
+        const periodNode = node.args[1];
+        let minutes = null;
+        if (periodNode.type === 'number') minutes = periodNode.value;
+        else if (periodNode.type === 'ident') {
+          minutes = resolveParamIdent(periodNode.name, params);
+        }
+        if (!Number.isFinite(minutes) || minutes <= 0) throw new Error('htf() timeframe must be a positive number of minutes');
+        return htfSeries(fieldNode.name, minutes, candles);
+      }
+      throw new Error(`Unknown function "${fn}" — use ema, sma, rsi, vwap, highest, lowest, htf`);
     }
     throw new Error('Invalid formula AST');
   }
@@ -778,6 +849,7 @@
     mergeParams,
     getDefinition,
     evaluateFormula,
+    setFormulaEvalContext,
     loadCustomDefinitions,
     saveCustomDefinition,
     deleteCustomDefinition,

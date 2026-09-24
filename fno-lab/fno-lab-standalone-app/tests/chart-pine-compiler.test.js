@@ -48,10 +48,24 @@ assert.strictEqual(chain.formula, '(ema(close, 9)) - (ema(close, 21))');
 
 const bad = PINE.compilePineScript(`//@version=5
 indicator("X")
-x = request.security("NSE:NIFTY", "D", close)
+x = request.security("NSE:RELIANCE", "D", close)
 plot(x)`);
 assert.strictEqual(bad.ok, false);
-assert.ok(/request\.security/.test(bad.error));
+assert.ok(/Cross-symbol|not supported/i.test(bad.error));
+
+const htfPine = `//@version=5
+indicator("Daily close", overlay=true)
+d = request.security(syminfo.tickerid, "D", close)
+plot(ta.ema(d, 9), color=color.orange)`;
+const htf = PINE.compilePineScript(htfPine);
+assert.strictEqual(htf.ok, true);
+assert.ok(/htf\(close,\s*1440\)/.test(htf.formula), 'formula=' + htf.formula);
+
+const strat = PINE.compilePineScript(`//@version=5
+strategy("X")
+plot(close)`);
+assert.strictEqual(strat.ok, false);
+assert.ok(/strategy/i.test(strat.error));
 
 const candles = [];
 for (let i = 0; i < 40; i++) candles.push({ t: i, o: 100 + i, h: 101 + i, l: 99 + i, c: 100 + i, v: 10 });

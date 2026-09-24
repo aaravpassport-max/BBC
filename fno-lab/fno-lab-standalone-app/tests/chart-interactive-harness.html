@@ -277,13 +277,22 @@ async function runClickAudit() {
 
   const pineBeforeBad = harnessPineDefCount();
   pineTa.value = `//@version=5
-indicator("Bad")
-x = request.security("NSE:NIFTY", "D", close)
-plot(x)`;
+indicator("Bad strat")
+strategy("Not allowed")
+plot(close)`;
   document.getElementById('chartCustomIndPineCompile').click();
   await sleep(60);
-  check('Pine rejects request.security', /request\.security/i.test(pineErr.textContent || ''));
+  check('Pine rejects strategy()', /strategy/i.test(pineErr.textContent || ''));
   check('Invalid Pine does not add def', harnessPineDefCount() === pineBeforeBad);
+
+  pineTa.value = `//@version=5
+indicator("HTF EMA", overlay=true)
+d = request.security(syminfo.tickerid, "D", close)
+plot(ta.ema(d, 9))`;
+  document.getElementById('chartCustomIndPineCompile').click();
+  await sleep(120);
+  const htfDef = FNO_CHART_INDICATORS.listCustomDefinitions().find((d) => d.name === 'HTF EMA');
+  check('Pine request.security same symbol compiles', htfDef && /htf\(close,\s*1440\)/.test(htfDef.formula));
 
   pineTa.value = HARNESS_RSI_PINE;
   document.getElementById('chartCustomIndPineCompile').click();

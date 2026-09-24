@@ -21,8 +21,15 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../assets/chart-indicat
 vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../assets/chart-tv-extensions.js'), 'utf8'), sandbox);
 
 const X = sandbox.FNO_CHART_EXTENSIONS;
+const IND = sandbox.FNO_CHART_INDICATORS;
 
 assert.ok(JSON.stringify(X.loadWatchlist()) === JSON.stringify(['NIFTY', 'BANKNIFTY', 'FINNIFTY']));
+
+IND.saveInstances(IND.loadInstances().concat([
+  { instanceId: 'rsi1', typeId: 'rsi', enabled: true, params: { period: 14, color: '#a78bfa', lineWidth: 1.5, lineStyle: 'solid' } },
+  { instanceId: 'macd1', typeId: 'macd', enabled: true, params: { fast: 12, slow: 26, signal: 9, color: '#22d3ee', lineWidth: 1.5, lineStyle: 'solid' } },
+  { instanceId: 'bb1', typeId: 'bollinger', enabled: true, params: { period: 20, stdDev: 2, color: '#94a3b8', lineWidth: 1, lineStyle: 'solid' } },
+]));
 
 const bundle = {
   panels: [{
@@ -53,6 +60,7 @@ X.rearmAlert(rsiId);
 assert.ok(X.loadIndicatorAlerts()[0].enabled);
 
 X.addIndicatorAlert({ symbol: 'NIFTY', kind: 'macd_zero', direction: 'above' });
+assert.ok(X.loadIndicatorAlerts().some((a) => a.kind === 'macd_zero'));
 X.evaluateIndicatorAlerts('NIFTY', bundle, 101, 100, 1, 0);
 const macdFired = X.evaluateIndicatorAlerts('NIFTY', bundle, 101, 100, 2, 1);
 assert.strictEqual(macdFired.length, 1);

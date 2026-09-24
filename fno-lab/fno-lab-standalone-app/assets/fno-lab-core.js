@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.59-chart-pine-audit-harness';
+const FNO_CORE_BUILD_MARKER = '16.37.60-pine-htf-subset-ux';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -3490,6 +3490,13 @@ function fnoChartDrawLineSeries(c2d, visible, values, yFor, padL, slot, style) {
 
 function fnoChartResolveIndicatorData(marketCtx, aggregated) {
   if (typeof FNO_CHART_INDICATORS !== 'undefined' && FNO_CHART_INDICATORS.computeForCandles) {
+    const rawCandles = (marketCtx && (marketCtx.candlesForChart || marketCtx.candles)) || [];
+    if (FNO_CHART_INDICATORS.setFormulaEvalContext) {
+      FNO_CHART_INDICATORS.setFormulaEvalContext({
+        rawCandles,
+        chartTfMinutes: fnoChartViewState.timeframeMinutes || 1,
+      });
+    }
     const instances = FNO_CHART_INDICATORS.loadInstances();
     return FNO_CHART_INDICATORS.computeForCandles(aggregated, instances);
   }
@@ -3998,7 +4005,8 @@ function fnoChartWireIndicatorManager(redraw) {
       const errEl = document.getElementById('chartCustomIndError');
       const res = FNO_CHART_INDICATORS.saveCustomDefinitionFromPine(pineTa.value);
       if (!res.ok) {
-        if (errEl) errEl.textContent = res.error || 'Pine compile failed';
+        const hint = (typeof FNO_CHART_PINE !== 'undefined' && FNO_CHART_PINE.subsetHelpText) ? FNO_CHART_PINE.subsetHelpText() : '';
+        if (errEl) errEl.textContent = (res.error || 'Pine compile failed') + (hint ? '. ' + hint : '');
         return;
       }
       if (errEl) {
@@ -4027,6 +4035,14 @@ function fnoChartWireIndicatorManager(redraw) {
       };
       reader.readAsText(file);
       pineImportFile.value = '';
+    });
+  }
+  const pineSampleBtn = document.getElementById('chartCustomIndPineSample');
+  if (pineSampleBtn && pineTa) {
+    pineSampleBtn.addEventListener('click', () => {
+      pineTa.value = '//@version=5\nindicator("Sample EMA (works in FNO subset)", overlay=true)\nlen = input.int(14, "Length")\nplot(ta.ema(close, len), color=color.orange)';
+      const errEl = document.getElementById('chartCustomIndError');
+      if (errEl) errEl.textContent = '';
     });
   }
   if (customCancel && customPanel) customCancel.addEventListener('click', () => { customPanel.style.display = 'none'; });

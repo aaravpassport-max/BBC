@@ -5,11 +5,15 @@
 (function (global) {
   'use strict';
 
-  const SUBSET_VERSION = 1;
+  const SUBSET_VERSION = 2;
   const MAX_SOURCE_LEN = 120000;
 
+  const SUBSET_HELP =
+    'This app compiles a Pine subset (not TradingView). Supported: indicator(), input.int/float, one plot(), '
+    + 'ta.ema/sma/rsi/highest/lowest/vwap, math, and same-chart request.security(syminfo.tickerid, "D", close) → higher timeframe OHLC. '
+    + 'Not supported: strategies, imports, if/for/while, arrays, other symbols in request.security.';
+
   const UNSUPPORTED_PATTERNS = [
-    { re: /\brequest\.security\b/, msg: 'request.security() is not supported' },
     { re: /\bstrategy\s*\(/, msg: 'strategy() scripts are not supported (indicators only)' },
     { re: /\blibrary\s*\(/, msg: 'Pine libraries are not supported' },
     { re: /\bimport\s+/, msg: 'import is not supported' },
@@ -108,9 +112,62 @@
     return { varName, defval };
   }
 
+  const PINE_TF_MINUTES = {
+    '1': 1, '3': 3, '5': 5, '15': 15, '30': 30, '45': 45, '60': 60,
+    '120': 120, '180': 180, '240': 240, 'D': 1440, '1D': 1440, 'W': 10080, '1W': 10080,
+  };
+
+  function parsePineTimeframeMinutes(tfRaw) {
+    const s = String(tfRaw || '').trim().replace(/["']/g, '').toUpperCase();
+    if (Object.prototype.hasOwnProperty.call(PINE_TF_MINUTES, s)) return PINE_TF_MINUTES[s];
+    const n = Number(s);
+    if (Number.isFinite(n) && n > 0) return n;
+    return null;
+  }
+
+  function isSameChartSecuritySymbol(symArg) {
+    const a = String(symArg || '').trim();
+    if (/^syminfo\.(tickerid|ticker)\b/i.test(a)) return true;
+    if (/^ticker\b/i.test(a)) return true;
+    if (a === '""' || a === "''") return true;
+    if (/^["'][A-Za-z0-9._-]+["']$/.test(a) && !/:/.test(a)) return true;
+    if (/["'][A-Za-z]+:/.test(a)) return false;
+    if (/^["']/.test(a)) return false;
+    return true;
+  }
+
+  function transpileRequestSecurity(expr) {
+    let s = String(expr);
+    const re = /request\.security\s*\(\s*([^,]+?)\s*,\s*["']([^"']+)["']\s*,\s*(close|open|high|low|volume|hl2|hlc3|ohlc4)\s*\)/gi;
+    s = s.replace(re, (full, symArg, tf, field) => {
+      if (!isSameChartSecuritySymbol(symArg)) {
+        throw new Error('Cross-symbol request.security() is not supported — use syminfo.tickerid on the current chart only');
+      }
+      const mins = parsePineTimeframeMinutes(tf);
+      if (!mins) throw new Error(`Unsupported timeframe "${tf}" in request.security() — use 5, 15, 60, 240, D, W`);
+      return `htf(${field.toLowerCase()}, ${mins})`;
+    });
+    if (/request\.security/i.test(s)) {
+      throw new Error(
+        'request.security() only supports same-chart OHLCV (e.g. dailyClose = request.security(syminfo.tickerid, "D", close)) — not arbitrary expressions'
+      );
+    }
+    return s;
+  }
+
   function transpileTaCalls(expr) {
     let s = String(expr);
-    s = s.replace(/\bta\.(ema|sma|rsi|highest|lowest)\s*\(/gi, (_, fn) => fn.toLowerCase() + '(');
+    s = s.replace(/\bta\.(ema|sma|rsi|highest|lowest|vwap)\s*\(/gi, (_, fn) => fn.toLowerCase() + '(');
+    const unknownTa = s.match(/\bta\.([a-z_]+)\s*\(/i);
+    if (unknownTa) {
+      throw new Error(`Unsupported ta.${unknownTa[1]}() — supported: ema, sma, rsi, highest, lowest, vwap`);
+    }
+    return s;
+  }
+
+  function applyPineExprTransforms(expr) {
+    let s = transpileRequestSecurity(expr);
+    s = transpileTaCalls(s);
     return s;
   }
 
@@ -154,7 +211,7 @@
   }
 
   function transpileAssignmentRhs(rhs, varFormulas, params) {
-    let expr = transpileTaCalls(rhs.replace(/;+\s*$/, '').trim());
+    let expr = applyPineExprTransforms(rhs.replace(/;+\s*$/, '').trim());
     expr = substituteVars(expr, varFormulas);
     return expr.trim();
   }
@@ -219,19 +276,21 @@
     let plotExpr = null;
     let plotColor = null;
     let plotCount = 0;
+    let fatalError = null;
 
-    lines.forEach((line) => {
+    for (let li = 0; li < lines.length; li++) {
+      const line = lines[li];
       const meta = parseIndicatorMeta(line);
       if (meta) {
         name = meta.name;
         type = meta.type;
-        return;
+        continue;
       }
       const inp = parseInputLine(line);
       if (inp) {
         if (inp.error) warnings.push(inp.error);
         else params[inp.varName] = inp.defval;
-        return;
+        continue;
       }
       const plot = extractPlot(line);
       if (plot) {
@@ -240,7 +299,7 @@
           plotExpr = plot.plotExpr;
           plotColor = plot.color;
         }
-        return;
+        continue;
       }
       const assign = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/);
       if (assign && !/\binput\./.test(assign[2]) && !/\bplot\s*\(/.test(assign[2])) {
@@ -248,15 +307,27 @@
         try {
           varFormulas[vname] = transpileAssignmentRhs(assign[2], varFormulas, params);
         } catch (e) {
-          warnings.push(`${vname}: ${e.message || String(e)}`);
+          const msg = e.message || String(e);
+          if (/request\.security|Cross-symbol|Unsupported timeframe|Unsupported ta\./i.test(msg)) {
+            fatalError = msg;
+            break;
+          }
+          warnings.push(`${vname}: ${msg}`);
         }
       }
-    });
+    }
+
+    if (fatalError) return { ok: false, error: fatalError };
 
     if (!plotExpr) return { ok: false, error: 'Could not parse plot() expression' };
     if (plotCount > 1) warnings.push('Only the first plot() is rendered; extra plots are ignored in this subset');
 
-    let formula = transpileTaCalls(plotExpr);
+    let formula;
+    try {
+      formula = applyPineExprTransforms(plotExpr);
+    } catch (e) {
+      return { ok: false, error: e.message || String(e) };
+    }
     formula = substituteVars(formula, varFormulas);
     formula = formula.replace(/\s+/g, ' ').trim();
     const shapeErr = validateFormulaShape(formula);
@@ -299,9 +370,15 @@
     return /^\/\/@version/i.test(s) || /\bindicator\s*\(/i.test(s) || (/\bplot\s*\(/i.test(s) && /\b(ta\.|input\.)/i.test(s));
   }
 
+  function subsetHelpText() {
+    return SUBSET_HELP;
+  }
+
   global.FNO_CHART_PINE = {
     SUBSET_VERSION,
+    SUBSET_HELP,
     compilePineScript,
     looksLikePineSource,
+    subsetHelpText,
   };
 })(typeof window !== 'undefined' ? window : global);

@@ -328,10 +328,29 @@
 
   const INDICATOR_ALERT_KINDS = ['rsi', 'close_cross_ema', 'macd_zero', 'macd_signal', 'bb_upper', 'bb_lower'];
 
+  const INDICATOR_ALERT_REQUIRES = {
+    rsi: { typeId: 'rsi', label: 'RSI' },
+    close_cross_ema: { typeId: 'ema', label: 'EMA' },
+    macd_zero: { typeId: 'macd', label: 'MACD' },
+    macd_signal: { typeId: 'macd', label: 'MACD' },
+    bb_upper: { typeId: 'bollinger', label: 'Bollinger Bands' },
+    bb_lower: { typeId: 'bollinger', label: 'Bollinger Bands' },
+  };
+
+  function chartHasEnabledIndicator(typeId) {
+    const ind = global.FNO_CHART_INDICATORS;
+    if (!ind || typeof ind.loadInstances !== 'function') return true;
+    return ind.loadInstances().some((row) => row.typeId === typeId && row.enabled);
+  }
+
   function addIndicatorAlert(opts) {
     const o = opts || {};
     let kind = String(o.kind || 'rsi');
     if (INDICATOR_ALERT_KINDS.indexOf(kind) < 0) kind = 'rsi';
+    const need = INDICATOR_ALERT_REQUIRES[kind];
+    if (need && !chartHasEnabledIndicator(need.typeId)) {
+      return { ok: false, error: `Add and enable ${need.label} on the chart first (+ Add indicator → ${need.label})` };
+    }
     const level = Number(o.level);
     if (kind === 'rsi' && !Number.isFinite(level)) return { ok: false, error: 'RSI level required' };
     const direction = o.direction === 'below' ? 'below' : 'above';
