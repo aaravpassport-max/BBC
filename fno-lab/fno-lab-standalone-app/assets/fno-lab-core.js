@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.46-chart-audit-v2';
+const FNO_CORE_BUILD_MARKER = '16.37.47-option-ltp-chart-v1';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -2484,6 +2484,7 @@ function attemptStorageQuotaRecovery() {
   let freed = false;
   if (trimStorageJsonArray(FNO_DECISION_LOG_KEY, 800)) freed = true;
   if (trimStorageJsonArray(FNO_SNAP_HISTORY_KEY, 80)) freed = true;
+  if (trimStorageJsonArray(FNO_POSITION_LTP_HISTORY_KEY, 200)) freed = true;
   if (trimStorageJsonArray('fno_mode_trade_log_v1', 300)) freed = true;
   if (trimStorageJsonArray(STORAGE.journal, 400)) freed = true;
   if (trimStorageJsonArray(STORAGE.autoTrades + '_history', 200)) freed = true;
@@ -2818,6 +2819,7 @@ let fnoChartViewState = {
   priceZoom: 1,
   pricePan: 0,
   autoFitPrice: true,
+  showOptionLtp: true,
   controlsWired: false,
   indicatorUiWired: false,
   layoutWired: false,
@@ -2906,6 +2908,7 @@ function fnoChartLoadViewState() {
     if (Number.isFinite(o.priceZoom)) fnoChartViewState.priceZoom = Math.max(0.35, Math.min(8, o.priceZoom));
     if (Number.isFinite(o.pricePan)) fnoChartViewState.pricePan = o.pricePan;
     if (typeof o.autoFitPrice === 'boolean') fnoChartViewState.autoFitPrice = o.autoFitPrice;
+    if (typeof o.showOptionLtp === 'boolean') fnoChartViewState.showOptionLtp = o.showOptionLtp;
   } catch (e) { /* corrupt storage */ }
 }
 
@@ -2919,6 +2922,7 @@ function fnoChartSaveViewState() {
       priceZoom: fnoChartViewState.priceZoom || 1,
       pricePan: fnoChartViewState.pricePan || 0,
       autoFitPrice: fnoChartViewState.autoFitPrice !== false,
+      showOptionLtp: fnoChartViewState.showOptionLtp !== false,
     }));
   } catch (e) { /* quota */ }
 }
@@ -3597,6 +3601,15 @@ function fnoChartWireIndicatorManager(redraw) {
     renderList();
     redraw();
   });
+  const optLtpBox = document.getElementById('chartShowOptionLtp');
+  if (optLtpBox) {
+    optLtpBox.checked = fnoChartViewState.showOptionLtp !== false;
+    optLtpBox.addEventListener('change', () => {
+      fnoChartViewState.showOptionLtp = optLtpBox.checked;
+      fnoChartSaveViewState();
+      redraw();
+    });
+  }
 }
 
 /**
@@ -3927,6 +3940,9 @@ function renderPriceChart(marketCtx) {
 
   fnoChartUpdateTfButtons();
   const crosshairBarIdx = fnoChartCrosshairBarIndex(ch, padL, slot, plotW, visible.length);
+  const openForChart = loadObj(STORAGE.autoTrades);
+  const ltpHist = getPositionLtpSeriesForOpen(openForChart);
+  fnoChartRenderOptionLtpPanel(openForChart, ltpHist, visible, startIdx, padL, slot, plotW, cssWidth, crosshairBarIdx);
   fnoChartRenderOscillatorPanels(document.getElementById('priceChartPanels'), indicatorBundle.panels, visible, startIdx, aggregated, crosshairBarIdx);
 }
 
@@ -3996,6 +4012,211 @@ function recordSnapshot(snapshot) {
   if (!entry) return history;
   history.push(entry);
   return persistSnapshotHistory(history);
+}
+
+const FNO_POSITION_LTP_HISTORY_KEY = 'fno_position_ltp_history_v1';
+const FNO_POSITION_LTP_MAX_ENTRIES = 900;
+const FNO_POSITION_LTP_MAX_AGE_MS = 48 * 60 * 60 * 1000;
+const FNO_POSITION_LTP_MIN_INTERVAL_MS = 5000;
+
+function slimPositionLtpEntry(raw) {
+  if (!raw || typeof raw !== 'object' || !raw.positionId) return null;
+  const ltp = Number(raw.ltp);
+  if (!Number.isFinite(ltp)) return null;
+  return {
+    ts: typeof raw.ts === 'number' ? raw.ts : Date.now(),
+    positionId: String(raw.positionId),
+    symbol: raw.symbol != null ? String(raw.symbol) : '',
+    strike: Number.isFinite(raw.strike) ? raw.strike : (raw.strike != null ? parseFloat(raw.strike) : null),
+    optionType: raw.optionType === 'PE' ? 'PE' : (raw.optionType === 'CE' ? 'CE' : null),
+    ltp,
+    target: Number.isFinite(raw.target) ? raw.target : null,
+    sl: Number.isFinite(raw.sl) ? raw.sl : null,
+    trailingSl: Number.isFinite(raw.trailingSl) ? raw.trailingSl : null,
+    entryPrice: Number.isFinite(raw.entryPrice) ? raw.entryPrice : null,
+    spot: Number.isFinite(raw.spot) ? raw.spot : null,
+  };
+}
+
+function prunePositionLtpHistory(history) {
+  const cutoff = Date.now() - FNO_POSITION_LTP_MAX_AGE_MS;
+  return (history || [])
+    .map(slimPositionLtpEntry)
+    .filter(e => e && e.ts >= cutoff)
+    .slice(-FNO_POSITION_LTP_MAX_ENTRIES);
+}
+
+function loadPositionLtpHistory() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(FNO_POSITION_LTP_HISTORY_KEY) || '[]');
+    return Array.isArray(raw) ? prunePositionLtpHistory(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function persistPositionLtpHistory(history) {
+  const capped = prunePositionLtpHistory(history);
+  try {
+    localStorage.setItem(FNO_POSITION_LTP_HISTORY_KEY, JSON.stringify(capped));
+  } catch (e) {
+    try {
+      localStorage.setItem(FNO_POSITION_LTP_HISTORY_KEY, JSON.stringify(capped.slice(-100)));
+    } catch (e2) { /* quota */ }
+  }
+  return capped;
+}
+
+/**
+ * One real option LTP sample per refresh while a paper position is open.
+ * Never throws — refresh must continue if storage is full.
+ */
+function recordPositionLtpTick(open, marketCtx, ltp) {
+  if (typeof localStorage === 'undefined' || !open || !open.id || !Number.isFinite(ltp)) return;
+  const history = loadPositionLtpHistory();
+  const last = history.length ? history[history.length - 1] : null;
+  const now = Date.now();
+  if (last && last.positionId === String(open.id) && (now - last.ts) < FNO_POSITION_LTP_MIN_INTERVAL_MS && last.ltp === ltp) {
+    return;
+  }
+  const trailingSl = open.trailingEnabled && Number.isFinite(open.trailingSl) ? open.trailingSl : null;
+  history.push(slimPositionLtpEntry({
+    ts: now,
+    positionId: open.id,
+    symbol: open.symbol || (marketCtx && marketCtx.symbol) || '',
+    strike: open.strike,
+    optionType: open.optionType,
+    ltp,
+    target: open.target,
+    sl: open.sl,
+    trailingSl,
+    entryPrice: open.entryPrice,
+    spot: marketCtx && Number.isFinite(marketCtx.spot) ? marketCtx.spot : null,
+  }));
+  persistPositionLtpHistory(history.filter(Boolean));
+}
+
+function getPositionLtpSeriesForOpen(open) {
+  if (!open || !open.id) return [];
+  const pid = String(open.id);
+  return loadPositionLtpHistory().filter(e => e.positionId === pid);
+}
+
+function fnoChartMapHistoryToVisibleBars(history, visible, maxAlignMs) {
+  maxAlignMs = maxAlignMs != null ? maxAlignMs : 90 * 60 * 1000;
+  if (!visible.length || !history.length) return visible.map(() => NaN);
+  return visible.map((cd) => {
+    let best = NaN;
+    let bestDiff = Infinity;
+    history.forEach((h) => {
+      if (!Number.isFinite(h.ltp)) return;
+      const d = Math.abs(h.ts - cd.t);
+      if (d < bestDiff && d <= maxAlignMs) {
+        bestDiff = d;
+        best = h.ltp;
+      }
+    });
+    return best;
+  });
+}
+
+function fnoChartRenderOptionLtpPanel(open, history, visible, startIdx, padL, slot, plotW, cssWidth, crosshairBarIdx) {
+  const wrap = document.getElementById('priceChartOptionWrap');
+  const canvas = document.getElementById('priceChartOptionCanvas');
+  const titleEl = document.getElementById('priceChartOptionTitle');
+  if (!wrap || !canvas || !titleEl) return;
+  if (fnoChartViewState.showOptionLtp === false || !open || !open.id || !history.length) {
+    wrap.style.display = 'none';
+    return;
+  }
+  wrap.style.display = 'block';
+  const trailNote = open.trailingEnabled && Number.isFinite(open.trailingSl) ? ` · Trail SL ${fnoChartFormatOhlcPrice(open.trailingSl)}` : '';
+  titleEl.textContent = `${open.optionType || ''} ${open.strike != null ? open.strike : ''} option LTP (${history.length} live ticks) · Entry ${fnoChartFormatOhlcPrice(open.entryPrice)} · T ${fnoChartFormatOhlcPrice(open.target)} · SL ${fnoChartFormatOhlcPrice(open.sl)}${trailNote}`;
+
+  const cssH = 140;
+  const dpr = (typeof window !== 'undefined' && window.devicePixelRatio) || 1;
+  canvas.style.width = '100%';
+  canvas.style.height = `${cssH}px`;
+  canvas.width = Math.round((cssWidth || canvas.clientWidth || 600) * dpr);
+  canvas.height = Math.round(cssH * dpr);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, cssWidth || 600, cssH);
+
+  const padT = 8;
+  const padB = 18;
+  const padR = 52;
+  const plotH = cssH - padT - padB;
+  const ltpSeries = fnoChartMapHistoryToVisibleBars(history, visible);
+  let minP = Infinity;
+  let maxP = -Infinity;
+  ltpSeries.forEach(v => { if (Number.isFinite(v)) { minP = Math.min(minP, v); maxP = Math.max(maxP, v); } });
+  [open.entryPrice, open.target, open.sl, open.trailingEnabled ? open.trailingSl : null].forEach((v) => {
+    if (Number.isFinite(v)) { minP = Math.min(minP, v); maxP = Math.max(maxP, v); }
+  });
+  if (!Number.isFinite(minP) || !Number.isFinite(maxP)) {
+    titleEl.textContent += ' — waiting for LTP samples…';
+    return;
+  }
+  if (maxP === minP) { maxP += 1; minP -= 1; }
+  const padY = (maxP - minP) * 0.08 || 0.5;
+  minP -= padY;
+  maxP += padY;
+  const yFor = p => padT + plotH - ((p - minP) / (maxP - minP)) * plotH;
+
+  const drawHLine = (price, color, dashed) => {
+    if (!Number.isFinite(price)) return;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    if (typeof ctx.setLineDash === 'function') ctx.setLineDash(dashed ? [4, 3] : []);
+    const y = yFor(price);
+    ctx.beginPath();
+    ctx.moveTo(padL, y);
+    ctx.lineTo(padL + plotW, y);
+    ctx.stroke();
+    if (typeof ctx.setLineDash === 'function') ctx.setLineDash([]);
+  };
+  drawHLine(open.entryPrice, '#94a3b8', true);
+  drawHLine(open.target, '#4ade80', false);
+  drawHLine(open.sl, '#ef4444', false);
+  if (open.trailingEnabled) drawHLine(open.trailingSl, '#f97316', true);
+
+  fnoChartDrawLineSeries(ctx, visible, ltpSeries, yFor, padL, slot, { color: '#38bdf8', lineWidth: 2, lineStyle: 'solid' });
+
+  history.forEach((h) => {
+    let bestIdx = -1;
+    let bestDiff = Infinity;
+    visible.forEach((cd, i) => {
+      const d = Math.abs(cd.t - h.ts);
+      if (d < bestDiff) { bestDiff = d; bestIdx = i; }
+    });
+    if (bestIdx < 0 || bestDiff > 90 * 60 * 1000 || !Number.isFinite(h.ltp)) return;
+    const x = padL + slot * bestIdx + slot / 2;
+    const y = yFor(h.ltp);
+    ctx.fillStyle = '#38bdf8';
+    ctx.beginPath();
+    ctx.arc(x, y, 2.5, 0, Math.PI * 2);
+    ctx.fill();
+  });
+
+  if (crosshairBarIdx != null && crosshairBarIdx >= 0 && crosshairBarIdx < visible.length) {
+    const xLine = padL + slot * crosshairBarIdx + slot / 2;
+    ctx.strokeStyle = '#475569';
+    ctx.lineWidth = 1;
+    if (typeof ctx.setLineDash === 'function') ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(xLine, padT);
+    ctx.lineTo(xLine, padT + plotH);
+    ctx.stroke();
+    if (typeof ctx.setLineDash === 'function') ctx.setLineDash([]);
+  }
+
+  ctx.fillStyle = '#64748b';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText(maxP.toFixed(2), padL + plotW + 4, yFor(maxP));
+  ctx.fillText(minP.toFixed(2), padL + plotW + 4, yFor(minP));
 }
 
 // ====================================================================
@@ -19568,6 +19789,7 @@ function render(){
       }
 
       if (liveNow!==null) {
+        recordPositionLtpTick(open, curCtx, liveNow);
         // Master Prompt §43: real MFE/MAE, updated every tick the
         // position is open - never called with a fabricated price.
         const {mfe, mae} = updateMFEMAE(open, liveNow);
@@ -20484,6 +20706,7 @@ function render(){
     const fmsEntrySpreadPct = (leg && typeof checkSpreadLevel === 'function') ? checkSpreadLevel(leg).spreadPct : null;
     const openPayload = {id:openTradeId, symbol: symForLot, strike, optionType, entryPrice:fill.price, fillIsRealistic:fill.isRealistic, executionMode:execMode, qty:filledLotSize, requestedQty: lotSize, fillIsPartial: partialFillInfo.isPartial, decisionTimePrice, entrySlippagePct: slippageCheck.slippagePct, target, sl, openedAt:Date.now(), entrySnapshot: entrySnapshotWithFailureCheck, trailingEnabled, trailingSl: sl, partialExitEnabled, partialTaken:false, mfe:fill.price, mae:fill.price, entryIV: (curCtx && curCtx.decay && curCtx.decay.snapshot && typeof curCtx.decay.snapshot.iv === 'number') ? curCtx.decay.snapshot.iv : null, failureModeCheck: fmResult, tradingType: effectiveTradingType, entrySpot, entryCandleTs, scalpingProfitTrade: isSpeTrade, scalpingProfitSnapshot: isSpeTrade ? speSnap : null, firstMomentumScalperTrade: isFmsTrade, firstMomentumSnapshot: isFmsTrade ? fmsSnap : null, fmsInitialTargetRs: isFmsTrade ? (fmsBracket && fmsBracket.initialTargetRs != null ? fmsBracket.initialTargetRs : fmsSnap.premiumTargetRs) : null, fmsExtendedTargetRs: isFmsTrade ? (fmsBracket && fmsBracket.extendedTargetRs != null ? fmsBracket.extendedTargetRs : fmsSnap.premiumExtendedTargetRs) : null, fmsTriggerSpot: isFmsTrade ? entrySpot : null, fmsEntrySpreadPct: isFmsTrade ? fmsEntrySpreadPct : null};
     save(STORAGE.autoTrades, openPayload);
+    recordPositionLtpTick(openPayload, curCtx, fill.price);
     journalRecordOpenPosition(openPayload, mode);
     if (typeof linkPaperValidationTradeId === 'function') linkPaperValidationTradeId(openTradeId);
     if (typeof linkScalpingProfitTradeId === 'function' && isSpeTrade && speSnap) linkScalpingProfitTradeId(openTradeId, speSnap);

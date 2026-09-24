@@ -98,6 +98,7 @@ input:checked + .slider:before{transform:translateX(24px)}
 .grid>div{min-width:0}
 /* Trading chart: larger default plot + fullscreen analysis mode */
 .fno-chart-section #priceChartCanvas{width:100%;height:min(56vh,720px);min-height:480px;max-height:900px}
+.fno-chart-section #priceChartOptionCanvas{width:100%;height:140px;min-height:120px}
 .chart-tf-btn.chart-tf-active{background:#166534!important;border:1px solid #22c55e!important}
 .fno-chart-section--fullscreen{position:fixed;inset:0;z-index:10040;background:var(--bg);padding:12px 16px 16px;overflow:auto;display:flex;flex-direction:column}
 .fno-chart-section--fullscreen #priceChartCanvas{flex:1;min-height:55vh;height:auto!important;max-height:none}
@@ -505,7 +506,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
 
   <div class="card card-accent-primary fno-chart-section" id="priceChartSection" style="margin-bottom:14px">
     <h3>📈 Live Price Chart <span class="card-subtitle">Underlying candles + real entry/exit markers</span></h3>
-    <div style="font-size:10px;color:#64748b;margin-bottom:8px" id="priceChartCaption">Real underlying OHLC from the same live feed as the brain (not demo data). Markers use underlying spot at entry/exit. Option target/SL premiums appear in the crosshair line when a paper trade is open — they are not drawn on this underlying price scale. Redraws every refresh.</div>
+    <div style="font-size:10px;color:#64748b;margin-bottom:8px" id="priceChartCaption">Real underlying OHLC from the same live feed as the brain. With an open paper trade, the <b>option LTP</b> panel below plots real premium ticks (target/SL/entry lines) recorded each refresh — not underlying spot.</div>
     <div class="fno-chart-toolbar" style="display:flex;gap:6px;align-items:center;margin-bottom:6px;flex-wrap:wrap">
       <span style="font-size:10px;color:#94a3b8">Timeframe:</span>
       <button type="button" class="btn chart-tf-btn" data-tf="1" style="padding:3px 8px;font-size:11px">1m</button>
@@ -514,6 +515,7 @@ body.fno-nse-disabled .nse-only-section{display:none}
       <span style="width:1px;height:16px;background:#1e293b;margin:0 4px"></span>
       <label style="font-size:11px;color:#94a3b8"><input type="checkbox" id="chartShowEma" checked> EMA21</label>
       <label style="font-size:11px;color:#94a3b8"><input type="checkbox" id="chartShowVwap" checked> VWAP</label>
+      <label style="font-size:11px;color:#94a3b8"><input type="checkbox" id="chartShowOptionLtp" checked> Option LTP</label>
       <select id="chartAddIndicator" class="input" style="font-size:11px;max-width:160px"><option value="">+ Add indicator…</option></select>
       <span style="width:1px;height:16px;background:#1e293b;margin:0 4px"></span>
       <button type="button" class="btn" id="chartZoomIn" style="padding:3px 8px;font-size:11px">🔍+</button>
@@ -526,6 +528,10 @@ body.fno-nse-disabled .nse-only-section{display:none}
     <div id="chartIndicatorList" style="margin-bottom:6px"></div>
     <div id="priceChartCrosshair" style="font-size:11px;color:#94a3b8;min-height:16px;margin-bottom:4px"></div>
     <canvas id="priceChartCanvas" style="width:100%;background:#020617;border-radius:10px;cursor:grab;touch-action:none"></canvas>
+    <div id="priceChartOptionWrap" style="display:none;margin-top:8px;background:#020617;border:1px solid #1e293b;border-radius:10px;padding:6px 8px">
+      <div id="priceChartOptionTitle" style="font-size:10px;color:#64748b;margin-bottom:4px"></div>
+      <canvas id="priceChartOptionCanvas" style="width:100%;display:block"></canvas>
+    </div>
     <div id="priceChartPanels"></div>
     <div id="priceChartLegend" style="font-size:10px;color:#64748b;margin-top:6px"></div>
   </div>
