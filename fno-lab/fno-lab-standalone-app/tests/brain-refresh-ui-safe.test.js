@@ -160,5 +160,25 @@ try {
 }
 check(!opIntelThrew, 'computeOperatorIntel does not throw when PCR is undefined');
 
+let flowGammaThrew = false;
+try {
+  computeFlowFactors(
+    { iv: 18, now: { gamma: undefined, vega: undefined, valid: true } },
+    [24000, 24010],
+    {
+      isExpiry: true,
+      vix: 15,
+      optPrice: 100,
+      decay: { snapshot: { now: { gamma: undefined, vega: undefined, valid: true }, iv: 18 } },
+      ocRows: [{ strikePrice: 24000, CE: { changeinOpenInterest: 1 }, PE: { changeinOpenInterest: 1 } }],
+      spot: 24000,
+      pcr: undefined,
+    }
+  );
+} catch (e) {
+  flowGammaThrew = true;
+}
+check(!flowGammaThrew, 'computeFlowFactors does not throw when greeks gamma/vega are undefined');
+
 console.log('\n' + passed + ' passed, ' + failed + ' failed');
 process.exit(failed ? 1 : 0);

@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.55-brain-refresh-tofixed-v3';
+const FNO_CORE_BUILD_MARKER = '16.37.56-brain-refresh-tofixed-v4';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -13400,10 +13400,10 @@ function computeFlowFactors(rows, spot, pcr, totalCE, totalPE, ctx){
 
   {
     const past = getSnapshotNearMinutesAgo(30);
-    if (past && typeof past.pcr === 'number') {
+    if (past && typeof past.pcr === 'number' && Number.isFinite(pcr)) {
       const change = pcr - past.pcr;
       out.push({cat:'Flow', factor:'PCR Change 30m', pass: Math.abs(change)<0.15, score: Math.abs(change)<0.15?0.3:-0.5,
-        reason:`Real rolling-history comparison: PCR ${past.pcr.toFixed(2)} at ~30min ago vs ${pcr.toFixed(2)} now = ${change>=0?'+':''}${change.toFixed(2)} change`});
+        reason:`Real rolling-history comparison: PCR ${fnoFormatFixed(past.pcr, 2)} at ~30min ago vs ${fnoFormatFixed(pcr, 2)} now = ${change>=0?'+':''}${fnoFormatFixed(change, 2)} change`});
     } else {
       out.push({cat:'Flow', factor:'PCR Change 30m', pass:null, score:0, reason:`No snapshot from ~30 minutes ago yet in this session's rolling history - not guessed`});
     }
@@ -13458,18 +13458,20 @@ function computeFlowFactors(rows, spot, pcr, totalCE, totalPE, ctx){
   out.push({cat:'Flow', factor:'Delta of Option', pass:null, score:0, reason:`Already computed by the shared BSM Greeks snapshot and displayed in the live Greeks card - not re-scored here, see Greeks Deep category`});
 
   const isExpiry = ctx.isExpiry;
-  const gammaNow = ctx.decay && ctx.decay.snapshot ? ctx.decay.snapshot.now.gamma : null;
-  out.push({cat:'Flow', factor:'Gamma Expiry Day', pass: !(isExpiry && gammaNow>0.002), score: (isExpiry&&gammaNow>0.002)?-1:0.3,
-    reason: gammaNow!==null ? `${isExpiry?'Expiry day':'Not expiry day'}, live BSM gamma ${gammaNow.toFixed(5)} - ${(isExpiry&&gammaNow>0.002)?'high gamma on expiry day, delta will whip violently on small spot moves':'not in the elevated-gamma-on-expiry regime'}` : `Greeks snapshot unavailable this refresh`});
+  const gammaNowRaw = ctx.decay && ctx.decay.snapshot && ctx.decay.snapshot.now ? ctx.decay.snapshot.now.gamma : null;
+  const gammaNow = Number.isFinite(gammaNowRaw) ? gammaNowRaw : null;
+  out.push({cat:'Flow', factor:'Gamma Expiry Day', pass: !(isExpiry && gammaNow !== null && gammaNow>0.002), score: (isExpiry&&gammaNow !== null && gammaNow>0.002)?-1:0.3,
+    reason: gammaNow !== null ? `${isExpiry?'Expiry day':'Not expiry day'}, live BSM gamma ${fnoFormatFixed(gammaNow, 5)} - ${(isExpiry&&gammaNow>0.002)?'high gamma on expiry day, delta will whip violently on small spot moves':'not in the elevated-gamma-on-expiry regime'}` : `Greeks snapshot unavailable this refresh`});
 
   out.push({cat:'Flow', factor:'Theta Decay Today', pass:null, score:0, reason:`Already computed and scored under Decay category's "Theta Decay Per Day Rs" factor from the same BSM snapshot - not duplicated here`});
 
   const vixVal = ctx.vix;
-  const vegaNow = ctx.decay && ctx.decay.snapshot ? ctx.decay.snapshot.now.vega : null;
-  if (typeof vixVal==='number' && vegaNow!==null) {
+  const vegaNowRaw = ctx.decay && ctx.decay.snapshot && ctx.decay.snapshot.now ? ctx.decay.snapshot.now.vega : null;
+  const vegaNow = Number.isFinite(vegaNowRaw) ? vegaNowRaw : null;
+  if (typeof vixVal==='number' && vegaNow !== null) {
     const vixImpact = vegaNow * (vixVal>20 ? 2 : 0.5); // documented heuristic: assumes a 2-point VIX move when VIX itself is elevated (>20), else a smaller 0.5-point move - not a live VIX-change feed (see Market category's VIX Change 15m gap)
     out.push({cat:'Flow', factor:'Vega VIX Impact', pass: vixImpact < ctx.optPrice*0.1, score: vixImpact<ctx.optPrice*0.1?0.3:-0.5,
-      reason:`Live vega ${vegaNow.toFixed(2)} x assumed VIX move (${vixVal>20?'2pt, VIX currently elevated':'0.5pt, VIX currently normal'} - heuristic, not a live VIX-change feed) = ~Rs${vixImpact.toFixed(2)} premium impact`});
+      reason:`Live vega ${fnoFormatFixed(vegaNow, 2)} x assumed VIX move (${vixVal>20?'2pt, VIX currently elevated':'0.5pt, VIX currently normal'} - heuristic, not a live VIX-change feed) = ~Rs${fnoFormatFixed(vixImpact, 2)} premium impact`});
   } else {
     out.push({cat:'Flow', factor:'Vega VIX Impact', pass:null, score:0, reason:`VIX unavailable this refresh or Greeks snapshot missing`});
   }
@@ -15326,9 +15328,10 @@ function computeRiskFactors(ctx, journalToday){
   out.push({cat:'Risk', factor:'Stop Loss Before Entry', pass: !!(ctx.slPrice>0), score: ctx.slPrice>0?0.5:-1.5,
     reason: ctx.slPrice>0 ? `SL price Rs${ctx.slPrice} entered before this refresh` : `No SL price entered - the "sl" field in Auto Trades panel is currently unwired to this check (see project OPEN ISSUES: Auto Trades panel gap)`});
 
-  const rr = (ctx.targetPrice && ctx.slPrice && ctx.decay && ctx.decay.snapshot) ? (Math.abs(ctx.targetPrice-ctx.decay.snapshot.now.price)/Math.abs(ctx.decay.snapshot.now.price-ctx.slPrice)) : null;
-  out.push({cat:'Risk', factor:'Target & Risk:Reward >=1:2', pass: rr===null?null:rr>=2, score: rr===null?0:(rr>=2?0.5:-1),
-    reason: rr===null ? `Need both target and SL price inputs to compute R:R - not both present` : `R:R = ${rr.toFixed(2)} (target/SL distance vs current BSM price ${ctx.decay.snapshot.now.price.toFixed(1)})`});
+  const rr = (ctx.targetPrice && ctx.slPrice && ctx.decay && ctx.decay.snapshot && ctx.decay.snapshot.now && Number.isFinite(ctx.decay.snapshot.now.price) && Number.isFinite(ctx.slPrice))
+    ? (Math.abs(ctx.targetPrice-ctx.decay.snapshot.now.price)/Math.abs(ctx.decay.snapshot.now.price-ctx.slPrice)) : null;
+  out.push({cat:'Risk', factor:'Target & Risk:Reward >=1:2', pass: !Number.isFinite(rr)?null:rr>=2, score: !Number.isFinite(rr)?0:(rr>=2?0.5:-1),
+    reason: !Number.isFinite(rr) ? `Need both target and SL price inputs to compute R:R - not both present` : `R:R = ${fnoFormatFixed(rr, 2)} (target/SL distance vs current BSM price ${fnoFormatFixed(ctx.decay.snapshot.now.price, 1)})`});
 
   const lossesToday = journalToday.filter(t=>t.pnl<0).length;
   const consecLosses = (()=>{ let c=0; for(let i=journalToday.length-1;i>=0;i--){ if(journalToday[i].pnl<0) c++; else break; } return c; })();
@@ -15356,8 +15359,9 @@ function computeRiskFactors(ctx, journalToday){
 
   const isExpiryDay = ctx.decay && ctx.decay.days<=1;
   const isOTM = ctx.decay && ctx.decay.snapshot && (ctx.decay.snapshot.optionType==='PE' ? ctx.decay.snapshot.spot>ctx.decay.snapshot.strike : ctx.decay.snapshot.spot<ctx.decay.snapshot.strike);
+  const lotteryDelta = ctx.decay && ctx.decay.snapshot && ctx.decay.snapshot.now ? ctx.decay.snapshot.now.delta : null;
   out.push({cat:'Risk', factor:'Expiry Day Lottery?', pass: !(isExpiryDay && isOTM), score: (isExpiryDay&&isOTM)?-2:0.3,
-    reason: (isExpiryDay&&isOTM) ? `Expiry day + OTM strike selected - BSM delta ${ctx.decay.snapshot.now.delta.toFixed(3)} implies a low-probability, high-decay "lottery ticket" position` : `Not an expiry-day OTM lottery setup this refresh`});
+    reason: (isExpiryDay&&isOTM) ? `Expiry day + OTM strike selected - BSM delta ${fnoFormatFixed(lotteryDelta, 3)} implies a low-probability, high-decay "lottery ticket" position` : `Not an expiry-day OTM lottery setup this refresh`});
 
   out.push({cat:'Risk', factor:'SL Market or Limit?', pass:null, score:0,
     reason:`No order-type field exists in the current UI for the SL order - not tracked, not guessed`});
@@ -17821,6 +17825,54 @@ function evaluateBrain(ctx){
     weightedDirectionalScore, currentEffectiveTradingType, buyThreshold: BUY_THRESHOLD, sellThreshold: SELL_THRESHOLD};
 }
 
+function evaluateBrainSafe(ctx) {
+  try {
+    return evaluateBrain(ctx);
+  } catch (brainErr) {
+    console.error('evaluateBrain failed:', brainErr);
+    const thresholds = getEffectiveDecisionThresholds();
+    const opIntel = (ctx && ctx.operatorIntel) ? ctx.operatorIntel : { bias: 'NEUTRAL', score: 0, confidence: 'LOW', signals: [] };
+    const msg = brainErr && brainErr.message ? brainErr.message : String(brainErr);
+    return {
+      results: [],
+      totalScore: 0,
+      directionalScore: 0,
+      directionalScoreAvailableOnly: 0,
+      tradeQualityScore: 0,
+      modelQualityScore: 0,
+      humanOperatorScore: 0,
+      riskScore: 0,
+      passCount: 0,
+      failCount: 0,
+      criticalFails: [],
+      decision: 'WAIT',
+      decisionTier: 'NO_TRADE',
+      reason: `Brain evaluation error this refresh: ${msg} — no trade signal fabricated`,
+      operatorIntel: opIntel,
+      factorRegistry: null,
+      factorDataAvailability: null,
+      decisionAffectedByMissingData: false,
+      confidenceAdjustedForMissingData: false,
+      confidence: 'Low',
+      rawConfidence: 'Low',
+      regimeAdjustment: null,
+      failureLibraryAdjustment: null,
+      tradeTypeWeighting: null,
+      tradeTypeWeightingAdjustment: null,
+      tradeTypeAdjustment: null,
+      categoriesNotEvaluated: [{ cat: 'Brain', why: 'evaluateBrain threw before factor scoring completed' }],
+      regime: null,
+      pretradeGateCheck: null,
+      preWeightingDecision: 'WAIT',
+      weightedDirectionalScore: 0,
+      currentEffectiveTradingType: (typeof fnoSettings !== 'undefined') ? resolveDecisionTradingType() : 'intraday',
+      buyThreshold: thresholds.buyThreshold,
+      sellThreshold: thresholds.sellThreshold,
+      brainEvaluationError: msg,
+    };
+  }
+}
+
 async function loadKiteSettings(){
   if(!window.FNO_AJAX.isLoggedIn) return null;
   try{
@@ -19088,7 +19140,7 @@ function render(){
         trapSignal: computeTrapSignal(netOIChangeForLiq, priceChangePctForLiq),
       };
 
-      const brain=evaluateBrain(refreshCtx);
+      const brain=evaluateBrainSafe(refreshCtx);
       brain.strategySignalDecision = brain.decision;
       if (shouldUseRelaxedPaperExecutionLane()
         && (brain.preWeightingDecision === 'BUY_READY' || brain.preWeightingDecision === 'SELL_READY')) {
