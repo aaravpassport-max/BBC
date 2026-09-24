@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.62-chart-indicator-wiring-fix';
+const FNO_CORE_BUILD_MARKER = '16.37.63-pine-if-strip-chart-wire';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -3641,9 +3641,18 @@ function fnoChartEnsureChartUiWired() {
   const redraw = () => {
     if (fnoChartLastMarketCtx) renderPriceChart(fnoChartLastMarketCtx);
   };
+  if (typeof FNO_CHART_INDICATORS === 'undefined') return;
   fnoChartWireIndicatorManager(redraw);
   fnoChartWireAnalysisExtensions(redraw);
   fnoChartWireLayoutObserver(redraw);
+  if (!fnoChartViewState.indicatorUiWired) {
+    const cap = document.getElementById('priceChartCaption');
+    if (cap && !cap.dataset.fnoIndWarn) {
+      cap.dataset.fnoIndWarn = '1';
+      cap.innerHTML += ' <span style="color:#f87171">Chart indicator controls did not attach — hard refresh (Ctrl+Shift+R). Build: '
+        + (typeof FNO_CORE_BUILD_MARKER !== 'undefined' ? FNO_CORE_BUILD_MARKER : '?') + '</span>';
+    }
+  }
 }
 
 function wireChartControls() {
@@ -18064,6 +18073,7 @@ async function loadRealMoneyJournal(){
 }
 
 function render(){
+  fnoChartEnsureChartUiWired();
   const savedMode = localStorage.getItem(STORAGE.mode) || 'paper';
   syncPaperTradingModeLabels(savedMode);
   const liveToggleEl = document.getElementById('liveToggle');
@@ -23096,6 +23106,8 @@ async function offerRealTradeMirror(sym, strike, optionType, qty) {
     });
     try {
       await refreshBrain();
+      fnoChartEnsureChartUiWired();
+      if (fnoChartLastMarketCtx) renderPriceChart(fnoChartLastMarketCtx);
       if (window.FNO_STORAGE_QUOTA_RECOVERY) {
         const bl = document.getElementById('brainLog');
         if (bl) {

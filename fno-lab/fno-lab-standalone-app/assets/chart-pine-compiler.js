@@ -5,28 +5,23 @@
 (function (global) {
   'use strict';
 
-  const SUBSET_VERSION = 3;
+  const SUBSET_VERSION = 4;
   const MAX_SOURCE_LEN = 120000;
 
   const SUBSET_HELP =
     'This app compiles a Pine subset (not TradingView). Supported: indicator(), input.int/float, one plot(), '
     + 'ta.ema/sma/rsi/highest/lowest/vwap, math, and same-chart request.security(syminfo.tickerid, "D", close). '
-    + 'Not supported: strategies, imports, if/for/while, arrays in logic, other symbols in request.security. '
-    + 'Tip: click Load sample EMA, or paste a script whose plot() only uses ta.* / close — extra array/var lines may be auto-removed.';
+    + 'Not supported: strategies, imports, loops, arrays in logic, other symbols in request.security. '
+    + 'Block if/else/for/var/array lines that are not needed for your plot() are often auto-removed — keep plot(ta.ema(close, 14)) or use Load sample EMA.';
 
-  const UNSUPPORTED_PATTERNS = [
+  /** Full-source scan (avoid \\bif\\b — it false-positives on plot(..., color=if close>open ? ...)). */
+  const BODY_UNSUPPORTED_PATTERNS = [
     { re: /\bstrategy\s*\(/, msg: 'strategy() scripts are not supported (indicators only)' },
     { re: /\blibrary\s*\(/, msg: 'Pine libraries are not supported' },
     { re: /\bimport\s+/, msg: 'import is not supported' },
     { re: /\bbarstate\./, msg: 'barstate.* is not supported' },
     { re: /\barray\./, msg: 'array.* is not supported' },
     { re: /\bmatrix\./, msg: 'matrix.* is not supported' },
-    { re: /\bfor\s+/, msg: 'for loops are not supported' },
-    { re: /\bwhile\s+/, msg: 'while loops are not supported' },
-    { re: /\bif\s+/, msg: 'if statements are not supported in this Pine subset' },
-    { re: /\bswitch\s+/, msg: 'switch is not supported' },
-    { re: /\bvar\s+/, msg: 'var persistent state is not supported' },
-    { re: /\bvarip\s+/, msg: 'varip is not supported' },
   ];
 
   const COLOR_MAP = {
@@ -76,10 +71,43 @@
       .filter((l) => l.length > 0);
   }
 
+  function findUnsupportedLineMessage(line) {
+    const body = stripComments(String(line || '')).trim();
+    if (!body) return null;
+    if (/^\s*plot\s*\(/i.test(body)) {
+      if (/\barray\./.test(body)) return 'array.* is not supported';
+      if (/\bmatrix\./.test(body)) return 'matrix.* is not supported';
+      return null;
+    }
+    if (/^\s*if\s+/i.test(body)) return 'if statements are not supported in this Pine subset';
+    if (/^\s*else\b/i.test(body)) return 'else branches are not supported in this Pine subset';
+    if (/^\s*for\s+/i.test(body)) return 'for loops are not supported';
+    if (/^\s*while\s+/i.test(body)) return 'while loops are not supported';
+    if (/^\s*switch\s+/i.test(body)) return 'switch is not supported';
+    if (/^\s*var\s+/i.test(body)) return 'var persistent state is not supported';
+    if (/^\s*varip\s+/i.test(body)) return 'varip is not supported';
+    if (/\b(array\.|matrix\.|barstate\.)\b/.test(body)) {
+      if (/\barray\./.test(body)) return 'array.* is not supported';
+      if (/\bmatrix\./.test(body)) return 'matrix.* is not supported';
+      return 'barstate.* is not supported';
+    }
+    if (/\bstrategy\s*\(|\blibrary\s*\(|\bimport\s+/.test(body)) {
+      if (/\bstrategy\s*\(/.test(body)) return 'strategy() scripts are not supported (indicators only)';
+      if (/\blibrary\s*\(/.test(body)) return 'Pine libraries are not supported';
+      return 'import is not supported';
+    }
+    return null;
+  }
+
   function findUnsupported(raw) {
+    const lines = String(raw || '').split(/\r?\n/);
+    for (let li = 0; li < lines.length; li++) {
+      const msg = findUnsupportedLineMessage(lines[li]);
+      if (msg) return msg;
+    }
     const body = stripComments(raw);
-    for (let i = 0; i < UNSUPPORTED_PATTERNS.length; i++) {
-      const hit = UNSUPPORTED_PATTERNS[i];
+    for (let i = 0; i < BODY_UNSUPPORTED_PATTERNS.length; i++) {
+      const hit = BODY_UNSUPPORTED_PATTERNS[i];
       if (hit.re.test(body)) return hit.msg;
     }
     return null;
@@ -88,27 +116,30 @@
   function findUnsupportedDetail(raw) {
     const lines = String(raw || '').split(/\r?\n/);
     for (let li = 0; li < lines.length; li++) {
-      const body = stripComments(lines[li]);
-      for (let i = 0; i < UNSUPPORTED_PATTERNS.length; i++) {
-        const hit = UNSUPPORTED_PATTERNS[i];
-        if (hit.re.test(body)) {
-          const call = body.match(/\b(array|matrix|barstate)\.[a-z_]+|\b(strategy|library)\s*\(|\bimport\s+\S+|\b(if|for|while|switch|var|varip)\b/i);
-          return { msg: hit.msg, line: li + 1, snippet: lines[li].trim().slice(0, 120), call: call ? call[0] : hit.msg };
-        }
+      const msg = findUnsupportedLineMessage(lines[li]);
+      if (msg) {
+        const body = stripComments(lines[li]);
+        const call = body.match(/\b(array|matrix|barstate)\.[a-z_]+|\b(strategy|library)\s*\(|\bimport\s+\S+|\b(if|for|while|switch|var|varip)\b/i);
+        return { msg, line: li + 1, snippet: lines[li].trim().slice(0, 120), call: call ? call[0] : msg };
       }
     }
-    return { msg: findUnsupported(raw) || 'Unsupported Pine construct', line: null, snippet: '', call: '' };
+    const msg = findUnsupported(raw);
+    return { msg: msg || 'Unsupported Pine construct', line: null, snippet: '', call: '' };
   }
 
   function lineBlockedForStrip(line) {
     const body = stripComments(String(line || '')).trim();
     if (!body) return true;
     if (/^\s*\/\//.test(line)) return true;
+    if (/^\s*if\s+/i.test(body)) return true;
+    if (/^\s*else\b/i.test(body)) return true;
+    if (/^\s*for\s+/i.test(body)) return true;
+    if (/^\s*while\s+/i.test(body)) return true;
+    if (/^\s*switch\s+/i.test(body)) return true;
+    if (/^\s*var\s+/i.test(body)) return true;
+    if (/^\s*varip\s+/i.test(body)) return true;
     if (/\b(array\.|matrix\.|barstate\.)\b/.test(body)) return true;
     if (/\bstrategy\s*\(|\blibrary\s*\(|\bimport\s+/.test(body)) return true;
-    if (/\b(for\s+|while\s+|switch\s+)\b/.test(body)) return true;
-    if (/\bif\s+/.test(body)) return true;
-    if (/\bvar\s+|\bvarip\s+/.test(body)) return true;
     return false;
   }
 
@@ -135,6 +166,8 @@
     if (d.line) out += ` (line ${d.line}${d.call ? ': ' + d.call : ''})`;
     if (/array/i.test(out)) {
       out += '. Arrays cannot run in FNO — delete array blocks or use a single plot(ta.ema(close, 14)) / Formula tab.';
+    } else if (/if statements|else branches/i.test(out)) {
+      out += '. Remove if/else blocks or use a script whose only plot() uses ta.ema/sma/rsi(close,…) — FNO can auto-strip extra if/else lines when the plot does not depend on them.';
     }
     out += '. ' + SUBSET_HELP;
     return out;
@@ -326,7 +359,7 @@
         const retry = compilePineScriptInner(stripped, raw);
         if (retry.ok) {
           retry.warnings = (retry.warnings || []).concat([
-            'Auto-removed unsupported lines (arrays, var, if/for, etc.). Confirm the compiled plot matches your intent.',
+            'Auto-removed unsupported lines (if/else, arrays, var, loops, etc.). Confirm the compiled plot matches your intent.',
           ]);
           retry.strippedCompile = true;
           return retry;

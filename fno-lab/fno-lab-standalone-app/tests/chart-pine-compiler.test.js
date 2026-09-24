@@ -87,6 +87,23 @@ const arrayFail = PINE.compilePineScript(arrayPlot);
 assert.strictEqual(arrayFail.ok, false);
 assert.ok(/array/i.test(arrayFail.error));
 
+const ifBlock = `//@version=5
+indicator("If block", overlay=true)
+len = input.int(14, "Len")
+if barstate.islast
+    label.new(bar_index, high, "x")
+plot(ta.ema(close, len))`;
+const ifStrip = PINE.compilePineScript(ifBlock);
+assert.strictEqual(ifStrip.ok, true, ifStrip.error);
+assert.ok(ifStrip.strippedCompile);
+assert.strictEqual(ifStrip.formula, 'ema(close, len)');
+
+const plotInlineIf = `//@version=5
+indicator("Inline if color", overlay=true)
+plot(ta.ema(close, 14), color=if close > open ? color.green : color.red)`;
+const inline = PINE.compilePineScript(plotInlineIf);
+assert.strictEqual(inline.ok, true, inline.error);
+
 const candles = [];
 for (let i = 0; i < 40; i++) candles.push({ t: i, o: 100 + i, h: 101 + i, l: 99 + i, c: 100 + i, v: 10 });
 const saved = FNO.saveCustomDefinitionFromPine(emaPine);
