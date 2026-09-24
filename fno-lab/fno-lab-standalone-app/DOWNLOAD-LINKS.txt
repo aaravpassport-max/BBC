@@ -1,0 +1,19 @@
+F&O Lab v16.22.2 — how to get the FULL plugin zip
+=================================================
+
+Wrong size? If the file is about 500 KB or 270 KB, it is NOT the full plugin.
+Full zip = 1,867,112 bytes (~1.8 MB), ~169 files inside (autonomous-driver/, fno-data-layer.php, …).
+
+Best download (GitHub Release asset — avoids raw-file cache):
+  https://github.com/aaravpassport-max/BBC/releases/download/fno-lab-v16.22.2/fno-lab-standalone-app-v16.22.2.zip
+
+Pinned commit (raw):
+  https://github.com/aaravpassport-max/BBC/raw/9ea35d6/fno-lab-standalone-app.zip
+
+Verify before install:
+  Size must be about 1.8 MB (NOT ~500 KB). See GitHub DOWNLOAD-16.22.2.txt for exact bytes and SHA256.
+
+After extract: wp-content/plugins/fno-lab-standalone-app/ must contain autonomous-driver/
+App header must show version 16.22.2
+
+See UPGRADE.md for replace-in-place upgrade steps.
