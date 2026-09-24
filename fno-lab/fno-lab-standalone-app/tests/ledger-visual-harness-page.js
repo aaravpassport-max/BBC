@@ -68,6 +68,9 @@ function load(k){ try { return JSON.parse(localStorage.getItem(k) || store[k] ||
 function save(k,v){ const s = JSON.stringify(v); store[k]=s; localStorage.setItem(k,s); }
 function loadObj(k){ try { return JSON.parse(localStorage.getItem(k) || store[k] || '{}'); } catch { return {}; } }
 function loadLocalJournalArray(){ const raw = load(STORAGE.journal); return Array.isArray(raw)?raw:[]; }
+function saveJournalArray(rows) { save(STORAGE.journal, rows); return true; }
+function scheduleTradeLedgerRefresh() {}
+function paintTradeLedgerFromLocalNow() {}
 ${fnBlock}
 
 function simulateCloseJournalAdd(entry) {
