@@ -216,7 +216,7 @@
     storageSet(ALERTS_KEY, JSON.stringify(list || []));
   }
 
-  function addPriceAlert(symbol, price, direction, message) {
+  function addPriceAlert(symbol, price, direction, message, repeat) {
     if (!Number.isFinite(price)) return { ok: false, error: 'Invalid price' };
     const dir = direction === 'below' ? 'below' : 'above';
     const list = loadPriceAlerts();
@@ -228,6 +228,7 @@
       message: String(message || `Price ${dir} ${price}`).slice(0, 200),
       enabled: true,
       triggeredAt: null,
+      repeat: !!repeat,
     };
     list.push(entry);
     savePriceAlerts(list);
@@ -254,12 +255,38 @@
       const crossedBelow = Number.isFinite(prevClose) && prevClose >= a.price && closePrice < a.price;
       const hit = (a.direction === 'above' && crossedAbove) || (a.direction === 'below' && crossedBelow);
       if (!hit) return;
-      a.triggeredAt = Date.now();
-      a.enabled = false;
-      fired.push(a);
+      markAlertTriggered(a, fired);
     });
     if (fired.length) savePriceAlerts(list);
     return fired;
+  }
+
+  function markAlertTriggered(alert, fired) {
+    fired.push(alert);
+    if (alert.repeat) return;
+    alert.triggeredAt = Date.now();
+    alert.enabled = false;
+  }
+
+  function rearmAlert(id) {
+    const sid = String(id || '');
+    if (sid.startsWith('ia_')) {
+      const list = loadIndicatorAlerts();
+      const row = list.find(a => a.id === sid);
+      if (!row) return { ok: false, error: 'Alert not found' };
+      row.triggeredAt = null;
+      row.enabled = true;
+      saveIndicatorAlerts(list);
+      Object.keys(alertPrevSamples).filter(k => k === sid || k.indexOf(sid + '_') === 0).forEach(k => delete alertPrevSamples[k]);
+      return { ok: true };
+    }
+    const list = loadPriceAlerts();
+    const row = list.find(a => a.id === sid);
+    if (!row) return { ok: false, error: 'Alert not found' };
+    row.triggeredAt = null;
+    row.enabled = true;
+    savePriceAlerts(list);
+    return { ok: true };
   }
 
   function notifyPriceAlert(alert) {
@@ -290,21 +317,35 @@
     storageSet(IND_ALERTS_KEY, JSON.stringify(list || []));
   }
 
+  function indicatorAlertLabel(a) {
+    if (a.kind === 'close_cross_ema') return `Close ${a.direction} EMA`;
+    if (a.kind === 'macd_zero') return `MACD cross zero ${a.direction}`;
+    if (a.kind === 'macd_signal') return `MACD ${a.direction} signal`;
+    if (a.kind === 'bb_upper') return 'Close cross upper BB';
+    if (a.kind === 'bb_lower') return 'Close cross lower BB';
+    return `RSI ${a.direction} ${a.level}`;
+  }
+
+  const INDICATOR_ALERT_KINDS = ['rsi', 'close_cross_ema', 'macd_zero', 'macd_signal', 'bb_upper', 'bb_lower'];
+
   function addIndicatorAlert(opts) {
     const o = opts || {};
-    const kind = o.kind === 'close_cross_ema' ? 'close_cross_ema' : 'rsi';
+    let kind = String(o.kind || 'rsi');
+    if (INDICATOR_ALERT_KINDS.indexOf(kind) < 0) kind = 'rsi';
     const level = Number(o.level);
     if (kind === 'rsi' && !Number.isFinite(level)) return { ok: false, error: 'RSI level required' };
     const direction = o.direction === 'below' ? 'below' : 'above';
+    const defaultMsg = indicatorAlertLabel({ kind, direction, level });
     const entry = {
       id: 'ia_' + Date.now().toString(36),
       kind,
       symbol: String(o.symbol || 'ANY').toUpperCase(),
       level: kind === 'rsi' ? level : null,
       direction,
-      message: String(o.message || (kind === 'rsi' ? `RSI ${direction} ${level}` : 'Close crossed EMA')).slice(0, 200),
+      message: String(o.message || defaultMsg).slice(0, 200),
       enabled: true,
       triggeredAt: null,
+      repeat: !!o.repeat,
     };
     const list = loadIndicatorAlerts();
     list.push(entry);
@@ -336,6 +377,12 @@
     return NaN;
   }
 
+  function lineCross(prevA, prevB, curA, curB, direction) {
+    if (!Number.isFinite(prevA) || !Number.isFinite(prevB) || !Number.isFinite(curA) || !Number.isFinite(curB)) return false;
+    if (direction === 'above') return prevA <= prevB && curA > curB;
+    return prevA >= prevB && curA < curB;
+  }
+
   function evaluateIndicatorAlerts(symbol, bundle, closePrice, prevClose, lastBarIdx, prevBarIdx) {
     const sym = String(symbol || '').toUpperCase();
     const list = loadIndicatorAlerts();
@@ -343,6 +390,7 @@
     list.forEach((a) => {
       if (!a.enabled || a.triggeredAt) return;
       if (a.symbol !== 'ANY' && a.symbol !== sym) return;
+      let hit = false;
       if (a.kind === 'rsi') {
         const cur = seriesValueAtBar(bundle, 'rsi', 'rsi', lastBarIdx);
         const prev = Number.isFinite(alertPrevSamples[a.id]) ? alertPrevSamples[a.id] : NaN;
@@ -350,23 +398,41 @@
         if (!Number.isFinite(cur) || !Number.isFinite(prev)) return;
         const crossedAbove = prev <= a.level && cur > a.level;
         const crossedBelow = prev >= a.level && cur < a.level;
-        const hit = (a.direction === 'above' && crossedAbove) || (a.direction === 'below' && crossedBelow);
-        if (!hit) return;
+        hit = (a.direction === 'above' && crossedAbove) || (a.direction === 'below' && crossedBelow);
       } else if (a.kind === 'close_cross_ema') {
         if (!Number.isFinite(closePrice) || !Number.isFinite(prevClose) || prevBarIdx == null) return;
         const emaNow = seriesValueAtBar(bundle, 'ema', 'main', lastBarIdx);
         const emaPrev = seriesValueAtBar(bundle, 'ema', 'main', prevBarIdx);
         if (!Number.isFinite(emaNow) || !Number.isFinite(emaPrev)) return;
-        const wasBelow = prevClose <= emaPrev;
-        const wasAbove = prevClose >= emaPrev;
-        const nowAbove = closePrice > emaNow;
-        const nowBelow = closePrice < emaNow;
-        const hit = (a.direction === 'above' && wasBelow && nowAbove) || (a.direction === 'below' && wasAbove && nowBelow);
-        if (!hit) return;
+        hit = lineCross(prevClose, emaPrev, closePrice, emaNow, a.direction);
+      } else if (a.kind === 'macd_zero') {
+        const cur = seriesValueAtBar(bundle, 'macd', 'macd', lastBarIdx);
+        const prev = Number.isFinite(alertPrevSamples[a.id]) ? alertPrevSamples[a.id] : NaN;
+        if (Number.isFinite(cur)) alertPrevSamples[a.id] = cur;
+        if (!Number.isFinite(cur) || !Number.isFinite(prev)) return;
+        hit = lineCross(prev, 0, cur, 0, a.direction);
+      } else if (a.kind === 'macd_signal') {
+        const curM = seriesValueAtBar(bundle, 'macd', 'macd', lastBarIdx);
+        const curS = seriesValueAtBar(bundle, 'macd', 'signal', lastBarIdx);
+        const prevM = seriesValueAtBar(bundle, 'macd', 'macd', prevBarIdx);
+        const prevS = seriesValueAtBar(bundle, 'macd', 'signal', prevBarIdx);
+        if (prevBarIdx == null) return;
+        hit = lineCross(prevM, prevS, curM, curS, a.direction);
+      } else if (a.kind === 'bb_upper') {
+        if (!Number.isFinite(closePrice) || !Number.isFinite(prevClose) || prevBarIdx == null) return;
+        const bandNow = seriesValueAtBar(bundle, 'bollinger', 'upper', lastBarIdx);
+        const bandPrev = seriesValueAtBar(bundle, 'bollinger', 'upper', prevBarIdx);
+        if (!Number.isFinite(bandNow) || !Number.isFinite(bandPrev)) return;
+        hit = lineCross(prevClose, bandPrev, closePrice, bandNow, 'above');
+      } else if (a.kind === 'bb_lower') {
+        if (!Number.isFinite(closePrice) || !Number.isFinite(prevClose) || prevBarIdx == null) return;
+        const bandNow = seriesValueAtBar(bundle, 'bollinger', 'lower', lastBarIdx);
+        const bandPrev = seriesValueAtBar(bundle, 'bollinger', 'lower', prevBarIdx);
+        if (!Number.isFinite(bandNow) || !Number.isFinite(bandPrev)) return;
+        hit = lineCross(prevClose, bandPrev, closePrice, bandNow, 'below');
       } else return;
-      a.triggeredAt = Date.now();
-      a.enabled = false;
-      fired.push(a);
+      if (!hit) return;
+      markAlertTriggered(a, fired);
     });
     if (fired.length) saveIndicatorAlerts(list);
     return fired;
@@ -388,16 +454,21 @@
     const all = listAllAlerts();
     const sym = String(activeSymbol || '').toUpperCase();
     const rows = [];
+    const btn = (id, label, cls) => `<button type="button" class="btn ${cls}" data-id="${id}" style="padding:1px 6px;font-size:9px">${label}</button>`;
     all.price.forEach((a) => {
       if (a.symbol !== 'ANY' && a.symbol !== sym) return;
       const st = a.triggeredAt ? 'triggered' : (a.enabled ? 'armed' : 'off');
-      rows.push(`<div style="display:flex;gap:6px;align-items:center;margin-bottom:3px"><span style="flex:1">💰 ${a.symbol} ${a.direction} ${a.price} <span style="color:#64748b">(${st})</span></span><button type="button" class="btn chart-alert-del" data-id="${a.id}" style="padding:1px 6px;font-size:9px">✕</button></div>`);
+      const rep = a.repeat ? ' · repeat' : '';
+      const extra = a.triggeredAt ? btn(a.id, 'Re-arm', 'chart-alert-rearm') : '';
+      rows.push(`<div style="display:flex;gap:6px;align-items:center;margin-bottom:3px"><span style="flex:1">💰 ${a.symbol} ${a.direction} ${a.price}${rep} <span style="color:#64748b">(${st})</span></span>${extra}${btn(a.id, '✕', 'chart-alert-del')}</div>`);
     });
     all.indicator.forEach((a) => {
       if (a.symbol !== 'ANY' && a.symbol !== sym) return;
       const st = a.triggeredAt ? 'triggered' : (a.enabled ? 'armed' : 'off');
-      const label = a.kind === 'close_cross_ema' ? `Close ${a.direction} EMA` : `RSI ${a.direction} ${a.level}`;
-      rows.push(`<div style="display:flex;gap:6px;align-items:center;margin-bottom:3px"><span style="flex:1">📊 ${a.symbol} ${label} <span style="color:#64748b">(${st})</span></span><button type="button" class="btn chart-alert-del" data-id="${a.id}" style="padding:1px 6px;font-size:9px">✕</button></div>`);
+      const label = indicatorAlertLabel(a);
+      const rep = a.repeat ? ' · repeat' : '';
+      const extra = a.triggeredAt ? btn(a.id, 'Re-arm', 'chart-alert-rearm') : '';
+      rows.push(`<div style="display:flex;gap:6px;align-items:center;margin-bottom:3px"><span style="flex:1">📊 ${a.symbol} ${label}${rep} <span style="color:#64748b">(${st})</span></span>${extra}${btn(a.id, '✕', 'chart-alert-del')}</div>`);
     });
     return rows.length ? rows.join('') : '<span style="color:#64748b">No active alerts for this symbol.</span>';
   }
@@ -439,5 +510,9 @@
     listAllAlerts,
     removeAlertById,
     formatAlertsListHtml,
+    rearmAlert,
+    markAlertTriggered,
+    indicatorAlertLabel,
+    INDICATOR_ALERT_KINDS,
   };
 })(typeof window !== 'undefined' ? window : global);

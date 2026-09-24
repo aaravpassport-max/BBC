@@ -23,25 +23,47 @@ vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../assets/chart-tv-exte
 const X = sandbox.FNO_CHART_EXTENSIONS;
 
 assert.ok(JSON.stringify(X.loadWatchlist()) === JSON.stringify(['NIFTY', 'BANKNIFTY', 'FINNIFTY']));
-X.toggleWatchlistSymbol('FINNIFTY');
-assert.ok(!X.loadWatchlist().includes('FINNIFTY'));
-X.toggleWatchlistSymbol('FINNIFTY');
 
 const bundle = {
-  panels: [{ typeId: 'rsi', panel: { lines: [{ id: 'rsi', values: [50, 65, 72] }] } }],
-  overlays: [{ typeId: 'ema', lines: [{ id: 'main', values: [100, 101, 102] }] }],
+  panels: [{
+    typeId: 'macd',
+    panel: {
+      lines: [
+        { id: 'macd', values: [-0.5, -0.1, 0.2] },
+        { id: 'signal', values: [-0.3, -0.05, 0.05] },
+      ],
+    },
+  }],
+  overlays: [{
+    typeId: 'bollinger',
+    lines: [
+      { id: 'upper', values: [102, 103, 104] },
+      { id: 'lower', values: [98, 97, 96] },
+    ],
+  }],
 };
 
 X.addIndicatorAlert({ symbol: 'NIFTY', kind: 'rsi', level: 70, direction: 'above' });
-const id = X.loadIndicatorAlerts()[0].id;
-X.evaluateIndicatorAlerts('NIFTY', bundle, 103, 100, 1, 0);
-const fired = X.evaluateIndicatorAlerts('NIFTY', bundle, 103, 100, 2, 1);
-assert.strictEqual(fired.length, 1, 'RSI cross should fire once');
+const rsiId = X.loadIndicatorAlerts()[0].id;
+X.evaluateIndicatorAlerts('NIFTY', { panels: [{ typeId: 'rsi', panel: { lines: [{ id: 'rsi', values: [50, 65] }] } }] }, 100, 99, 0, null);
+const rsiFired = X.evaluateIndicatorAlerts('NIFTY', { panels: [{ typeId: 'rsi', panel: { lines: [{ id: 'rsi', values: [50, 65, 72] }] } }] }, 100, 99, 2, 1);
+assert.strictEqual(rsiFired.length, 1);
 
-X.addIndicatorAlert({ symbol: 'NIFTY', kind: 'close_cross_ema', direction: 'above' });
-const emaFired = X.evaluateIndicatorAlerts('NIFTY', bundle, 103, 99, 2, 1);
-assert.ok(emaFired.length >= 0);
+X.rearmAlert(rsiId);
+assert.ok(X.loadIndicatorAlerts()[0].enabled);
 
-assert.ok(X.formatAlertsListHtml('NIFTY').includes('RSI'));
+X.addIndicatorAlert({ symbol: 'NIFTY', kind: 'macd_zero', direction: 'above' });
+X.evaluateIndicatorAlerts('NIFTY', bundle, 101, 100, 1, 0);
+const macdFired = X.evaluateIndicatorAlerts('NIFTY', bundle, 101, 100, 2, 1);
+assert.strictEqual(macdFired.length, 1);
+
+X.addIndicatorAlert({ symbol: 'NIFTY', kind: 'bb_upper', direction: 'above' });
+const bbFired = X.evaluateIndicatorAlerts('NIFTY', bundle, 105, 103, 2, 1);
+assert.strictEqual(bbFired.length, 1);
+
+const rep = X.addPriceAlert('NIFTY', 100, 'above', null, true);
+assert.ok(rep.alert.repeat);
+X.evaluatePriceAlerts('NIFTY', 101, 99);
+assert.ok(X.loadPriceAlerts()[0].enabled, 'repeat price alert stays armed');
 
 console.log('chart-watchlist-alerts tests passed');

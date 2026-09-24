@@ -26,28 +26,47 @@
 </div>
 
 <div id="fno-root" style="max-width:1100px;margin-right:340px">
+  <select id="sym" style="display:none"><option selected>NIFTY</option><option>BANKNIFTY</option></select>
   <div class="card fno-chart-section" id="priceChartSection">
     <h3 style="font-size:15px">📈 Live Price Chart <span style="font-size:12px;color:#94a3b8">(harness)</span></h3>
+    <div id="chartWatchlistBar" style="margin-bottom:6px"></div>
     <div class="fno-chart-toolbar" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
       <button type="button" class="btn chart-tf-btn" data-tf="1">1m</button>
       <button type="button" class="btn chart-tf-btn" data-tf="5">5m</button>
       <button type="button" class="btn chart-tf-btn" data-tf="15">15m</button>
-      <label><input type="checkbox" id="chartShowEma" checked> EMA21</label>
-      <label><input type="checkbox" id="chartShowVwap" checked> VWAP</label>
-      <label><input type="checkbox" id="chartShowOptionLtp" checked> Option LTP</label>
+      <select id="chartTypeSelect" class="input"><option value="candle">Candles</option><option value="line">Line</option></select>
+      <input id="chartIndicatorSearch" class="input" placeholder="Search" style="width:80px">
       <select id="chartAddIndicator" class="input"><option value="">+ Add indicator…</option></select>
-      <button type="button" class="btn" id="chartCustomIndicatorBtn">✎ Custom</button>
+      <button type="button" class="btn" id="chartCustomIndicatorBtn">📜 Scripts</button>
+      <button type="button" class="btn chart-draw-btn" data-draw="vline">| V-line</button>
       <button type="button" class="btn" id="chartZoomIn">🔍+</button>
       <button type="button" class="btn" id="chartZoomOut">🔍-</button>
       <button type="button" class="btn" id="chartResetView">Reset</button>
       <button type="button" class="btn" id="chartFitPrice">Fit price</button>
       <button type="button" class="btn" id="chartFullscreen">⛶ Full screen</button>
     </div>
+    <div class="fno-chart-toolbar" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+      <label><input type="checkbox" id="chartShowEma" checked> EMA21</label>
+      <label><input type="checkbox" id="chartShowVwap" checked> VWAP</label>
+      <label><input type="checkbox" id="chartShowOptionLtp" checked> Option LTP</label>
+      <button type="button" class="btn" id="chartCustomIndExportBtn">Export scripts</button>
+      <input type="file" id="chartCustomIndImportFile" style="display:none">
+      <button type="button" class="btn" id="chartCustomIndImportBtn">Import</button>
+      <select id="chartIndAlertKind" class="input"><option value="rsi">RSI</option><option value="macd_zero">MACD zero</option></select>
+      <input id="chartIndAlertLevel" class="input" value="70" style="width:40px">
+      <select id="chartIndAlertDirection" class="input"><option value="above">↑</option></select>
+      <label><input type="checkbox" id="chartIndAlertRepeat"> Repeat</label>
+      <button type="button" class="btn" id="chartIndAlertAdd">Ind. alert</button>
+      <input id="chartAlertPrice" class="input" value="23500" style="width:70px">
+      <button type="button" class="btn" id="chartAlertAdd">Price alert</button>
+    </div>
+    <div id="chartAlertsList" style="font-size:10px;margin-bottom:6px"></div>
     <div id="chartIndicatorList" style="margin-bottom:6px"></div>
     <div id="chartCustomIndicatorPanel" style="display:none;padding:8px;background:#0f172a;border:1px solid #334155;border-radius:8px;margin-bottom:6px">
       <input id="chartCustomIndName" class="input" placeholder="Name" value="Harness EMA 7">
       <select id="chartCustomIndType" class="input"><option value="overlay">Overlay</option><option value="panel">Panel</option></select>
       <input id="chartCustomIndFormula" class="input" value="ema(close, 7)" style="min-width:180px">
+      <input id="chartCustomIndParams" class="input" value="" style="width:100px">
       <input type="color" id="chartCustomIndColor" value="#f472b6">
       <button type="button" class="btn" id="chartCustomIndSave">Save &amp; add</button>
       <button type="button" class="btn" id="chartCustomIndCancel">Close</button>
@@ -206,6 +225,16 @@ async function runClickAudit() {
   fnoChartLoadViewState();
   check('View persistence load', _fnoChartViewStateForTest().visibleCount === 45 && _fnoChartViewStateForTest().timeframeMinutes === 15);
 
+  check('Watchlist bar rendered', (document.getElementById('chartWatchlistBar').textContent || '').includes('NIFTY'));
+  document.getElementById('chartIndAlertAdd').click();
+  check('Indicator alert list updated', (document.getElementById('chartAlertsList').textContent || '').includes('RSI'));
+  const packBefore = FNO_CHART_INDICATORS.listCustomDefinitions().length;
+  document.getElementById('chartCustomIndExportBtn').click();
+  check('Export scripts callable', true);
+  document.getElementById('chartTypeSelect').value = 'line';
+  document.getElementById('chartTypeSelect').dispatchEvent(new Event('change'));
+  check('Chart type line', _fnoChartViewStateForTest().chartType === 'line');
+
   document.getElementById('auditSummary').textContent = `Audit: ${pass}/${total} passed`;
   document.getElementById('auditSummary').style.color = pass === total ? '#4ade80' : '#f87171';
   window.__chartClickAuditResult = { pass, total, ok: pass === total };
@@ -218,7 +247,8 @@ function bootChart() {
     return;
   }
   seedStorage();
-  marketCtx = { candles: makeCandles(120), candlesForChart: makeCandles(120), spot: 23240, symbol: 'NIFTY' };
+  marketCtx = { candles: makeCandles(120), candlesForChart: makeCandles(120), spot: 23240, symbol: 'NIFTY', sym: 'NIFTY' };
+  window.refreshBrain = function () { renderPriceChart(marketCtx); fnoChartRenderWatchlistBar(); };
   renderPriceChart(marketCtx);
   document.getElementById('runAuditBtn').onclick = () => runClickAudit();
   setTimeout(() => runClickAudit(), 500);

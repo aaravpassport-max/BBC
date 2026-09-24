@@ -89,7 +89,7 @@ const FNO_SETTINGS_KEY = 'fno_trading_controls_v1';
 const FNO_SETTINGS_SCHEMA_KEY = 'fno_trading_controls_schema_v';
 const FNO_SETTINGS_SCHEMA_VERSION = 13; // v13 (16.37.9): paper autonomous execution — daily loss cap only; more scalp attempts/day
 /** Bump when entry/qty logic changes — visible in view-source / window for upgrade verification. */
-const FNO_CORE_BUILD_MARKER = '16.37.50-watchlist-ind-alerts-v1';
+const FNO_CORE_BUILD_MARKER = '16.37.51-macd-bb-alerts-v1';
 
 /** Safe UI number formatting — never throws when value is missing/NaN. */
 function fnoFormatFixed(value, digits, fallback) {
@@ -3060,11 +3060,12 @@ function fnoChartWireAnalysisExtensions(redraw) {
   const alertAdd = document.getElementById('chartAlertAdd');
   const alertPrice = document.getElementById('chartAlertPrice');
   const alertDir = document.getElementById('chartAlertDirection');
+  const alertRepeat = document.getElementById('chartAlertRepeat');
   if (alertAdd && alertPrice) {
     alertAdd.addEventListener('click', () => {
       const price = Number(alertPrice.value);
-      const sym = (fnoChartLastMarketCtx && fnoChartLastMarketCtx.symbol) || 'ANY';
-      const res = FNO_CHART_EXTENSIONS.addPriceAlert(sym, price, alertDir ? alertDir.value : 'above');
+      const sym = (fnoChartLastMarketCtx && (fnoChartLastMarketCtx.symbol || fnoChartLastMarketCtx.sym)) || 'ANY';
+      const res = FNO_CHART_EXTENSIONS.addPriceAlert(sym, price, alertDir ? alertDir.value : 'above', null, alertRepeat && alertRepeat.checked);
       if (!res.ok) { fnoChartShowToast(res.error); return; }
       fnoChartShowToast('Price alert armed');
       fnoChartRefreshAlertsList();
@@ -3075,15 +3076,17 @@ function fnoChartWireAnalysisExtensions(redraw) {
   const indAlertKind = document.getElementById('chartIndAlertKind');
   const indAlertLevel = document.getElementById('chartIndAlertLevel');
   const indAlertDir = document.getElementById('chartIndAlertDirection');
+  const indAlertRepeat = document.getElementById('chartIndAlertRepeat');
   if (indAlertAdd) {
     indAlertAdd.addEventListener('click', () => {
-      const sym = (fnoChartLastMarketCtx && fnoChartLastMarketCtx.symbol) || 'ANY';
+      const sym = (fnoChartLastMarketCtx && (fnoChartLastMarketCtx.symbol || fnoChartLastMarketCtx.sym)) || 'ANY';
       const kind = indAlertKind ? indAlertKind.value : 'rsi';
       const res = FNO_CHART_EXTENSIONS.addIndicatorAlert({
         symbol: sym,
         kind,
         level: indAlertLevel ? Number(indAlertLevel.value) : 70,
         direction: indAlertDir ? indAlertDir.value : 'above',
+        repeat: indAlertRepeat && indAlertRepeat.checked,
       });
       if (!res.ok) { fnoChartShowToast(res.error); return; }
       fnoChartShowToast('Indicator alert armed');
@@ -3142,6 +3145,14 @@ function fnoChartRefreshAlertsList() {
   el.querySelectorAll('.chart-alert-del').forEach((btn) => {
     btn.addEventListener('click', () => {
       FNO_CHART_EXTENSIONS.removeAlertById(btn.getAttribute('data-id'));
+      fnoChartRefreshAlertsList();
+    });
+  });
+  el.querySelectorAll('.chart-alert-rearm').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const res = FNO_CHART_EXTENSIONS.rearmAlert(btn.getAttribute('data-id'));
+      if (!res.ok) fnoChartShowToast(res.error || 'Could not re-arm');
+      else fnoChartShowToast('Alert re-armed');
       fnoChartRefreshAlertsList();
     });
   });

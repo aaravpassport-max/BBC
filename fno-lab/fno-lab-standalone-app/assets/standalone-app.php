@@ -551,11 +551,20 @@ body.fno-nse-disabled .nse-only-section{display:none}
       <span style="width:1px;height:16px;background:#1e293b;margin:0 4px"></span>
       <input id="chartAlertPrice" class="input" placeholder="Alert price" style="font-size:11px;width:90px" inputmode="decimal">
       <select id="chartAlertDirection" class="input" style="font-size:11px;width:72px"><option value="above">Cross ↑</option><option value="below">Cross ↓</option></select>
+      <label style="font-size:10px;color:#94a3b8"><input type="checkbox" id="chartAlertRepeat"> Repeat</label>
       <button type="button" class="btn" id="chartAlertAdd" style="padding:3px 8px;font-size:11px;background:#7c2d12">Add alert</button>
       <span style="width:1px;height:16px;background:#1e293b;margin:0 4px"></span>
-      <select id="chartIndAlertKind" class="input" style="font-size:11px;width:110px"><option value="rsi">RSI cross</option><option value="close_cross_ema">Close × EMA</option></select>
-      <input id="chartIndAlertLevel" class="input" value="70" style="font-size:11px;width:44px" title="RSI level (ignored for EMA cross)">
+      <select id="chartIndAlertKind" class="input" style="font-size:11px;width:130px">
+        <option value="rsi">RSI cross</option>
+        <option value="close_cross_ema">Close × EMA</option>
+        <option value="macd_zero">MACD × zero</option>
+        <option value="macd_signal">MACD × signal</option>
+        <option value="bb_upper">Close × upper BB</option>
+        <option value="bb_lower">Close × lower BB</option>
+      </select>
+      <input id="chartIndAlertLevel" class="input" value="70" style="font-size:11px;width:44px" title="RSI level only">
       <select id="chartIndAlertDirection" class="input" style="font-size:11px;width:72px"><option value="above">Cross ↑</option><option value="below">Cross ↓</option></select>
+      <label style="font-size:10px;color:#94a3b8"><input type="checkbox" id="chartIndAlertRepeat"> Repeat</label>
       <button type="button" class="btn" id="chartIndAlertAdd" style="padding:3px 8px;font-size:11px;background:#581c87">Ind. alert</button>
     </div>
     <div id="chartAlertsList" style="font-size:10px;margin-bottom:8px;padding:6px 8px;background:#0f172a;border:1px solid #1e293b;border-radius:8px"></div>
