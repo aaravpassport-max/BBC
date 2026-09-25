@@ -195,7 +195,7 @@ test('on hold → act now → in process preserves inquiry data and history', ()
   result = updateInquiry(db, inquiry.id, { lifecycleStatus: 'act_now', scheduleNext: false }, now);
   assert.strictEqual(result.success, true);
   assert.strictEqual(result.inquiry.lifecycle_status, 'active');
-  assert.strictEqual(result.inquiry.work_phase, 'new');
+  assert.strictEqual(result.inquiry.work_phase, 'act_now');
   assert.strictEqual(result.inquiry.next_follow_up, '2026-09-22');
   const { inferInquiryQueueTab, LIFECYCLE_ACTIVE } = require('../work-lifecycle');
   assert.strictEqual(inferInquiryQueueTab(result.inquiry), LIFECYCLE_ACTIVE);

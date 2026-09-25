@@ -238,7 +238,7 @@ function applyInquiryWorkStatus(db, inquiryId, workStatus, {
       UPDATE inquiries SET
         lifecycle_status = ?,
         outcome_status = 'active',
-        work_phase = 'new',
+        work_phase = 'act_now',
         operational_state = 'new',
         updated_at = datetime('now')
       WHERE id = ?

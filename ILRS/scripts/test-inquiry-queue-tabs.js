@@ -32,4 +32,11 @@ assert.strictEqual(inferInquiryQueueTab(byStage), QUEUE_TAB_IN_PROCESS, 'past qu
 const waiting = { ...newInq, lifecycle_status: 'pending' };
 assert.strictEqual(inferInquiryQueueTab(waiting), LIFECYCLE_PENDING);
 
+const explicitActNow = {
+  ...byStage,
+  work_phase: 'act_now',
+  work_start_date: '2026-09-01',
+};
+assert.strictEqual(inferInquiryQueueTab(explicitActNow), LIFECYCLE_ACTIVE, 'act_now phase → Act now tab');
+
 console.log('inquiry-queue-tabs: ok');

@@ -7,6 +7,7 @@
 
   const WORK_STATUS_ACT_NOW = 'act_now';
   const WORK_STATUS_IN_PROCESS = 'in_process';
+  const WORK_PHASE_ACT_NOW = 'act_now';
 
   const LIFECYCLE_STATUSES = [
     { id: LIFECYCLE_ACTIVE, label: 'Active / In Progress', short: 'Active' },
@@ -62,6 +63,7 @@
   function isInquiryInProcess(inquiry) {
     if (!inquiry) return false;
     const phase = String(inquiry.work_phase || '').trim().toLowerCase();
+    if (phase === WORK_PHASE_ACT_NOW) return false;
     if (phase === 'in_process') return true;
     if (String(inquiry.work_start_date || '').trim()) return true;
     const op = String(inquiry.operational_state || '').trim();
@@ -124,6 +126,8 @@
     if (lc === LIFECYCLE_PENDING) return LIFECYCLE_PENDING;
     if (lc === LIFECYCLE_COMPLETED) return LIFECYCLE_COMPLETED;
     if (lc === LIFECYCLE_CLOSED) return LIFECYCLE_CLOSED;
+    const phase = String(inquiry.work_phase || '').trim().toLowerCase();
+    if (phase === WORK_PHASE_ACT_NOW) return WORK_STATUS_ACT_NOW;
     if (isInquiryInProcess(inquiry)) return WORK_STATUS_IN_PROCESS;
     return WORK_STATUS_ACT_NOW;
   }
