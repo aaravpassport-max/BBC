@@ -95,6 +95,43 @@
     }
   }
 
+  function escCard(s) {
+    return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  }
+
+  function inquiryFollowUpLine(inq) {
+    if (!inq.next_follow_up) {
+      return { text: 'Not scheduled', cls: 'inq-follow-muted', action: inq.next_action || 'Schedule follow-up' };
+    }
+    const today = typeof todayStr === 'function' ? todayStr() : '';
+    const overdue = inq.next_follow_up < today;
+    const dueToday = inq.next_follow_up === today;
+    const cls = overdue ? 'inq-follow-overdue' : dueToday ? 'inq-follow-today' : '';
+    const time = inq.next_follow_up_time ? ` · ${formatTime(inq.next_follow_up_time)}` : '';
+    return {
+      text: `${formatDate(inq.next_follow_up)}${time}`,
+      cls,
+      action: inq.next_action || 'Follow up',
+    };
+  }
+
+  function inquiryPaymentSummary(inq) {
+    if (inq.payment_tracking_enabled) {
+      const st = inq.payment_track_status || inq.payment_status || 'Tracking on';
+      const amt = inq.payment_total > 0 ? ` · ₹${Number(inq.payment_total).toLocaleString('en-IN')}` : '';
+      return `${st}${amt}`;
+    }
+    return 'Tracking off';
+  }
+
+  function inquiryMetaCell(label, value) {
+    if (!value) return '';
+    return `<div class="inq-card-meta-cell">
+      <div class="inq-card-meta-label">${label}</div>
+      <div class="inq-card-meta-value">${escCard(value)}</div>
+    </div>`;
+  }
+
   function inquiryCard(inq, compact = false) {
     const pipeline = P();
     const WS = window.ILRSWorkScheduling;
@@ -105,33 +142,94 @@
     const selected = App.selectedInquiryIds?.has(inq.id);
     const assignee = typeof assigneeLabel === 'function' ? assigneeLabel(inq.assigned_to) : '';
     const LCw = window.ILRSWorkLifecycle;
-    const isNew = LCw?.inferInquiryQueueTab?.(inq) === 'active' && LCw?.inferLifecycleFromInquiry?.(inq) === 'active';
-    const stateLabel = isNew ? 'New enquiry' : (WC?.operationalStateLabel ? WC.operationalStateLabel(inq) : 'Active');
+    const workStatus = LCw?.inferInquiryWorkStatus ? LCw.inferInquiryWorkStatus(inq) : 'act_now';
+    const showStartProcessing = workStatus === 'act_now' || workStatus === LCw?.WORK_STATUS_ACT_NOW;
+    const stateLabel = WC?.operationalStateLabel ? WC.operationalStateLabel(inq) : 'Active';
     const stateCls = WC?.operationalStateClass ? WC.operationalStateClass(inq) : '';
-    const nextBlock = WC?.nextActionBlock ? WC.nextActionBlock(inq) : '';
     const latest = WC?.latestLineHtml ? WC.latestLineHtml(inq) : '';
+    const follow = inquiryFollowUpLine(inq);
+    const healthLabel = pipeline?.healthLabel(inq.health) || '';
+    const stageName = stageDisplay(inq.stage_key);
+    const priority = inq.priority && inq.priority !== 'normal' ? inq.priority : '';
+    const daysStage = daysInStage(inq);
+    const amount = inq.quotation_amount > 0
+      ? `₹${Number(inq.quotation_amount).toLocaleString('en-IN')}`
+      : (inq.expected_value > 0 ? `~₹${Number(inq.expected_value).toLocaleString('en-IN')}` : '');
+    const hasPayment = Boolean(window.ILRSPayment?.showRecordPaymentModal);
+    const completionHint = completionOverdue && inq.expected_completion_date
+      ? `Due ${formatDate(inq.expected_completion_date)}`
+      : '';
+
+    const metaCells = [
+      inquiryMetaCell('Pipeline stage', stageName),
+      !compact && inquiryMetaCell('Assigned to', assignee || '—'),
+      inquiryMetaCell('Health', healthLabel),
+      inquiryMetaCell('Payment', inquiryPaymentSummary(inq)),
+      priority ? inquiryMetaCell('Priority', priority) : '',
+      amount ? inquiryMetaCell('Value', amount) : '',
+      daysStage !== '—' ? inquiryMetaCell('Days in stage', daysStage) : '',
+      completionHint ? inquiryMetaCell('Completion', completionHint) : '',
+    ].filter(Boolean).join('');
+
     return `
-      <div class="inquiry-card inquiry-card-operational ${health} ${stageCls} ${completionOverdue ? 'completion-overdue' : ''}" onclick="if(event.target.closest('.card-work-status,.lifecycle-quick-select,.item-select-checkbox,.action-btn')) return; openInquiryDetail('${inq.id}')">
-        <input type="checkbox" class="item-select-checkbox" ${selected ? 'checked' : ''}
-          onclick="event.stopPropagation();toggleInquirySelection('${inq.id}', this.checked)" title="Select" />
-        <div class="inquiry-card-top">
-          <strong>${inq.client_name}</strong>
-          <span class="inquiry-number">${inq.inquiry_number || ''}</span>
-          <span class="operational-state-pill ${stateCls}" title="Current state">${stateLabel}</span>
-          <button class="action-btn delete btn-sm" onclick="event.stopPropagation();deleteInquiryItem('${inq.id}')" title="Delete">🗑</button>
-        </div>
-        <div class="inquiry-requirement">${inq.requirement}</div>
-        <div class="inquiry-card-status-row">
-          <span class="inquiry-stage-badge ${stageCls}">${stageDisplay(inq.stage_key)}</span>
-          ${inquiryCardWorkStatus(inq)}
-        </div>
-        ${nextBlock}
-        ${isNew ? `<button type="button" class="btn btn-primary btn-sm inquiry-start-work-btn" onclick="event.stopPropagation();startInquiryWorkFromCard('${inq.id}')">Start processing</button>` : ''}
-        ${latest ? `<div class="card-conversation-preview">${latest}</div>` : ''}
-        <button type="button" class="btn btn-ghost btn-sm inquiry-add-conversation-btn" onclick="event.stopPropagation();openInquiryConversation('${inq.id}')">+ Conversation</button>
-        ${!compact && assignee ? `<div class="inquiry-meta">Owner: ${assignee}</div>` : ''}
-        <div class="inquiry-health-pill ${health}" title="Health">${pipeline?.healthLabel(inq.health) || ''}</div>
-      </div>`;
+      <article class="inquiry-card inquiry-card-v2 inquiry-card-operational ${health} ${stageCls} ${completionOverdue ? 'completion-overdue' : ''}"
+        onclick="if(event.target.closest('.inq-card-no-nav,.item-select-checkbox')) return; openInquiryDetail('${inq.id}')">
+        <header class="inq-card-header">
+          <input type="checkbox" class="item-select-checkbox inq-card-no-nav" ${selected ? 'checked' : ''}
+            onclick="event.stopPropagation();toggleInquirySelection('${inq.id}', this.checked)" title="Select inquiry" aria-label="Select inquiry" />
+          <div class="inq-card-identity">
+            <div class="inq-card-title-row">
+              <h3 class="inq-card-client">${escCard(inq.client_name)}</h3>
+              <span class="inquiry-number inq-card-id">${escCard(inq.inquiry_number || '')}</span>
+            </div>
+            <div class="inq-card-service">${escCard(inq.requirement)}</div>
+            <div class="inq-card-badges">
+              <span class="operational-state-pill ${stateCls}">${escCard(stateLabel)}</span>
+              <span class="inquiry-stage-badge ${stageCls}">${escCard(stageName)}</span>
+              <span class="inquiry-health-pill ${health}">${escCard(healthLabel)}</span>
+            </div>
+          </div>
+          <button type="button" class="action-btn delete btn-sm inq-card-no-nav" onclick="event.stopPropagation();deleteInquiryItem('${inq.id}')" title="Delete inquiry" aria-label="Delete inquiry">🗑</button>
+        </header>
+
+        <section class="inq-card-section inq-card-work inq-card-no-nav" aria-label="Work status">
+          <div class="inq-card-section-head">
+            <span class="inq-card-section-label">Work status</span>
+          </div>
+          <div class="inq-card-work-row">
+            <div class="inq-card-work-select">${inquiryCardWorkStatus(inq)}</div>
+            ${showStartProcessing ? `<button type="button" class="btn btn-primary btn-sm inq-card-no-nav inquiry-start-work-btn"
+              onclick="event.stopPropagation();startInquiryWorkFromCard('${inq.id}')">Start processing</button>` : ''}
+          </div>
+        </section>
+
+        <section class="inq-card-section inq-card-schedule inq-card-no-nav" aria-label="Next follow-up">
+          <div class="inq-card-section-head">
+            <span class="inq-card-section-label">Next follow-up</span>
+            <button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')">Reschedule</button>
+          </div>
+          <div class="inq-card-follow-when ${follow.cls}">${escCard(follow.text)}</div>
+          <div class="inq-card-follow-action-row">
+            <span class="inq-card-follow-action">${escCard(follow.action)}</span>
+            <button type="button" class="btn btn-secondary btn-sm inq-card-no-nav" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')">Follow up</button>
+          </div>
+        </section>
+
+        ${metaCells ? `<div class="inq-card-meta-grid">${metaCells}</div>` : ''}
+
+        ${latest ? `<div class="inq-card-latest inq-card-no-nav">${latest}</div>` : ''}
+
+        <footer class="inq-card-actions inq-card-no-nav" aria-label="Inquiry actions">
+          <button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();openInquiryConversation('${inq.id}')">+ Conversation</button>
+          <button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();promptInquiryNote('${inq.id}')">Notes</button>
+          <button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')">Follow-up</button>
+          <button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();showStageChangeModal('${inq.id}')">Change stage</button>
+          <button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();editInquiry('${inq.id}')">Edit</button>
+          ${hasPayment ? `<button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();showRecordPaymentModal('inquiry','${inq.id}')">Payment</button>` : ''}
+          <button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();window.ILRSActivity?.quickLog?.('${inq.id}','outbound_call')">Call</button>
+          <button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();window.ILRSActivity?.quickLog?.('${inq.id}','whatsapp')">WhatsApp</button>
+        </footer>
+      </article>`;
   }
 
   function inquiryDetailTabsHtml(inquiryId, activeTab) {
