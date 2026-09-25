@@ -225,31 +225,41 @@
           <div class="inq-card-id-block inq-card-no-nav">
             <div class="inq-card-id-row">
               <span class="inquiry-number inq-card-id">${escCard(inq.inquiry_number || '')}</span>
-              <button type="button" class="inq-card-icon-btn inq-card-no-nav" title="Copy inquiry ID"
-                onclick="event.stopPropagation();copyInquiryNumber('${String(inq.inquiry_number || inq.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">⎘</button>
+              <button type="button" class="inq-card-icon-btn inq-card-no-nav" title="Copy inquiry ID" aria-label="Copy inquiry ID"
+                onclick="event.stopPropagation();copyInquiryNumber('${String(inq.inquiry_number || inq.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">
+                <span class="inq-card-copy-icon" aria-hidden="true"></span>
+              </button>
             </div>
             <div class="inq-card-badges">
               <span class="operational-state-pill ${stateCls}">${escCard(stateLabel)}</span>
               <span class="inquiry-stage-badge ${stageCls}">${escCard(stageName)}</span>
               <span class="inquiry-health-pill ${health}">${escCard(healthLabel)}</span>
             </div>
-            ${!compact ? `<div class="inq-card-meta-strip inq-card-no-nav">
-              <div class="inq-card-date-col">
-                <div class="inq-card-date-line"><span class="inq-card-date-icon">📅</span><span class="inq-card-date-val">${escCard(createdLabel)}</span></div>
-                <span class="inq-card-date-k">Created</span>
-              </div>
-              <div class="inq-card-date-col">
-                <div class="inq-card-date-line"><span class="inq-card-date-icon">🕐</span><span class="inq-card-date-val">${escCard(updatedLabel)}</span></div>
-                <span class="inq-card-date-k">Updated</span>
-              </div>
-              <label class="inq-card-sr-only" for="inq-assign-${inq.id}">Assigned to</label>
-              <select id="inq-assign-${inq.id}" class="inq-card-assign-select inq-card-no-nav" data-inquiry-id="${inq.id}"
-                onchange="event.stopPropagation();setInquiryAssigneeFromCard('${inq.id}', this.value)" aria-label="Assigned to">
-                ${inquiryAssigneeOptions(inq)}
-              </select>
-              ${showPriority ? `<span class="inq-card-priority inq-card-priority-${escCard(priorityKey)}"><span class="inq-card-priority-icon">▮</span>${escCard(String(inq.priority).toUpperCase())}</span>` : ''}
-            </div>` : ''}
           </div>
+          ${!compact ? `<div class="inq-card-header-dates inq-card-no-nav">
+            <div class="inq-card-date-col">
+              <div class="inq-card-date-line"><span class="inq-card-date-icon inq-icon-calendar" aria-hidden="true"></span><span class="inq-card-date-val">${escCard(createdLabel)}</span></div>
+              <span class="inq-card-date-k">Created</span>
+            </div>
+            <div class="inq-card-date-divider" aria-hidden="true"></div>
+            <div class="inq-card-date-col">
+              <div class="inq-card-date-line"><span class="inq-card-date-icon inq-icon-clock" aria-hidden="true"></span><span class="inq-card-date-val">${escCard(updatedLabel)}</span></div>
+              <span class="inq-card-date-k">Updated</span>
+            </div>
+          </div>
+          <div class="inq-card-header-assign inq-card-no-nav">
+            <label class="inq-card-sr-only" for="inq-assign-${inq.id}">Assigned to</label>
+            <span class="inq-card-assign-icon inq-icon-user" aria-hidden="true"></span>
+            <select id="inq-assign-${inq.id}" class="inq-card-assign-select inq-card-no-nav" data-inquiry-id="${inq.id}"
+              onchange="event.stopPropagation();setInquiryAssigneeFromCard('${inq.id}', this.value)" aria-label="Assigned to">
+              ${inquiryAssigneeOptions(inq)}
+            </select>
+          </div>
+          ${showPriority ? `<div class="inq-card-header-priority inq-card-no-nav">
+            <span class="inq-card-priority inq-card-priority-${escCard(priorityKey)}">
+              <span class="inq-card-priority-icon" aria-hidden="true">▮▮▮</span>${escCard(String(inq.priority).toUpperCase())}
+            </span>
+          </div>` : '<div class="inq-card-header-priority inq-card-header-priority-empty" aria-hidden="true"></div>'}` : ''}
         </div>
 
         <div class="inq-card-row inq-card-row-ops inq-card-no-nav">
@@ -258,42 +268,46 @@
             <div class="inq-card-work-row">
               <div class="inq-card-work-select">${inquiryCardWorkStatus(inq)}</div>
               ${showStartProcessing ? `<button type="button" class="btn btn-primary btn-sm inq-card-no-nav inquiry-start-work-btn"
-                onclick="event.stopPropagation();startInquiryWorkFromCard('${inq.id}')"><span class="inq-card-btn-icon">▶</span> Start processing</button>` : ''}
+                onclick="event.stopPropagation();startInquiryWorkFromCard('${inq.id}')"><span class="inq-card-btn-icon" aria-hidden="true"></span> Start processing</button>` : ''}
             </div>
           </section>
           <section class="inq-card-pane inq-card-pane-follow" aria-label="Next follow-up">
             <span class="inq-card-section-label">Next follow-up</span>
             <div class="inq-card-follow-main">
-              <input type="date" class="form-input inq-card-follow-date inq-card-no-nav" value="${followDateVal}"
-                aria-label="Follow-up date" onchange="event.stopPropagation();setInquiryFollowUpFromCard('${inq.id}', this.value, null)" />
-              <input type="time" class="form-input inq-card-follow-time inq-card-no-nav" value="${followTimeVal}"
-                aria-label="Follow-up time" onchange="event.stopPropagation();setInquiryFollowUpFromCard('${inq.id}', null, this.value)" />
-              <button type="button" class="btn btn-primary btn-sm inq-card-no-nav inq-card-btn-follow" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')"><span class="inq-card-btn-icon">🔔</span> Follow up</button>
-              <button type="button" class="btn btn-outline btn-sm inq-card-no-nav inq-card-btn-reschedule" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')"><span class="inq-card-btn-icon">📅</span> Reschedule</button>
+              <div class="inq-card-follow-datetime">
+                <span class="inq-card-input-icon inq-icon-calendar" aria-hidden="true"></span>
+                <input type="date" class="form-input inq-card-follow-date inq-card-no-nav" value="${followDateVal}"
+                  aria-label="Follow-up date" onchange="event.stopPropagation();setInquiryFollowUpFromCard('${inq.id}', this.value, null)" />
+                <span class="inq-card-input-icon inq-icon-clock" aria-hidden="true"></span>
+                <input type="time" class="form-input inq-card-follow-time inq-card-no-nav" value="${followTimeVal}"
+                  aria-label="Follow-up time" onchange="event.stopPropagation();setInquiryFollowUpFromCard('${inq.id}', null, this.value)" />
+              </div>
+              <div class="inq-card-follow-btns">
+                <button type="button" class="btn btn-sm inq-card-no-nav inq-card-btn-follow" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')"><span class="inq-card-btn-icon inq-icon-bell" aria-hidden="true"></span> Follow up</button>
+                <button type="button" class="btn btn-sm inq-card-no-nav inq-card-btn-reschedule" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')"><span class="inq-card-btn-icon inq-icon-calendar" aria-hidden="true"></span> Reschedule</button>
+              </div>
             </div>
-            <div class="inq-card-follow-action ${follow.cls}">${escCard(follow.action)}</div>
           </section>
         </div>
 
         <div class="inq-card-row inq-card-row-metrics inq-card-no-nav">
           <div class="inq-card-metric inq-card-metric-pipeline">
-            <span class="inq-card-metric-icon">◎</span>
+            <span class="inq-card-metric-icon inq-icon-pipeline" aria-hidden="true"></span>
             <div class="inq-card-metric-body">
               <span class="inq-card-metric-label">Pipeline stage</span>
               <select class="inq-card-metric-select inq-card-no-nav" aria-label="Pipeline stage"
                 onchange="event.stopPropagation();setInquiryStageFromCard('${inq.id}', this.value)">${inquiryStageOptions(inq)}</select>
-              ${paymentDetail ? `<div class="inq-card-payment-detail inq-card-no-nav">${escCard(paymentDetail)}</div>` : ''}
             </div>
           </div>
           <div class="inq-card-metric">
-            <span class="inq-card-metric-icon inq-card-metric-icon-health ${health}">●</span>
+            <span class="inq-card-metric-icon inq-icon-health" aria-hidden="true"></span>
             <div class="inq-card-metric-body">
               <span class="inq-card-metric-label">Health</span>
-              <span class="inq-card-metric-value inq-card-health-value ${health}"><span class="inq-card-health-dot ${health}"></span>${escCard(healthLabel)}</span>
+              <span class="inq-card-health-pill-metric ${health}"><span class="inq-card-health-dot ${health}"></span>${escCard(healthLabel)}</span>
             </div>
           </div>
           <div class="inq-card-metric">
-            <span class="inq-card-metric-icon">💳</span>
+            <span class="inq-card-metric-icon inq-icon-payment" aria-hidden="true"></span>
             <div class="inq-card-metric-body">
               <span class="inq-card-metric-label">Payment status</span>
               <select class="inq-card-metric-select inq-card-no-nav" aria-label="Payment tracking"
@@ -303,8 +317,8 @@
               </select>
             </div>
           </div>
-          <div class="inq-card-metric">
-            <span class="inq-card-metric-icon">⏱</span>
+          <div class="inq-card-metric inq-card-metric-last">
+            <span class="inq-card-metric-icon inq-icon-stage-days" aria-hidden="true"></span>
             <div class="inq-card-metric-body">
               <span class="inq-card-metric-label">Days in stage</span>
               <span class="inq-card-metric-value inq-card-metric-strong">${escCard(daysStage)}</span>
@@ -312,18 +326,21 @@
           </div>
         </div>
 
+        ${paymentDetail ? `<div class="inq-card-payment-detail inq-card-no-nav">${escCard(paymentDetail)}</div>` : ''}
         ${latest ? `<div class="inq-card-latest inq-card-no-nav">${latest}</div>` : ''}
 
         <footer class="inq-card-row inq-card-row-actions inq-card-no-nav" aria-label="Inquiry actions">
-          <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();openInquiryConversation('${inq.id}')"><span class="inq-card-action-icon">💬</span> + Conversation ${convBadge}</button>
-          <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();promptInquiryNote('${inq.id}')"><span class="inq-card-action-icon">📝</span> Notes</button>
-          <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')"><span class="inq-card-action-icon">📅</span> Follow-up ${followBadge}</button>
-          <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();showStageChangeModal('${inq.id}')"><span class="inq-card-action-icon">⑂</span> Change stage</button>
-          <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();editInquiry('${inq.id}')"><span class="inq-card-action-icon">✎</span> Edit</button>
-          <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();window.ILRSActivity?.quickLog?.('${inq.id}','outbound_call')"><span class="inq-card-action-icon">📞</span> Call</button>
-          <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();window.ILRSActivity?.quickLog?.('${inq.id}','whatsapp')"><span class="inq-card-action-icon">💬</span> WhatsApp</button>
-          ${hasPayment ? `<button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();showRecordPaymentModal('inquiry','${inq.id}')"><span class="inq-card-action-icon">💳</span> Payment</button>` : ''}
-          <button type="button" class="inq-card-action-btn inq-card-action-btn-danger inq-card-no-nav" onclick="event.stopPropagation();deleteInquiryItem('${inq.id}')"><span class="inq-card-action-icon">🗑</span> Delete</button>
+          <div class="inq-card-actions-main">
+            <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();openInquiryConversation('${inq.id}')"><span class="inq-card-action-icon inq-icon-chat" aria-hidden="true"></span> + Conversation ${convBadge}</button>
+            <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();promptInquiryNote('${inq.id}')"><span class="inq-card-action-icon inq-icon-notes" aria-hidden="true"></span> Notes</button>
+            <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')"><span class="inq-card-action-icon inq-icon-calendar" aria-hidden="true"></span> Follow-up ${followBadge}</button>
+            <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();showStageChangeModal('${inq.id}')"><span class="inq-card-action-icon inq-icon-stage" aria-hidden="true"></span> Change stage</button>
+            <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();editInquiry('${inq.id}')"><span class="inq-card-action-icon inq-icon-edit" aria-hidden="true"></span> Edit</button>
+            <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();window.ILRSActivity?.quickLog?.('${inq.id}','outbound_call')"><span class="inq-card-action-icon inq-icon-call" aria-hidden="true"></span> Call</button>
+            <button type="button" class="inq-card-action-btn inq-card-no-nav inq-card-action-whatsapp" onclick="event.stopPropagation();window.ILRSActivity?.quickLog?.('${inq.id}','whatsapp')"><span class="inq-card-action-icon inq-icon-whatsapp" aria-hidden="true"></span> WhatsApp</button>
+            ${hasPayment ? `<button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();showRecordPaymentModal('inquiry','${inq.id}')"><span class="inq-card-action-icon inq-icon-payment" aria-hidden="true"></span> Payment</button>` : ''}
+          </div>
+          <button type="button" class="inq-card-action-btn inq-card-action-btn-danger inq-card-no-nav" onclick="event.stopPropagation();deleteInquiryItem('${inq.id}')"><span class="inq-card-action-icon inq-icon-delete" aria-hidden="true"></span> Delete</button>
         </footer>
       </article>`;
   }

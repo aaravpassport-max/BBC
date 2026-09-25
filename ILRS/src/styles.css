@@ -1781,8 +1781,8 @@ textarea.form-input {
 /* ── Operational enquiry cards & activity timeline (UX restructure) ── */
 .inquiry-card-operational { gap: 8px; }
 
-/* ── Inquiry list card v3 (mockup layout — light CRM card on any shell) ── */
-.inquiry-card-v3 {
+/* Inquiry list card v3 — see inquiry-card-v3.css (design tokens) */
+.inquiry-card-v3-legacy-disabled {
   --inq-bg: #dcecf7;
   --inq-surface: #ffffff;
   --inq-text: #0f172a;
