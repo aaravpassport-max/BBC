@@ -124,12 +124,9 @@
     return 'Tracking off';
   }
 
-  function inquiryMetaCell(label, value) {
-    if (!value) return '';
-    return `<div class="inq-card-meta-cell">
-      <div class="inq-card-meta-label">${label}</div>
-      <div class="inq-card-meta-value">${escCard(value)}</div>
-    </div>`;
+  function inquiryMetaInline(label, value) {
+    if (value === undefined || value === null || value === '') return '';
+    return `<span class="inq-card-meta-item"><span class="inq-card-meta-k">${label}</span> ${escCard(value)}</span>`;
   }
 
   function inquiryCard(inq, compact = false) {
@@ -160,15 +157,13 @@
       ? `Due ${formatDate(inq.expected_completion_date)}`
       : '';
 
-    const metaCells = [
-      inquiryMetaCell('Pipeline stage', stageName),
-      !compact && inquiryMetaCell('Assigned to', assignee || '—'),
-      inquiryMetaCell('Health', healthLabel),
-      inquiryMetaCell('Payment', inquiryPaymentSummary(inq)),
-      priority ? inquiryMetaCell('Priority', priority) : '',
-      amount ? inquiryMetaCell('Value', amount) : '',
-      daysStage !== '—' ? inquiryMetaCell('Days in stage', daysStage) : '',
-      completionHint ? inquiryMetaCell('Completion', completionHint) : '',
+    const metaLine = [
+      !compact && inquiryMetaInline('Assigned', assignee || '—'),
+      inquiryMetaInline('Payment', inquiryPaymentSummary(inq)),
+      priority ? inquiryMetaInline('Priority', priority) : '',
+      amount ? inquiryMetaInline('Value', amount) : '',
+      daysStage !== '—' ? inquiryMetaInline('In stage', daysStage) : '',
+      completionHint ? inquiryMetaInline('Due', completionHint.replace(/^Due /, '')) : '',
     ].filter(Boolean).join('');
 
     return `
@@ -192,30 +187,31 @@
           <button type="button" class="action-btn delete btn-sm inq-card-no-nav" onclick="event.stopPropagation();deleteInquiryItem('${inq.id}')" title="Delete inquiry" aria-label="Delete inquiry">🗑</button>
         </header>
 
-        <section class="inq-card-section inq-card-work inq-card-no-nav" aria-label="Work status">
-          <div class="inq-card-section-head">
-            <span class="inq-card-section-label">Work status</span>
-          </div>
-          <div class="inq-card-work-row">
-            <div class="inq-card-work-select">${inquiryCardWorkStatus(inq)}</div>
-            ${showStartProcessing ? `<button type="button" class="btn btn-primary btn-sm inq-card-no-nav inquiry-start-work-btn"
-              onclick="event.stopPropagation();startInquiryWorkFromCard('${inq.id}')">Start processing</button>` : ''}
+        <section class="inq-card-ops inq-card-no-nav" aria-label="Work and follow-up">
+          <div class="inq-card-ops-grid">
+            <div class="inq-card-ops-col inq-card-work">
+              <span class="inq-card-section-label">Work status</span>
+              <div class="inq-card-work-row">
+                <div class="inq-card-work-select">${inquiryCardWorkStatus(inq)}</div>
+                ${showStartProcessing ? `<button type="button" class="btn btn-primary btn-sm inq-card-no-nav inquiry-start-work-btn"
+                  onclick="event.stopPropagation();startInquiryWorkFromCard('${inq.id}')">Start</button>` : ''}
+              </div>
+            </div>
+            <div class="inq-card-ops-col inq-card-schedule">
+              <div class="inq-card-section-head inq-card-section-head-tight">
+                <span class="inq-card-section-label">Next follow-up</span>
+                <button type="button" class="btn btn-ghost btn-xs inq-card-no-nav" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')">Reschedule</button>
+              </div>
+              <div class="inq-card-follow-line">
+                <span class="inq-card-follow-when ${follow.cls}">${escCard(follow.text)}</span>
+                <span class="inq-card-follow-sep" aria-hidden="true">·</span>
+                <span class="inq-card-follow-action">${escCard(follow.action)}</span>
+              </div>
+            </div>
           </div>
         </section>
 
-        <section class="inq-card-section inq-card-schedule inq-card-no-nav" aria-label="Next follow-up">
-          <div class="inq-card-section-head">
-            <span class="inq-card-section-label">Next follow-up</span>
-            <button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')">Reschedule</button>
-          </div>
-          <div class="inq-card-follow-when ${follow.cls}">${escCard(follow.text)}</div>
-          <div class="inq-card-follow-action-row">
-            <span class="inq-card-follow-action">${escCard(follow.action)}</span>
-            <button type="button" class="btn btn-secondary btn-sm inq-card-no-nav" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')">Follow up</button>
-          </div>
-        </section>
-
-        ${metaCells ? `<div class="inq-card-meta-grid">${metaCells}</div>` : ''}
+        ${metaLine ? `<div class="inq-card-meta-line">${metaLine}</div>` : ''}
 
         ${latest ? `<div class="inq-card-latest inq-card-no-nav">${latest}</div>` : ''}
 
