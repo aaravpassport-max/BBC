@@ -124,12 +124,46 @@
     return 'Tracking off';
   }
 
-  function inquiryMetaCell(label, value) {
-    if (value === undefined || value === null || value === '') return '';
-    return `<div class="inq-card-meta-cell">
-      <div class="inq-card-meta-label">${label}</div>
-      <div class="inq-card-meta-value">${escCard(value)}</div>
-    </div>`;
+  function clientInitials(name) {
+    const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  }
+
+  function inquiryClientKindLabel(inq) {
+    return inq.company ? 'Company' : 'Individual';
+  }
+
+  function inquiryAssigneeOptions(inq) {
+    const current = inq.assigned_to || 'me';
+    let html = `<option value="me" ${current === 'me' || !current ? 'selected' : ''}>Me</option>`;
+    for (const m of App.family || []) {
+      html += `<option value="${escCard(m.id)}" ${current === m.id ? 'selected' : ''}>${escCard(m.name)}</option>`;
+    }
+    return html;
+  }
+
+  function inquiryStageOptions(inq) {
+    const pipeline = P();
+    const stages = [...(pipeline?.getActiveStages() || []), ...(pipeline?.getClosedStages() || [])];
+    return stages.map((s) =>
+      `<option value="${escCard(s.key)}" ${s.key === inq.stage_key ? 'selected' : ''}>${escCard(s.display)}</option>`,
+    ).join('');
+  }
+
+  function inquiryConversationCount(inqId) {
+    return (App.inquiryActivityCounts && App.inquiryActivityCounts[inqId]) || 0;
+  }
+
+  function inquiryFollowUpReminderCount(inqId) {
+    return (App.reminders || []).filter((r) => r.source_type === 'inquiry' && r.source_id === inqId && r.status === 'active').length;
+  }
+
+  function formatInquiryCardDate(raw) {
+    if (!raw) return '—';
+    const d = String(raw).slice(0, 10);
+    return typeof formatDate === 'function' ? formatDate(d) : d;
   }
 
   function inquiryCard(inq, compact = false) {
@@ -156,79 +190,128 @@
       ? `₹${Number(inq.quotation_amount).toLocaleString('en-IN')}`
       : (inq.expected_value > 0 ? `~₹${Number(inq.expected_value).toLocaleString('en-IN')}` : '');
     const hasPayment = Boolean(window.ILRSPayment?.showRecordPaymentModal);
-    const completionHint = completionOverdue && inq.expected_completion_date
-      ? `Due ${formatDate(inq.expected_completion_date)}`
-      : '';
+    const paymentTrackingOn = Number(inq.payment_tracking_enabled) === 1;
+    const convCount = inquiryConversationCount(inq.id);
+    const followCount = inquiryFollowUpReminderCount(inq.id) || (inq.next_follow_up ? 1 : 0);
+    const createdLabel = formatInquiryCardDate(inq.created_at);
+    const updatedLabel = formatInquiryCardDate(inq.updated_at);
+    const priorityKey = String(inq.priority || 'normal').toLowerCase();
+    const showPriority = priorityKey && priorityKey !== 'normal';
+    const followDateVal = inq.next_follow_up ? String(inq.next_follow_up).slice(0, 10) : '';
+    const followTimeVal = inq.next_follow_up_time || '11:00';
 
-    const metaCells = [
-      inquiryMetaCell('Pipeline stage', stageName),
-      !compact && inquiryMetaCell('Assigned to', assignee || '—'),
-      inquiryMetaCell('Health', healthLabel),
-      inquiryMetaCell('Payment', inquiryPaymentSummary(inq)),
-      priority ? inquiryMetaCell('Priority', priority) : '',
-      amount ? inquiryMetaCell('Value', amount) : '',
-      daysStage !== '—' ? inquiryMetaCell('Days in stage', daysStage) : '',
-      completionHint ? inquiryMetaCell('Completion', completionHint) : '',
-    ].filter(Boolean).join('');
+    const convBadge = convCount > 0 ? `<span class="inq-card-action-badge">${convCount}</span>` : '';
+    const followBadge = followCount > 0 ? `<span class="inq-card-action-badge">${followCount}</span>` : '';
 
     return `
-      <article class="inquiry-card inquiry-card-v2 inquiry-card-operational ${health} ${stageCls} ${completionOverdue ? 'completion-overdue' : ''}"
+      <article class="inquiry-card inquiry-card-v3 inquiry-card-operational ${health} ${stageCls} ${completionOverdue ? 'completion-overdue' : ''}"
         onclick="if(event.target.closest('.inq-card-no-nav,.item-select-checkbox')) return; openInquiryDetail('${inq.id}')">
-        <header class="inq-card-header">
+        <div class="inq-card-row inq-card-row-identity">
           <input type="checkbox" class="item-select-checkbox inq-card-no-nav" ${selected ? 'checked' : ''}
             onclick="event.stopPropagation();toggleInquirySelection('${inq.id}', this.checked)" title="Select inquiry" aria-label="Select inquiry" />
-          <div class="inq-card-identity">
-            <div class="inq-card-title-row">
+          <div class="inq-card-avatar" aria-hidden="true">${escCard(clientInitials(inq.client_name))}</div>
+          <div class="inq-card-identity inq-card-no-nav" onclick="event.stopPropagation();openInquiryDetail('${inq.id}')">
+            <div class="inq-card-client-line">
               <h3 class="inq-card-client">${escCard(inq.client_name)}</h3>
-              <span class="inquiry-number inq-card-id">${escCard(inq.inquiry_number || '')}</span>
+              <span class="inq-card-kind-pill">${escCard(inquiryClientKindLabel(inq))}</span>
             </div>
             <div class="inq-card-service">${escCard(inq.requirement)}</div>
+          </div>
+          <div class="inq-card-id-block inq-card-no-nav">
+            <span class="inquiry-number inq-card-id">${escCard(inq.inquiry_number || '')}</span>
+            <button type="button" class="inq-card-icon-btn inq-card-no-nav" title="Copy inquiry ID"
+              onclick="event.stopPropagation();copyInquiryNumber('${String(inq.inquiry_number || inq.id).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')">⎘</button>
             <div class="inq-card-badges">
               <span class="operational-state-pill ${stateCls}">${escCard(stateLabel)}</span>
               <span class="inquiry-stage-badge ${stageCls}">${escCard(stageName)}</span>
               <span class="inquiry-health-pill ${health}">${escCard(healthLabel)}</span>
             </div>
           </div>
-          <button type="button" class="action-btn delete btn-sm inq-card-no-nav" onclick="event.stopPropagation();deleteInquiryItem('${inq.id}')" title="Delete inquiry" aria-label="Delete inquiry">🗑</button>
-        </header>
+          ${!compact ? `<div class="inq-card-dates inq-card-no-nav">
+            <div class="inq-card-date-item"><span class="inq-card-date-icon">📅</span><span>${escCard(createdLabel)}</span><span class="inq-card-date-k">Created</span></div>
+            <div class="inq-card-date-item"><span class="inq-card-date-icon">🕐</span><span>${escCard(updatedLabel)}</span><span class="inq-card-date-k">Updated</span></div>
+          </div>` : ''}
+          ${!compact ? `<div class="inq-card-assign-block inq-card-no-nav">
+            <label class="inq-card-sr-only" for="inq-assign-${inq.id}">Assigned to</label>
+            <select id="inq-assign-${inq.id}" class="inq-card-assign-select inq-card-no-nav" data-inquiry-id="${inq.id}"
+              onchange="event.stopPropagation();setInquiryAssigneeFromCard('${inq.id}', this.value)" aria-label="Assigned to">
+              ${inquiryAssigneeOptions(inq)}
+            </select>
+            ${showPriority ? `<span class="inq-card-priority inq-card-priority-${escCard(priorityKey)}"><span class="inq-card-priority-icon">▮</span>${escCard(String(inq.priority).toUpperCase())}</span>` : ''}
+          </div>` : ''}
+        </div>
 
-        <section class="inq-card-ops inq-card-no-nav" aria-label="Work and follow-up">
-          <div class="inq-card-ops-grid">
-            <div class="inq-card-ops-col inq-card-work">
-              <span class="inq-card-section-label">Work status</span>
-              <div class="inq-card-work-row">
-                <div class="inq-card-work-select">${inquiryCardWorkStatus(inq)}</div>
-                ${showStartProcessing ? `<button type="button" class="btn btn-primary btn-sm inq-card-no-nav inquiry-start-work-btn"
-                  onclick="event.stopPropagation();startInquiryWorkFromCard('${inq.id}')">Start processing</button>` : ''}
-              </div>
+        <div class="inq-card-row inq-card-row-ops inq-card-no-nav">
+          <section class="inq-card-pane inq-card-pane-work" aria-label="Work status">
+            <span class="inq-card-section-label">Work status</span>
+            <div class="inq-card-work-row">
+              <div class="inq-card-work-select">${inquiryCardWorkStatus(inq)}</div>
+              ${showStartProcessing ? `<button type="button" class="btn btn-primary btn-sm inq-card-no-nav inquiry-start-work-btn"
+                onclick="event.stopPropagation();startInquiryWorkFromCard('${inq.id}')"><span class="inq-card-btn-icon">▶</span> Start processing</button>` : ''}
             </div>
-            <div class="inq-card-ops-col inq-card-schedule">
-              <div class="inq-card-section-head inq-card-section-head-tight">
-                <span class="inq-card-section-label">Next follow-up</span>
-                <button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')">Reschedule</button>
-              </div>
-              <div class="inq-card-follow-when ${follow.cls}">${escCard(follow.text)}</div>
-              <div class="inq-card-follow-action-row">
-                <span class="inq-card-follow-action">${escCard(follow.action)}</span>
-                <button type="button" class="btn btn-secondary btn-sm inq-card-no-nav" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')">Follow up</button>
-              </div>
+          </section>
+          <section class="inq-card-pane inq-card-pane-follow" aria-label="Next follow-up">
+            <span class="inq-card-section-label">Next follow-up</span>
+            <div class="inq-card-follow-fields">
+              <input type="date" class="form-input inq-card-follow-date inq-card-no-nav" value="${followDateVal}"
+                aria-label="Follow-up date" onchange="event.stopPropagation();setInquiryFollowUpFromCard('${inq.id}', this.value, null)" />
+              <input type="time" class="form-input inq-card-follow-time inq-card-no-nav" value="${followTimeVal}"
+                aria-label="Follow-up time" onchange="event.stopPropagation();setInquiryFollowUpFromCard('${inq.id}', null, this.value)" />
+              <button type="button" class="btn btn-primary btn-sm inq-card-no-nav" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')"><span class="inq-card-btn-icon">🔔</span> Follow up</button>
+              <button type="button" class="btn btn-outline btn-sm inq-card-no-nav" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')"><span class="inq-card-btn-icon">📅</span> Reschedule</button>
+            </div>
+            <div class="inq-card-follow-action ${follow.cls}">${escCard(follow.action)}</div>
+          </section>
+        </div>
+
+        <div class="inq-card-row inq-card-row-metrics inq-card-no-nav">
+          <div class="inq-card-metric">
+            <span class="inq-card-metric-icon">◎</span>
+            <div class="inq-card-metric-body">
+              <span class="inq-card-metric-label">Pipeline stage</span>
+              <select class="inq-card-metric-select inq-card-no-nav" aria-label="Pipeline stage"
+                onchange="event.stopPropagation();setInquiryStageFromCard('${inq.id}', this.value)">${inquiryStageOptions(inq)}</select>
             </div>
           </div>
-        </section>
-
-        ${metaCells ? `<div class="inq-card-meta-grid">${metaCells}</div>` : ''}
+          <div class="inq-card-metric">
+            <span class="inq-card-metric-icon inq-card-metric-icon-health ${health}">●</span>
+            <div class="inq-card-metric-body">
+              <span class="inq-card-metric-label">Health</span>
+              <span class="inq-card-metric-value inq-card-health-value ${health}"><span class="inq-card-health-dot ${health}"></span>${escCard(healthLabel)}</span>
+            </div>
+          </div>
+          <div class="inq-card-metric">
+            <span class="inq-card-metric-icon">💳</span>
+            <div class="inq-card-metric-body">
+              <span class="inq-card-metric-label">Payment status</span>
+              <select class="inq-card-metric-select inq-card-no-nav" aria-label="Payment tracking"
+                onchange="event.stopPropagation();setInquiryPaymentTrackingFromCard('${inq.id}', this.value)">
+                <option value="0" ${!paymentTrackingOn ? 'selected' : ''}>Tracking off</option>
+                <option value="1" ${paymentTrackingOn ? 'selected' : ''}>Tracking on</option>
+              </select>
+            </div>
+          </div>
+          <div class="inq-card-metric">
+            <span class="inq-card-metric-icon">⏱</span>
+            <div class="inq-card-metric-body">
+              <span class="inq-card-metric-label">Days in stage</span>
+              <span class="inq-card-metric-value inq-card-metric-strong">${escCard(daysStage)}</span>
+            </div>
+          </div>
+        </div>
 
         ${latest ? `<div class="inq-card-latest inq-card-no-nav">${latest}</div>` : ''}
 
-        <footer class="inq-card-actions inq-card-no-nav" aria-label="Inquiry actions">
-          <button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();openInquiryConversation('${inq.id}')">+ Conversation</button>
-          <button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();promptInquiryNote('${inq.id}')">Notes</button>
-          <button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')">Follow-up</button>
-          <button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();showStageChangeModal('${inq.id}')">Change stage</button>
-          <button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();editInquiry('${inq.id}')">Edit</button>
-          ${hasPayment ? `<button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();showRecordPaymentModal('inquiry','${inq.id}')">Payment</button>` : ''}
-          <button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();window.ILRSActivity?.quickLog?.('${inq.id}','outbound_call')">Call</button>
-          <button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();window.ILRSActivity?.quickLog?.('${inq.id}','whatsapp')">WhatsApp</button>
+        <footer class="inq-card-row inq-card-row-actions inq-card-no-nav" aria-label="Inquiry actions">
+          <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();openInquiryConversation('${inq.id}')"><span class="inq-card-action-icon">💬</span> + Conversation ${convBadge}</button>
+          <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();promptInquiryNote('${inq.id}')"><span class="inq-card-action-icon">📝</span> Notes</button>
+          <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')"><span class="inq-card-action-icon">📅</span> Follow-up ${followBadge}</button>
+          <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();showStageChangeModal('${inq.id}')"><span class="inq-card-action-icon">⑂</span> Change stage</button>
+          <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();editInquiry('${inq.id}')"><span class="inq-card-action-icon">✎</span> Edit</button>
+          <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();window.ILRSActivity?.quickLog?.('${inq.id}','outbound_call')"><span class="inq-card-action-icon">📞</span> Call</button>
+          <button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();window.ILRSActivity?.quickLog?.('${inq.id}','whatsapp')"><span class="inq-card-action-icon">💬</span> WhatsApp</button>
+          ${hasPayment ? `<button type="button" class="inq-card-action-btn inq-card-no-nav" onclick="event.stopPropagation();showRecordPaymentModal('inquiry','${inq.id}')"><span class="inq-card-action-icon">💳</span> Payment</button>` : ''}
+          <button type="button" class="inq-card-action-btn inq-card-action-btn-danger inq-card-no-nav" onclick="event.stopPropagation();deleteInquiryItem('${inq.id}')"><span class="inq-card-action-icon">🗑</span> Delete</button>
         </footer>
       </article>`;
   }
@@ -873,6 +956,85 @@
     }).join('');
   }
 
+  function copyInquiryNumber(text) {
+    const value = String(text || '').trim();
+    if (!value) return;
+    const done = () => { if (typeof toast === 'function') toast('Inquiry ID copied'); };
+    if (navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(value).then(done).catch(() => {
+        if (typeof toast === 'function') toast(value);
+      });
+    } else if (typeof toast === 'function') toast(value);
+  }
+
+  async function setInquiryAssigneeFromCard(id, assigneeId) {
+    const result = await window.ilrs?.updateInquiry?.(id, { assignedTo: assigneeId || 'me' });
+    if (!result?.success) {
+      if (typeof toast === 'function') toast(result?.error || 'Could not update assignee', 'warning');
+      return;
+    }
+    const idx = (App.inquiries || []).findIndex((i) => i.id === id);
+    if (idx >= 0 && result.inquiry) App.inquiries[idx] = result.inquiry;
+    if (typeof softRefreshCurrentPage === 'function') await softRefreshCurrentPage();
+  }
+
+  async function setInquiryFollowUpFromCard(id, date, time) {
+    const inq = (App.inquiries || []).find((i) => i.id === id);
+    if (!inq) return;
+    const data = {
+      nextFollowUp: date !== null && date !== undefined ? date : inq.next_follow_up,
+      nextFollowUpTime: time !== null && time !== undefined ? time : inq.next_follow_up_time,
+    };
+    const result = await window.ilrs?.updateInquiry?.(id, data);
+    if (!result?.success) {
+      if (typeof toast === 'function') toast(result?.error || 'Could not update follow-up', 'warning');
+      return;
+    }
+    if (typeof loadAllData === 'function') await loadAllData();
+    if (typeof softRefreshCurrentPage === 'function') await softRefreshCurrentPage();
+  }
+
+  async function setInquiryStageFromCard(id, stageKey) {
+    const inq = (App.inquiries || []).find((i) => i.id === id);
+    if (!inq || stageKey === inq.stage_key) return;
+    const pipeline = P();
+    const fields = pipeline?.getStageFields?.(stageKey) || [];
+    const closed = pipeline?.isClosedStage?.(stageKey);
+    if (fields.length || closed) {
+      showStageChangeModal(id);
+      if (typeof softRefreshCurrentPage === 'function') await softRefreshCurrentPage();
+      return;
+    }
+    const result = await window.ilrs?.changeInquiryStage?.(id, stageKey, {});
+    if (!result?.success) {
+      if (typeof toast === 'function') toast(result?.error || 'Could not change stage', 'warning');
+      return;
+    }
+    if (typeof toast === 'function') toast(`Stage → ${result.stage?.display || stageKey}`);
+    if (typeof loadAllData === 'function') await loadAllData();
+    if (typeof softRefreshCurrentPage === 'function') await softRefreshCurrentPage();
+  }
+
+  async function setInquiryPaymentTrackingFromCard(id, value) {
+    const enabled = String(value) === '1';
+    const inq = (App.inquiries || []).find((i) => i.id === id);
+    if (!inq) return;
+    const result = await window.ilrs?.updatePaymentSettings?.({
+      entityType: 'inquiry',
+      entityId: id,
+      enabled,
+      total: Number(inq.payment_total) || Number(inq.quotation_amount) || 0,
+      nextPaymentDueDate: inq.next_payment_due_date || '',
+      nextPaymentAmount: Number(inq.next_payment_amount) || 0,
+    });
+    if (!result?.success) {
+      if (typeof toast === 'function') toast(result?.error || 'Could not update payment tracking', 'warning');
+      return;
+    }
+    if (typeof loadAllData === 'function') await loadAllData();
+    if (typeof softRefreshCurrentPage === 'function') await softRefreshCurrentPage();
+  }
+
   function showStageChangeModal(id) {
     const inq = (App.inquiries || []).find((i) => i.id === id);
     if (!inq) return;
@@ -1102,4 +1264,9 @@
   window.setInquiryDetailTab = setInquiryDetailTab;
   window.openInquiryConversation = openInquiryConversation;
   window.startInquiryWorkFromCard = startInquiryWorkFromCard;
+  window.copyInquiryNumber = copyInquiryNumber;
+  window.setInquiryAssigneeFromCard = setInquiryAssigneeFromCard;
+  window.setInquiryFollowUpFromCard = setInquiryFollowUpFromCard;
+  window.setInquiryStageFromCard = setInquiryStageFromCard;
+  window.setInquiryPaymentTrackingFromCard = setInquiryPaymentTrackingFromCard;
 })();

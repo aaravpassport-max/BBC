@@ -679,6 +679,8 @@ function updateInquiry(db, inquiryId, data, now = new Date()) {
       expected_completion_date = COALESCE(?, expected_completion_date),
       notes = COALESCE(?, notes),
       operational_state = COALESCE(?, operational_state),
+      assigned_to = COALESCE(?, assigned_to),
+      priority = COALESCE(?, priority),
       updated_at = datetime('now')
     WHERE id = ?
   `).run(
@@ -700,6 +702,8 @@ function updateInquiry(db, inquiryId, data, now = new Date()) {
     data.expectedCompletionDate ?? null,
     data.notes ?? null,
     data.operationalState ?? null,
+    data.assignedTo ?? null,
+    data.priority ?? null,
     inquiryId,
   );
 

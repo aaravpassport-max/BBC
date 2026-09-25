@@ -368,7 +368,7 @@ async function syncWorkflowStages() {
 }
 
 async function loadAllData() {
-  const [reminders, medicines, bills, habits, family, inquiries, clients, templates, paymentsResult] = await Promise.all([
+  const [reminders, medicines, bills, habits, family, inquiries, clients, templates, paymentsResult, activityCounts] = await Promise.all([
     db("SELECT * FROM reminders WHERE status != 'deleted' AND (source_type IS NULL OR source_type = '') ORDER BY priority DESC, next_fire ASC"),
     db("SELECT * FROM medicines WHERE status = 'active' ORDER BY name"),
     db("SELECT * FROM bills WHERE status = 'active' ORDER BY due_day"),
@@ -378,6 +378,7 @@ async function loadAllData() {
     db('SELECT * FROM clients ORDER BY name'),
     api.getInquiryTemplates?.().then((r) => r?.templates || []).catch(() => []),
     window.ilrs?.getWorkPayments?.().catch(() => ({ payments: [] })),
+    db('SELECT inquiry_id, COUNT(*) AS c FROM inquiry_activities GROUP BY inquiry_id').catch(() => []),
   ]);
   App.reminders = reminders || [];
   App.medicines = medicines || [];
@@ -394,6 +395,11 @@ async function loadAllData() {
     payIndex[key].push(p);
   }
   App.workPayments = payIndex;
+  const actIndex = {};
+  for (const row of (activityCounts || [])) {
+    if (row?.inquiry_id) actIndex[row.inquiry_id] = Number(row.c) || 0;
+  }
+  App.inquiryActivityCounts = actIndex;
   await syncPipelineStages();
   await syncWorkflowStages();
 }
