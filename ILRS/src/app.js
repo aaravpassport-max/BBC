@@ -1115,6 +1115,12 @@ function assigneeLabel(id) {
 
 function reminderCardWorkStatus(r) {
   const LC = window.ILRSWorkLifecycle;
+  if (r?.source_type === 'inquiry' && r?.source_id) {
+    const inq = (App.inquiries || []).find((i) => i.id === r.source_id);
+    if (inq && LC?.lifecycleCardControl) {
+      return LC.lifecycleCardControl(inq, 'inquiry');
+    }
+  }
   if (LC?.lifecycleCardControl) {
     return LC.lifecycleCardControl(r, r.task_type === 'task' ? 'task' : 'reminder');
   }

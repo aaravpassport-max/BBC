@@ -601,7 +601,10 @@
           <button class="btn btn-ghost btn-sm" onclick="showInquiryRescheduleMenu('${id}')">Reschedule</button>
         </div>
         <div class="card" style="margin-bottom:16px;padding:16px">
-          <div class="form-label">Next follow-up</div>
+          <div class="form-label">Enquiry work status</div>
+          <p class="form-hint" style="margin:0 0 10px">Controls Act now / In process / On hold queues for this enquiry (not just the reminder below).</p>
+          ${inquiryLifecycleQuickSelect(inq)}
+          <div class="form-label" style="margin-top:16px">Next follow-up</div>
           <div>${inq.next_follow_up ? formatDate(inq.next_follow_up) + (inq.next_follow_up_time ? ' · ' + formatTime(inq.next_follow_up_time) : '') : 'Not scheduled'}</div>
         </div>
         <div class="reminder-list">${followReminders.length
