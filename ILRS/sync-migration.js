@@ -1,0 +1,160 @@
+/**
+ * Database migration for multi-computer sync (schema v20).
+ */
+
+function runSyncMigrationV20(db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sync_outbox (
+      id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL UNIQUE,
+      entity TEXT NOT NULL,
+      record_id TEXT NOT NULL,
+      operation TEXT NOT NULL,
+      payload_json TEXT NOT NULL DEFAULT '{}',
+      status TEXT NOT NULL DEFAULT 'pending',
+      error TEXT DEFAULT '',
+      attempts INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      published_at TEXT DEFAULT ''
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sync_outbox_status ON sync_outbox(status);
+    CREATE INDEX IF NOT EXISTS idx_sync_outbox_created ON sync_outbox(created_at);
+
+    CREATE TABLE IF NOT EXISTS sync_processed_events (
+      event_id TEXT PRIMARY KEY,
+      source_device_id TEXT DEFAULT '',
+      entity TEXT DEFAULT '',
+      processed_at TEXT DEFAULT (datetime('now')),
+      apply_status TEXT DEFAULT 'recorded'
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sync_processed_apply ON sync_processed_events(apply_status);
+
+    CREATE TABLE IF NOT EXISTS app_users (
+      id TEXT PRIMARY KEY,
+      display_name TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
+  const defaults = {
+    sync_enabled: '0',
+    sync_auto: '1',
+    sync_interval_seconds: '120',
+    sync_folder_path: '',
+    sync_last_run_at: '',
+    sync_last_error: '',
+  };
+  const ins = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
+  for (const [k, v] of Object.entries(defaults)) {
+    ins.run(k, v);
+  }
+
+  const { ensureDeviceRegistration, ensureActiveUser } = require('./sync-device');
+  ensureDeviceRegistration(db);
+  ensureActiveUser(db);
+}
+
+function runSyncMigrationV21(db) {
+  for (const table of ['clients', 'inquiries', 'inquiry_activities', 'work_payments', 'reminders', 'reminder_logs']) {
+    try {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN sync_revision INTEGER DEFAULT 1`);
+      db.prepare(`UPDATE ${table} SET sync_revision = 1 WHERE sync_revision IS NULL`).run();
+    } catch (_) { /* table or column missing */ }
+  }
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS sync_conflicts (
+      id TEXT PRIMARY KEY,
+      entity TEXT NOT NULL,
+      record_id TEXT NOT NULL,
+      event_id TEXT NOT NULL,
+      local_revision INTEGER DEFAULT 0,
+      incoming_revision INTEGER DEFAULT 0,
+      detail_json TEXT DEFAULT '{}',
+      created_at TEXT DEFAULT (datetime('now')),
+      resolved INTEGER DEFAULT 0
+    );
+    CREATE INDEX IF NOT EXISTS idx_sync_conflicts_open ON sync_conflicts(resolved);
+  `);
+}
+
+function runSyncMigrationV22(db) {
+  for (const table of ['reminders', 'reminder_logs']) {
+    try {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN sync_revision INTEGER DEFAULT 1`);
+      db.prepare(`UPDATE ${table} SET sync_revision = 1 WHERE sync_revision IS NULL`).run();
+    } catch (_) { /* table or column missing */ }
+  }
+}
+
+function runSyncMigrationV23(db) {
+  const lifeTables = [
+    'medicines',
+    'medicine_logs',
+    'bills',
+    'bill_history',
+    'habits',
+    'habit_logs',
+    'family_members',
+    'checklists',
+    'checklist_items',
+  ];
+  for (const table of lifeTables) {
+    try {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN sync_revision INTEGER DEFAULT 1`);
+      db.prepare(`UPDATE ${table} SET sync_revision = 1 WHERE sync_revision IS NULL`).run();
+    } catch (_) { /* table or column missing */ }
+  }
+}
+
+function runSyncMigrationV24(db) {
+  for (const table of ['inquiry_stages', 'workflow_stages', 'inquiry_templates']) {
+    try {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN sync_revision INTEGER DEFAULT 1`);
+      db.prepare(`UPDATE ${table} SET sync_revision = 1 WHERE sync_revision IS NULL`).run();
+    } catch (_) { /* table or column missing */ }
+  }
+  const ins = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
+  ins.run('sync_drive_backup', '0');
+  ins.run('sync_drive_backup_retention', '14');
+}
+
+function runSyncMigrationV25(db) {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS attachments (
+      id TEXT PRIMARY KEY,
+      inquiry_id TEXT DEFAULT '',
+      entity_type TEXT DEFAULT 'inquiry',
+      entity_id TEXT DEFAULT '',
+      file_name TEXT NOT NULL,
+      mime_type TEXT DEFAULT '',
+      size_bytes INTEGER DEFAULT 0,
+      sha256 TEXT NOT NULL,
+      storage_rel_path TEXT NOT NULL,
+      local_rel_path TEXT DEFAULT '',
+      created_at TEXT DEFAULT (datetime('now')),
+      deleted_at TEXT,
+      sync_revision INTEGER DEFAULT 1
+    );
+    CREATE INDEX IF NOT EXISTS idx_attachments_entity ON attachments(entity_type, entity_id);
+  `);
+
+  const ins = db.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
+  ins.run('sync_bootstrap_imported', '0');
+  ins.run('sync_bootstrap_publish', '0');
+  ins.run('sync_bootstrap_imported_at', '');
+  ins.run('sync_bootstrap_exported_at', '');
+  ins.run('sync_bootstrap_source_device', '');
+}
+
+module.exports = {
+  runSyncMigrationV20,
+  runSyncMigrationV21,
+  runSyncMigrationV22,
+  runSyncMigrationV23,
+  runSyncMigrationV24,
+  runSyncMigrationV25,
+};
