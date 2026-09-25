@@ -176,6 +176,44 @@ test('updateInquiry card-only pending syncs linked reminder lifecycle', () => {
   fs.unlinkSync(dbPath);
 });
 
+test('on hold → act now → in process preserves inquiry data and history', () => {
+  const { db, dbPath } = makeDb();
+  const now = new Date(2026, 8, 17, 10, 0, 0);
+  seedInquiryStages(db);
+  const { inquiry } = createInquiry(db, {
+    clientName: 'Resume Co',
+    requirement: 'Passport',
+    nextFollowUp: '2026-09-22',
+    assignedTo: 'Agent A',
+  }, now);
+  db.prepare('UPDATE inquiries SET notes = ?, assigned_to = ? WHERE id = ?').run('Keep notes', 'Agent A', inquiry.id);
+  const actsBefore = db.prepare('SELECT COUNT(*) AS c FROM inquiry_activities WHERE inquiry_id = ?').get(inquiry.id).c;
+
+  let result = updateInquiry(db, inquiry.id, { lifecycleStatus: 'pending', scheduleNext: false }, now);
+  assert.strictEqual(result.inquiry.lifecycle_status, 'pending');
+
+  result = updateInquiry(db, inquiry.id, { lifecycleStatus: 'act_now', scheduleNext: false }, now);
+  assert.strictEqual(result.success, true);
+  assert.strictEqual(result.inquiry.lifecycle_status, 'active');
+  assert.strictEqual(result.inquiry.work_phase, 'new');
+  assert.strictEqual(result.inquiry.next_follow_up, '2026-09-22');
+  const { inferInquiryQueueTab, LIFECYCLE_ACTIVE } = require('../work-lifecycle');
+  assert.strictEqual(inferInquiryQueueTab(result.inquiry), LIFECYCLE_ACTIVE);
+
+  result = updateInquiry(db, inquiry.id, { lifecycleStatus: 'in_process', scheduleNext: false }, now);
+  assert.strictEqual(result.inquiry.work_phase, 'in_process');
+  const { QUEUE_TAB_IN_PROCESS } = require('../work-lifecycle');
+  assert.strictEqual(inferInquiryQueueTab(result.inquiry), QUEUE_TAB_IN_PROCESS);
+
+  const row = db.prepare('SELECT notes, assigned_to FROM inquiries WHERE id = ?').get(inquiry.id);
+  assert.strictEqual(row.notes, 'Keep notes');
+  assert.strictEqual(row.assigned_to, 'Agent A');
+  const actsAfter = db.prepare('SELECT COUNT(*) AS c FROM inquiry_activities WHERE inquiry_id = ?').get(inquiry.id).c;
+  assert.ok(actsAfter > actsBefore, 'status changes logged to activity');
+  db.close();
+  fs.unlinkSync(dbPath);
+});
+
 test('updateInquiry card-only lifecycle change does not wipe follow-up date', () => {
   const { db, dbPath } = makeDb();
   const now = new Date(2026, 8, 17, 10, 0, 0);

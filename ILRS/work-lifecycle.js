@@ -6,6 +6,10 @@ const LIFECYCLE_PENDING = 'pending';
 const LIFECYCLE_COMPLETED = 'completed';
 const LIFECYCLE_CLOSED = 'closed';
 
+/** Inquiry work-status dropdown values (not all stored verbatim in lifecycle_status). */
+const WORK_STATUS_ACT_NOW = 'act_now';
+const WORK_STATUS_IN_PROCESS = 'in_process';
+
 const LIFECYCLE_STATUSES = [
   { id: LIFECYCLE_ACTIVE, label: 'Active / In Progress' },
   { id: LIFECYCLE_PENDING, label: 'Pending / On Hold' },
@@ -82,7 +86,30 @@ function inferReminderQueueTab(reminder) {
 }
 
 function lifecycleLabel(id) {
+  if (id === WORK_STATUS_ACT_NOW) return 'Act now';
+  if (id === WORK_STATUS_IN_PROCESS) return 'In process';
   return LIFECYCLE_STATUSES.find((s) => s.id === id)?.label || id;
+}
+
+function inferInquiryWorkStatus(inquiry) {
+  const lc = inferLifecycleFromInquiry(inquiry);
+  if (lc === LIFECYCLE_PENDING) return LIFECYCLE_PENDING;
+  if (lc === LIFECYCLE_COMPLETED) return LIFECYCLE_COMPLETED;
+  if (lc === LIFECYCLE_CLOSED) return LIFECYCLE_CLOSED;
+  if (isInquiryInProcess(inquiry)) return WORK_STATUS_IN_PROCESS;
+  return WORK_STATUS_ACT_NOW;
+}
+
+function isInquiryWorkStatusValue(value) {
+  const v = String(value || '').trim().toLowerCase();
+  return [
+    WORK_STATUS_ACT_NOW,
+    WORK_STATUS_IN_PROCESS,
+    LIFECYCLE_PENDING,
+    LIFECYCLE_COMPLETED,
+    LIFECYCLE_CLOSED,
+    LIFECYCLE_ACTIVE,
+  ].includes(v);
 }
 
 function isLifecycleSchedulable(lifecycle) {
@@ -220,6 +247,8 @@ module.exports = {
   LIFECYCLE_PENDING,
   LIFECYCLE_COMPLETED,
   LIFECYCLE_CLOSED,
+  WORK_STATUS_ACT_NOW,
+  WORK_STATUS_IN_PROCESS,
   QUEUE_TAB_IN_PROCESS,
   INQUIRY_NEW_STAGE_KEYS,
   LIFECYCLE_STATUSES,
@@ -230,6 +259,8 @@ module.exports = {
   inferInquiryQueueTab,
   inferReminderQueueTab,
   lifecycleLabel,
+  inferInquiryWorkStatus,
+  isInquiryWorkStatusValue,
   isLifecycleSchedulable,
   requiresNextReminderDate,
   blocksNextReminder,

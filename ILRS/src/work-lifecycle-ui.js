@@ -5,8 +5,19 @@
   const LIFECYCLE_COMPLETED = 'completed';
   const LIFECYCLE_CLOSED = 'closed';
 
+  const WORK_STATUS_ACT_NOW = 'act_now';
+  const WORK_STATUS_IN_PROCESS = 'in_process';
+
   const LIFECYCLE_STATUSES = [
     { id: LIFECYCLE_ACTIVE, label: 'Active / In Progress', short: 'Active' },
+    { id: LIFECYCLE_PENDING, label: 'Pending / On Hold', short: 'On hold' },
+    { id: LIFECYCLE_COMPLETED, label: 'Completed / Done', short: 'Done' },
+    { id: LIFECYCLE_CLOSED, label: 'Closed', short: 'Closed' },
+  ];
+
+  const INQUIRY_WORK_STATUSES = [
+    { id: WORK_STATUS_ACT_NOW, label: 'Act now', short: 'Act now' },
+    { id: WORK_STATUS_IN_PROCESS, label: 'In process', short: 'In process' },
     { id: LIFECYCLE_PENDING, label: 'Pending / On Hold', short: 'On hold' },
     { id: LIFECYCLE_COMPLETED, label: 'Completed / Done', short: 'Done' },
     { id: LIFECYCLE_CLOSED, label: 'Closed', short: 'Closed' },
@@ -101,9 +112,44 @@
   }
 
   function lifecycleLabel(id, short = false) {
-    const row = LIFECYCLE_STATUSES.find((s) => s.id === id);
+    const row = INQUIRY_WORK_STATUSES.find((s) => s.id === id)
+      || LIFECYCLE_STATUSES.find((s) => s.id === id);
     if (!row) return id || '';
     return short ? row.short : row.label;
+  }
+
+  function inferInquiryWorkStatus(inquiry) {
+    if (!inquiry) return WORK_STATUS_ACT_NOW;
+    const lc = inferLifecycleFromInquiry(inquiry);
+    if (lc === LIFECYCLE_PENDING) return LIFECYCLE_PENDING;
+    if (lc === LIFECYCLE_COMPLETED) return LIFECYCLE_COMPLETED;
+    if (lc === LIFECYCLE_CLOSED) return LIFECYCLE_CLOSED;
+    if (isInquiryInProcess(inquiry)) return WORK_STATUS_IN_PROCESS;
+    return WORK_STATUS_ACT_NOW;
+  }
+
+  function normalizeInquiryWorkStatus(value, inquiry) {
+    const v = String(value || '').trim().toLowerCase();
+    if (INQUIRY_WORK_STATUSES.some((s) => s.id === v)) return v;
+    if (v === LIFECYCLE_ACTIVE && inquiry) return inferInquiryWorkStatus(inquiry);
+    if (v === LIFECYCLE_ACTIVE) return WORK_STATUS_ACT_NOW;
+    return normalizeLifecycle(value);
+  }
+
+  function inquiryWorkStatusSelectField(id, inquiry, options = {}) {
+    const sel = inferInquiryWorkStatus(inquiry);
+    const opts = INQUIRY_WORK_STATUSES.filter((s) => options.includeClosed !== false || s.id !== LIFECYCLE_CLOSED);
+    return `<select class="form-select lifecycle-status-select inquiry-work-status-select" id="${id}" name="${id}">${opts.map((s) =>
+      `<option value="${s.id}" ${sel === s.id ? 'selected' : ''}>${s.label}</option>`,
+    ).join('')}</select>`;
+  }
+
+  function lifecycleForFollowUpRules(value) {
+    const v = String(value || '').trim().toLowerCase();
+    if (v === WORK_STATUS_ACT_NOW || v === WORK_STATUS_IN_PROCESS || v === LIFECYCLE_ACTIVE) {
+      return LIFECYCLE_ACTIVE;
+    }
+    return normalizeLifecycle(value);
   }
 
   function isLifecycleSchedulable(lifecycle) {
@@ -144,12 +190,13 @@
   function lifecycleCardControl(item, entityType = 'reminder') {
     if (!item?.id) return '';
     const isInquiry = entityType === 'inquiry';
-    const lc = isInquiry ? inferLifecycleFromInquiry(item) : inferLifecycleFromReminder(item);
+    const lc = isInquiry ? inferInquiryWorkStatus(item) : inferLifecycleFromReminder(item);
     const extraClass = isInquiry ? 'inquiry-lifecycle-card-select' : 'reminder-lifecycle-card-select';
     const dataAttr = isInquiry
       ? `data-inquiry-id="${item.id}"`
       : `data-reminder-id="${item.id}"`;
-    const opts = LIFECYCLE_STATUSES.map((s) =>
+    const statusList = isInquiry ? INQUIRY_WORK_STATUSES : LIFECYCLE_STATUSES;
+    const opts = statusList.map((s) =>
       `<option value="${s.id}" ${lc === s.id ? 'selected' : ''}>${s.short} — ${s.label}</option>`,
     ).join('');
     const typeHint = isInquiry ? 'inquiry' : (item.task_type === 'task' ? 'task' : 'reminder');
@@ -172,7 +219,7 @@
     const scheduleCb = scheduleCheckboxId ? overlay.querySelector(`#${scheduleCheckboxId}`) : null;
 
     const refresh = () => {
-      const lc = normalizeLifecycle(statusEl?.value);
+      const lc = lifecycleForFollowUpRules(statusEl?.value);
       const scheduleNext = scheduleCb?.checked;
       const show = !blocksNextReminder(lc)
         && (requiresNextReminderDate(lc, { scheduleNext })
@@ -199,9 +246,16 @@
     LIFECYCLE_PENDING,
     LIFECYCLE_COMPLETED,
     LIFECYCLE_CLOSED,
+    WORK_STATUS_ACT_NOW,
+    WORK_STATUS_IN_PROCESS,
     QUEUE_TAB_IN_PROCESS,
     LIFECYCLE_STATUSES,
+    INQUIRY_WORK_STATUSES,
     normalizeLifecycle,
+    normalizeInquiryWorkStatus,
+    inferInquiryWorkStatus,
+    inquiryWorkStatusSelectField,
+    lifecycleForFollowUpRules,
     inferLifecycleFromReminder,
     inferLifecycleFromInquiry,
     isInquiryInProcess,

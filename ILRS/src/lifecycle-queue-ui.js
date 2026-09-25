@@ -153,7 +153,10 @@
 
   function lifecycleToQueueTab(newLifecycle, item) {
     const api = LC();
-    let tab = api?.normalizeLifecycle ? api.normalizeLifecycle(newLifecycle) : String(newLifecycle || '').trim().toLowerCase();
+    let tab = String(newLifecycle || '').trim().toLowerCase();
+    if (tab === 'act_now') return 'active';
+    if (tab === 'in_process') return 'in_process';
+    tab = api?.normalizeLifecycle ? api.normalizeLifecycle(tab) : tab;
     const valid = new Set(['all', 'active', 'in_process', 'pending', 'completed', 'closed']);
     if (!valid.has(tab)) tab = 'active';
     if (tab === 'active' && item && api?.inferInquiryQueueTab && isInquiryItem(item)) {

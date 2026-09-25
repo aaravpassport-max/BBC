@@ -18,12 +18,13 @@
     }
     const stored = String(inq.lifecycle_status || 'active').toLowerCase();
     const labels = {
-      active: 'Active — Act now',
+      act_now: 'Act now',
+      in_process: 'In process',
       pending: 'On hold — Waiting',
       completed: 'Done — Finished',
       closed: 'Closed',
     };
-    const opts = ['active', 'pending', 'completed', 'closed'].map((v) =>
+    const opts = ['act_now', 'in_process', 'pending', 'completed', 'closed'].map((v) =>
       `<option value="${v}" ${stored === v ? 'selected' : ''}>${labels[v] || v}</option>`,
     ).join('');
     return `<div class="card-work-status inquiry-card-work-status" onclick="event.stopPropagation()" onmousedown="event.stopPropagation()">
@@ -39,18 +40,19 @@
 
   async function setInquiryLifecycleFromCard(id, lifecycle) {
     const LC = window.ILRSWorkLifecycle;
-    const lc = LC?.normalizeLifecycle
-      ? LC.normalizeLifecycle(lifecycle)
-      : (['active', 'pending', 'completed', 'closed'].includes(String(lifecycle || '').toLowerCase())
-        ? String(lifecycle).toLowerCase()
-        : 'active');
+    const inq = (App.inquiries || []).find((i) => i.id === id);
+    const raw = String(lifecycle || '').trim().toLowerCase();
+    const lc = LC?.normalizeInquiryWorkStatus
+      ? LC.normalizeInquiryWorkStatus(raw, inq)
+      : (['act_now', 'in_process', 'pending', 'completed', 'closed'].includes(raw) ? raw : 'act_now');
     const data = { lifecycleStatus: lc, scheduleNext: false };
-    if (LC?.blocksNextReminder(lc) || lc === LC.LIFECYCLE_COMPLETED) {
+    const followLc = LC?.lifecycleForFollowUpRules ? LC.lifecycleForFollowUpRules(lc) : lc;
+    if (LC?.blocksNextReminder(followLc) || followLc === LC.LIFECYCLE_COMPLETED) {
       data.nextFollowUp = '';
       data.nextFollowUpTime = '';
     }
     const Q = window.ILRSLifecycleQueue;
-    let tab = Q?.lifecycleToQueueTab ? Q.lifecycleToQueueTab(lc) : lc;
+    let tab = Q?.lifecycleToQueueTab ? Q.lifecycleToQueueTab(lc, inq) : lc;
     const prevFilters = App.lifecycleQueueFilters ? { ...App.lifecycleQueueFilters } : null;
     App._lifecycleQueueRefreshLock = true;
     try {
@@ -79,7 +81,7 @@
         patchInquiryLifecycleInMemory(id, lc);
       }
       Q?.applyGlobalFilter?.(tab);
-      const tabLabel = tab === 'in_process' ? 'In process' : (LC?.lifecycleLabel(lc, true) || lc);
+      const tabLabel = tab === 'in_process' ? 'In process' : tab === 'active' ? 'Act now' : (LC?.lifecycleLabel(lc, true) || lc);
       if (typeof toast === 'function') toast(`Moved to ${tabLabel}`);
       if (typeof loadAllData === 'function') await loadAllData();
       if (typeof updateBadges === 'function') updateBadges();

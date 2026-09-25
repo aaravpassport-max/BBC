@@ -21,6 +21,9 @@ const {
   LIFECYCLE_CLOSED,
   LIFECYCLE_COMPLETED,
   INQUIRY_NEW_STAGE_KEYS,
+  WORK_STATUS_ACT_NOW,
+  WORK_STATUS_IN_PROCESS,
+  inferInquiryWorkStatus,
 } = require('./work-lifecycle');
 
 function nextInquiryNumber(db) {
@@ -220,6 +223,50 @@ function syncLinkedReminderLifecycles(db, inquiryId, lifecycle) {
     );
     maybeSyncEntity(db, 'reminder', row.id);
   }
+}
+
+function applyInquiryWorkStatus(db, inquiryId, workStatus, {
+  scheduleNext = false,
+  nextFollowUp,
+  nextFollowUpTime,
+  logActivity: shouldLog = true,
+  now = new Date(),
+} = {}) {
+  const status = String(workStatus || '').trim().toLowerCase();
+  if (status === WORK_STATUS_ACT_NOW) {
+    db.prepare(`
+      UPDATE inquiries SET
+        lifecycle_status = ?,
+        outcome_status = 'active',
+        work_phase = 'new',
+        operational_state = 'new',
+        updated_at = datetime('now')
+      WHERE id = ?
+    `).run(LIFECYCLE_ACTIVE, inquiryId);
+    syncLinkedReminderLifecycles(db, inquiryId, LIFECYCLE_ACTIVE);
+    if (shouldLog) {
+      const { mirrorLifecycleToInquiry } = require('./inquiry-activity-sync');
+      mirrorLifecycleToInquiry(db, inquiryId, WORK_STATUS_ACT_NOW);
+    }
+    return db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
+  }
+  if (status === WORK_STATUS_IN_PROCESS) {
+    const result = startInquiryWork(db, inquiryId, now);
+    if (!result.success) return null;
+    return result.inquiry;
+  }
+  if (status === LIFECYCLE_ACTIVE) {
+    return applyInquiryWorkStatus(db, inquiryId, inferInquiryWorkStatus(
+      db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId),
+    ), { scheduleNext, nextFollowUp, nextFollowUpTime, logActivity: shouldLog, now });
+  }
+  applyInquiryLifecycleFields(db, inquiryId, status, {
+    scheduleNext,
+    nextFollowUp,
+    nextFollowUpTime,
+    logActivity: shouldLog,
+  });
+  return db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
 }
 
 function applyInquiryLifecycleFields(db, inquiryId, lifecycle, {
@@ -566,12 +613,24 @@ function updateInquiry(db, inquiryId, data, now = new Date()) {
   if (!inquiry) return { success: false, error: 'Inquiry not found' };
 
   if (data.lifecycleStatus != null) {
-    applyInquiryLifecycleFields(db, inquiryId, data.lifecycleStatus, {
-      scheduleNext: data.scheduleNext,
-      nextFollowUp: data.nextFollowUp,
-      nextFollowUpTime: data.nextFollowUpTime,
-    });
-    inquiry = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
+    const rawStatus = String(data.lifecycleStatus).trim().toLowerCase();
+    if (rawStatus === WORK_STATUS_ACT_NOW || rawStatus === WORK_STATUS_IN_PROCESS || rawStatus === LIFECYCLE_ACTIVE) {
+      const updatedRow = applyInquiryWorkStatus(db, inquiryId, rawStatus, {
+        scheduleNext: data.scheduleNext,
+        nextFollowUp: data.nextFollowUp,
+        nextFollowUpTime: data.nextFollowUpTime,
+        now,
+      });
+      if (!updatedRow) return { success: false, error: 'Could not update work status' };
+      inquiry = updatedRow;
+    } else {
+      applyInquiryLifecycleFields(db, inquiryId, data.lifecycleStatus, {
+        scheduleNext: data.scheduleNext,
+        nextFollowUp: data.nextFollowUp,
+        nextFollowUpTime: data.nextFollowUpTime,
+      });
+      inquiry = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);
+    }
     if (!inquiryPayloadTouchesNonLifecycleFields(data)) {
       syncInquiryFollowUpReminder(db, inquiryId, now);
       const updated = db.prepare('SELECT * FROM inquiries WHERE id = ?').get(inquiryId);

@@ -3,23 +3,23 @@
   const P = () => window.ILRSInquiryPipeline;
   const esc = (s) => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
 
-  function normalizeInquiryLifecycleValue(raw) {
+  function normalizeInquiryLifecycleValue(raw, inq) {
     const LC = window.ILRSWorkLifecycle;
-    if (LC?.normalizeLifecycle) return LC.normalizeLifecycle(raw);
+    if (LC?.normalizeInquiryWorkStatus) return LC.normalizeInquiryWorkStatus(raw, inq);
     const v = String(raw || '').trim().toLowerCase();
-    if (['active', 'pending', 'completed', 'closed'].includes(v)) return v;
-    return 'active';
+    if (['act_now', 'in_process', 'pending', 'completed', 'closed'].includes(v)) return v;
+    return 'act_now';
   }
 
   function inquiryWorkStatusFieldHtml(inq) {
     const LC = window.ILRSWorkLifecycle;
-    const selected = LC?.inferLifecycleFromInquiry ? LC.inferLifecycleFromInquiry(inq) : 'active';
-    if (LC?.lifecycleSelectField) {
-      return LC.lifecycleSelectField('inq-lifecycle', selected, { includeClosed: true });
+    if (LC?.inquiryWorkStatusSelectField) {
+      return LC.inquiryWorkStatusSelectField('inq-lifecycle', inq, { includeClosed: true });
     }
     return `
       <select class="form-select lifecycle-status-select" id="inq-lifecycle" name="inq-lifecycle">
-        <option value="active" selected>Active / In Progress</option>
+        <option value="act_now" selected>Act now</option>
+        <option value="in_process">In process</option>
         <option value="pending">Pending / On Hold</option>
         <option value="completed">Completed / Done</option>
         <option value="closed">Closed</option>
@@ -260,7 +260,7 @@
       }
       const LC = window.ILRSWorkLifecycle;
       const lifecycleEl = overlay.querySelector('#inq-lifecycle');
-      const lifecycleStatus = normalizeInquiryLifecycleValue(lifecycleEl?.value);
+      const lifecycleStatus = normalizeInquiryLifecycleValue(lifecycleEl?.value, inq);
       const scheduleNext = overlay.querySelector('#inq-schedule-next')?.checked;
       const when = overlay.querySelector('#inq-when')?.value || 'tomorrow';
       const followWrap = overlay.querySelector('#inq-follow-wrap');
@@ -272,7 +272,7 @@
           ? (overlay.querySelector('#inq-follow-date')?.value || resolveWhen(when))
           : resolveWhen(when);
         nextFollowUpTime = overlay.querySelector('#inq-follow-time')?.value || '11:00';
-      } else if (LC?.blocksNextReminder(lifecycleStatus)
+      } else if (LC?.blocksNextReminder(LC.lifecycleForFollowUpRules?.(lifecycleStatus) || lifecycleStatus)
         || (lifecycleStatus === LC?.LIFECYCLE_COMPLETED && !scheduleNext)) {
         nextFollowUp = '';
         nextFollowUpTime = '';
