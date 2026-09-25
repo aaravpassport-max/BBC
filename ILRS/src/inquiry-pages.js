@@ -124,6 +124,15 @@
     return 'Tracking off';
   }
 
+  function inquiryPaymentDetailLine(inq) {
+    if (!Number(inq.payment_tracking_enabled)) return '';
+    const total = Number(inq.payment_total) > 0
+      ? Number(inq.payment_total)
+      : (Number(inq.quotation_amount) > 0 ? Number(inq.quotation_amount) : 0);
+    if (total <= 0) return 'Payment tracking enabled';
+    return `Payment tracking enabled: Total: ₹${total.toLocaleString('en-IN')}`;
+  }
+
   function clientInitials(name) {
     const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
     if (!parts.length) return '?';
@@ -174,7 +183,6 @@
     const stageCls = pipeline?.stageCategoryClass?.(inq.stage_key) || '';
     const completionOverdue = WS?.isCompletionOverdue?.(inq);
     const selected = App.selectedInquiryIds?.has(inq.id);
-    const assignee = typeof assigneeLabel === 'function' ? assigneeLabel(inq.assigned_to) : '';
     const LCw = window.ILRSWorkLifecycle;
     const workStatus = LCw?.inferInquiryWorkStatus ? LCw.inferInquiryWorkStatus(inq) : 'act_now';
     const showStartProcessing = workStatus === 'act_now' || workStatus === LCw?.WORK_STATUS_ACT_NOW;
@@ -184,11 +192,7 @@
     const follow = inquiryFollowUpLine(inq);
     const healthLabel = pipeline?.healthLabel(inq.health) || '';
     const stageName = stageDisplay(inq.stage_key);
-    const priority = inq.priority && inq.priority !== 'normal' ? inq.priority : '';
     const daysStage = daysInStage(inq);
-    const amount = inq.quotation_amount > 0
-      ? `₹${Number(inq.quotation_amount).toLocaleString('en-IN')}`
-      : (inq.expected_value > 0 ? `~₹${Number(inq.expected_value).toLocaleString('en-IN')}` : '');
     const hasPayment = Boolean(window.ILRSPayment?.showRecordPaymentModal);
     const paymentTrackingOn = Number(inq.payment_tracking_enabled) === 1;
     const convCount = inquiryConversationCount(inq.id);
@@ -202,6 +206,7 @@
 
     const convBadge = convCount > 0 ? `<span class="inq-card-action-badge">${convCount}</span>` : '';
     const followBadge = followCount > 0 ? `<span class="inq-card-action-badge">${followCount}</span>` : '';
+    const paymentDetail = inquiryPaymentDetailLine(inq);
 
     return `
       <article class="inquiry-card inquiry-card-v3 inquiry-card-operational ${health} ${stageCls} ${completionOverdue ? 'completion-overdue' : ''}"
@@ -228,8 +233,14 @@
             </div>
           </div>
           ${!compact ? `<div class="inq-card-dates inq-card-no-nav">
-            <div class="inq-card-date-item"><span class="inq-card-date-icon">📅</span><span>${escCard(createdLabel)}</span><span class="inq-card-date-k">Created</span></div>
-            <div class="inq-card-date-item"><span class="inq-card-date-icon">🕐</span><span>${escCard(updatedLabel)}</span><span class="inq-card-date-k">Updated</span></div>
+            <div class="inq-card-date-col">
+              <div class="inq-card-date-line"><span class="inq-card-date-icon">📅</span><span class="inq-card-date-val">${escCard(createdLabel)}</span></div>
+              <span class="inq-card-date-k">Created</span>
+            </div>
+            <div class="inq-card-date-col">
+              <div class="inq-card-date-line"><span class="inq-card-date-icon">🕐</span><span class="inq-card-date-val">${escCard(updatedLabel)}</span></div>
+              <span class="inq-card-date-k">Updated</span>
+            </div>
           </div>` : ''}
           ${!compact ? `<div class="inq-card-assign-block inq-card-no-nav">
             <label class="inq-card-sr-only" for="inq-assign-${inq.id}">Assigned to</label>
@@ -252,15 +263,19 @@
           </section>
           <section class="inq-card-pane inq-card-pane-follow" aria-label="Next follow-up">
             <span class="inq-card-section-label">Next follow-up</span>
-            <div class="inq-card-follow-fields">
-              <input type="date" class="form-input inq-card-follow-date inq-card-no-nav" value="${followDateVal}"
-                aria-label="Follow-up date" onchange="event.stopPropagation();setInquiryFollowUpFromCard('${inq.id}', this.value, null)" />
-              <input type="time" class="form-input inq-card-follow-time inq-card-no-nav" value="${followTimeVal}"
-                aria-label="Follow-up time" onchange="event.stopPropagation();setInquiryFollowUpFromCard('${inq.id}', null, this.value)" />
-              <button type="button" class="btn btn-primary btn-sm inq-card-no-nav" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')"><span class="inq-card-btn-icon">🔔</span> Follow up</button>
-              <button type="button" class="btn btn-outline btn-sm inq-card-no-nav" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')"><span class="inq-card-btn-icon">📅</span> Reschedule</button>
+            <div class="inq-card-follow-main">
+              <div class="inq-card-follow-inputs">
+                <input type="date" class="form-input inq-card-follow-date inq-card-no-nav" value="${followDateVal}"
+                  aria-label="Follow-up date" onchange="event.stopPropagation();setInquiryFollowUpFromCard('${inq.id}', this.value, null)" />
+                <input type="time" class="form-input inq-card-follow-time inq-card-no-nav" value="${followTimeVal}"
+                  aria-label="Follow-up time" onchange="event.stopPropagation();setInquiryFollowUpFromCard('${inq.id}', null, this.value)" />
+                <div class="inq-card-follow-action ${follow.cls}">${escCard(follow.action)}</div>
+              </div>
+              <div class="inq-card-follow-btns">
+                <button type="button" class="btn btn-primary btn-sm inq-card-no-nav inq-card-btn-follow" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')"><span class="inq-card-btn-icon">🔔</span> Follow up</button>
+                <button type="button" class="btn btn-outline btn-sm inq-card-no-nav inq-card-btn-reschedule" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')"><span class="inq-card-btn-icon">📅</span> Reschedule</button>
+              </div>
             </div>
-            <div class="inq-card-follow-action ${follow.cls}">${escCard(follow.action)}</div>
           </section>
         </div>
 
@@ -300,6 +315,7 @@
           </div>
         </div>
 
+        ${paymentDetail ? `<div class="inq-card-payment-detail inq-card-no-nav">${escCard(paymentDetail)}</div>` : ''}
         ${latest ? `<div class="inq-card-latest inq-card-no-nav">${latest}</div>` : ''}
 
         <footer class="inq-card-row inq-card-row-actions inq-card-no-nav" aria-label="Inquiry actions">

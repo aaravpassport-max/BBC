@@ -1781,33 +1781,50 @@ textarea.form-input {
 /* ── Operational enquiry cards & activity timeline (UX restructure) ── */
 .inquiry-card-operational { gap: 8px; }
 
-/* ── Inquiry list card v3 (mockup layout) ── */
+/* ── Inquiry list card v3 (mockup layout — light CRM card on any shell) ── */
 .inquiry-card-v3 {
+  --inq-bg: #dcecf7;
+  --inq-surface: #ffffff;
+  --inq-text: #0f172a;
+  --inq-text-muted: #64748b;
+  --inq-border: #b8cfe0;
+  --inq-pane-work: #e8f5ee;
+  --inq-pane-follow: #e4eef8;
+  --inq-accent: #0d9488;
+  --inq-accent-dark: #0f766e;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px 10px 32px;
-  background: var(--bg-card);
+  gap: 6px;
+  padding: 8px 10px 8px 28px;
+  background: var(--inq-bg);
+  border: 1px solid var(--inq-border);
+  color: var(--inq-text);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+}
+.inquiry-card-v3:hover {
+  border-color: #7eb8d4;
+  transform: none;
 }
 .inquiry-card-v3 .inq-card-row { width: 100%; }
 .inquiry-card-v3 .inq-card-row-identity {
   display: grid;
-  grid-template-columns: auto auto minmax(0, 1.4fr) minmax(0, 1fr) auto auto;
-  gap: 10px 12px;
+  grid-template-columns: auto auto minmax(0, 1.25fr) minmax(0, 0.95fr) minmax(0, 1fr) auto;
+  gap: 8px 10px;
   align-items: start;
 }
 .inquiry-card-v3 .inq-card-avatar {
-  width: 36px;
-  height: 36px;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--inq-accent-dark);
   color: #fff;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  margin-top: 2px;
 }
 .inquiry-card-v3 .inq-card-client-line {
   display: flex;
@@ -1817,31 +1834,39 @@ textarea.form-input {
 }
 .inquiry-card-v3 .inq-card-client {
   margin: 0;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   line-height: 1.2;
+  color: var(--inq-text);
 }
 .inquiry-card-v3 .inq-card-kind-pill {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
-  padding: 2px 8px;
+  padding: 2px 7px;
   border-radius: 99px;
-  background: var(--bg-elevated);
-  color: var(--text-secondary);
-  border: 1px solid var(--border);
+  background: #f1f5f9;
+  color: var(--inq-text-muted);
+  border: 1px solid #cbd5e1;
 }
 .inquiry-card-v3 .inq-card-service {
-  font-size: 12px;
-  color: var(--text-secondary);
+  font-size: 11px;
+  color: var(--inq-text-muted);
   margin-top: 2px;
+  line-height: 1.35;
 }
 .inquiry-card-v3 .inq-card-id-block {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
 }
-.inquiry-card-v3 .inq-card-id { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+.inquiry-card-v3 .inq-card-id-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.inquiry-card-v3 .inq-card-id { font-family: var(--font-mono); font-size: 11px; font-weight: 600; color: #334155; }
 .inquiry-card-v3 .inq-card-icon-btn {
   border: none;
   background: transparent;
@@ -1855,37 +1880,61 @@ textarea.form-input {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  width: 100%;
 }
 .inquiry-card-v3 .inq-card-badges .inquiry-stage-badge,
 .inquiry-card-v3 .inq-card-badges .operational-state-pill,
-.inquiry-card-v3 .inq-card-badges .inquiry-health-pill { margin: 0; font-size: 10px; padding: 2px 7px; }
-.inquiry-card-v3 .inq-card-dates {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 11px;
-  color: var(--text-secondary);
-  min-width: 120px;
+.inquiry-card-v3 .inq-card-badges .inquiry-health-pill {
+  margin: 0;
+  font-size: 9px;
+  padding: 2px 7px;
+  border-radius: 99px;
 }
-.inquiry-card-v3 .inq-card-date-item { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px; }
-.inquiry-card-v3 .inq-card-date-k { font-size: 9px; text-transform: uppercase; color: var(--text-muted); font-weight: 700; width: 100%; }
+.inquiry-card-v3 .inq-card-badges .operational-state-pill.state-new { background: #ccfbf1; color: #0f766e; }
+.inquiry-card-v3 .inq-card-badges .inquiry-stage-badge { background: #e0f2fe; color: #0369a1; }
+.inquiry-card-v3 .inq-card-badges .inquiry-health-pill.health-healthy { background: #dcfce7; color: #15803d; }
+.inquiry-card-v3 .inq-card-badges .inquiry-health-pill.health-at_risk,
+.inquiry-card-v3 .inq-card-badges .inquiry-health-pill.health-stale { background: #fee2e2; color: #b91c1c; }
+.inquiry-card-v3 .inq-card-dates {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+  font-size: 11px;
+  color: var(--inq-text-muted);
+  min-width: 0;
+}
+.inquiry-card-v3 .inq-card-date-col { min-width: 0; }
+.inquiry-card-v3 .inq-card-date-line {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #334155;
+  font-weight: 600;
+  font-size: 11px;
+}
+.inquiry-card-v3 .inq-card-date-k {
+  display: block;
+  font-size: 8px;
+  text-transform: uppercase;
+  color: var(--inq-text-muted);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  margin-top: 1px;
+}
 .inquiry-card-v3 .inq-card-assign-block {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  align-items: flex-end;
-  min-width: 140px;
+  gap: 4px;
+  align-items: stretch;
+  min-width: 88px;
 }
 .inquiry-card-v3 .inq-card-assign-select {
   width: 100%;
-  max-width: 160px;
-  font-size: 12px;
-  padding: 6px 8px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
-  color: var(--text-primary);
+  font-size: 11px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  border: 1px solid var(--inq-border);
+  background: var(--inq-surface);
+  color: var(--inq-text);
 }
 .inquiry-card-v3 .inq-card-priority {
   font-size: 10px;
@@ -1901,72 +1950,131 @@ textarea.form-input {
 }
 .inquiry-card-v3 .inq-card-row-ops {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  gap: 6px;
 }
 .inquiry-card-v3 .inq-card-pane {
-  border-radius: var(--radius);
-  padding: 8px 10px;
+  border-radius: 8px;
+  padding: 6px 8px;
 }
 .inquiry-card-v3 .inq-card-pane-work {
-  background: rgba(34, 197, 94, 0.1);
-  border: 1px solid rgba(34, 197, 94, 0.22);
+  background: var(--inq-pane-work);
+  border: 1px solid #b9e0c8;
 }
 .inquiry-card-v3 .inq-card-pane-follow {
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.22);
+  background: var(--inq-pane-follow);
+  border: 1px solid #b8d4eb;
 }
 .inquiry-card-v3 .inq-card-section-label {
   display: block;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 6px;
+  color: var(--inq-text-muted);
+  margin-bottom: 4px;
 }
 .inquiry-card-v3 .inq-card-work-row {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
-  align-items: center;
+  align-items: stretch;
 }
-.inquiry-card-v3 .inq-card-work-select { flex: 1 1 160px; min-width: 0; }
+.inquiry-card-v3 .inq-card-work-select { flex: 1 1 auto; min-width: 0; }
 .inquiry-card-v3 .inq-card-work .card-work-status,
-.inquiry-card-v3 .inquiry-card-work-status { margin: 0; width: 100%; border-width: 1px; }
+.inquiry-card-v3 .inquiry-card-work-status {
+  margin: 0;
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  background: var(--inq-surface);
+  padding: 0;
+  border-radius: 6px;
+}
 .inquiry-card-v3 .inq-card-work .card-work-status-label { display: none; }
-.inquiry-card-v3 .inq-card-follow-fields {
+.inquiry-card-v3 .inq-card-work .lifecycle-quick-select {
+  background: var(--inq-surface);
+  color: var(--inq-text);
+  border: none;
+  min-height: 34px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.inquiry-card-v3 .inquiry-start-work-btn {
+  white-space: nowrap;
+  background: var(--inq-accent-dark);
+  border-color: var(--inq-accent-dark);
+  min-height: 34px;
+  font-size: 11px;
+  padding: 0 10px;
+}
+.inquiry-card-v3 .inq-card-follow-main {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 6px;
-  align-items: center;
+  align-items: flex-start;
+}
+.inquiry-card-v3 .inq-card-follow-inputs {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 1fr 0.72fr;
+  gap: 4px;
 }
 .inquiry-card-v3 .inq-card-follow-date,
 .inquiry-card-v3 .inq-card-follow-time {
-  flex: 1 1 120px;
-  min-width: 0;
-  padding: 5px 8px;
-  font-size: 12px;
-  min-height: 32px;
+  width: 100%;
+  padding: 4px 6px;
+  font-size: 11px;
+  min-height: 30px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: var(--inq-surface);
+  color: var(--inq-text);
 }
 .inquiry-card-v3 .inq-card-follow-action {
-  margin-top: 4px;
-  font-size: 11px;
-  color: var(--text-secondary);
+  grid-column: 1 / -1;
+  font-size: 10px;
+  color: var(--inq-text-muted);
+  margin-top: 0;
 }
-.inquiry-card-v3 .inq-card-btn-icon { margin-right: 4px; }
+.inquiry-card-v3 .inq-card-follow-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.inquiry-card-v3 .inq-card-btn-follow {
+  background: var(--inq-accent-dark);
+  border-color: var(--inq-accent-dark);
+  min-height: 30px;
+  font-size: 10px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+.inquiry-card-v3 .inq-card-btn-reschedule {
+  min-height: 30px;
+  font-size: 10px;
+  padding: 0 8px;
+  white-space: nowrap;
+}
+.inquiry-card-v3 .inq-card-btn-icon { margin-right: 3px; }
 .inquiry-card-v3 .btn-outline {
-  background: transparent;
-  border: 1px solid var(--accent);
-  color: var(--accent-light);
+  background: var(--inq-surface);
+  border: 1px solid #94a3b8;
+  color: #475569;
 }
 .inquiry-card-v3 .inq-card-row-metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 8px;
-  padding: 4px 0;
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
+  gap: 6px;
+  padding: 4px 0 2px;
+  border-top: 1px solid rgba(148, 163, 184, 0.45);
+}
+.inquiry-card-v3 .inq-card-payment-detail {
+  font-size: 10px;
+  color: var(--inq-text-muted);
+  padding: 0 2px 2px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
 }
 .inquiry-card-v3 .inq-card-metric {
   display: flex;
@@ -1995,23 +2103,23 @@ textarea.form-input {
 }
 .inquiry-card-v3 .inq-card-metric-select {
   width: 100%;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  padding: 4px 6px;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
-  color: var(--text-secondary);
+  padding: 3px 5px;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background: var(--inq-surface);
+  color: #334155;
 }
 .inquiry-card-v3 .inq-card-metric-value {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--text-secondary);
+  color: #334155;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
 }
-.inquiry-card-v3 .inq-card-metric-strong { font-size: 14px; color: var(--text-primary); }
+.inquiry-card-v3 .inq-card-metric-strong { font-size: 13px; color: var(--inq-text); }
 .inquiry-card-v3 .inq-card-health-dot {
   width: 8px;
   height: 8px;
@@ -2023,52 +2131,54 @@ textarea.form-input {
 .inquiry-card-v3 .inq-card-health-dot.health-stale { background: var(--critical); }
 .inquiry-card-v3 .inq-card-health-dot.health-needs_attention { background: var(--warning); }
 .inquiry-card-v3 .inq-card-latest {
-  font-size: 11px;
-  color: var(--text-muted);
+  font-size: 10px;
+  color: var(--inq-text-muted);
   padding: 0 2px;
 }
 .inquiry-card-v3 .inq-card-row-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 4px;
   align-items: center;
+  padding-top: 2px;
 }
 .inquiry-card-v3 .inq-card-action-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px 10px;
-  font-size: 11px;
+  gap: 3px;
+  padding: 4px 8px;
+  font-size: 10px;
   font-weight: 600;
-  border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
-  color: var(--text-secondary);
+  border-radius: 99px;
+  border: 1px solid #cbd5e1;
+  background: var(--inq-surface);
+  color: #475569;
   cursor: pointer;
   white-space: nowrap;
 }
 .inquiry-card-v3 .inq-card-action-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent-light);
+  border-color: var(--inq-accent);
+  color: var(--inq-accent-dark);
 }
 .inquiry-card-v3 .inq-card-action-btn-danger {
-  border-color: rgba(239, 68, 68, 0.45);
-  color: #f87171;
+  border-color: #fecaca;
+  color: #dc2626;
+  background: #fff;
   margin-left: auto;
 }
 .inquiry-card-v3 .inq-card-action-btn-danger:hover {
-  border-color: var(--critical);
-  background: rgba(239, 68, 68, 0.1);
+  border-color: #f87171;
+  background: #fef2f2;
 }
 .inquiry-card-v3 .inq-card-action-badge {
   display: inline-flex;
-  min-width: 16px;
-  height: 16px;
+  min-width: 15px;
+  height: 15px;
   padding: 0 4px;
   border-radius: 99px;
-  background: var(--accent);
+  background: #0ea5e9;
   color: #fff;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
   align-items: center;
   justify-content: center;
@@ -2083,7 +2193,8 @@ textarea.form-input {
   clip: rect(0, 0, 0, 0);
   border: 0;
 }
-.inquiry-card-v3 .item-select-checkbox { position: static; margin-top: 8px; }
+.inquiry-card-v3 .item-select-checkbox { position: static; margin-top: 10px; }
+.inquiry-card-v3 .inq-card-metric-label { color: #94a3b8; }
 @media (max-width: 960px) {
   .inquiry-card-v3 .inq-card-row-identity {
     grid-template-columns: auto auto 1fr;
@@ -2092,13 +2203,16 @@ textarea.form-input {
   .inquiry-card-v3 .inq-card-dates,
   .inquiry-card-v3 .inq-card-assign-block { grid-column: 1 / -1; }
   .inquiry-card-v3 .inq-card-row-ops { grid-template-columns: 1fr; }
+  .inquiry-card-v3 .inq-card-follow-main { flex-wrap: wrap; }
+  .inquiry-card-v3 .inq-card-follow-btns { flex-direction: row; width: 100%; }
   .inquiry-card-v3 .inq-card-row-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 640px) {
-  .inquiry-card-v3 { padding-left: 12px; padding-top: 36px; position: relative; }
-  .inquiry-card-v3 .item-select-checkbox { position: absolute; left: 10px; top: 10px; }
+  .inquiry-card-v3 { padding-left: 10px; padding-top: 32px; position: relative; }
+  .inquiry-card-v3 .item-select-checkbox { position: absolute; left: 8px; top: 8px; }
+  .inquiry-card-v3 .inq-card-work-row { flex-wrap: wrap; }
   .inquiry-card-v3 .inq-card-row-metrics { grid-template-columns: 1fr; }
-  .inquiry-card-v3 .inq-card-action-btn { flex: 1 1 calc(50% - 6px); justify-content: center; }
+  .inquiry-card-v3 .inq-card-action-btn { flex: 1 1 calc(50% - 4px); justify-content: center; }
   .inquiry-card-v3 .inq-card-action-btn-danger { margin-left: 0; flex: 1 1 100%; }
 }
 
