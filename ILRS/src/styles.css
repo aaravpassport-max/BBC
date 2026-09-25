@@ -1259,7 +1259,7 @@ textarea.form-input {
 .pipeline-today { color: var(--warning); font-weight: 600; }
 .pipeline-empty { color: var(--text-muted); font-size: 13px; padding: 8px 0; }
 
-.inquiry-list { display: flex; flex-direction: column; gap: 8px; }
+.inquiry-list { display: flex; flex-direction: column; gap: 6px; }
 .inquiry-card {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -1794,8 +1794,8 @@ textarea.form-input {
   --inq-accent-dark: #0f766e;
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 8px 10px 8px 28px;
+  gap: 4px;
+  padding: 6px 8px 6px 24px;
   background: var(--inq-bg);
   border: 1px solid var(--inq-border);
   color: var(--inq-text);
@@ -1807,14 +1807,16 @@ textarea.form-input {
 }
 .inquiry-card-v3 .inq-card-row { width: 100%; }
 .inquiry-card-v3 .inq-card-row-identity {
-  display: grid;
-  grid-template-columns: auto auto minmax(0, 1.25fr) minmax(0, 0.95fr) minmax(0, 1fr) auto;
-  gap: 8px 10px;
-  align-items: start;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 6px 8px;
 }
+.inquiry-card-v3 .inq-card-identity { flex: 1 1 180px; min-width: 0; }
+.inquiry-card-v3 .inq-card-id-block { flex: 1 1 220px; min-width: 0; }
 .inquiry-card-v3 .inq-card-avatar {
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   background: var(--inq-accent-dark);
   color: #fff;
@@ -1894,13 +1896,16 @@ textarea.form-input {
 .inquiry-card-v3 .inq-card-badges .inquiry-health-pill.health-healthy { background: #dcfce7; color: #15803d; }
 .inquiry-card-v3 .inq-card-badges .inquiry-health-pill.health-at_risk,
 .inquiry-card-v3 .inq-card-badges .inquiry-health-pill.health-stale { background: #fee2e2; color: #b91c1c; }
-.inquiry-card-v3 .inq-card-dates {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.inquiry-card-v3 .inq-card-meta-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
   gap: 6px 10px;
-  font-size: 11px;
-  color: var(--inq-text-muted);
-  min-width: 0;
+  width: 100%;
+  margin-top: 2px;
+}
+.inquiry-card-v3 .inq-card-dates {
+  display: contents;
 }
 .inquiry-card-v3 .inq-card-date-col { min-width: 0; }
 .inquiry-card-v3 .inq-card-date-line {
@@ -1920,17 +1925,12 @@ textarea.form-input {
   letter-spacing: 0.04em;
   margin-top: 1px;
 }
-.inquiry-card-v3 .inq-card-assign-block {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: stretch;
-  min-width: 88px;
-}
 .inquiry-card-v3 .inq-card-assign-select {
-  width: 100%;
-  font-size: 11px;
-  padding: 5px 6px;
+  width: auto;
+  min-width: 72px;
+  max-width: 110px;
+  font-size: 10px;
+  padding: 3px 5px;
   border-radius: 6px;
   border: 1px solid var(--inq-border);
   background: var(--inq-surface);
@@ -1954,8 +1954,8 @@ textarea.form-input {
   gap: 6px;
 }
 .inquiry-card-v3 .inq-card-pane {
-  border-radius: 8px;
-  padding: 6px 8px;
+  border-radius: 6px;
+  padding: 4px 6px;
 }
 .inquiry-card-v3 .inq-card-pane-work {
   background: var(--inq-pane-work);
@@ -1972,7 +1972,7 @@ textarea.form-input {
   letter-spacing: 0.07em;
   text-transform: uppercase;
   color: var(--inq-text-muted);
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 .inquiry-card-v3 .inq-card-work-row {
   display: flex;
@@ -1995,67 +1995,63 @@ textarea.form-input {
   background: var(--inq-surface);
   color: var(--inq-text);
   border: none;
-  min-height: 34px;
-  font-size: 12px;
+  min-height: 26px;
+  height: 26px;
+  font-size: 11px;
   font-weight: 600;
+  padding: 2px 6px;
 }
 .inquiry-card-v3 .inquiry-start-work-btn {
   white-space: nowrap;
   background: var(--inq-accent-dark);
   border-color: var(--inq-accent-dark);
-  min-height: 34px;
-  font-size: 11px;
-  padding: 0 10px;
+  min-height: 26px;
+  height: 26px;
+  font-size: 10px;
+  padding: 0 8px;
+  line-height: 1;
 }
 .inquiry-card-v3 .inq-card-follow-main {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 6px;
-  align-items: flex-start;
-}
-.inquiry-card-v3 .inq-card-follow-inputs {
-  flex: 1 1 auto;
-  min-width: 0;
   display: grid;
-  grid-template-columns: 1fr 0.72fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.75fr) auto auto;
   gap: 4px;
+  align-items: center;
 }
 .inquiry-card-v3 .inq-card-follow-date,
 .inquiry-card-v3 .inq-card-follow-time {
   width: 100%;
-  padding: 4px 6px;
-  font-size: 11px;
-  min-height: 30px;
+  padding: 2px 5px;
+  font-size: 10px;
+  min-height: 26px;
+  height: 26px;
   border: 1px solid #cbd5e1;
-  border-radius: 6px;
+  border-radius: 5px;
   background: var(--inq-surface);
   color: var(--inq-text);
 }
 .inquiry-card-v3 .inq-card-follow-action {
-  grid-column: 1 / -1;
-  font-size: 10px;
+  font-size: 9px;
   color: var(--inq-text-muted);
-  margin-top: 0;
-}
-.inquiry-card-v3 .inq-card-follow-btns {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  flex-shrink: 0;
+  margin-top: 1px;
+  line-height: 1.2;
 }
 .inquiry-card-v3 .inq-card-btn-follow {
   background: var(--inq-accent-dark);
   border-color: var(--inq-accent-dark);
-  min-height: 30px;
-  font-size: 10px;
-  padding: 0 8px;
+  min-height: 26px;
+  height: 26px;
+  font-size: 9px;
+  padding: 0 6px;
   white-space: nowrap;
+  line-height: 1;
 }
 .inquiry-card-v3 .inq-card-btn-reschedule {
-  min-height: 30px;
-  font-size: 10px;
-  padding: 0 8px;
+  min-height: 26px;
+  height: 26px;
+  font-size: 9px;
+  padding: 0 6px;
   white-space: nowrap;
+  line-height: 1;
 }
 .inquiry-card-v3 .inq-card-btn-icon { margin-right: 3px; }
 .inquiry-card-v3 .btn-outline {
@@ -2066,24 +2062,24 @@ textarea.form-input {
 .inquiry-card-v3 .inq-card-row-metrics {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 6px;
-  padding: 4px 0 2px;
-  border-top: 1px solid rgba(148, 163, 184, 0.45);
+  gap: 4px;
+  padding: 2px 0;
+  border-top: 1px solid rgba(148, 163, 184, 0.35);
 }
 .inquiry-card-v3 .inq-card-payment-detail {
-  font-size: 10px;
+  font-size: 9px;
   color: var(--inq-text-muted);
-  padding: 0 2px 2px;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+  padding: 2px 0 0;
+  line-height: 1.25;
 }
 .inquiry-card-v3 .inq-card-metric {
   display: flex;
-  gap: 8px;
+  gap: 5px;
   align-items: flex-start;
   min-width: 0;
 }
 .inquiry-card-v3 .inq-card-metric-icon {
-  font-size: 14px;
+  font-size: 12px;
   line-height: 1;
   margin-top: 2px;
   color: var(--accent-light);
@@ -2094,18 +2090,20 @@ textarea.form-input {
 .inquiry-card-v3 .inq-card-metric-body { min-width: 0; flex: 1; }
 .inquiry-card-v3 .inq-card-metric-label {
   display: block;
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-muted);
-  margin-bottom: 3px;
+  margin-bottom: 1px;
 }
 .inquiry-card-v3 .inq-card-metric-select {
   width: 100%;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 600;
-  padding: 3px 5px;
+  padding: 2px 4px;
+  min-height: 24px;
+  height: 24px;
   border-radius: 6px;
   border: 1px solid #cbd5e1;
   background: var(--inq-surface);
@@ -2119,7 +2117,7 @@ textarea.form-input {
   align-items: center;
   gap: 5px;
 }
-.inquiry-card-v3 .inq-card-metric-strong { font-size: 13px; color: var(--inq-text); }
+.inquiry-card-v3 .inq-card-metric-strong { font-size: 11px; color: var(--inq-text); }
 .inquiry-card-v3 .inq-card-health-dot {
   width: 8px;
   height: 8px;
@@ -2131,9 +2129,20 @@ textarea.form-input {
 .inquiry-card-v3 .inq-card-health-dot.health-stale { background: var(--critical); }
 .inquiry-card-v3 .inq-card-health-dot.health-needs_attention { background: var(--warning); }
 .inquiry-card-v3 .inq-card-latest {
-  font-size: 10px;
+  font-size: 9px;
   color: var(--inq-text-muted);
-  padding: 0 2px;
+  padding: 0;
+  line-height: 1.25;
+}
+.inquiry-card-v3 .card-latest-update {
+  margin: 0;
+  padding: 2px 6px;
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 4px;
+  border-left: 2px solid #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .inquiry-card-v3 .inq-card-row-actions {
   display: flex;
@@ -2193,18 +2202,21 @@ textarea.form-input {
   clip: rect(0, 0, 0, 0);
   border: 0;
 }
-.inquiry-card-v3 .item-select-checkbox { position: static; margin-top: 10px; }
+.inquiry-card-v3 .item-select-checkbox { position: static; margin-top: 6px; }
 .inquiry-card-v3 .inq-card-metric-label { color: #94a3b8; }
+.inquiry-card.inquiry-card-v3 { padding-left: 24px; cursor: pointer; }
+.inquiry-card-v3 .inq-card-work .card-work-status,
+.inquiry-card-v3 .inquiry-card-work-status {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
 @media (max-width: 960px) {
-  .inquiry-card-v3 .inq-card-row-identity {
-    grid-template-columns: auto auto 1fr;
-  }
-  .inquiry-card-v3 .inq-card-id-block,
-  .inquiry-card-v3 .inq-card-dates,
-  .inquiry-card-v3 .inq-card-assign-block { grid-column: 1 / -1; }
   .inquiry-card-v3 .inq-card-row-ops { grid-template-columns: 1fr; }
-  .inquiry-card-v3 .inq-card-follow-main { flex-wrap: wrap; }
-  .inquiry-card-v3 .inq-card-follow-btns { flex-direction: row; width: 100%; }
+  .inquiry-card-v3 .inq-card-follow-main {
+    grid-template-columns: 1fr 1fr;
+  }
+  .inquiry-card-v3 .inq-card-btn-follow,
+  .inquiry-card-v3 .inq-card-btn-reschedule { grid-column: span 1; }
   .inquiry-card-v3 .inq-card-row-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-width: 640px) {
