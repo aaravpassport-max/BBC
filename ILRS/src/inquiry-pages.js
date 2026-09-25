@@ -124,9 +124,12 @@
     return 'Tracking off';
   }
 
-  function inquiryMetaInline(label, value) {
+  function inquiryMetaCell(label, value) {
     if (value === undefined || value === null || value === '') return '';
-    return `<span class="inq-card-meta-item"><span class="inq-card-meta-k">${label}</span> ${escCard(value)}</span>`;
+    return `<div class="inq-card-meta-cell">
+      <div class="inq-card-meta-label">${label}</div>
+      <div class="inq-card-meta-value">${escCard(value)}</div>
+    </div>`;
   }
 
   function inquiryCard(inq, compact = false) {
@@ -157,13 +160,15 @@
       ? `Due ${formatDate(inq.expected_completion_date)}`
       : '';
 
-    const metaLine = [
-      !compact && inquiryMetaInline('Assigned', assignee || '—'),
-      inquiryMetaInline('Payment', inquiryPaymentSummary(inq)),
-      priority ? inquiryMetaInline('Priority', priority) : '',
-      amount ? inquiryMetaInline('Value', amount) : '',
-      daysStage !== '—' ? inquiryMetaInline('In stage', daysStage) : '',
-      completionHint ? inquiryMetaInline('Due', completionHint.replace(/^Due /, '')) : '',
+    const metaCells = [
+      inquiryMetaCell('Pipeline stage', stageName),
+      !compact && inquiryMetaCell('Assigned to', assignee || '—'),
+      inquiryMetaCell('Health', healthLabel),
+      inquiryMetaCell('Payment', inquiryPaymentSummary(inq)),
+      priority ? inquiryMetaCell('Priority', priority) : '',
+      amount ? inquiryMetaCell('Value', amount) : '',
+      daysStage !== '—' ? inquiryMetaCell('Days in stage', daysStage) : '',
+      completionHint ? inquiryMetaCell('Completion', completionHint) : '',
     ].filter(Boolean).join('');
 
     return `
@@ -194,24 +199,24 @@
               <div class="inq-card-work-row">
                 <div class="inq-card-work-select">${inquiryCardWorkStatus(inq)}</div>
                 ${showStartProcessing ? `<button type="button" class="btn btn-primary btn-sm inq-card-no-nav inquiry-start-work-btn"
-                  onclick="event.stopPropagation();startInquiryWorkFromCard('${inq.id}')">Start</button>` : ''}
+                  onclick="event.stopPropagation();startInquiryWorkFromCard('${inq.id}')">Start processing</button>` : ''}
               </div>
             </div>
             <div class="inq-card-ops-col inq-card-schedule">
               <div class="inq-card-section-head inq-card-section-head-tight">
                 <span class="inq-card-section-label">Next follow-up</span>
-                <button type="button" class="btn btn-ghost btn-xs inq-card-no-nav" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')">Reschedule</button>
+                <button type="button" class="btn btn-ghost btn-sm inq-card-no-nav" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')">Reschedule</button>
               </div>
-              <div class="inq-card-follow-line">
-                <span class="inq-card-follow-when ${follow.cls}">${escCard(follow.text)}</span>
-                <span class="inq-card-follow-sep" aria-hidden="true">·</span>
+              <div class="inq-card-follow-when ${follow.cls}">${escCard(follow.text)}</div>
+              <div class="inq-card-follow-action-row">
                 <span class="inq-card-follow-action">${escCard(follow.action)}</span>
+                <button type="button" class="btn btn-secondary btn-sm inq-card-no-nav" onclick="event.stopPropagation();showInquiryRescheduleMenu('${inq.id}')">Follow up</button>
               </div>
             </div>
           </div>
         </section>
 
-        ${metaLine ? `<div class="inq-card-meta-line">${metaLine}</div>` : ''}
+        ${metaCells ? `<div class="inq-card-meta-grid">${metaCells}</div>` : ''}
 
         ${latest ? `<div class="inq-card-latest inq-card-no-nav">${latest}</div>` : ''}
 
