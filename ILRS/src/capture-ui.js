@@ -514,7 +514,7 @@
       const sourceType = document.getElementById('capture-source-type')?.value || '';
       const sourceId = document.getElementById('capture-source-id')?.value || '';
       ok = await dbRun(
-        `INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,repeat_value,reminder_time,start_date,end_date,priority,urgency_quadrant,alert_style,snooze_duration,assigned_to,is_private,notes,tags,next_fire,work_start_date,expected_completion_date,status,workflow_status,lifecycle_status,source_type,source_id,stage_key,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
+        `INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,repeat_value,reminder_time,start_date,end_date,priority,urgency_quadrant,alert_style,snooze_duration,assigned_to,is_private,notes,tags,next_fire,work_start_date,expected_completion_date,status,workflow_status,lifecycle_status,source_type,source_id,stage_key,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
         [...params, workStartDate, expectedCompletionDate, lifecycleSqlPatch.status, lifecycleSqlPatch.workflow, lifecycleSqlPatch.lifecycle, sourceType, sourceId, stageKey]
       );
       if (ok && stageKey) {
