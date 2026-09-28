@@ -1,6 +1,6 @@
 {
   "name": "ilrs",
-  "version": "1.2.14",
+  "version": "1.2.16",
   "description": "ILRS — Intelligent Life Reminder System",
   "author": {
     "name": "Business OS",
@@ -21,6 +21,7 @@
     "test:notification-click": "node scripts/test-notification-click.js",
     "test:modal-dismiss": "node scripts/test-modal-dismiss.js",
     "test:capture": "node scripts/test-capture-parse.js",
+    "test:capture-insert": "node scripts/test-capture-insert-sql.js",
     "test:reminder-actions": "node scripts/test-reminder-actions.js",
     "test:module-actions": "node scripts/test-module-actions.js",
     "test:habit-streak": "node scripts/test-habit-streak.js",

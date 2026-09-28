@@ -6,6 +6,23 @@
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
   }
 
+  /** Keep INSERT column list and bound params in sync (regression-tested). */
+  const REMINDER_INSERT_COLUMNS = [
+    'id', 'title', 'task_type', 'category', 'why_it_matters', 'repeat_type', 'repeat_value',
+    'reminder_time', 'start_date', 'end_date', 'priority', 'urgency_quadrant', 'alert_style',
+    'snooze_duration', 'assigned_to', 'is_private', 'notes', 'tags', 'next_fire',
+    'work_start_date', 'expected_completion_date', 'status', 'workflow_status', 'lifecycle_status',
+    'source_type', 'source_id', 'stage_key', 'created_at', 'updated_at',
+  ];
+
+  function reminderInsertSql() {
+    const cols = REMINDER_INSERT_COLUMNS.join(',');
+    const values = REMINDER_INSERT_COLUMNS.map((col) =>
+      (col === 'created_at' || col === 'updated_at') ? "datetime('now')" : '?'
+    ).join(',');
+    return `INSERT INTO reminders (${cols}) VALUES (${values})`;
+  }
+
   function whenChipHtml(selected) {
     const chips = [
       { id: 'today', label: 'Today' },
@@ -513,10 +530,26 @@
     } else {
       const sourceType = document.getElementById('capture-source-type')?.value || '';
       const sourceId = document.getElementById('capture-source-id')?.value || '';
-      ok = await dbRun(
-        `INSERT INTO reminders (id,title,task_type,category,why_it_matters,repeat_type,repeat_value,reminder_time,start_date,end_date,priority,urgency_quadrant,alert_style,snooze_duration,assigned_to,is_private,notes,tags,next_fire,work_start_date,expected_completion_date,status,workflow_status,lifecycle_status,source_type,source_id,stage_key,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'),datetime('now'))`,
-        [...params, workStartDate, expectedCompletionDate, lifecycleSqlPatch.status, lifecycleSqlPatch.workflow, lifecycleSqlPatch.lifecycle, sourceType, sourceId, stageKey]
-      );
+      const insertParams = [
+        ...params,
+        workStartDate,
+        expectedCompletionDate,
+        lifecycleSqlPatch.status,
+        lifecycleSqlPatch.workflow,
+        lifecycleSqlPatch.lifecycle,
+        sourceType,
+        sourceId,
+        stageKey,
+      ];
+      const boundCols = REMINDER_INSERT_COLUMNS.filter(
+        (c) => c !== 'created_at' && c !== 'updated_at'
+      ).length;
+      if (insertParams.length !== boundCols) {
+        console.error('reminder INSERT param mismatch', insertParams.length, boundCols);
+        if (typeof toast === 'function') toast('Save failed: internal parameter mismatch', 'critical');
+        return;
+      }
+      ok = await dbRun(reminderInsertSql(), insertParams);
       if (ok && stageKey) {
         await window.ilrs?.setInitialReminderStage?.(id, kind, stageKey);
       } else if (ok) {
