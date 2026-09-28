@@ -114,7 +114,7 @@
       repeatValue: r.repeat_value || '',
       why: r.why_it_matters || '',
       notes: r.notes || '',
-      tags: JSON.parse(r.tags || '[]').join(', '),
+      tags: (() => { try { const t = JSON.parse(r.tags || '[]'); return Array.isArray(t) ? t.join(', ') : ''; } catch { return ''; } })(),
       assigned: r.assigned_to || 'me',
       family: (typeof App !== 'undefined' && App.family) ? App.family : [],
       alert: r.alert_style || 'sound-popup',

@@ -32,6 +32,34 @@ const App = {
 };
 window.App = App;
 
+/** Cap list rendering so the “All” queue tab does not freeze the UI. */
+const MAX_LIST_RENDER = 400;
+
+let _navGeneration = 0;
+
+function safeTagsField(tagsField) {
+  try {
+    const parsed = JSON.parse(tagsField || '[]');
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function listRenderSlice(items) {
+  if (!items?.length || items.length <= MAX_LIST_RENDER) {
+    return { visible: items || [], truncated: false, total: items?.length || 0 };
+  }
+  return { visible: items.slice(0, MAX_LIST_RENDER), truncated: true, total: items.length };
+}
+
+function listTruncationBanner(truncated, total) {
+  if (!truncated) return '';
+  return `<div class="attention-banner" style="margin:12px 0">
+    <span>Showing first ${MAX_LIST_RENDER} of ${total} items. Use search or a narrower status tab for the rest.</span>
+  </div>`;
+}
+
 // ── Utilities ─────────────────────────────────────────────────────
 function uuid() {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
@@ -459,7 +487,7 @@ function lifecycleFilterList(items, entityKey = 'focus') {
   return Q.filterItems(items, entityKey);
 }
 
-async function navigate(page) {
+async function navigate(page, { reloadData = true } = {}) {
   if (page === 'add') {
     showCaptureSheet();
     return;
@@ -478,12 +506,84 @@ async function navigate(page) {
     el.classList.toggle('active', el.dataset.page === page);
   });
   const content = document.getElementById('content');
+  if (!content) return;
+  const generation = ++_navGeneration;
   content.innerHTML = '<div style="padding:40px;text-align:center;color:var(--text-muted)">Loading...</div>';
-  await loadAllData();
-  if (PAGES[page]) await PAGES[page](content);
-  content.scrollTop = 0;
-  window.ILRSAppNav?.onNavigate?.(page);
+  try {
+    if (reloadData) await loadAllData();
+    if (generation !== _navGeneration) return;
+    if (PAGES[page]) await PAGES[page](content);
+    else content.innerHTML = '<div class="empty-state"><h3>Page not found</h3></div>';
+    content.scrollTop = 0;
+    window.ILRSAppNav?.onNavigate?.(page);
+  } catch (err) {
+    console.error('Navigate failed:', page, err);
+    if (generation === _navGeneration) {
+      content.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Could not load this view</h3><p style="color:var(--text-muted)">${err.message || err}</p></div>`;
+      toast(`Could not load page: ${err.message || 'error'}`, 'critical');
+    }
+  }
 }
+
+function buildTasksListView() {
+  const q = App.taskSearchQuery || '';
+  const GS = window.ILRSGlobalSearch;
+  const Q = window.ILRSLifecycleQueue;
+  let tasks = App.reminders.filter((r) => r.task_type === 'task' && r.status !== 'deleted');
+  if (q.trim() && GS?.matchesReminder) {
+    tasks = tasks.filter((t) => GS.matchesReminder(t, q));
+  }
+  const tab = Q?.getFilter('task') || 'active';
+  const filtered = Q?.filterItems ? Q.filterItems(tasks, 'task', tab) : tasks;
+  const { visible, truncated, total } = listRenderSlice(filtered);
+  return {
+    filtered,
+    visible,
+    truncated,
+    total,
+    listHtml: visible.length === 0
+      ? `<div class="empty-state"><div class="empty-icon">✅</div><h3>${q ? 'No matching tasks' : 'No tasks in this status queue'}</h3><p>Change status on a card or pick another tab above.</p></div>`
+      : visible.map((r) => reminderCard(r)).join(''),
+    subtitle: `Status queues · ${truncated ? `${visible.length} of ${total}` : visible.length} in this view`,
+    truncationHtml: listTruncationBanner(truncated, total),
+  };
+}
+
+function patchTasksListDom() {
+  if (App.currentPage !== 'tasks') return false;
+  const list = document.getElementById('tasks-list');
+  if (!list) return false;
+  const view = buildTasksListView();
+  list.innerHTML = view.listHtml;
+  const sub = document.getElementById('tasks-count-subtitle');
+  if (sub) sub.textContent = view.subtitle;
+  const trunc = document.getElementById('tasks-truncation');
+  if (trunc) trunc.innerHTML = view.truncationHtml;
+  const bulk = document.getElementById('tasks-bulk-bar');
+  if (bulk) bulk.innerHTML = renderBulkSelectionBar('reminder');
+  return true;
+}
+
+/** Re-render the current list view without reloading the database (tabs, search, selection). */
+async function refreshListView() {
+  if (App._lifecycleQueueRefreshLock) return;
+  if (patchTasksListDom()) return;
+  if (App.currentPage === 'reminders' && typeof window.refreshRemindersList === 'function') {
+    window.refreshRemindersList();
+    return;
+  }
+  const content = document.getElementById('content');
+  if (!content || !PAGES[App.currentPage]) return;
+  const generation = ++_navGeneration;
+  try {
+    await PAGES[App.currentPage](content);
+    if (generation !== _navGeneration) return;
+  } catch (err) {
+    console.error('refreshListView failed:', App.currentPage, err);
+    toast(`Could not refresh: ${err.message || 'error'}`, 'critical');
+  }
+}
+window.refreshListView = refreshListView;
 
 // ── App Shell ──────────────────────────────────────────────────────
 function renderShell() {
@@ -1197,7 +1297,7 @@ function reminderCard(r) {
   const isDone = r.status === 'completed' || wf === 'done';
   const completionOverdue = !isDone && WS?.isCompletionOverdue?.(r);
   const isOverdue = !isDone && (completionOverdue || (!isTask && isOverdueReminder(r)));
-  const tags = JSON.parse(r.tags || '[]');
+  const tags = safeTagsField(r.tags);
   const kind = isTask ? '✅ Task' : '🔔 Reminder';
   const timeLabel = r.reminder_time ? formatTime(r.reminder_time) : '';
   const rel = C?.relativeTimeLabel(r.next_fire) || '';
@@ -1281,23 +1381,23 @@ function renderBulkSelectionBar(type) {
 function toggleReminderSelection(id, checked) {
   if (checked) App.selectedReminderIds.add(id);
   else App.selectedReminderIds.delete(id);
-  if (PAGES[App.currentPage]) navigate(App.currentPage);
+  refreshListView();
 }
 
 function toggleInquirySelection(id, checked) {
   if (checked) App.selectedInquiryIds.add(id);
   else App.selectedInquiryIds.delete(id);
-  if (PAGES[App.currentPage]) navigate(App.currentPage);
+  refreshListView();
 }
 
 function clearReminderSelection() {
   App.selectedReminderIds.clear();
-  if (PAGES[App.currentPage]) navigate(App.currentPage);
+  refreshListView();
 }
 
 function clearInquirySelection() {
   App.selectedInquiryIds.clear();
-  if (PAGES[App.currentPage]) navigate(App.currentPage);
+  refreshListView();
 }
 
 async function bulkDeleteSelectedReminders() {
@@ -1469,20 +1569,15 @@ async function renderCompleted(el) {
 // ── Tasks Page ─────────────────────────────────────────────────────
 async function renderTasks(el) {
   const q = App.taskSearchQuery || '';
-  const GS = window.ILRSGlobalSearch;
+  const view = buildTasksListView();
+  const tasks = App.reminders.filter((r) => r.task_type === 'task' && r.status !== 'deleted');
   const Q = window.ILRSLifecycleQueue;
-  let tasks = App.reminders.filter((r) => r.task_type === 'task' && r.status !== 'deleted');
-  if (q.trim() && GS?.matchesReminder) {
-    tasks = tasks.filter((t) => GS.matchesReminder(t, q));
-  }
-  const tab = Q?.getFilter('task') || 'active';
-  const visible = Q?.filterItems ? Q.filterItems(tasks, 'task', tab) : tasks;
 
   el.innerHTML = `
     <div class="page-header">
       <div>
         <div class="page-title">✅ Tasks</div>
-        <div class="page-subtitle">Status queues · ${visible.length} in this view</div>
+        <div class="page-subtitle" id="tasks-count-subtitle">${view.subtitle}</div>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <button class="btn btn-ghost" onclick="showSearchPalette()" title="Ctrl+K">🔍 Search</button>
@@ -1491,17 +1586,14 @@ async function renderTasks(el) {
       </div>
     </div>
     ${Q?.tabsHtml ? Q.tabsHtml('task', tasks) : ''}
+    <div id="tasks-truncation">${view.truncationHtml}</div>
     <div class="filter-bar" style="margin:12px 0">
       <input type="text" class="form-input" style="max-width:320px" placeholder="🔍 Search tasks (title, notes, tags, stage…)"
         value="${q.replace(/"/g, '&quot;')}"
-        oninput="App.taskSearchQuery=this.value;navigate('tasks')" />
+        oninput="App.taskSearchQuery=this.value;refreshListView()" />
     </div>
-    ${renderBulkSelectionBar('reminder')}
-    <div class="reminder-list">
-      ${visible.length === 0
-        ? `<div class="empty-state"><div class="empty-icon">✅</div><h3>${q ? 'No matching tasks' : 'No tasks in this status queue'}</h3><p>Change status on a card or pick another tab above.</p></div>`
-        : visible.map((r) => reminderCard(r)).join('')}
-    </div>
+    <div id="tasks-bulk-bar">${renderBulkSelectionBar('reminder')}</div>
+    <div class="reminder-list" id="tasks-list">${view.listHtml}</div>
   `;
 }
 
@@ -1519,8 +1611,10 @@ async function renderReminders(el) {
 
   const render = (reminders) => {
     const LC = window.ILRSWorkLifecycle;
-    let filtered = Q?.filterItems ? Q.filterItems(reminders, 'reminder', lifecycleTab) : reminders;
+    const pool = reminders || baseReminders;
+    let filtered = Q?.filterItems ? Q.filterItems(pool, 'reminder', lifecycleTab) : pool;
     filtered = filtered.filter((r) => {
+      if (r.task_type === 'task' || r.status === 'deleted') return false;
       if (filter.category !== 'all' && r.category !== filter.category) return false;
       if (filter.priority !== 'all' && r.priority !== filter.priority) return false;
       if (filter.stage !== 'all' && (r.stage_key || '') !== filter.stage) return false;
@@ -1528,11 +1622,19 @@ async function renderReminders(el) {
       if (filter.nextAction === 'none' && LC?.hasScheduledNextActionReminder(r)) return false;
       return true;
     });
-
-    document.getElementById('reminders-list').innerHTML = filtered.length === 0
+    const { visible, truncated, total } = listRenderSlice(filtered);
+    const listEl = document.getElementById('reminders-list');
+    const countEl = document.getElementById('reminder-count');
+    const truncEl = document.getElementById('reminders-truncation');
+    if (!listEl || !countEl) return;
+    if (truncEl) {
+      truncEl.innerHTML = listTruncationBanner(truncated, total);
+    }
+    listEl.innerHTML = visible.length === 0
       ? `<div class="empty-state"><div class="empty-icon">📭</div><h3>No reminders found</h3><p>Try changing filters or add a new reminder.</p></div>`
-      : filtered.map(r => reminderCard(r)).join('');
-    document.getElementById('reminder-count').textContent = filtered.length + ' reminder' + (filtered.length !== 1 ? 's' : '');
+      : visible.map((r) => reminderCard(r)).join('');
+    countEl.textContent = (truncated ? `${visible.length} of ${total}` : String(filtered.length))
+      + ' reminder' + (filtered.length !== 1 ? 's' : '');
   };
 
   el.innerHTML = `
@@ -1546,9 +1648,10 @@ async function renderReminders(el) {
     <div id="reminders-bulk-bar">${renderBulkSelectionBar('reminder')}</div>
 
     ${Q?.tabsHtml ? Q.tabsHtml('reminder', baseReminders) : ''}
+    <div id="reminders-truncation"></div>
 
     <div style="display:flex;gap:10px;flex-wrap:wrap;margin:16px 0 20px">
-      <select class="form-select" style="width:auto" onchange="filter.category=this.value;render(App.reminders)">
+      <select class="form-select" style="width:auto" onchange="filter.category=this.value;refreshRemindersList()">
         <option value="all">All Categories</option>
         <option value="general">General</option>
         <option value="medicine">Medicine</option>
@@ -1558,13 +1661,13 @@ async function renderReminders(el) {
         <option value="health">Health</option>
         <option value="personal">Personal</option>
       </select>
-      <select class="form-select" style="width:auto" onchange="filter.priority=this.value;render(App.reminders)">
+      <select class="form-select" style="width:auto" onchange="filter.priority=this.value;refreshRemindersList()">
         <option value="all">All Priorities</option>
         <option value="critical">🚨 Critical</option>
         <option value="important">⚠️ Important</option>
         <option value="normal">✅ Normal</option>
       </select>
-      <select class="form-select" style="width:auto" onchange="App.reminderNextActionFilter=this.value;filter.nextAction=this.value;render(App.reminders)">
+      <select class="form-select" style="width:auto" onchange="App.reminderNextActionFilter=this.value;filter.nextAction=this.value;refreshRemindersList()">
         <option value="all" ${filter.nextAction === 'all' ? 'selected' : ''}>Any next action</option>
         <option value="scheduled" ${filter.nextAction === 'scheduled' ? 'selected' : ''}>Has next reminder</option>
         <option value="none" ${filter.nextAction === 'none' ? 'selected' : ''}>No next reminder</option>
@@ -1579,6 +1682,7 @@ async function renderReminders(el) {
   window.filter = filter;
   window.render = render;
   window.baseReminders = baseReminders;
+  window.refreshRemindersList = () => render(baseReminders);
   render(baseReminders);
 }
 

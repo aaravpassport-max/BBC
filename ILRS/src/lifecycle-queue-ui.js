@@ -71,8 +71,17 @@
     } else {
       App.lifecycleQueueFilters[entityKey] = tabId;
     }
+    refreshAfterQueueFilterChange();
+  }
+
+  function refreshAfterQueueFilterChange() {
+    if (App._lifecycleQueueRefreshLock) return;
+    if (typeof window.softRefreshCurrentPage === 'function') {
+      window.softRefreshCurrentPage();
+      return;
+    }
     if (typeof navigate === 'function' && App.currentPage) {
-      navigate(App.currentPage);
+      navigate(App.currentPage, { reloadData: false });
     }
   }
 
@@ -82,9 +91,7 @@
 
   function setGlobalFilter(tabId, { refresh = true } = {}) {
     applyGlobalFilter(tabId);
-    if (refresh && typeof navigate === 'function' && App.currentPage) {
-      navigate(App.currentPage);
-    }
+    if (refresh) refreshAfterQueueFilterChange();
   }
 
   function isInquiryItem(item) {
