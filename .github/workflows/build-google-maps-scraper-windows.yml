@@ -1,0 +1,183 @@
+name: Build Google Maps Scraper (Windows)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'cursor/**'
+    tags:
+      - 'gmaps-scraper-v*'
+    paths:
+      - 'google-maps-scraper-desktop/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: google-maps-scraper-desktop
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: google-maps-scraper-desktop/package-lock.json
+
+      - name: Setup Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: google-maps-scraper-desktop/src-tauri
+
+      - name: Install npm dependencies
+        run: npm ci
+
+      - name: Verify India location dataset script
+        run: npm run build:india-locations
+
+      - name: Download bundled search engine (Windows)
+        run: npm run download-engine:win
+
+      - name: Preinstall Playwright browsers (bundled with app)
+        shell: pwsh
+        timeout-minutes: 45
+        run: |
+          $engine = "src-tauri/binaries/scraper-engine-x86_64-pc-windows-msvc.exe"
+          $data = "$env:RUNNER_TEMP\gmaps-prep"
+          New-Item -ItemType Directory -Force -Path $data | Out-Null
+          $proc = Start-Process -FilePath $engine -ArgumentList @('-web','-data-folder',$data) -PassThru -WindowStyle Hidden
+          $ready = $false
+          for ($i = 0; $i -lt 90; $i++) {
+            try {
+              Invoke-RestMethod -Uri 'http://127.0.0.1:8080/api/v1/jobs' -TimeoutSec 5 | Out-Null
+              $ready = $true
+              break
+            } catch { Start-Sleep 2 }
+          }
+          if (-not $ready) { throw 'Search engine did not start for Playwright prep' }
+          $payload = @{
+            name = 'warmup'
+            keywords = @('coffee shops in Austin TX')
+            lang = 'en'
+            zoom = 15
+            lat = '30.2672'
+            lon = '-97.7431'
+            fast_mode = $false
+            radius = 10000
+            depth = 1
+            email = $false
+            max_time = 900
+          } | ConvertTo-Json -Depth 5
+          $job = Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8080/api/v1/jobs' -Body $payload -ContentType 'application/json'
+          $id = if ($job.id) { $job.id } else { $job.ID }
+          for ($i = 0; $i -lt 240; $i++) {
+            Start-Sleep 10
+            $st = Invoke-RestMethod -Uri "http://127.0.0.1:8080/api/v1/jobs/$id"
+            $status = if ($st.Status) { $st.Status } else { $st.status }
+            if ($status -eq 'ok') { break }
+            if ($status -eq 'failed') { throw 'Warmup scrape failed — browser runtime could not be prepared' }
+          }
+          Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+          $src = Join-Path $env:LOCALAPPDATA 'ms-playwright'
+          if (-not (Test-Path $src)) { throw "Playwright cache not found at $src" }
+          New-Item -ItemType Directory -Force -Path 'src-tauri/resources' | Out-Null
+          Copy-Item -Path $src -Destination 'src-tauri/resources/ms-playwright' -Recurse -Force
+          # Scraper uses full Chromium only; headless_shell often fails NSIS extract on upgrade (locked exe).
+          Get-ChildItem -Path 'src-tauri/resources/ms-playwright' -Directory -Filter 'chromium_headless_shell*' -ErrorAction SilentlyContinue |
+            Remove-Item -Recurse -Force
+
+      - name: Build Tauri (NSIS installer + portable)
+        run: npm run tauri build
+        env:
+          CI: true
+
+      - name: Package release folder (installer + portable)
+        shell: pwsh
+        run: |
+          $bundle = "src-tauri/target/release/bundle"
+          $release = "GoogleMapsScraper"
+          New-Item -ItemType Directory -Force -Path $release | Out-Null
+          $setup = Get-ChildItem -Path "$bundle/nsis" -Filter "*setup.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if ($setup) {
+            Copy-Item $setup.FullName "$release/GoogleMapsScraper-Setup.exe" -Force
+          }
+          $portableSrc = Get-ChildItem -Path "$bundle" -Recurse -Directory -Filter "Google Maps Scraper*" -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $portableSrc) {
+            $portableSrc = Get-ChildItem -Path "$bundle/portable" -ErrorAction SilentlyContinue | Select-Object -First 1
+          }
+          $portableRoot = "GoogleMapsScraper-Portable"
+          New-Item -ItemType Directory -Force -Path $portableRoot | Out-Null
+          if ($portableSrc) {
+            Copy-Item -Path $portableSrc.FullName -Destination $portableRoot -Recurse -Force
+          } else {
+            Get-ChildItem -Path $bundle -Recurse -Filter "Google Maps Scraper.exe" | ForEach-Object {
+              Copy-Item $_.Directory.FullName -Destination $portableRoot -Recurse -Force
+            }
+          }
+          Copy-Item README.txt,LICENSE.txt,SECURITY.md,TROUBLESHOOTING.md $release -ErrorAction SilentlyContinue
+          Copy-Item README.txt,LICENSE.txt,SECURITY.md,TROUBLESHOOTING.md $portableRoot -ErrorAction SilentlyContinue
+          Compress-Archive -Path $portableRoot -DestinationPath "$release/GoogleMapsScraper-Portable.zip" -Force
+          Copy-Item "$release/GoogleMapsScraper-Portable.zip" GoogleMapsScraper-Portable.zip -Force
+
+      - name: SHA256 checksums
+        shell: pwsh
+        run: |
+          Get-ChildItem -Path src-tauri/target/release/bundle -Recurse -Include *.exe | ForEach-Object {
+            $h = Get-FileHash $_.FullName -Algorithm SHA256
+            "$($h.Hash)  $($_.FullName)"
+          } | Out-File SHA256SUMS.txt -Encoding utf8
+          if (Test-Path GoogleMapsScraper-Portable.zip) {
+            $h = Get-FileHash GoogleMapsScraper-Portable.zip -Algorithm SHA256
+            "$($h.Hash)  GoogleMapsScraper-Portable.zip" | Add-Content SHA256SUMS.txt
+          }
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: GoogleMapsScraper-Windows-1.0.0
+          path: |
+            google-maps-scraper-desktop/GoogleMapsScraper/**
+            google-maps-scraper-desktop/GoogleMapsScraper-Portable.zip
+            google-maps-scraper-desktop/SHA256SUMS.txt
+          retention-days: 90
+
+      - name: Publish draft release (branch builds)
+        if: github.event_name == 'push' && !startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: gmaps-scraper-build-${{ github.run_number }}
+          name: Google Maps Scraper 1.0.1 (build ${{ github.run_number }})
+          draft: true
+          prerelease: true
+          files: |
+            google-maps-scraper-desktop/GoogleMapsScraper/**
+            google-maps-scraper-desktop/GoogleMapsScraper-Portable.zip
+            google-maps-scraper-desktop/SHA256SUMS.txt
+          body: |
+            Ready-to-install Windows build from CI.
+            - Run **GoogleMapsScraper-Setup.exe** to install
+            - Or extract **GoogleMapsScraper-Portable.zip** and double-click **Google Maps Scraper.exe**
+            No Docker, Python, or Node required.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Release on tag
+        if: startsWith(github.ref, 'refs/tags/gmaps-scraper-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            google-maps-scraper-desktop/src-tauri/target/release/bundle/**/*.exe
+            google-maps-scraper-desktop/GoogleMapsScraper-Portable.zip
+            google-maps-scraper-desktop/SHA256SUMS.txt
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
