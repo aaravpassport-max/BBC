@@ -1,0 +1,195 @@
+.rolePage {
+  min-height: 100vh;
+  max-width: 480px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.mapSection {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.mapHint {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  transform: translate(-50%, -100%);
+  background: rgba(26, 35, 50, 0.92);
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 8px 12px;
+  border-radius: 8px;
+  white-space: nowrap;
+  z-index: 500;
+  pointer-events: none;
+}
+
+.mapHint::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid rgba(26, 35, 50, 0.92);
+}
+
+.sheet {
+  flex: 1;
+  background: var(--surface);
+  border-radius: 24px 24px 0 0;
+  margin-top: -18px;
+  padding: 20px 16px calc(24px + env(safe-area-inset-bottom, 0px));
+  box-shadow: var(--shadow-md);
+  position: relative;
+  z-index: 2;
+}
+
+.addressCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 18px;
+  background: var(--surface-raised);
+}
+
+.dotPickup {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--pickup);
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.dotDrop {
+  width: 12px;
+  height: 12px;
+  border-radius: 2px;
+  background: var(--drop);
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.addressCopy {
+  flex: 1;
+  min-width: 0;
+}
+
+.placeName {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.placeSub {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.sectionTitle {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+
+.options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 14px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.optionActive {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.optionIcon {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.iconPickup {
+  background: rgba(34, 197, 94, 0.15);
+  color: var(--pickup);
+}
+
+.iconDrop {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--drop);
+}
+
+.optionBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.optionTitle {
+  font-weight: 700;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+.optionDesc {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  margin-top: 8px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.radioActive {
+  border-color: var(--accent);
+}
+
+.radioActive::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.error {
+  color: var(--danger);
+  font-size: 13px;
+  margin: 0 0 10px;
+}

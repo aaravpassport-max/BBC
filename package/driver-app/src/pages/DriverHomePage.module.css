@@ -1,0 +1,154 @@
+.page {
+  min-height: 100vh;
+  max-width: 480px;
+  margin: 0 auto;
+  background: var(--bg);
+}
+
+.body {
+  padding: 16px 16px 16px;
+  position: relative;
+  z-index: 1;
+}
+
+.mapWrap {
+  margin-bottom: 12px;
+}
+
+.statsCard {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  padding: 24px;
+  text-align: center;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.statLabel {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.statValue {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.statValueAccent {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--accent-strong);
+}
+
+.incentiveBtn {
+  margin-top: 14px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.statusCard {
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  padding: 28px;
+  text-align: center;
+  box-shadow: var(--shadow-sm);
+}
+
+.statusDot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  margin: 0 auto 14px;
+}
+
+.statusDotOnline {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  margin: 0 auto 14px;
+  background: var(--success);
+  box-shadow: 0 0 16px var(--success);
+}
+
+.statusDotOffline {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  margin: 0 auto 14px;
+  background: var(--text-muted);
+}
+
+.statusTitle {
+  font-size: 20px;
+  margin-bottom: 8px;
+}
+
+.statusHint {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 18px;
+}
+
+.offlinePanel {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+  background: var(--surface);
+  margin-top: 12px;
+}
+
+.offlineTitle {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.offlineSelect {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  margin-bottom: 12px;
+}
+
+.offlineActions {
+  display: flex;
+  gap: 8px;
+}
+
+.heatmapBtn {
+  margin-top: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.error {
+  color: var(--danger);
+  font-size: 13px;
+  margin-top: 12px;
+}
+
+.vehicleBtn {
+  margin-top: 12px;
+}

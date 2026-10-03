@@ -1,0 +1,283 @@
+.page {
+  min-height: 100vh;
+  max-width: 480px;
+  margin: 0 auto;
+  padding-bottom: calc(var(--nav-height) + 16px);
+}
+
+.header {
+  padding: 12px 16px 0;
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  color: var(--accent-strong);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 0 8px;
+}
+
+.pageTitle {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 8px 16px 12px;
+}
+
+.tripCard {
+  margin: 0 16px 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.tripCardBody {
+  display: flex;
+  gap: 8px;
+  padding: 14px;
+  align-items: stretch;
+}
+
+.tripStops {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tripRow {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.editBtn {
+  background: none;
+  border: none;
+  color: var(--accent-strong);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+  padding: 4px 0;
+}
+
+.tripDot {
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  flex-shrink: 0;
+}
+
+.tripDotPickup {
+  border-radius: 50%;
+  background: var(--pickup);
+}
+
+.tripDotDrop {
+  border-radius: 2px;
+  background: var(--drop);
+}
+
+.tripText {
+  min-width: 0;
+}
+
+.tripHead {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tripSub {
+  font-size: 12px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.swapBtn {
+  align-self: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--surface-raised);
+  color: var(--accent-strong);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.tripActions {
+  display: flex;
+  border-top: 1px solid var(--border);
+}
+
+.tripAction {
+  flex: 1;
+  background: none;
+  border: none;
+  color: var(--accent-strong);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 12px;
+  cursor: pointer;
+}
+
+.tripAction + .tripAction {
+  border-left: 1px solid var(--border);
+}
+
+.summaryMeta {
+  margin: 0 16px 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.inlineError {
+  color: var(--danger);
+  font-size: 13px;
+  padding: 0 16px;
+  margin: 0;
+}
+
+.empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.groupTabs {
+  display: flex;
+  gap: 8px;
+  padding: 0 16px 12px;
+  overflow-x: auto;
+}
+
+.groupTab {
+  flex-shrink: 0;
+  padding: 10px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.groupTabActive {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.list {
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.card {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  padding: 16px;
+  cursor: pointer;
+  color: var(--text);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.card:hover,
+.cardSelected {
+  border-color: var(--accent);
+  box-shadow: var(--shadow-md);
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.cardMain {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  flex: 1;
+}
+
+.icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.subtitle {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.price {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent-strong);
+  white-space: nowrap;
+}
+
+.badge {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 3px 8px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.spec {
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--surface-raised);
+  border-radius: 8px;
+  padding: 4px 8px;
+}
+
+.footer {
+  position: fixed;
+  bottom: var(--nav-height);
+  left: 0;
+  right: 0;
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 12px 16px;
+  background: linear-gradient(to top, var(--bg) 80%, transparent);
+}
