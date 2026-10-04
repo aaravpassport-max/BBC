@@ -3,12 +3,24 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '@/lib/api'
+import {
+  TypographyRolesEditor,
+  TokenGroupEditor,
+  ComponentsEditor,
+  OverridesEditor,
+  SurfaceVisibilityMatrix,
+  CategoryRegistryPanel,
+  NavMenuEditor,
+  type RegistryService,
+  type RegistryCategory,
+} from './design-system-panels'
 
 type DesignConfig = Record<string, unknown>
 
 const TABS = [
   'Global', 'Typography', 'Fonts', 'Colors', 'Spacing', 'Buttons', 'Cards', 'Forms',
-  'Presets', 'Preview', 'Service Registry',
+  'Containers', 'Borders', 'Shadows', 'Motion', 'Responsive', 'Overrides',
+  'Presets', 'Preview', 'Navigation', 'Service Registry', 'Categories',
 ] as const
 
 type Tab = (typeof TABS)[number]
@@ -28,9 +40,16 @@ export function AdminDesignSystem() {
   const [fontQuery, setFontQuery] = useState('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
-  const [registry, setRegistry] = useState<Array<{ id: number; name: string; slug: string; public_status?: string }>>([])
+  const [registry, setRegistry] = useState<RegistryService[]>([])
+  const [categories, setCategories] = useState<RegistryCategory[]>([])
+  const [surfaces, setSurfaces] = useState<Record<string, string>>({})
   const [selectedSvc, setSelectedSvc] = useState<number | null>(null)
   const [impact, setImpact] = useState<Record<string, unknown> | null>(null)
+  const [svcRules, setSvcRules] = useState<Record<string, boolean | string>>({})
+  const [svcStatus, setSvcStatus] = useState('published')
+  const [svcDirect, setSvcDirect] = useState('active')
+  const [svcFeatured, setSvcFeatured] = useState(false)
+  const [svcPopular, setSvcPopular] = useState(false)
 
   const load = useCallback(async () => {
     const data = await api.get<{
@@ -41,10 +60,14 @@ export function AdminDesignSystem() {
     setConfig(data.config)
     setPresets(data.presets || {})
     setFonts(data.fonts?.library || [])
-    const reg = await api.get<{ services: Array<{ id: number; name: string; slug: string; public_status?: string }> }>(
-      'admin/service-registry'
-    )
+    const reg = await api.get<{
+      services: RegistryService[]
+      categories: RegistryCategory[]
+      surfaces: Record<string, string>
+    }>('admin/service-registry')
     setRegistry(reg.services || [])
+    setCategories(reg.categories || [])
+    setSurfaces(reg.surfaces || {})
   }, [])
 
   useEffect(() => { load().catch(() => setMessage('Failed to load design system')) }, [load])
@@ -52,6 +75,13 @@ export function AdminDesignSystem() {
   const colors = (config?.colors || {}) as Record<string, string>
   const spacing = (config?.spacing || {}) as Record<string, string>
   const fontRoles = (config?.fonts || {}) as Record<string, string>
+  const typography = (config?.typography || {}) as Record<string, Record<string, string>>
+  const radius = (config?.radius || {}) as Record<string, string>
+  const shadow = (config?.shadow || {}) as Record<string, string>
+  const motion = (config?.motion || {}) as Record<string, string | boolean>
+  const breakpoints = (config?.breakpoints || {}) as Record<string, number>
+  const components = (config?.components || {}) as Record<string, string>
+  const overrides = (config?.overrides || {}) as Record<string, Record<string, unknown>>
 
   const filteredFonts = useMemo(() => {
     const q = fontQuery.toLowerCase().trim()
@@ -106,20 +136,39 @@ export function AdminDesignSystem() {
     }
   }
 
+  const selectService = (s: RegistryService) => {
+    setSelectedSvc(s.id)
+    setSvcStatus(s.public_status || 'published')
+    setSvcDirect(s.direct_url_behavior || 'active')
+    setSvcFeatured(Boolean(s.is_featured))
+    setSvcPopular(Boolean(s.is_popular))
+    setSvcRules((s.visibility_rules || {}) as Record<string, boolean | string>)
+    loadImpact(s.id)
+  }
+
   const loadImpact = async (id: number) => {
-    setSelectedSvc(id)
     const data = await api.get<Record<string, unknown>>(`admin/services/${id}/visibility-impact`)
     setImpact(data)
   }
 
-  const setServiceStatus = async (id: number, public_status: string, direct_url_behavior?: string) => {
-    await api.patch(`admin/services/${id}/visibility`, {
-      public_status,
-      ...(direct_url_behavior ? { direct_url_behavior } : {}),
+  const saveServiceVisibility = async () => {
+    if (!selectedSvc) return
+    await api.patch(`admin/services/${selectedSvc}/visibility`, {
+      public_status: svcStatus,
+      direct_url_behavior: svcDirect,
+      visibility_rules: svcRules,
+      is_featured: svcFeatured,
+      is_popular: svcPopular,
     })
     await load()
-    await loadImpact(id)
+    await loadImpact(selectedSvc)
     setMessage('Service visibility updated — navigation and forms sync automatically.')
+  }
+
+  const saveCategory = async (id: number, body: Record<string, unknown>) => {
+    await api.patch(`admin/categories/${id}/visibility`, body)
+    await load()
+    setMessage('Category visibility saved.')
   }
 
   if (!config) {
@@ -136,18 +185,12 @@ export function AdminDesignSystem() {
             Changes inherit: Global → page type → page → section.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving}
-          className="s2-btn s2-btn--primary"
-          style={{ background: colors.primary || '#4A6FA5', border: 'none', color: '#fff', padding: '12px 24px', borderRadius: 999, fontWeight: 700, cursor: 'pointer' }}
-        >
+        <button type="button" onClick={save} disabled={saving} className="s2-btn s2-btn--primary">
           {saving ? 'Saving…' : 'Publish design'}
         </button>
       </div>
       {message && (
-        <div className="s2-alert s2-alert--info" style={{ marginTop: 16, padding: 12, background: '#EFF6FF', borderLeft: '4px solid #0284C7' }}>
+        <div className="s2-alert s2-alert--info" style={{ marginTop: 16, padding: 12 }}>
           {message}
         </div>
       )}
@@ -161,7 +204,7 @@ export function AdminDesignSystem() {
             style={{
               padding: '8px 14px',
               borderRadius: 999,
-              border: tab === t ? '2px solid #4A6FA5' : '1px solid #E2E8F0',
+              border: tab === t ? '2px solid var(--s2-primary, #4A6FA5)' : '1px solid #E2E8F0',
               background: tab === t ? '#EBF0F8' : '#fff',
               fontWeight: tab === t ? 700 : 500,
               cursor: 'pointer',
@@ -197,19 +240,7 @@ export function AdminDesignSystem() {
       )}
 
       {tab === 'Spacing' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
-          {Object.entries(spacing).map(([key, val]) => (
-            <label key={key} style={{ fontSize: 13 }}>
-              <span style={{ fontWeight: 600 }}>{key.replace(/_/g, ' ')}</span>
-              <input
-                type="text"
-                value={val}
-                onChange={(e) => patch(['spacing', key], e.target.value)}
-                style={{ display: 'block', width: '100%', marginTop: 6, padding: 8, borderRadius: 8, border: '1px solid #E2E8F0' }}
-              />
-            </label>
-          ))}
-        </div>
+        <TokenGroupEditor title="Spacing scale" basePath={['spacing']} tokens={spacing} patch={patch} keys={Object.keys(spacing)} />
       )}
 
       {tab === 'Fonts' && (
@@ -234,8 +265,12 @@ export function AdminDesignSystem() {
         </div>
       )}
 
-      {(tab === 'Global' || tab === 'Typography') && (
+      {tab === 'Global' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
+          <label style={{ fontSize: 13 }}>
+            Active preset id
+            <input type="text" value={String(config.preset || '')} readOnly style={{ display: 'block', width: '100%', marginTop: 6, padding: 8, borderRadius: 8, background: '#F8FAFC' }} />
+          </label>
           {(['heading', 'body', 'ui', 'button'] as const).map((role) => (
             <label key={role} style={{ fontSize: 13 }}>
               <span style={{ fontWeight: 600 }}>{role} font</span>
@@ -253,13 +288,66 @@ export function AdminDesignSystem() {
         </div>
       )}
 
+      {tab === 'Typography' && <TypographyRolesEditor typography={typography} patch={patch} />}
+
+      {(tab === 'Buttons' || tab === 'Cards' || tab === 'Forms') && (
+        <ComponentsEditor components={components} patch={patch} />
+      )}
+
+      {tab === 'Containers' && (
+        <TokenGroupEditor
+          title="Layout containers"
+          basePath={['spacing']}
+          tokens={spacing}
+          patch={patch}
+          keys={['container_max', 'content_max', 'page_margin', 'section_y', 'section_y_mobile', 'grid_gap', 'element', 'card']}
+        />
+      )}
+
+      {tab === 'Borders' && (
+        <TokenGroupEditor title="Border radius" basePath={['radius']} tokens={radius} patch={patch} keys={Object.keys(radius)} />
+      )}
+
+      {tab === 'Shadows' && (
+        <TokenGroupEditor title="Elevation" basePath={['shadow']} tokens={shadow} patch={patch} keys={Object.keys(shadow)} />
+      )}
+
+      {tab === 'Motion' && (
+        <div style={{ display: 'grid', gap: 16, maxWidth: 480 }}>
+          <label style={{ fontSize: 13 }}>
+            Transition duration
+            <input type="text" value={String(motion.duration || '')} onChange={(e) => patch(['motion', 'duration'], e.target.value)} style={{ display: 'block', width: '100%', marginTop: 6, padding: 8, borderRadius: 8, border: '1px solid #E2E8F0' }} />
+          </label>
+          <label style={{ fontSize: 13 }}>
+            Easing
+            <input type="text" value={String(motion.ease || '')} onChange={(e) => patch(['motion', 'ease'], e.target.value)} style={{ display: 'block', width: '100%', marginTop: 6, padding: 8, borderRadius: 8, border: '1px solid #E2E8F0' }} />
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+            <input type="checkbox" checked={Boolean(motion.reduce_motion)} onChange={(e) => patch(['motion', 'reduce_motion'], e.target.checked)} />
+            Respect prefers-reduced-motion on public site
+          </label>
+        </div>
+      )}
+
+      {tab === 'Responsive' && (
+        <TokenGroupEditor
+          title="Breakpoints (px)"
+          basePath={['breakpoints']}
+          tokens={Object.fromEntries(Object.entries(breakpoints).map(([k, v]) => [k, String(v)]))}
+          patch={(path, val) => patch(path, Number(val))}
+          keys={Object.keys(breakpoints)}
+        />
+      )}
+
+      {tab === 'Overrides' && <OverridesEditor overrides={overrides} patch={patch} />}
+
       {tab === 'Presets' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
           {Object.entries(presets).map(([id, p]) => (
             <div key={id} className="s2-card" style={{ border: '1px solid #E2E8F0', borderRadius: 16, padding: 20 }}>
               <h3 style={{ margin: '0 0 8px' }}>{p.label}</h3>
               <p style={{ fontSize: 13, color: '#64748B', minHeight: 40 }}>{p.description}</p>
-              <button type="button" onClick={() => applyPreset(id)} style={{ marginTop: 12, padding: '8px 16px', borderRadius: 999, border: 'none', background: '#1E2D40', color: '#fff', cursor: 'pointer' }}>
+              <button type="button" onClick={() => applyPreset(id)} className="s2-btn s2-btn--secondary">
                 Apply preset
               </button>
             </div>
@@ -277,7 +365,7 @@ export function AdminDesignSystem() {
             <button type="button" className="s2-btn s2-btn--secondary">Secondary</button>
             <button type="button" className="s2-btn s2-btn--outline">Outline</button>
           </div>
-          <div className="s2-card s2-card--service" style={{ maxWidth: 360, marginBottom: 16 }}>
+          <div className="s2-card s2-card--service s2-animate-hover" style={{ maxWidth: 360, marginBottom: 16 }}>
             <h4 className="s2-card__title">Service card</h4>
             <p className="s2-card__desc">Apostille, attestation, and document services for NRIs worldwide.</p>
             <span className="s2-badge s2-badge--coming-soon">Coming soon</span>
@@ -290,18 +378,22 @@ export function AdminDesignSystem() {
         </div>
       )}
 
+      {tab === 'Navigation' && (
+        <NavMenuEditor onSaved={(msg) => setMessage(msg)} />
+      )}
+
       {tab === 'Service Registry' && (
         <div>
           <p style={{ color: '#64748B', maxWidth: 720 }}>
             Hide or publish a service once — navigation, homepage, search, forms, footer, and related sections update automatically.
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginTop: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 20, marginTop: 16 }}>
             <div style={{ border: '1px solid #E2E8F0', borderRadius: 12, maxHeight: 400, overflow: 'auto' }}>
               {registry.map((s) => (
                 <button
                   key={s.id}
                   type="button"
-                  onClick={() => loadImpact(s.id)}
+                  onClick={() => selectService(s)}
                   style={{
                     display: 'block',
                     width: '100%',
@@ -323,34 +415,34 @@ export function AdminDesignSystem() {
                 <>
                   <h3 style={{ marginTop: 0 }}>Visibility</h3>
                   <label style={{ fontSize: 13, fontWeight: 600 }}>Publication status</label>
-                  <select
-                    defaultValue={(registry.find((r) => r.id === selectedSvc)?.public_status) || 'published'}
-                    onChange={(e) => setServiceStatus(selectedSvc, e.target.value)}
-                    style={{ width: '100%', padding: 10, borderRadius: 8, marginBottom: 12 }}
-                  >
+                  <select value={svcStatus} onChange={(e) => setSvcStatus(e.target.value)} style={{ width: '100%', padding: 10, borderRadius: 8, marginBottom: 12 }}>
                     {['published', 'hidden', 'draft', 'disabled', 'coming_soon'].map((st) => (
                       <option key={st} value={st}>{st}</option>
                     ))}
                   </select>
-                  <label style={{ fontSize: 13, fontWeight: 600 }}>Direct URL behavior (when hidden/disabled)</label>
-                  <select
-                    defaultValue="not_found"
-                    onChange={(e) => setServiceStatus(selectedSvc, (registry.find((r) => r.id === selectedSvc)?.public_status) || 'hidden', e.target.value)}
-                    style={{ width: '100%', padding: 10, borderRadius: 8, marginBottom: 16 }}
-                  >
+                  <label style={{ fontSize: 13, fontWeight: 600 }}>Direct URL behavior</label>
+                  <select value={svcDirect} onChange={(e) => setSvcDirect(e.target.value)} style={{ width: '100%', padding: 10, borderRadius: 8, marginBottom: 12 }}>
                     {['not_found', 'redirect_directory', 'redirect_home', 'unavailable_page', 'active'].map((b) => (
                       <option key={b} value={b}>{b.replace(/_/g, ' ')}</option>
                     ))}
                   </select>
+                  <div style={{ display: 'flex', gap: 16, marginBottom: 12 }}>
+                    <label style={{ fontSize: 13 }}><input type="checkbox" checked={svcFeatured} onChange={(e) => setSvcFeatured(e.target.checked)} /> Featured on homepage</label>
+                    <label style={{ fontSize: 13 }}><input type="checkbox" checked={svcPopular} onChange={(e) => setSvcPopular(e.target.checked)} /> Popular badge</label>
+                  </div>
+                  <h4 style={{ margin: '16px 0 8px' }}>Per-surface matrix</h4>
+                  <SurfaceVisibilityMatrix surfaces={surfaces} rules={svcRules} onChange={setSvcRules} />
+                  <button type="button" className="s2-btn s2-btn--primary" style={{ marginTop: 16 }} onClick={saveServiceVisibility}>
+                    Save service visibility
+                  </button>
                   {impact && (
-                    <div style={{ fontSize: 13, color: '#334155' }}>
+                    <div style={{ fontSize: 13, color: '#334155', marginTop: 16 }}>
                       <p><strong>Currently visible on:</strong></p>
                       <ul>
                         {((impact.currently_visible as string[]) || []).map((x) => (
                           <li key={x}>{x}</li>
                         ))}
                       </ul>
-                      <p style={{ fontSize: 12, color: '#64748B' }}>{String(impact.historical_note || '')}</p>
                     </div>
                   )}
                 </>
@@ -362,10 +454,8 @@ export function AdminDesignSystem() {
         </div>
       )}
 
-      {(tab === 'Buttons' || tab === 'Cards' || tab === 'Forms') && (
-        <p style={{ color: '#64748B' }}>
-          Component styles inherit global tokens. Use the <strong>Preview</strong> tab and publish to apply across all public pages.
-        </p>
+      {tab === 'Categories' && (
+        <CategoryRegistryPanel categories={categories} surfaces={surfaces} onSave={saveCategory} />
       )}
     </div>
   )

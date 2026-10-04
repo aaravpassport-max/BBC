@@ -9,11 +9,18 @@
 | Component utilities | `assets/public-design-system.css` | Buttons, cards, forms, alerts |
 | Font library (100) | `data/font-library.json` + `FontLibrary.php` | Admin typography picker |
 | Presets | `DesignPresets.php` | 10 one-click themes |
-| Admin UI | `/admin/design` → `src/pages/admin/design-system.tsx` | Global controls + live preview |
+| Admin UI | `/admin/design` → `design-system.tsx` + `design-system-panels.tsx` | Typography roles, overrides, per-surface matrix, categories |
+| Page utilities | `assets/public-page-utilities.css` | Token-based layout helpers (`.s2-bg-primary`, etc.) |
+| Portal / blog shell | `Portal.php`, `Blog.php` | Same inline design CSS + fonts as public SEO shell |
+| Entity registry | `PublicEntityRegistry.php` | Cities, visa-scoped services, vendor policy |
 | Service registry | `ServiceRegistry.php` | Visibility, navigation, forms, search |
 | Public navigation API | `GET /navigation/public` | Mega-menu wired to registry |
 
 **Inheritance:** `Global → page_type → page → section → element` (see `DesignSystem::resolve()`).
+
+**Full §17 matrix:** [`DESIGN_SYSTEM_PAGE_MATRIX.md`](./DESIGN_SYSTEM_PAGE_MATRIX.md)  
+**Staging scenarios A–G:** [`VERIFICATION_STAGING.md`](./VERIFICATION_STAGING.md)  
+**Static CI script:** `scripts/verify-design-system.sh`
 
 ## Public pages matrix (summary)
 
@@ -57,7 +64,9 @@ Consumers:
 - `ServiceController::show` → `resolveDirectUrl()`
 - `Layout` navigation → `GET navigation/public`
 - Footer → `surface=footer`
-- Homepage / directory / search → query `?surface=`
+- Homepage / directory / search / forms → query `?surface=` (`search` auto when `search=` param set)
+- Customer booking picker → `services?surface=forms`
+- Featured / popular sort → `is_featured`, `is_popular` columns + `?featured=1` / `?popular=1`
 
 ## Verification checklist
 

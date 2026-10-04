@@ -591,7 +591,7 @@ export function NewBookingPage() {
 
   useEffect(() => {
     if (!serviceId) { setLoading(false); return }
-    api.get<{ services: import('@/types').Service[] }>('services?per_page=100')
+    api.get<{ services: import('@/types').Service[] }>('services?surface=forms&per_page=100')
       .then((d) => { setSvc((d.services || []).find((s) => String(s.id) === serviceId) || null); setLoading(false) })
       .catch(() => setLoading(false))
   }, [serviceId])

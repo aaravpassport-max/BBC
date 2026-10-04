@@ -1,0 +1,32 @@
+/**
+ * Public page utilities — prefer tokens over inline hex where migration is incremental.
+ */
+.s2-bg-primary { background-color: var(--s2-color-primary, var(--s2-primary, #4A6FA5)); }
+.s2-bg-secondary { background-color: var(--s2-color-secondary, #1E2D40); }
+.s2-bg-surface-alt { background-color: var(--s2-color-surface_alt, #EBF0F8); }
+.s2-text-primary { color: var(--s2-color-primary, var(--s2-primary, #4A6FA5)); }
+.s2-text-heading { color: var(--s2-color-heading, #1E2D40); }
+.s2-text-muted { color: var(--s2-color-muted, #64748B); }
+.s2-border-default { border-color: var(--s2-color-border, #E2E8F0); }
+.s2-shadow-card { box-shadow: var(--s2-shadow-card, 0 8px 30px rgba(30,45,64,.08)); }
+.s2-radius-lg { border-radius: var(--s2-radius-lg, 16px); }
+.s2-link { color: var(--s2-color-link, var(--s2-primary)); text-decoration: none; }
+.s2-link:hover { color: var(--s2-color-link_hover, var(--s2-color-primary_hover)); }
+
+.s2-hero-stat-bar {
+  background: linear-gradient(135deg, var(--s2-color-primary) 0%, var(--s2-color-secondary) 100%);
+}
+
+.s2-notice-bar {
+  background: color-mix(in srgb, var(--s2-color-accent, #E8A838) 12%, #fff);
+  border-left: 4px solid var(--s2-color-accent, #E8A838);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s2-animate-hover:hover { transform: none !important; }
+}
+
+.s2-animate-hover {
+  transition: transform var(--s2-motion-duration, 200ms) var(--s2-motion-ease, ease);
+}
+.s2-animate-hover:hover { transform: translateY(-2px); }

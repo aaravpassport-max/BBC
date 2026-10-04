@@ -746,6 +746,12 @@ class Installer {
                 ADD COLUMN `direct_url_behavior` VARCHAR(40) NOT NULL DEFAULT 'active' AFTER `visibility_rules`" );
             $wpdb->query( "UPDATE `{$p}s2nri_services` SET public_status = IF(is_active = 1, 'published', 'disabled') WHERE public_status = 'published'" );
         }
+        $svc_cols = array_column( $wpdb->get_results( "SHOW COLUMNS FROM `{$p}s2nri_services`", ARRAY_A ), 'Field' );
+        if ( ! in_array( 'is_featured', $svc_cols, true ) ) {
+            $wpdb->query( "ALTER TABLE `{$p}s2nri_services`
+                ADD COLUMN `is_featured` TINYINT(1) NOT NULL DEFAULT 0 AFTER `sort_order`,
+                ADD COLUMN `is_popular` TINYINT(1) NOT NULL DEFAULT 0 AFTER `is_featured`" );
+        }
 
         // s2nri_categories: add image_url if missing
         $cat_cols = array_column( $wpdb->get_results( "SHOW COLUMNS FROM `{$p}s2nri_categories`", ARRAY_A ) ?: [], 'Field' );

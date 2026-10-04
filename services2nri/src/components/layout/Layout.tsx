@@ -17,6 +17,7 @@ import { NAV_MENU } from '@/lib/nav'
 import { CURRENCIES, STAFF_ROLES } from '@/lib/constants'
 import type { NavItem, Service } from '@/types'
 import { BottomNav } from './BottomNav'
+import { resolvePrimary } from '@/lib/design-tokens'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -33,7 +34,7 @@ export function Layout({ children }: LayoutProps) {
 
   const user     = useStore((s) => s.user)
   const settings = useStore((s) => s.settings)
-  const primary  = settings.primary_color || '#4A6FA5'
+  const primary  = resolvePrimary(settings)
   const name     = settings.platform_name || 'Services2NRI'
   const whatsapp = settings.platform_whatsapp
   const usPhone  = settings.platform_us_phone || settings.platform_phone
@@ -838,7 +839,7 @@ interface PageHeroProps {
 }
 export function PageHero({ title, subtitle, bg, primary: p }: PageHeroProps) {
   const settings = useStore((s) => s.settings)
-  const color = p || settings.primary_color || '#4A6FA5'
+  const color = p || resolvePrimary(settings)
   return (
     <div
       style={{
@@ -877,7 +878,7 @@ interface AuthLayoutProps {
 }
 export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
   const settings = window.S2NRI_CONFIG?.settings || {}
-  const primary  = settings.primary_color || '#1E2D40'
+  const primary  = resolvePrimary(settings)
   const name     = settings.platform_name || 'Services2NRI'
 
   return (
@@ -962,7 +963,7 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
   const user     = useStore((s) => s.user)
   const logout   = useStore((s) => s.logout)
   const settings = useStore((s) => s.settings)
-  const primary  = settings.primary_color || '#4A6FA5'
+  const primary  = resolvePrimary(settings)
   const logo     = settings.platform_logo_url
   const name     = settings.platform_name || 'Services2NRI'
   const location = useLocation()

@@ -12,6 +12,7 @@
  */
 
 import React, { useState, useEffect } from 'react'
+import { resolvePrimary } from '@/lib/design-tokens'
 import { Link, useParams } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
 import { useStore } from '@/lib/store'
@@ -26,8 +27,9 @@ export function ServicesPage() {
   const [activeSlug, setActiveSlug] = useState('')
   const [loading,    setLoading]    = useState(true)
   const [loadError,  setLoadError]  = useState(false)
+  const [searchResults, setSearchResults] = useState<Service[] | null>(null)
 
-  const primary = useStore((s) => s.settings).primary_color || '#4A6FA5'
+  const primary = resolvePrimary(useStore((s) => s.settings))
   const { categorySlug } = useParams<{ categorySlug?: string }>()
 
   const load = () => {
@@ -56,21 +58,28 @@ export function ServicesPage() {
 
   useEffect(() => { load() }, [categorySlug])
 
-  // Client-side filter (category + search)
-  const filtered = services.filter((s) => {
-    const matchCat   = !activeSlug || s.category_slug === activeSlug
-    const matchSearch =
-      !search ||
-      s.name.toLowerCase().includes(search.toLowerCase()) ||
-      (s.short_desc || '').toLowerCase().includes(search.toLowerCase())
-    return matchCat && matchSearch
-  })
+  useEffect(() => {
+    const q = search.trim()
+    if (!q) {
+      setSearchResults(null)
+      return
+    }
+    const timer = window.setTimeout(() => {
+      api.get<{ services: Service[] }>(`services?surface=search&search=${encodeURIComponent(q)}`)
+        .then((r) => setSearchResults(r.services || []))
+        .catch(() => setSearchResults([]))
+    }, 280)
+    return () => window.clearTimeout(timer)
+  }, [search])
+
+  const catalog = searchResults ?? services
+  const filtered = catalog.filter((s) => !activeSlug || s.category_slug === activeSlug)
 
   return (
     <Layout>
       {/* ── Hero with search ── */}
-      <div style={{ background: `linear-gradient(135deg, #1E2D40 0%, ${primary} 100%)`, color: '#fff', padding: '52px 20px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <div className="s2-services-hero">
+        <div className="s2-container">
           <h1 style={{ fontSize: 'clamp(24px, 4vw, 42px)', fontWeight: 900, margin: '0 0 8px' }}>All NRI Services</h1>
           <p style={{ opacity: 0.85, fontSize: 16, margin: '0 0 28px' }}>
             Expert assistance across {categories.length || 8} categories — 44+ services for NRIs worldwide

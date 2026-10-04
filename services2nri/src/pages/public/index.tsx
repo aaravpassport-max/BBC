@@ -13,6 +13,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react'
+import { resolvePrimary } from '@/lib/design-tokens'
 import { Link, useParams } from 'react-router-dom'
 import { Layout, PageHero } from '@/components/layout/Layout'
 import { useStore } from '@/lib/store'
@@ -23,7 +24,7 @@ import type { FAQ, BlogPost, PricingPlan } from '@/types'
 // ── AboutPage (Bn) ────────────────────────────────────────────────────────────
 export function AboutPage() {
   const settings = useStore((s) => s.settings)
-  const primary  = settings.primary_color || '#4A6FA5'
+  const primary  = resolvePrimary(settings)
   const name     = settings.platform_name || 'Services2NRI'
   const whatsapp = settings.platform_whatsapp
 
@@ -136,7 +137,7 @@ export function AboutPage() {
 // ── ContactPage (Nn) ──────────────────────────────────────────────────────────
 export function ContactPage() {
   const settings = useStore((s) => s.settings)
-  const primary  = settings.primary_color || '#4A6FA5'
+  const primary  = resolvePrimary(settings)
   const whatsapp = settings.platform_whatsapp
 
   const [form,    setForm]    = useState({ name: '', email: '', phone: '', subject: '', message: '' })
@@ -248,7 +249,7 @@ export function ContactPage() {
 
 // ── HowItWorksPage ($n) ───────────────────────────────────────────────────────
 export function HowItWorksPage() {
-  const primary = useStore((s) => s.settings).primary_color || '#4A6FA5'
+  const primary = resolvePrimary(useStore((s) => s.settings))
 
   const steps = [
     { n: 1, icon: '🔍', t: 'Browse & Select Service',    d: 'Visit our Services page and browse 44+ NRI services across 8 categories. Use the search bar or filter by category. Each service page shows the exact documents required, turnaround time, and a price range.' },
@@ -303,7 +304,7 @@ const FAQ_FALLBACK: FAQ[] = [
 ]
 
 export function FAQPage() {
-  const primary = useStore((s) => s.settings).primary_color || '#4A6FA5'
+  const primary = resolvePrimary(useStore((s) => s.settings))
   const [openIdx, setOpenIdx] = useState<number | null>(null)
   const [faqs,    setFaqs]    = useState<FAQ[]>([])
   const [loading, setLoading] = useState(true)
@@ -377,7 +378,7 @@ const COMPARE_FEATURES = [
 ]
 
 export function PricingPage() {
-  const primary = useStore((s) => s.settings).primary_color || '#4A6FA5'
+  const primary = resolvePrimary(useStore((s) => s.settings))
   const [plans, setPlans] = useState<PricingPlan[]>([])
 
   useEffect(() => {
@@ -533,7 +534,7 @@ function estimateReadTime(content?: string): string {
 }
 
 export function BlogListPage() {
-  const primary  = useStore((s) => s.settings).primary_color || '#4A6FA5'
+  const primary  = resolvePrimary(useStore((s) => s.settings))
   const siteName = useStore((s) => s.settings).platform_name || 'Services2NRI'
   const [posts,      setPosts]      = useState<BlogPost[]>([])
   const [loading,    setLoading]    = useState(true)
@@ -665,7 +666,7 @@ const BLOG_DETAIL_FALLBACK: Record<string, BlogPost> = {
 
 export function BlogDetailPage() {
   const { slug }  = useParams<{ slug: string }>()
-  const primary   = useStore((s) => s.settings).primary_color || '#4A6FA5'
+  const primary   = resolvePrimary(useStore((s) => s.settings))
   const siteName  = useStore((s) => s.settings).platform_name || 'Services2NRI'
   const [post,    setPost]    = useState<BlogPost | null>(null)
   const [related, setRelated] = useState<BlogPost[]>([])
@@ -852,7 +853,7 @@ export function BlogDetailPage() {
 // ── TermsPage (Vn) ────────────────────────────────────────────────────────────
 export function TermsPage() {
   const settings = useStore((s) => s.settings)
-  const primary  = settings.primary_color || '#4A6FA5'
+  const primary  = resolvePrimary(settings)
   const name     = settings.platform_name || 'Services2NRI'
 
   const sections = [
@@ -884,7 +885,7 @@ export function TermsPage() {
 // ── PrivacyPage (Yn) ──────────────────────────────────────────────────────────
 export function PrivacyPage() {
   const settings = useStore((s) => s.settings)
-  const primary  = settings.primary_color || '#4A6FA5'
+  const primary  = resolvePrimary(settings)
   const name     = settings.platform_name || 'Services2NRI'
 
   const sections = [
@@ -944,7 +945,7 @@ const SERVICE_SLUG_MAP: Record<string, string> = {
 export function CityPage() {
   const { city }  = useParams<{ city: string }>()
   const settings  = useStore((s) => s.settings)
-  const primary   = settings.primary_color || '#4A6FA5'
+  const primary   = resolvePrimary(settings)
   const name      = settings.platform_name || 'Services2NRI'
 
   // Extract city key from URL slug like "property-management-in-pune"

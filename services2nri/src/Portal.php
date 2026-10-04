@@ -120,9 +120,18 @@ class Portal {
             ? \S2NRI\Models\Setting::get('platform_name', get_bloginfo('name'))
             : get_bloginfo('name');
 
-        $color = class_exists('\S2NRI\Models\Setting')
-            ? \S2NRI\Models\Setting::get('primary_color', '#4A6FA5')
-            : '#4A6FA5';
+        $designResolved = class_exists( '\S2NRI\Design\DesignSystem' )
+            ? \S2NRI\Design\DesignSystem::resolve( [] )
+            : [];
+        $color = (string) ( $designResolved['colors']['primary'] ?? '' );
+        if ( $color === '' ) {
+            $color = class_exists('\S2NRI\Models\Setting')
+                ? \S2NRI\Models\Setting::get('primary_color', '#4A6FA5')
+                : '#4A6FA5';
+        }
+        $designPayload = class_exists( '\S2NRI\Design\DesignSystem' )
+            ? \S2NRI\Design\DesignSystem::getPublicPayload()
+            : [];
 
         $home   = rtrim(parse_url(home_url('/'), PHP_URL_PATH) ?: '/', '/');
         $slug   = $is_admin ? self::ADMIN_SLUG : self::CUSTOMER_SLUG;
@@ -133,6 +142,7 @@ class Portal {
             'loginUrl'     => home_url($home . '/' . $slug . '/login'),
             'platformName' => $name,
             'primaryColor' => $color,
+            'design'       => $designPayload,
             'isAdmin'      => $is_admin,
         ];
 
@@ -241,6 +251,12 @@ class Portal {
         $css_tag = $css_file
             ? '<link rel="stylesheet" href="' . esc_url($dist_url . $css_file) . '?v=' . $css_ver_h . '">'
             : '';
+        $design_fonts = class_exists( '\S2NRI\Design\DesignSystem' )
+            ? \S2NRI\Design\DesignSystem::renderFontLinks( $designResolved )
+            : '';
+        $design_css = class_exists( '\S2NRI\Design\DesignSystem' )
+            ? '<style id="s2-design-system">' . \S2NRI\Design\DesignSystem::renderInlineCss( self::requestPath() ) . '</style>'
+            : '';
         $js_src  = esc_url($dist_url . $js_file) . '?v=' . $js_ver_h;
         $favicon = esc_url(S2NRI_URL . 'dist/favicon.svg');
         $title   = esc_html($name);
@@ -269,15 +285,17 @@ class Portal {
   <meta name="robots" content="noindex, nofollow">
   <title>{$title}</title>
   <link rel="icon" type="image/svg+xml" href="{$favicon}">
+  {$design_fonts}
   {$css_tag}
+  {$design_css}
   <style>
     *, *::before, *::after { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; min-height: 100%; }
-    #s2nri-root { min-height: 100vh; }
+    #s2nri-root.s2-ds { min-height: 100vh; font-family: var(--s2-font-body, system-ui, sans-serif); }
   </style>
 </head>
 <body>
-  <div id="s2nri-root"></div>
+  <div id="s2nri-root" class="s2-ds"></div>
   <script>window.S2NRI_CFG = {$cfg_json};</script>
   <script>window.S2NRI_CONFIG = {$compat_json};</script>
   <script type="module" src="{$js_src}"></script>

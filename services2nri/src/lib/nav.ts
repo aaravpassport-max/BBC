@@ -1,8 +1,6 @@
 /**
- * Navigation menu data — exact match of ie[] array from booking-ChxRsZYG.js
- *
- * The Q layout component uses this as the default nav, then overlays
- * with live service slugs fetched from the API (GET services).
+ * Fallback navigation structure when GET navigation/public is unavailable.
+ * Canonical menu: Setting `nav_menu_structure` + ServiceRegistry::buildNavigationMenu().
  */
 
 import type { NavItem } from '@/types'

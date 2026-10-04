@@ -70,16 +70,58 @@ class NavigationController extends BaseController {
             'services' => ServiceRegistry::forSurface( 'nav_dropdown' ),
         ] );
     }
+
+    public function getAdmin( Request $req ): void {
+        $this->requireManager();
+        ServiceRegistry::seedNavMenuStructureIfMissing();
+        Response::json( [
+            'structure' => ServiceRegistry::getNavMenuStructure(),
+            'menu'        => ServiceRegistry::buildNavigationMenu(),
+            'default'     => ServiceRegistry::defaultNavMenuStructure(),
+        ] );
+    }
+
+    public function updateAdmin( Request $req ): void {
+        $this->requireManager();
+        $body = $req->body();
+        if ( ! is_array( $body ) || ! isset( $body['structure'] ) || ! is_array( $body['structure'] ) ) {
+            Response::json( [ 'error' => 'Invalid navigation structure.' ], 422 );
+            return;
+        }
+        ServiceRegistry::saveNavMenuStructure( $body['structure'] );
+        Response::json( [
+            'ok'   => true,
+            'menu' => ServiceRegistry::buildNavigationMenu(),
+        ] );
+    }
 }
 
 class ServiceRegistryAdminController extends BaseController {
 
     public function registry( Request $req ): void {
         $this->requireStaff();
+        global $wpdb;
+        $cats = $wpdb->get_results(
+            "SELECT id, slug, name, public_status, visibility_rules, hide_when_empty_children, is_active, sort_order
+             FROM {$wpdb->prefix}s2nri_categories ORDER BY sort_order ASC, name ASC",
+            ARRAY_A
+        ) ?: [];
+        foreach ( $cats as &$cat ) {
+            $rules = $cat['visibility_rules'] ?? '';
+            if ( is_string( $rules ) && $rules !== '' ) {
+                $decoded = json_decode( $rules, true );
+                $cat['visibility_rules'] = is_array( $decoded ) ? $decoded : ServiceRegistry::defaultVisibilityRules();
+            } elseif ( ! is_array( $rules ) ) {
+                $cat['visibility_rules'] = ServiceRegistry::defaultVisibilityRules();
+            }
+        }
+        unset( $cat );
         Response::json( [
-            'services'  => ServiceRegistry::allServices( true ),
-            'surfaces'  => ServiceRegistry::SURFACES,
-            'statuses'  => ServiceRegistry::STATUSES,
+            'services'   => ServiceRegistry::allServices( true ),
+            'categories' => $cats,
+            'surfaces'   => ServiceRegistry::SURFACES,
+            'statuses'   => ServiceRegistry::STATUSES,
+            'entities'   => \S2NRI\Services\PublicEntityRegistry::types(),
         ] );
     }
 
@@ -106,5 +148,21 @@ class ServiceRegistryAdminController extends BaseController {
             'ok'     => true,
             'impact' => ServiceRegistry::impactPreview( $id ),
         ] );
+    }
+
+    public function updateCategoryVisibility( Request $req ): void {
+        $this->requireManager();
+        $id = (int) $req->param( 'id' );
+        $body = $req->body();
+        if ( ! is_array( $body ) ) {
+            Response::json( [ 'error' => 'Invalid payload.' ], 422 );
+            return;
+        }
+        $ok = ServiceRegistry::updateCategoryVisibility( $id, $body );
+        if ( ! $ok ) {
+            Response::json( [ 'error' => 'Nothing to update.' ], 422 );
+            return;
+        }
+        Response::json( [ 'ok' => true ] );
     }
 }

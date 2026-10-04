@@ -22,4 +22,18 @@ export function applyDesignConfig(cfg?: S2NRIConfig): void {
       root.style.setProperty(`--s2-space-${key.replace(/_/g, '-')}`, val)
     }
   })
+
+  const radius = (design.radius || {}) as Record<string, string>
+  Object.entries(radius).forEach(([key, val]) => {
+    if (typeof val === 'string' && val) {
+      root.style.setProperty(`--s2-radius-${key.replace(/_/g, '-')}`, val)
+    }
+  })
+
+  const shadow = (design.shadow || {}) as Record<string, string>
+  Object.entries(shadow).forEach(([key, val]) => {
+    if (typeof val === 'string' && val) {
+      root.style.setProperty(`--s2-shadow-${key.replace(/_/g, '-')}`, val)
+    }
+  })
 }
