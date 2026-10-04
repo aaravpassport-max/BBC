@@ -53,8 +53,9 @@
   outline-offset: 2px;
 }
 .s2-btn--primary {
-  background: var(--s2-color-primary);
-  color: #fff;
+  background: var(--s2-btn-primary-bg, var(--s2-color-primary));
+  color: var(--s2-btn-primary-color, #fff);
+  border-radius: var(--s2-btn-radius, var(--s2-radius-pill));
 }
 .s2-btn--primary:hover { background: var(--s2-color-primary_hover); }
 .s2-btn--primary:active { background: var(--s2-color-primary_active); }

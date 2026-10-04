@@ -3,7 +3,10 @@
  */
 import React from 'react'
 import { api } from '@/lib/api'
-import { PxTokenField, parsePx } from './design-admin-fields'
+import { HexColorField, PxTokenField, parsePx } from './design-admin-fields'
+import { PAGE_TEMPLATES, type PageTemplateDef } from '@/lib/design-page-templates'
+import { WIDTH_PAGE_TYPES } from '@/lib/width-layout'
+import type { WidthLayoutFocus } from './width-layout-panel'
 
 type PatchFn = (path: string[], value: unknown) => void
 
@@ -482,36 +485,115 @@ export function CityRegistryPanel({
   )
 }
 
-const PAGE_TYPES = ['home', 'services', 'service', 'blog', 'page', 'contact', 'about'] as const
+const TEMPLATE_COLOR_KEYS = ['primary', 'background', 'heading', 'accent'] as const
 
-export function HeaderFooterPageTypeEditor({
+function templateOverridePath(t: PageTemplateDef, key: string): string[] {
+  if (t.overridePageSlug) return ['overrides', 'pages', t.overridePageSlug, 'colors', key]
+  const pt = t.overridePageType || t.widthPageType || t.id
+  return ['overrides', 'page_types', pt, 'colors', key]
+}
+
+function readTemplateColor(overrides: Record<string, Record<string, unknown>>, t: PageTemplateDef, key: string): string {
+  if (t.overridePageSlug) {
+    const pages = (overrides.pages || {}) as Record<string, Record<string, unknown>>
+    return String(((pages[t.overridePageSlug]?.colors || {}) as Record<string, string>)[key] || '')
+  }
+  const pageTypes = (overrides.page_types || {}) as Record<string, Record<string, unknown>>
+  const pt = t.overridePageType || t.widthPageType || t.id
+  return String(((pageTypes[pt]?.colors || {}) as Record<string, string>)[key] || '')
+}
+
+export function PageTemplatesPanel({
   overrides,
+  widths,
   patch,
+  onOpenWidth,
+  onPreviewPath,
 }: {
   overrides: Record<string, Record<string, unknown>>
+  widths: Record<string, unknown>
   patch: PatchFn
+  onOpenWidth: (focus: WidthLayoutFocus) => void
+  onPreviewPath?: (path: string) => void
 }) {
-  const pageTypes = (overrides.page_types || {}) as Record<string, Record<string, unknown>>
   return (
-    <div style={{ display: 'grid', gap: 20 }}>
-      <p style={{ color: '#64748B', margin: 0 }}>Page-type tokens merge on top of global settings when visitors load matching routes.</p>
-      {PAGE_TYPES.map((pt) => {
-        const cur = pageTypes[pt] || {}
-        const colors = (cur.colors || {}) as Record<string, string>
-        return (
-          <fieldset key={pt} style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 16 }}>
-            <legend style={{ fontWeight: 700, padding: '0 8px' }}>{pt}</legend>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
-              {['primary', 'secondary', 'background', 'heading'].map((key) => (
-                <label key={key} style={{ fontSize: 12 }}>
-                  {key}
-                  <input type="text" value={colors[key] || ''} placeholder="inherit global" onChange={(e) => patch(['overrides', 'page_types', pt, 'colors', key], e.target.value || undefined)} style={{ display: 'block', width: '100%', marginTop: 4, padding: 8, borderRadius: 8, border: '1px solid #E2E8F0' }} />
-                </label>
-              ))}
-            </div>
-          </fieldset>
-        )
-      })}
+    <div style={{ display: 'grid', gap: 24 }}>
+      <p style={{ margin: 0, color: '#64748B', maxWidth: 720, fontSize: 13 }}>
+        Control each public template individually: brand colors per template, quick page max width, then open{' '}
+        <strong>Width &amp; Layout</strong> for full responsive section control. Changes apply on publish; SPA routes update live after hard refresh once.
+      </p>
+      <div style={{ display: 'grid', gap: 16 }}>
+        {PAGE_TEMPLATES.map((t) => {
+          const wPageTypes = ((widths.page_types || {}) as Record<string, Record<string, unknown>>)
+          const wPages = ((widths.pages || {}) as Record<string, Record<string, unknown>>)
+          let pageMax = ''
+          if (t.widthPageSlug && wPages[t.widthPageSlug]?.page_max) {
+            const pm = wPages[t.widthPageSlug].page_max
+            pageMax = typeof pm === 'object' && pm !== null ? String((pm as Record<string, string>).desktop || '') : String(pm || '')
+          } else if (t.widthPageType && wPageTypes[t.widthPageType]?.page_max) {
+            const pm = wPageTypes[t.widthPageType].page_max
+            pageMax = typeof pm === 'object' && pm !== null ? String((pm as Record<string, string>).desktop || '') : String(pm || '')
+          } else if (t.widthSlugAlias && wPageTypes[t.widthSlugAlias]?.page_max) {
+            const pm = wPageTypes[t.widthSlugAlias].page_max
+            pageMax = typeof pm === 'object' && pm !== null ? String((pm as Record<string, string>).desktop || '') : String(pm || '')
+          }
+
+          const setPageMax = (px: string) => {
+            const layer = { desktop: parsePx(px), laptop: parsePx(px), tablet: '94%', mobile: '100%' }
+            if (t.widthPageSlug) {
+              patch(['widths', 'pages', t.widthPageSlug, 'page_max'], layer)
+            } else if (t.widthSlugAlias) {
+              patch(['widths', 'page_types', t.widthSlugAlias, 'page_max'], layer)
+            } else if (t.widthPageType) {
+              patch(['widths', 'page_types', t.widthPageType, 'page_max'], layer)
+            }
+          }
+
+          return (
+            <fieldset key={t.id} style={{ border: '1px solid #E2E8F0', borderRadius: 14, padding: 18, margin: 0 }}>
+              <legend style={{ fontWeight: 800, padding: '0 8px' }}>{t.label}</legend>
+              <p style={{ margin: '0 0 12px', fontSize: 12, color: '#64748B' }}>{t.description}</p>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginBottom: 12 }}>
+                {TEMPLATE_COLOR_KEYS.map((key) => (
+                  <HexColorField
+                    key={key}
+                    label={key.replace(/_/g, ' ')}
+                    hint={readTemplateColor(overrides, t, key) ? '' : 'Empty = inherit global'}
+                    value={readTemplateColor(overrides, t, key)}
+                    onChange={(v) => patch(templateOverridePath(t, key), v || undefined)}
+                  />
+                ))}
+                <PxTokenField label="Page max (desktop)" value={pageMax} onChange={setPageMax} />
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                <button
+                  type="button"
+                  className="s2-btn s2-btn--sm s2-btn--outline"
+                  onClick={() => {
+                    if (t.widthPageSlug) {
+                      onOpenWidth({ scope: 'page', selectedPage: t.widthPageSlug })
+                    } else if (t.widthPageType === 'service') {
+                      onOpenWidth({ scope: 'service_section', selectedSection: 'hero' })
+                    } else {
+                      onOpenWidth({ scope: 'page_type', selectedType: t.widthSlugAlias || t.widthPageType || t.id })
+                    }
+                  }}
+                >
+                  Width &amp; sections →
+                </button>
+                {onPreviewPath && (
+                  <button type="button" className="s2-btn s2-btn--sm s2-btn--ghost" onClick={() => onPreviewPath(t.previewPath)}>
+                    Preview route
+                  </button>
+                )}
+              </div>
+            </fieldset>
+          )
+        })}
+      </div>
+      <p style={{ fontSize: 12, color: '#64748B' }}>
+        Width page types in advanced panel: {WIDTH_PAGE_TYPES.join(', ')}.
+      </p>
     </div>
   )
 }
@@ -588,12 +670,15 @@ export function GuidedOverrideWizard({
   )
 }
 
-export function LiveSitePreviewFrame() {
+export function LiveSitePreviewFrame({ path = '/' }: { path?: string }) {
   const base = (typeof window !== 'undefined' && (window.S2NRI_CONFIG?.spaBase || window.location.origin)) || ''
-  const src = `${base.replace(/\/$/, '')}/?s2nri_preview=${Date.now()}`
+  const route = path.startsWith('/') ? path : `/${path}`
+  const src = `${base.replace(/\/$/, '')}${route}?s2nri_preview=${Date.now()}`
   return (
     <div>
-      <p style={{ color: '#64748B', fontSize: 13 }}>Live public homepage — publish design tokens first, then refresh the frame.</p>
+      <p style={{ color: '#64748B', fontSize: 13 }}>
+        Live public route <code>{route}</code> — publish design first, then refresh the frame.
+      </p>
       <iframe title="Public site preview" src={src} style={{ width: '100%', height: 640, border: '1px solid #E2E8F0', borderRadius: 12, background: '#fff' }} />
     </div>
   )

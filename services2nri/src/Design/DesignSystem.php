@@ -238,6 +238,9 @@ class DesignSystem {
         if ( $pt && ! empty( $config['overrides']['page_types'][ $pt ] ) ) {
             $config = self::deepMerge( $config, $config['overrides']['page_types'][ $pt ] );
         }
+        if ( $pt === 'page' && $slug && ! empty( $config['overrides']['page_types'][ $slug ] ) ) {
+            $config = self::deepMerge( $config, $config['overrides']['page_types'][ $slug ] );
+        }
         if ( $slug && ! empty( $config['overrides']['pages'][ $slug ] ) ) {
             $config = self::deepMerge( $config, $config['overrides']['pages'][ $slug ] );
         }
@@ -267,6 +270,10 @@ class DesignSystem {
             'typography'  => $resolved['typography'] ?? [],
             'radius'      => $resolved['radius'] ?? [],
             'shadow'      => $resolved['shadow'] ?? [],
+            'components'  => $resolved['components'] ?? [],
+            'motion'      => $resolved['motion'] ?? [],
+            'breakpoints' => $resolved['breakpoints'] ?? [],
+            'overrides'   => $resolved['overrides'] ?? [ 'page_types' => [], 'pages' => [], 'sections' => [] ],
         ];
     }
 
@@ -363,6 +370,7 @@ class DesignSystem {
             ? file_get_contents( S2NRI_DIR . 'assets/public-width-layout.css' )
             : '';
         $css .= WidthLayout::renderScopeCss( $config, $ctx );
+        $css .= self::renderSectionOverrideCss( $config );
         if ( ! empty( $config['motion']['reduce_motion'] ) ) {
             $css .= "@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;}}\n";
         }
@@ -417,7 +425,47 @@ class DesignSystem {
         $lines[] = '  --s2-light-bg:' . esc_attr( (string) ( $colors['surface_alt'] ?? '#EBF0F8' ) ) . ';';
         $lines[] = '  --brand:var(--s2-primary);';
 
+        $comp = $config['components'] ?? [];
+        $comp_map = [
+            'button_primary_bg'    => '--s2-btn-primary-bg',
+            'button_primary_color' => '--s2-btn-primary-color',
+            'button_radius'        => '--s2-btn-radius',
+            'card_radius'          => '--s2-card-radius',
+            'input_radius'         => '--s2-input-radius',
+        ];
+        foreach ( $comp_map as $key => $var ) {
+            if ( ! empty( $comp[ $key ] ) ) {
+                $lines[] = '  ' . $var . ':' . self::resolveTokenRef( (string) $comp[ $key ], $config ) . ';';
+            }
+        }
+
         return implode( "\n", $lines );
+    }
+
+    /** Section-scoped color overrides from overrides.sections */
+    private static function renderSectionOverrideCss( array $config ): string {
+        $sections = $config['overrides']['sections'] ?? [];
+        if ( ! is_array( $sections ) || $sections === [] ) {
+            return '';
+        }
+        $css = '';
+        foreach ( $sections as $sec => $ov ) {
+            if ( ! is_array( $ov ) || empty( $ov['colors'] ) || ! is_array( $ov['colors'] ) ) {
+                continue;
+            }
+            $sec = sanitize_key( (string) $sec );
+            $block = '';
+            foreach ( $ov['colors'] as $k => $v ) {
+                if ( ! is_string( $v ) || $v === '' ) {
+                    continue;
+                }
+                $block .= '  --s2-color-' . sanitize_key( $k ) . ':' . self::resolveTokenRef( $v, $config ) . ";\n";
+            }
+            if ( $block !== '' ) {
+                $css .= '[data-s2-section="' . esc_attr( $sec ) . '"]{' . $block . "}\n";
+            }
+        }
+        return $css;
     }
 
     private static function typographyUtilityCss( array $config ): string {
@@ -457,6 +505,9 @@ class DesignSystem {
     private static function resolveTokenRef( string $value, array $config ): string {
         if ( preg_match( '/^\{colors\.([a-z0-9_]+)\}$/', $value, $m ) ) {
             return 'var(--s2-color-' . sanitize_key( $m[1] ) . ')';
+        }
+        if ( preg_match( '/^\{radius\.([a-z0-9_]+)\}$/', $value, $m ) ) {
+            return 'var(--s2-radius-' . sanitize_key( $m[1] ) . ')';
         }
         return esc_attr( $value );
     }

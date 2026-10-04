@@ -4,6 +4,11 @@
 import type { CSSProperties } from 'react'
 import { cssVars } from '@/lib/design-tokens'
 
+/** Marketing slugs with optional dedicated `widths.page_types.{slug}` layers. */
+export const WIDTH_PAGE_TYPE_SLUG_ALIASES = [
+  'faq', 'contact', 'pricing', 'about', 'terms', 'privacy', 'how-it-works',
+] as const
+
 export const WIDTH_PAGE_TYPES = [
   'home', 'page', 'service', 'services', 'category', 'listing',
   'blog', 'city', 'visa', 'country', 'faq', 'contact', 'pricing',
@@ -94,9 +99,11 @@ export function pageContextFromPath(pathname: string): PageWidthContext {
   if (/^\/service\/[^/]+/.test(path)) {
     return { page_type: 'service', page_slug: path.split('/')[2] || 'service' }
   }
-  if (path === '/services' || path.startsWith('/services/')) {
+  if (path.startsWith('/services/')) {
     const parts = path.split('/').filter(Boolean)
     if (parts.length > 1) return { page_type: 'category', page_slug: parts[1] }
+  }
+  if (path === '/services') {
     return { page_type: 'services', page_slug: 'services' }
   }
   if (path.startsWith('/blog')) return { page_type: 'blog', page_slug: path.replace(/^\//, '') }
@@ -127,6 +134,15 @@ export function resolveWidthCssVars(
   const pageTypes = isRecord(widths.page_types) ? widths.page_types : {}
   const ptLayer = pageTypes[ctx.page_type]
   if (isRecord(ptLayer)) merged = mergeLayer(merged, ptLayer as WidthLayer)
+
+  if (
+    ctx.page_type === 'page' &&
+    ctx.page_slug &&
+    (WIDTH_PAGE_TYPE_SLUG_ALIASES as readonly string[]).includes(ctx.page_slug)
+  ) {
+    const aliasLayer = pageTypes[ctx.page_slug]
+    if (isRecord(aliasLayer)) merged = mergeLayer(merged, aliasLayer as WidthLayer)
+  }
 
   if (ctx.page_type === 'service' && isRecord(widths.service_page)) {
     merged = mergeLayer(merged, widths.service_page as WidthLayer)

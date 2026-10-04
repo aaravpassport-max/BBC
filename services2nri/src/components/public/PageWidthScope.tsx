@@ -1,13 +1,17 @@
-import React from 'react'
+import React, { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { getRuntimeDesignConfig } from '@/lib/apply-design-config'
+import { applyDesignForPath, getRuntimeDesignConfig } from '@/lib/apply-design-config'
 import { pageContextFromPath, widthScopeStyle } from '@/lib/width-layout'
 
-/** Applies page-type width tokens to public main content (SPA route changes). */
+/** Applies page-type design + width tokens on every public SPA route change. */
 export function PageWidthScope({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation()
   const ctx = pageContextFromPath(pathname)
   const design = getRuntimeDesignConfig()?.design as Record<string, unknown> | undefined
+
+  useEffect(() => {
+    applyDesignForPath(pathname)
+  }, [pathname])
 
   return (
     <main

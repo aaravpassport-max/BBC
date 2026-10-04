@@ -60,6 +60,9 @@ else
 fi
 
 grep -q 'sectionMaxFromLayer' src/Design/WidthLayout.php && grep -q 'sec-.*-max' src/Design/WidthLayout.php && ok section width max shorthand || bad section width max shorthand
+[[ -f src/lib/design-resolve.ts ]] && grep -q 'resolveDesignConfig' src/lib/design-resolve.ts && ok design client resolver || bad design client resolver
+grep -q 'renderSectionOverrideCss' src/Design/DesignSystem.php && ok section override css || bad section override css
+grep -q 's2-btn-primary-bg' assets/public-design-system.css && ok component css vars || bad component css vars
 
 if [[ $fail -ne 0 ]]; then
   echo "Verification failed."
