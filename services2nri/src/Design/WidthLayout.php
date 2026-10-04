@@ -169,6 +169,38 @@ class WidthLayout {
             $css .= "[data-s2-section=\"{$sec}\"]{\n" . self::varsBlock( $secVars ) . "}\n";
         }
 
+        $css .= self::renderPageTypeSectionCss( $widths );
+
+        return $css;
+    }
+
+    /** Homepage-only (and other template) section widths — beats global [data-s2-section]. */
+    private static function renderPageTypeSectionCss( array $widths ): string {
+        $css   = '';
+        $types = is_array( $widths['page_types'] ?? null ) ? $widths['page_types'] : [];
+        foreach ( $types as $ptKey => $ptConfig ) {
+            if ( ! is_array( $ptConfig ) || empty( $ptConfig['sections'] ) || ! is_array( $ptConfig['sections'] ) ) {
+                continue;
+            }
+            $ptKey = sanitize_key( (string) $ptKey );
+            foreach ( $ptConfig['sections'] as $sec => $layer ) {
+                if ( ! is_array( $layer ) ) {
+                    continue;
+                }
+                $sec     = sanitize_key( (string) $sec );
+                $secVars = self::layerToVars( $layer, 'sec-' . $sec . '-' );
+                $secMax  = self::sectionMaxFromLayer( $layer );
+                if ( $secMax !== null ) {
+                    $secVars[ '--s2-width-sec-' . $sec . '-max' ] = $secMax;
+                }
+                if ( $secVars === [] ) {
+                    continue;
+                }
+                $css .= '[data-s2-page-type="' . esc_attr( $ptKey ) . '"][data-s2-section="' . esc_attr( $sec ) . '"]{' . "\n";
+                $css .= self::varsBlock( $secVars );
+                $css .= "}\n";
+            }
+        }
         return $css;
     }
 
@@ -178,6 +210,13 @@ class WidthLayout {
         $layers = [];
         if ( ! empty( $widths['sections'][ $section ] ) && is_array( $widths['sections'][ $section ] ) ) {
             $layers[] = $widths['sections'][ $section ];
+        }
+        if (
+            $pageType !== ''
+            && ! empty( $widths['page_types'][ $pageType ]['sections'][ $section ] )
+            && is_array( $widths['page_types'][ $pageType ]['sections'][ $section ] )
+        ) {
+            $layers[] = $widths['page_types'][ $pageType ]['sections'][ $section ];
         }
         if ( $pageType === 'service' && ! empty( $widths['service_page']['sections'][ $section ] ) ) {
             $layers[] = $widths['service_page']['sections'][ $section ];

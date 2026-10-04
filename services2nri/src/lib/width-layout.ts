@@ -198,6 +198,14 @@ export function resolveSectionLayer(
   const layers: WidthLayer[] = []
   const sections = isRecord(widths.sections) ? widths.sections : {}
   if (isRecord(sections[section])) layers.push(sections[section] as WidthLayer)
+  if (pageType) {
+    const pageTypes = isRecord(widths.page_types) ? widths.page_types : {}
+    const ptConfig = pageTypes[pageType]
+    if (isRecord(ptConfig)) {
+      const ptSections = isRecord(ptConfig.sections) ? ptConfig.sections : {}
+      if (isRecord(ptSections[section])) layers.push(ptSections[section] as WidthLayer)
+    }
+  }
   if (pageType === 'service') {
     const sp = isRecord(widths.service_page) ? widths.service_page : {}
     const ss = isRecord(sp.sections) ? sp.sections : {}

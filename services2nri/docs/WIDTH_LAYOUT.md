@@ -57,6 +57,12 @@ Each home section exposes `data-s2-section` (e.g. `hero`, `home_services`, `citi
 
 `/blog` and `/blog/{slug}` PHP templates use the same `--s2-width-*` variables as the SPA (via inline design-system CSS).
 
+## Homepage hero width (homepage only)
+
+**Layout Studio → Homepage hero only** writes `widths.page_types.home.sections.hero` — affects the banner carousel on `/` only, not service pages.
+
+Quick presets: Full width, Wide 1320px, Standard 1200px, Contained 960px. Primary control: **Primary content column** (`content_max` → `--s2-width-sec-hero-max`).
+
 ## Service hero width
 
 Per-service JSON **`hero_settings`**:

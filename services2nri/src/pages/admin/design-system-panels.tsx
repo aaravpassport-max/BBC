@@ -680,7 +680,9 @@ export function PageTemplatesPanel({
                   type="button"
                   className="s2-btn s2-btn--sm s2-btn--outline"
                   onClick={() => {
-                    if (t.widthPageSlug) {
+                    if (t.id === 'home') {
+                      onOpenWidth({ scope: 'page_type_section', selectedType: 'home', selectedSection: 'hero' })
+                    } else if (t.widthPageSlug) {
                       onOpenWidth({ scope: 'page', selectedPage: t.widthPageSlug })
                     } else if (t.widthPageType === 'service') {
                       onOpenWidth({ scope: 'service_section', selectedSection: 'hero' })

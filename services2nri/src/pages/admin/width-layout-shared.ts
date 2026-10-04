@@ -110,6 +110,7 @@ export const GROUP_LABELS: Record<(typeof FIELD_META)[GlobalKey]['group'], { tit
 
 export type WidthTaskId =
   | 'site_defaults'
+  | 'home_hero'
   | 'by_page_type'
   | 'single_page'
   | 'service_hero'
@@ -117,7 +118,7 @@ export type WidthTaskId =
   | 'marketing_section'
 
 export type WidthLayoutFocus = {
-  scope: 'global' | 'page_type' | 'page' | 'service_section' | 'section'
+  scope: 'global' | 'page_type' | 'page_type_section' | 'page' | 'service_section' | 'section'
   selectedType?: string
   selectedPage?: string
   selectedSection?: string
@@ -139,6 +140,14 @@ export const TASKS: {
     navGroup: 'foundation',
   },
   {
+    id: 'home_hero',
+    title: 'Homepage hero only',
+    description: 'Banner carousel width on / — does not change service page heroes.',
+    scope: 'page_type_section',
+    defaultSection: 'hero',
+    navGroup: 'experiences',
+  },
+  {
     id: 'service_hero',
     title: 'Service hero',
     description: 'Hero band on all service detail URLs.',
@@ -148,8 +157,8 @@ export const TASKS: {
   },
   {
     id: 'marketing_section',
-    title: 'Homepage sections',
-    description: 'Hero, cities, newsletter, and shared homepage blocks.',
+    title: 'Homepage other sections',
+    description: 'Cities, newsletter, FAQ — not the homepage hero carousel.',
     scope: 'section',
     navGroup: 'experiences',
   },
@@ -208,12 +217,21 @@ export const SECTION_GROUPS: { label: string; keys: readonly string[] }[] = [
 
 export function taskFromFocus(focus: WidthLayoutFocus): WidthTaskId {
   if (focus.scope === 'global') return 'site_defaults'
+  if (focus.scope === 'page_type_section') {
+    return focus.selectedType === 'home' && focus.selectedSection === 'hero' ? 'home_hero' : 'by_page_type'
+  }
   if (focus.scope === 'page_type') return 'by_page_type'
   if (focus.scope === 'page') return 'single_page'
   if (focus.scope === 'service_section') {
     return focus.selectedSection === 'hero' ? 'service_hero' : 'service_block'
   }
   return 'marketing_section'
+}
+
+export function homeHeroLayer(pageTypes: Record<string, Record<string, unknown>>): Record<string, unknown> {
+  const home = pageTypes.home || {}
+  const sec = (home.sections || {}) as Record<string, Record<string, unknown>>
+  return sec.hero || {}
 }
 
 export function readBpPx(value: unknown, bp: BreakpointId): number | null {

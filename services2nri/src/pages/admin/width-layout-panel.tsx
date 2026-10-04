@@ -21,6 +21,7 @@ import {
   sectionOptions,
   TASKS,
   taskFromFocus,
+  homeHeroLayer,
   type BreakpointId,
   type GlobalKey,
   type WidthConfig,
@@ -34,12 +35,20 @@ export type { WidthLayoutFocus }
 
 const NAV_ICONS: Record<WidthTaskId, string> = {
   site_defaults: '◆',
+  home_hero: '⌂',
   service_hero: '▣',
-  marketing_section: '⌂',
+  marketing_section: '☰',
   service_block: '☰',
   by_page_type: '▤',
   single_page: '⌁',
 }
+
+const HOME_HERO_WIDTH_PRESETS = [
+  { label: 'Full width', content: '100%', wide: '100%' },
+  { label: 'Wide 1320px', content: '1320', wide: '1320' },
+  { label: 'Standard 1200px', content: '1200', wide: '1200' },
+  { label: 'Contained 960px', content: '960', wide: '960' },
+] as const
 
 const PRESET_CARDS = [
   { preset: WIDTH_DESKTOP_PRESETS[0], title: 'Marketplace', sub: '1200px shell · balanced catalog' },
@@ -275,6 +284,7 @@ export function WidthLayoutPanel({
 
   const activeLayer = useMemo(() => {
     if (scope === 'global') return global
+    if (scope === 'page_type_section') return homeHeroLayer(pageTypes)
     if (scope === 'page_type') return pageTypes[selectedType] || {}
     if (scope === 'page') return pages[selectedPage] || {}
     if (scope === 'service_section') return serviceSections[selectedSection] || {}
@@ -283,6 +293,7 @@ export function WidthLayoutPanel({
 
   const basePath = useMemo(() => {
     if (scope === 'global') return ['widths', 'global']
+    if (scope === 'page_type_section') return ['widths', 'page_types', 'home', 'sections', 'hero']
     if (scope === 'page_type') return ['widths', 'page_types', selectedType]
     if (scope === 'page') return ['widths', 'pages', selectedPage]
     if (scope === 'service_section') return ['widths', 'service_page', 'sections', selectedSection]
@@ -292,6 +303,9 @@ export function WidthLayoutPanel({
   const overrideCount = countLayerOverrides(activeLayer)
 
   const visibleKeys = useMemo(() => {
+    if (taskId === 'home_hero') {
+      return ['content_max', 'section_wide', 'full_bleed'] as GlobalKey[]
+    }
     if (taskId === 'service_hero') {
       return GLOBAL_KEYS.filter((k) => FIELD_META[k].heroRelevant)
     }
@@ -308,6 +322,22 @@ export function WidthLayoutPanel({
     }
     return groups
   }, [visibleKeys])
+
+  function applyHomeHeroPreset(preset: (typeof HOME_HERO_WIDTH_PRESETS)[number]) {
+    const isFull = preset.content === '100%'
+    const responsive = (px: string) => {
+      const out = ensureResponsive(undefined)
+      for (const bp of BP) {
+        out[bp] = px
+      }
+      return out
+    }
+    patch([...basePath, 'content_max'], responsive(isFull ? '100%' : `${preset.content}px`))
+    patch([...basePath, 'section_wide'], responsive(isFull ? '100%' : `${preset.wide}px`))
+    if (isFull) {
+      patch([...basePath, 'full_bleed'], responsive('100%'))
+    }
+  }
 
   function applyDesktopPreset(preset: (typeof WIDTH_DESKTOP_PRESETS)[0]) {
     for (const [key, num] of Object.entries(preset.values)) {
@@ -333,6 +363,7 @@ export function WidthLayoutPanel({
   const steps = useMemo(() => {
     const list = ['Global foundation']
     if (scope === 'page_type') list.push(`Template · ${PAGE_TYPE_LABELS[selectedType] || selectedType}`)
+    if (scope === 'page_type_section') list.push('Homepage · hero carousel only')
     if (scope === 'page') list.push(`Page · /${selectedPage}`)
     if (scope === 'service_section') list.push(`Service · ${selectedSection.replace(/_/g, ' ')}`)
     if (scope === 'section') list.push(`Section · ${selectedSection.replace(/_/g, ' ')}`)
@@ -395,13 +426,15 @@ export function WidthLayoutPanel({
                     ? overrideCount
                     : t.scope === 'global'
                       ? countLayerOverrides(global)
-                      : t.scope === 'page_type'
-                        ? countLayerOverrides(pageTypes[selectedType] || {})
-                        : t.scope === 'page'
-                          ? countLayerOverrides(pages[selectedPage] || {})
-                          : t.scope === 'service_section'
-                            ? countLayerOverrides(serviceSections[selectedSection] || {})
-                            : countLayerOverrides(sections[selectedSection] || {})
+                      : t.scope === 'page_type_section'
+                        ? countLayerOverrides(homeHeroLayer(pageTypes))
+                        : t.scope === 'page_type'
+                          ? countLayerOverrides(pageTypes[selectedType] || {})
+                          : t.scope === 'page'
+                            ? countLayerOverrides(pages[selectedPage] || {})
+                            : t.scope === 'service_section'
+                              ? countLayerOverrides(serviceSections[selectedSection] || {})
+                              : countLayerOverrides(sections[selectedSection] || {})
                 return (
                   <button
                     key={t.id}
@@ -489,7 +522,9 @@ export function WidthLayoutPanel({
                 <div className="s2-wls__field">
                   <label htmlFor="wls-section">Block</label>
                   <select id="wls-section" value={selectedSection} onChange={(e) => setSelectedSection(e.target.value)}>
-                    {sectionOptions().map((o) => (
+                    {sectionOptions()
+                      .filter((o) => taskId !== 'marketing_section' || o.value !== 'hero')
+                      .map((o) => (
                       <option key={o.value} value={o.value}>
                         {o.group} — {o.label}
                       </option>
@@ -498,6 +533,23 @@ export function WidthLayoutPanel({
                 </div>
               )}
             </div>
+          )}
+
+          {taskId === 'home_hero' && (
+            <>
+              <div className="s2-wls__callout" style={{ borderColor: '#BFDBFE', background: '#EFF6FF' }}>
+                Controls the <strong>homepage banner carousel only</strong> (route <code>/</code>). Service page heroes are
+                under <strong>Service hero</strong> in the left rail.
+              </div>
+              <div className="s2-wls__presets">
+                {HOME_HERO_WIDTH_PRESETS.map((p) => (
+                  <button key={p.label} type="button" className="s2-wls__preset" onClick={() => applyHomeHeroPreset(p)}>
+                    <div className="s2-wls__preset-title">{p.label}</div>
+                    <div className="s2-wls__preset-sub">Hero carousel max width</div>
+                  </button>
+                ))}
+              </div>
+            </>
           )}
 
           {taskId === 'service_hero' && (
@@ -542,7 +594,11 @@ export function WidthLayoutPanel({
                     inherited={scope !== 'global' && activeLayer[key] == null}
                     global={global}
                     onChange={(v) => patch([...basePath, key], v)}
-                    onReset={scope !== 'global' ? () => patch([...basePath, key], undefined) : undefined}
+                    onReset={
+                      scope !== 'global'
+                        ? () => patch([...basePath, key], undefined)
+                        : undefined
+                    }
                     onSyncBreakpoints={() => syncAllBreakpoints(key)}
                   />
                 ))}
