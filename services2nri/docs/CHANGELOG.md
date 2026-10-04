@@ -5,6 +5,13 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.9] — 2026-10-04 — Cloud Agent
+
+- **Live design sync:** public SPA polls `GET design/public` (revision + fonts) on load, route change, tab focus, and when admin publishes — **no hard refresh** after presets or Publish.
+- **Cross-tab:** `BroadcastChannel` notifies other open public/admin tabs to pull fresh tokens immediately.
+
+---
+
 ## [4.7.8] — 2026-10-04 — Cloud Agent
 
 - **Presets audit:** each preset now sets its own secondary/surface/muted/border, spacing, radius (incl. pill buttons), shadows, and chrome accents so footers and layout—not only primary color—change per theme.

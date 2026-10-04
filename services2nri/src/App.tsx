@@ -17,6 +17,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 // ── Import styles ─────────────────────────────────────────────────────────────
 import './styles/global.css'
 import { applyDesignConfig } from '@/lib/apply-design-config'
+import { DesignLiveSync } from '@/components/public/DesignLiveSync'
 import { resolvePrimary } from '@/lib/design-tokens'
 
 // ── Public pages ──────────────────────────────────────────────────────────────
@@ -216,6 +217,7 @@ export function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter basename={basename}>
+        <DesignLiveSync />
         <ScrollToTop />
         <NotificationLoader />
         <CookieConsentBanner />
