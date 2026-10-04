@@ -209,4 +209,35 @@ export function applyResolvedDesignToDocument(resolved: DesignPayload, ctx: Page
   if (Object.keys(typography).length > 0) {
     applyTypographyRuntime(typography, resolved)
   }
+
+  applySectionOverrideCss(resolved)
+}
+
+/** Mirrors DesignSystem::renderSectionOverrideCss for SPA live sync. */
+export function applySectionOverrideCss(config: DesignPayload): void {
+  if (typeof document === 'undefined') return
+  const overrides = isRecord(config.overrides) ? (config.overrides as DesignPayload) : {}
+  const sections = isRecord(overrides.sections) ? (overrides.sections as Record<string, DesignPayload>) : {}
+  let css = ''
+  for (const [sec, ov] of Object.entries(sections)) {
+    if (!isRecord(ov)) continue
+    const colors = isRecord(ov.colors) ? (ov.colors as Record<string, string>) : {}
+    const lines: string[] = []
+    for (const [k, v] of Object.entries(colors)) {
+      if (typeof v === 'string' && v) {
+        lines.push(`  --s2-color-${k.replace(/[^a-z0-9_]/gi, '_').toLowerCase()}:${resolveTokenRef(v, config)};`)
+      }
+    }
+    if (lines.length) {
+      const safe = sec.replace(/[^a-z0-9_-]/gi, '_').toLowerCase()
+      css += `[data-s2-section="${safe}"]{${lines.join('')}}\n`
+    }
+  }
+  let el = document.getElementById('s2nri-section-overrides-runtime') as HTMLStyleElement | null
+  if (!el) {
+    el = document.createElement('style')
+    el.id = 's2nri-section-overrides-runtime'
+    document.head.appendChild(el)
+  }
+  el.textContent = css
 }

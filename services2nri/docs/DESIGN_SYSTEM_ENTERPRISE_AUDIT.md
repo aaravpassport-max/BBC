@@ -1,4 +1,4 @@
-# Design system — enterprise E2E audit (4.7.6+)
+# Design system — enterprise E2E audit (4.7.10+)
 
 ## Control surfaces (admin)
 
@@ -18,8 +18,8 @@
 ## Runtime wiring
 
 1. **PHP first paint:** `DesignSystem::renderInlineCss($path)` — resolves page type/slug overrides, widths, typography, section overrides.
-2. **SPA navigation:** `PageWidthScope` calls `applyDesignForPath()` — re-merges `overrides`, widths, **chrome**, and injects runtime typography CSS.
-3. **Publish:** Admin **Publish design** saves full config; hard-refresh once to reload PHP inline CSS bundle.
+2. **SPA navigation + live sync:** `DesignLiveSync` polls `GET design/public` (revision hash); `PageWidthScope` / `applyDesignForPath()` re-merges overrides, widths, **chrome**, typography, and **section** color overrides without a full page reload.
+3. **Publish / preset:** Saves to DB and broadcasts via `BroadcastChannel`; open public tabs and Live Site iframe update within seconds — **no hard refresh**.
 
 ## Known limits (honest)
 

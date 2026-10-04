@@ -599,7 +599,7 @@ export function PageTemplatesPanel({
     <div style={{ display: 'grid', gap: 24 }}>
       <p style={{ margin: 0, color: '#64748B', maxWidth: 720, fontSize: 13 }}>
         Control each public template individually: brand colors per template, quick page max width, then open{' '}
-        <strong>Width &amp; Layout</strong> for full responsive section control. Changes apply on publish; SPA routes update live after hard refresh once.
+        <strong>Width &amp; Layout</strong> for full responsive section control. Changes apply on publish; public SPA routes pick up updates automatically (live sync).
       </p>
       <div style={{ display: 'grid', gap: 16 }}>
         {PAGE_TEMPLATES.map((t) => {
@@ -783,11 +783,11 @@ export function GuidedOverrideWizard({
 export function LiveSitePreviewFrame({ path = '/' }: { path?: string }) {
   const base = (typeof window !== 'undefined' && (window.S2NRI_CONFIG?.spaBase || window.location.origin)) || ''
   const route = path.startsWith('/') ? path : `/${path}`
-  const src = `${base.replace(/\/$/, '')}${route}?s2nri_preview=${Date.now()}`
+  const src = `${base.replace(/\/$/, '')}${route}?s2nri_preview=1`
   return (
     <div>
       <p style={{ color: '#64748B', fontSize: 13 }}>
-        Live public route <code>{route}</code> — updates within a few seconds after you publish or apply a preset (no manual refresh).
+        Live public route <code>{route}</code> — the embedded site uses the same live design sync as the public SPA (no manual refresh).
       </p>
       <iframe title="Public site preview" src={src} style={{ width: '100%', height: 640, border: '1px solid #E2E8F0', borderRadius: 12, background: '#fff' }} />
     </div>

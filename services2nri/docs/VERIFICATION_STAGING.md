@@ -47,8 +47,8 @@ Run on a staging site with plugin **4.5.2+** activated and migrations applied.
 ## Design system smoke
 
 1. **Design System → Colors** → change primary → Publish.
-2. Hard-refresh public home → primary buttons/nav use new color (`--s2-primary`).
-3. **Presets** → apply Corporate → preview tab reflects change.
+2. Switch to public home tab (or wait for live sync) → primary buttons/nav use new color (`--s2-primary`) without hard refresh.
+3. **Presets** → apply Corporate → public tab / Live Site preview reflects change within seconds.
 
 ## Automated static checks (CI / dev)
 

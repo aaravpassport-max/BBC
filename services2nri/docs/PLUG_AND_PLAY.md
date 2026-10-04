@@ -36,8 +36,8 @@ This document is the operator checklist for a **fresh WordPress install** with n
 1. Open `/` — homepage loads with categories and services.
 2. Open `/service/complete-property-management` (or any seeded slug) — wizard renders.
 3. WP Admin → Services2NRI → Admin Portal — dashboard loads.
-4. Admin → **Design System** — change primary color → Publish → hard-refresh `/` — buttons update.
-5. **Design System → Width & Layout** (4.7.0+) — adjust global/page/section max widths → Publish → hard-refresh public routes.
+4. Admin → **Design System** — change primary color → Publish → switch to `/` (or wait ~45s) — buttons update via live sync (4.7.9+).
+5. **Design System → Width & Layout** (4.7.0+) — adjust global/page/section max widths → Publish — public SPA picks up changes automatically.
 
 Automated equivalent (no WordPress): from `services2nri/`, run `npm run build && npm run test:e2e` (10 Playwright smokes, 4.6.8+).
 
@@ -53,7 +53,7 @@ Run on your host after uploading **`services2nri.zip`** (version **4.6.8+**):
 | D | `/contact` | Form submits (row in admin or success message) |
 | E | `/pricing`, `/faq`, `/blog` | Marketing pages styled (no unstyled blocks) |
 | F | `/cities/property-management-in-pune` | City hero + service grid |
-| G | Design System → Publish | Primary color change visible on hard refresh |
+| G | Design System → Publish | Primary color visible on public tab without hard refresh (live sync) |
 
 ## Registry (visibility)
 

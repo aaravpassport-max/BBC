@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.10] — 2026-10-04 — Cloud Agent
+
+- **Presets:** per-theme typography scale patches (heading/body sizes) so presets differ in type rhythm, not only color/fonts.
+- **SPA:** section color overrides (`overrides.sections`) sync live via `#s2nri-section-overrides-runtime`.
+- **Docs:** plug-and-play and audit docs updated for live sync (no hard refresh).
+
+---
+
 ## [4.7.9] — 2026-10-04 — Cloud Agent
 
 - **Live design sync:** public SPA polls `GET design/public` (revision + fonts) on load, route change, tab focus, and when admin publishes — **no hard refresh** after presets or Publish.

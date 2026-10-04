@@ -21,7 +21,7 @@ Unset levels **inherit** from the parent. Section overrides apply only when conf
 2. Choose scope: **global**, **page type**, **page**, **service section**, or **section**
 3. Edit responsive values (desktop / laptop / tablet / mobile)
 4. **Publish** design system
-5. Hard-refresh the public site
+5. Public SPA applies new widths automatically (live design sync, 4.7.9+); navigate or refocus the tab if needed
 
 Labels show **Inherited** vs **Overridden**. Use **Reset to inherited** to remove a layer.
 
