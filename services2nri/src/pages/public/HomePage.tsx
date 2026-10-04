@@ -21,8 +21,11 @@
  *  17. Location pill row
  */
 
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { cssVars } from '@/lib/design-tokens'
+import { getRuntimeDesignConfig } from '@/lib/apply-design-config'
+import { DESIGN_UPDATED_EVENT } from '@/lib/design-live-sync'
+import { homeHeroWidthStyle } from '@/lib/width-layout'
 import { Link } from 'react-router-dom'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { Autoplay, Pagination, Navigation, EffectFade } from 'swiper/modules'
@@ -175,6 +178,19 @@ export function HomePage() {
   const [cities, setCities]                 = useState<Array<{ name: string; slug: string; img: string }>>([])
   const [testimonials, setTestimonials]     = useState<Testimonial[]>([])
   const [openFaq, setOpenFaq]               = useState<number | null>(null)
+  const [designTick, setDesignTick]         = useState(0)
+
+  useEffect(() => {
+    const bump = () => setDesignTick((n) => n + 1)
+    window.addEventListener(DESIGN_UPDATED_EVENT, bump)
+    return () => window.removeEventListener(DESIGN_UPDATED_EVENT, bump)
+  }, [])
+
+  const heroWidthStyle = useMemo(() => {
+    void designTick
+    const design = getRuntimeDesignConfig()?.design as Record<string, unknown> | undefined
+    return homeHeroWidthStyle(design)
+  }, [designTick])
 
   const banners = parseHeroBanners(settings.hero_banners)
 
@@ -252,7 +268,7 @@ export function HomePage() {
     <Layout>
       <div className="s2-home-page">
       {/* ── 1. Hero Slider — banner/carousel only, no overlay content ───────── */}
-      <div className="s2-hero-section" data-s2-section="hero">
+      <div className="s2-hero-section" data-s2-section="hero" style={heroWidthStyle}>
         <Swiper
           className="s2-home-hero-swiper"
           modules={[Autoplay, Pagination, Navigation, EffectFade]}

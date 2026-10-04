@@ -24,6 +24,10 @@
 
 .s2-home-page .s2-hero-section {
   height: clamp(480px, 70vh, 700px);
+  max-width: var(--s2-width-sec-hero-max, var(--s2-section-max, 100%));
+  width: 100%;
+  margin-inline: auto;
+  box-sizing: border-box;
 }
 
 .s2-home-hero-swiper,

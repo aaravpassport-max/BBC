@@ -225,3 +225,73 @@ export function widthScopeStyle(
 export function sectionWidthAttr(section: string): { 'data-s2-section': string } {
   return { 'data-s2-section': section }
 }
+
+function layerToCssDecls(layer: WidthLayer, section: string): string {
+  const vars = layerToCssVars(layer, `sec-${section}-`)
+  const lines: string[] = []
+  for (const [k, v] of Object.entries(vars)) {
+    lines.push(`--${k}:${v}`)
+  }
+  const max = sectionMaxFromLayer(layer)
+  if (max) lines.push(`--s2-width-sec-${section}-max:${max}`)
+  if (max) lines.push(`--s2-section-max:${max}`)
+  return lines.join(';')
+}
+
+/** Mirrors WidthLayout::renderPageTypeSectionCss + global sections for SPA live sync. */
+export function buildWidthSectionRuntimeCss(design: Record<string, unknown> | undefined): string {
+  if (!design) return ''
+  const widths = isRecord(design.widths) ? (design.widths as Record<string, unknown>) : {}
+  let css = ''
+
+  const sections = isRecord(widths.sections) ? widths.sections : {}
+  for (const [sec, layer] of Object.entries(sections)) {
+    if (!isRecord(layer)) continue
+    const decl = layerToCssDecls(layer as WidthLayer, sec)
+    if (!decl) continue
+    css += `[data-s2-section="${sec}"]{${decl}}\n`
+  }
+
+  const pageTypes = isRecord(widths.page_types) ? widths.page_types : {}
+  for (const [pt, ptConfig] of Object.entries(pageTypes)) {
+    if (!isRecord(ptConfig)) continue
+    const ptSections = isRecord(ptConfig.sections) ? ptConfig.sections : {}
+    for (const [sec, layer] of Object.entries(ptSections)) {
+      if (!isRecord(layer)) continue
+      const decl = layerToCssDecls(layer as WidthLayer, sec)
+      if (!decl) continue
+      const sel =
+        `.s2-width-scope[data-s2-page-type="${pt}"] [data-s2-section="${sec}"],` +
+        `.s2-page-wrap[data-s2-page-type="${pt}"] [data-s2-section="${sec}"]`
+      css += `${sel}{${decl}}\n`
+    }
+  }
+
+  const sp = isRecord(widths.service_page) ? widths.service_page : {}
+  const spSections = isRecord(sp.sections) ? sp.sections : {}
+  for (const [sec, layer] of Object.entries(spSections)) {
+    if (!isRecord(layer)) continue
+    const decl = layerToCssDecls(layer as WidthLayer, sec)
+    if (!decl) continue
+    const sel =
+      `.s2-width-scope[data-s2-page-type="service"] [data-s2-section="${sec}"],` +
+      `.s2-page-wrap[data-s2-page-type="service"] [data-s2-section="${sec}"]`
+    css += `${sel}{${decl}}\n`
+  }
+
+  return css
+}
+
+/** Direct layout for homepage hero carousel (SPA-safe). */
+export function homeHeroWidthStyle(design: Record<string, unknown> | undefined): CSSProperties | undefined {
+  const layer = resolveSectionLayer(design, 'home', 'hero')
+  if (!layer) return undefined
+  const max = sectionMaxFromLayer(layer)
+  if (!max) return undefined
+  return {
+    maxWidth: max,
+    width: '100%',
+    marginInline: 'auto',
+    boxSizing: 'border-box',
+  }
+}

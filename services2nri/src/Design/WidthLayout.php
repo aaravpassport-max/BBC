@@ -196,7 +196,8 @@ class WidthLayout {
                 if ( $secVars === [] ) {
                     continue;
                 }
-                $css .= '[data-s2-page-type="' . esc_attr( $ptKey ) . '"][data-s2-section="' . esc_attr( $sec ) . '"]{' . "\n";
+                $css .= '.s2-width-scope[data-s2-page-type="' . esc_attr( $ptKey ) . '"] [data-s2-section="' . esc_attr( $sec ) . '"],';
+                $css .= '.s2-page-wrap[data-s2-page-type="' . esc_attr( $ptKey ) . '"] [data-s2-section="' . esc_attr( $sec ) . '"]{' . "\n";
                 $css .= self::varsBlock( $secVars );
                 $css .= "}\n";
             }
