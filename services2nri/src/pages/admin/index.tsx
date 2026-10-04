@@ -9,6 +9,7 @@ import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { STAFF_ROLES } from '@/lib/constants'
 import { SidebarLayout } from '@/components/layout/Layout'
+import { ServiceRegistryVisibilityBlock, CategoryRegistryVisibilityBlock } from '@/components/admin/RegistryVisibilityBlock'
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 function Card({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
@@ -1040,8 +1041,9 @@ export function AdminServices() {
               : 'Each field: key, label, type, required, step (1-4 for content, 98=contact, 99=files). Saving will also create Form Builder records so changes reflect on the service page.'}
           </p>
         </div>
+        {editId ? <ServiceRegistryVisibilityBlock serviceId={editId} compact /> : null}
         <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}><input type="checkbox" checked={!!form.is_active} onChange={e=>setForm(f=>({...f,is_active:e.target.checked?1:0}))} /> Active (visible on website)</label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 14 }}><input type="checkbox" checked={!!form.is_active} onChange={e=>setForm(f=>({...f,is_active:e.target.checked?1:0}))} /> Active (legacy flag — prefer registry status above)</label>
           <div style={{ display: 'flex', gap: 10 }}>
             {editId && <Btn variant="ghost" onClick={()=>nav(`/admin/services/${editId}/builder`)}>🔧 Page Builder</Btn>}
             <Btn variant="ghost" onClick={()=>{setShowForm(false);setFErr('')}}>Cancel</Btn>
@@ -1132,6 +1134,7 @@ export function AdminCategories() {
           </div>
         </div>
         <Textarea label="SEO Description" value={form.seo_desc} onChange={e=>setForm(f=>({...f,seo_desc:e.target.value}))} rows={2} placeholder="Shown in search results for this category page" />
+        {editId ? <CategoryRegistryVisibilityBlock categoryId={editId} compact /> : null}
         <div style={{ display:'flex',gap:10,justifyContent:'flex-end',marginTop:8 }}><Btn variant="ghost" onClick={()=>{setShowForm(false);setErr('')}}>Cancel</Btn><Btn onClick={save} loading={saving}>{editId?'Save Changes':'Create Category'}</Btn></div>
       </Card>}
       {loading ? <Spinner /> : cats.length===0 ? <Empty icon="📁" title="No categories" description="Add service categories to organise your services on the homepage." action={<Btn onClick={openNew}>Add First Category</Btn>} /> : (

@@ -409,3 +409,195 @@ function CategoryEditor({
     </div>
   )
 }
+
+export type RegistryCity = {
+  id: number
+  name: string
+  slug: string
+  public_status?: string
+  visibility_rules?: Record<string, boolean | string>
+}
+
+export function CityRegistryPanel({
+  cities,
+  surfaces,
+  onSave,
+}: {
+  cities: RegistryCity[]
+  surfaces: Record<string, string>
+  onSave: (id: number, body: Record<string, unknown>) => Promise<void>
+}) {
+  const [selected, setSelected] = React.useState<number | null>(null)
+  const city = cities.find((c) => c.id === selected)
+  const [status, setStatus] = React.useState('published')
+  const [rules, setRules] = React.useState<Record<string, boolean | string>>({})
+
+  React.useEffect(() => {
+    if (!city) return
+    setStatus(city.public_status || 'published')
+    setRules(city.visibility_rules || {})
+  }, [city?.id, city?.public_status, city?.visibility_rules])
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 20 }}>
+      <div style={{ border: '1px solid #E2E8F0', borderRadius: 12, maxHeight: 420, overflow: 'auto' }}>
+        {cities.map((c) => (
+          <button key={c.id} type="button" onClick={() => setSelected(c.id)} style={{ display: 'block', width: '100%', textAlign: 'left', padding: '12px 16px', border: 'none', borderBottom: '1px solid #F1F5F9', background: selected === c.id ? '#EBF0F8' : '#fff', cursor: 'pointer' }}>
+            <strong>{c.name}</strong>
+            <span style={{ float: 'right', fontSize: 12, color: '#64748B' }}>{c.public_status || 'published'}</span>
+          </button>
+        ))}
+      </div>
+      <div style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 16 }}>
+        {city ? (
+          <>
+            <h3 style={{ marginTop: 0 }}>{city.name}</h3>
+            <select value={status} onChange={(e) => setStatus(e.target.value)} style={{ width: '100%', padding: 10, borderRadius: 8, marginBottom: 12 }}>
+              {['published', 'hidden', 'draft', 'disabled', 'coming_soon'].map((st) => (
+                <option key={st} value={st}>{st}</option>
+              ))}
+            </select>
+            <SurfaceVisibilityMatrix surfaces={surfaces} rules={rules} onChange={setRules} />
+            <button type="button" className="s2-btn s2-btn--primary" style={{ marginTop: 16 }} onClick={() => onSave(city.id, { public_status: status, visibility_rules: rules })}>
+              Save city visibility
+            </button>
+          </>
+        ) : (
+          <p style={{ color: '#94A3B8' }}>Select a city.</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+const PAGE_TYPES = ['home', 'services', 'service', 'blog', 'page', 'contact', 'about'] as const
+
+export function HeaderFooterPageTypeEditor({
+  overrides,
+  patch,
+}: {
+  overrides: Record<string, Record<string, unknown>>
+  patch: PatchFn
+}) {
+  const pageTypes = (overrides.page_types || {}) as Record<string, Record<string, unknown>>
+  return (
+    <div style={{ display: 'grid', gap: 20 }}>
+      <p style={{ color: '#64748B', margin: 0 }}>Page-type tokens merge on top of global settings when visitors load matching routes.</p>
+      {PAGE_TYPES.map((pt) => {
+        const cur = pageTypes[pt] || {}
+        const colors = (cur.colors || {}) as Record<string, string>
+        return (
+          <fieldset key={pt} style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 16 }}>
+            <legend style={{ fontWeight: 700, padding: '0 8px' }}>{pt}</legend>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
+              {['primary', 'secondary', 'background', 'heading'].map((key) => (
+                <label key={key} style={{ fontSize: 12 }}>
+                  {key}
+                  <input type="text" value={colors[key] || ''} placeholder="inherit global" onChange={(e) => patch(['overrides', 'page_types', pt, 'colors', key], e.target.value || undefined)} style={{ display: 'block', width: '100%', marginTop: 4, padding: 8, borderRadius: 8, border: '1px solid #E2E8F0' }} />
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )
+      })}
+    </div>
+  )
+}
+
+export function FontAssignPanel({
+  fonts,
+  fontRoles,
+  onAssign,
+}: {
+  fonts: Array<{ id: string; name: string; category: string }>
+  fontRoles: Record<string, string>
+  onAssign: (role: string, fontId: string) => void
+}) {
+  const [role, setRole] = React.useState('heading')
+  return (
+    <div>
+      <p style={{ color: '#64748B' }}>Click a font to assign it to the selected role.</p>
+      <select value={role} onChange={(e) => setRole(e.target.value)} style={{ marginBottom: 12, padding: 8, borderRadius: 8 }}>
+        {['heading', 'body', 'ui', 'button'].map((r) => (
+          <option key={r} value={r}>{r} (current: {fontRoles[r] || '—'})</option>
+        ))}
+      </select>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 8, maxHeight: 320, overflow: 'auto' }}>
+        {fonts.slice(0, 60).map((f) => (
+          <button key={f.id} type="button" onClick={() => onAssign(role, f.id)} style={{ textAlign: 'left', padding: 10, borderRadius: 8, border: fontRoles[role] === f.id ? '2px solid var(--s2-primary, #4A6FA5)' : '1px solid #E2E8F0', background: '#fff', cursor: 'pointer' }}>
+            <div style={{ fontWeight: 700 }}>{f.name}</div>
+            <div style={{ fontSize: 11, color: '#64748B' }}>{f.category}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function GuidedOverrideWizard({
+  overrides,
+  patch,
+}: {
+  overrides: Record<string, Record<string, unknown>>
+  patch: PatchFn
+}) {
+  const [scope, setScope] = React.useState<'page_types' | 'pages' | 'sections'>('page_types')
+  const [key, setKey] = React.useState('home')
+  const [primary, setPrimary] = React.useState('')
+  const bucket = (overrides[scope] || {}) as Record<string, Record<string, unknown>>
+  const cur = bucket[key] || {}
+
+  React.useEffect(() => {
+    const c = ((cur.colors || {}) as Record<string, string>).primary || ''
+    setPrimary(c)
+  }, [scope, key, cur])
+
+  const apply = () => {
+    const next = { ...cur, colors: { ...((cur.colors || {}) as object), primary: primary || '{colors.primary}' } }
+    patch(['overrides', scope, key], next)
+  }
+
+  return (
+    <div style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 16 }}>
+      <h3 style={{ marginTop: 0 }}>Guided override</h3>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+        <select value={scope} onChange={(e) => setScope(e.target.value as typeof scope)} style={{ padding: 8, borderRadius: 8 }}>
+          <option value="page_types">Page type</option>
+          <option value="pages">Page slug</option>
+          <option value="sections">Section id</option>
+        </select>
+        <input value={key} onChange={(e) => setKey(e.target.value)} placeholder="Key e.g. home or hero" style={{ flex: 1, minWidth: 160, padding: 8, borderRadius: 8, border: '1px solid #E2E8F0' }} />
+      </div>
+      <label style={{ fontSize: 13 }}>Primary color override</label>
+      <input type="color" value={primary.startsWith('#') ? primary : '#4A6FA5'} onChange={(e) => setPrimary(e.target.value)} style={{ display: 'block', margin: '8px 0 12px' }} />
+      <button type="button" className="s2-btn s2-btn--primary" onClick={apply}>Apply override patch</button>
+      <p style={{ fontSize: 12, color: '#64748B' }}>Advanced JSON editing remains under the Overrides tab.</p>
+    </div>
+  )
+}
+
+export function LiveSitePreviewFrame() {
+  const base = (typeof window !== 'undefined' && (window.S2NRI_CONFIG?.spaBase || window.location.origin)) || ''
+  const src = `${base.replace(/\/$/, '')}/?s2nri_preview=${Date.now()}`
+  return (
+    <div>
+      <p style={{ color: '#64748B', fontSize: 13 }}>Live public homepage — publish design tokens first, then refresh the frame.</p>
+      <iframe title="Public site preview" src={src} style={{ width: '100%', height: 640, border: '1px solid #E2E8F0', borderRadius: 12, background: '#fff' }} />
+    </div>
+  )
+}
+
+export const SERVICE_ICON_LIBRARY = ['📋', '🏠', '✈️', '🎓', '💰', '⚖️', '📄', '🛂', '🌍', '🔐', '🏦', '📝'] as const
+
+export function IconLibraryPanel() {
+  return (
+    <div>
+      <p style={{ color: '#64748B' }}>Standard icon set for services and categories (emoji). Use in admin Services → Icon field.</p>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+        {SERVICE_ICON_LIBRARY.map((icon) => (
+          <span key={icon} style={{ fontSize: 28, padding: 12, background: '#F8FAFC', borderRadius: 8, border: '1px solid #E2E8F0' }}>{icon}</span>
+        ))}
+      </div>
+    </div>
+  )
+}

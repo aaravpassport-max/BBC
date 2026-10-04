@@ -20,6 +20,7 @@ import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { getAvatarImage, IMAGES } from '@/lib/images'
 import type { FAQ, BlogPost, PricingPlan } from '@/types'
+import { PublicSection, PublicSectionHead, PublicGrid, PublicCard, PublicCtaLink } from '@/components/public/PublicLayout'
 
 // ── AboutPage (Bn) ────────────────────────────────────────────────────────────
 export function AboutPage() {
@@ -44,33 +45,29 @@ export function AboutPage() {
 
   return (
     <Layout>
-      <PageHero title="About Us" subtitle={`Trusted NRI service partner since 2015 — making India management effortless from anywhere in the world.`} primary={primary} />
+      <PageHero title="About Us" subtitle={`Trusted NRI service partner since 2015 — making India management effortless from anywhere in the world.`} />
 
-      {/* Our Story */}
-      <section style={{ padding: '64px 20px', background: '#fff' }}>
-        <div className="s2-mobile-stack" style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'center' }}>
+      <PublicSection>
+        <div className="s2-mobile-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'center' }}>
           <div>
-            <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, color: primary, margin: '0 0 10px' }}>Our Story</p>
-            <h2 style={{ fontSize: 'clamp(22px, 3vw, 34px)', fontWeight: 800, color: '#1E2D40', margin: '0 0 18px', lineHeight: 1.3 }}>
-              {settings.about_heading || `${name} — Your Bridge to India`}
-            </h2>
-            <p style={{ fontSize: 15, color: '#555', lineHeight: 1.85, margin: '0 0 14px' }}>
+            <PublicSectionHead eyebrow="Our Story" title={settings.about_heading || `${name} — Your Bridge to India`} />
+            <p className="s2-t-body" style={{ margin: '0 0 14px' }}>
               {settings.about_text || `${name} was founded with a single mission: to eliminate the paperwork stress that NRIs face when managing affairs back home.`}
             </p>
-            <p style={{ fontSize: 15, color: '#555', lineHeight: 1.85, margin: '0 0 24px' }}>
+            <p className="s2-t-body" style={{ margin: '0 0 24px' }}>
               Our team of lawyers, CAs, property managers, and immigration specialists has helped over 10,000 NRIs across 50+ countries resolve their India-related needs without a single trip back home.
             </p>
-            <div className="s2-mobile-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
+            <PublicGrid min={120}>
               {[['10,000+', 'Clients Served'], ['44+', 'Services'], ['50+', 'Cities']].map(([val, lbl]) => (
-                <div key={lbl} style={{ background: `${primary}10`, borderRadius: 10, padding: 16, textAlign: 'center' }}>
-                  <div style={{ fontSize: 26, fontWeight: 900, color: primary }}>{val}</div>
-                  <div style={{ fontSize: 12, color: '#666', marginTop: 3 }}>{lbl}</div>
-                </div>
+                <PublicCard key={lbl} className="s2-public-icon-tile">
+                  <div className="s2-text-primary" style={{ fontSize: 26, fontWeight: 900 }}>{val}</div>
+                  <div className="s2-text-muted" style={{ fontSize: 12, marginTop: 3 }}>{lbl}</div>
+                </PublicCard>
               ))}
-            </div>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <Link to="/services" style={{ background: primary, color: '#fff', padding: '11px 24px', borderRadius: 8, fontWeight: 700, fontSize: 14, textDecoration: 'none' }}>Our Services →</Link>
-              {whatsapp && <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ background: '#25d366', color: '#fff', padding: '11px 20px', borderRadius: 8, fontWeight: 600, fontSize: 14, textDecoration: 'none' }}>💬 Chat with Us</a>}
+            </PublicGrid>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 24 }}>
+              <PublicCtaLink to="/services">Our Services →</PublicCtaLink>
+              {whatsapp && <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="s2-btn s2-btn--secondary s2-btn--sm">💬 Chat with Us</a>}
             </div>
           </div>
           <div style={{ position: 'relative' }}>
@@ -84,23 +81,20 @@ export function AboutPage() {
             )}
           </div>
         </div>
-      </section>
+      </PublicSection>
 
-      {/* Core Values */}
-      <section style={{ background: '#F5F7FA', padding: '56px 20px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <h2 style={{ textAlign: 'center', fontSize: 'clamp(20px, 3vw, 30px)', fontWeight: 800, color: '#1E2D40', margin: '0 0 32px' }}>Our Core Values</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 20 }}>
-            {values.map(({ icon, t, d }) => (
-              <div key={t} style={{ background: '#fff', borderRadius: 12, padding: '28px 20px', textAlign: 'center', border: '1px solid #EBF0F8', boxShadow: '0 2px 8px rgba(0,0,0,.04)' }}>
-                <div style={{ fontSize: 36, marginBottom: 12 }}>{icon}</div>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1E2D40', margin: '0 0 8px' }}>{t}</h3>
-                <p style={{ fontSize: 13, color: '#666', lineHeight: 1.6, margin: 0 }}>{d}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <PublicSection alt>
+        <PublicSectionHead title="Our Core Values" />
+        <PublicGrid min={220}>
+          {values.map(({ icon, t, d }) => (
+            <PublicCard key={t} className="s2-public-icon-tile">
+              <div className="s2-public-icon-tile__icon">{icon}</div>
+              <h3 className="s2-public-card__title">{t}</h3>
+              <p className="s2-public-card__body">{d}</p>
+            </PublicCard>
+          ))}
+        </PublicGrid>
+      </PublicSection>
 
       {/* Team */}
       <section style={{ padding: '56px 20px', background: '#fff' }}>
@@ -320,40 +314,36 @@ export function FAQPage() {
   return (
     <Layout>
       <PageHero title="Frequently Asked Questions" subtitle="Everything you need to know before placing a service request." primary={primary} />
-      <section style={{ padding: '64px 20px', background: '#fff' }}>
+      <PublicSection className="s2-public-faq">
         <div style={{ maxWidth: 860, margin: '0 auto' }}>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: 40, color: '#888' }}>Loading FAQs…</div>
+            <div className="s2-text-muted" style={{ textAlign: 'center', padding: 40 }}>Loading FAQs…</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {display.map((faq, i) => (
-                <div key={faq.id || i} style={{ border: '1px solid #EBF0F8', borderRadius: 12, overflow: 'hidden', boxShadow: openIdx === i ? '0 4px 16px rgba(0,0,0,.08)' : 'none' }}>
-                  <button
-                    onClick={() => setOpenIdx(openIdx === i ? null : i)}
-                    style={{ width: '100%', padding: '17px 22px', fontSize: 15, fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', textAlign: 'left', background: openIdx === i ? `${primary}08` : '#fff', border: 'none', color: '#1E2D40', gap: 12, transition: 'background .15s' }}
-                  >
-                    <span>{faq.q || faq.question}</span>
-                    <span style={{ width: 28, height: 28, borderRadius: '50%', background: openIdx === i ? primary : '#f0f0f0', color: openIdx === i ? '#fff' : '#666', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0, transition: 'all .2s' }}>
-                      {openIdx === i ? '−' : '+'}
-                    </span>
-                  </button>
-                  {openIdx === i && (
-                    <div style={{ padding: '0 22px 18px', fontSize: 14, color: '#555', lineHeight: 1.85, borderTop: '1px solid #f5f5f5' }}>
-                      <div style={{ paddingTop: 14 }}>{faq.a || faq.answer}</div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
+            display.map((faq, i) => (
+              <div key={faq.id || i} className={`s2-public-faq-item${openIdx === i ? ' s2-public-faq-item--open' : ''}`}>
+                <button
+                  type="button"
+                  className="s2-public-faq-q s2-t-body"
+                  onClick={() => setOpenIdx(openIdx === i ? null : i)}
+                  aria-expanded={openIdx === i}
+                >
+                  <span>{faq.q || faq.question}</span>
+                  <span className="s2-public-faq-toggle" aria-hidden>{openIdx === i ? '−' : '+'}</span>
+                </button>
+                {openIdx === i && (
+                  <div className="s2-public-faq-a">{faq.a || faq.answer}</div>
+                )}
+              </div>
+            ))
           )}
 
-          <div style={{ marginTop: 40, background: `${primary}08`, borderRadius: 14, padding: 28, textAlign: 'center', border: `1px solid ${primary}20` }}>
-            <h3 style={{ fontWeight: 700, margin: '0 0 8px', color: '#1E2D40' }}>Still have questions?</h3>
-            <p style={{ color: '#555', fontSize: 14, margin: '0 0 16px' }}>Our team responds within 30 minutes on WhatsApp during business hours.</p>
-            <Link to="/contact" style={{ background: primary, color: '#fff', padding: '11px 26px', borderRadius: 8, fontWeight: 700, fontSize: 14, textDecoration: 'none' }}>Contact Us →</Link>
-          </div>
+          <PublicCard className="s2-public-cta-band" style={{ marginTop: 40, textAlign: 'center', padding: 28 }}>
+            <h3 className="s2-t-h3" style={{ margin: '0 0 8px' }}>Still have questions?</h3>
+            <p className="s2-t-body" style={{ margin: '0 0 16px' }}>Our team responds within 30 minutes on WhatsApp during business hours.</p>
+            <PublicCtaLink to="/contact">Contact Us →</PublicCtaLink>
+          </PublicCard>
         </div>
-      </section>
+      </PublicSection>
     </Layout>
   )
 }

@@ -116,10 +116,22 @@ class ServiceRegistryAdminController extends BaseController {
             }
         }
         unset( $cat );
+        $cities = $wpdb->get_results(
+            "SELECT id, slug, name, public_status, visibility_rules, is_active, sort_order
+             FROM {$wpdb->prefix}s2nri_cities ORDER BY sort_order ASC, name ASC",
+            ARRAY_A
+        ) ?: [];
+        foreach ( $cities as &$city ) {
+            $city = \S2NRI\Services\PublicEntityRegistry::normalizeCityRow( $city );
+        }
+        unset( $city );
+
         Response::json( [
             'services'   => ServiceRegistry::allServices( true ),
             'categories' => $cats,
+            'cities'     => $cities,
             'surfaces'   => ServiceRegistry::SURFACES,
+            'city_surfaces' => \S2NRI\Services\PublicEntityRegistry::CITY_SURFACES,
             'statuses'   => ServiceRegistry::STATUSES,
             'entities'   => \S2NRI\Services\PublicEntityRegistry::types(),
         ] );
@@ -159,6 +171,22 @@ class ServiceRegistryAdminController extends BaseController {
             return;
         }
         $ok = ServiceRegistry::updateCategoryVisibility( $id, $body );
+        if ( ! $ok ) {
+            Response::json( [ 'error' => 'Nothing to update.' ], 422 );
+            return;
+        }
+        Response::json( [ 'ok' => true ] );
+    }
+
+    public function updateCityVisibility( Request $req ): void {
+        $this->requireManager();
+        $id = (int) $req->param( 'id' );
+        $body = $req->body();
+        if ( ! is_array( $body ) ) {
+            Response::json( [ 'error' => 'Invalid payload.' ], 422 );
+            return;
+        }
+        $ok = \S2NRI\Services\PublicEntityRegistry::updateCityVisibility( $id, $body );
         if ( ! $ok ) {
             Response::json( [ 'error' => 'Nothing to update.' ], 422 );
             return;

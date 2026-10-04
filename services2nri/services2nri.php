@@ -3,7 +3,7 @@
  * Plugin Name:       Services2NRI
  * Plugin URI:        https://services2nri.org.in
  * Description:       Complete NRI Service Marketplace — bookings, quotes, payments, CRM, documents.
- * Version:           4.5.4
+ * Version:           4.6.0
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            Services2NRI
@@ -28,7 +28,7 @@ if ( version_compare( PHP_VERSION, '8.0.0', '<' ) ) {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 define( 'S2NRI_CUSTOMER_ROLE', 's2nri_customer' );
-define( 'S2NRI_VERSION',    '4.5.4' );
+define( 'S2NRI_VERSION',    '4.6.0' );
 define( 'S2NRI_FILE',       __FILE__ );
 define( 'S2NRI_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'S2NRI_URL',        plugin_dir_url( __FILE__ ) );
@@ -507,7 +507,7 @@ add_action( 'init', function () {
             ['/blog', '0.8', 'weekly'],
         ];
 
-        $cities = ['pune','mumbai','delhi','bangalore','hyderabad','chennai','ahmedabad','nagpur'];
+        $city_rows = \S2NRI\Services\PublicEntityRegistry::publicCities( 'sitemap' );
 
         header( 'Content-Type: application/xml; charset=utf-8' );
         header( 'Cache-Control: public, max-age=3600' );
@@ -521,8 +521,12 @@ add_action( 'init', function () {
 ";
         }
 
-        foreach ( $cities as $city ) {
-            echo "<url><loc>{$home}/cities/property-management-in-{$city}</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+        foreach ( $city_rows as $city ) {
+            $slug = esc_attr( (string) ( $city['slug'] ?? '' ) );
+            if ( $slug === '' ) {
+                continue;
+            }
+            echo "<url><loc>{$home}/cities/{$slug}</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
 ";
         }
 

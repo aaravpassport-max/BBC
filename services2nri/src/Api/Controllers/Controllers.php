@@ -1637,27 +1637,37 @@ class SystemController extends BaseController {
 class CityController extends BaseController {
 
     public function index( Request $req ): void {
-        $rows = \S2NRI\Services\CacheService::remember( 'cities_active', 3600, function () {
-            global $wpdb;
-            return $wpdb->get_results(
-                "SELECT id, name, slug, state, tagline, image_url, sort_order
-                 FROM {$wpdb->prefix}s2nri_cities
-                 WHERE is_active = 1
-                 ORDER BY sort_order ASC, name ASC",
-                ARRAY_A
-            );
+        $surface = sanitize_key( $req->query( 'surface', 'homepage' ) );
+        $cache_key = 'cities_public_' . $surface;
+        $rows = \S2NRI\Services\CacheService::remember( $cache_key, 3600, function () use ( $surface ) {
+            return \S2NRI\Services\PublicEntityRegistry::publicCities( $surface );
         } );
-        Response::json( [ 'cities' => $rows ] );
+        $out = [];
+        foreach ( $rows as $row ) {
+            $out[] = [
+                'id'         => (int) ( $row['id'] ?? 0 ),
+                'name'       => $row['name'] ?? '',
+                'slug'       => $row['slug'] ?? '',
+                'state'      => $row['state'] ?? '',
+                'tagline'    => $row['tagline'] ?? '',
+                'image_url'  => $row['image_url'] ?? '',
+                'sort_order' => (int) ( $row['sort_order'] ?? 0 ),
+            ];
+        }
+        Response::json( [ 'cities' => $out ] );
     }
 
     public function show( Request $req ): void {
         $slug = sanitize_key( $req->param( 'slug' ) );
         global $wpdb;
         $city = $wpdb->get_row( $wpdb->prepare(
-            "SELECT * FROM {$wpdb->prefix}s2nri_cities WHERE slug = %s AND is_active = 1 LIMIT 1",
+            "SELECT * FROM {$wpdb->prefix}s2nri_cities WHERE slug = %s LIMIT 1",
             $slug
         ), ARRAY_A );
-        if ( ! $city ) { Response::json( [ 'error' => 'City not found.' ], 404 ); return; }
+        if ( ! $city || ! \S2NRI\Services\PublicEntityRegistry::isCityVisibleOnSurface( $city, 'direct_url' ) ) {
+            Response::json( [ 'error' => 'City not found.' ], 404 );
+            return;
+        }
         Response::json( [ 'city' => $city ] );
     }
 }
