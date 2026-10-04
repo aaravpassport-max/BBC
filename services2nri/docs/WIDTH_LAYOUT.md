@@ -18,12 +18,14 @@ Unset levels **inherit** from the parent. Section overrides apply only when conf
 ## Admin
 
 1. **Admin Portal → Design System → Width & Layout**
-2. Choose scope: **global**, **page type**, **page**, **service section**, or **section**
-3. Edit responsive values (desktop / laptop / tablet / mobile)
+2. Pick a **task card** (most sites: **Whole site defaults** or **Service page hero width**)
+3. Use **Simple mode** for desktop-only edits, or expand **All breakpoints** per field
 4. **Publish** design system
 5. Public SPA applies new widths automatically (live design sync, 4.7.9+); navigate or refocus the tab if needed
 
-Labels show **Inherited** vs **Overridden**. Use **Reset to inherited** to remove a layer.
+Controls are grouped (**Page shell**, **Content columns**, **Section presets**). Labels show **Using inherited** vs **Custom here**. **Clear override (inherit)** removes that layer.
+
+Legacy scope names in config: `global`, `page_types`, `pages`, `service_page.sections`, `sections` — the admin UI maps these to the task cards above.
 
 ## CSS tokens (public site)
 
