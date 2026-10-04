@@ -221,29 +221,103 @@ class DesignSystem {
     }
 
     /**
-     * @param string $preset_id Preset key.
-     * @param string $mode      theme = colors/fonts/spacing/radius/shadow only; factory = reset to defaults + preset.
+     * Build a full public-site look from a preset (all visual token layers).
+     *
+     * @return array<string, mixed>
      */
-    public static function applyPreset( string $preset_id, string $mode = 'theme' ): array {
-        $id    = sanitize_key( $preset_id );
-        $theme = DesignPresets::expanded( $id );
-        if ( $mode === 'factory' ) {
-            $base = self::defaults();
-            $patch = DesignPresets::patch( $id );
-            $config = self::deepMerge( $base, $patch );
-            $config['preset'] = $id;
-            $config['overrides'] = $base['overrides'];
-            self::save( $config );
-            return self::resolve( [] );
-        }
-        $current = self::resolve( [] );
-        foreach ( [ 'colors', 'fonts', 'radius', 'shadow', 'spacing' ] as $section ) {
-            if ( isset( $theme[ $section ] ) && is_array( $theme[ $section ] ) ) {
-                $current[ $section ] = $theme[ $section ];
+    public static function configFromPreset( string $preset_id ): array {
+        $id     = sanitize_key( $preset_id );
+        $look   = DesignPresets::expanded( $id );
+        $patch  = DesignPresets::patch( $id );
+        $config = self::defaults();
+
+        foreach ( [ 'colors', 'fonts', 'spacing', 'radius', 'shadow', 'typography', 'components', 'motion', 'breakpoints' ] as $section ) {
+            if ( isset( $look[ $section ] ) && is_array( $look[ $section ] ) ) {
+                $config[ $section ] = $look[ $section ];
             }
         }
-        $current['preset'] = $id;
-        self::save( $current );
+        self::syncComponentsFromTokens( $config );
+
+        $chrome = self::defaultChrome();
+        if ( ! empty( $patch['chrome']['global'] ) && is_array( $patch['chrome']['global'] ) ) {
+            $chrome['global'] = array_merge( $chrome['global'], $patch['chrome']['global'] );
+        }
+        self::syncChromeGlobalFromColors( $chrome['global'], $config['colors'] ?? [] );
+        $config['chrome'] = $chrome;
+
+        $widths = WidthLayout::defaults();
+        if ( ! empty( $patch['widths']['global'] ) && is_array( $patch['widths']['global'] ) ) {
+            $widths['global'] = self::deepMerge( $widths['global'], $patch['widths']['global'] );
+        }
+        $container = $config['spacing']['container_max'] ?? null;
+        if ( is_string( $container ) && $container !== '' ) {
+            $widths['global']['page_max'] = [
+                'desktop' => $container,
+                'laptop'  => $container,
+                'tablet'  => '94%',
+                'mobile'  => '100%',
+            ];
+        }
+        $config['widths'] = $widths;
+        $config['overrides'] = [
+            'page_types' => [],
+            'pages'      => [],
+            'sections'   => [],
+        ];
+        $config['preset'] = $id;
+        return $config;
+    }
+
+    /** @param array<string, mixed> $config */
+    private static function syncComponentsFromTokens( array &$config ): void {
+        $colors = is_array( $config['colors'] ?? null ) ? $config['colors'] : [];
+        $radius = is_array( $config['radius'] ?? null ) ? $config['radius'] : [];
+        $comp   = is_array( $config['components'] ?? null ) ? $config['components'] : [];
+        if ( ! empty( $colors['primary'] ) ) {
+            $comp['button_primary_bg'] = (string) $colors['primary'];
+        }
+        if ( ! empty( $radius['pill'] ) ) {
+            $comp['button_radius'] = (string) $radius['pill'];
+        } elseif ( ! empty( $radius['md'] ) ) {
+            $comp['button_radius'] = (string) $radius['md'];
+        }
+        if ( ! empty( $radius['lg'] ) ) {
+            $comp['card_radius'] = (string) $radius['lg'];
+        }
+        if ( ! empty( $radius['md'] ) ) {
+            $comp['input_radius'] = (string) $radius['md'];
+        }
+        $config['components'] = $comp;
+    }
+
+    /** @param array<string, mixed> $chromeGlobal @param array<string, mixed> $colors */
+    private static function syncChromeGlobalFromColors( array &$chromeGlobal, array $colors ): void {
+        if ( ! empty( $colors['primary'] ) ) {
+            $chromeGlobal['topbar_bg'] = (string) $colors['primary'];
+        }
+        if ( ! empty( $colors['secondary'] ) ) {
+            $chromeGlobal['footer_bg'] = (string) $colors['secondary'];
+        } elseif ( ! empty( $colors['heading'] ) ) {
+            $chromeGlobal['footer_bg'] = (string) $colors['heading'];
+        }
+        if ( ! empty( $colors['surface'] ) ) {
+            $chromeGlobal['header_bg'] = (string) $colors['surface'];
+        } elseif ( ! empty( $colors['background'] ) ) {
+            $chromeGlobal['header_bg'] = (string) $colors['background'];
+        }
+        if ( ! empty( $colors['heading'] ) ) {
+            $chromeGlobal['header_text'] = (string) $colors['heading'];
+        }
+    }
+
+    /**
+     * @param string $preset_id Preset key.
+     * @param string $mode      theme | factory — both apply full-site look; factory is explicit reset (same payload).
+     */
+    public static function applyPreset( string $preset_id, string $mode = 'theme' ): array {
+        unset( $mode );
+        $config = self::configFromPreset( $preset_id );
+        self::save( $config );
         return self::resolve( [] );
     }
 

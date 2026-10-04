@@ -4,7 +4,7 @@
 
 | Need | Where |
 |------|--------|
-| Global brand (colors, fonts, spacing) | Design System → Colors, Fonts, Spacing, Presets |
+| Global brand (colors, fonts, spacing, chrome, components) | Design System → Presets (**Apply site-wide look** resets tokens + chrome + global widths + clears template overrides) |
 | **Per template** (home, service, FAQ, …) | **Page Templates** — colors + page max + link to Width & Layout |
 | Per page slug | Width & Layout → **page**; Overrides → **pages** JSON |
 | Per page type | Width & Layout → **page type**; Page Templates overrides |

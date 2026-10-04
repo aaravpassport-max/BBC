@@ -148,7 +148,8 @@ export function AdminDesignSystem() {
 
   const applyPreset = async (id: string, mode: 'theme' | 'factory' = 'theme') => {
     const label = presets[id]?.label || id
-    if (mode === 'factory' && !window.confirm(`Reset ALL design settings to defaults and apply "${label}"? Width overrides and custom typography will be cleared.`)) {
+    const confirmMsg = `Apply "${label}" to the full public site look? This updates colors, fonts, typography, spacing, radius, shadows, components, site chrome, global widths, and clears per-page template overrides.`
+    if (!window.confirm(confirmMsg)) {
       return
     }
     setSaving(true)
@@ -156,9 +157,7 @@ export function AdminDesignSystem() {
       const res = await api.post<{ config: DesignConfig }>('admin/design/preset', { preset: id, mode })
       setConfig(res.config)
       setMessage(
-        mode === 'factory'
-          ? `Factory preset "${label}" applied — full reset + theme. Hard-refresh the public site.`
-          : `Theme preset "${label}" applied (colors, fonts, spacing, radius). Width & layout kept. Publish not required — already saved.`,
+        `Preset "${label}" applied site-wide (tokens + chrome + global layout). Hard-refresh the public site (Ctrl+Shift+R).`,
       )
     } catch (e: unknown) {
       setMessage(e instanceof Error ? e.message : 'Preset failed')
@@ -429,8 +428,7 @@ export function AdminDesignSystem() {
       {tab === 'Presets' && (
         <div style={{ display: 'grid', gap: 20 }}>
           <p style={{ margin: 0, fontSize: 13, color: '#64748B', maxWidth: 720 }}>
-            <strong>Apply theme</strong> updates colors, fonts, spacing, radius, and shadows (keeps your width/layout and overrides).{' '}
-            <strong>Factory reset</strong> restores defaults and applies the preset everywhere.
+            Each preset applies a complete public-site look: palette, typography, spacing, radius, shadows, buttons/cards, header/topbar/footer chrome, global widths, and clears per-template color overrides so every page matches.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
             {Object.entries(presets).map(([id, p]) => (
@@ -439,10 +437,7 @@ export function AdminDesignSystem() {
                 <p style={{ fontSize: 13, color: '#64748B', minHeight: 48 }}>{p.description}</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <button type="button" onClick={() => applyPreset(id, 'theme')} className="s2-btn s2-btn--primary" disabled={saving}>
-                    Apply theme
-                  </button>
-                  <button type="button" onClick={() => applyPreset(id, 'factory')} className="s2-btn s2-btn--ghost" disabled={saving}>
-                    Factory reset + apply
+                    Apply site-wide look
                   </button>
                 </div>
               </div>

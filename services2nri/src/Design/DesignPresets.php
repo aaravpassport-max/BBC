@@ -101,6 +101,13 @@ class DesignPresets {
                 'fonts' => [ 'heading' => 'inter', 'body' => 'inter', 'ui' => 'inter', 'button' => 'inter' ],
                 'radius' => [ 'md' => '6px', 'lg' => '8px' ],
                 'shadow' => [ 'card' => '0 1px 3px rgba(0,0,0,.06)' ],
+                'chrome' => [
+                    'global' => [
+                        'header_variant' => 'compact',
+                        'footer_variant' => 'minimal',
+                        'header_height_px' => '56',
+                    ],
+                ],
             ],
             'professional' => [
                 'colors' => [
@@ -130,6 +137,12 @@ class DesignPresets {
                 ],
                 'spacing' => [ 'section_y' => '72px', 'grid_gap' => '20px', 'container_max' => '1200px', 'content_max' => '760px' ],
                 'fonts' => [ 'heading' => 'poppins', 'body' => 'roboto', 'ui' => 'roboto', 'button' => 'poppins' ],
+                'widths' => [
+                    'global' => [
+                        'page_max'         => [ 'desktop' => '1200px', 'laptop' => '1200px', 'tablet' => '94%', 'mobile' => '100%' ],
+                        'section_standard' => [ 'desktop' => '1100px', 'laptop' => '1100px', 'tablet' => '94%', 'mobile' => '100%' ],
+                    ],
+                ],
             ],
         ];
         return $patches[ $p ] ?? [];
