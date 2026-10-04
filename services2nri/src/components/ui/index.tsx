@@ -17,6 +17,7 @@
 
 import React, { useEffect, useRef } from 'react'
 import { useStore } from '@/lib/store'
+import { resolvePrimary } from '@/lib/design-tokens'
 
 // ── Spinner ───────────────────────────────────────────────────────────────────
 interface SpinnerProps {
@@ -63,7 +64,7 @@ export function Button({
   ...rest
 }: ButtonProps) {
   const settings = useStore((s) => s.settings)
-  const primary = settings.primary_color || '#1E2D40'
+  const primary = resolvePrimary(settings)
   const accent  = settings.accent_color  || '#f97316'
 
   const variants: Record<ButtonVariant, React.CSSProperties> = {
@@ -496,7 +497,7 @@ interface LoadingScreenProps {
   message?: string
 }
 export function LoadingScreen({ message = 'Loading…' }: LoadingScreenProps) {
-  const primary = useStore((s) => s.settings).primary_color || '#1E2D40'
+  const primary = resolvePrimary(useStore((s) => s.settings))
   return (
     <div
       style={{
