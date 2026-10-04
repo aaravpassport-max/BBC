@@ -1,0 +1,162 @@
+/**
+ * Enterprise template catalog — maps public routes to width + override keys.
+ */
+import { WIDTH_PAGE_TYPES } from '@/lib/width-layout'
+
+export type PageTemplateDef = {
+  id: string
+  label: string
+  description: string
+  previewPath: string
+  /** Width & Layout → page type scope */
+  widthPageType?: string
+  /** Width & Layout → page slug scope (widths.pages) */
+  widthPageSlug?: string
+  /** Also apply widths.page_types[slug] when route uses page_type=page */
+  widthSlugAlias?: string
+  /** overrides.page_types key */
+  overridePageType?: string
+  /** overrides.pages key */
+  overridePageSlug?: string
+}
+
+export const PAGE_TEMPLATES: PageTemplateDef[] = [
+  {
+    id: 'home',
+    label: 'Homepage',
+    description: 'Hero, services grid, cities, FAQ, newsletter',
+    previewPath: '/',
+    widthPageType: 'home',
+    overridePageType: 'home',
+  },
+  {
+    id: 'services',
+    label: 'Services directory',
+    description: 'Search, categories sidebar, service cards',
+    previewPath: '/services',
+    widthPageType: 'services',
+    overridePageType: 'services',
+  },
+  {
+    id: 'category',
+    label: 'Category listing',
+    description: '/services/{category}',
+    previewPath: '/services/passport',
+    widthPageType: 'category',
+    overridePageType: 'category',
+  },
+  {
+    id: 'service',
+    label: 'Service detail',
+    description: 'Hero, CMS sections, booking wizard',
+    previewPath: '/service/passport-renewal',
+    widthPageType: 'service',
+    overridePageType: 'service',
+  },
+  {
+    id: 'blog',
+    label: 'Blog',
+    description: 'PHP blog hub and articles',
+    previewPath: '/blog',
+    widthPageType: 'blog',
+    overridePageType: 'blog',
+  },
+  {
+    id: 'city',
+    label: 'City landing',
+    description: 'Geo landing pages',
+    previewPath: '/cities/dubai',
+    widthPageType: 'city',
+    overridePageType: 'city',
+  },
+  {
+    id: 'about',
+    label: 'About',
+    description: 'Marketing page',
+    previewPath: '/about',
+    widthPageType: 'page',
+    widthPageSlug: 'about',
+    widthSlugAlias: 'about',
+    overridePageType: 'page',
+    overridePageSlug: 'about',
+  },
+  {
+    id: 'contact',
+    label: 'Contact',
+    description: 'Form + hero',
+    previewPath: '/contact',
+    widthPageType: 'page',
+    widthPageSlug: 'contact',
+    widthSlugAlias: 'contact',
+    overridePageType: 'contact',
+    overridePageSlug: 'contact',
+  },
+  {
+    id: 'faq',
+    label: 'FAQ',
+    description: 'Accordion FAQ',
+    previewPath: '/faq',
+    widthPageType: 'page',
+    widthPageSlug: 'faq',
+    widthSlugAlias: 'faq',
+    overridePageType: 'faq',
+    overridePageSlug: 'faq',
+  },
+  {
+    id: 'pricing',
+    label: 'Pricing',
+    description: 'Plans table',
+    previewPath: '/pricing',
+    widthPageType: 'page',
+    widthPageSlug: 'pricing',
+    widthSlugAlias: 'pricing',
+    overridePageType: 'pricing',
+    overridePageSlug: 'pricing',
+  },
+  {
+    id: 'how-it-works',
+    label: 'How it works',
+    description: 'Process marketing page',
+    previewPath: '/how-it-works',
+    widthPageType: 'page',
+    widthPageSlug: 'how-it-works',
+    widthSlugAlias: 'how-it-works',
+    overridePageSlug: 'how-it-works',
+  },
+  {
+    id: 'terms',
+    label: 'Terms',
+    description: 'Legal',
+    previewPath: '/terms',
+    widthPageType: 'page',
+    widthPageSlug: 'terms',
+    overridePageSlug: 'terms',
+  },
+  {
+    id: 'privacy',
+    label: 'Privacy',
+    description: 'Legal',
+    previewPath: '/privacy',
+    widthPageType: 'page',
+    widthPageSlug: 'privacy',
+    overridePageSlug: 'privacy',
+  },
+  {
+    id: 'visa',
+    label: 'Visa hub',
+    description: 'Visa content routes',
+    previewPath: '/visa',
+    widthPageType: 'visa',
+    overridePageType: 'visa',
+  },
+  {
+    id: 'country',
+    label: 'Country hub',
+    description: 'Country content routes',
+    previewPath: '/country',
+    widthPageType: 'country',
+    overridePageType: 'country',
+  },
+]
+
+export const ALL_WIDTH_PAGE_TYPES = WIDTH_PAGE_TYPES

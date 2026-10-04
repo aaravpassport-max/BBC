@@ -81,12 +81,21 @@ function ResponsiveField({
   )
 }
 
+export type WidthLayoutFocus = {
+  scope: 'global' | 'page_type' | 'page' | 'service_section' | 'section'
+  selectedType?: string
+  selectedPage?: string
+  selectedSection?: string
+}
+
 export function WidthLayoutPanel({
   config,
   patch,
+  focus,
 }: {
   config: WidthConfig
   patch: PatchFn
+  focus?: WidthLayoutFocus | null
 }) {
   const widths = (config.widths || {}) as WidthConfig
   const global = (widths.global || {}) as Record<string, unknown>
@@ -100,6 +109,14 @@ export function WidthLayoutPanel({
   const [selectedType, setSelectedType] = useState<string>('home')
   const [selectedPage, setSelectedPage] = useState<string>('about')
   const [selectedSection, setSelectedSection] = useState<string>('hero')
+
+  React.useEffect(() => {
+    if (!focus) return
+    setScope(focus.scope)
+    if (focus.selectedType) setSelectedType(focus.selectedType)
+    if (focus.selectedPage) setSelectedPage(focus.selectedPage)
+    if (focus.selectedSection) setSelectedSection(focus.selectedSection)
+  }, [focus])
 
   const activeLayer = useMemo(() => {
     if (scope === 'global') return global

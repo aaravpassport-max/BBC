@@ -12,7 +12,7 @@ import {
   CategoryRegistryPanel,
   CityRegistryPanel,
   NavMenuEditor,
-  HeaderFooterPageTypeEditor,
+  PageTemplatesPanel,
   FontAssignPanel,
   GuidedOverrideWizard,
   LiveSitePreviewFrame,
@@ -21,15 +21,15 @@ import {
   type RegistryCategory,
   type RegistryCity,
 } from './design-system-panels'
-import { WidthLayoutPanel } from './width-layout-panel'
+import { WidthLayoutPanel, type WidthLayoutFocus } from './width-layout-panel'
 import { HexColorField, HexAlphaColorField } from './design-admin-fields'
 
 type DesignConfig = Record<string, unknown>
 
 const TABS = [
-  'Global', 'Typography', 'Fonts', 'Colors', 'Spacing', 'Width & Layout', 'Buttons', 'Cards', 'Forms',
+  'Global', 'Page Templates', 'Typography', 'Fonts', 'Colors', 'Spacing', 'Width & Layout', 'Components',
   'Containers', 'Borders', 'Shadows', 'Motion', 'Responsive', 'Overrides',
-  'Presets', 'Preview', 'Live Site', 'Navigation', 'Header & Footer', 'Page Types', 'Icons',
+  'Presets', 'Preview', 'Live Site', 'Navigation', 'Icons',
   'Service Registry', 'Categories', 'Cities',
 ] as const
 
@@ -64,6 +64,8 @@ export function AdminDesignSystem() {
   const [svcDirect, setSvcDirect] = useState('active')
   const [svcFeatured, setSvcFeatured] = useState(false)
   const [svcPopular, setSvcPopular] = useState(false)
+  const [widthFocus, setWidthFocus] = useState<WidthLayoutFocus | null>(null)
+  const [previewPath, setPreviewPath] = useState('/')
 
   const load = useCallback(async () => {
     const data = await api.get<{
@@ -335,12 +337,34 @@ export function AdminDesignSystem() {
 
       {tab === 'Typography' && <TypographyRolesEditor typography={typography} patch={patch} />}
 
-      {(tab === 'Buttons' || tab === 'Cards' || tab === 'Forms') && (
-        <ComponentsEditor components={components} patch={patch} />
+      {tab === 'Components' && (
+        <div style={{ display: 'grid', gap: 16 }}>
+          <p style={{ margin: 0, fontSize: 13, color: '#64748B', maxWidth: 720 }}>
+            Maps to public CSS variables <code>--s2-btn-*</code>, <code>--s2-card-radius</code>, <code>--s2-input-radius</code>.
+            Use <code>{'{colors.primary}'}</code> or <code>#HEX</code> values.
+          </p>
+          <ComponentsEditor components={components} patch={patch} />
+        </div>
+      )}
+
+      {tab === 'Page Templates' && (
+        <PageTemplatesPanel
+          overrides={overrides}
+          widths={(config.widths || {}) as Record<string, unknown>}
+          patch={patch}
+          onOpenWidth={(focus) => {
+            setWidthFocus(focus)
+            setTab('Width & Layout')
+          }}
+          onPreviewPath={(path) => {
+            setPreviewPath(path)
+            setTab('Live Site')
+          }}
+        />
       )}
 
       {tab === 'Width & Layout' && config && (
-        <WidthLayoutPanel config={config} patch={patch} />
+        <WidthLayoutPanel config={config} patch={patch} focus={widthFocus} />
       )}
 
       {tab === 'Containers' && (
@@ -420,7 +444,7 @@ export function AdminDesignSystem() {
         </div>
       )}
 
-      {tab === 'Live Site' && <LiveSitePreviewFrame />}
+      {tab === 'Live Site' && <LiveSitePreviewFrame path={previewPath} />}
 
       {tab === 'Preview' && (
         <div className="s2-ds" style={{ border: '1px solid #E2E8F0', borderRadius: 16, padding: 28, background: colors.background || '#fff' }}>
@@ -447,14 +471,6 @@ export function AdminDesignSystem() {
 
       {tab === 'Navigation' && (
         <NavMenuEditor onSaved={(msg) => setMessage(msg)} />
-      )}
-
-      {tab === 'Header & Footer' && (
-        <HeaderFooterPageTypeEditor overrides={overrides} patch={patch} />
-      )}
-
-      {tab === 'Page Types' && (
-        <HeaderFooterPageTypeEditor overrides={overrides} patch={patch} />
       )}
 
       {tab === 'Icons' && <IconLibraryPanel />}

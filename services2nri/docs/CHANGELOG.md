@@ -5,6 +5,17 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.5] — 2026-10-04 — Cloud Agent
+
+- **Enterprise audit fixes:** SPA re-applies design tokens on every route (`resolveDesignConfig` + page-type/page overrides).
+- **Payload:** `getPublicPayload()` includes `overrides`, `components`, `motion`, `breakpoints` for client resolver.
+- **Width aliases:** `faq`, `contact`, `pricing`, etc. merge `widths.page_types.{slug}` when route slug matches.
+- **Section overrides:** `overrides.sections` → scoped CSS on `[data-s2-section]`.
+- **Components tab** wired to `--s2-btn-*` / card / input radius on public buttons.
+- **Admin:** new **Page Templates** tab (per-template colors + page max + width deep-link); Live Site route picker; consolidated Components tab.
+
+---
+
 ## [4.7.4] — 2026-10-04 — Cloud Agent
 
 - **Fix:** Section width tokens emit `--s2-width-sec-{section}-max` (hero/wizard/directory presets work with Width & Layout).

@@ -93,6 +93,9 @@ class WidthLayout {
         if ( $pt && ! empty( $widths['page_types'][ $pt ] ) && is_array( $widths['page_types'][ $pt ] ) ) {
             $merged = self::mergeWidthLayer( $merged, $widths['page_types'][ $pt ] );
         }
+        if ( $pt === 'page' && $slug !== '' && ! empty( $widths['page_types'][ $slug ] ) && is_array( $widths['page_types'][ $slug ] ) ) {
+            $merged = self::mergeWidthLayer( $merged, $widths['page_types'][ $slug ] );
+        }
         if ( $pt === 'service' && ! empty( $widths['service_page'] ) && is_array( $widths['service_page'] ) ) {
             $merged = self::mergeWidthLayer( $merged, $widths['service_page'] );
         }
