@@ -32,6 +32,7 @@ import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { getServiceImage } from '@/lib/images'
 import type { Service, ServiceSection, SectionType } from '@/types'
+import { installServiceSectionNavStrip } from '@/lib/service-section-nav-strip'
 
 // ── Field types ───────────────────────────────────────────────────────────────
 interface FormField {
@@ -468,6 +469,8 @@ export function ServiceDetailPage() {
   const [submitted, setSubmitted] = useState<{ booking_ref: string; id: number; __uploadWarning?: string } | null>(null)
   const [apiError,  setApiError]  = useState('')
   const [loadFailed, setLoadFailed] = useState(false)
+
+  useEffect(() => installServiceSectionNavStrip(), [slug])
 
   const loadService = useCallback(() => {
     if (!slug) return

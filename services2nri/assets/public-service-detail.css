@@ -1,5 +1,15 @@
 /* Service detail page + booking wizard — token-based layout */
 
+/* Legacy PHP "On this page" sidebar — must not appear on service URLs */
+#s2nri-nav-wrap,
+#s2nri-nav,
+#s2nri-nav-btn,
+#s2nri-nav-overlay {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 @keyframes s2-spin {
   to { transform: rotate(360deg); }
 }
