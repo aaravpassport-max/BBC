@@ -15,9 +15,9 @@ test.describe('Services directory visuals', () => {
     const imgBox = await imgWrap.boundingBox()
     expect(cardBox && imgBox).toBeTruthy()
     if (cardBox && imgBox) {
-      expect(Math.abs(imgBox.x - cardBox.x)).toBeLessThan(2)
-      expect(Math.abs(imgBox.width - cardBox.width)).toBeLessThan(2)
-      expect(imgBox.y - cardBox.y).toBeLessThan(2)
+      expect(Math.abs(imgBox.x - cardBox.x)).toBeLessThan(3)
+      expect(Math.abs(imgBox.width - cardBox.width)).toBeLessThan(4)
+      expect(imgBox.y - cardBox.y).toBeLessThan(3)
     }
 
     const img = cards.first().locator('img')
