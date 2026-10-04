@@ -186,6 +186,93 @@
 .s2-public-pricing-card--popular {
   border: 2px solid var(--s2-color-primary);
   transform: scale(1.02);
+  box-shadow: 0 8px 40px color-mix(in srgb, var(--s2-color-primary) 25%, transparent);
+}
+
+.s2-public-pricing-card__ribbon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  background: var(--s2-color-primary);
+  color: #fff;
+  padding: 6px;
+  text-align: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.s2-public-pricing-card__head {
+  padding: 28px 24px 24px;
+  color: #fff;
+}
+
+.s2-public-pricing-card--popular .s2-public-pricing-card__head {
+  padding-top: 40px;
+}
+
+.s2-public-pricing-card__head--popular {
+  background: var(--s2-color-primary);
+}
+
+.s2-public-pricing-card__features {
+  padding: 24px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.s2-public-pricing-feature {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+  align-items: flex-start;
+  font-size: 0.875rem;
+  color: var(--s2-color-body);
+}
+
+.s2-public-pricing-feature mark {
+  color: var(--s2-color-success);
+  font-weight: 700;
+  background: none;
+}
+
+.s2-public-compare-wrap {
+  overflow-x: auto;
+}
+
+.s2-public-compare-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.s2-public-compare-table th,
+.s2-public-compare-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--s2-color-divider);
+}
+
+.s2-public-compare-table thead th {
+  font-weight: 700;
+  color: var(--s2-color-heading);
+  border-bottom: 2px solid var(--s2-color-border);
+}
+
+.s2-public-compare-table .s2-public-compare-table__brand {
+  background: var(--s2-color-primary);
+  color: #fff;
+}
+
+.s2-public-pricing-hero-badges {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  margin-top: 20px;
+  flex-wrap: wrap;
+  font-size: 0.8125rem;
+  opacity: 0.9;
 }
 
 .s2-service-detail-wrap {

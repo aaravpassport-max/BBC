@@ -365,7 +365,6 @@ const COMPARE_FEATURES = [
 ]
 
 export function PricingPage() {
-  const primary = resolvePrimary(useStore((s) => s.settings))
   const [plans, setPlans] = useState<PricingPlan[]>([])
 
   useEffect(() => {
@@ -376,38 +375,51 @@ export function PricingPage() {
 
   const display = plans.length > 0 ? plans : PRICING_FALLBACK
 
+  const heroBg = 'linear-gradient(135deg, var(--s2-color-secondary) 0%, var(--s2-color-primary) 100%)'
+
   return (
     <Layout>
-      <div style={{ background: `linear-gradient(135deg, #1E2D40 0%, ${primary} 100%)`, color: '#fff', padding: '52px 20px', textAlign: 'center' }}>
-        <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, opacity: 0.75, margin: '0 0 10px' }}>Pricing</p>
-        <h1 style={{ fontSize: 'clamp(26px, 4vw, 44px)', fontWeight: 900, margin: '0 0 12px' }}>The Perfect Balance of Features & Affordability</h1>
-        <p style={{ fontSize: 16, opacity: 0.85, maxWidth: 560, margin: '0 auto' }}>Transparent pricing, no hidden charges. Pay only after approving your quote.</p>
-        <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 20, flexWrap: 'wrap' }}>
-          {['✅ Compliance-driven', '✅ Simple & intuitive', '✅ Straightforward pricing'].map((s) => <span key={s} style={{ fontSize: 13, opacity: 0.9 }}>{s}</span>)}
-        </div>
-      </div>
-
-      {/* Plan cards */}
-      <section style={{ padding: '64px 20px', background: '#F5F7FA' }}>
+      <PageHero
+        title="The Perfect Balance of Features & Affordability"
+        subtitle="Transparent pricing, no hidden charges. Pay only after approving your quote."
+        bg={heroBg}
+      />
+      <PublicSection alt>
+        <PublicSectionHead
+          eyebrow="Pricing plans"
+          title="Choose the right level of support"
+          subtitle="Compliance-driven · Simple & intuitive · Straightforward pricing"
+        />
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 24 }}>
+          <div className="s2-public-pricing-grid">
             {display.map((plan) => (
-              <div key={plan.id} style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: plan.popular ? `0 8px 40px ${primary}30` : '0 2px 16px rgba(0,0,0,.07)', border: plan.popular ? `2px solid ${primary}` : '1px solid #EBF0F8', position: 'relative', transform: plan.popular ? 'scale(1.03)' : 'scale(1)' }}>
-                {plan.popular && <div style={{ position: 'absolute', top: -1, left: 0, right: 0, background: primary, color: '#fff', padding: 6, textAlign: 'center', fontSize: 12, fontWeight: 700, letterSpacing: 1 }}>⭐ MOST POPULAR</div>}
-                <div style={{ background: plan.popular ? primary : plan.color || '#374151', padding: plan.popular ? '40px 24px 24px' : '28px 24px 24px', color: '#fff' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 2, opacity: 0.8, marginBottom: 4 }}>{plan.subtitle}</div>
-                  <h3 style={{ fontSize: 24, fontWeight: 900, margin: '0 0 12px' }}>{plan.name}</h3>
-                  <div style={{ fontSize: 'clamp(22px, 3vw, 32px)', fontWeight: 900 }}>{plan.price}</div>
-                  {plan.price_note && <div style={{ fontSize: 13, opacity: 0.8, marginTop: 3 }}>{plan.price_note}</div>}
+              <div
+                key={plan.id}
+                className={`s2-public-pricing-card${plan.popular ? ' s2-public-pricing-card--popular' : ''}`}
+                style={{ position: 'relative' }}
+              >
+                {plan.popular && <div className="s2-public-pricing-card__ribbon">⭐ MOST POPULAR</div>}
+                <div
+                  className={`s2-public-pricing-card__head${plan.popular ? ' s2-public-pricing-card__head--popular' : ''}`}
+                  style={plan.popular ? undefined : { background: plan.color || 'var(--s2-color-secondary)' }}
+                >
+                  <div className="s2-t-eyebrow" style={{ color: 'rgba(255,255,255,.85)', marginBottom: 4 }}>{plan.subtitle}</div>
+                  <h3 className="s2-t-h2" style={{ color: '#fff', margin: '0 0 12px' }}>{plan.name}</h3>
+                  <div className="s2-t-h1" style={{ color: '#fff', fontSize: 'clamp(1.375rem, 3vw, 2rem)' }}>{plan.price}</div>
+                  {plan.price_note && <div className="s2-t-body" style={{ color: 'rgba(255,255,255,.85)', marginTop: 3 }}>{plan.price_note}</div>}
                 </div>
-                <div style={{ padding: 24 }}>
+                <div className="s2-public-pricing-card__features">
                   {(plan.features || []).map((f, i) => (
-                    <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 10, alignItems: 'flex-start', fontSize: 14, color: '#374151' }}>
-                      <span style={{ color: '#2e7d32', fontWeight: 700, flexShrink: 0 }}>✓</span>
+                    <div key={i} className="s2-public-pricing-feature">
+                      <mark>✓</mark>
                       <span>{f}</span>
                     </div>
                   ))}
-                  <Link to="/contact" style={{ display: 'block', marginTop: 20, textAlign: 'center', padding: 12, background: plan.popular ? primary : 'transparent', color: plan.popular ? '#fff' : primary, border: `2px solid ${primary}`, borderRadius: 9, fontWeight: 700, fontSize: 14, textDecoration: 'none' }}>
+                  <Link
+                    to="/contact"
+                    className={`s2-btn s2-btn--${plan.popular ? 'primary' : 'outline'}`}
+                    style={{ display: 'block', marginTop: 'auto', textAlign: 'center' }}
+                  >
                     {plan.price === 'Free' ? 'Get Started Free' : 'Choose Plan →'}
                   </Link>
                 </div>
@@ -415,7 +427,7 @@ export function PricingPage() {
             ))}
           </div>
         </div>
-      </section>
+      </PublicSection>
 
       {/* Comparison table */}
       {/* FIXED: this section previously always rendered, but
@@ -430,74 +442,75 @@ export function PricingPage() {
           feature availability — a real, customer-facing accuracy
           problem, not just a cosmetic one. Only shown when displaying
           the fallback content it was actually authored for. */}
-      {plans.length === 0 && <section style={{ padding: '56px 20px', background: '#fff' }}>
-        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
-          <h2 style={{ textAlign: 'center', fontSize: 'clamp(20px, 3vw, 30px)', fontWeight: 800, color: '#1E2D40', margin: '0 0 8px' }}>Services2NRI vs Others</h2>
-          <p style={{ textAlign: 'center', color: '#666', margin: '0 0 32px' }}>See why NRIs choose us over traditional property managers</p>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="s2-pricing-compare" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-              <thead>
-                <tr style={{ background: `${primary}08` }}>
-                  <th style={{ padding: '14px 16px', textAlign: 'left', fontWeight: 700, color: '#1E2D40', borderBottom: '2px solid #EBF0F8' }}>Feature</th>
-                  {display.map((p) => <th key={p.id} style={{ padding: '14px 16px', textAlign: 'center', fontWeight: 700, color: p.popular ? primary : '#1E2D40', borderBottom: '2px solid #EBF0F8', whiteSpace: 'nowrap' }}>{p.name}</th>)}
-                  <th style={{ padding: '14px 16px', textAlign: 'center', color: '#ef4444', fontWeight: 700, borderBottom: '2px solid #EBF0F8' }}>Others</th>
-                </tr>
-              </thead>
-              <tbody>
-                {COMPARE_FEATURES.map(({ feature, plans: vals }, i) => (
-                  <tr key={feature} style={{ background: i % 2 === 0 ? '#fff' : '#fafafa' }}>
-                    <td style={{ padding: '12px 16px', color: '#374151', borderBottom: '1px solid #f0f0f0' }}>{feature}</td>
-                    {vals.map((v, j) => <td key={j} style={{ padding: '12px 16px', textAlign: 'center', borderBottom: '1px solid #f0f0f0' }}>{v ? <span style={{ color: '#2e7d32', fontSize: 18 }}>✓</span> : <span style={{ color: '#d1d5db', fontSize: 18 }}>—</span>}</td>)}
-                    <td style={{ padding: '12px 16px', textAlign: 'center', borderBottom: '1px solid #f0f0f0' }}><span style={{ color: '#ef4444', fontSize: 18 }}>✕</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>}
-
-      {/* NRIWAY vs Traditional */}
-      <section style={{ padding: '48px 20px', background: '#fff' }}>
-        <div style={{ maxWidth: 860, margin: '0 auto' }}>
-          <h2 style={{ textAlign: 'center', fontSize: 'clamp(20px, 3vw, 28px)', fontWeight: 800, color: '#1E2D40', margin: '0 0 6px' }}>NRIWAY vs. Traditional Agents</h2>
-          <p style={{ textAlign: 'center', color: '#666', fontSize: 14, margin: '0 0 28px' }}>See why NRIs across 50+ countries trust NRIWAY</p>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="s2-pricing-compare" style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+      {plans.length === 0 && (
+        <PublicSection>
+          <PublicSectionHead title="Services2NRI vs Others" subtitle="See why NRIs choose us over traditional property managers" />
+          <div className="s2-public-compare-wrap" style={{ maxWidth: 1000, margin: '0 auto' }}>
+            <table className="s2-public-compare-table">
               <thead>
                 <tr>
-                  <th style={{ background: '#F5F7FA', padding: '14px 16px', textAlign: 'left', fontWeight: 700, color: '#374151', borderBottom: '2px solid #EBF0F8', width: '40%' }}>Feature</th>
-                  <th style={{ background: primary, padding: '14px 16px', textAlign: 'center', fontWeight: 800, color: '#fff', borderBottom: `2px solid ${primary}` }}>NRIWAY</th>
-                  <th style={{ background: '#F5F7FA', padding: '14px 16px', textAlign: 'center', fontWeight: 700, color: '#374151', borderBottom: '2px solid #EBF0F8' }}>Traditional Agents</th>
+                  <th>Feature</th>
+                  {display.map((p) => (
+                    <th key={p.id} style={p.popular ? { color: 'var(--s2-color-primary)' } : undefined}>{p.name}</th>
+                  ))}
+                  <th style={{ color: 'var(--s2-color-error)' }}>Others</th>
                 </tr>
               </thead>
               <tbody>
-                {[
-                  ['Real-time booking tracking', '✅ Dashboard + email updates', '❌ Phone calls only'],
-                  ['Transparent pricing',         '✅ Quote before any payment', '❌ Hidden charges common'],
-                  ['Document security',           '✅ AES-256 encrypted portal', '❌ Via WhatsApp / email'],
-                  ['Pan India coverage',          '✅ 750+ cities across India', '⚠️ Limited to few cities'],
-                  ['Money-back guarantee',        '✅ On failed applications',   '❌ Non-refundable deposits'],
-                  ['24/7 WhatsApp support',       '✅ Instant response team',    '⚠️ Office hours only'],
-                  ['No upfront fee for quote',    '✅ Free consultation always', '❌ Retainer required'],
-                ].map(([feat, us, them], i) => (
-                  <tr key={feat} style={{ background: i % 2 === 0 ? '#fff' : '#F5F7FA' }}>
-                    <td style={{ padding: '12px 16px', color: '#374151', fontWeight: 600, borderBottom: '1px solid #EBF0F8' }}>{feat}</td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center', color: '#15803d', fontWeight: 600, borderBottom: '1px solid #EBF0F8' }}>{us}</td>
-                    <td style={{ padding: '12px 16px', textAlign: 'center', color: '#6b7280', borderBottom: '1px solid #EBF0F8' }}>{them}</td>
+                {COMPARE_FEATURES.map(({ feature, plans: vals }) => (
+                  <tr key={feature}>
+                    <td>{feature}</td>
+                    {vals.map((v, j) => (
+                      <td key={j} style={{ textAlign: 'center' }}>{v ? '✓' : '—'}</td>
+                    ))}
+                    <td style={{ textAlign: 'center' }}>✕</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
-      </section>
+        </PublicSection>
+      )}
 
-      <section style={{ background: `${primary}08`, padding: '48px 20px', textAlign: 'center', borderTop: '1px solid #EBF0F8' }}>
-        <h2 style={{ fontSize: 26, fontWeight: 800, color: '#1E2D40', margin: '0 0 10px' }}>Book a Free Consultation</h2>
-        <p style={{ color: '#555', fontSize: 15, margin: '0 0 20px' }}>Not sure which plan is right for you? Talk to our team for free.</p>
-        <Link to="/contact" style={{ background: primary, color: '#fff', padding: '13px 30px', borderRadius: 9, fontWeight: 700, fontSize: 15, textDecoration: 'none' }}>Book Free Consultation →</Link>
-      </section>
+      <PublicSection>
+        <PublicSectionHead title="NRIWAY vs. Traditional Agents" subtitle="See why NRIs across 50+ countries trust NRIWAY" />
+        <div className="s2-public-compare-wrap" style={{ maxWidth: 860, margin: '0 auto' }}>
+          <table className="s2-public-compare-table">
+            <thead>
+              <tr>
+                <th style={{ width: '40%' }}>Feature</th>
+                <th className="s2-public-compare-table__brand">NRIWAY</th>
+                <th>Traditional Agents</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ['Real-time booking tracking', '✅ Dashboard + email updates', '❌ Phone calls only'],
+                ['Transparent pricing', '✅ Quote before any payment', '❌ Hidden charges common'],
+                ['Document security', '✅ AES-256 encrypted portal', '❌ Via WhatsApp / email'],
+                ['Pan India coverage', '✅ 750+ cities across India', '⚠️ Limited to few cities'],
+                ['Money-back guarantee', '✅ On failed applications', '❌ Non-refundable deposits'],
+                ['24/7 WhatsApp support', '✅ Instant response team', '⚠️ Office hours only'],
+                ['No upfront fee for quote', '✅ Free consultation always', '❌ Retainer required'],
+              ].map(([feat, us, them]) => (
+                <tr key={feat}>
+                  <td style={{ fontWeight: 600 }}>{feat}</td>
+                  <td style={{ textAlign: 'center', color: 'var(--s2-color-success)' }}>{us}</td>
+                  <td style={{ textAlign: 'center', color: 'var(--s2-color-muted)' }}>{them}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </PublicSection>
+
+      <PublicSection alt className="s2-public-cta-band">
+        <div style={{ textAlign: 'center', maxWidth: 640, margin: '0 auto' }}>
+          <h2 className="s2-t-h2" style={{ margin: '0 0 10px' }}>Book a Free Consultation</h2>
+          <p className="s2-t-body" style={{ margin: '0 0 20px' }}>Not sure which plan is right for you? Talk to our team for free.</p>
+          <PublicCtaLink to="/contact">Book Free Consultation →</PublicCtaLink>
+        </div>
+      </PublicSection>
     </Layout>
   )
 }
