@@ -25,7 +25,7 @@ import {
 import { WidthLayoutPanel, type WidthLayoutFocus } from './width-layout-panel'
 import { HexColorField, HexAlphaColorField } from './design-admin-fields'
 import { broadcastDesignSaved } from '@/lib/design-live-sync'
-import { ensurePatchPath, normalizeAdminDesignConfig } from '@/lib/design-admin-config'
+import { ensurePatchPath, normalizeAdminDesignConfig, prepareDesignConfigForSave } from '@/lib/design-admin-config'
 
 type DesignConfig = Record<string, unknown>
 
@@ -79,7 +79,7 @@ export function AdminDesignSystem() {
       presets: Record<string, { label: string; description: string }>
       fonts: { library: Array<{ id: string; name: string; category: string; pairing: string }> }
     }>('admin/design')
-    const normalized = normalizeAdminDesignConfig(data.config)
+    const normalized = prepareDesignConfigForSave(data.config)
     configRef.current = normalized
     setConfig(normalized)
     setDesignRevision(data.revision || '')
@@ -135,6 +135,8 @@ export function AdminDesignSystem() {
       const leaf = path[path.length - 1]
       if (value === undefined) {
         delete cur[leaf]
+      } else if (value === null) {
+        cur[leaf] = null
       } else {
         cur[leaf] = value
       }
@@ -150,7 +152,7 @@ export function AdminDesignSystem() {
     setSaving(true)
     setMessage('')
     try {
-      const body = normalizeAdminDesignConfig(payload)
+      const body = prepareDesignConfigForSave(payload)
       configRef.current = body
       const res = await api.put<{ ok?: boolean; config: DesignConfig; revision?: string }>('admin/design', body)
       if (res.ok === false) {

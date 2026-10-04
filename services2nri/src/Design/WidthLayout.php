@@ -345,4 +345,191 @@ class WidthLayout {
         }
         return array_keys( $arr ) !== range( 0, count( $arr ) - 1 );
     }
+
+    /** @return list<string> */
+    private static function inheritableWidthKeys(): array {
+        return [
+            'page_max', 'content_max', 'inner_max', 'full_bleed',
+            'section_standard', 'section_wide', 'section_narrow', 'section_compact',
+            'padding_x', 'min_width', 'max_width_cap',
+        ];
+    }
+
+    /** @param mixed $v */
+    private static function widthTokenNorm( $v ): string {
+        if ( ! is_array( $v ) ) {
+            return trim( (string) $v );
+        }
+        $parts = [];
+        foreach ( [ 'desktop', 'laptop', 'tablet', 'mobile' ] as $bp ) {
+            $parts[] = trim( (string) ( $v[ $bp ] ?? '' ) );
+        }
+        return implode( '|', $parts );
+    }
+
+    /** @param array<string, mixed> $layer @param array<string, mixed> $parent */
+    private static function pruneLayerAgainstParent( array $layer, array $parent ): array {
+        foreach ( self::inheritableWidthKeys() as $key ) {
+            if ( ! array_key_exists( $key, $layer ) ) {
+                continue;
+            }
+            if ( self::widthTokenNorm( $layer[ $key ] ) === self::widthTokenNorm( $parent[ $key ] ?? '' ) ) {
+                unset( $layer[ $key ] );
+            }
+        }
+        return $layer;
+    }
+
+    /** @param array<string, mixed> $layer */
+    private static function isEmptyWidthLayer( array $layer ): bool {
+        foreach ( self::inheritableWidthKeys() as $key ) {
+            if ( isset( $layer[ $key ] ) && $layer[ $key ] !== null && $layer[ $key ] !== '' ) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Drop redundant width overrides that match inherited parent values (sparse storage).
+     *
+     * @param array<string, mixed> $widths
+     * @return array<string, mixed>
+     */
+    public static function pruneInheritedWidthLayers( array $widths ): array {
+        $widths = self::deepMerge( self::defaults(), $widths );
+        $global = is_array( $widths['global'] ?? null ) ? $widths['global'] : self::defaultGlobal();
+
+        $page_types = is_array( $widths['page_types'] ?? null ) ? $widths['page_types'] : [];
+        foreach ( array_keys( $page_types ) as $pt_key ) {
+            if ( ! is_array( $page_types[ $pt_key ] ?? null ) ) {
+                unset( $page_types[ $pt_key ] );
+                continue;
+            }
+            $raw   = $page_types[ $pt_key ];
+            $ctx   = [ 'page_type' => (string) $pt_key, 'page_slug' => $pt_key === 'home' ? 'home' : (string) $pt_key ];
+            $below = $widths;
+            $below['page_types'] = $page_types;
+            unset( $below['page_types'][ $pt_key ] );
+            $parent = self::resolveVars( [ 'widths' => $below ], $ctx );
+            $parent_layer = [];
+            foreach ( self::inheritableWidthKeys() as $k ) {
+                $var = '--s2-width-' . str_replace( '_', '-', $k );
+                if ( isset( $parent[ $var ] ) ) {
+                    $parent_layer[ $k ] = $parent[ $var ];
+                }
+            }
+            $sections = is_array( $raw['sections'] ?? null ) ? $raw['sections'] : [];
+            unset( $raw['sections'] );
+            $pruned = self::pruneLayerAgainstParent( $raw, $parent_layer );
+            $pruned_sections = [];
+            $pt_parent_cfg   = [ 'widths' => array_merge( $widths, [ 'page_types' => array_merge( $page_types, [ $pt_key => $pruned ] ) ] ) ];
+            $pt_parent_vars  = self::resolveVars( $pt_parent_cfg, $ctx );
+            $pt_parent_layer = [];
+            foreach ( self::inheritableWidthKeys() as $k ) {
+                $var = '--s2-width-' . str_replace( '_', '-', $k );
+                if ( isset( $pt_parent_vars[ $var ] ) ) {
+                    $pt_parent_layer[ $k ] = $pt_parent_vars[ $var ];
+                }
+            }
+            foreach ( $sections as $sec => $layer ) {
+                if ( ! is_array( $layer ) ) {
+                    continue;
+                }
+                $p = self::pruneLayerAgainstParent( $layer, $pt_parent_layer );
+                if ( ! self::isEmptyWidthLayer( $p ) ) {
+                    $pruned_sections[ $sec ] = $p;
+                }
+            }
+            $entry = $pruned;
+            if ( $pruned_sections !== [] ) {
+                $entry['sections'] = $pruned_sections;
+            }
+            if ( self::isEmptyWidthLayer( $entry ) && ! isset( $entry['sections'] ) ) {
+                unset( $page_types[ $pt_key ] );
+            } else {
+                $page_types[ $pt_key ] = $entry;
+            }
+        }
+        $widths['page_types'] = $page_types;
+
+        $pages = is_array( $widths['pages'] ?? null ) ? $widths['pages'] : [];
+        foreach ( array_keys( $pages ) as $slug ) {
+            if ( ! is_array( $pages[ $slug ] ?? null ) ) {
+                unset( $pages[ $slug ] );
+                continue;
+            }
+            $ctx    = [ 'page_type' => 'page', 'page_slug' => (string) $slug ];
+            $below  = $widths;
+            $below['pages'] = [];
+            $parent = self::resolveVars( [ 'widths' => $below ], $ctx );
+            $parent_layer = [];
+            foreach ( self::inheritableWidthKeys() as $k ) {
+                $var = '--s2-width-' . str_replace( '_', '-', $k );
+                if ( isset( $parent[ $var ] ) ) {
+                    $parent_layer[ $k ] = $parent[ $var ];
+                }
+            }
+            $pruned = self::pruneLayerAgainstParent( $pages[ $slug ], $parent_layer );
+            if ( self::isEmptyWidthLayer( $pruned ) ) {
+                unset( $pages[ $slug ] );
+            } else {
+                $pages[ $slug ] = $pruned;
+            }
+        }
+        $widths['pages'] = $pages;
+
+        $sections = is_array( $widths['sections'] ?? null ) ? $widths['sections'] : [];
+        foreach ( array_keys( $sections ) as $sec ) {
+            if ( ! is_array( $sections[ $sec ] ?? null ) ) {
+                unset( $sections[ $sec ] );
+                continue;
+            }
+            $pruned = self::pruneLayerAgainstParent( $sections[ $sec ], $global );
+            if ( self::isEmptyWidthLayer( $pruned ) ) {
+                unset( $sections[ $sec ] );
+            } else {
+                $sections[ $sec ] = $pruned;
+            }
+        }
+        $widths['sections'] = $sections;
+
+        if ( is_array( $widths['service_page'] ?? null ) ) {
+            $sp = $widths['service_page'];
+            $ctx = [ 'page_type' => 'service', 'page_slug' => 'service' ];
+            $below = $widths;
+            $below['service_page'] = [ 'sections' => [] ];
+            $parent = self::resolveVars( [ 'widths' => $below ], $ctx );
+            $parent_layer = [];
+            foreach ( self::inheritableWidthKeys() as $k ) {
+                $var = '--s2-width-' . str_replace( '_', '-', $k );
+                if ( isset( $parent[ $var ] ) ) {
+                    $parent_layer[ $k ] = $parent[ $var ];
+                }
+            }
+            $sp_sections = is_array( $sp['sections'] ?? null ) ? $sp['sections'] : [];
+            unset( $sp['sections'] );
+            $sp = self::pruneLayerAgainstParent( $sp, $parent_layer );
+            $pruned_sp_sec = [];
+            foreach ( $sp_sections as $sec => $layer ) {
+                if ( ! is_array( $layer ) ) {
+                    continue;
+                }
+                $p = self::pruneLayerAgainstParent( $layer, $parent_layer );
+                if ( ! self::isEmptyWidthLayer( $p ) ) {
+                    $pruned_sp_sec[ $sec ] = $p;
+                }
+            }
+            if ( $pruned_sp_sec !== [] ) {
+                $sp['sections'] = $pruned_sp_sec;
+            }
+            if ( self::isEmptyWidthLayer( $sp ) && ! isset( $sp['sections'] ) ) {
+                unset( $widths['service_page'] );
+            } else {
+                $widths['service_page'] = $sp;
+            }
+        }
+
+        return $widths;
+    }
 }

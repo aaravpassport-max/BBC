@@ -124,4 +124,31 @@ assert_true(
     'home hero preserved when saving other width layers'
 );
 
+DesignSystem::save([
+    'widths' => [
+        'page_types' => [
+            'blog' => [
+                'page_max' => responsive('1280px'),
+            ],
+        ],
+    ],
+]);
+
+DesignSystem::save([
+    'widths' => [
+        'page_types' => [
+            'blog' => [
+                'page_max' => null,
+            ],
+        ],
+    ],
+]);
+
+$r4 = DesignSystem::resolve([]);
+$blogLayer = $r4['widths']['page_types']['blog'] ?? null;
+assert_true(
+    !is_array($blogLayer) || !isset($blogLayer['page_max']),
+    'null page_max clears page template override (inherit foundation)'
+);
+
 echo "All design-system save tests passed.\n";

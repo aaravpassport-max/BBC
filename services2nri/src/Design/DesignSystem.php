@@ -207,16 +207,17 @@ class DesignSystem {
 
     /** @param array<string, mixed> $patch */
     public static function save( array $patch ): void {
-        // Admin publishes the full config tree — merge defaults + stored + patch so nested width
-        // layers (e.g. page_types.home.sections.hero) are never dropped on partial client payloads.
-        $patch  = self::stripNullsDeep( $patch );
+        // Merge stored + patch; null leaves in patch delete overrides (clear inherit).
         $stored = self::loadStored();
-        $merged = self::deepMerge( self::defaults(), $stored, $patch );
+        $merged = self::deepMerge( self::defaults(), $stored );
+        $merged = self::deepMergeWithDeletes( $merged, $patch );
         if ( isset( $patch['widths'] ) && is_array( $patch['widths'] ) ) {
             $stored_widths = is_array( $stored['widths'] ?? null ) ? $stored['widths'] : [];
+            $base_widths   = self::deepMerge( WidthLayout::defaults(), $stored_widths );
             $merged['widths'] = self::normalizeWidthTree(
-                self::deepMerge( WidthLayout::defaults(), $stored_widths, $patch['widths'] )
+                self::deepMergeWithDeletes( $base_widths, $patch['widths'] )
             );
+            $merged['widths'] = WidthLayout::pruneInheritedWidthLayers( $merged['widths'] );
         }
         $merged = self::normalizeConfig( $merged );
         $desktopPage = $merged['widths']['global']['page_max']['desktop'] ?? null;
@@ -828,6 +829,22 @@ class DesignSystem {
             }
         }
         return $widths;
+    }
+
+    /** @param array<string, mixed> $base @param array<string, mixed> $patch */
+    private static function deepMergeWithDeletes( array $base, array $patch ): array {
+        foreach ( $patch as $k => $v ) {
+            if ( $v === null ) {
+                unset( $base[ $k ] );
+                continue;
+            }
+            if ( is_array( $v ) && isset( $base[ $k ] ) && is_array( $base[ $k ] ) && self::isAssoc( $v ) && self::isAssoc( $base[ $k ] ) ) {
+                $base[ $k ] = self::deepMergeWithDeletes( $base[ $k ], $v );
+            } else {
+                $base[ $k ] = $v;
+            }
+        }
+        return $base;
     }
 
     /** @param array<string, mixed> ...$layers */

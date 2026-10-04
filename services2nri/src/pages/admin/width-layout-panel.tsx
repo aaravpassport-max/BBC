@@ -29,6 +29,7 @@ import {
   type WidthTaskId,
   PAGE_TYPE_LABELS,
 } from './width-layout-shared'
+import { layerHasOverride, parentWidthLayerForScope } from '@/lib/width-inheritance'
 type PatchFn = (path: string[], value: unknown) => void
 
 export type { WidthLayoutFocus }
@@ -127,6 +128,7 @@ function WidthControl({
   value,
   inherited,
   global,
+  parentLayer,
   onChange,
   onReset,
   onSyncBreakpoints,
@@ -136,6 +138,7 @@ function WidthControl({
   value: unknown
   inherited: boolean
   global: Record<string, unknown>
+  parentLayer: Record<string, unknown>
   onChange: (v: Record<string, string> | string) => void
   onReset?: () => void
   onSyncBreakpoints: () => void
@@ -151,8 +154,8 @@ function WidthControl({
   }
 
   const effective = inherited
-    ? effectiveBp({}, global, fieldKey, bp)
-    : readBpPxLocal(value, bp) ?? effectiveBp({}, global, fieldKey, bp)
+    ? effectiveBp(parentLayer, global, fieldKey, bp)
+    : readBpPxLocal(value, bp) ?? effectiveBp(parentLayer, global, fieldKey, bp)
   const displayNum = effective ?? (meta.slider?.min ?? 960)
 
   function setAtBp(next: string) {
@@ -308,6 +311,16 @@ export function WidthLayoutPanel({
     return ['widths', 'sections', selectedSection]
   }, [scope, selectedType, selectedPage, selectedSection])
 
+  const parentLayer = useMemo(
+    () =>
+      parentWidthLayerForScope(config, scope, {
+        selectedType,
+        selectedPage,
+        selectedSection,
+      }),
+    [config, scope, selectedType, selectedPage, selectedSection],
+  )
+
   const overrideCount = countLayerOverrides(activeLayer)
 
   const visibleKeys = useMemo(() => {
@@ -340,30 +353,21 @@ export function WidthLayoutPanel({
       }
       return out
     }
-    const layer: Record<string, unknown> = {
-      ...(typeof activeLayer === 'object' && activeLayer !== null ? activeLayer : {}),
-      content_max: responsive(isFull ? '100%' : `${preset.content}px`),
-      section_wide: responsive(isFull ? '100%' : `${preset.wide}px`),
-    }
+    patch([...basePath, 'content_max'], responsive(isFull ? '100%' : `${preset.content}px`))
+    patch([...basePath, 'section_wide'], responsive(isFull ? '100%' : `${preset.wide}px`))
     if (isFull) {
-      layer.full_bleed = responsive('100%')
+      patch([...basePath, 'full_bleed'], responsive('100%'))
     }
-    patch(basePath, layer)
   }
 
   function applyDesktopPreset(preset: (typeof WIDTH_DESKTOP_PRESETS)[0]) {
-    const layer: Record<string, unknown> = {
-      ...(typeof activeLayer === 'object' && activeLayer !== null ? activeLayer : {}),
-    }
     for (const [key, num] of Object.entries(preset.values)) {
-      const cur = activeLayer[key]
-      const responsive = ensureResponsive(cur)
+      const responsive = ensureResponsive(activeLayer[key])
       for (const bp of BP) {
         responsive[bp] = `${num}px`
       }
-      layer[key] = responsive
+      patch([...basePath, key], responsive)
     }
-    patch(basePath, layer)
   }
 
   function homeHeroPresetMatches(preset: (typeof HOME_HERO_WIDTH_PRESETS)[number]): boolean {
@@ -622,12 +626,13 @@ export function WidthLayoutPanel({
                     fieldKey={key}
                     bp={activeBp}
                     value={activeLayer[key]}
-                    inherited={scope !== 'global' && activeLayer[key] == null}
+                    inherited={scope !== 'global' && !layerHasOverride(activeLayer, key)}
                     global={global}
+                    parentLayer={parentLayer}
                     onChange={(v) => patch([...basePath, key], v)}
                     onReset={
                       scope !== 'global'
-                        ? () => patch([...basePath, key], undefined)
+                        ? () => patch([...basePath, key], null)
                         : undefined
                     }
                     onSyncBreakpoints={() => syncAllBreakpoints(key)}

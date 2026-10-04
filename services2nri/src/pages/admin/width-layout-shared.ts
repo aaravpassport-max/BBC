@@ -261,7 +261,10 @@ export function effectiveBp(
 }
 
 export function countLayerOverrides(layer: Record<string, unknown>): number {
-  return GLOBAL_KEYS.filter((k) => layer[k] != null).length
+  return GLOBAL_KEYS.filter((k) => {
+    const v = layer[k]
+    return v != null && v !== 'inherit'
+  }).length
 }
 
 export function pageTypeOptions(): { value: string; label: string }[] {

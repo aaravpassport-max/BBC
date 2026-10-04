@@ -29,6 +29,9 @@ bad() { echo "FAIL $1"; fail=1; }
 grep -q "ensureSeeded" src/Design/DesignSystem.php && ok design ensureSeeded || bad design ensureSeeded
 grep -q '\$stored = self::loadStored' src/Design/DesignSystem.php && ok design save merges stored || bad design save merges stored
 grep -q 'renderPageTypeSectionCss' src/Design/WidthLayout.php && ok width page-type sections css || bad width page-type sections css
+grep -q 'pruneInheritedWidthLayers' src/Design/WidthLayout.php && ok width inheritance prune || bad width inheritance prune
+grep -q 'deepMergeWithDeletes' src/Design/DesignSystem.php && ok design merge deletes || bad design merge deletes
+grep -q 'pruneInheritedWidthLayers' src/lib/width-inheritance.ts && ok width inheritance client || bad width inheritance client
 
 php tests/unit/visibility-logic-test.php && ok visibility unit tests || bad visibility unit tests
 php tests/unit/design-system-save-test.php && ok design save unit tests || bad design save unit tests

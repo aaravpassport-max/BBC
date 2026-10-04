@@ -2,6 +2,8 @@
  * Admin design config normalization — keeps width layer maps as plain objects
  * so patch/save round-trips match PHP associative arrays (not JSON []).
  */
+import { pruneInheritedWidthLayers } from '@/lib/width-inheritance'
+
 type JsonRecord = Record<string, unknown>
 
 function isPlainObject(v: unknown): v is JsonRecord {
@@ -43,6 +45,15 @@ export function normalizeAdminDesignConfig(config: JsonRecord): JsonRecord {
   }
 
   next.widths = widths
+  return next
+}
+
+/** Normalize + sparse width overrides before publish. */
+export function prepareDesignConfigForSave(config: JsonRecord): JsonRecord {
+  const next = normalizeAdminDesignConfig(config)
+  if (isPlainObject(next.widths)) {
+    next.widths = pruneInheritedWidthLayers(next.widths)
+  }
   return next
 }
 
