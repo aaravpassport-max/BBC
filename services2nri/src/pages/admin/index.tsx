@@ -1855,6 +1855,13 @@ function AddSectionPanel({onAdd,primary}:{onAdd:(type:string)=>void;primary:stri
     </div>
   </div>:<button type="button" onClick={()=>setOpen(true)} style={{width:'100%',padding:'11px',border:`2px dashed ${primary}`,borderRadius:10,cursor:'pointer',fontSize:14,fontWeight:700,color:primary,background:`${primary}06`,marginTop:8}}>+ Add Section</button>
 }
+function externalServiceBuilderUrl(serviceId: string | number, tab?: string): string {
+  const base = (window.S2NRI_CONFIG?.builderUrl || '/s2nri-builder').replace(/\/$/, '')
+  const q = new URLSearchParams({ page: 'service-builder', service: String(serviceId) })
+  if (tab) q.set('tab', tab)
+  return `${base}?${q.toString()}`
+}
+
 // ── AdminServicePageBuilder (at) ──────────────────────────────────────────────
 export function AdminServicePageBuilder() {
   const {id}=useParams<{id:string}>(), nav=useNavigate()
@@ -1924,6 +1931,20 @@ export function AdminServicePageBuilder() {
               <Btn variant="ghost" onClick={dedup} style={{justifyContent:'center'}}>🔁 Remove Duplicates</Btn>
               <Btn variant="danger" onClick={()=>seedDefaults(true)} style={{justifyContent:'center'}}>💥 Nuke & Reseed</Btn>
             </div>
+          </Card>
+          <Card style={{marginBottom:16}}>
+            <h3 style={{fontSize:14,fontWeight:700,color:'#374151',margin:'0 0 10px'}}>🖼️ Hero &amp; marquee</h3>
+            <p style={{margin:'0 0 12px',fontSize:12,color:'#6b7280',lineHeight:1.5}}>
+              Visual hero (image, CTAs, width) and marquee text live in the external Service Page Builder — not in this sections list.
+            </p>
+            <a
+              href={externalServiceBuilderUrl(String(id), 'hero')}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{display:'block',textAlign:'center',background:primary,color:'#fff',padding:'9px 14px',borderRadius:8,fontWeight:700,fontSize:13,textDecoration:'none'}}
+            >
+              Open Hero Settings →
+            </a>
           </Card>
           <Card>
             <h3 style={{fontSize:12,fontWeight:800,color:'#374151',margin:'0 0 10px'}}>💡 Tips</h3>

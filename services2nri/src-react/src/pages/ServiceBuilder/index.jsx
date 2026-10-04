@@ -52,10 +52,21 @@ const SECTION_TYPES = [
   { value: 'related',      label: 'Related Services',    icon: '🔗',  desc: 'Links to related services' },
 ]
 
+const BUILDER_TABS = ['sections', 'hero', 'marquee', 'nav']
+
 /* ── Main Service Builder Page ──────────────────────────────────────── */
 export default function ServiceBuilderPage() {
-  const [selectedServiceId, setSelectedServiceId] = useState(null)
-  const [activeTab, setActiveTab] = useState('sections')
+  const urlServiceId = (() => {
+    const v = new URLSearchParams(window.location.search).get('service')
+    return v ? parseInt(v, 10) : null
+  })()
+  const urlTab = (() => {
+    const t = new URLSearchParams(window.location.search).get('tab')
+    return t && BUILDER_TABS.includes(t) ? t : 'sections'
+  })()
+
+  const [selectedServiceId, setSelectedServiceId] = useState(urlServiceId)
+  const [activeTab, setActiveTab] = useState(urlTab)
   const { data: svcsData, loading: svcsLoading } = useApi('admin/services', { per_page: 200 })
   const services = svcsData?.services || []
 
@@ -538,6 +549,8 @@ function ListEditor({ label, items, onChange, template, fields }) {
   )
 }
 
+const HERO_WIDTH_PRESETS = ['1200px', '1100px', '960px', '860px', '720px']
+
 /* ── Hero Editor ────────────────────────────────────────────────────── */
 function HeroEditor({ serviceId }) {
   const { toasts, toast } = useToast()
@@ -562,10 +575,41 @@ function HeroEditor({ serviceId }) {
   async function save() {
     setSaving(true)
     try {
-      await api.put(`admin/services/${serviceId}`, { hero_settings: settings })
+      const hero = { ...settings }
+      const w = String(hero.container_max || hero.content_max || '').trim()
+      if (w) {
+        hero.container_max = w
+        delete hero.content_max
+      } else {
+        delete hero.container_max
+        delete hero.content_max
+      }
+      await api.put(`admin/services/${serviceId}`, { hero_settings: hero })
+      setSettings(hero)
       toast.success('Hero settings saved')
     } catch (err) { toast.error(err.message) }
     finally { setSaving(false) }
+  }
+
+  const heroMaxWidth = String(settings.container_max || settings.content_max || '').trim()
+  const widthSelectValue = !heroMaxWidth
+    ? ''
+    : HERO_WIDTH_PRESETS.includes(heroMaxWidth)
+      ? heroMaxWidth
+      : '__custom__'
+
+  function setHeroMaxWidth(next) {
+    setSettings(s => {
+      const copy = { ...s }
+      if (!next) {
+        delete copy.container_max
+        delete copy.content_max
+      } else {
+        copy.container_max = next
+        delete copy.content_max
+      }
+      return copy
+    })
   }
 
   if (loading) return <Spinner />
@@ -584,6 +628,41 @@ function HeroEditor({ serviceId }) {
           </Alert>
 
           <Toggle checked={settings.enabled !== false} onChange={v => set('enabled', v)} label="Enable custom hero for this service" />
+          <div style={{ height: 16 }} />
+
+          <FormGroup
+            label="Hero content max width"
+            hint="Overrides Design System → Width & Layout → service section → hero for this service only. Leave as inherit to use global/section defaults."
+          >
+            <select
+              className="form-select"
+              value={widthSelectValue}
+              onChange={e => {
+                const v = e.target.value
+                if (v === '__custom__') {
+                  if (!heroMaxWidth) setHeroMaxWidth('960px')
+                } else {
+                  setHeroMaxWidth(v)
+                }
+              }}
+            >
+              <option value="">Inherit from Width & Layout</option>
+              {HERO_WIDTH_PRESETS.map(px => (
+                <option key={px} value={px}>{px} — {px === '1200px' ? 'page max' : px === '1100px' ? 'section standard' : px === '960px' ? 'content' : px === '860px' ? 'inner' : 'narrow prose'}</option>
+              ))}
+              <option value="__custom__">Custom…</option>
+            </select>
+            {widthSelectValue === '__custom__' && (
+              <input
+                className="form-input"
+                style={{ marginTop: 8 }}
+                value={heroMaxWidth}
+                onChange={e => setHeroMaxWidth(e.target.value.trim())}
+                placeholder="e.g. 1040px or min(100%, 900px)"
+              />
+            )}
+          </FormGroup>
+
           <div style={{ height: 16 }} />
 
           <ImageUpload label="Hero Background Image" value={settings.image_url || ''} onChange={v => set('image_url', v)} hint="Recommended: 1400×500px JPG or WebP" />

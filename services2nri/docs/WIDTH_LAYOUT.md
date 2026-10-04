@@ -63,6 +63,8 @@ Per-service JSON **`hero_settings`**:
 
 Also configurable globally under **Width & Layout → service section → hero**.
 
+**Admin UI:** **S2NRI Builder → Service Page Builder → Hero Settings** (or **Admin → Services → Page Builder → Open Hero Settings**). Choose **Hero content max width** (inherit, preset tokens, or custom CSS length). Deep link: `/s2nri-builder?page=service-builder&service={id}&tab=hero`.
+
 ## Page type detection
 
 Path → type mapping lives in `DesignSystem::pageContextFromPath()` and `width-layout.ts` (keep in sync).
