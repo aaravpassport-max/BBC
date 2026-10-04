@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleMockApi } from './mock-api.mjs';
-import { buildProductionShell } from './production-shell.mjs';
+import { buildProductionShell, buildImportMapJson } from './production-shell.mjs';
 import { placeholderImageSvg } from './placeholder-image.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -22,6 +22,15 @@ const mime = {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || '/', `http://127.0.0.1:${port}`);
+  if (url.pathname === '/' && url.searchParams.has('s2nri_import_map')) {
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
+    });
+    res.end(buildImportMapJson(root));
+    return;
+  }
+
   if (url.pathname === '/' && url.searchParams.has('s2nri_img')) {
     const key = url.searchParams.get('s2nri_img') || 'img';
     res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=3600' });

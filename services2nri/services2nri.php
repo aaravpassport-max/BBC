@@ -3,7 +3,7 @@
  * Plugin Name:       Services2NRI
  * Plugin URI:        https://services2nri.org.in
  * Description:       Complete NRI Service Marketplace — bookings, quotes, payments, CRM, documents.
- * Version:           4.7.20
+ * Version:           4.7.21
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            Services2NRI
@@ -28,7 +28,7 @@ if ( version_compare( PHP_VERSION, '8.0.0', '<' ) ) {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 define( 'S2NRI_CUSTOMER_ROLE', 's2nri_customer' );
-define( 'S2NRI_VERSION',    '4.7.20' );
+define( 'S2NRI_VERSION',    '4.7.21' );
 define( 'S2NRI_FILE',       __FILE__ );
 define( 'S2NRI_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'S2NRI_URL',        plugin_dir_url( __FILE__ ) );
@@ -40,7 +40,10 @@ $request_uri  = $_SERVER['REQUEST_URI'] ?? '';
 $request_path = strtok( $request_uri, '?' );
 
 // s2nri_icon and s2nri_img must be excluded from SPA so the endpoints fire
-$has_s2nri_param = isset( $_GET['s2nri_icon'] ) || isset( $_GET['s2nri_img'] );
+$has_s2nri_param = isset( $_GET['s2nri_icon'] )
+    || isset( $_GET['s2nri_img'] )
+    || isset( $_GET['s2nri_import_map'] )
+    || isset( $_GET['s2nri_boot_diag'] );
 
 $is_wp_path = (
     strpos( $request_path, '/wp-admin' )    === 0 ||
@@ -163,6 +166,7 @@ $s2nri_classmap = [
     'S2NRI\Api\Request' => S2NRI_DIR . 'src/' . 'Api/RequestResponse.php',
     'S2NRI\Api\Response' => S2NRI_DIR . 'src/' . 'Api/RequestResponse.php',
     'S2NRI\AssetBuildStamp' => S2NRI_DIR . 'src/AssetBuildStamp.php',
+    'S2NRI\BootPublic'      => S2NRI_DIR . 'src/BootPublic.php',
     'S2NRI\Bootstrap' => S2NRI_DIR . 'src/' . 'Bootstrap.php',
     'S2NRI\Exceptions\AuthException' => S2NRI_DIR . 'src/' . 'Exceptions/Exceptions.php',
     'S2NRI\Exceptions\ForbiddenException' => S2NRI_DIR . 'src/' . 'Exceptions/Exceptions.php',
@@ -205,6 +209,9 @@ spl_autoload_register( static function ( string $class ) use ( $s2nri_classmap )
 // ('s2nri-admin'), writes .htaccess rewrite rules for those slugs, and renders
 // the pre-built React dist/ as a standalone HTML page (no WP theme).
 // If the request is not to those paths, boot() returns early with no side effects.
+require_once S2NRI_DIR . 'src/BootPublic.php';
+\S2NRI\BootPublic::boot();
+
 require_once S2NRI_DIR . 'src/Portal.php';
 \S2NRI\Portal::boot(); // Intercept /portal/* and /s2nri-admin/*, write .htaccess
 
@@ -256,7 +263,21 @@ add_action( 'init', function () {
 // ─── SPA rendering ────────────────────────────────────────────────────────────
 if ( S2NRI_IS_SPA ) {
     add_action( 'template_redirect', function () {
-        ( new \S2NRI\SEO() )->render();
+        try {
+            ( new \S2NRI\SEO() )->render();
+        } catch ( \Throwable $e ) {
+            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( '[S2NRI] SEO render failed: ' . $e->getMessage() );
+            }
+            status_header( 500 );
+            header( 'Content-Type: text/html; charset=utf-8' );
+            echo '<!DOCTYPE html><html><body style="font-family:system-ui;padding:40px;max-width:640px;margin:auto">';
+            echo '<h1>Services2NRI boot error (v' . esc_html( S2NRI_VERSION ) . ')</h1>';
+            echo '<p>The public app could not render. Fix the PHP error below or reinstall the plugin zip.</p>';
+            echo '<pre style="background:#f1f5f9;padding:16px;border-radius:8px;overflow:auto">' . esc_html( $e->getMessage() ) . '</pre>';
+            echo '<p><a href="' . esc_url( home_url( '/?s2nri_boot_diag=1' ) ) . '">Boot diagnostic JSON</a></p>';
+            echo '</body></html>';
+        }
         exit;
     }, 0 );
 }

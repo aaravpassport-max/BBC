@@ -5,6 +5,13 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.21] — 2026-10-04 — Cloud Agent
+
+- **Infinite loader (deep fix):** external `boot-config.js` + `boot-watchdog.js` (strict CSP / hosts that block inline scripts); import map via `/?s2nri_import_map=1`; public `/?s2nri_boot_diag=1` JSON; SEO render try/catch shows PHP fatal instead of blank/spin.
+- **BUILD_STAMP** now includes boot helper JS files.
+
+---
+
 ## [4.7.20] — 2026-10-04 — Cloud Agent
 
 - **Infinite loader root fix:** stop using `esc_html()` on `S2NRI_CONFIG` JSON (was corrupting quotes → `JSON.parse` failure). Safe parse with `bootError` fallback; block boot server-side on `BUILD_STAMP` mismatch; richer watchdog (config missing, `app.js` load error).

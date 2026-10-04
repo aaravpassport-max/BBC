@@ -15,7 +15,7 @@ const chunksDir = join(assets, 'chunks')
 
 /** @returns {string[]} relative paths under assets/ */
 function collectAssetPaths() {
-  const paths = ['app.js', 'app.css']
+  const paths = ['app.js', 'app.css', 'boot-config.js', 'boot-watchdog.js', 'boot-sw-cleanup.js']
   if (existsSync(chunksDir)) {
     for (const name of readdirSync(chunksDir).filter((f) => f.endsWith('.js')).sort()) {
       paths.push(`chunks/${name}`)

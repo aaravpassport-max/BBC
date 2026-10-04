@@ -12,7 +12,13 @@ final class AssetBuildStamp {
 
     /** @return list<string> Relative paths under plugin root included in the stamp. */
     public static function assetPaths(): array {
-        $paths = [ 'assets/app.js', 'assets/app.css' ];
+        $paths = [
+            'assets/app.js',
+            'assets/app.css',
+            'assets/boot-config.js',
+            'assets/boot-watchdog.js',
+            'assets/boot-sw-cleanup.js',
+        ];
         $chunk_dir = S2NRI_DIR . 'assets/chunks/';
         if ( is_dir( $chunk_dir ) ) {
             $names = glob( $chunk_dir . '*.js' ) ?: [];
@@ -64,6 +70,26 @@ final class AssetBuildStamp {
             return $computed;
         }
         return S2NRI_VERSION;
+    }
+
+    /** @return array<string, string> Import map paths → absolute chunk URLs with ?v= stamp. */
+    public static function importMapEntries(): array {
+        $stamp      = self::publicVersion();
+        $chunks_url = S2NRI_ASSETS_URL . 'chunks/';
+        $entries    = [];
+        $chunk_dir  = S2NRI_DIR . 'assets/chunks/';
+        if ( ! is_dir( $chunk_dir ) ) {
+            return $entries;
+        }
+        $names = glob( $chunk_dir . '*.js' ) ?: [];
+        sort( $names, SORT_STRING );
+        foreach ( $names as $abs ) {
+            $cname   = basename( $abs );
+            $abs_url = $chunks_url . $cname . '?v=' . $stamp;
+            $entries[ './chunks/' . $cname ] = $abs_url;
+            $entries[ 'chunks/' . $cname ]   = $abs_url;
+        }
+        return $entries;
     }
 
     /** True when on-disk files no longer match BUILD_STAMP.txt (mixed deploy). */

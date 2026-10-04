@@ -54,32 +54,17 @@ class SEO {
         $js_ver  = $asset_ver;
         $css_ver = $asset_ver;
 
-        // Build chunk modulepreload tags dynamically
+        $import_map_entries = class_exists( '\S2NRI\AssetBuildStamp' )
+            ? \S2NRI\AssetBuildStamp::importMapEntries()
+            : [];
         $chunk_preloads = '';
-        $import_map_entries = [];
-        $chunk_dir = S2NRI_DIR . 'assets/chunks/';
-        if ( is_dir( $chunk_dir ) ) {
-            foreach ( glob( $chunk_dir . '*.js' ) as $chunk_file ) {
-                $cname = basename( $chunk_file );
-                $chunk_ver = $asset_ver;
-                $abs_url = $chunks_url . $cname . '?v=' . $chunk_ver;
-                $chunk_preloads .= '  <link rel="modulepreload" href="' . esc_url( $abs_url ) . '">' . "\n";
-                // IMPORTANT: these two entries previously had NO ?v= query string,
-                // unlike $abs_url above. The <script type="importmap"> built from
-                // this array (see below) is what the browser's module resolver
-                // ACTUALLY uses to fetch chunk files at runtime — modulepreload is
-                // only a prefetch hint, not the real resolution path. Because the
-                // import map URL never changed between deploys, browsers and any
-                // CDN in front of this site (Cloudflare — see the no-cache headers
-                // set below, added specifically because of past Cloudflare caching
-                // issues) had no signal to ever re-fetch an updated chunk. A chunk
-                // file could be replaced on the server and visitors would keep
-                // getting the old cached one indefinitely. Adding the same ?v=
-                // here closes that gap.
-                $import_map_entries[ './chunks/' . $cname ] = esc_url( $abs_url );
-                $import_map_entries[ 'chunks/' . $cname ]   = esc_url( $abs_url );
+        foreach ( $import_map_entries as $specifier => $abs_url ) {
+            if ( strpos( $specifier, './chunks/' ) !== 0 ) {
+                continue;
             }
+            $chunk_preloads .= '  <link rel="modulepreload" href="' . esc_url( $abs_url ) . '">' . "\n";
         }
+        $import_map_url = home_url( '/?s2nri_import_map=1&v=' . rawurlencode( $asset_ver ) );
 
         $site_name   = $meta['site_name'];
         $title       = esc_attr( $meta['title'] );
@@ -256,10 +241,8 @@ class SEO {
         }
 
         echo $chunk_preloads;
-        if ( ! empty( $import_map_entries ) ) {
-            echo '  <script type="importmap">' . "\n";
-            echo '  ' . wp_json_encode( [ 'imports' => $import_map_entries ], JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT ) . "\n";
-            echo '  </script>' . "\n";
+        if ( $import_map_entries !== [] ) {
+            echo '  <script type="importmap" src="' . esc_url( $import_map_url ) . '"></script>' . "\n";
         }
         echo '</head>' . "\n";
         echo '<body>' . "\n";
@@ -525,44 +508,26 @@ HEROFIXJS;
         $stamp_attr = class_exists( '\S2NRI\AssetBuildStamp' ) ? \S2NRI\AssetBuildStamp::publicVersion() : $asset_ver;
         echo '  <div id="s2nri-root" class="s2-ds" translate="no" spellcheck="false"'
             . ' data-s2nri-version="' . esc_attr( S2NRI_VERSION ) . '"'
-            . ' data-s2nri-build="' . esc_attr( $stamp_attr ) . '">' . "\n";
+            . ' data-s2nri-build="' . esc_attr( $stamp_attr ) . '"'
+            . ' data-s2nri-assets="' . esc_attr( S2NRI_ASSETS_URL ) . '">' . "\n";
         echo '    <div class="s2nri-splash" aria-label="Loading ' . esc_attr( $site_name ) . '">' . "\n";
         echo '      <div class="s2nri-splash__logo">' . esc_html( $site_name ) . '</div>' . "\n";
         echo '      <div class="s2nri-splash__spinner" role="status"></div>' . "\n";
         echo '    </div>' . "\n";
         echo '  </div>' . "\n";
         $this->echoJsonBootstrap( 'S2NRI_CONFIG', 's2nri-config-json', $config_json );
-        echo '  <script>window.S2NRI_BOOT={pluginVersion:' . wp_json_encode( S2NRI_VERSION ) . ',assetsUrl:' . wp_json_encode( S2NRI_ASSETS_URL ) . '};</script>' . "\n";
-        $this->echoBootWatchdogScript();
+        echo '  <script src="' . esc_url( S2NRI_ASSETS_URL . 'boot-config.js?v=' . $asset_ver ) . '"></script>' . "\n";
+        echo '  <script src="' . esc_url( S2NRI_ASSETS_URL . 'boot-watchdog.js?v=' . $asset_ver ) . '"></script>' . "\n";
 
         $diag_url = S2NRI_ASSETS_URL . 'diagnostic-collector.js';
-        $diag_ver = $asset_ver;
-        echo '  <script src="' . esc_url( $diag_url ) . '?v=' . $diag_ver . '"></script>' . "\n";
+        echo '  <script src="' . esc_url( $diag_url ) . '?v=' . $asset_ver . '"></script>' . "\n";
 
         $browser_probe = get_option( 's2nri_browser_probe_script', '' );
         if ( $browser_probe ) {
             echo '  <script>' . "\n" . $browser_probe . "\n" . '  </script>' . "\n";
         }
         echo '  <script type="module" src="' . esc_url( $js_url ) . '?v=' . $js_ver . '"></script>' . "\n";
-        echo '  <script>' . "\n";
-        echo '    // Kills any stale service worker automatically, on every visit, for' . "\n";
-        echo '    // every visitor — no manual FTP check or DevTools step required. This' . "\n";
-        echo '    // site previously registered a service worker at /sw.js; on hosts where' . "\n";
-        echo '    // that file failed to write correctly, an old cache-first worker could' . "\n";
-        echo '    // stay active in a visitor\'s browser indefinitely, serving stale JS/CSS' . "\n";
-        echo '    // no matter what changes on the server. Registration is intentionally' . "\n";
-        echo '    // NOT re-enabled below — this only tears down what may already be there.' . "\n";
-        echo '    if ("serviceWorker" in navigator) {' . "\n";
-        echo '      navigator.serviceWorker.getRegistrations().then(function(regs){' . "\n";
-        echo '        regs.forEach(function(r){ r.unregister(); });' . "\n";
-        echo '      }).catch(function(){});' . "\n";
-        echo '    }' . "\n";
-        echo '    if (window.caches && caches.keys) {' . "\n";
-        echo '      caches.keys().then(function(keys){' . "\n";
-        echo '        keys.forEach(function(k){ caches.delete(k); });' . "\n";
-        echo '      }).catch(function(){});' . "\n";
-        echo '    }' . "\n";
-        echo '  </script>' . "\n";
+        echo '  <script src="' . esc_url( S2NRI_ASSETS_URL . 'boot-sw-cleanup.js?v=' . $asset_ver ) . '"></script>' . "\n";
         echo '</body>' . "\n";
         echo '</html>' . "\n";
     }
@@ -573,6 +538,8 @@ HEROFIXJS;
             'assets/BUILD_STAMP.txt',
             'assets/app.js',
             'assets/app.css',
+            'assets/boot-config.js',
+            'assets/boot-watchdog.js',
             'assets/chunks/booking.js',
             'assets/chunks/router.js',
             'assets/chunks/react.js',
@@ -604,37 +571,6 @@ HEROFIXJS;
         // Do NOT esc_html() JSON — it turns quotes into &quot; and JSON.parse fails (infinite loader).
         $safe_json = str_ireplace( '</script', '<\\/script', $json );
         echo '  <script type="application/json" id="' . esc_attr( $element_id ) . '">' . $safe_json . '</script>' . "\n";
-        echo '  <script>(function(){var el=document.getElementById(' . wp_json_encode( $element_id ) . ');try{window[' . wp_json_encode( $global ) . ']=JSON.parse(el&&el.textContent||"null");}catch(e){window[' . wp_json_encode( $global ) . ']={bootError:"Config JSON parse: "+String(e)};}})();</script>' . "\n";
-    }
-
-    private function echoBootWatchdogScript(): void {
-        echo '  <script>' . "\n";
-        echo '    (function(){' . "\n";
-        echo '      function showFail(msg){' . "\n";
-        echo '        var root=document.getElementById("s2nri-root");' . "\n";
-        echo '        if(!root||!root.querySelector(".s2nri-splash"))return;' . "\n";
-        echo '        var err=(window.S2NRI_CONFIG&&window.S2NRI_CONFIG.bootError)||"";' . "\n";
-        echo '        root.innerHTML=\'<div style="padding:48px 24px;text-align:center;font-family:system-ui,sans-serif;max-width:560px;margin:0 auto">\'+' . "\n";
-        echo '          \'<p style="font-weight:700;color:#1e293b">App did not start</p>\'+' . "\n";
-        echo '          \'<p style="color:#64748b;font-size:14px">\'+(msg||"JavaScript failed to load. Open DevTools → Console, or reinstall plugin v4.7.20+.")+\'</p>\'+' . "\n";
-        echo '          (err?\'<pre style="text-align:left;font-size:11px;background:#f1f5f9;padding:12px;border-radius:8px;overflow:auto">\'+String(err).replace(/</g,"&lt;")+"</pre>\':"")+' . "\n";
-        echo '          \'<p style="font-size:12px;color:#94a3b8">Plugin \'+(window.S2NRI_BOOT&&window.S2NRI_BOOT.pluginVersion||"?")+\'</p>\'+' . "\n";
-        echo '          \'<button type="button" onclick="location.reload()" style="padding:10px 20px;border-radius:8px;border:none;background:#4A6FA5;color:#fff;font-weight:600;cursor:pointer">Reload</button></div>\';' . "\n";
-        echo '      }' . "\n";
-        echo '      if(!window.S2NRI_CONFIG){showFail("S2NRI_CONFIG missing — boot JSON did not load.");}' . "\n";
-        echo '      else if(window.S2NRI_CONFIG.bootError){showFail(window.S2NRI_CONFIG.bootError);}' . "\n";
-        echo '      var t=setTimeout(function(){showFail("Loading timed out after 8 seconds.");},8000);' . "\n";
-        echo '      window.addEventListener("s2nri-app-mounted",function(){clearTimeout(t);},{once:true});' . "\n";
-        echo '      var mod=document.querySelector("script[type=module][src*=\\"app.js\\"]");' . "\n";
-        echo '      if(mod){mod.addEventListener("error",function(){showFail("app.js failed to load (404, CDN block, or mixed assets). Check Network tab for app.js and chunks/booking.js with the same ?v= build stamp.");});}' . "\n";
-        echo '      window.addEventListener("error",function(e){' . "\n";
-        echo '        var m=e.message||"";' . "\n";
-        echo '        if(m.indexOf("does not provide an export named")!==-1){showFail("Mixed JS files from different plugin builds. Delete wp-content/plugins/services2nri/ and upload one fresh services2nri-full-source.zip, then purge CDN cache.");return;}' . "\n";
-        echo '        if(e.filename&&(e.filename.indexOf("app.js")!==-1||e.filename.indexOf("booking.js")!==-1))showFail(m||"app.js error");' . "\n";
-        echo '      },true);' . "\n";
-        echo '      window.addEventListener("unhandledrejection",function(e){showFail(String(e.reason||"Module load failed"));});' . "\n";
-        echo '    })();' . "\n";
-        echo '  </script>' . "\n";
     }
 
     // ── Meta builder ──────────────────────────────────────────────────────────
