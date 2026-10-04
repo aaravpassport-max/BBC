@@ -172,71 +172,68 @@ export function ContactPage() {
   return (
     <Layout>
       <PageHero title="Contact Us" subtitle="We're here to help. Reach us via WhatsApp, email, or the form below." primary={primary} />
-      <section style={{ padding: '64px 20px', background: '#fff' }}>
-        <div className="s2-mobile-stack" style={{ maxWidth: 1100, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48 }}>
-          {/* Contact info */}
+      <PublicSection>
+        <div className="s2-public-contact-grid s2-mobile-stack">
           <div>
-            <h2 style={{ fontSize: 26, fontWeight: 800, color: '#1E2D40', margin: '0 0 20px' }}>Get in Touch</h2>
+            <PublicSectionHead title="Get in Touch" />
             {contacts.map(({ icon, t, v, label }) => (
-              <div key={t} style={{ display: 'flex', gap: 14, marginBottom: 20, alignItems: 'flex-start' }}>
-                <div style={{ width: 44, height: 44, background: `${primary}15`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{icon}</div>
+              <div key={t} className="s2-public-contact-row">
+                <div className="s2-public-contact-icon">{icon}</div>
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#888', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 3 }}>{t}</div>
-                  {v ? <a href={v} target="_blank" rel="noopener noreferrer" style={{ fontSize: 15, color: primary, fontWeight: 600, textDecoration: 'none' }}>{label}</a>
-                     : <span style={{ fontSize: 15, color: '#333' }}>{label}</span>}
+                  <div className="s2-t-eyebrow" style={{ marginBottom: 3 }}>{t}</div>
+                  {v ? <a href={v} target="_blank" rel="noopener noreferrer" className="s2-text-primary" style={{ fontWeight: 600, textDecoration: 'none' }}>{label}</a>
+                     : <span className="s2-t-body">{label}</span>}
                 </div>
               </div>
             ))}
-            <div style={{ marginTop: 28, background: '#F5F7FA', borderRadius: 12, padding: 20, border: '1px solid #EBF0F8' }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 8px', color: '#1E2D40' }}>Business Hours</h3>
+            <PublicCard style={{ marginTop: 28 }}>
+              <h3 className="s2-t-h3" style={{ margin: '0 0 8px', fontSize: 15 }}>Business Hours</h3>
               {[['Mon – Fri', '9:00 AM – 8:00 PM IST'], ['Saturday', '10:00 AM – 6:00 PM IST'], ['Sunday', 'Emergency Support Only']].map(([day, hrs]) => (
-                <div key={day} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#555', padding: '5px 0', borderBottom: '1px solid #f0f0f0' }}>
+                <div key={day} className="s2-t-body" style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--s2-color-divider)' }}>
                   <span style={{ fontWeight: 500 }}>{day}</span>
                   <span>{hrs}</span>
                 </div>
               ))}
-            </div>
+            </PublicCard>
           </div>
 
-          {/* Form */}
           <div>
             {success ? (
               <div style={{ textAlign: 'center', padding: '40px 20px' }}>
                 <div style={{ fontSize: 52, marginBottom: 14 }}>✅</div>
-                <h3 style={{ color: '#2e7d32', fontSize: 20, fontWeight: 700, margin: '0 0 8px' }}>Message Sent!</h3>
-                <p style={{ color: '#555', fontSize: 14 }}>We'll get back to you within 24 hours. You can also WhatsApp us for faster response.</p>
-                {whatsapp && <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', marginTop: 16, background: '#25d366', color: '#fff', padding: '10px 24px', borderRadius: 8, fontWeight: 700, textDecoration: 'none' }}>💬 WhatsApp Us</a>}
+                <h3 className="s2-text-success" style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px' }}>Message Sent!</h3>
+                <p className="s2-t-body">We'll get back to you within 24 hours. You can also WhatsApp us for faster response.</p>
+                {whatsapp && <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="s2-btn s2-btn--whatsapp" style={{ display: 'inline-block', marginTop: 16 }}>💬 WhatsApp Us</a>}
               </div>
             ) : failed ? (
               <div style={{ textAlign: 'center', padding: '40px 20px' }}>
                 <div style={{ fontSize: 52, marginBottom: 14 }}>⚠️</div>
-                <h3 style={{ color: '#b91c1c', fontSize: 20, fontWeight: 700, margin: '0 0 8px' }}>Couldn't send your message</h3>
-                <p style={{ color: '#555', fontSize: 14, marginBottom: 4 }}>Something went wrong on our end. Please try again, or reach us directly on WhatsApp for a faster response.</p>
-                {whatsapp && <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', marginTop: 16, background: '#25d366', color: '#fff', padding: '10px 24px', borderRadius: 8, fontWeight: 700, textDecoration: 'none' }}>💬 WhatsApp Us</a>}
+                <h3 style={{ color: 'var(--s2-color-error)', fontSize: 20, fontWeight: 700, margin: '0 0 8px' }}>Couldn't send your message</h3>
+                <p className="s2-t-body" style={{ marginBottom: 4 }}>Something went wrong on our end. Please try again, or reach us directly on WhatsApp for a faster response.</p>
+                {whatsapp && <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="s2-btn s2-btn--whatsapp" style={{ display: 'inline-block', marginTop: 16 }}>💬 WhatsApp Us</a>}
                 <div style={{ marginTop: 16 }}>
-                  <button onClick={() => setFailed(false)} style={{ background: 'none', border: 'none', color: primary, fontWeight: 700, cursor: 'pointer', fontSize: 14, textDecoration: 'underline' }}>← Try again</button>
+                  <button type="button" onClick={() => setFailed(false)} className="s2-btn s2-btn--ghost s2-btn--sm">← Try again</button>
                 </div>
               </div>
             ) : (
-              <div style={{ background: '#F5F7FA', borderRadius: 14, padding: 28, border: '1px solid #EBF0F8' }}>
-                <h3 style={{ fontSize: 18, fontWeight: 700, color: '#1E2D40', margin: '0 0 20px' }}>Send Us a Message</h3>
-                <div className="s2-about-grid" style={{ gridTemplateColumns: '1fr 1fr', display: 'grid', gap: 12, marginBottom: 12 }}>
+              <div className="s2-public-contact-form">
+                <h3 className="s2-t-h3" style={{ margin: '0 0 20px' }}>Send Us a Message</h3>
+                <div className="s2-public-form-grid">
                   {[['name', 'Full Name', 'text'], ['email', 'Email Address', 'email'], ['phone', 'Phone / WhatsApp', 'tel'], ['subject', 'Subject', 'text']].map(([field, ph, type]) => (
                     <input key={field} type={type} placeholder={ph} value={form[field as keyof typeof form]} onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
-                      style={{ padding: '11px 14px', border: '1px solid #e0e0e0', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', background: '#fff', width: '100%', boxSizing: 'border-box' as const }} />
+                      className="s2-input" />
                   ))}
                 </div>
                 <textarea rows={5} placeholder="Your message — describe what you need..." value={form.message} onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
-                  style={{ width: '100%', padding: '11px 14px', border: '1px solid #e0e0e0', borderRadius: 8, fontSize: 14, fontFamily: 'inherit', outline: 'none', background: '#fff', resize: 'vertical', boxSizing: 'border-box' as const, marginBottom: 14 }} />
-                <button onClick={handleSubmit} disabled={loading}
-                  style={{ width: '100%', background: primary, color: '#fff', border: 'none', padding: 13, borderRadius: 9, fontWeight: 700, fontSize: 15, cursor: loading ? 'wait' : 'pointer', opacity: loading ? 0.7 : 1 }}>
+                  className="s2-textarea s2-wizard-textarea" />
+                <button type="button" onClick={handleSubmit} disabled={loading} className="s2-btn s2-btn--primary" style={{ width: '100%' }}>
                   {loading ? 'Sending…' : 'Send Message →'}
                 </button>
               </div>
             )}
           </div>
         </div>
-      </section>
+      </PublicSection>
     </Layout>
   )
 }

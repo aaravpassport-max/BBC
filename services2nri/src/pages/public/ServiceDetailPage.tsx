@@ -96,14 +96,10 @@ function buildSteps(schema: FormField[]): Map<number, FormField[]> {
   return map
 }
 
-// ── Input base style ──────────────────────────────────────────────────────────
-const baseInput = (error?: string): React.CSSProperties => ({
-  width: '100%', padding: '11px 14px',
-  border: `1.5px solid ${error ? '#f87171' : '#d1d5db'}`,
-  borderRadius: 9, fontSize: 15, fontFamily: 'inherit',
-  outline: 'none', boxSizing: 'border-box',
-  background: error ? '#fef2f2' : '#fff', transition: 'border-color .15s',
-})
+// ── Input classes (design-system tokens via public-design-system.css) ─────────
+function fieldClass(error?: string, extra = ''): string {
+  return ['s2-input', 's2-wizard-field', error ? 's2-input--error' : '', extra].filter(Boolean).join(' ')
+}
 
 // ── SearchableSelect ──────────────────────────────────────────────────────────
 function SearchableSelect({ field, value, onChange, error }: { field: FormField; value: string; onChange: (v: string) => void; error?: string }) {
@@ -120,7 +116,7 @@ function SearchableSelect({ field, value, onChange, error }: { field: FormField;
   return (
     <div ref={ref} style={{ position: 'relative' }}>
       <input value={query} onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true) }}
-        onFocus={() => setOpen(true)} placeholder={field.placeholder || 'Type to search…'} style={baseInput(error)} />
+        onFocus={() => setOpen(true)} placeholder={field.placeholder || 'Type to search…'} className={fieldClass(error)} />
       {open && filtered.length > 0 && (
         <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid #e0e0e0', borderRadius: 9, boxShadow: '0 8px 24px rgba(0,0,0,.12)', zIndex: 200, maxHeight: 220, overflowY: 'auto' }}>
           {filtered.map(opt => (
@@ -182,7 +178,7 @@ function PhoneField({ field, value, onChange, error }: { field: FormField; value
         {DIAL_CODES.map(d => <option key={`${d.flag}${d.code}`} value={d.code}>{d.flag} {d.name} {d.code}</option>)}
       </select>
       <input type="tel" value={local} onChange={e => update(code, e.target.value)}
-        placeholder={field.placeholder || 'Mobile number'} style={{ flex: 1, ...baseInput(error) }} />
+        placeholder={field.placeholder || 'Mobile number'} className={fieldClass(error, 's2-wizard-field--flex')} />
     </div>
   )
 }
@@ -214,10 +210,10 @@ function FieldRenderer({ field, value, onChange, error, primary }: {
   if (type === 'phone') return wrap(<PhoneField field={field} value={String(value || '')} onChange={onChange} error={error} />)
   if (type === 'textarea') return wrap(
     <textarea id={id} rows={3} value={String(value || '')} onChange={e => onChange(e.target.value)}
-      placeholder={field.placeholder || label} style={{ ...baseInput(error), resize: 'vertical', lineHeight: 1.6 }} />
+      placeholder={field.placeholder || label} className={fieldClass(error, 's2-textarea s2-wizard-textarea')} />
   )
   if (type === 'select' || type === 'dropdown') return wrap(
-    <select id={id} value={String(value || '')} onChange={e => onChange(e.target.value)} style={baseInput(error)}>
+    <select id={id} value={String(value || '')} onChange={e => onChange(e.target.value)} className={fieldClass(error, 's2-select')}>
       <option value="">— {field.placeholder || `Select ${label}`} —</option>
       {(field.options || []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
     </select>
@@ -247,10 +243,10 @@ function FieldRenderer({ field, value, onChange, error, primary }: {
       })}
     </div>
   )
-  if (type === 'date') return wrap(<input id={id} type="date" value={String(value || '')} onChange={e => onChange(e.target.value)} style={baseInput(error)} />)
-  if (type === 'number') return wrap(<input id={id} type="number" value={String(value || '')} onChange={e => onChange(e.target.value)} placeholder={field.placeholder || label} style={baseInput(error)} />)
-  if (type === 'email') return wrap(<input id={id} type="email" value={String(value || '')} onChange={e => onChange(e.target.value)} placeholder={field.placeholder || label} style={baseInput(error)} />)
-  return wrap(<input id={id} type="text" value={String(value || '')} onChange={e => onChange(e.target.value)} placeholder={field.placeholder || label} style={baseInput(error)} />)
+  if (type === 'date') return wrap(<input id={id} type="date" value={String(value || '')} onChange={e => onChange(e.target.value)} className={fieldClass(error)} />)
+  if (type === 'number') return wrap(<input id={id} type="number" value={String(value || '')} onChange={e => onChange(e.target.value)} placeholder={field.placeholder || label} className={fieldClass(error)} />)
+  if (type === 'email') return wrap(<input id={id} type="email" value={String(value || '')} onChange={e => onChange(e.target.value)} placeholder={field.placeholder || label} className={fieldClass(error)} />)
+  return wrap(<input id={id} type="text" value={String(value || '')} onChange={e => onChange(e.target.value)} placeholder={field.placeholder || label} className={fieldClass(error)} />)
 }
 
 // ── Section renderer (Wn — service content sections) ─────────────────────────

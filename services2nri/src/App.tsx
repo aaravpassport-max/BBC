@@ -17,6 +17,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 // ── Import styles ─────────────────────────────────────────────────────────────
 import './styles/global.css'
 import { applyDesignConfig } from '@/lib/apply-design-config'
+import { resolvePrimary } from '@/lib/design-tokens'
 
 // ── Public pages ──────────────────────────────────────────────────────────────
 import { HomePage }          from './pages/public/HomePage'
@@ -158,7 +159,7 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, ErrorBounda
 
   render() {
     if (this.state.error) {
-      const primary = (window.S2NRI_CONFIG?.settings?.primary_color) || '#4A6FA5'
+      const primary = resolvePrimary(window.S2NRI_CONFIG?.settings)
       return (
         <div style={{ padding: '60px 20px', textAlign: 'center', fontFamily: 'system-ui, sans-serif' }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
@@ -187,7 +188,7 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, ErrorBounda
 
 // ── 404 page ──────────────────────────────────────────────────────────────────
 function NotFoundPage() {
-  const primary = (window.S2NRI_CONFIG?.settings?.primary_color) || '#4A6FA5'
+  const primary = resolvePrimary(window.S2NRI_CONFIG?.settings)
   return (
     <div style={{ textAlign: 'center', padding: '120px 20px', fontFamily: 'system-ui, sans-serif' }}>
       <div style={{ fontSize: 96, fontWeight: 900, color: '#f3f4f6', lineHeight: 1 }}>404</div>

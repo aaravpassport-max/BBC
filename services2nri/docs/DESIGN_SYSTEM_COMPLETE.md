@@ -1,4 +1,4 @@
-# Design System & Service Registry — enterprise sign-off (v4.6.0)
+# Design System & Service Registry — enterprise sign-off (v4.6.1)
 
 ## Delivered at production level
 
@@ -27,9 +27,9 @@
 | **Vendor public catalog** | Not applicable — vendors remain staff-only per product rules. |
 | **Visual drag-and-drop menu** | JSON navigation editor + registry filter (enterprise-safe); not WP Menu UI. |
 
-## Deploy checklist
+## Deploy checklist (plug & play)
 
-1. Upload `services2nri.zip` or git pull `main`, activate **4.6.0**.
-2. `bash services2nri/scripts/verify-design-system.sh`
-3. Admin → Design System → Publish.
-4. `docs/VERIFICATION_STAGING.md` on staging.
+1. Upload **`services2nri.zip`**, activate **4.6.1** — tables, seeds, design defaults, and rewrites run automatically.
+2. Optional: `bash services2nri/scripts/verify-design-system.sh`
+3. WP Admin → **Services2NRI → Admin Portal** — confirm dashboard loads.
+4. Staging: `docs/VERIFICATION_STAGING.md` · Operator guide: `docs/PLUG_AND_PLAY.md`
