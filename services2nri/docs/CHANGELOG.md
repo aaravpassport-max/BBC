@@ -5,6 +5,15 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.42] — 2026-10-04 — Cloud Agent
+
+- **Service sections:** `service-section-normalize.ts` hydrates empty builder sections, maps FAQ/testimonial/process field aliases, skips legacy hero/marquee rows; duplicate bottom “Why Choose” hidden when `why_choose` section exists.
+- **Contrast:** service CTA band and hero meta chips on dark surfaces.
+- **E2E:** full mock section matrix + `service-sections.spec.ts`; contrast re-check paths unchanged.
+- **Mobile admin:** card-style table rows in dashboard on phones.
+
+---
+
 ## [4.7.41] — 2026-10-04 — Cloud Agent
 
 - **Platform mobile app shell:** `platform-mobile-app.css` — Material-style touch targets (48px), 16px inputs, dashboard card surfaces, inline grid collapse, modal bottom sheets, auth full-bleed layout; wired in `DesignSystem.php` + SPA `global.css`.

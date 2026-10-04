@@ -126,6 +126,42 @@
     padding: 10px 8px !important;
   }
 
+  .s2-mobile-app-surface .s2-dash-card table,
+  .s2-mobile-app-surface table {
+    display: block;
+    width: 100%;
+  }
+
+  .s2-mobile-app-surface .s2-dash-card thead {
+    display: none;
+  }
+
+  .s2-mobile-app-surface .s2-dash-card tbody tr {
+    display: block;
+    margin-bottom: 12px;
+    padding: 14px;
+    border-radius: var(--s2-app-card-radius);
+    border: 1px solid var(--s2-color-border, #e2e8f0);
+    background: var(--s2-app-card, #fff);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  }
+
+  .s2-mobile-app-surface .s2-dash-card tbody td {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0 !important;
+    border: none !important;
+    font-size: 14px;
+  }
+
+  .s2-mobile-app-surface .s2-dash-card tbody td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--s2-color-muted, #64748b);
+    flex-shrink: 0;
+  }
+
   /* ── Modals → bottom sheets ────────────────────────────────────────────── */
   .s2-modal-backdrop {
     align-items: flex-end !important;

@@ -168,6 +168,7 @@ export type SectionType =
   | 'why_choose' | 'trust_badges' | 'faq' | 'eligibility' | 'charges'
   | 'security' | 'benefits' | 'features' | 'cta' | 'testimonials'
   | 'text' | 'notes' | 'highlights' | 'related'
+  | 'hero' | 'marquee'
 
 export interface TrustBadge { icon: string; value: string; label: string }
 export interface WhyChooseCard { icon: string; title: string; desc: string }
@@ -175,7 +176,7 @@ export interface ProcessStep { title: string; desc: string }
 export interface FaqItem { q: string; a: string }
 export interface BenefitItem { icon?: string; text: string }
 export interface FeatureItem { icon?: string; title: string; desc: string }
-export interface TestimonialItem { name: string; location?: string; text: string; rating?: number }
+export interface TestimonialItem { name: string; location?: string; text: string; quote?: string; review?: string; rating?: number }
 
 export interface SectionContent {
   heading?: string

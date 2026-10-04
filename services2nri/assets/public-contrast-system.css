@@ -6,6 +6,7 @@
 .s2-surface-dark,
 .s2-services-hero,
 .s2-page-hero,
+.s2-svc-cta-band,
 .s2-home-app,
 .s2-stats-bar,
 .s2-hero-stat-bar,
@@ -43,6 +44,8 @@
 #s2nri-root.s2-ds .s2-blog-article-hero h1,
 #s2nri-root.s2-ds .s2-city-hero h1,
 #s2nri-root.s2-ds .s2-privacy-hero h1,
+#s2nri-root.s2-ds .s2-svc-cta-band h2,
+#s2nri-root.s2-ds .s2-svc-cta-band h3,
 #s2nri-root.s2-ds .s2-svc-hero h1,
 #s2nri-root.s2-ds .s2-public-pricing-card__head .s2-t-h1,
 #s2nri-root.s2-ds .s2-public-pricing-card__head .s2-t-h2,
@@ -61,7 +64,11 @@
 .s2-blog-article-hero__title,
 .s2-city-hero__title,
 .s2-privacy-hero__title,
+.s2-svc-cta-band .s2-t-h3,
 .s2-svc-hero__title,
+.s2-svc-hero__sub,
+.s2-svc-hero__meta-chip,
+.s2-hero-meta-chip,
 .s2-public-band-dark__title,
 .s2-blog-inline-cta__title,
 .s2-blog-featured__title {
@@ -82,7 +89,9 @@
 .s2-city-hero__sub,
 .s2-privacy-hero__sub,
 .s2-blog-inline-cta__sub,
-.s2-blog-featured__excerpt {
+.s2-blog-featured__excerpt,
+.s2-svc-cta-band .s2-t-body,
+.s2-svc-cta-band p {
   color: var(--s2-on-dark-body, rgba(255, 255, 255, 0.92));
 }
 

@@ -1,5 +1,92 @@
 /** Minimal REST mocks for Playwright smoke tests. */
 
+const MOCK_SECTIONS = [
+  {
+    id: 1,
+    type: 'trust_badges',
+    title: 'Trust',
+    sort_order: 1,
+    is_visible: 1,
+    content: {
+      badges: [
+        { icon: '⭐', value: '4.9', label: 'Rating' },
+        { icon: '👥', value: '500+', label: 'Reviews' },
+      ],
+    },
+  },
+  {
+    id: 2,
+    type: 'description',
+    title: 'Overview',
+    sort_order: 2,
+    is_visible: 1,
+    content: { heading: 'Complete Guide', html: '<p>Full property management for NRIs.</p>' },
+  },
+  {
+    id: 3,
+    type: 'process',
+    title: 'Process',
+    sort_order: 3,
+    is_visible: 1,
+    content: {
+      steps: [{ title: 'Submit', desc: 'Fill the wizard.' }, { title: 'Quote', desc: 'Within 24 hours.' }],
+    },
+  },
+  {
+    id: 4,
+    type: 'charges',
+    title: 'Fees',
+    sort_order: 4,
+    is_visible: 1,
+    content: {
+      heading: 'Charges',
+      rows: [{ label: 'Service fee', amount: '₹5,000' }],
+      note: 'Final quote after document review',
+    },
+  },
+  {
+    id: 5,
+    type: 'faq',
+    title: 'FAQ',
+    sort_order: 5,
+    is_visible: 1,
+    content: { items: [{ question: 'How long?', answer: '7–14 days typical.' }] },
+  },
+  {
+    id: 6,
+    type: 'testimonials',
+    title: 'Reviews',
+    sort_order: 6,
+    is_visible: 1,
+    content: {
+      items: [{ name: 'Priya S.', text: 'Excellent end-to-end support.', rating: 5 }],
+    },
+  },
+  {
+    id: 7,
+    type: 'why_choose',
+    title: 'Why us',
+    sort_order: 7,
+    is_visible: 1,
+    content: {
+      cards: [{ icon: '🔐', title: 'Secure', desc: 'Encrypted uploads.' }],
+    },
+  },
+  {
+    id: 8,
+    type: 'cta',
+    title: 'CTA',
+    sort_order: 8,
+    is_visible: 1,
+    content: {
+      headline: 'Ready to start?',
+      sub: 'Get a free quote today.',
+      btn: 'Get Quote',
+      url: '#booking-form',
+    },
+  },
+]
+
 const MOCK_SERVICE = {
   service: {
     id: 1,
@@ -123,7 +210,7 @@ export function handleMockApi(pathname, method) {
     'GET categories': { categories: MOCK_CATEGORIES },
     'GET testimonials': { testimonials: [{ id: 1, name: 'Test User', quote: 'Great service.', rating: 5 }] },
     'GET services/complete-property-management': MOCK_SERVICE,
-    'GET services/complete-property-management/sections': { sections: [] },
+    'GET services/complete-property-management/sections': { sections: MOCK_SECTIONS },
     'GET faqs': { faqs: [{ id: 1, q: 'Test?', a: 'Yes.' }] },
     'GET pricing-plans': { plans: [] },
     'GET cities': { cities: [] },
@@ -132,7 +219,7 @@ export function handleMockApi(pathname, method) {
   };
 
   if (key.startsWith('GET services/') && key.endsWith('/sections')) {
-    return { sections: [] };
+    return { sections: MOCK_SECTIONS };
   }
   if (key.startsWith('GET services/') && !key.includes('/sections')) {
     return MOCK_SERVICE;

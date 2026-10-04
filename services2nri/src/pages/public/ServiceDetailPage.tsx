@@ -35,6 +35,7 @@ import { resolveInternalDestination } from '@/lib/spa-navigation'
 import { getServiceImage } from '@/lib/images'
 import type { Service, ServiceSection, SectionType } from '@/types'
 import { installServiceSectionNavStrip } from '@/lib/service-section-nav-strip'
+import { hydrateEmptySection } from '@/lib/service-section-normalize'
 
 // ── Field types ───────────────────────────────────────────────────────────────
 interface FormField {
@@ -444,15 +445,18 @@ function SectionRenderer({ sec }: { sec: ServiceSection; primary: string }) {
           </div>
       )
     case 'testimonials': {
-      const items = (r.items as Array<{ name: string; quote: string; rating?: number }>) || []
+      const items = (r.items as Array<{ name: string; quote?: string; text?: string; review?: string; rating?: number }>) || []
       return wrap(<PublicGrid min={240}>
-        {items.map((t, i) => (
+        {items.map((t, i) => {
+          const quote = t.quote || t.text || t.review || ''
+          return (
           <div key={i} className="s2-svc-testimonial">
             {typeof t.rating === 'number' && <div className="s2-svc-testimonial__stars">{'★'.repeat(Math.round(t.rating))}{'☆'.repeat(5 - Math.round(t.rating))}</div>}
-            <p className="s2-t-body s2-svc-testimonial__quote">&ldquo;{t.quote}&rdquo;</p>
+            {quote ? <p className="s2-t-body s2-svc-testimonial__quote">&ldquo;{quote}&rdquo;</p> : null}
             <div className="s2-public-card__title s2-public-card__body--sm">{t.name}</div>
           </div>
-        ))}
+          )
+        })}
       </PublicGrid>)
     }
     case 'features': case 'highlights':
@@ -465,7 +469,26 @@ function SectionRenderer({ sec }: { sec: ServiceSection; primary: string }) {
           </div>
         ))}
       </PublicGrid>)
-    default: return null
+    case 'hero':
+    case 'marquee':
+      return null
+    default: {
+      if (r.html) {
+        return wrap(
+          <div className="s2-svc-prose" dangerouslySetInnerHTML={{ __html: String(r.html) }} />,
+          '',
+          sectionKey || 'cms',
+        )
+      }
+      if (sec.title) {
+        return wrap(
+          <p className="s2-t-body s2-text-muted">This section is being updated. Contact us for details in the meantime.</p>,
+          '',
+          sectionKey || 'cms',
+        )
+      }
+      return null
+    }
   }
 }
 
@@ -552,9 +575,12 @@ export function ServiceDetailPage() {
         return api.get<{ sections: ServiceSection[] }>(`services/${slug}/sections`)
           .then(r => {
             // Issue 6: filter out is_visible=0 sections so toggle actually works
-            const visible = (r.sections || []).filter(sec =>
-              sec.is_visible !== 0 && String(sec.is_visible) !== '0' && String(sec.is_visible) !== 'false'
-            )
+            const visible = (r.sections || [])
+              .filter((sec) =>
+                sec.is_visible !== 0 && String(sec.is_visible) !== '0' && String(sec.is_visible) !== 'false',
+              )
+              .filter((sec) => sec.type !== 'hero' && sec.type !== 'marquee')
+              .map((sec) => hydrateEmptySection(sec))
             setSections(visible)
           })
           .catch(() => {})
@@ -763,9 +789,7 @@ export function ServiceDetailPage() {
     ? `rgba(0,0,0,${(Number(hero.overlay_opacity ?? 40)) / 100})`
     : 'rgba(0,0,0,.6)'
   const heroAlign   = hero && hero.enabled !== false && hero.text_align ? String(hero.text_align) : 'left'
-
-  // Issue 10: section nav items (non-hero, non-marquee, active only)
-  
+  const hasWhyChooseSection = sections.some((sec) => sec.type === 'why_choose')
 
   return (
     <Layout>
@@ -1086,6 +1110,7 @@ export function ServiceDetailPage() {
         secondaryHref={waNum ? `https://wa.me/${String(waNum).replace(/\D/g, '')}` : undefined}
       />
 
+      {!hasWhyChooseSection && (
       <section className="s2-svc-why s2-experience-section" data-s2-reveal="">
         <div className="s2-svc-why__inner">
           <h2 className="s2-svc-why__title">Why Choose {siteName}?</h2>
@@ -1111,6 +1136,7 @@ export function ServiceDetailPage() {
           </PublicGrid>
         </div>
       </section>
+      )}
     </Layout>
   )
 }
