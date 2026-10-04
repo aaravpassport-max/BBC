@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.2] — 2026-10-04 — Cloud Agent
+
+- **Homepage** — all major blocks tagged with `data-s2-section` (hero, services, cities, stats, FAQ, newsletter, app, etc.).
+- **Service builder sections** — CMS blocks map to width section keys; `PageHero` + PHP **Blog** templates use width CSS variables.
+- New admin section keys: `cities`, `stats`, `partners`, `about`, `app`, `home_services`.
+
+---
+
 ## [4.7.1] — 2026-10-04 — Cloud Agent
 
 - Public CSS bundles: layout `max-width` values use **`--s2-width-*`** tokens (no hard-coded 1200/860/1100px in section CSS).

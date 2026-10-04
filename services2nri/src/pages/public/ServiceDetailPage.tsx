@@ -266,10 +266,34 @@ function FaqItem({ q, a }: { q: string; a: string }) {
   )
 }
 
+const SVC_SECTION_WIDTH_KEY: Partial<Record<string, string>> = {
+  trust_badges: 'trust_badges',
+  why_choose: 'features',
+  description: 'description',
+  security: 'description',
+  charges: 'pricing',
+  text: 'cms',
+  process: 'process',
+  faq: 'faq',
+  benefits: 'benefits',
+  documents: 'documents',
+  eligibility: 'requirements',
+  notes: 'cms',
+  cta: 'cta',
+  related: 'related_services',
+  testimonials: 'testimonials',
+  features: 'features',
+  highlights: 'features',
+}
+
 function SectionRenderer({ sec }: { sec: ServiceSection; primary: string }) {
   const r = (sec.content || {}) as Record<string, unknown>
-  const wrap = (children: React.ReactNode, extraClass = '') => (
-    <div className={`s2-svc-block ${extraClass}`.trim()}>
+  const sectionKey = SVC_SECTION_WIDTH_KEY[sec.type as string]
+  const wrap = (children: React.ReactNode, extraClass = '', section = sectionKey) => (
+    <div
+      className={`s2-svc-block s2-section-inner s2-width-standard ${extraClass}`.trim()}
+      {...(section ? { 'data-s2-section': section } : {})}
+    >
       {sec.title && <h3 className="s2-svc-block__title">{sec.title}</h3>}
       {children}
     </div>
@@ -280,6 +304,7 @@ function SectionRenderer({ sec }: { sec: ServiceSection; primary: string }) {
       return (
         <div
           className="s2-svc-trust-grid s2-svc-trust-grid--auto s2-mobile-stack"
+          data-s2-section="trust_badges"
           style={cssVars({ 's2-trust-cols': badges.length || 3 })}
         >
           {badges.map((b, i) => (
@@ -295,7 +320,7 @@ function SectionRenderer({ sec }: { sec: ServiceSection; primary: string }) {
     case 'why_choose': {
       const cards = (r.cards as Array<{ icon: string; title: string; desc: string }>) || []
       return (
-        <section className="s2-svc-panel">
+        <section className="s2-svc-panel s2-section-inner s2-width-standard" data-s2-section="features">
           {sec.title && <h3 className="s2-svc-panel__title">{sec.title}</h3>}
           <PublicGrid min={220}>
             {cards.map((c, i) => (
@@ -313,7 +338,10 @@ function SectionRenderer({ sec }: { sec: ServiceSection; primary: string }) {
     }
     case 'description': case 'security': case 'charges': case 'text':
       return (
-        <div className={`s2-svc-block${sec.type === 'security' ? ' s2-svc-block--security' : ''}`}>
+        <div
+          className={`s2-svc-block s2-section-inner s2-width-standard${sec.type === 'security' ? ' s2-svc-block--security' : ''}`}
+          data-s2-section={sectionKey || 'description'}
+        >
           {!!(r.heading as string || sec.title) && (
             <h2 className={`s2-svc-block__title${sec.type === 'description' ? ' s2-svc-block__title--lg' : ''}`}>{r.heading as string || sec.title}</h2>
           )}
@@ -351,7 +379,7 @@ function SectionRenderer({ sec }: { sec: ServiceSection; primary: string }) {
       return wrap(<ul className="s2-svc-prose s2-svc-prose-list">{((r.items as string[]) || []).map((item, i) => <li key={i}>{item}</li>)}</ul>)
     case 'cta':
       return (
-        <div className="s2-svc-cta-band">
+        <div className="s2-svc-cta-band s2-section-inner s2-width-wide" data-s2-section="cta">
           {!!(sec.title || r.headline) && <h3 className="s2-t-h3">{sec.title || String(r.headline)}</h3>}
           {!!r.sub && <p className="s2-t-body">{String(r.sub)}</p>}
           {!!r.btn && <a href={String(r.url || '#booking-form')} className="s2-btn s2-btn--secondary s2-svc-cta-band__btn">{String(r.btn)}</a>}

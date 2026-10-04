@@ -847,6 +847,7 @@ export function PageHero({ title, subtitle, bg }: PageHeroProps) {
   return (
     <div
       className="s2-page-hero"
+      data-s2-section="hero"
       style={bg ? { background: bg } : undefined}
     >
       <div className="s2-container">
