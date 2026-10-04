@@ -14,10 +14,18 @@ $routes = [
     ['/contact', 'index.tsx ContactPage', 'page'],
     ['/faq', 'index.tsx FAQPage', 'page'],
     ['/pricing', 'index.tsx PricingPage', 'page'],
-    ['/blog', 'Blog.php', 'blog'],
+    ['/blog', 'BlogListPage.tsx', 'blog'],
+    ['/blog/:slug', 'BlogDetailPage.tsx', 'blog'],
+    ['/dashboard', 'customer/index.tsx', 'portal'],
+    ['/admin', 'admin/index.tsx', 'portal'],
 ];
 
-$css = glob($root . '/assets/public-*.css') ?: [];
+$css = array_merge(
+    glob($root . '/assets/public-*.css') ?: [],
+    glob($root . '/assets/platform-*.css') ?: [],
+    glob($root . '/assets/portal-*.css') ?: []
+);
+sort($css);
 $lines = ["# Generated audit index\n", "Generated: " . date('c') . "\n\n", "## Routes\n"];
 foreach ($routes as [$path, $file, $type]) {
     $lines[] = "| `$path` | `$file` | page_type `$type` |\n";

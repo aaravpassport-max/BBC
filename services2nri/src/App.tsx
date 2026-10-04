@@ -14,6 +14,7 @@
 import React, { Suspense, lazy, useEffect, useState, Component } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom'
 import { SpaNavigationBridge } from '@/components/SpaNavigationBridge'
+import { MobileDashTableEnhancer } from '@/components/MobileDashTableEnhancer'
 import { loadConsentedAnalytics } from '@/lib/analytics-consent'
 import { spaNavigate, scrollToHash } from '@/lib/spa-navigation'
 
@@ -231,6 +232,7 @@ export function App() {
     <ErrorBoundary>
       <BrowserRouter basename={basename}>
         <SpaNavigationBridge />
+        <MobileDashTableEnhancer />
         <DesignLiveSync />
         <ExperienceReveal />
         <ScrollToTop />

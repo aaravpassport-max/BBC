@@ -413,7 +413,8 @@ function SectionRenderer({ sec }: { sec: ServiceSection; primary: string }) {
       return wrap(<PublicGrid min={220}>
         {((r.items as Array<{ icon?: string; text: string }>) || []).map((item, i) => (
           <div key={i} className="s2-svc-benefit-row">
-            <span className="s2-svc-benefit-row__icon">{item.icon || '✅'}</span><span>{item.text}</span>
+            <span className="s2-svc-benefit-row__icon">{item.icon || '✅'}</span>
+            <span>{item.text || (item as { title?: string }).title || ''}</span>
           </div>
         ))}
       </PublicGrid>)

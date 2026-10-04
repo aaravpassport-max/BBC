@@ -251,7 +251,7 @@ export function AdminDesignSystem() {
   }
 
   return (
-    <div style={{ padding: '24px 28px', maxWidth: 1200 }}>
+    <div className="s2-design-system-page" style={{ padding: '24px 28px', maxWidth: 1200 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 26 }}>Design &amp; Style System</h1>
@@ -270,7 +270,7 @@ export function AdminDesignSystem() {
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 20, marginBottom: 20 }}>
+      <div className="s2-design-system-tabs" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 20, marginBottom: 20 }}>
         {TABS.map((t) => (
           <button
             key={t}

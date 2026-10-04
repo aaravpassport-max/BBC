@@ -228,6 +228,32 @@
   .s2-bottom-nav-item:active {
     transform: scale(0.96);
   }
+
+  /* Design system admin — horizontal tab rail */
+  .s2-design-system-page {
+    padding: var(--s2-app-gutter) !important;
+    max-width: 100% !important;
+  }
+
+  .s2-design-system-tabs {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 8px;
+    margin-inline: calc(-1 * var(--s2-app-gutter));
+    padding-inline: var(--s2-app-gutter);
+    scroll-snap-type: x proximity;
+  }
+
+  .s2-design-system-tabs button {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    min-height: 44px;
+  }
+
+  .s2-mobile-app-surface .s2-dash-table tbody td:empty {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

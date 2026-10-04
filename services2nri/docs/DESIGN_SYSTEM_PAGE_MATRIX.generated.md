@@ -1,5 +1,5 @@
 # Generated audit index
-Generated: 2026-10-04T19:00:57+00:00
+Generated: 2026-10-04T19:09:58+00:00
 
 ## Routes
 | `/` | `HomePage.tsx` | page_type `homepage` |
@@ -9,10 +9,15 @@ Generated: 2026-10-04T19:00:57+00:00
 | `/contact` | `index.tsx ContactPage` | page_type `page` |
 | `/faq` | `index.tsx FAQPage` | page_type `page` |
 | `/pricing` | `index.tsx PricingPage` | page_type `page` |
-| `/blog` | `Blog.php` | page_type `blog` |
+| `/blog` | `BlogListPage.tsx` | page_type `blog` |
+| `/blog/:slug` | `BlogDetailPage.tsx` | page_type `blog` |
+| `/dashboard` | `customer/index.tsx` | page_type `portal` |
+| `/admin` | `admin/index.tsx` | page_type `portal` |
 
 ## Design asset bundles
-- `public-contrast-system.css` (4625 bytes)
+- `platform-mobile-app.css` (7638 bytes)
+- `portal-experience.css` (1921 bytes)
+- `public-contrast-system.css` (4861 bytes)
 - `public-design-system.css` (6905 bytes)
 - `public-home-sections.css` (19011 bytes)
 - `public-marketing-pages.css` (24974 bytes)

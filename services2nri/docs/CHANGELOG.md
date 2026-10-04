@@ -5,6 +5,15 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.43] — 2026-10-04 — Cloud Agent
+
+- **Dashboard tables (mobile):** `MobileDashTableEnhancer` sets `data-label` on cells for card-style admin/customer tables; wired globally in `App.tsx`.
+- **Design System admin:** mobile tab rail (`s2-design-system-tabs`) and page shell class for small screens.
+- **Service benefits:** benefit rows render `text` or `title` after normalizer aliases.
+- **Audit matrix:** generator includes portal routes, React blog paths, and platform/portal CSS layers.
+
+---
+
 ## [4.7.42] — 2026-10-04 — Cloud Agent
 
 - **Service sections:** `service-section-normalize.ts` hydrates empty builder sections, maps FAQ/testimonial/process field aliases, skips legacy hero/marquee rows; duplicate bottom “Why Choose” hidden when `why_choose` section exists.
