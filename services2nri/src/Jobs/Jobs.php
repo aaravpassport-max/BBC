@@ -264,14 +264,18 @@ class SitemapJob {
         $p        = $wpdb->prefix;
         $site_url = home_url();
 
-        $cats     = $wpdb->get_results("SELECT slug FROM {$p}s2nri_categories WHERE is_active=1", ARRAY_A);
-        $services = $wpdb->get_results("SELECT slug FROM {$p}s2nri_services WHERE is_active=1", ARRAY_A);
+        $cats     = \S2NRI\Services\ServiceRegistry::getPublicCategories( 'sitemap' );
+        $services = \S2NRI\Services\ServiceRegistry::forSurface( 'sitemap' );
         $cities   = $wpdb->get_results("SELECT slug FROM {$p}s2nri_cities WHERE is_active=1", ARRAY_A);
         $posts    = $wpdb->get_results("SELECT slug FROM {$p}s2nri_blog_posts WHERE is_published=1", ARRAY_A);
 
         $urls = ['/', '/services', '/about', '/contact', '/how-it-works', '/faq', '/blog', '/pricing'];
-        foreach ($cats     as $c) $urls[] = '/services/' . $c['slug'];
-        foreach ($services as $s) $urls[] = '/service/'  . $s['slug'];
+        foreach ( $cats as $c ) {
+            $urls[] = '/services/' . $c['slug'];
+        }
+        foreach ( $services as $s ) {
+            $urls[] = '/service/' . $s['slug'];
+        }
         foreach ($cities   as $ci) $urls[] = '/cities/'  . $ci['slug'];
         foreach ($posts    as $pt) $urls[] = '/blog/'    . $pt['slug'];
 

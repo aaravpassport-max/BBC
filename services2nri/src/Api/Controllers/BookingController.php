@@ -35,18 +35,12 @@ class BookingController extends BaseController {
         $client_score         = (int) $req->input( 'qualification_score', 0 );
         $client_status        = sanitize_key( $req->input( 'qualification_status', 'incomplete' ) );
 
-        // Validate service
-        $service = $wpdb->get_row( $wpdb->prepare(
-            "SELECT s.*, c.id AS cat_id FROM {$p}s2nri_services s
-             LEFT JOIN {$p}s2nri_categories c ON c.id = s.category_id
-             WHERE s.id = %d AND s.is_active = 1 LIMIT 1",
-            $service_id
-        ), ARRAY_A );
-
+        $service = \S2NRI\Services\ServiceRegistry::getBookableService( $service_id );
         if ( ! $service ) {
-            Response::json( [ 'error' => 'Service not found or not available.' ], 404 );
+            Response::json( [ 'error' => 'Service not found or not available for booking.' ], 404 );
             return;
         }
+        $service['cat_id'] = (int) ( $service['category_id'] ?? 0 );
 
         // ── Server-side required-field validation ─────────────────────────────
         // Validate field_data against s2nri_form_fields required=1 rows.

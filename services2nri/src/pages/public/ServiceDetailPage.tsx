@@ -422,8 +422,17 @@ export function ServiceDetailPage() {
     if (!slug) return
     setLoading(true)
     setLoadFailed(false)
-    api.get<{ service: Service }>(`services/${slug}`)
+    api.get<{ service: Service; redirect?: string; unavailable?: boolean; message?: string }>(`services/${slug}`)
       .then(data => {
+        if (data.redirect) {
+          window.location.href = data.redirect
+          return
+        }
+        if (data.unavailable) {
+          setSvc(null)
+          setApiError(data.message || 'This service is currently unavailable.')
+          return
+        }
         const s = data.service
         if (s?.form_schema && typeof s.form_schema === 'string') {
           try { s.form_schema = JSON.parse(s.form_schema) } catch { s.form_schema = [] }

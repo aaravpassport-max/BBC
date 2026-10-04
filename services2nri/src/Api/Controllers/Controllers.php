@@ -13,44 +13,43 @@ use S2NRI\Services\{CacheService, NotificationService};
 class CategoryController extends BaseController {
 
     public function index( Request $req ): void {
-        $rows = CacheService::remember( 'cats_active', 3600, function () {
-            global $wpdb;
-            return $wpdb->get_results(
-                "SELECT c.id, c.slug, c.name, c.name_hi, c.description, c.icon, c.color,
-                        c.image_url, c.sort_order,
-                        COUNT(s.id) AS service_count
-                 FROM {$wpdb->prefix}s2nri_categories c
-                 LEFT JOIN {$wpdb->prefix}s2nri_services s ON s.category_id = c.id AND s.is_active = 1
-                 WHERE c.is_active = 1
-                 GROUP BY c.id
-                 ORDER BY c.sort_order ASC",
-                ARRAY_A
-            );
+        $surface = sanitize_key( $req->query( 'surface', 'directory' ) );
+        $rows    = CacheService::remember( 'cats_active_' . $surface, 900, function () use ( $surface ) {
+            return \S2NRI\Services\ServiceRegistry::getPublicCategories( $surface );
         } );
         Response::json( [ 'categories' => $rows ] );
     }
 
     public function show( Request $req ): void {
         $slug = sanitize_key( $req->param( 'slug' ) );
-        $cat  = CacheService::remember( "cat_{$slug}", 3600, function () use ( $slug ) {
-            global $wpdb;
-            return $wpdb->get_row( $wpdb->prepare(
-                "SELECT * FROM {$wpdb->prefix}s2nri_categories WHERE slug = %s AND is_active = 1 LIMIT 1", $slug
-            ), ARRAY_A );
-        } );
+        $cat = null;
+        foreach ( \S2NRI\Services\ServiceRegistry::getPublicCategories( 'directory' ) as $c ) {
+            if ( $c['slug'] === $slug ) {
+                $cat = $c;
+                break;
+            }
+        }
 
         if ( ! $cat ) { Response::json( [ 'error' => 'Category not found.' ], 404 ); return; }
 
-        global $wpdb;
-        $services = $wpdb->get_results( $wpdb->prepare(
-            "SELECT id, slug, name, name_hi, short_desc, pricing_model, base_price, price_min, price_max, turnaround_days
-             FROM {$wpdb->prefix}s2nri_services
-             WHERE category_id = %d AND is_active = 1
-             ORDER BY sort_order ASC",
-            $cat['id']
-        ), ARRAY_A );
-
-        $cat['services'] = $services;
+        $services = \S2NRI\Services\ServiceRegistry::forSurface( 'directory', [
+            'category_slug' => $slug,
+        ] );
+        $cat['services'] = array_map( static function ( $s ) {
+            return [
+                'id'              => (int) $s['id'],
+                'slug'            => $s['slug'],
+                'name'            => $s['name'],
+                'name_hi'         => $s['name_hi'] ?? '',
+                'short_desc'      => $s['short_desc'] ?? '',
+                'pricing_model'   => $s['pricing_model'] ?? 'quote',
+                'base_price'      => $s['base_price'] ?? null,
+                'price_min'       => $s['price_min'] ?? null,
+                'price_max'       => $s['price_max'] ?? null,
+                'turnaround_days' => (int) ( $s['turnaround_days'] ?? 7 ),
+                'public_status'   => $s['public_status'] ?? 'published',
+            ];
+        }, $services );
         Response::json( [ 'category' => $cat ] );
     }
 }
@@ -118,7 +117,7 @@ class ServiceController extends BaseController {
             return;
         }
         if ( $action === 'redirect' && $redirect ) {
-            Response::json( [ 'redirect' => $redirect, 'error' => 'Service unavailable.' ], 302 );
+            Response::json( [ 'redirect' => $redirect ], 200 );
             return;
         }
 
@@ -1668,10 +1667,12 @@ class ServiceSectionController extends BaseController {
         global $wpdb;
         $slug = sanitize_key( $req->param( 'slug' ) );
 
-        $service_id = $wpdb->get_var( $wpdb->prepare(
-            "SELECT id FROM `{$wpdb->prefix}s2nri_services` WHERE slug = %s AND is_active = 1 LIMIT 1", $slug
-        ) );
-        if ( ! $service_id ) { Response::json( [ 'sections' => [] ] ); return; }
+        $svc = \S2NRI\Services\ServiceRegistry::findBySlug( $slug );
+        if ( ! $svc || ! \S2NRI\Services\ServiceRegistry::isVisibleOnSurface( $svc, 'direct_url' ) ) {
+            Response::json( [ 'sections' => [] ] );
+            return;
+        }
+        $service_id = (int) $svc['id'];
 
         $rows = $wpdb->get_results( $wpdb->prepare(
             "SELECT id, type, title, content, sort_order
@@ -1684,9 +1685,17 @@ class ServiceSectionController extends BaseController {
         foreach ( $rows as &$row ) {
             if ( $row['content'] ) {
                 $decoded = json_decode( $row['content'], true );
-                $row['content'] = ( json_last_error() === JSON_ERROR_NONE ) ? $decoded : $row['content'];
+                if ( json_last_error() === JSON_ERROR_NONE && is_array( $decoded ) ) {
+                    $row['content'] = \S2NRI\Services\ServiceRegistry::sanitizeSectionContent(
+                        $decoded,
+                        (string) ( $row['type'] ?? '' )
+                    );
+                } else {
+                    $row['content'] = $decoded;
+                }
             }
         }
+        unset( $row );
         Response::json( [ 'sections' => $rows ] );
     }
 }

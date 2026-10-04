@@ -180,13 +180,13 @@ export function HomePage() {
 
   useEffect(() => {
     // Load categories + services
-    api.get<{ categories: Category[] }>('categories')
+    api.get<{ categories: Category[] }>('categories?surface=homepage')
       .then((data) => {
         const cats = data.categories || []
         setCategories(cats)
         if (cats.length > 0) setActiveCategory(cats[0].slug)
         cats.forEach((cat) => {
-          api.get<{ services: Service[] }>(`services?category=${cat.slug}&per_page=4`)
+          api.get<{ services: Service[] }>(`services?surface=homepage&category=${cat.slug}`)
             .then((r) => setServiceMap((prev) => ({ ...prev, [cat.slug]: r.services || [] })))
             .catch(() => {})
         })
@@ -201,7 +201,7 @@ export function HomePage() {
         ])
         setActiveCategory('property')
         ;['property', 'financial', 'immigration', 'education'].forEach((slug) => {
-          api.get<{ services: Service[] }>(`services?category=${slug}&per_page=4`)
+          api.get<{ services: Service[] }>(`services?surface=homepage&category=${slug}`)
             .then((r) => setServiceMap((prev) => ({ ...prev, [slug]: r.services || [] })))
             .catch(() => {})
         })

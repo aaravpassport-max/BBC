@@ -112,8 +112,11 @@ export function AdminDesignSystem() {
     setImpact(data)
   }
 
-  const setServiceStatus = async (id: number, public_status: string) => {
-    await api.patch(`admin/services/${id}/visibility`, { public_status })
+  const setServiceStatus = async (id: number, public_status: string, direct_url_behavior?: string) => {
+    await api.patch(`admin/services/${id}/visibility`, {
+      public_status,
+      ...(direct_url_behavior ? { direct_url_behavior } : {}),
+    })
     await load()
     await loadImpact(id)
     setMessage('Service visibility updated — navigation and forms sync automatically.')
@@ -319,13 +322,24 @@ export function AdminDesignSystem() {
               {selectedSvc ? (
                 <>
                   <h3 style={{ marginTop: 0 }}>Visibility</h3>
+                  <label style={{ fontSize: 13, fontWeight: 600 }}>Publication status</label>
                   <select
                     defaultValue={(registry.find((r) => r.id === selectedSvc)?.public_status) || 'published'}
                     onChange={(e) => setServiceStatus(selectedSvc, e.target.value)}
-                    style={{ width: '100%', padding: 10, borderRadius: 8, marginBottom: 16 }}
+                    style={{ width: '100%', padding: 10, borderRadius: 8, marginBottom: 12 }}
                   >
                     {['published', 'hidden', 'draft', 'disabled', 'coming_soon'].map((st) => (
                       <option key={st} value={st}>{st}</option>
+                    ))}
+                  </select>
+                  <label style={{ fontSize: 13, fontWeight: 600 }}>Direct URL behavior (when hidden/disabled)</label>
+                  <select
+                    defaultValue="not_found"
+                    onChange={(e) => setServiceStatus(selectedSvc, (registry.find((r) => r.id === selectedSvc)?.public_status) || 'hidden', e.target.value)}
+                    style={{ width: '100%', padding: 10, borderRadius: 8, marginBottom: 16 }}
+                  >
+                    {['not_found', 'redirect_directory', 'redirect_home', 'unavailable_page', 'active'].map((b) => (
+                      <option key={b} value={b}>{b.replace(/_/g, ' ')}</option>
                     ))}
                   </select>
                   {impact && (

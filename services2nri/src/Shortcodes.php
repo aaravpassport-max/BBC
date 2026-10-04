@@ -50,15 +50,14 @@ class Shortcodes {
         // Fetch services for dropdown (if show_services = yes)
         $services_json = '[]';
         if ( $a['show_services'] === 'yes' ) {
-            global $wpdb;
-            $rows = $wpdb->get_results(
-                "SELECT s.id, CONCAT(c.name, ' — ', s.name) AS label
-                 FROM {$wpdb->prefix}s2nri_services s
-                 JOIN {$wpdb->prefix}s2nri_categories c ON c.id=s.category_id
-                 WHERE s.is_active=1 ORDER BY c.sort_order ASC, s.sort_order ASC LIMIT 200",
-                ARRAY_A
-            );
-            $services_json = wp_json_encode($rows ?: []);
+            $rows = [];
+            foreach ( \S2NRI\Services\ServiceRegistry::forSurface( 'forms' ) as $svc ) {
+                $rows[] = [
+                    'id'    => (int) $svc['id'],
+                    'label' => ( $svc['category_name'] ?? 'Service' ) . ' — ' . ( $svc['name'] ?? '' ),
+                ];
+            }
+            $services_json = wp_json_encode( $rows );
         }
 
         $services_html = '';

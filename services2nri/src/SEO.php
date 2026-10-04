@@ -101,7 +101,8 @@ class SEO {
 
         status_header( 200 );
         header( 'Content-Type: text/html; charset=utf-8' );
-        header( 'X-Robots-Tag: index, follow' );
+        $robots_tag = $meta['robots'] ?? 'index, follow';
+        header( 'X-Robots-Tag: ' . $robots_tag );
         // Prevent CDN (Cloudflare) from caching the HTML page, because it contains
         // dynamic settings (hero_heading_1, stats, etc.) that change when admin saves.
         // Without this, Cloudflare caches the old HTML for hours even after saving.
@@ -117,6 +118,7 @@ class SEO {
         echo '  <meta name="viewport" content="width=device-width, initial-scale=1">' . "\n";
         echo '  <title>' . $title . '</title>' . "\n";
         echo '  <meta name="description" content="' . $description . '">' . "\n";
+        echo '  <meta name="robots" content="' . esc_attr( $robots_tag ) . '">' . "\n";
         echo '  <link rel="canonical" href="' . $canonical . '">' . "\n";
         echo '  <meta property="og:title" content="' . $title . '">' . "\n";
         echo '  <meta property="og:description" content="' . $description . '">' . "\n";
@@ -561,12 +563,20 @@ HEROFIXJS;
         ];
 
         // Enrich meta for service pages: /service/{slug}
+        $robots = 'index, follow';
+
         if ( preg_match( '#^/service/([^/]+)#', $path, $m ) ) {
             $slug = sanitize_key( $m[1] );
-            $row  = $wpdb->get_row( $wpdb->prepare(
-                "SELECT name, short_desc, seo_title, seo_desc FROM {$p}s2nri_services WHERE slug = %s AND is_active = 1 LIMIT 1",
-                $slug
-            ), ARRAY_A );
+            $svc  = \S2NRI\Services\ServiceRegistry::findBySlug( $slug );
+            if ( $svc && ! \S2NRI\Services\ServiceRegistry::shouldIndexInSeo( $slug ) ) {
+                $robots = 'noindex, nofollow';
+            }
+            $row = $svc ? [
+                'name'       => $svc['name'],
+                'short_desc' => $svc['short_desc'] ?? '',
+                'seo_title'  => $svc['seo_title'] ?? '',
+                'seo_desc'   => $svc['seo_desc'] ?? '',
+            ] : null;
             if ( $row ) {
                 $title       = $row['seo_title'] ?: "{$row['name']} — {$site_name}";
                 $description = $row['seo_desc']  ?: ( $row['short_desc'] ?: $default_desc );
@@ -580,6 +590,6 @@ HEROFIXJS;
             }
         }
 
-        return compact( 'title', 'description', 'site_name', 'og_image', 'schema', 'primary', 'settings' );
+        return compact( 'title', 'description', 'site_name', 'og_image', 'schema', 'primary', 'settings', 'robots' );
     }
 }

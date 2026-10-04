@@ -16,6 +16,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 
 // ── Import styles ─────────────────────────────────────────────────────────────
 import './styles/global.css'
+import { applyDesignConfig } from '@/lib/apply-design-config'
 
 // ── Public pages ──────────────────────────────────────────────────────────────
 import { HomePage }          from './pages/public/HomePage'
@@ -206,6 +207,10 @@ export function App() {
   // URL /s2nri-admin/requests → Router sees /requests → matches /admin/requests
   // Without basename, /s2nri-admin/requests never matches any /admin/* route.
   const basename = (window.S2NRI_CONFIG?.basePath || '').replace(/\/$/, '') || undefined
+
+  useEffect(() => {
+    applyDesignConfig(window.S2NRI_CONFIG)
+  }, [])
 
   return (
     <ErrorBoundary>

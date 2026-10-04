@@ -1098,7 +1098,7 @@ class ServiceAdminController extends \S2NRI\Api\Controllers\BaseController {
             "SELECT s.id, s.category_id, s.slug, s.name, s.name_hi, s.icon,
                     s.short_desc, s.short_desc AS description,
                     s.pricing_model, s.base_price, s.price_min, s.price_max,
-                    s.turnaround_days, s.image_url, s.is_active, s.sort_order,
+                    s.turnaround_days, s.image_url, s.is_active, s.public_status, s.availability, s.sort_order,
                     s.seo_title, s.seo_desc, s.created_at, s.updated_at,
                     COALESCE(c.name, '(No Category)') AS category_name,
                     COALESCE(c.color, '#4A6FA5') AS category_color,
@@ -1618,7 +1618,7 @@ class ServiceAdminController extends \S2NRI\Api\Controllers\BaseController {
         ) === false ) {
             Response::json( [ 'error' => 'Failed to toggle service status.' ], 500 ); return;
         }
-        \S2NRI\Services\CacheService::bustPattern( 'cats_' );
+        \S2NRI\Services\ServiceRegistry::bustCache();
         Response::json( [ 'success' => true, 'is_active' => $new_val, 'public_status' => $public_status ] );
     }
 
@@ -1910,11 +1910,16 @@ class CategoryAdminController extends \S2NRI\Api\Controllers\BaseController {
         $cat = $wpdb->get_row( $wpdb->prepare( "SELECT is_active FROM {$wpdb->prefix}s2nri_categories WHERE id = %d LIMIT 1", $id ), ARRAY_A );
         if ( ! $cat ) { Response::json( [ 'error' => 'Not found.' ], 404 ); return; }
         $new_active = (int) $cat['is_active'] ? 0 : 1;  // cast to int — PHP returns TINYINT as string
-        if ( $wpdb->update( $wpdb->prefix . 's2nri_categories', [ 'is_active' => $new_active ], [ 'id' => $id ] ) === false ) {
+        $pub = $new_active ? 'published' : 'disabled';
+        $upd = [ 'is_active' => $new_active ];
+        if ( \S2NRI\Services\ServiceRegistry::schemaReady() ) {
+            $upd['public_status'] = $pub;
+        }
+        if ( $wpdb->update( $wpdb->prefix . 's2nri_categories', $upd, [ 'id' => $id ] ) === false ) {
             Response::json( [ 'error' => 'Failed to toggle category status.' ], 500 ); return;
         }
-        \S2NRI\Services\CacheService::bustPattern( 'cats_' );
-        Response::json( [ 'success' => true ] );
+        \S2NRI\Services\ServiceRegistry::bustCache();
+        Response::json( [ 'success' => true, 'public_status' => $pub ] );
     }
 }
 

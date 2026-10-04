@@ -8,6 +8,7 @@ export interface S2NRIConfig {
   version: string
   currentUser: User | null
   settings: Settings
+  design?: Record<string, unknown>
   builderUrl: string
   basePath?: string   // injected by Portal.php — e.g. '/s2nri-admin' or '/portal'
 }

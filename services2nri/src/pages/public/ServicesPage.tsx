@@ -34,8 +34,8 @@ export function ServicesPage() {
     setLoading(true)
     setLoadError(false)
     Promise.all([
-      api.get<{ categories: Category[] }>('categories'),
-      api.get<{ services: Service[] }>('services'),
+      api.get<{ categories: Category[] }>('categories?surface=directory'),
+      api.get<{ services: Service[] }>('services?surface=directory'),
     ])
       .then(([catsData, svcsData]) => {
         setCategories(catsData.categories || [])

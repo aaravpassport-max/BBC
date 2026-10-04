@@ -1581,11 +1581,13 @@ class StandaloneQuoteController extends BaseController {
             Response::json(['error' => 'Name and valid email are required.'], 422); return;
         }
 
-        // Validate service
         $service = $service_id
-            ? $wpdb->get_row($wpdb->prepare("SELECT id, category_id, name FROM {$p}s2nri_services WHERE id=%d AND is_active=1 LIMIT 1", $service_id), ARRAY_A)
-            : $wpdb->get_row("SELECT id, category_id, name FROM {$p}s2nri_services WHERE is_active=1 ORDER BY sort_order ASC LIMIT 1", ARRAY_A);
-
+            ? \S2NRI\Services\ServiceRegistry::getBookableService( $service_id )
+            : null;
+        if ( ! $service ) {
+            $first = \S2NRI\Services\ServiceRegistry::forSurface( 'forms', [ 'limit' => 1 ] );
+            $service = $first[0] ?? null;
+        }
         if ( ! $service ) {
             Response::json(['error' => 'Service not found or not available.'], 422); return;
         }

@@ -3,7 +3,7 @@
  * Plugin Name:       Services2NRI
  * Plugin URI:        https://services2nri.org.in
  * Description:       Complete NRI Service Marketplace — bookings, quotes, payments, CRM, documents.
- * Version:           4.5.0
+ * Version:           4.5.1
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            Services2NRI
@@ -28,7 +28,7 @@ if ( version_compare( PHP_VERSION, '8.0.0', '<' ) ) {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 define( 'S2NRI_CUSTOMER_ROLE', 's2nri_customer' );
-define( 'S2NRI_VERSION',    '4.5.0' );
+define( 'S2NRI_VERSION',    '4.5.1' );
 define( 'S2NRI_FILE',       __FILE__ );
 define( 'S2NRI_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'S2NRI_URL',        plugin_dir_url( __FILE__ ) );
@@ -478,11 +478,13 @@ add_action( 'init', function () {
         $home = rtrim( home_url(), '/' );
         $settings = \S2NRI\Models\Setting::getPublic();
 
-        // Get all active services
-        $services = $wpdb->get_results(
-            "SELECT slug, updated_at FROM {$p}s2nri_services WHERE is_active = 1 ORDER BY id ASC",
-            ARRAY_A
-        ) ?: [];
+        $services = array_map(
+            static fn( $s ) => [
+                'slug'       => $s['slug'],
+                'updated_at' => $s['updated_at'] ?? '',
+            ],
+            \S2NRI\Services\ServiceRegistry::forSurface( 'sitemap' )
+        );
 
         // Get published blog posts
         $posts = [];
