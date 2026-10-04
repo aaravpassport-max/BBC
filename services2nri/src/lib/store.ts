@@ -20,6 +20,7 @@
 
 import { create } from 'zustand'
 import { api } from './api'
+import { spaNavigate } from './spa-navigation'
 import type { User, Settings, Notification } from '@/types'
 
 interface AuthResult {
@@ -164,7 +165,7 @@ export const useStore = create<StoreState>((set, get) => ({
       await api.post('auth/logout', {})
     } catch {}
     set({ user: null })
-    window.location.href = '/login'
+    spaNavigate('/login', { replace: true })
   },
 
   // ── Notification actions ─────────────────────────────────────────────────────

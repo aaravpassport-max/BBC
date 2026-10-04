@@ -1,4 +1,5 @@
 import React from 'react'
+import { SpaLink } from '@/components/SpaLink'
 
 interface ServiceMobileStickyCtaProps {
   label: string
@@ -15,9 +16,9 @@ export function ServiceMobileStickyCta({
   return (
     <div className="s2-svc-mobile-cta" aria-label="Quick actions">
       {secondaryLabel && secondaryHref ? (
-        <a href={secondaryHref} className="s2-btn s2-btn--outline s2-btn--sm">
+        <SpaLink href={secondaryHref} className="s2-btn s2-btn--outline s2-btn--sm">
           {secondaryLabel}
-        </a>
+        </SpaLink>
       ) : null}
       <a href="#booking-form" className="s2-btn s2-btn--primary">
         {label}

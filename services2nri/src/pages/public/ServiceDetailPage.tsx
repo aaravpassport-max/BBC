@@ -31,6 +31,7 @@ import { ServiceMobileStickyCta } from '@/components/public/ServiceMobileStickyC
 import { PublicGrid, PublicCard } from '@/components/public/PublicLayout'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
+import { resolveInternalDestination } from '@/lib/spa-navigation'
 import { getServiceImage } from '@/lib/images'
 import type { Service, ServiceSection, SectionType } from '@/types'
 import { installServiceSectionNavStrip } from '@/lib/service-section-nav-strip'
@@ -526,7 +527,9 @@ export function ServiceDetailPage() {
     api.get<{ service: Service; redirect?: string; unavailable?: boolean; message?: string }>(`services/${slug}`)
       .then(data => {
         if (data.redirect) {
-          window.location.href = data.redirect
+          const dest = resolveInternalDestination(data.redirect)
+          if (dest) navigate(dest, { replace: true })
+          else window.location.assign(data.redirect)
           return
         }
         if (data.unavailable) {

@@ -253,13 +253,7 @@ class SEO {
         echo '</head>' . "\n";
         echo '<body>' . "\n";
 
-        // ── Blog: /blog and /blog/:slug served as full PHP-rendered pages ────────
-        // Blog class is in the S2NRI namespace (same as this class) so no \ prefix needed.
-        if ( Blog::isBlogPath( $path ) ) {
-            Blog::render( $path, $settings_flat, $config );
-            echo '</body>' . "\n" . '</html>' . "\n";
-            return;
-        }
+        // Blog routes (/blog, /blog/:slug) hydrate via React Router (BlogListPage / BlogDetailPage).
 
         // ── Homepage: plain image slider + service search bar ───────────────────
         // Removes overlay/text/buttons from compiled React hero; injects a clean search bar.

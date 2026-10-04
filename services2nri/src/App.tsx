@@ -12,7 +12,10 @@
  */
 
 import React, { Suspense, lazy, useEffect, useState, Component } from 'react'
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation, Link } from 'react-router-dom'
+import { SpaNavigationBridge } from '@/components/SpaNavigationBridge'
+import { loadConsentedAnalytics } from '@/lib/analytics-consent'
+import { spaNavigate, scrollToHash } from '@/lib/spa-navigation'
 
 // ── Import styles ─────────────────────────────────────────────────────────────
 import './styles/global.css'
@@ -77,8 +80,14 @@ import { STAFF_ROLES } from './lib/constants'
 
 // ── Scroll to top on route change (wr component) ──────────────────────────────
 function ScrollToTop() {
-  const { pathname } = useLocation()
-  useEffect(() => { window.scrollTo(0, 0) }, [pathname])
+  const { pathname, hash } = useLocation()
+  useEffect(() => {
+    if (hash) {
+      scrollToHash(hash, 'auto')
+      return
+    }
+    window.scrollTo(0, 0)
+  }, [pathname, hash])
   return null
 }
 
@@ -123,7 +132,7 @@ function CookieConsentBanner() {
     // without them, which is the correct, compliant behavior (no
     // tracking before consent). 'declined' needs no reload since nothing
     // further needs to load.
-    if (value === 'accepted') window.location.reload()
+    if (value === 'accepted') loadConsentedAnalytics()
   }
 
   if (!visible) return null
@@ -136,7 +145,7 @@ function CookieConsentBanner() {
     }}>
       <p style={{ margin: 0, fontSize: 13, lineHeight: 1.5, maxWidth: 640, flex: '1 1 320px' }}>
         We use strictly necessary cookies to keep you logged in and prevent fraud, and — only with your consent — anonymised Google Analytics to understand site usage. We do not use advertising or tracking cookies.{' '}
-        <a href="/privacy" style={{ color: '#9fc6ff', textDecoration: 'underline' }}>Learn more</a>
+        <Link to="/privacy" style={{ color: '#9fc6ff', textDecoration: 'underline' }}>Learn more</Link>
       </p>
       <div style={{ display: 'flex', gap: 10, flexShrink: 0 }}>
         <button onClick={() => setConsent('declined')} style={{ background: 'transparent', border: '1px solid #ffffff55', color: '#fff', padding: '9px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Decline</button>
@@ -170,16 +179,16 @@ class ErrorBoundary extends Component<{ children: React.ReactNode }, ErrorBounda
             {String(this.state.error?.message || 'Unexpected error')}
           </p>
           <button
-            onClick={() => { this.setState({ error: null }); window.location.href = '/' }}
+            onClick={() => { this.setState({ error: null }); spaNavigate('/') }}
             style={{ padding: '10px 24px', background: primary, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, marginRight: 8 }}
           >
             Go Home
           </button>
           <button
-            onClick={() => window.location.reload()}
+            onClick={() => { this.setState({ error: null }) }}
             style={{ padding: '10px 24px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}
           >
-            Reload
+            Try again
           </button>
         </div>
       )
@@ -196,9 +205,9 @@ function NotFoundPage() {
       <div style={{ fontSize: 96, fontWeight: 900, color: '#f3f4f6', lineHeight: 1 }}>404</div>
       <h2 style={{ fontSize: 24, color: '#374151', margin: '16px 0 8px' }}>Page not found</h2>
       <p style={{ color: '#6b7280', marginBottom: 28 }}>The page you're looking for doesn't exist or has been moved.</p>
-      <a href="/" style={{ background: primary, color: '#fff', padding: '13px 30px', borderRadius: 9, fontWeight: 700, fontSize: 15, textDecoration: 'none' }}>
+      <Link to="/" style={{ background: primary, color: '#fff', padding: '13px 30px', borderRadius: 9, fontWeight: 700, fontSize: 15, textDecoration: 'none', display: 'inline-block' }}>
         ← Go Home
-      </a>
+      </Link>
     </div>
   )
 }
@@ -213,11 +222,15 @@ export function App() {
 
   useEffect(() => {
     applyDesignConfig()
+    if (document.cookie.split('; ').some((c) => c.startsWith('s2nri_cookie_consent=accepted'))) {
+      loadConsentedAnalytics()
+    }
   }, [])
 
   return (
     <ErrorBoundary>
       <BrowserRouter basename={basename}>
+        <SpaNavigationBridge />
         <DesignLiveSync />
         <ExperienceReveal />
         <ScrollToTop />

@@ -5,6 +5,15 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.40] — 2026-10-04 — Cloud Agent
+
+- **Global SPA navigation:** `SpaNavigationBridge` intercepts same-origin internal anchors; `SpaLink` + `spa-navigation` helpers for programmatic routing; shell-aware (public vs `/portal` vs `/s2nri-admin` vs builder).
+- **No full reload on consent accept:** analytics load client-side via `analytics-consent.ts`; cookie banner uses React Router links.
+- **Blog routes** return to the React SPA (removed PHP blog short-circuit in `SEO.php`).
+- **E2E:** `spa-navigation.spec.ts` guards against document reload on internal navigation.
+
+---
+
 ## [4.7.39] — 2026-10-04 — Cloud Agent
 
 - **Portal mobile shell:** `portal-experience.css` — frosted dashboard header, menu button, sidebar overlay; `s2-dash-mobile-header` on customer/admin layout.
