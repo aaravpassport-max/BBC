@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.12] — 2026-10-04 — Cloud Agent
+
+- **Packaging:** rsync staging (never copies `node_modules`); zip self-check + 6 MB cap; `RELEASE-MANIFEST.json` inside plugin; duplicate **`services2nri-full-source.zip`** for cache-safe downloads.
+
+---
+
 ## [4.7.11] — 2026-10-04 — Cloud Agent
 
 - **Release zip:** full source tree (PHP, TS, `src-react/`, docs, tests, scripts) + prebuilt `assets/`; **all `node_modules` excluded** (~3 MB instead of ~20 MB). See `docs/SOURCE_PACKAGE.md`.

@@ -1,6 +1,18 @@
 # Full-source plugin zip
 
-The official **`services2nri.zip`** at the repository root is a **complete source tree**, not a stripped “runtime-only” package.
+The official **`services2nri.zip`** (and identical **`services2nri-full-source.zip`**) at the repository root is a **complete source tree**, not a stripped “runtime-only” package.
+
+## Verify you got the right file (not a cached 20 MB build)
+
+| Check | Good (4.7.11+) | Old / wrong |
+|-------|----------------|-------------|
+| Download size | **~1.4 MB** | ~20 MB |
+| Files in zip | **~215** | ~2,500+ |
+| `node_modules` inside | **none** | thousands of paths |
+
+After unzip, open **`services2nri/RELEASE-MANIFEST.json`** — must show `"includes_node_modules": false` and your version.
+
+If the browser still shows 20 MB, use the **commit-pinned** or **`services2nri-full-source.zip`** link from `README.md` (bypasses CDN cache on `services2nri.zip`).
 
 ## Included
 

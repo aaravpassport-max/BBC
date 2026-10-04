@@ -13,7 +13,12 @@ Production-ready NRI service marketplace: public site, booking wizards, customer
 
 ## Install (5 minutes)
 
-1. Download **`services2nri.zip`** from the repository root — **full source** (PHP + TS/React + docs + prebuilt `assets/`). See `docs/SOURCE_PACKAGE.md`. Build with `bash scripts/package-plugin.sh` from this folder.
+1. Download the plugin zip (**full source**, ~1.4 MB, no `node_modules`):
+   - [services2nri-full-source.zip](https://github.com/aaravpassport-max/BBC/raw/main/services2nri-full-source.zip) ← prefer this if `services2nri.zip` looks cached (~20 MB)
+   - [services2nri.zip](https://github.com/aaravpassport-max/BBC/raw/main/services2nri.zip)
+   - Commit-pinned: `https://raw.githubusercontent.com/aaravpassport-max/BBC/<commit>/services2nri-full-source.zip`
+
+   After unzip, confirm `services2nri/RELEASE-MANIFEST.json` → `"includes_node_modules": false`. See `docs/SOURCE_PACKAGE.md`.
 2. WordPress → **Plugins → Add New → Upload Plugin** → choose the zip → **Install Now** → **Activate**.
 3. On activation the plugin creates tables, seeds categories/services, registers rewrite rules, and applies the default design system.
 4. Visit your site **home URL** — the public SPA loads at `/` (and `/services`, `/service/{slug}`, etc.).
