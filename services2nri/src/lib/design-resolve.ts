@@ -69,6 +69,80 @@ export function resolveDesignConfig(design: DesignPayload | undefined, ctx: Page
   return config
 }
 
+export type ChromeLayer = Record<string, string | boolean>
+
+export function resolveChromeLayer(design: DesignPayload | undefined, ctx: PageWidthContext): ChromeLayer {
+  if (!design) return {}
+  const tree = isRecord(design.chrome) ? (design.chrome as DesignPayload) : {}
+  const global = isRecord(tree.global) ? (tree.global as ChromeLayer) : {}
+  let merged: ChromeLayer = { ...global }
+  const types = isRecord(tree.page_types) ? (tree.page_types as Record<string, ChromeLayer>) : {}
+  const pages = isRecord(tree.pages) ? (tree.pages as Record<string, ChromeLayer>) : {}
+  if (ctx.page_type && types[ctx.page_type]) merged = { ...merged, ...types[ctx.page_type] }
+  if (ctx.page_type === 'page' && ctx.page_slug && types[ctx.page_slug]) {
+    merged = { ...merged, ...types[ctx.page_slug] }
+  }
+  if (ctx.page_slug && pages[ctx.page_slug]) merged = { ...merged, ...pages[ctx.page_slug] }
+  return merged
+}
+
+function chromeToCssVars(layer: ChromeLayer, config: DesignPayload): Record<string, string> {
+  const vars: Record<string, string> = {}
+  const keys: Record<string, string> = {
+    topbar_bg: '--s2-chrome-topbar-bg',
+    topbar_text: '--s2-chrome-topbar-text',
+    header_bg: '--s2-chrome-header-bg',
+    header_text: '--s2-chrome-header-text',
+    footer_bg: '--s2-chrome-footer-bg',
+    footer_text: '--s2-chrome-footer-text',
+    footer_heading_text: '--s2-chrome-footer-heading-text',
+  }
+  for (const [k, cssVar] of Object.entries(keys)) {
+    const v = layer[k]
+    if (typeof v === 'string' && v) vars[cssVar] = resolveTokenRef(v, config)
+  }
+  let h = layer.header_height_px
+  if (typeof h === 'string' && h) {
+    vars['--s2-chrome-header-height'] = /^\d+(\.\d+)?$/.test(h.trim()) ? `${h}px` : h
+  }
+  if (layer.header_variant === 'compact') {
+    vars['--s2-chrome-header-height'] = vars['--s2-chrome-header-height'] || '56px'
+  }
+  return vars
+}
+
+export function applyTypographyRuntime(typography: Record<string, Record<string, string>>, config: DesignPayload): void {
+  if (typeof document === 'undefined') return
+  let css = ''
+  for (const [role, t] of Object.entries(typography)) {
+    if (!t || typeof t !== 'object') continue
+    const cls = '.s2-t-' + role.replace(/_/g, '-')
+    const size = t.size_desktop || ''
+    const weight = t.font_weight || ''
+    const lh = t.line_height || ''
+    const color = t.color ? resolveTokenRef(t.color, config) : ''
+    const parts: string[] = []
+    if (size) parts.push(`font-size:${size}`)
+    if (weight) parts.push(`font-weight:${weight}`)
+    if (lh) parts.push(`line-height:${lh}`)
+    if (color) parts.push(`color:${color}`)
+    if (parts.length) css += `${cls}{${parts.join(';')};}\n`
+  }
+  let el = document.getElementById('s2nri-typography-runtime') as HTMLStyleElement | null
+  if (!el) {
+    el = document.createElement('style')
+    el.id = 's2nri-typography-runtime'
+    document.head.appendChild(el)
+  }
+  el.textContent = css
+}
+
+export function applyChromeVars(layer: ChromeLayer, config: DesignPayload): void {
+  if (typeof document === 'undefined') return
+  const root = document.documentElement
+  Object.entries(chromeToCssVars(layer, config)).forEach(([k, v]) => root.style.setProperty(k, v))
+}
+
 export function cssVarName(scope: 'color' | 'space' | 'radius' | 'shadow' | 'width', key: string): string {
   const safe = key.replace(/[^a-z0-9_]/gi, '_').toLowerCase()
   if (scope === 'color') return `--s2-color-${safe}`
@@ -126,5 +200,13 @@ export function applyResolvedDesignToDocument(resolved: DesignPayload, ctx: Page
   })
   if (widthVars['s2-width-page-max']) {
     root.style.setProperty('--s2-space-container_max', widthVars['s2-width-page-max'])
+  }
+
+  const chrome = resolveChromeLayer(resolved, ctx)
+  applyChromeVars(chrome, resolved)
+
+  const typography = (resolved.typography || {}) as Record<string, Record<string, string>>
+  if (Object.keys(typography).length > 0) {
+    applyTypographyRuntime(typography, resolved)
   }
 }

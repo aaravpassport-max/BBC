@@ -160,3 +160,27 @@ export const PAGE_TEMPLATES: PageTemplateDef[] = [
 ]
 
 export const ALL_WIDTH_PAGE_TYPES = WIDTH_PAGE_TYPES
+
+/** chrome.page_types / chrome.pages patch path for a template field */
+export function templateChromePath(t: PageTemplateDef, field: string): string[] {
+  if (t.widthPageSlug) return ['chrome', 'pages', t.widthPageSlug, field]
+  const pt = t.widthSlugAlias || t.widthPageType || t.overridePageType || t.id
+  return ['chrome', 'page_types', pt, field]
+}
+
+export function templateTypographyPath(t: PageTemplateDef, role: string, field: string): string[] {
+  if (t.overridePageSlug) {
+    return ['overrides', 'pages', t.overridePageSlug, 'typography', role, field]
+  }
+  const pt = t.overridePageType || t.widthSlugAlias || t.widthPageType || t.id
+  return ['overrides', 'page_types', pt, 'typography', role, field]
+}
+
+export function readNestedString(root: Record<string, unknown>, path: string[]): string {
+  let cur: unknown = root
+  for (const p of path) {
+    if (!cur || typeof cur !== 'object') return ''
+    cur = (cur as Record<string, unknown>)[p]
+  }
+  return typeof cur === 'string' ? cur : ''
+}

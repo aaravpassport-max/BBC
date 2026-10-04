@@ -90,6 +90,28 @@ class DesignSystem {
                 'pages'      => [],
                 'sections'   => [],
             ],
+            'chrome'      => self::defaultChrome(),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    public static function defaultChrome(): array {
+        return [
+            'global'     => [
+                'show_topbar'          => true,
+                'topbar_bg'            => '{colors.primary}',
+                'topbar_text'          => '#FFFFFF',
+                'header_bg'            => '#FFFFFF',
+                'header_text'          => '{colors.heading}',
+                'header_height_px'     => '64',
+                'header_variant'       => 'standard',
+                'footer_bg'            => '{colors.secondary}',
+                'footer_text'          => '#94A3B8',
+                'footer_heading_text'  => '#FFFFFF',
+                'footer_variant'       => 'full',
+            ],
+            'page_types' => [],
+            'pages'      => [],
         ];
     }
 
@@ -274,6 +296,7 @@ class DesignSystem {
             'motion'      => $resolved['motion'] ?? [],
             'breakpoints' => $resolved['breakpoints'] ?? [],
             'overrides'   => $resolved['overrides'] ?? [ 'page_types' => [], 'pages' => [], 'sections' => [] ],
+            'chrome'      => $resolved['chrome'] ?? self::defaultChrome(),
         ];
     }
 
@@ -339,7 +362,7 @@ class DesignSystem {
     public static function renderInlineCss( ?string $request_path = null ): string {
         $ctx = $request_path ? self::pageContextFromPath( $request_path ) : [];
         $config = self::resolve( $ctx );
-        $vars = self::buildCssVariables( $config );
+        $vars = self::buildCssVariables( $config, $ctx );
         $css = ":root{\n" . $vars . "\n}\n";
         $css .= self::typographyUtilityCss( $config );
         $css .= file_exists( S2NRI_DIR . 'assets/public-design-system.css' )
@@ -369,6 +392,9 @@ class DesignSystem {
         $css .= file_exists( S2NRI_DIR . 'assets/public-width-layout.css' )
             ? file_get_contents( S2NRI_DIR . 'assets/public-width-layout.css' )
             : '';
+        $css .= file_exists( S2NRI_DIR . 'assets/public-site-chrome.css' )
+            ? file_get_contents( S2NRI_DIR . 'assets/public-site-chrome.css' )
+            : '';
         $css .= WidthLayout::renderScopeCss( $config, $ctx );
         $css .= self::renderSectionOverrideCss( $config );
         if ( ! empty( $config['motion']['reduce_motion'] ) ) {
@@ -377,7 +403,65 @@ class DesignSystem {
         return $css;
     }
 
-    private static function buildCssVariables( array $config ): string {
+    /**
+     * @param array{page_type?: string, page_slug?: string} $ctx
+     * @return array<string, string>
+     */
+    private static function resolveChromeLayer( array $config, array $ctx = [] ): array {
+        $tree = is_array( $config['chrome'] ?? null ) ? $config['chrome'] : self::defaultChrome();
+        $global = is_array( $tree['global'] ?? null ) ? $tree['global'] : [];
+        $merged = $global;
+        $pt     = sanitize_key( $ctx['page_type'] ?? '' );
+        $slug   = sanitize_title( $ctx['page_slug'] ?? '' );
+        $types  = is_array( $tree['page_types'] ?? null ) ? $tree['page_types'] : [];
+        $pages  = is_array( $tree['pages'] ?? null ) ? $tree['pages'] : [];
+        if ( $pt && ! empty( $types[ $pt ] ) && is_array( $types[ $pt ] ) ) {
+            $merged = array_merge( $merged, $types[ $pt ] );
+        }
+        if ( $pt === 'page' && $slug && ! empty( $types[ $slug ] ) && is_array( $types[ $slug ] ) ) {
+            $merged = array_merge( $merged, $types[ $slug ] );
+        }
+        if ( $slug && ! empty( $pages[ $slug ] ) && is_array( $pages[ $slug ] ) ) {
+            $merged = array_merge( $merged, $pages[ $slug ] );
+        }
+        return $merged;
+    }
+
+    /** @param array<string, mixed> $layer */
+    private static function chromeLayerToCssVars( array $layer, array $config ): array {
+        $map = [
+            'topbar_bg'           => '--s2-chrome-topbar-bg',
+            'topbar_text'         => '--s2-chrome-topbar-text',
+            'header_bg'           => '--s2-chrome-header-bg',
+            'header_text'         => '--s2-chrome-header-text',
+            'footer_bg'           => '--s2-chrome-footer-bg',
+            'footer_text'         => '--s2-chrome-footer-text',
+            'footer_heading_text' => '--s2-chrome-footer-heading-text',
+        ];
+        $vars = [];
+        foreach ( $map as $key => $cssVar ) {
+            if ( empty( $layer[ $key ] ) || ! is_string( $layer[ $key ] ) ) {
+                continue;
+            }
+            $vars[ $cssVar ] = self::resolveTokenRef( (string) $layer[ $key ], $config );
+        }
+        if ( ! empty( $layer['header_height_px'] ) ) {
+            $h = (string) $layer['header_height_px'];
+            if ( preg_match( '/^\d+(\.\d+)?$/', trim( $h ) ) ) {
+                $h .= 'px';
+            }
+            $vars['--s2-chrome-header-height'] = $h;
+        }
+        if ( ! empty( $layer['header_variant'] ) && $layer['header_variant'] === 'compact' ) {
+            $vars['--s2-chrome-header-height'] = $vars['--s2-chrome-header-height'] ?? '56px';
+        }
+        return $vars;
+    }
+
+    /**
+     * @param array{page_type?: string, page_slug?: string} $ctx
+     */
+    private static function buildCssVariables( array $config, array $ctx = [] ): string {
         $lines = [];
         $colors = $config['colors'] ?? [];
         foreach ( $colors as $k => $v ) {
@@ -437,6 +521,11 @@ class DesignSystem {
             if ( ! empty( $comp[ $key ] ) ) {
                 $lines[] = '  ' . $var . ':' . self::resolveTokenRef( (string) $comp[ $key ], $config ) . ';';
             }
+        }
+
+        $chromeVars = self::chromeLayerToCssVars( self::resolveChromeLayer( $config, $ctx ), $config );
+        foreach ( $chromeVars as $k => $v ) {
+            $lines[] = '  ' . $k . ':' . esc_attr( $v ) . ';';
         }
 
         return implode( "\n", $lines );

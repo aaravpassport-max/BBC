@@ -13,6 +13,7 @@ import {
   CityRegistryPanel,
   NavMenuEditor,
   PageTemplatesPanel,
+  SiteChromePanel,
   FontAssignPanel,
   GuidedOverrideWizard,
   LiveSitePreviewFrame,
@@ -27,7 +28,7 @@ import { HexColorField, HexAlphaColorField } from './design-admin-fields'
 type DesignConfig = Record<string, unknown>
 
 const TABS = [
-  'Global', 'Page Templates', 'Typography', 'Fonts', 'Colors', 'Spacing', 'Width & Layout', 'Components',
+  'Global', 'Site Chrome', 'Page Templates', 'Typography', 'Fonts', 'Colors', 'Spacing', 'Width & Layout', 'Components',
   'Containers', 'Borders', 'Shadows', 'Motion', 'Responsive', 'Overrides',
   'Presets', 'Preview', 'Live Site', 'Navigation', 'Icons',
   'Service Registry', 'Categories', 'Cities',
@@ -102,6 +103,7 @@ export function AdminDesignSystem() {
   const breakpoints = (config?.breakpoints || {}) as Record<string, number>
   const components = (config?.components || {}) as Record<string, string>
   const overrides = (config?.overrides || {}) as Record<string, Record<string, unknown>>
+  const chrome = (config?.chrome || {}) as Record<string, unknown>
 
   const filteredFonts = useMemo(() => {
     const q = fontQuery.toLowerCase().trim()
@@ -347,10 +349,15 @@ export function AdminDesignSystem() {
         </div>
       )}
 
+      {tab === 'Site Chrome' && (
+        <SiteChromePanel chrome={chrome} patch={patch} />
+      )}
+
       {tab === 'Page Templates' && (
         <PageTemplatesPanel
           overrides={overrides}
           widths={(config.widths || {}) as Record<string, unknown>}
+          chrome={chrome}
           patch={patch}
           onOpenWidth={(focus) => {
             setWidthFocus(focus)
