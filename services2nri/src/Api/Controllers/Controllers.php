@@ -63,10 +63,14 @@ class ServiceController extends BaseController {
     public function index( Request $req ): void {
         $cat_slug = sanitize_key( $req->query( 'category', '' ) );
         $search   = sanitize_text_field( $req->query( 'search', '' ) );
-        $surface  = sanitize_key( $req->query( 'surface', 'directory' ) );
+        $surface  = sanitize_key( $req->query( 'surface', $search ? 'search' : 'directory' ) );
+        $limit    = max( 0, (int) $req->query( 'per_page', 0 ) );
 
         $rows = \S2NRI\Services\ServiceRegistry::forSurface( $surface, [
-            'category_slug' => $cat_slug,
+            'category_slug'  => $cat_slug,
+            'featured_only'  => $req->query( 'featured', '' ) === '1',
+            'popular_only'   => $req->query( 'popular', '' ) === '1',
+            'limit'          => $limit > 0 ? $limit : 0,
         ] );
 
         if ( $search ) {
@@ -92,6 +96,8 @@ class ServiceController extends BaseController {
                 'turnaround_days'     => (int) ( $s['turnaround_days'] ?? 7 ),
                 'image_url'           => $s['image_url'] ?? '',
                 'sort_order'          => (int) ( $s['sort_order'] ?? 0 ),
+                'is_featured'         => (int) ( $s['is_featured'] ?? 0 ),
+                'is_popular'          => (int) ( $s['is_popular'] ?? 0 ),
                 'is_active'           => (int) ( $s['is_active'] ?? 1 ),
                 'public_status'       => $s['public_status'] ?? 'published',
                 'category_id'         => (int) ( $s['category_id'] ?? 0 ),

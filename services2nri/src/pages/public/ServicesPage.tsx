@@ -12,6 +12,7 @@
  */
 
 import React, { useState, useEffect } from 'react'
+import { resolvePrimary } from '@/lib/design-tokens'
 import { Link, useParams } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
 import { useStore } from '@/lib/store'
@@ -27,7 +28,7 @@ export function ServicesPage() {
   const [loading,    setLoading]    = useState(true)
   const [loadError,  setLoadError]  = useState(false)
 
-  const primary = useStore((s) => s.settings).primary_color || '#4A6FA5'
+  const primary = resolvePrimary(useStore((s) => s.settings))
   const { categorySlug } = useParams<{ categorySlug?: string }>()
 
   const load = () => {

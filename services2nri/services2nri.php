@@ -3,7 +3,7 @@
  * Plugin Name:       Services2NRI
  * Plugin URI:        https://services2nri.org.in
  * Description:       Complete NRI Service Marketplace — bookings, quotes, payments, CRM, documents.
- * Version:           4.5.1
+ * Version:           4.5.2
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            Services2NRI
@@ -28,7 +28,7 @@ if ( version_compare( PHP_VERSION, '8.0.0', '<' ) ) {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 define( 'S2NRI_CUSTOMER_ROLE', 's2nri_customer' );
-define( 'S2NRI_VERSION',    '4.5.1' );
+define( 'S2NRI_VERSION',    '4.5.2' );
 define( 'S2NRI_FILE',       __FILE__ );
 define( 'S2NRI_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'S2NRI_URL',        plugin_dir_url( __FILE__ ) );
@@ -184,6 +184,7 @@ $s2nri_classmap = [
     'S2NRI\Design\FontLibrary' => S2NRI_DIR . 'src/Design/FontLibrary.php',
     'S2NRI\Design\DesignPresets' => S2NRI_DIR . 'src/Design/DesignPresets.php',
     'S2NRI\Services\ServiceRegistry' => S2NRI_DIR . 'src/Services/ServiceRegistry.php',
+    'S2NRI\Services\PublicEntityRegistry' => S2NRI_DIR . 'src/Services/PublicEntityRegistry.php',
     'S2NRI\Api\Controllers\DesignSystemController' => S2NRI_DIR . 'src/Api/Controllers/DesignControllers.php',
     'S2NRI\Api\Controllers\NavigationController' => S2NRI_DIR . 'src/Api/Controllers/DesignControllers.php',
     'S2NRI\Api\Controllers\ServiceRegistryAdminController' => S2NRI_DIR . 'src/Api/Controllers/DesignControllers.php',

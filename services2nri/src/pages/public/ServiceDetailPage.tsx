@@ -24,6 +24,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import { resolvePrimary } from '@/lib/design-tokens'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
 import { useStore } from '@/lib/store'
@@ -401,7 +402,7 @@ export function ServiceDetailPage() {
   const navigate   = useNavigate()
   const user       = useStore(s => s.user)
   const settings   = useStore(s => s.settings)
-  const primary    = settings.primary_color || '#4A6FA5'
+  const primary    = resolvePrimary(settings)
   const siteName   = settings.platform_name || 'Services2NRI'
   const waNum      = settings.platform_whatsapp
 

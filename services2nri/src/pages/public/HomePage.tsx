@@ -22,6 +22,7 @@
  */
 
 import React, { useState, useEffect } from 'react'
+import { resolvePrimary } from '@/lib/design-tokens'
 import { Link } from 'react-router-dom'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { Autoplay, Pagination, Navigation, EffectFade } from 'swiper/modules'
@@ -158,7 +159,7 @@ const FAQ_DATA = [
 
 export function HomePage() {
   const settings = useStore((s) => s.settings)
-  const primary  = settings.primary_color || '#4A6FA5'
+  const primary  = resolvePrimary(settings)
   const whatsapp = settings.platform_whatsapp
 
   // Data state

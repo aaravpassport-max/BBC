@@ -191,6 +191,31 @@ class ServiceRegistry {
             $slug = sanitize_key( $opts['category_slug'] );
             $out  = array_values( array_filter( $out, fn( $s ) => ( $s['category_slug'] ?? '' ) === $slug ) );
         }
+        if ( ! empty( $opts['featured_only'] ) ) {
+            $out = array_values( array_filter( $out, fn( $s ) => ! empty( $s['is_featured'] ) ) );
+        }
+        if ( ! empty( $opts['popular_only'] ) ) {
+            $out = array_values( array_filter( $out, fn( $s ) => ! empty( $s['is_popular'] ) ) );
+        }
+
+        usort( $out, function ( $a, $b ) {
+            $fa = ! empty( $a['is_featured'] ) ? 1 : 0;
+            $fb = ! empty( $b['is_featured'] ) ? 1 : 0;
+            if ( $fa !== $fb ) {
+                return $fb <=> $fa;
+            }
+            $pa = ! empty( $a['is_popular'] ) ? 1 : 0;
+            $pb = ! empty( $b['is_popular'] ) ? 1 : 0;
+            if ( $pa !== $pb ) {
+                return $pb <=> $pa;
+            }
+            $so = ( (int) ( $a['sort_order'] ?? 0 ) ) <=> ( (int) ( $b['sort_order'] ?? 0 ) );
+            if ( $so !== 0 ) {
+                return $so;
+            }
+            return strcasecmp( (string) ( $a['name'] ?? '' ), (string) ( $b['name'] ?? '' ) );
+        } );
+
         if ( ! empty( $opts['limit'] ) ) {
             $out = array_slice( $out, 0, (int) $opts['limit'] );
         }
@@ -470,6 +495,12 @@ class ServiceRegistry {
             $rules = array_merge( self::defaultVisibilityRules(), $data['visibility_rules'] );
             $update['visibility_rules'] = wp_json_encode( $rules );
         }
+        if ( array_key_exists( 'is_featured', $data ) ) {
+            $update['is_featured'] = ! empty( $data['is_featured'] ) ? 1 : 0;
+        }
+        if ( array_key_exists( 'is_popular', $data ) ) {
+            $update['is_popular'] = ! empty( $data['is_popular'] ) ? 1 : 0;
+        }
         if ( empty( $update ) ) {
             return false;
         }
@@ -496,6 +527,9 @@ class ServiceRegistry {
         }
         if ( isset( $data['visibility_rules'] ) && is_array( $data['visibility_rules'] ) ) {
             $update['visibility_rules'] = wp_json_encode( $data['visibility_rules'] );
+        }
+        if ( array_key_exists( 'hide_when_empty_children', $data ) ) {
+            $update['hide_when_empty_children'] = ! empty( $data['hide_when_empty_children'] ) ? 1 : 0;
         }
         if ( empty( $update ) ) {
             return false;

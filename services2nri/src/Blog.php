@@ -37,8 +37,11 @@ class Blog {
     private static function renderListing( array $settings, array $config ): void {
         global $wpdb;
         $p     = $wpdb->prefix;
-        $brand = esc_attr( $settings['primary_color'] ?? '#4A6FA5' );
-        $site  = esc_html( $settings['platform_name'] ?? 'Services2NRI' );
+        $design = \S2NRI\Design\DesignSystem::resolve( [ 'page_type' => 'blog' ] );
+        $brand  = esc_attr( $design['colors']['primary'] ?? ( $settings['primary_color'] ?? '#4A6FA5' ) );
+        $site   = esc_html( $settings['platform_name'] ?? 'Services2NRI' );
+        $design_head = \S2NRI\Design\DesignSystem::renderFontLinks( $design )
+            . '<style id="s2-design-system">' . \S2NRI\Design\DesignSystem::renderInlineCss( '/blog' ) . '</style>';
 
         $cat_filter = sanitize_text_field( $_GET['category'] ?? '' );
         $search_q   = sanitize_text_field( $_GET['s'] ?? '' );
@@ -95,6 +98,7 @@ class Blog {
 <!doctype html>
 <html lang="en">
 <head>
+  <?php echo $design_head; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>NRI Knowledge Hub — <?php echo $site; ?></title>
@@ -177,7 +181,7 @@ class Blog {
     }
   </style>
 </head>
-<body>
+<body class="s2-ds s2-page-wrap">
 
 <!-- Header -->
 <header class="blog-header">
@@ -324,8 +328,11 @@ class Blog {
     private static function renderDetail( string $slug, array $settings, array $config ): void {
         global $wpdb;
         $p     = $wpdb->prefix;
-        $brand = esc_attr( $settings['primary_color'] ?? '#4A6FA5' );
-        $site  = esc_html( $settings['platform_name'] ?? 'Services2NRI' );
+        $design = \S2NRI\Design\DesignSystem::resolve( [ 'page_type' => 'blog' ] );
+        $brand  = esc_attr( $design['colors']['primary'] ?? ( $settings['primary_color'] ?? '#4A6FA5' ) );
+        $site   = esc_html( $settings['platform_name'] ?? 'Services2NRI' );
+        $design_head = \S2NRI\Design\DesignSystem::renderFontLinks( $design )
+            . '<style id="s2-design-system">' . \S2NRI\Design\DesignSystem::renderInlineCss( '/blog' ) . '</style>';
         $site_url = home_url();
 
         $post = $wpdb->get_row( $wpdb->prepare(
@@ -385,6 +392,7 @@ class Blog {
 <!doctype html>
 <html lang="en">
 <head>
+  <?php echo $design_head; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title><?php echo esc_html( $post['title'] ); ?> — <?php echo $site; ?></title>
@@ -489,7 +497,7 @@ class Blog {
     }
   </style>
 </head>
-<body>
+<body class="s2-ds s2-page-wrap">
 
 <!-- Header -->
 <header class="blog-header">
