@@ -36,6 +36,7 @@ grep -q 'pruneInheritedWidthLayers' src/lib/width-inheritance.ts && ok width inh
 
 php tests/unit/visibility-logic-test.php && ok visibility unit tests || bad visibility unit tests
 php tests/unit/design-system-save-test.php && ok design save unit tests || bad design save unit tests
+php tests/unit/width-layout-responsive-test.php && ok width responsive unit tests || bad width responsive unit tests
 php scripts/generate-audit-matrix.php >/dev/null && ok audit matrix generator || bad audit matrix generator
 
 font_count=$(python3 -c "import json; print(len(json.load(open('data/font-library.json'))['fonts']))" 2>/dev/null || echo 0)

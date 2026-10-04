@@ -2,7 +2,10 @@
  * Client-side design config resolver (mirrors DesignSystem::resolve + token refs).
  */
 import type { PageWidthContext } from '@/lib/width-layout'
-import { buildWidthSectionRuntimeCss, resolveWidthCssVars } from '@/lib/width-layout'
+import {
+  buildWidthResponsiveRuntimeCss,
+  resolveWidthCssVars,
+} from '@/lib/width-layout'
 
 export type DesignPayload = Record<string, unknown>
 
@@ -211,12 +214,12 @@ export function applyResolvedDesignToDocument(resolved: DesignPayload, ctx: Page
   }
 
   applySectionOverrideCss(resolved)
-  applyWidthSectionRuntimeCss(resolved)
+  applyWidthResponsiveRuntimeCss(resolved, ctx)
 }
 
-export function applyWidthSectionRuntimeCss(config: DesignPayload): void {
+export function applyWidthResponsiveRuntimeCss(config: DesignPayload, ctx: PageWidthContext): void {
   if (typeof document === 'undefined') return
-  const css = buildWidthSectionRuntimeCss(config)
+  const css = buildWidthResponsiveRuntimeCss(config, ctx)
   let el = document.getElementById('s2nri-width-sections-runtime') as HTMLStyleElement | null
   if (!el) {
     el = document.createElement('style')

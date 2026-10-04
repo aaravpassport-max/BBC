@@ -5,6 +5,15 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.32] — 2026-10-04 — Cloud Agent
+
+- **Service cards:** edge-to-edge hero images (zero card padding on media; 16:10 aspect on mobile).
+- **Mobile spacing controls:** `padding_x_left` / `padding_x_right` in Layout Studio (inherit horizontal gutter when empty); defaults tighten mobile gutter to 12px.
+- **Responsive width plumbing:** page/section overrides now emit `@media` rules at 768/1024/1280; SPA injects matching runtime CSS on route/resize; marketing sections use width gutters.
+- Tests: `width-layout-responsive-test.php`.
+
+---
+
 ## [4.7.31] — 2026-10-04 — Cloud Agent
 
 - **Mobile app shell:** hide desktop top bar and header CTAs on phones; compact app bar with WhatsApp/contact icons and drawer utilities.

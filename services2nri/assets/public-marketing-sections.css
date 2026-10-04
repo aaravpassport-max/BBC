@@ -36,7 +36,15 @@
 
 .s2-marketing-section {
   background: var(--s2-color-surface, #fff);
-  padding: var(--s2-space-section_y, 64px) var(--s2-space-page_margin, 20px);
+  padding-block: var(--s2-space-section_y, 64px);
+  padding-inline-start: var(
+    --s2-width-padding-x-left,
+    var(--s2-width-padding-x, var(--s2-space-page_margin, 20px))
+  );
+  padding-inline-end: var(
+    --s2-width-padding-x-right,
+    var(--s2-width-padding-x, var(--s2-space-page_margin, 20px))
+  );
 }
 
 .s2-marketing-section--alt {

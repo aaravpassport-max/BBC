@@ -344,7 +344,7 @@ export function HomePage() {
               const fallbackImgs = [IMAGES.property, IMAGES.housekeeping, IMAGES.tenancy, IMAGES.rent]
               const img = svc.image_url || (svc as Service & { img?: string }).img || fallbackImgs[i % 4]
               return (
-                <div key={svc.id || i} className="s2-card s2-card--service s2-home-svc-card s2-animate-hover">
+                <div key={svc.id || i} className="s2-card s2-card--service s2-card--media-bleed s2-home-svc-card s2-animate-hover">
                   <div className="s2-home-svc-card__media">
                     <img src={img} alt={svc.name} loading="lazy" />
                     <div className="s2-home-svc-card__fade" />

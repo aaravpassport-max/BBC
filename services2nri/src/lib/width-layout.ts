@@ -37,8 +37,41 @@ const TOKEN_MAP: Record<string, string> = {
   section_narrow: 'section-narrow',
   section_compact: 'section-compact',
   padding_x: 'padding-x',
+  padding_x_left: 'padding-x-left',
+  padding_x_right: 'padding-x-right',
   min_width: 'min',
   max_width_cap: 'max-cap',
+}
+
+export const WIDTH_BREAKPOINTS = {
+  desktop: 1280,
+  laptop: 1024,
+  tablet: 768,
+  mobile: 768,
+} as const
+
+export type WidthBreakpointId = keyof typeof WIDTH_BREAKPOINTS
+
+const BP_ORDER: WidthBreakpointId[] = ['desktop', 'laptop', 'tablet', 'mobile']
+
+function tokenValueAtBp(raw: unknown, bp: WidthBreakpointId): string {
+  if (raw == null || raw === 'inherit') return ''
+  if (isRecord(raw)) {
+    const order: WidthBreakpointId[] =
+      bp === 'mobile'
+        ? ['mobile', 'tablet', 'laptop', 'desktop']
+        : bp === 'tablet'
+          ? ['tablet', 'laptop', 'desktop']
+          : bp === 'laptop'
+            ? ['laptop', 'desktop']
+            : ['desktop']
+    for (const key of order) {
+      const v = String(raw[key] ?? '').trim()
+      if (v) return v
+    }
+    return ''
+  }
+  return String(raw).trim()
 }
 
 type WidthLayer = Record<string, string | Record<string, string>>
@@ -76,21 +109,50 @@ export function sectionMaxFromLayer(layer: WidthLayer): string | null {
   return null
 }
 
-function layerToCssVars(layer: WidthLayer, prefix = ''): Record<string, string> {
+function layerToCssVars(layer: WidthLayer, prefix = '', bp: WidthBreakpointId = 'desktop'): Record<string, string> {
   const vars: Record<string, string> = {}
   for (const [key, cssKey] of Object.entries(TOKEN_MAP)) {
     const raw = layer[key]
     if (raw == null || raw === 'inherit') continue
-    let val: string
-    if (isRecord(raw)) {
-      val = String(raw.desktop ?? Object.values(raw)[0] ?? '')
-    } else {
-      val = String(raw)
-    }
+    const val = tokenValueAtBp(raw, bp)
     if (!val) continue
     vars[`s2-width-${prefix}${cssKey}`] = val
   }
   return vars
+}
+
+function varsToCssBlock(vars: Record<string, string>): string {
+  return Object.entries(vars)
+    .map(([k, v]) => `--${k}:${v};`)
+    .join('')
+}
+
+function renderLayerResponsiveCss(layer: WidthLayer, selector: string, prefix = ''): string {
+  let css = ''
+  for (const bp of BP_ORDER) {
+    if (bp === 'desktop') continue
+    const max = WIDTH_BREAKPOINTS[bp]
+    const flat: WidthLayer = {}
+    for (const [key, val] of Object.entries(layer)) {
+      if (isRecord(val) && val[bp] != null && String(val[bp]).trim() !== '') {
+        flat[key] = String(val[bp])
+      }
+    }
+    if (!Object.keys(flat).length) continue
+    const bpVars = layerToCssVars(flat, prefix, 'desktop')
+    if (!Object.keys(bpVars).length) continue
+    css += `@media (max-width:${max}px){${selector}{${varsToCssBlock(bpVars)}}}\n`
+  }
+  return css
+}
+
+export function activeWidthBreakpoint(): WidthBreakpointId {
+  if (typeof window === 'undefined') return 'desktop'
+  const w = window.innerWidth
+  if (w <= WIDTH_BREAKPOINTS.mobile) return 'mobile'
+  if (w <= 1023) return 'tablet'
+  if (w <= 1279) return 'laptop'
+  return 'desktop'
 }
 
 export function pageContextFromPath(pathname: string): PageWidthContext {
@@ -126,6 +188,7 @@ export function pageContextFromPath(pathname: string): PageWidthContext {
 export function resolveWidthCssVars(
   design: Record<string, unknown> | undefined,
   ctx: PageWidthContext,
+  bp: WidthBreakpointId = activeWidthBreakpoint(),
 ): Record<string, string> {
   const widths = isRecord(design?.widths) ? (design.widths as Record<string, unknown>) : {}
   const global = (isRecord(widths.global) ? widths.global : {}) as WidthLayer
@@ -152,7 +215,28 @@ export function resolveWidthCssVars(
   const pageLayer = pages[ctx.page_slug]
   if (isRecord(pageLayer)) merged = mergeLayer(merged, pageLayer as WidthLayer)
 
-  return layerToCssVars(merged)
+  return layerToCssVars(merged, '', bp)
+}
+
+/** Mirrors WidthLayout::renderScopeCss for SPA navigation + live design sync. */
+export function buildWidthResponsiveRuntimeCss(
+  design: Record<string, unknown> | undefined,
+  ctx: PageWidthContext,
+): string {
+  if (!design) return ''
+  const widths = isRecord(design.widths) ? (design.widths as Record<string, unknown>) : {}
+  const global = (isRecord(widths.global) ? widths.global : {}) as WidthLayer
+  let css = `.s2-width-scope,.s2-page-wrap{${varsToCssBlock(layerToCssVars(global))}}\n`
+  css += renderLayerResponsiveCss(global, '.s2-width-scope,.s2-page-wrap')
+
+  const merged = mergeWidthContext(design, ctx)
+  let pageSel = '.s2-width-scope,.s2-page-wrap'
+  if (ctx.page_type) pageSel += `[data-s2-page-type="${ctx.page_type}"]`
+  if (ctx.page_slug) pageSel += `[data-s2-page-slug="${ctx.page_slug}"]`
+  css += `${pageSel}{${varsToCssBlock(layerToCssVars(merged))}}\n`
+  css += renderLayerResponsiveCss(merged, pageSel)
+
+  return css + buildWidthSectionRuntimeCss(design)
 }
 
 /** Merged width layer for a page context (mirrors server resolveVars without section scope). */
@@ -238,6 +322,10 @@ function layerToCssDecls(layer: WidthLayer, section: string): string {
   return lines.join(';')
 }
 
+function appendSectionResponsiveCss(css: string, layer: WidthLayer, selector: string, section: string): string {
+  return css + renderLayerResponsiveCss(layer, selector, `sec-${section}-`)
+}
+
 /** Mirrors WidthLayout::renderPageTypeSectionCss + global sections for SPA live sync. */
 export function buildWidthSectionRuntimeCss(design: Record<string, unknown> | undefined): string {
   if (!design) return ''
@@ -249,7 +337,9 @@ export function buildWidthSectionRuntimeCss(design: Record<string, unknown> | un
     if (!isRecord(layer)) continue
     const decl = layerToCssDecls(layer as WidthLayer, sec)
     if (!decl) continue
-    css += `[data-s2-section="${sec}"]{${decl}}\n`
+    const sel = `[data-s2-section="${sec}"]`
+    css += `${sel}{${decl}}\n`
+    css = appendSectionResponsiveCss(css, layer as WidthLayer, sel, sec)
   }
 
   const pageTypes = isRecord(widths.page_types) ? widths.page_types : {}
@@ -264,6 +354,7 @@ export function buildWidthSectionRuntimeCss(design: Record<string, unknown> | un
         `.s2-width-scope[data-s2-page-type="${pt}"] [data-s2-section="${sec}"],` +
         `.s2-page-wrap[data-s2-page-type="${pt}"] [data-s2-section="${sec}"]`
       css += `${sel}{${decl}}\n`
+      css = appendSectionResponsiveCss(css, layer as WidthLayer, sel, sec)
     }
   }
 
@@ -277,6 +368,7 @@ export function buildWidthSectionRuntimeCss(design: Record<string, unknown> | un
       `.s2-width-scope[data-s2-page-type="service"] [data-s2-section="${sec}"],` +
       `.s2-page-wrap[data-s2-page-type="service"] [data-s2-section="${sec}"]`
     css += `${sel}{${decl}}\n`
+    css = appendSectionResponsiveCss(css, layer as WidthLayer, sel, sec)
   }
 
   return css

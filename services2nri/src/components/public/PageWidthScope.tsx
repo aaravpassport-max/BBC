@@ -24,6 +24,12 @@ export function PageWidthScope({ children }: { children: React.ReactNode }) {
   }, [pathname])
 
   useEffect(() => {
+    const onResize = () => applyDesignForPath(pathname)
+    window.addEventListener('resize', onResize, { passive: true })
+    return () => window.removeEventListener('resize', onResize)
+  }, [pathname])
+
+  useEffect(() => {
     const reapply = () => applyDesignForPath(pathname)
     window.addEventListener(DESIGN_UPDATED_EVENT, reapply)
     return () => window.removeEventListener(DESIGN_UPDATED_EVENT, reapply)

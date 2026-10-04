@@ -4,7 +4,7 @@ import { stripPxForInput } from './design-admin-fields'
 export const GLOBAL_KEYS = [
   'page_max', 'content_max', 'inner_max', 'full_bleed',
   'section_standard', 'section_wide', 'section_narrow', 'section_compact',
-  'padding_x', 'min_width', 'max_width_cap',
+  'padding_x', 'padding_x_left', 'padding_x_right', 'min_width', 'max_width_cap',
 ] as const
 
 export type GlobalKey = (typeof GLOBAL_KEYS)[number]
@@ -39,8 +39,20 @@ export const FIELD_META: Record<
     slider: { min: 960, max: 1600, step: 4 },
   },
   padding_x: {
-    label: 'Horizontal gutter',
-    hint: 'Side padding inside the page shell on smaller viewports.',
+    label: 'Horizontal gutter (both sides)',
+    hint: 'Default left and right inset for containers, header, and marketing sections. Set Mobile separately for phone layouts.',
+    group: 'shell',
+    slider: { min: 0, max: 48, step: 2 },
+  },
+  padding_x_left: {
+    label: 'Left inset',
+    hint: 'Optional override for the left gutter only. Empty inherits the horizontal gutter for each breakpoint.',
+    group: 'shell',
+    slider: { min: 0, max: 48, step: 2 },
+  },
+  padding_x_right: {
+    label: 'Right inset',
+    hint: 'Optional override for the right gutter only. Empty inherits the horizontal gutter for each breakpoint.',
     group: 'shell',
     slider: { min: 0, max: 48, step: 2 },
   },

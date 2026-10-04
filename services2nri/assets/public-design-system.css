@@ -107,6 +107,20 @@
   transform: translateY(-2px);
 }
 .s2-card--service { display: flex; flex-direction: column; gap: 12px; height: 100%; }
+
+/* Edge-to-edge media: image flush with card top/sides (homepage + service cards) */
+.s2-card--media-bleed,
+.s2-home-svc-card.s2-card {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+.s2-card--media-bleed .s2-home-svc-card__media,
+.s2-home-svc-card.s2-card .s2-home-svc-card__media {
+  margin: 0;
+  width: 100%;
+}
 .s2-card__title { font-family: var(--s2-font-heading); font-weight: 600; color: var(--s2-color-heading); font-size: 1.125rem; margin: 0; }
 .s2-card__desc { color: var(--s2-color-muted); font-size: 0.9375rem; margin: 0; }
 

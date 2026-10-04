@@ -12,7 +12,7 @@ class WidthLayout {
         'desktop' => 1280,
         'laptop'  => 1024,
         'tablet'  => 768,
-        'mobile'  => 480,
+        'mobile'  => 768,
     ];
 
     /** @return list<string> */
@@ -54,8 +54,8 @@ class WidthLayout {
             'padding_x'         => [
                 'desktop' => '20px',
                 'laptop'  => '20px',
-                'tablet'  => '16px',
-                'mobile'  => '16px',
+                'tablet'  => '14px',
+                'mobile'  => '12px',
             ],
             'min_width'         => '320px',
             'max_width_cap'     => '1920px',
@@ -80,7 +80,14 @@ class WidthLayout {
      * @param array{page_type?: string, page_slug?: string, section?: string} $ctx
      * @return array<string, string> Flat CSS custom properties (desktop base).
      */
-    public static function resolveVars( array $config, array $ctx = [] ): array {
+    /**
+     * Merged page-level width layer (global → page type → page), before section scope.
+     *
+     * @param array<string, mixed> $config
+     * @param array{page_type?: string, page_slug?: string} $ctx
+     * @return array<string, mixed>
+     */
+    public static function mergeContextLayer( array $config, array $ctx = [] ): array {
         $widths = is_array( $config['widths'] ?? null ) ? $config['widths'] : self::defaults();
         $widths = self::deepMerge( self::defaults(), $widths );
 
@@ -102,6 +109,18 @@ class WidthLayout {
         if ( $slug && ! empty( $widths['pages'][ $slug ] ) && is_array( $widths['pages'][ $slug ] ) ) {
             $merged = self::mergeWidthLayer( $merged, $widths['pages'][ $slug ] );
         }
+
+        return $merged;
+    }
+
+    public static function resolveVars( array $config, array $ctx = [] ): array {
+        $widths = is_array( $config['widths'] ?? null ) ? $config['widths'] : self::defaults();
+        $widths = self::deepMerge( self::defaults(), $widths );
+
+        $merged = self::mergeContextLayer( $config, $ctx );
+
+        $pt = sanitize_key( $ctx['page_type'] ?? '' );
+        $slug = sanitize_title( $ctx['page_slug'] ?? '' );
 
         $vars = self::layerToVars( $merged, '' );
 
@@ -146,7 +165,7 @@ class WidthLayout {
         $slug = sanitize_title( $ctx['page_slug'] ?? '' );
         if ( $pt || $slug ) {
             $scoped = self::resolveVars( $config, $ctx );
-            $selector = '.s2-width-scope';
+            $selector = '.s2-width-scope,.s2-page-wrap';
             if ( $pt ) {
                 $selector .= '[data-s2-page-type="' . esc_attr( $pt ) . '"]';
             }
@@ -154,6 +173,8 @@ class WidthLayout {
                 $selector .= '[data-s2-page-slug="' . esc_attr( $slug ) . '"]';
             }
             $css .= "{$selector}{\n" . self::varsBlock( $scoped ) . "}\n";
+            $merged = self::mergeContextLayer( $config, $ctx );
+            $css .= self::renderLayerResponsiveCss( $merged, $selector );
         }
 
         foreach ( self::sectionKeys() as $sec ) {
@@ -166,7 +187,9 @@ class WidthLayout {
             if ( $secMax !== null ) {
                 $secVars[ '--s2-width-sec-' . $sec . '-max' ] = $secMax;
             }
-            $css .= "[data-s2-section=\"{$sec}\"]{\n" . self::varsBlock( $secVars ) . "}\n";
+            $secSelector = '[data-s2-section="' . esc_attr( $sec ) . '"]';
+            $css .= "{$secSelector}{\n" . self::varsBlock( $secVars ) . "}\n";
+            $css .= self::renderLayerResponsiveCss( $secLayer, $secSelector, 'sec-' . $sec . '-' );
         }
 
         $css .= self::renderPageTypeSectionCss( $widths );
@@ -196,10 +219,12 @@ class WidthLayout {
                 if ( $secVars === [] ) {
                     continue;
                 }
-                $css .= '.s2-width-scope[data-s2-page-type="' . esc_attr( $ptKey ) . '"] [data-s2-section="' . esc_attr( $sec ) . '"],';
-                $css .= '.s2-page-wrap[data-s2-page-type="' . esc_attr( $ptKey ) . '"] [data-s2-section="' . esc_attr( $sec ) . '"]{' . "\n";
+                $secSelector = '.s2-width-scope[data-s2-page-type="' . esc_attr( $ptKey ) . '"] [data-s2-section="' . esc_attr( $sec ) . '"],';
+                $secSelector .= '.s2-page-wrap[data-s2-page-type="' . esc_attr( $ptKey ) . '"] [data-s2-section="' . esc_attr( $sec ) . '"]';
+                $css .= "{$secSelector}{\n";
                 $css .= self::varsBlock( $secVars );
                 $css .= "}\n";
+                $css .= self::renderLayerResponsiveCss( $layer, $secSelector, 'sec-' . $sec . '-' );
             }
         }
         return $css;
@@ -282,6 +307,8 @@ class WidthLayout {
             'section_narrow'   => 'section-narrow',
             'section_compact'  => 'section-compact',
             'padding_x'        => 'padding-x',
+            'padding_x_left'   => 'padding-x-left',
+            'padding_x_right'  => 'padding-x-right',
             'min_width'        => 'min',
             'max_width_cap'    => 'max-cap',
         ];
@@ -300,6 +327,35 @@ class WidthLayout {
             $vars[ '--s2-width-' . $prefix . $cssKey ] = (string) $val;
         }
         return $vars;
+    }
+
+    /**
+     * @param array<string, mixed> $layer
+     */
+    private static function renderLayerResponsiveCss( array $layer, string $selector, string $prefix = '' ): string {
+        $css = '';
+        foreach ( self::BREAKPOINTS as $bp => $max ) {
+            if ( $bp === 'desktop' ) {
+                continue;
+            }
+            $flat = [];
+            foreach ( $layer as $key => $val ) {
+                if ( is_array( $val ) && self::isAssoc( $val ) && isset( $val[ $bp ] ) && (string) $val[ $bp ] !== '' ) {
+                    $flat[ $key ] = $val[ $bp ];
+                }
+            }
+            if ( $flat === [] ) {
+                continue;
+            }
+            $bpVars = self::layerToVars( $flat, $prefix );
+            if ( $bpVars === [] ) {
+                continue;
+            }
+            $css .= "@media (max-width: {$max}px){\n{$selector}{\n";
+            $css .= self::varsBlock( $bpVars );
+            $css .= "}}\n";
+        }
+        return $css;
     }
 
     /** @param array<string, mixed> $layer */
@@ -351,7 +407,7 @@ class WidthLayout {
         return [
             'page_max', 'content_max', 'inner_max', 'full_bleed',
             'section_standard', 'section_wide', 'section_narrow', 'section_compact',
-            'padding_x', 'min_width', 'max_width_cap',
+            'padding_x', 'padding_x_left', 'padding_x_right', 'min_width', 'max_width_cap',
         ];
     }
 
