@@ -10,6 +10,9 @@ node scripts/verify-spa-assets.mjs
 echo "== verify-preg-paths =="
 php scripts/verify-preg-paths.php
 
+echo "== verify-json-bootstrap =="
+php scripts/verify-json-bootstrap.php
+
 echo "== verify-design-system =="
 bash scripts/verify-design-system.sh
 

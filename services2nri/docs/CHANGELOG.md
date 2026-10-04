@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.20] — 2026-10-04 — Cloud Agent
+
+- **Infinite loader root fix:** stop using `esc_html()` on `S2NRI_CONFIG` JSON (was corrupting quotes → `JSON.parse` failure). Safe parse with `bootError` fallback; block boot server-side on `BUILD_STAMP` mismatch; richer watchdog (config missing, `app.js` load error).
+- **Plugin header Version** synced with `S2NRI_VERSION` (WP admin was showing 4.6.3 while code was 4.7.x).
+- **main.tsx:** try/catch around `createRoot` so render failures replace splash with an error instead of spinning forever.
+
+---
+
 ## [4.7.19] — 2026-10-04 — Cloud Agent
 
 - **E2E production shell:** load full public CSS stack + `s2nri-theme.css`; mock `/?s2nri_img=` placeholders; boot test asserts stylesheets, service grid, and zero broken images.

@@ -511,7 +511,21 @@ HEROFIXJS;
             return;
         }
 
-        echo '  <div id="s2nri-root" class="s2-ds" translate="no" spellcheck="false">' . "\n";
+        if ( class_exists( '\S2NRI\AssetBuildStamp' ) && \S2NRI\AssetBuildStamp::isMismatch() ) {
+            $this->renderBootAssetFailure(
+                [
+                    'assets/BUILD_STAMP.txt (mixed deploy — on-disk JS files do not match stamp)',
+                ],
+                $site_name
+            );
+            echo '</body>' . "\n" . '</html>' . "\n";
+            return;
+        }
+
+        $stamp_attr = class_exists( '\S2NRI\AssetBuildStamp' ) ? \S2NRI\AssetBuildStamp::publicVersion() : $asset_ver;
+        echo '  <div id="s2nri-root" class="s2-ds" translate="no" spellcheck="false"'
+            . ' data-s2nri-version="' . esc_attr( S2NRI_VERSION ) . '"'
+            . ' data-s2nri-build="' . esc_attr( $stamp_attr ) . '">' . "\n";
         echo '    <div class="s2nri-splash" aria-label="Loading ' . esc_attr( $site_name ) . '">' . "\n";
         echo '      <div class="s2nri-splash__logo">' . esc_html( $site_name ) . '</div>' . "\n";
         echo '      <div class="s2nri-splash__spinner" role="status"></div>' . "\n";
@@ -556,11 +570,13 @@ HEROFIXJS;
     /** @return list<string> Relative paths under plugin root that are required for SPA boot. */
     private function missingBootAssets(): array {
         $required = [
+            'assets/BUILD_STAMP.txt',
             'assets/app.js',
             'assets/app.css',
             'assets/chunks/booking.js',
             'assets/chunks/router.js',
             'assets/chunks/react.js',
+            'assets/chunks/design-system.js',
         ];
         $missing = [];
         foreach ( $required as $rel ) {
@@ -585,8 +601,10 @@ HEROFIXJS;
 
     /** Assign a global from JSON without embedding raw JSON inside a JS expression (avoids U+2028 / </script> breaks). */
     private function echoJsonBootstrap( string $global, string $element_id, string $json ): void {
-        echo '  <script type="application/json" id="' . esc_attr( $element_id ) . '">' . esc_html( $json ) . '</script>' . "\n";
-        echo '  <script>window.' . esc_js( $global ) . '=JSON.parse(document.getElementById(' . wp_json_encode( $element_id ) . ').textContent);</script>' . "\n";
+        // Do NOT esc_html() JSON — it turns quotes into &quot; and JSON.parse fails (infinite loader).
+        $safe_json = str_ireplace( '</script', '<\\/script', $json );
+        echo '  <script type="application/json" id="' . esc_attr( $element_id ) . '">' . $safe_json . '</script>' . "\n";
+        echo '  <script>(function(){var el=document.getElementById(' . wp_json_encode( $element_id ) . ');try{window[' . wp_json_encode( $global ) . ']=JSON.parse(el&&el.textContent||"null");}catch(e){window[' . wp_json_encode( $global ) . ']={bootError:"Config JSON parse: "+String(e)};}})();</script>' . "\n";
     }
 
     private function echoBootWatchdogScript(): void {
@@ -598,13 +616,17 @@ HEROFIXJS;
         echo '        var err=(window.S2NRI_CONFIG&&window.S2NRI_CONFIG.bootError)||"";' . "\n";
         echo '        root.innerHTML=\'<div style="padding:48px 24px;text-align:center;font-family:system-ui,sans-serif;max-width:560px;margin:0 auto">\'+' . "\n";
         echo '          \'<p style="font-weight:700;color:#1e293b">App did not start</p>\'+' . "\n";
-        echo '          \'<p style="color:#64748b;font-size:14px">\'+(msg||"JavaScript failed to load. Open DevTools → Console, or reinstall plugin v4.7.18+.")+\'</p>\'+' . "\n";
+        echo '          \'<p style="color:#64748b;font-size:14px">\'+(msg||"JavaScript failed to load. Open DevTools → Console, or reinstall plugin v4.7.20+.")+\'</p>\'+' . "\n";
         echo '          (err?\'<pre style="text-align:left;font-size:11px;background:#f1f5f9;padding:12px;border-radius:8px;overflow:auto">\'+String(err).replace(/</g,"&lt;")+"</pre>\':"")+' . "\n";
         echo '          \'<p style="font-size:12px;color:#94a3b8">Plugin \'+(window.S2NRI_BOOT&&window.S2NRI_BOOT.pluginVersion||"?")+\'</p>\'+' . "\n";
         echo '          \'<button type="button" onclick="location.reload()" style="padding:10px 20px;border-radius:8px;border:none;background:#4A6FA5;color:#fff;font-weight:600;cursor:pointer">Reload</button></div>\';' . "\n";
         echo '      }' . "\n";
+        echo '      if(!window.S2NRI_CONFIG){showFail("S2NRI_CONFIG missing — boot JSON did not load.");}' . "\n";
+        echo '      else if(window.S2NRI_CONFIG.bootError){showFail(window.S2NRI_CONFIG.bootError);}' . "\n";
         echo '      var t=setTimeout(function(){showFail("Loading timed out after 8 seconds.");},8000);' . "\n";
         echo '      window.addEventListener("s2nri-app-mounted",function(){clearTimeout(t);},{once:true});' . "\n";
+        echo '      var mod=document.querySelector("script[type=module][src*=\\"app.js\\"]");' . "\n";
+        echo '      if(mod){mod.addEventListener("error",function(){showFail("app.js failed to load (404, CDN block, or mixed assets). Check Network tab for app.js and chunks/booking.js with the same ?v= build stamp.");});}' . "\n";
         echo '      window.addEventListener("error",function(e){' . "\n";
         echo '        var m=e.message||"";' . "\n";
         echo '        if(m.indexOf("does not provide an export named")!==-1){showFail("Mixed JS files from different plugin builds. Delete wp-content/plugins/services2nri/ and upload one fresh services2nri-full-source.zip, then purge CDN cache.");return;}' . "\n";

@@ -10,6 +10,11 @@ npm run build
 bash scripts/verify-all.sh
 
 VERSION="$(grep -oP "define\s*\(\s*'S2NRI_VERSION',\s*'\K[0-9.]+" "$ROOT/services2nri.php" | head -1)"
+HEADER_VERSION="$(grep -oP '^\s*\*\s*Version:\s*\K[0-9.]+' "$ROOT/services2nri.php" | head -1)"
+if [[ "$HEADER_VERSION" != "$VERSION" ]]; then
+  echo "FAIL: plugin header Version ($HEADER_VERSION) != S2NRI_VERSION ($VERSION)" >&2
+  exit 1
+fi
 COMMIT="$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo unknown)"
 BUILT_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
