@@ -209,7 +209,7 @@ export function HomePage() {
       })
 
     // Load cities
-    api.get<{ cities: City[] }>('cities')
+    api.get<{ cities: City[] }>('cities?surface=homepage')
       .then((data) => {
         const c = data.cities || []
         if (c.length > 0) {

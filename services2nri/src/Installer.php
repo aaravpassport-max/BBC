@@ -753,6 +753,14 @@ class Installer {
                 ADD COLUMN `is_popular` TINYINT(1) NOT NULL DEFAULT 0 AFTER `is_featured`" );
         }
 
+        $city_cols = array_column( $wpdb->get_results( "SHOW COLUMNS FROM `{$p}s2nri_cities`", ARRAY_A ), 'Field' );
+        if ( ! in_array( 'public_status', $city_cols, true ) ) {
+            $wpdb->query( "ALTER TABLE `{$p}s2nri_cities`
+                ADD COLUMN `public_status` VARCHAR(30) NOT NULL DEFAULT 'published' AFTER `is_active`,
+                ADD COLUMN `visibility_rules` LONGTEXT DEFAULT NULL AFTER `public_status`" );
+            $wpdb->query( "UPDATE `{$p}s2nri_cities` SET public_status = IF(is_active = 1, 'published', 'disabled')" );
+        }
+
         // s2nri_categories: add image_url if missing
         $cat_cols = array_column( $wpdb->get_results( "SHOW COLUMNS FROM `{$p}s2nri_categories`", ARRAY_A ) ?: [], 'Field' );
         if ( ! in_array( 'image_url', $cat_cols ) ) {

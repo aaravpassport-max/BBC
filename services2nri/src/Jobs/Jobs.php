@@ -266,7 +266,7 @@ class SitemapJob {
 
         $cats     = \S2NRI\Services\ServiceRegistry::getPublicCategories( 'sitemap' );
         $services = \S2NRI\Services\ServiceRegistry::forSurface( 'sitemap' );
-        $cities   = $wpdb->get_results("SELECT slug FROM {$p}s2nri_cities WHERE is_active=1", ARRAY_A);
+        $cities   = \S2NRI\Services\PublicEntityRegistry::publicCities( 'sitemap' );
         $posts    = $wpdb->get_results("SELECT slug FROM {$p}s2nri_blog_posts WHERE is_published=1", ARRAY_A);
 
         $urls = ['/', '/services', '/about', '/contact', '/how-it-works', '/faq', '/blog', '/pricing'];
@@ -276,7 +276,11 @@ class SitemapJob {
         foreach ( $services as $s ) {
             $urls[] = '/service/' . $s['slug'];
         }
-        foreach ($cities   as $ci) $urls[] = '/cities/'  . $ci['slug'];
+        foreach ( $cities as $ci ) {
+            if ( ! empty( $ci['slug'] ) ) {
+                $urls[] = '/cities/' . $ci['slug'];
+            }
+        }
         foreach ($posts    as $pt) $urls[] = '/blog/'    . $pt['slug'];
 
         $xml = '<?xml version="1.0" encoding="UTF-8"?>' . "\n";

@@ -10,9 +10,16 @@ import {
   OverridesEditor,
   SurfaceVisibilityMatrix,
   CategoryRegistryPanel,
+  CityRegistryPanel,
   NavMenuEditor,
+  HeaderFooterPageTypeEditor,
+  FontAssignPanel,
+  GuidedOverrideWizard,
+  LiveSitePreviewFrame,
+  IconLibraryPanel,
   type RegistryService,
   type RegistryCategory,
+  type RegistryCity,
 } from './design-system-panels'
 
 type DesignConfig = Record<string, unknown>
@@ -20,7 +27,8 @@ type DesignConfig = Record<string, unknown>
 const TABS = [
   'Global', 'Typography', 'Fonts', 'Colors', 'Spacing', 'Buttons', 'Cards', 'Forms',
   'Containers', 'Borders', 'Shadows', 'Motion', 'Responsive', 'Overrides',
-  'Presets', 'Preview', 'Navigation', 'Service Registry', 'Categories',
+  'Presets', 'Preview', 'Live Site', 'Navigation', 'Header & Footer', 'Page Types', 'Icons',
+  'Service Registry', 'Categories', 'Cities',
 ] as const
 
 type Tab = (typeof TABS)[number]
@@ -42,7 +50,9 @@ export function AdminDesignSystem() {
   const [message, setMessage] = useState('')
   const [registry, setRegistry] = useState<RegistryService[]>([])
   const [categories, setCategories] = useState<RegistryCategory[]>([])
+  const [cities, setCities] = useState<RegistryCity[]>([])
   const [surfaces, setSurfaces] = useState<Record<string, string>>({})
+  const [citySurfaces, setCitySurfaces] = useState<Record<string, string>>({})
   const [selectedSvc, setSelectedSvc] = useState<number | null>(null)
   const [impact, setImpact] = useState<Record<string, unknown> | null>(null)
   const [svcRules, setSvcRules] = useState<Record<string, boolean | string>>({})
@@ -63,11 +73,15 @@ export function AdminDesignSystem() {
     const reg = await api.get<{
       services: RegistryService[]
       categories: RegistryCategory[]
+      cities: RegistryCity[]
       surfaces: Record<string, string>
+      city_surfaces: Record<string, string>
     }>('admin/service-registry')
     setRegistry(reg.services || [])
     setCategories(reg.categories || [])
+    setCities(reg.cities || [])
     setSurfaces(reg.surfaces || {})
+    setCitySurfaces(reg.city_surfaces || {})
   }, [])
 
   useEffect(() => { load().catch(() => setMessage('Failed to load design system')) }, [load])
@@ -171,6 +185,12 @@ export function AdminDesignSystem() {
     setMessage('Category visibility saved.')
   }
 
+  const saveCity = async (id: number, body: Record<string, unknown>) => {
+    await api.patch(`admin/cities/${id}/visibility`, body)
+    await load()
+    setMessage('City visibility saved.')
+  }
+
   if (!config) {
     return <div style={{ padding: 24 }}>Loading design system…</div>
   }
@@ -244,23 +264,30 @@ export function AdminDesignSystem() {
       )}
 
       {tab === 'Fonts' && (
-        <div>
-          <p style={{ color: '#64748B' }}>100 curated Google Fonts — search by name, category, or pairing.</p>
-          <input
-            type="search"
-            placeholder="Search fonts…"
-            value={fontQuery}
-            onChange={(e) => setFontQuery(e.target.value)}
-            style={{ width: '100%', maxWidth: 400, padding: 10, borderRadius: 8, border: '1px solid #E2E8F0', marginBottom: 16 }}
+        <div style={{ display: 'grid', gap: 24 }}>
+          <FontAssignPanel
+            fonts={filteredFonts}
+            fontRoles={fontRoles}
+            onAssign={(role, fontId) => patch(['fonts', role], fontId)}
           />
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12, maxHeight: 360, overflow: 'auto' }}>
-            {filteredFonts.map((f) => (
-              <div key={f.id} style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 12 }}>
-                <div style={{ fontWeight: 700 }}>{f.name}</div>
-                <div style={{ fontSize: 12, color: '#64748B' }}>{f.category}</div>
-                <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>{f.pairing}</div>
-              </div>
-            ))}
+          <div>
+            <p style={{ color: '#64748B' }}>100 curated Google Fonts — search by name, category, or pairing.</p>
+            <input
+              type="search"
+              placeholder="Search fonts…"
+              value={fontQuery}
+              onChange={(e) => setFontQuery(e.target.value)}
+              style={{ width: '100%', maxWidth: 400, padding: 10, borderRadius: 8, border: '1px solid #E2E8F0', marginBottom: 16 }}
+            />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12, maxHeight: 360, overflow: 'auto' }}>
+              {filteredFonts.map((f) => (
+                <div key={f.id} style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 12 }}>
+                  <div style={{ fontWeight: 700 }}>{f.name}</div>
+                  <div style={{ fontSize: 12, color: '#64748B' }}>{f.category}</div>
+                  <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>{f.pairing}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
@@ -339,7 +366,12 @@ export function AdminDesignSystem() {
         />
       )}
 
-      {tab === 'Overrides' && <OverridesEditor overrides={overrides} patch={patch} />}
+      {tab === 'Overrides' && (
+        <div style={{ display: 'grid', gap: 24 }}>
+          <GuidedOverrideWizard overrides={overrides} patch={patch} />
+          <OverridesEditor overrides={overrides} patch={patch} />
+        </div>
+      )}
 
       {tab === 'Presets' && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
@@ -354,6 +386,8 @@ export function AdminDesignSystem() {
           ))}
         </div>
       )}
+
+      {tab === 'Live Site' && <LiveSitePreviewFrame />}
 
       {tab === 'Preview' && (
         <div className="s2-ds" style={{ border: '1px solid #E2E8F0', borderRadius: 16, padding: 28, background: colors.background || '#fff' }}>
@@ -381,6 +415,16 @@ export function AdminDesignSystem() {
       {tab === 'Navigation' && (
         <NavMenuEditor onSaved={(msg) => setMessage(msg)} />
       )}
+
+      {tab === 'Header & Footer' && (
+        <HeaderFooterPageTypeEditor overrides={overrides} patch={patch} />
+      )}
+
+      {tab === 'Page Types' && (
+        <HeaderFooterPageTypeEditor overrides={overrides} patch={patch} />
+      )}
+
+      {tab === 'Icons' && <IconLibraryPanel />}
 
       {tab === 'Service Registry' && (
         <div>
@@ -456,6 +500,10 @@ export function AdminDesignSystem() {
 
       {tab === 'Categories' && (
         <CategoryRegistryPanel categories={categories} surfaces={surfaces} onSave={saveCategory} />
+      )}
+
+      {tab === 'Cities' && (
+        <CityRegistryPanel cities={cities} surfaces={citySurfaces} onSave={saveCity} />
       )}
     </div>
   )

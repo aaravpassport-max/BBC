@@ -5,6 +5,20 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.6.0] — 2026-10-04 — Cloud Agent
+
+### Enterprise completion
+
+- City entity registry: DB columns, per-surface visibility, admin **Cities** tab, public API `cities?surface=`.
+- Design admin: live site iframe preview, font click-to-assign, guided overrides, header/page-type editors, icon library tab.
+- Services admin CRUD embeds full registry visibility block; **Categories** edit form embeds the same registry matrix.
+- Sitemap (`/sitemap.xml` + daily job) uses `PublicEntityRegistry::publicCities('sitemap')` instead of hardcoded city lists.
+- FAQ page migrated to design-system layout classes; PHP visibility unit-test stubs fixed for CI/local verify.
+- Public layout primitives + `public-pages-layout.css`; About page migrated to token components.
+- Unit tests for visibility logic; audit matrix generator script.
+
+---
+
 ## [4.5.4] — 2026-10-04 — Cloud Agent
 
 ### Design system & service registry (complete)

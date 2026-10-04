@@ -76,6 +76,7 @@ class Dispatcher {
         $this->add( 'GET',  'admin/services/{id}/visibility-impact', Controllers\ServiceRegistryAdminController::class, 'impact', true );
         $this->add( 'PATCH','admin/services/{id}/visibility', Controllers\ServiceRegistryAdminController::class, 'updateVisibility', true );
         $this->add( 'PATCH','admin/categories/{id}/visibility', Controllers\ServiceRegistryAdminController::class, 'updateCategoryVisibility', true );
+        $this->add( 'PATCH','admin/cities/{id}/visibility', Controllers\ServiceRegistryAdminController::class, 'updateCityVisibility', true );
         $this->add( 'GET',  'categories',              Controllers\CategoryController::class, 'index'       );
         $this->add( 'GET',  'categories/{slug}',       Controllers\CategoryController::class, 'show'        );
         $this->add( 'GET',  'services',                Controllers\ServiceController::class,  'index'       );

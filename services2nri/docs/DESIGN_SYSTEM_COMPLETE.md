@@ -1,30 +1,35 @@
-# Design System & Service Registry — completion sign-off
+# Design System & Service Registry — enterprise sign-off (v4.6.0)
 
-Plugin **4.5.4+** implements the centralized design and visibility architecture requested for Services2NRI public surfaces.
+## Delivered at production level
 
-## Requirements coverage
+| Capability | Implementation |
+|------------|----------------|
+| Central tokens + 100 fonts + 10 presets | `DesignSystem.php`, admin `/admin/design` |
+| Full admin tabs incl. header/page-type, icons, live iframe preview | `design-system.tsx` + `design-system-panels.tsx` |
+| Guided overrides + JSON overrides | Overrides tab |
+| Font click-to-assign | Fonts tab → `FontAssignPanel` |
+| Service/category/city registry + per-surface matrix | `ServiceRegistry`, `PublicEntityRegistry`, admin + **Services CRUD** visibility block |
+| Public CSS bundles (components, home, marketing, layout) | `assets/public-*.css` inlined on public + portal |
+| Shared React primitives | `components/public/PublicLayout.tsx` |
+| PHPUnit-free unit tests | `tests/unit/visibility-logic-test.php` |
+| CI | `.github/workflows/services2nri-design-verify.yml` |
+| Release ZIP | `scripts/package-plugin.sh` → `services2nri.zip` |
+| Audit docs | `DESIGN_SYSTEM_PAGE_MATRIX.md` + generated index |
+| Staging scenarios | `VERIFICATION_STAGING.md` |
 
-| # | Area | Status | Implementation |
-|---|------|--------|----------------|
-| 1–10 | Tokens, typography (100 fonts), colors, spacing, components | Done | `DesignSystem.php`, presets, admin tabs, CSS bundles |
-| 11–16 | Admin global controls, live preview, publish | Done | `/admin/design`, `PUT admin/design` |
-| 17 | Page audit matrix | Done | `DESIGN_SYSTEM_PAGE_MATRIX.md` |
-| 18–20 | Inheritance global → page → section | Done | `DesignSystem::resolve()`, Overrides admin tab |
-| 21–25 | Service registry, surfaces, direct URL | Done | `ServiceRegistry.php`, admin matrix |
-| 26–28 | Nav, footer, forms, search wiring | Done | API `?surface=`, Layout, Shortcodes, customer portal |
-| 29–30 | SEO / sitemap | Done | `shouldIndexInSeo`, `SitemapJob` |
-| 31–33 | Performance, a11y utilities, reduced motion | Done | CSS utilities, motion flag |
-| 34 | Other entities | Done | `PublicEntityRegistry.php`, cities + visa scope |
-| 35 | Verification scenarios | Documented | `VERIFICATION_STAGING.md` + `verify-design-system.sh` |
+## Remaining (environment / content migration)
 
-## Deploy artifacts
+| Item | Notes |
+|------|--------|
+| **Live WP scenarios A–G** | Run on your host after deploying 4.6.0 — cannot be executed from cloud agent VM. |
+| **Legacy inline styles** | Reduced via tokens + `PublicLayout`; long-tail pages (`ServiceDetailPage`, FAQ, Pricing) still contain historical inline blocks — safe but not 100% class-only. |
+| **PHP blog template** | Token-injected; not React-unified (by design for SEO shell). |
+| **Vendor public catalog** | Not applicable — vendors remain staff-only per product rules. |
+| **Visual drag-and-drop menu** | JSON navigation editor + registry filter (enterprise-safe); not WP Menu UI. |
 
-- **Folder:** `services2nri/` in repository
-- **ZIP:** `services2nri.zip` at repository root (`scripts/package-plugin.sh`)
-- **Version constant:** `S2NRI_VERSION` in `services2nri.php`
+## Deploy checklist
 
-## Post-deploy (once per environment)
-
-1. Activate or re-save plugin to run migrations (`is_featured`, visibility columns).
-2. Admin → **Design System** → publish tokens once.
-3. Run staging checklist in `VERIFICATION_STAGING.md`.
+1. Upload `services2nri.zip` or git pull `main`, activate **4.6.0**.
+2. `bash services2nri/scripts/verify-design-system.sh`
+3. Admin → Design System → Publish.
+4. `docs/VERIFICATION_STAGING.md` on staging.
