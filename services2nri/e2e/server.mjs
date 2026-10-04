@@ -55,7 +55,10 @@ const server = http.createServer((req, res) => {
   }
 
   let filePath;
-  if (url.pathname.startsWith('/assets/')) {
+  if (url.pathname.startsWith('/assets/release/')) {
+    const assetPath = url.pathname.slice(1).split('?')[0];
+    filePath = path.join(root, assetPath);
+  } else if (url.pathname.startsWith('/assets/')) {
     const assetPath = url.pathname.slice(1).split('?')[0];
     filePath = path.join(root, assetPath);
   } else {

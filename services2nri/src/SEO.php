@@ -40,17 +40,23 @@ class SEO {
             ];
         }
 
-        $js_url     = S2NRI_ASSETS_URL . 'app.js';
-        $css_url    = S2NRI_ASSETS_URL . 'app.css';
-        $chunks_url = S2NRI_ASSETS_URL . 'chunks/';
-
-        // One BUILD_STAMP (written at Vite build) versions app.js, CSS, and every chunk
-        // together so browsers never cache a new app.js with old chunks/booking.js.
         $asset_ver = class_exists( '\S2NRI\AssetBuildStamp' )
             ? \S2NRI\AssetBuildStamp::publicVersion()
             : ( file_exists( S2NRI_DIR . 'assets/app.js' )
                 ? substr( md5_file( S2NRI_DIR . 'assets/app.js' ), 0, 12 )
                 : S2NRI_VERSION );
+
+        if ( class_exists( '\S2NRI\AssetBuildStamp' ) ) {
+            \S2NRI\AssetBuildStamp::ensureReleaseStaged();
+        }
+
+        $release_base = class_exists( '\S2NRI\AssetBuildStamp' )
+            ? \S2NRI\AssetBuildStamp::releaseBaseUrl( $asset_ver )
+            : S2NRI_ASSETS_URL;
+        $js_url  = $release_base . 'app.js';
+        $css_url = ( class_exists( '\S2NRI\AssetBuildStamp' ) && is_file( \S2NRI\AssetBuildStamp::releaseAbsDir( $asset_ver ) . 'app.css' ) )
+            ? $release_base . 'app.css'
+            : S2NRI_ASSETS_URL . 'app.css';
         $js_ver  = $asset_ver;
         $css_ver = $asset_ver;
 
@@ -505,6 +511,17 @@ HEROFIXJS;
             return;
         }
 
+        if ( class_exists( '\S2NRI\AssetBuildStamp' ) && \S2NRI\AssetBuildStamp::bookingExportCompatible() === false ) {
+            $this->renderBootAssetFailure(
+                [
+                    'assets/release/' . $asset_ver . '/chunks/booking.js (missing export expected by app.js — re-upload full zip)',
+                ],
+                $site_name
+            );
+            echo '</body>' . "\n" . '</html>' . "\n";
+            return;
+        }
+
         $stamp_attr = class_exists( '\S2NRI\AssetBuildStamp' ) ? \S2NRI\AssetBuildStamp::publicVersion() : $asset_ver;
         echo '  <div id="s2nri-root" class="s2-ds" translate="no" spellcheck="false"'
             . ' data-s2nri-version="' . esc_attr( S2NRI_VERSION ) . '"'
@@ -516,8 +533,8 @@ HEROFIXJS;
         echo '    </div>' . "\n";
         echo '  </div>' . "\n";
         $this->echoJsonBootstrap( 'S2NRI_CONFIG', 's2nri-config-json', $config_json );
-        echo '  <script src="' . esc_url( S2NRI_ASSETS_URL . 'boot-config.js?v=' . $asset_ver ) . '"></script>' . "\n";
-        echo '  <script src="' . esc_url( S2NRI_ASSETS_URL . 'boot-watchdog.js?v=' . $asset_ver ) . '"></script>' . "\n";
+        echo '  <script src="' . esc_url( $release_base . 'boot-config.js' ) . '"></script>' . "\n";
+        echo '  <script src="' . esc_url( $release_base . 'boot-watchdog.js' ) . '"></script>' . "\n";
 
         $diag_url = S2NRI_ASSETS_URL . 'diagnostic-collector.js';
         echo '  <script src="' . esc_url( $diag_url ) . '?v=' . $asset_ver . '"></script>' . "\n";
@@ -527,23 +544,26 @@ HEROFIXJS;
             echo '  <script>' . "\n" . $browser_probe . "\n" . '  </script>' . "\n";
         }
         echo '  <script type="module" src="' . esc_url( $js_url ) . '?v=' . $js_ver . '"></script>' . "\n";
-        echo '  <script src="' . esc_url( S2NRI_ASSETS_URL . 'boot-sw-cleanup.js?v=' . $asset_ver ) . '"></script>' . "\n";
+        echo '  <script src="' . esc_url( $release_base . 'boot-sw-cleanup.js' ) . '"></script>' . "\n";
         echo '</body>' . "\n";
         echo '</html>' . "\n";
     }
 
     /** @return list<string> Relative paths under plugin root that are required for SPA boot. */
     private function missingBootAssets(): array {
+        $stamp = class_exists( '\S2NRI\AssetBuildStamp' )
+            ? \S2NRI\AssetBuildStamp::publicVersion()
+            : '';
+        $release_prefix = $stamp !== '' ? 'assets/release/' . $stamp . '/' : 'assets/';
         $required = [
             'assets/BUILD_STAMP.txt',
-            'assets/app.js',
-            'assets/app.css',
-            'assets/boot-config.js',
-            'assets/boot-watchdog.js',
-            'assets/chunks/booking.js',
-            'assets/chunks/router.js',
-            'assets/chunks/react.js',
-            'assets/chunks/design-system.js',
+            $release_prefix . 'app.js',
+            $release_prefix . 'boot-config.js',
+            $release_prefix . 'boot-watchdog.js',
+            $release_prefix . 'chunks/booking.js',
+            $release_prefix . 'chunks/router.js',
+            $release_prefix . 'chunks/react.js',
+            $release_prefix . 'chunks/design-system.js',
         ];
         $missing = [];
         foreach ( $required as $rel ) {

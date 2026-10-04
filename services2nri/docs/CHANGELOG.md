@@ -5,6 +5,13 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.22] — 2026-10-04 — Cloud Agent
+
+- **CDN mixed-chunk fix:** ship and load JS from `assets/release/{BUILD_STAMP}/` (unique URL path per build; fixes Cloudflare ignoring `?v=` on `/chunks/booking.js`).
+- Auto-stage release folder on build; PHP `ensureReleaseStaged()` fallback; `booking_export_ok` in `/?s2nri_boot_diag=1`.
+
+---
+
 ## [4.7.21] — 2026-10-04 — Cloud Agent
 
 - **Infinite loader (deep fix):** external `boot-config.js` + `boot-watchdog.js` (strict CSP / hosts that block inline scripts); import map via `/?s2nri_import_map=1`; public `/?s2nri_boot_diag=1` JSON; SEO render try/catch shows PHP fatal instead of blank/spin.

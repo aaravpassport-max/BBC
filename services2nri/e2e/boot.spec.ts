@@ -59,9 +59,12 @@ test.describe('Production boot shell', () => {
   test('chunk URLs share BUILD_STAMP query param', async ({ page, request }) => {
     await page.goto('/?shell=production');
     const html = await page.content();
-    const stampMatch = html.match(/app\.js\?v=([a-f0-9]{12})/);
+    const stampMatch =
+      html.match(/data-s2nri-build="([a-f0-9]{12})"/) ||
+      html.match(/\/assets\/release\/([a-f0-9]{12})\/app\.js/);
     expect(stampMatch).toBeTruthy();
     const stamp = stampMatch![1];
+    expect(html).toContain(`/assets/release/${stamp}/app.js`);
     expect(html).toMatch(new RegExp(`s2nri_import_map=1(&amp;|&)v=${stamp}`));
     const mapSrcRaw = html.match(/importmap" src="([^"]+)"/)?.[1];
     expect(mapSrcRaw).toBeTruthy();
@@ -70,6 +73,6 @@ test.describe('Production boot shell', () => {
     expect(mapRes.ok()).toBeTruthy();
     const mapBody = (await mapRes.json()) as { imports: Record<string, string> };
     const bookingUrl = mapBody.imports['./chunks/booking.js'] || mapBody.imports['chunks/booking.js'];
-    expect(bookingUrl).toContain(`booking.js?v=${stamp}`);
+    expect(bookingUrl).toContain(`/assets/release/${stamp}/chunks/booking.js`);
   });
 });

@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && vite build && node scripts/write-build-stamp.mjs",
+    "build": "tsc --noEmit && vite build && node scripts/write-build-stamp.mjs && node scripts/stage-release-assets.mjs",
     "preview": "vite preview",
     "test:e2e": "playwright test",
     "test:e2e:ci": "playwright test --reporter=github"

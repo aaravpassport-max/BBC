@@ -128,4 +128,17 @@ for (const c of requiredChunks) {
   else console.log('OK  required chunk', c)
 }
 
+const releaseDir = join(assets, 'release', recorded)
+if (!existsSync(join(releaseDir, 'app.js'))) {
+  err(`assets/release/${recorded}/app.js missing — run npm run build`)
+} else {
+  const bookingRelease = join(releaseDir, 'chunks', 'booking.js')
+  const tail = readFileSync(bookingRelease, 'utf8').slice(-4096)
+  if (!tail.includes(' as s,') && !tail.includes(' as s;')) {
+    err('release booking.js missing export `s` for app.js')
+  } else {
+    console.log('OK  release/', recorded, 'path-versioned bundle')
+  }
+}
+
 process.exit(fail > 0 ? 1 : 0)

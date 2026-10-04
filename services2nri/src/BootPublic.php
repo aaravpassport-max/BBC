@@ -33,16 +33,24 @@ final class BootPublic {
         foreach ( $files as $rel ) {
             $exists[ $rel ] = is_file( S2NRI_DIR . $rel );
         }
+        $stamp = class_exists( AssetBuildStamp::class ) ? AssetBuildStamp::publicVersion() : '';
+        if ( class_exists( AssetBuildStamp::class ) ) {
+            AssetBuildStamp::ensureReleaseStaged();
+        }
         $payload = [
-            'ok'              => true,
-            'plugin_version'  => S2NRI_VERSION,
-            'assets_url'      => S2NRI_ASSETS_URL,
-            'build_stamp'     => class_exists( AssetBuildStamp::class ) ? AssetBuildStamp::readRecorded() : '',
-            'build_computed'  => class_exists( AssetBuildStamp::class ) ? AssetBuildStamp::computeFromDisk() : '',
-            'build_mismatch'  => class_exists( AssetBuildStamp::class ) && AssetBuildStamp::isMismatch(),
-            'public_version'  => class_exists( AssetBuildStamp::class ) ? AssetBuildStamp::publicVersion() : S2NRI_VERSION,
-            'files'           => $exists,
-            'php_version'     => PHP_VERSION,
+            'ok'                    => true,
+            'plugin_version'        => S2NRI_VERSION,
+            'assets_url'            => S2NRI_ASSETS_URL,
+            'release_base_url'      => class_exists( AssetBuildStamp::class ) ? AssetBuildStamp::releaseBaseUrl() : '',
+            'build_stamp'           => class_exists( AssetBuildStamp::class ) ? AssetBuildStamp::readRecorded() : '',
+            'build_computed'        => class_exists( AssetBuildStamp::class ) ? AssetBuildStamp::computeFromDisk() : '',
+            'build_mismatch'        => class_exists( AssetBuildStamp::class ) && AssetBuildStamp::isMismatch(),
+            'booking_export_ok'     => class_exists( AssetBuildStamp::class ) ? AssetBuildStamp::bookingExportCompatible() : null,
+            'public_version'        => $stamp,
+            'files'                 => $exists,
+            'release_app_js'        => $stamp !== '' && is_file( S2NRI_DIR . 'assets/release/' . $stamp . '/app.js' ),
+            'release_booking_js'    => $stamp !== '' && is_file( S2NRI_DIR . 'assets/release/' . $stamp . '/chunks/booking.js' ),
+            'php_version'             => PHP_VERSION,
         ];
         echo wp_json_encode( $payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );
         exit;
