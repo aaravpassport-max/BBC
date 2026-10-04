@@ -13,12 +13,16 @@ import { resolve } from 'path'
  */
 export default defineConfig({
   plugins: [react()],
+  // Relative URLs so lazy-chunk preloads resolve next to app.js (WordPress plugin path).
+  base: './',
   resolve: {
     alias: { '@': resolve(__dirname, 'src') }
   },
   build: {
     outDir: 'assets',
     emptyOutDir: false,
+    // Single app.css — avoids app2.css on lazy admin chunks (breaks WP preload at /app2.css).
+    cssCodeSplit: false,
     rollupOptions: {
       input: { app: resolve(__dirname, 'src/main.tsx') },
       output: {
