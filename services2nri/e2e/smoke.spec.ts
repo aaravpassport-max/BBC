@@ -28,6 +28,18 @@ test.describe('Public marketing smoke', () => {
     await page.goto('/faq');
     await expect(page.getByText(/Frequently Asked|Test\?/i).first()).toBeVisible({ timeout: 20_000 });
   });
+
+  test('blog hub loads', async ({ page }) => {
+    await page.goto('/blog');
+    await expect(page.getByRole('heading', { name: /Expert Guides for NRIs/i })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByPlaceholder(/Search articles/i)).toBeVisible();
+  });
+
+  test('city landing loads', async ({ page }) => {
+    await page.goto('/cities/property-management-in-pune');
+    await expect(page.getByRole('heading', { name: /Property Management in Pune/i })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole('link', { name: /Get Free Quote for Pune/i })).toBeVisible();
+  });
 });
 
 test.describe('Service detail smoke', () => {

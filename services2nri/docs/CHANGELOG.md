@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.6.7] — 2026-10-04 — Cloud Agent
+
+- **ServicesPage** — removed layout/skeleton/state inlines; sidebar, mobile filter, and card badge use `public-services-directory.css` (dynamic category color via `--s2-dir-badge-bg` only).
+- Directory bundle includes responsive sidebar/mobile-filter layout for WP inline CSS.
+- Playwright: smoke tests for `/blog` and `/cities/property-management-in-pune`.
+
+---
+
 ## [4.6.6] — 2026-10-04 — Cloud Agent
 
 - **Marketing routes** in `index.tsx` (About, Contact, How It Works, FAQ, Pricing, Blog, Terms, Privacy, City) migrated to `public-marketing-pages.css` with `PublicLayout` primitives.

@@ -1,5 +1,40 @@
 /* Services directory (/services) */
 
+.s2-services-layout {
+  display: flex;
+  gap: 32px;
+  align-items: flex-start;
+  padding-top: 20px;
+  padding-bottom: 40px;
+}
+
+.s2-services-sidebar {
+  width: 220px;
+  flex-shrink: 0;
+}
+
+.s2-dir-mobile-filter {
+  padding-top: 16px;
+}
+
+.mobile-filter {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .s2-services-layout {
+    display: block;
+  }
+
+  .s2-services-sidebar {
+    display: none;
+  }
+
+  .mobile-filter {
+    display: block;
+  }
+}
+
 .s2-dir-hero__title {
   font-size: clamp(1.5rem, 4vw, 2.625rem);
   font-weight: 900;
@@ -91,6 +126,14 @@
   border-left-color: var(--s2-color-primary);
 }
 
+.s2-dir-sidebar-btn__icon {
+  font-size: 18px;
+}
+
+.s2-dir-sidebar-btn__name {
+  flex: 1;
+}
+
 .s2-dir-sidebar-btn__count {
   font-size: 0.75rem;
   color: var(--s2-color-muted);
@@ -145,8 +188,8 @@
 .s2-dir-card__badge {
   position: absolute;
   top: 10px;
-  right: 10;
-  background: var(--s2-color-primary);
+  right: 10px;
+  background: var(--s2-dir-badge-bg, var(--s2-color-primary));
   color: #fff;
   padding: 3px 10px;
   border-radius: var(--s2-radius-pill);
@@ -216,8 +259,26 @@
   margin: 16px 16px 8px;
 }
 
+.s2-dir-skeleton__line--title {
+  width: 70%;
+  height: 16px;
+}
+
+.s2-dir-skeleton__line--sub {
+  width: 85%;
+}
+
 .s2-dir-state {
   text-align: center;
   padding: 60px 20px;
   color: var(--s2-color-muted);
+}
+
+.s2-dir-state__emoji {
+  font-size: 60px;
+  margin-bottom: 16px;
+}
+
+.s2-dir-state__text {
+  margin: 0 0 20px;
 }

@@ -74,7 +74,7 @@ export function ServicesPage() {
         </div>
       </div>
 
-      <div className="mobile-filter s2-container" style={{ paddingTop: 16 }}>
+      <div className="mobile-filter s2-container s2-dir-mobile-filter">
         <div className="s2-dir-chips">
           <button type="button" className={`s2-dir-chip${activeSlug === '' ? ' s2-dir-chip--active' : ''}`} onClick={() => setActiveSlug('')}>
             All
@@ -93,7 +93,7 @@ export function ServicesPage() {
         </div>
       </div>
 
-      <div className="s2-services-layout s2-container" style={{ paddingBottom: 40, paddingTop: 20 }}>
+      <div className="s2-services-layout s2-container">
         <aside className="s2-services-sidebar">
           <h3 className="s2-dir-sidebar__label">Categories</h3>
           <button
@@ -110,8 +110,8 @@ export function ServicesPage() {
               className={`s2-dir-sidebar-btn${activeSlug === cat.slug ? ' s2-dir-sidebar-btn--active' : ''}`}
               onClick={() => setActiveSlug(activeSlug === cat.slug ? '' : cat.slug)}
             >
-              <span style={{ fontSize: 18 }}>{cat.icon}</span>
-              <span style={{ flex: 1 }}>{cat.name}</span>
+              <span className="s2-dir-sidebar-btn__icon">{cat.icon}</span>
+              <span className="s2-dir-sidebar-btn__name">{cat.name}</span>
               <span className="s2-dir-sidebar-btn__count">{cat.service_count || 0}</span>
             </button>
           ))}
@@ -123,23 +123,23 @@ export function ServicesPage() {
               {[1, 2, 3, 4, 5, 6].map((n) => (
                 <div key={n} className="s2-dir-skeleton">
                   <div className="s2-dir-skeleton__img" />
-                  <div className="s2-dir-skeleton__line" style={{ width: '70%', height: 16 }} />
-                  <div className="s2-dir-skeleton__line" style={{ width: '85%' }} />
+                  <div className="s2-dir-skeleton__line s2-dir-skeleton__line--title" />
+                  <div className="s2-dir-skeleton__line s2-dir-skeleton__line--sub" />
                 </div>
               ))}
             </div>
           ) : loadError ? (
             <div className="s2-dir-state">
-              <div style={{ fontSize: 60, marginBottom: 16 }}>⚠️</div>
+              <div className="s2-dir-state__emoji" aria-hidden>⚠️</div>
               <h3 className="s2-t-h3">Couldn't load services</h3>
-              <p className="s2-t-body" style={{ margin: '0 0 20px' }}>Something went wrong on our end. Please try again.</p>
+              <p className="s2-t-body s2-dir-state__text">Something went wrong on our end. Please try again.</p>
               <button type="button" onClick={load} className="s2-btn s2-btn--primary">Retry</button>
             </div>
           ) : filtered.length === 0 ? (
             <div className="s2-dir-state">
-              <div style={{ fontSize: 60, marginBottom: 16 }}>🔍</div>
+              <div className="s2-dir-state__emoji" aria-hidden>🔍</div>
               <h3 className="s2-t-h3">No services found</h3>
-              <p className="s2-t-body" style={{ margin: '0 0 20px' }}>Try a different search term or browse all categories.</p>
+              <p className="s2-t-body s2-dir-state__text">Try a different search term or browse all categories.</p>
               <button type="button" onClick={() => { setSearch(''); setActiveSlug('') }} className="s2-btn s2-btn--primary">
                 Clear Filters
               </button>
@@ -154,7 +154,10 @@ export function ServicesPage() {
                       alt={svc.name}
                       loading="lazy"
                     />
-                    <div className="s2-dir-card__badge" style={svc.color ? { background: svc.color } : undefined}>
+                    <div
+                      className="s2-dir-card__badge"
+                      style={svc.color ? { ['--s2-dir-badge-bg' as string]: svc.color } : undefined}
+                    >
                       {svc.category_name}
                     </div>
                   </div>
