@@ -7,7 +7,50 @@ defined( 'ABSPATH' ) || exit;
 final class BootPublic {
 
     public static function boot(): void {
+        add_action( 'plugins_loaded', [ self::class, 'maybeServeLegacyViteCss' ], 0 );
         add_action( 'plugins_loaded', [ self::class, 'maybeRespond' ], 1 );
+    }
+
+    /**
+     * Old app.js builds preloaded /app2.css at the site root (Layout Studio split CSS).
+     * Serve merged app.css so cached JS still boots after upgrade.
+     */
+    public static function maybeServeLegacyViteCss(): void {
+        if ( php_sapi_name() === 'cli' ) {
+            return;
+        }
+        $uri = wp_unslash( $_SERVER['REQUEST_URI'] ?? '' );
+        $path = strtok( $uri, '?' ) ?: '';
+        if ( $path === '' || ! preg_match( '#/(app2\.css)$#', $path ) ) {
+            return;
+        }
+
+        $css_path = self::canonicalAppCssPath();
+        if ( ! is_file( $css_path ) ) {
+            status_header( 404 );
+            exit;
+        }
+
+        status_header( 200 );
+        header( 'Content-Type: text/css; charset=utf-8' );
+        header( 'Cache-Control: public, max-age=86400' );
+        header( 'X-S2NRI-Legacy-Vite-Css: app2' );
+        readfile( $css_path );
+        exit;
+    }
+
+    private static function canonicalAppCssPath(): string {
+        if ( class_exists( AssetBuildStamp::class ) ) {
+            AssetBuildStamp::ensureReleaseStaged();
+            $stamp = AssetBuildStamp::publicVersion();
+            if ( $stamp !== '' ) {
+                $release = S2NRI_DIR . 'assets/release/' . $stamp . '/app.css';
+                if ( is_file( $release ) ) {
+                    return $release;
+                }
+            }
+        }
+        return S2NRI_DIR . 'assets/app.css';
     }
 
     public static function maybeRespond(): void {
@@ -50,6 +93,9 @@ final class BootPublic {
             'files'                 => $exists,
             'release_app_js'        => $stamp !== '' && is_file( S2NRI_DIR . 'assets/release/' . $stamp . '/app.js' ),
             'release_booking_js'    => $stamp !== '' && is_file( S2NRI_DIR . 'assets/release/' . $stamp . '/chunks/booking.js' ),
+            'app_js_references_app2' => is_file( S2NRI_DIR . 'assets/app.js' )
+                && str_contains( (string) file_get_contents( S2NRI_DIR . 'assets/app.js' ), 'app2.css' ),
+            'legacy_app2_css_route' => home_url( '/app2.css' ),
             'php_version'             => PHP_VERSION,
         ];
         echo wp_json_encode( $payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES );

@@ -45,6 +45,7 @@ import {
 
 // ── Admin portal ──────────────────────────────────────────────────────────────
 import { AdminPortal } from './pages/admin/index'
+import { AdminDesignSystem } from './pages/admin/design-system'
 
 // ── Lazy admin pages (split chunk) ────────────────────────────────────────────
 const AdminDashboard         = lazy(() => import('./pages/admin/index').then((m) => ({ default: m.AdminDashboard })))
@@ -52,7 +53,6 @@ const AdminBookingList       = lazy(() => import('./pages/admin/index').then((m)
 const AdminBookingDetail     = lazy(() => import('./pages/admin/index').then((m) => ({ default: m.AdminBookingDetail })))
 const AdminPayments          = lazy(() => import('./pages/admin/index').then((m) => ({ default: m.AdminPayments })))
 const AdminSettings          = lazy(() => import('./pages/admin/index').then((m) => ({ default: m.AdminSettings })))
-const AdminDesignSystem      = lazy(() => import('./pages/admin/design-system').then((m) => ({ default: m.AdminDesignSystem })))
 const AdminCustomers         = lazy(() => import('./pages/admin/index').then((m) => ({ default: m.AdminCustomers })))
 const AdminCustomerDetail    = lazy(() => import('./pages/admin/index').then((m) => ({ default: m.AdminCustomerDetail })))
 const AdminStaff             = lazy(() => import('./pages/admin/index').then((m) => ({ default: m.AdminStaff })))

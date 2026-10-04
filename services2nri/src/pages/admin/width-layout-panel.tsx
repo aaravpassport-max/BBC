@@ -28,8 +28,6 @@ import {
   type WidthTaskId,
   PAGE_TYPE_LABELS,
 } from './width-layout-shared'
-import './width-layout-studio.css'
-
 type PatchFn = (path: string[], value: unknown) => void
 
 export type { WidthLayoutFocus }

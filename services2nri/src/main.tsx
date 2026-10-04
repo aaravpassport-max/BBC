@@ -12,6 +12,7 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { App } from './App'
+import './pages/admin/width-layout-studio.css'
 
 const root = document.getElementById('s2nri-root')
 if (root) {

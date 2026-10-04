@@ -128,6 +128,13 @@ for (const c of requiredChunks) {
   else console.log('OK  required chunk', c)
 }
 
+const appJs = readFileSync(join(assets, 'app.js'), 'utf8')
+if (appJs.includes('app2.css')) {
+  err('app.js must not reference app2.css (merge Layout Studio CSS into app.css)')
+} else {
+  console.log('OK  app.js has no app2.css preload')
+}
+
 const releaseDir = join(assets, 'release', recorded)
 if (!existsSync(join(releaseDir, 'app.js'))) {
   err(`assets/release/${recorded}/app.js missing — run npm run build`)
