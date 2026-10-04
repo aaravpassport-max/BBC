@@ -38,6 +38,7 @@ On staging, run the checklist in `docs/VERIFICATION_STAGING.md`.
 
 | Doc | Purpose |
 |-----|---------|
+| `docs/WIDTH_LAYOUT.md` | Centralized width tokens & admin Width & Layout tab (4.7+) |
 | `docs/PLUG_AND_PLAY.md` | Full deployment, URLs, troubleshooting |
 | `docs/DESIGN_SYSTEM_COMPLETE.md` | Design + registry sign-off |
 | `docs/VERIFICATION_STAGING.md` | Registry scenarios A–G |

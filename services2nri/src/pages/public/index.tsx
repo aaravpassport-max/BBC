@@ -46,7 +46,7 @@ export function AboutPage() {
     <Layout>
       <PageHero title="About Us" subtitle={`Trusted NRI service partner since 2015 — making India management effortless from anywhere in the world.`} />
 
-      <PublicSection>
+      <PublicSection sectionKey="intro" width="wide">
         <div className="s2-marketing-page s2-public-split-grid s2-mobile-stack">
           <div>
             <PublicSectionHead eyebrow="Our Story" title={settings.about_heading || `${name} — Your Bridge to India`} />
@@ -167,7 +167,7 @@ export function ContactPage() {
   return (
     <Layout>
       <PageHero title="Contact Us" subtitle="We're here to help. Reach us via WhatsApp, email, or the form below." primary={primary} />
-      <PublicSection>
+      <PublicSection sectionKey="contact" width="wide">
         <div className="s2-public-contact-grid s2-mobile-stack">
           <div>
             <PublicSectionHead title="Get in Touch" />
@@ -250,7 +250,7 @@ export function HowItWorksPage() {
     <Layout>
       <PageHero title="How It Works" subtitle="Get your NRI service done in 6 simple steps — from anywhere in the world." primary={primary} />
       <section className="s2-public-how-section s2-marketing-page">
-        <div className="s2-container s2-container--w1000">
+        <div className="s2-container s2-width-wide">
           {steps.map(({ n, icon, t, d }, i) => (
             <div key={n} className="s2-public-how-step">
               <div className="s2-public-how-step__rail">
@@ -308,8 +308,8 @@ export function FAQPage() {
   return (
     <Layout>
       <PageHero title="Frequently Asked Questions" subtitle="Everything you need to know before placing a service request." primary={primary} />
-      <PublicSection className="s2-public-faq">
-        <div className="s2-container s2-container--w860">
+      <PublicSection className="s2-public-faq" sectionKey="faq" width="narrow">
+        <div className="s2-container s2-width-narrow">
           {loading ? (
             <div className="s2-text-muted s2-public-faq-loading">Loading FAQs…</div>
           ) : (
@@ -381,7 +381,7 @@ export function PricingPage() {
         subtitle="Transparent pricing, no hidden charges. Pay only after approving your quote."
         bg={heroBg}
       />
-      <PublicSection alt>
+      <PublicSection alt sectionKey="pricing" width="standard">
         <PublicSectionHead
           eyebrow="Pricing plans"
           title="Choose the right level of support"
@@ -438,9 +438,9 @@ export function PricingPage() {
           problem, not just a cosmetic one. Only shown when displaying
           the fallback content it was actually authored for. */}
       {plans.length === 0 && (
-        <PublicSection>
+        <PublicSection sectionKey="compare" width="wide">
           <PublicSectionHead title="Services2NRI vs Others" subtitle="See why NRIs choose us over traditional property managers" />
-          <div className="s2-public-compare-wrap s2-container s2-container--w1000">
+          <div className="s2-public-compare-wrap s2-container s2-width-wide">
             <table className="s2-public-compare-table">
               <thead>
                 <tr>
@@ -469,7 +469,7 @@ export function PricingPage() {
 
       <PublicSection>
         <PublicSectionHead title="NRIWAY vs. Traditional Agents" subtitle="See why NRIs across 50+ countries trust NRIWAY" />
-        <div className="s2-public-compare-wrap s2-container s2-container--w860">
+        <div className="s2-public-compare-wrap s2-container s2-width-narrow">
           <table className="s2-public-compare-table">
             <thead>
               <tr>
@@ -732,7 +732,7 @@ export function BlogDetailPage() {
   return (
     <Layout>
       <div className="s2-marketing-page s2-blog-article-hero">
-        <div className="s2-container s2-container--w860">
+        <div className="s2-container s2-width-narrow">
           <Link to="/blog" className="s2-blog-article-hero__back">← Knowledge Hub</Link>
           <div className="s2-blog-article-hero__meta">
             <span className="s2-blog-article-hero__cat">{display.category}</span>
@@ -994,7 +994,7 @@ export function CityPage() {
       )}
 
       <PublicSection>
-        <div className="s2-container s2-container--w900">
+        <div className="s2-container s2-width-content">
           <h2 className="s2-public-section-title s2-public-section-title--center s2-public-section-title--md">How We Manage Your {data.name} Property</h2>
           <div className="s2-city-process-grid">
             {[

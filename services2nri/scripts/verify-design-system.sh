@@ -18,6 +18,8 @@ bad() { echo "FAIL $1"; fail=1; }
 [[ -f assets/public-marketing-pages.css ]] && ok public-marketing-pages.css || bad public-marketing-pages.css
 [[ -f assets/public-service-detail.css ]] && ok public-service-detail.css || bad public-service-detail.css
 [[ -f assets/public-services-directory.css ]] && ok public-services-directory.css || bad public-services-directory.css
+[[ -f assets/public-width-layout.css ]] && ok public-width-layout.css || bad public-width-layout.css
+[[ -f src/Design/WidthLayout.php ]] && ok WidthLayout.php || bad WidthLayout.php
 [[ -f playwright.config.ts ]] && ok playwright.config || bad playwright.config
 [[ -f e2e/smoke.spec.ts ]] && ok e2e smoke spec || bad e2e smoke spec
 [[ -f README.md ]] && ok README.md || bad README.md
@@ -42,6 +44,12 @@ if rg -q "style=\{\{ \['--s2-primary'" src/pages/public 2>/dev/null; then
   bad "duplicate --s2-primary inline on public pages (use Layout root)"
 else
   ok public primary scope
+fi
+
+if rg -q 'max-width:\s*(1200|1280|1100|1000|900|860)px' assets/public-*.css -g '!public-width-layout.css' 2>/dev/null; then
+  bad "hard-coded layout max-width in public CSS (use --s2-width-* tokens)"
+else
+  ok public width tokens
 fi
 
 if [[ $fail -ne 0 ]]; then

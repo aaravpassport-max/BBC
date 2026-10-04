@@ -4,18 +4,6 @@
   --s2-primary-local: var(--s2-primary, var(--s2-color-primary));
 }
 
-.s2-container--w860 {
-  max-width: 860px;
-}
-
-.s2-container--w900 {
-  max-width: 900px;
-}
-
-.s2-container--w1000 {
-  max-width: 1000px;
-}
-
 .s2-public-split-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -378,7 +366,7 @@
 
 .s2-public-center-copy {
   text-align: center;
-  max-width: 640px;
+  max-width: var(--s2-width-section-compact, 640px);
   margin: 0 auto;
 }
 
@@ -410,21 +398,21 @@
   font-size: clamp(26px, 4vw, 48px);
   font-weight: 900;
   margin: 0 0 12px;
-  max-width: 600px;
+  max-width: var(--s2-width-inner-max, 600px);
   line-height: 1.2;
 }
 
 .s2-blog-hero__sub {
   font-size: 16px;
   opacity: 0.8;
-  max-width: 500px;
+  max-width: var(--s2-width-inner-max, 500px);
   margin: 0 0 28px;
   line-height: 1.7;
 }
 
 .s2-blog-search {
   display: flex;
-  max-width: 480px;
+  max-width: var(--s2-width-inner-max, 480px);
   background: rgba(255, 255, 255, 0.12);
   border-radius: 10px;
   border: 1px solid rgba(255, 255, 255, 0.2);
@@ -777,11 +765,11 @@
   color: rgba(255, 255, 255, 0.8);
   line-height: 1.75;
   margin: 0;
-  max-width: 680px;
+  max-width: var(--s2-width-inner-max, 680px);
 }
 
 .s2-blog-hero-image {
-  max-width: 860px;
+  max-width: var(--s2-width-section-narrow, 860px);
   margin: -32px auto 0;
   padding: 0 20px;
 }
@@ -807,7 +795,7 @@
   grid-template-columns: 1fr 260px;
 }
 
-@media (max-width: 960px) {
+@media (max-width: var(--s2-width-content-max, 960px)) {
   .s2-blog-featured {
     grid-template-columns: 1fr;
   }
@@ -1062,7 +1050,7 @@
 
 /* Legal */
 .s2-legal-page {
-  max-width: 860px;
+  max-width: var(--s2-width-section-narrow, 860px);
   margin: 0 auto;
   padding: 56px 20px;
 }
@@ -1110,7 +1098,7 @@
 }
 
 .s2-privacy-body {
-  max-width: 800px;
+  max-width: var(--s2-width-content-max, 800px);
   margin: 0 auto;
   padding: 40px 20px 80px;
 }
@@ -1349,7 +1337,7 @@
   font-size: 15px;
   opacity: 0.85;
   margin: 0 0 24px;
-  max-width: 500px;
+  max-width: var(--s2-width-inner-max, 500px);
   margin-left: auto;
   margin-right: auto;
 }

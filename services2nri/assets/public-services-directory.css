@@ -49,7 +49,7 @@
 
 .s2-dir-search {
   width: 100%;
-  max-width: 560px;
+  max-width: var(--s2-width-section-compact, 560px);
   padding: 14px 20px;
   border-radius: var(--s2-radius-md);
   font-size: 0.9375rem;

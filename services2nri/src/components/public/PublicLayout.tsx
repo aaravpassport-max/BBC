@@ -9,14 +9,31 @@ export function PublicSection({
   children,
   alt = false,
   className = '',
+  sectionKey,
+  width = 'standard',
 }: {
   children: React.ReactNode
   alt?: boolean
   className?: string
+  /** Registers section with centralized width system (data-s2-section). */
+  sectionKey?: string
+  width?: 'standard' | 'wide' | 'narrow' | 'compact' | 'full' | 'content' | 'inner'
 }) {
+  const widthClass = {
+    standard: 's2-width-standard',
+    wide: 's2-width-wide',
+    narrow: 's2-width-narrow',
+    compact: 's2-width-compact',
+    full: 's2-width-full',
+    content: 's2-width-content',
+    inner: 's2-width-inner',
+  }[width]
   return (
-    <section className={`s2-section s2-marketing-section${alt ? ' s2-marketing-section--alt' : ''} ${className}`.trim()}>
-      <div className="s2-container">{children}</div>
+    <section
+      className={`s2-section s2-marketing-section${alt ? ' s2-marketing-section--alt' : ''} ${className}`.trim()}
+      {...(sectionKey ? { 'data-s2-section': sectionKey } : {})}
+    >
+      <div className={`s2-container s2-section-inner ${widthClass}`}>{children}</div>
     </section>
   )
 }

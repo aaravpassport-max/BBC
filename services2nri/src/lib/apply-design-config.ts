@@ -49,4 +49,18 @@ export function applyDesignConfig(cfg?: S2NRIConfig): void {
       root.style.setProperty(`--s2-shadow-${key.replace(/_/g, '-')}`, val)
     }
   })
+
+  const widths = design.widths as Record<string, unknown> | undefined
+  const global = (widths?.global || {}) as Record<string, unknown>
+  const pageMax = global.page_max
+  const desktop =
+    typeof pageMax === 'object' && pageMax !== null && 'desktop' in (pageMax as object)
+      ? String((pageMax as Record<string, string>).desktop)
+      : typeof pageMax === 'string'
+        ? pageMax
+        : ''
+  if (desktop) {
+    root.style.setProperty('--s2-width-page-max', desktop)
+    root.style.setProperty('--s2-space-container_max', desktop)
+  }
 }

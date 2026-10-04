@@ -58,7 +58,7 @@ export function ServicesPage() {
 
   return (
     <Layout>
-      <div className="s2-services-hero">
+      <div className="s2-services-hero" data-s2-section="hero">
         <div className="s2-container">
           <h1 className="s2-dir-hero__title">All NRI Services</h1>
           <p className="s2-dir-hero__sub">
@@ -94,7 +94,7 @@ export function ServicesPage() {
         </div>
       </div>
 
-      <div className="s2-services-layout s2-container">
+      <div className="s2-services-layout s2-container" data-s2-section="directory">
         <aside className="s2-services-sidebar">
           <h3 className="s2-dir-sidebar__label">Categories</h3>
           <button
