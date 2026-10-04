@@ -13,16 +13,16 @@ import { ServiceRegistryVisibilityBlock, CategoryRegistryVisibilityBlock } from 
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 function Card({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #EBF0F8', padding: 24, boxShadow: '0 2px 8px rgba(0,0,0,.04)', ...style }}>{children}</div>
+  return <div className="s2-dash-card" style={{ background: '#fff', borderRadius: 12, border: '1px solid #EBF0F8', padding: 24, boxShadow: '0 2px 8px rgba(0,0,0,.04)', ...style }}>{children}</div>
 }
 function PageCard({ children, style = {}, onClick }: { children: React.ReactNode; style?: React.CSSProperties; onClick?: () => void }) {
-  return <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #EBF0F8', padding: 24, boxShadow: '0 2px 8px rgba(0,0,0,.04)', ...style }} onClick={onClick}>{children}</div>
+  return <div className="s2-dash-card" style={{ background: '#fff', borderRadius: 12, border: '1px solid #EBF0F8', padding: 24, boxShadow: '0 2px 8px rgba(0,0,0,.04)', ...style }} onClick={onClick}>{children}</div>
 }
 function PageWrap({ title, subtitle, action, children }: { title?: string; subtitle?: string; action?: React.ReactNode; children?: React.ReactNode }) {
   return (
     <div>
       {(title || action) && (
-        <div style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+        <div className="s2-dash-page-header" style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
           <div>{title && <h1 style={{ fontSize: 22, fontWeight: 800, color: '#1E2D40', margin: '0 0 4px' }}>{title}</h1>}{subtitle && <p style={{ color: '#666', fontSize: 14, margin: 0 }}>{subtitle}</p>}</div>
           {action}
         </div>
@@ -44,7 +44,7 @@ function Empty({ icon = '📭', title, description, action }: { icon?: string; t
 }
 function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+    <div className="s2-dash-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
       <div><h1 style={{ fontSize: 22, fontWeight: 800, color: '#1E2D40', margin: '0 0 4px' }}>{title}</h1>{subtitle && <p style={{ color: '#666', fontSize: 14, margin: 0 }}>{subtitle}</p>}</div>
       {action && <div>{action}</div>}
     </div>

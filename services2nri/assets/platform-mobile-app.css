@@ -1,0 +1,201 @@
+/**
+ * Platform-wide mobile app shell (Android/Material-style).
+ * Applies to public marketing, auth, customer portal, and admin on viewports ≤768px.
+ */
+
+:root {
+  --s2-app-touch-min: 48px;
+  --s2-app-header-h: 56px;
+  --s2-app-nav-h: calc(56px + env(safe-area-inset-bottom, 0px));
+  --s2-app-gutter: 16px;
+  --s2-app-card-radius: 16px;
+  --s2-app-surface: #f1f5f9;
+  --s2-app-card: #ffffff;
+  --s2-app-ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (max-width: 768px) {
+  #s2nri-root.s2-mobile-app-root {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* ── Touch-friendly controls (Material min 48dp) ─────────────────────────── */
+  #s2nri-root .s2-btn,
+  #s2nri-root .s2btn,
+  #s2nri-root button:not(.s2-header-menu-btn):not(.s2-dash-mobile-header__menu-btn),
+  #s2nri-root .s2-bottom-nav-item,
+  #s2nri-root .s2-header-icon-btn {
+    min-height: var(--s2-app-touch-min);
+  }
+
+  #s2nri-root input:not([type='checkbox']):not([type='radio']),
+  #s2nri-root select,
+  #s2nri-root textarea,
+  #s2nri-root .s2-input,
+  #s2nri-root .s2-textarea {
+    font-size: 16px !important;
+    min-height: var(--s2-app-touch-min);
+  }
+
+  #s2nri-root .s2-btn--sm,
+  #s2nri-root .s2btn.s2-btn--sm {
+    min-height: 44px;
+    padding-block: 10px;
+  }
+
+  /* ── Public app shell ──────────────────────────────────────────────────── */
+  .s2-page-wrap--mobile-shell {
+    background: var(--s2-app-surface);
+  }
+
+  .s2-page-wrap--mobile-shell .s2-site-header {
+    backdrop-filter: blur(12px);
+    background: color-mix(in srgb, var(--s2-color-surface, #fff) 94%, transparent);
+  }
+
+  .s2-page-wrap--mobile-shell main,
+  .s2-page-wrap--mobile-shell .s2-page-main {
+    padding-bottom: 8px;
+  }
+
+  /* ── Dashboard / portal app surface ────────────────────────────────────── */
+  .s2-dash-shell {
+    min-height: 100dvh;
+    background: var(--s2-app-surface);
+  }
+
+  .s2-mobile-app-surface {
+    background: linear-gradient(180deg, #e2e8f0 0%, var(--s2-app-surface) 120px, #f8fafc 100%) !important;
+    padding: var(--s2-app-gutter) !important;
+  }
+
+  .s2-dash-card,
+  .s2-ui-card {
+    border-radius: var(--s2-app-card-radius) !important;
+    padding: 18px !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06) !important;
+    border: 1px solid color-mix(in srgb, var(--s2-color-border, #e2e8f0) 80%, transparent) !important;
+  }
+
+  .s2-dash-page-header {
+    margin-bottom: 16px !important;
+  }
+
+  .s2-dash-page-header h1 {
+    font-size: 1.35rem !important;
+    line-height: 1.25 !important;
+  }
+
+  /* Collapse multi-column inline grids inside dashboards */
+  .s2-mobile-app-surface div[style*='grid-template-columns: 1fr 340px'],
+  .s2-mobile-app-surface div[style*='grid-template-columns: 1fr 1fr 1fr'],
+  .s2-mobile-app-surface div[style*='grid-template-columns: 1fr 1fr'] {
+    grid-template-columns: 1fr !important;
+    gap: 14px !important;
+  }
+
+  .s2-mobile-app-surface div[style*='repeat(auto-fill, minmax(180px'] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .s2-mobile-app-surface div[style*='repeat(auto-fill, minmax(220px'] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Filter / toolbar rows */
+  .s2-mobile-app-surface div[style*='flex-wrap: wrap'] > input[type='search'],
+  .s2-mobile-app-surface div[style*='flex-wrap: wrap'] > select {
+    flex: 1 1 100% !important;
+    min-width: 100% !important;
+  }
+
+  .s2-mobile-app-surface .s2-table-wrap {
+    margin-inline: calc(-1 * var(--s2-app-gutter));
+    padding-inline: var(--s2-app-gutter);
+    border-radius: 0;
+  }
+
+  .s2-mobile-app-surface table {
+    font-size: 13px;
+  }
+
+  .s2-mobile-app-surface table th,
+  .s2-mobile-app-surface table td {
+    padding: 10px 8px !important;
+  }
+
+  /* ── Modals → bottom sheets ────────────────────────────────────────────── */
+  .s2-modal-backdrop {
+    align-items: flex-end !important;
+    justify-content: center !important;
+    padding: 0 !important;
+  }
+
+  .s2-modal-panel {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 20px 20px 0 0 !important;
+    max-height: min(92dvh, 720px) !important;
+    animation: s2-sheet-up 280ms var(--s2-app-ease);
+  }
+
+  @keyframes s2-sheet-up {
+    from {
+      transform: translateY(100%);
+      opacity: 0.6;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+
+  /* ── Auth screens ──────────────────────────────────────────────────────── */
+  .s2-auth-screen {
+    min-height: calc(100dvh - var(--s2-app-nav-h));
+    padding: var(--s2-app-gutter) !important;
+    align-items: flex-start !important;
+    padding-top: 24px !important;
+  }
+
+  .s2-auth-screen .s2-auth-card {
+    padding: 22px 18px !important;
+    border-radius: var(--s2-app-card-radius);
+  }
+
+  /* ── Marketing density ─────────────────────────────────────────────────── */
+  .s2-marketing-section,
+  .s2-section {
+    padding-inline: var(--s2-app-gutter);
+  }
+
+  .s2-container {
+    padding-inline: var(--s2-app-gutter);
+  }
+
+  .s2-public-contact-grid,
+  .s2-public-split-grid {
+    gap: 20px !important;
+  }
+
+  /* ── Active / pressed (app-like feedback) ──────────────────────────────── */
+  .s2-dash-card:active,
+  .s2-ui-card:active,
+  .s2-home-svc-card:active,
+  .s2-dir-card:active {
+    transform: scale(0.985);
+    transition: transform 0.12s var(--s2-app-ease);
+  }
+
+  .s2-bottom-nav-item:active {
+    transform: scale(0.96);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s2-modal-panel {
+    animation: none;
+  }
+}

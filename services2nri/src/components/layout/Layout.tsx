@@ -891,6 +891,7 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
   return (
     <Layout>
       <div
+        className="s2-auth-screen"
         style={{
           minHeight: '72vh',
           display: 'flex',
@@ -900,7 +901,7 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
           background: '#f9fafb',
         }}
       >
-        <div style={{ width: '100%', maxWidth: 440 }}>
+        <div className="s2-auth-screen__inner" style={{ width: '100%', maxWidth: 440 }}>
           <div style={{ textAlign: 'center', marginBottom: '32px' }}>
             <Link to="/" style={{ fontSize: '22px', fontWeight: 800, color: primary, textDecoration: 'none' }}>
               {name}
@@ -918,7 +919,7 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
 // import Card locally to avoid circular dep
 function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '32px' }}>
+    <div className="s2-auth-card s2-ui-card" style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '12px', padding: '32px' }}>
       {children}
     </div>
   )
@@ -1059,7 +1060,7 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
   )
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
+    <div className="s2-dash-shell s2-mobile-app-shell" style={{ display: 'flex', minHeight: '100vh' }}>
       {/* Desktop sidebar */}
       <div className="s2-dash-sidebar" style={{ display: 'flex', flexDirection: 'column' }}>
         {sidebar}
@@ -1086,7 +1087,7 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
           </button>
           <span className="s2-dash-mobile-header__title">{name}</span>
         </div>
-        <div className="s2-dash-content-wrap" style={{ flex: 1, padding: '24px 20px' }}>
+        <div className="s2-dash-content-wrap s2-mobile-app-surface" style={{ flex: 1, padding: '24px 20px' }}>
           {children}
         </div>
       </div>

@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.41] — 2026-10-04 — Cloud Agent
+
+- **Platform mobile app shell:** `platform-mobile-app.css` — Material-style touch targets (48px), 16px inputs, dashboard card surfaces, inline grid collapse, modal bottom sheets, auth full-bleed layout; wired in `DesignSystem.php` + SPA `global.css`.
+- **Shell classes:** `s2-mobile-app-root` on `#s2nri-root`, `s2-mobile-app-surface` on dashboard content, `s2-dash-card` / `s2-ui-card`, `s2-modal-backdrop` / `s2-modal-panel`.
+- **E2E:** `mobile-app.spec.ts` for viewport shell, touch targets, customer dashboard chrome.
+
+---
+
 ## [4.7.40] — 2026-10-04 — Cloud Agent
 
 - **Global SPA navigation:** `SpaNavigationBridge` intercepts same-origin internal anchors; `SpaLink` + `spa-navigation` helpers for programmatic routing; shell-aware (public vs `/portal` vs `/s2nri-admin` vs builder).

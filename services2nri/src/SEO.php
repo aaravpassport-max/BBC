@@ -514,7 +514,7 @@ HEROFIXJS;
         }
 
         $stamp_attr = class_exists( '\S2NRI\AssetBuildStamp' ) ? \S2NRI\AssetBuildStamp::publicVersion() : $asset_ver;
-        echo '  <div id="s2nri-root" class="s2-ds" translate="no" spellcheck="false"'
+        echo '  <div id="s2nri-root" class="s2-ds s2-mobile-app-root" translate="no" spellcheck="false"'
             . ' data-s2nri-version="' . esc_attr( S2NRI_VERSION ) . '"'
             . ' data-s2nri-build="' . esc_attr( $stamp_attr ) . '"'
             . ' data-s2nri-assets="' . esc_attr( S2NRI_ASSETS_URL ) . '">' . "\n";

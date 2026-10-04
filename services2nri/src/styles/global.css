@@ -4,6 +4,7 @@
  */
 @import '../../shared/design-tokens.css';
 @import '../../assets/portal-experience.css';
+@import '../../assets/platform-mobile-app.css';
 
 *, *::before, *::after { box-sizing: border-box; }
 img { max-width: 100%; height: auto; }

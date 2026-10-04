@@ -324,7 +324,7 @@ interface CardProps {
 export function Card({ children, style = {}, className = '' }: CardProps) {
   return (
     <div
-      className={className}
+      className={`s2-ui-card ${className}`.trim()}
       style={{
         background: '#fff',
         border: '1px solid #e5e7eb',
@@ -393,6 +393,7 @@ export function Modal({ open, onClose, title, children, maxWidth = 560 }: ModalP
       role="dialog"
       aria-modal="true"
       aria-label={title}
+      className="s2-modal-backdrop"
       style={{
         position: 'fixed',
         inset: 0,
@@ -406,6 +407,7 @@ export function Modal({ open, onClose, title, children, maxWidth = 560 }: ModalP
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div
+        className="s2-modal-panel"
         style={{
           background: '#fff',
           borderRadius: '16px',
@@ -474,6 +476,7 @@ interface PageHeaderProps {
 export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
   return (
     <div
+      className="s2-dash-page-header"
       style={{
         display: 'flex',
         alignItems: 'flex-start',

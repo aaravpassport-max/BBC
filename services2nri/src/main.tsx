@@ -16,7 +16,7 @@ import './pages/admin/width-layout-studio.css'
 
 const root = document.getElementById('s2nri-root')
 if (root) {
-  root.classList.add('s2-ds')
+  root.classList.add('s2-ds', 's2-mobile-app-root')
   try {
     createRoot(root).render(
       <React.StrictMode>

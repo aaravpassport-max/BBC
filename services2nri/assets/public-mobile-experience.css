@@ -14,6 +14,10 @@
 
 /* ── Header (Material-style app bar) ─────────────────────────────────────── */
 @media (max-width: 768px) {
+  .s2-page-wrap--mobile-shell .s2-site-topbar {
+    display: none;
+  }
+
   .s2-page-wrap--mobile-shell .s2-site-header {
     top: 0;
     box-shadow: 0 1px 0 var(--s2-color-divider, #ebf0f8);
