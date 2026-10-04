@@ -66,6 +66,8 @@ class Dispatcher {
         $this->add( 'GET',  'settings/public',         Controllers\SettingsController::class, 'getPublic'  );
         $this->add( 'GET',  'design/public',           Controllers\DesignSystemController::class, 'getPublic' );
         $this->add( 'GET',  'navigation/public',       Controllers\NavigationController::class, 'getPublic' );
+        $this->add( 'GET',  'admin/navigation',        Controllers\NavigationController::class, 'getAdmin', true );
+        $this->add( 'PUT',  'admin/navigation',        Controllers\NavigationController::class, 'updateAdmin', true );
         $this->add( 'GET',  'admin/design',            Controllers\DesignSystemController::class, 'getAdmin', true );
         $this->add( 'PUT',  'admin/design',            Controllers\DesignSystemController::class, 'update', true );
         $this->add( 'POST', 'admin/design/preset',     Controllers\DesignSystemController::class, 'applyPreset', true );

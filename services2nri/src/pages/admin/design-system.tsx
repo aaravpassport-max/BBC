@@ -10,6 +10,7 @@ import {
   OverridesEditor,
   SurfaceVisibilityMatrix,
   CategoryRegistryPanel,
+  NavMenuEditor,
   type RegistryService,
   type RegistryCategory,
 } from './design-system-panels'
@@ -19,7 +20,7 @@ type DesignConfig = Record<string, unknown>
 const TABS = [
   'Global', 'Typography', 'Fonts', 'Colors', 'Spacing', 'Buttons', 'Cards', 'Forms',
   'Containers', 'Borders', 'Shadows', 'Motion', 'Responsive', 'Overrides',
-  'Presets', 'Preview', 'Service Registry', 'Categories',
+  'Presets', 'Preview', 'Navigation', 'Service Registry', 'Categories',
 ] as const
 
 type Tab = (typeof TABS)[number]
@@ -375,6 +376,10 @@ export function AdminDesignSystem() {
           </div>
           <div className="s2-alert s2-alert--success" style={{ maxWidth: 480, marginTop: 16 }}>Success — your design tokens are active.</div>
         </div>
+      )}
+
+      {tab === 'Navigation' && (
+        <NavMenuEditor onSaved={(msg) => setMessage(msg)} />
       )}
 
       {tab === 'Service Registry' && (

@@ -2,6 +2,7 @@
  * Sub-panels for the centralized Design & Service Registry admin UI.
  */
 import React from 'react'
+import { api } from '@/lib/api'
 
 type PatchFn = (path: string[], value: unknown) => void
 
@@ -273,6 +274,92 @@ export function CategoryRegistryPanel({
         ) : (
           <p style={{ color: '#94A3B8' }}>Select a category to edit visibility.</p>
         )}
+      </div>
+    </div>
+  )
+}
+
+export function NavMenuEditor({
+  onSaved,
+}: {
+  onSaved: (msg: string) => void
+}) {
+  const [structure, setStructure] = React.useState('')
+  const [preview, setPreview] = React.useState<Array<{ label: string; cols?: unknown[] }>>([])
+  const [loading, setLoading] = React.useState(true)
+  const [saving, setSaving] = React.useState(false)
+
+  React.useEffect(() => {
+    api.get<{ structure: unknown[]; menu: unknown[] }>('admin/navigation')
+      .then((data) => {
+        setStructure(JSON.stringify(data.structure || [], null, 2))
+        setPreview((data.menu || []) as Array<{ label: string; cols?: unknown[] }>)
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [])
+
+  const save = async () => {
+    setSaving(true)
+    try {
+      const parsed = JSON.parse(structure)
+      if (!Array.isArray(parsed)) throw new Error('Structure must be a JSON array')
+      const res = await api.put<{ menu: unknown[] }>('admin/navigation', { structure: parsed })
+      setPreview((res.menu || []) as Array<{ label: string; cols?: unknown[] }>)
+      onSaved('Navigation structure saved. Mega-menu updates on next public load.')
+    } catch (e: unknown) {
+      onSaved(e instanceof Error ? e.message : 'Invalid JSON — fix structure before saving.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const resetDefault = async () => {
+    const data = await api.get<{ default: unknown[] }>('admin/navigation')
+    setStructure(JSON.stringify(data.default || [], null, 2))
+  }
+
+  if (loading) return <p>Loading navigation…</p>
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 20 }}>
+      <div>
+        <p style={{ color: '#64748B', fontSize: 13 }}>
+          Edit mega-menu columns and service slug links. Visibility still flows through ServiceRegistry (hidden services are omitted automatically).
+        </p>
+        <textarea
+          value={structure}
+          onChange={(e) => setStructure(e.target.value)}
+          rows={22}
+          style={{ width: '100%', fontFamily: 'monospace', fontSize: 12, padding: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}
+        />
+        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+          <button type="button" className="s2-btn s2-btn--primary" disabled={saving} onClick={save}>
+            {saving ? 'Saving…' : 'Save navigation'}
+          </button>
+          <button type="button" className="s2-btn s2-btn--outline" onClick={resetDefault}>
+            Load default JSON
+          </button>
+        </div>
+      </div>
+      <div style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 16, maxHeight: 520, overflow: 'auto' }}>
+        <h3 style={{ marginTop: 0 }}>Live preview (after registry filter)</h3>
+        {preview.length === 0 && <p style={{ color: '#94A3B8' }}>No visible menu groups.</p>}
+        {preview.map((item) => (
+          <div key={item.label} style={{ marginBottom: 16 }}>
+            <strong>{item.label}</strong>
+            {(item.cols as Array<{ heading: string; items: Array<{ label: string }> }> | undefined)?.map((col) => (
+              <div key={col.heading} style={{ marginLeft: 12, marginTop: 8 }}>
+                <div style={{ fontSize: 12, color: '#64748B' }}>{col.heading}</div>
+                <ul style={{ margin: '4px 0 0 16px', fontSize: 13 }}>
+                  {(col.items || []).slice(0, 6).map((link) => (
+                    <li key={link.label}>{link.label}</li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
     </div>
   )

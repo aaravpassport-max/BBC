@@ -273,6 +273,9 @@ class DesignSystem {
         $css .= file_exists( S2NRI_DIR . 'assets/public-page-utilities.css' )
             ? file_get_contents( S2NRI_DIR . 'assets/public-page-utilities.css' )
             : '';
+        $css .= file_exists( S2NRI_DIR . 'assets/public-home-sections.css' )
+            ? file_get_contents( S2NRI_DIR . 'assets/public-home-sections.css' )
+            : '';
         if ( ! empty( $config['motion']['reduce_motion'] ) ) {
             $css .= "@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;}}\n";
         }

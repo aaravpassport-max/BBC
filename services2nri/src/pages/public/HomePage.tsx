@@ -187,7 +187,7 @@ export function HomePage() {
         setCategories(cats)
         if (cats.length > 0) setActiveCategory(cats[0].slug)
         cats.forEach((cat) => {
-          api.get<{ services: Service[] }>(`services?surface=homepage&category=${cat.slug}`)
+          api.get<{ services: Service[] }>(`services?surface=homepage&category=${cat.slug}&per_page=4`)
             .then((r) => setServiceMap((prev) => ({ ...prev, [cat.slug]: r.services || [] })))
             .catch(() => {})
         })
@@ -202,7 +202,7 @@ export function HomePage() {
         ])
         setActiveCategory('property')
         ;['property', 'financial', 'immigration', 'education'].forEach((slug) => {
-          api.get<{ services: Service[] }>(`services?surface=homepage&category=${slug}`)
+          api.get<{ services: Service[] }>(`services?surface=homepage&category=${slug}&per_page=4`)
             .then((r) => setServiceMap((prev) => ({ ...prev, [slug]: r.services || [] })))
             .catch(() => {})
         })
@@ -271,7 +271,7 @@ export function HomePage() {
       </div>
 
       {/* ── 2. Notice bar ─────────────────────────────────────────────────── */}
-      <div style={{ background: '#fff8e1', borderBottom: '2px solid #ffc107', padding: '10px 20px', fontSize: 13, textAlign: 'center', color: '#5d4037' }}>
+      <div className="s2-notice-bar s2-home-notice" style={{ borderBottom: '2px solid #ffc107' }}>
         🚨 <strong>Public Notice:</strong> Our only official website is <strong>{window.location.hostname}</strong>. Please verify all services only through our official channels.
         {whatsapp && (
           <> · <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} style={{ color: '#2e7d32', fontWeight: 700 }}>WhatsApp Us</a></>
@@ -279,11 +279,13 @@ export function HomePage() {
       </div>
 
       {/* ── 3. Services section ───────────────────────────────────────────── */}
-      <section style={{ background: '#fff', padding: '64px 20px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <p style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, color: primary, margin: '0 0 8px' }}>What We Offer</p>
-          <h2 style={{ textAlign: 'center', fontSize: 'clamp(22px, 3vw, 34px)', fontWeight: 800, color: '#1E2D40', margin: '0 0 6px' }}>Our Services</h2>
-          <p style={{ textAlign: 'center', color: '#666', fontSize: 15, margin: '0 0 32px' }}>Expert NRI assistance across 8 service categories</p>
+      <section className="s2-section" style={{ background: 'var(--s2-color-surface, #fff)' }}>
+        <div className="s2-container">
+          <div className="s2-home-section-head">
+            <p className="s2-t-eyebrow">What We Offer</p>
+            <h2 className="s2-t-section-heading">Our Services</h2>
+            <p className="s2-t-body" style={{ margin: 0 }}>Expert NRI assistance across 8 service categories</p>
+          </div>
 
           {/* Category tabs */}
           <div className="s2-tabs">
@@ -321,32 +323,17 @@ export function HomePage() {
               const fallbackImgs = [IMAGES.property, IMAGES.housekeeping, IMAGES.tenancy, IMAGES.rent]
               const img = svc.image_url || (svc as Service & { img?: string }).img || fallbackImgs[i % 4]
               return (
-                <div
-                  key={svc.id || i}
-                  style={{ borderRadius: 12, overflow: 'hidden', boxShadow: '0 2px 16px rgba(0,0,0,.08)', background: '#fff', display: 'flex', flexDirection: 'column', transition: 'transform .2s, box-shadow .2s' }}
-                  onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,.15)' }}
-                  onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 2px 16px rgba(0,0,0,.08)' }}
-                >
-                  <div style={{ height: 190, overflow: 'hidden', position: 'relative' }}>
-                    <img
-                      src={img}
-                      alt={svc.name}
-                      loading="lazy"
-                      style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform .4s' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.05)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-                    />
-                    <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 60, background: 'linear-gradient(transparent, rgba(0,0,0,.5))' }} />
+                <div key={svc.id || i} className="s2-card s2-card--service s2-home-svc-card s2-animate-hover">
+                  <div className="s2-home-svc-card__media">
+                    <img src={img} alt={svc.name} loading="lazy" />
+                    <div className="s2-home-svc-card__fade" />
                   </div>
-                  <div style={{ padding: '18px 20px 20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <h3 style={{ fontSize: 17, fontWeight: 700, color: '#1E2D40', margin: '0 0 8px', lineHeight: 1.3 }}>{svc.name}</h3>
-                    <p style={{ fontSize: 13, color: '#666', lineHeight: 1.6, margin: '0 0 16px', flex: 1 }}>
+                  <div className="s2-home-svc-card__body">
+                    <h3 className="s2-home-svc-card__title">{svc.name}</h3>
+                    <p className="s2-home-svc-card__desc">
                       {(svc.short_desc || '').slice(0, 110)}{(svc.short_desc || '').length > 110 ? '...' : ''}
                     </p>
-                    <Link to={`/service/${svc.slug}`} style={{ display: 'inline-block', background: primary, color: '#fff', padding: '9px 20px', borderRadius: 7, fontSize: 13, fontWeight: 700, textDecoration: 'none', alignSelf: 'flex-start', transition: 'opacity .2s' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
-                      onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-                    >
+                    <Link to={`/service/${svc.slug}`} className="s2-btn s2-btn--primary s2-btn--sm s2-home-svc-card__cta">
                       View Details →
                     </Link>
                   </div>
@@ -391,8 +378,8 @@ export function HomePage() {
       </section>
 
       {/* ── 5. Stats bar ──────────────────────────────────────────────────── */}
-      <section style={{ background: primary, padding: '32px 20px' }}>
-        <div className="s2-stats-grid" style={{ maxWidth: 1200, margin: '0 auto' }}>
+      <section className="s2-hero-stat-bar s2-stats-bar">
+        <div className="s2-stats-bar__grid">
           {stats.map(({ n, l }) => <StatCard key={l} number={n} label={l} primary={primary} />)}
         </div>
       </section>

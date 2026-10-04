@@ -400,6 +400,13 @@ class ServiceRegistry {
         }
     }
 
+    /** @param array<int, mixed> $structure */
+    public static function saveNavMenuStructure( array $structure ): bool {
+        \S2NRI\Models\Setting::set( 'nav_menu_structure', wp_json_encode( array_values( $structure ) ), true );
+        self::bustCache();
+        return true;
+    }
+
     public static function impactPreview( int $service_id ): array {
         global $wpdb;
         $p = $wpdb->prefix;

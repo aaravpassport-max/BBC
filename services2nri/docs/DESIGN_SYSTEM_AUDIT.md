@@ -18,6 +18,10 @@
 
 **Inheritance:** `Global → page_type → page → section → element` (see `DesignSystem::resolve()`).
 
+**Full §17 matrix:** [`DESIGN_SYSTEM_PAGE_MATRIX.md`](./DESIGN_SYSTEM_PAGE_MATRIX.md)  
+**Staging scenarios A–G:** [`VERIFICATION_STAGING.md`](./VERIFICATION_STAGING.md)  
+**Static CI script:** `scripts/verify-design-system.sh`
+
 ## Public pages matrix (summary)
 
 | Page | Route | Layout | Primary tokens | Registry surfaces |

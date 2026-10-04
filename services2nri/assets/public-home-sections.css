@@ -1,0 +1,124 @@
+/* Homepage section patterns — token-driven replacements for legacy inline blocks */
+
+.s2-home-notice {
+  padding: 10px 20px;
+  font-size: 13px;
+  text-align: center;
+  color: #5d4037;
+}
+
+.s2-home-section-head {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.s2-home-svc-card {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.s2-home-svc-card__media {
+  height: 190px;
+  overflow: hidden;
+  position: relative;
+}
+
+.s2-home-svc-card__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s var(--s2-motion-ease, ease);
+}
+
+.s2-home-svc-card:hover .s2-home-svc-card__media img {
+  transform: scale(1.05);
+}
+
+.s2-home-svc-card__fade {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 60px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.5));
+}
+
+.s2-home-svc-card__body {
+  padding: 18px 20px 20px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.s2-home-svc-card__title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--s2-color-heading);
+  margin: 0 0 8px;
+  line-height: 1.3;
+}
+
+.s2-home-svc-card__desc {
+  font-size: 13px;
+  color: var(--s2-color-muted);
+  line-height: 1.6;
+  margin: 0 0 16px;
+  flex: 1;
+}
+
+.s2-home-svc-card__cta {
+  display: inline-block;
+  align-self: flex-start;
+}
+
+.s2-home-city-card {
+  text-decoration: none;
+  border-radius: var(--s2-radius-lg, 12px);
+  overflow: hidden;
+  display: block;
+  position: relative;
+  height: 150px;
+  box-shadow: var(--s2-shadow-sm);
+  transition: transform var(--s2-motion-duration), box-shadow var(--s2-motion-duration);
+}
+
+.s2-home-city-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--s2-shadow-md);
+}
+
+.s2-stats-bar {
+  padding: 48px 20px;
+  color: #fff;
+}
+
+.s2-stats-bar__grid {
+  max-width: var(--s2-space-container_max, 1200px);
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 24px;
+}
+
+.s2-stats-bar__value {
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 900;
+  color: #ffd54f;
+  line-height: 1;
+  text-align: center;
+}
+
+.s2-stats-bar__label {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
+  margin-top: 4px;
+  text-align: center;
+}
+
+.s2-services-hero {
+  color: #fff;
+  padding: 52px 20px;
+  background: linear-gradient(135deg, var(--s2-color-secondary) 0%, var(--s2-color-primary) 100%);
+}

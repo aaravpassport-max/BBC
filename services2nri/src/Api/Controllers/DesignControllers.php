@@ -70,6 +70,30 @@ class NavigationController extends BaseController {
             'services' => ServiceRegistry::forSurface( 'nav_dropdown' ),
         ] );
     }
+
+    public function getAdmin( Request $req ): void {
+        $this->requireManager();
+        ServiceRegistry::seedNavMenuStructureIfMissing();
+        Response::json( [
+            'structure' => ServiceRegistry::getNavMenuStructure(),
+            'menu'        => ServiceRegistry::buildNavigationMenu(),
+            'default'     => ServiceRegistry::defaultNavMenuStructure(),
+        ] );
+    }
+
+    public function updateAdmin( Request $req ): void {
+        $this->requireManager();
+        $body = $req->body();
+        if ( ! is_array( $body ) || ! isset( $body['structure'] ) || ! is_array( $body['structure'] ) ) {
+            Response::json( [ 'error' => 'Invalid navigation structure.' ], 422 );
+            return;
+        }
+        ServiceRegistry::saveNavMenuStructure( $body['structure'] );
+        Response::json( [
+            'ok'   => true,
+            'menu' => ServiceRegistry::buildNavigationMenu(),
+        ] );
+    }
 }
 
 class ServiceRegistryAdminController extends BaseController {
