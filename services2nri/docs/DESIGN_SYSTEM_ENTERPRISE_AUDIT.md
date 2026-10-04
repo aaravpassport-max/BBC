@@ -1,4 +1,4 @@
-# Design system — enterprise E2E audit (4.7.5+)
+# Design system — enterprise E2E audit (4.7.6+)
 
 ## Control surfaces (admin)
 
@@ -12,18 +12,20 @@
 | Per section colors | Overrides → **sections** (applies on `[data-s2-section]`) |
 | Per service hero width | Service Page Builder → Hero Settings |
 | Components (buttons) | Design System → **Components** → `--s2-btn-*` on public site |
+| Header / footer / top bar | **Site Chrome** (global) + **Page Templates** (per route) |
+| Typography per template | **Page Templates** → page title / body sizes (px) |
 
 ## Runtime wiring
 
 1. **PHP first paint:** `DesignSystem::renderInlineCss($path)` — resolves page type/slug overrides, widths, typography, section overrides.
-2. **SPA navigation:** `PageWidthScope` calls `applyDesignForPath()` — re-merges `overrides` + widths from `S2NRI_CONFIG.design`.
+2. **SPA navigation:** `PageWidthScope` calls `applyDesignForPath()` — re-merges `overrides`, widths, **chrome**, and injects runtime typography CSS.
 3. **Publish:** Admin **Publish design** saves full config; hard-refresh once to reload PHP inline CSS bundle.
 
 ## Known limits (honest)
 
-- Typography utility classes (`.s2-t-*`) are generated on **first HTML load**; SPA route changes update **CSS variables**, not every typography rule.
+- Typography on SPA: global `.s2-t-*` from PHP plus **`#s2nri-typography-runtime`** on route change (template overrides merged).
 - Blog remains **PHP** (`Blog.php`); use global + `page_types.blog` + `pages` slugs.
-- Header/footer **layout** (not colors) still lives in `Layout.tsx` — token colors apply via variables.
+- Header/footer **column structure** still lives in `Layout.tsx`; colors, height, top bar, and full/minimal footer use **`chrome`** tokens.
 
 ## Verification
 

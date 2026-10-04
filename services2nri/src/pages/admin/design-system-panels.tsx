@@ -4,7 +4,13 @@
 import React from 'react'
 import { api } from '@/lib/api'
 import { HexColorField, PxTokenField, parsePx } from './design-admin-fields'
-import { PAGE_TEMPLATES, type PageTemplateDef } from '@/lib/design-page-templates'
+import {
+  PAGE_TEMPLATES,
+  readNestedString,
+  templateChromePath,
+  templateTypographyPath,
+  type PageTemplateDef,
+} from '@/lib/design-page-templates'
 import { WIDTH_PAGE_TYPES } from '@/lib/width-layout'
 import type { WidthLayoutFocus } from './width-layout-panel'
 
@@ -31,7 +37,15 @@ export function TypographyRolesEditor({
           <fieldset key={role} style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 16 }}>
             <legend style={{ fontWeight: 700, padding: '0 8px' }}>{role.replace(/_/g, ' ')}</legend>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12 }}>
-              {(['size_desktop', 'size_tablet', 'size_mobile', 'font_weight', 'line_height', 'letter_spacing', 'color'] as const).map((key) => (
+              {(['size_desktop', 'size_tablet', 'size_mobile'] as const).map((key) => (
+                <PxTokenField
+                  key={key}
+                  label={key.replace(/_/g, ' ')}
+                  value={t[key] || ''}
+                  onChange={(v) => patch(['typography', role, key], parsePx(v))}
+                />
+              ))}
+              {(['font_weight', 'line_height', 'letter_spacing'] as const).map((key) => (
                 <label key={key} style={{ fontSize: 12 }}>
                   {key.replace(/_/g, ' ')}
                   <input
@@ -42,6 +56,11 @@ export function TypographyRolesEditor({
                   />
                 </label>
               ))}
+              <HexColorField
+                label="color"
+                value={String(t.color || '').startsWith('#') ? String(t.color) : ''}
+                onChange={(v) => patch(['typography', role, 'color'], v || '{colors.body}')}
+              />
             </div>
           </fieldset>
         )
@@ -503,19 +522,79 @@ function readTemplateColor(overrides: Record<string, Record<string, unknown>>, t
   return String(((pageTypes[pt]?.colors || {}) as Record<string, string>)[key] || '')
 }
 
+export function SiteChromePanel({
+  chrome,
+  patch,
+}: {
+  chrome: Record<string, unknown>
+  patch: PatchFn
+}) {
+  const global = (chrome.global || {}) as Record<string, string | boolean>
+  return (
+    <div style={{ display: 'grid', gap: 20, maxWidth: 900 }}>
+      <p style={{ margin: 0, fontSize: 13, color: '#64748B' }}>
+        Global header, top bar, and footer defaults. Override per template under <strong>Page Templates</strong>.
+      </p>
+      <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <input
+          type="checkbox"
+          checked={global.show_topbar !== false}
+          onChange={(e) => patch(['chrome', 'global', 'show_topbar'], e.target.checked)}
+        />
+        Show top bar (WhatsApp / sign in)
+      </label>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+        <HexColorField label="Top bar background" value={String(global.topbar_bg || '')} onChange={(v) => patch(['chrome', 'global', 'topbar_bg'], v)} />
+        <HexColorField label="Top bar text" value={String(global.topbar_text || '')} onChange={(v) => patch(['chrome', 'global', 'topbar_text'], v)} />
+        <HexColorField label="Header background" value={String(global.header_bg || '')} onChange={(v) => patch(['chrome', 'global', 'header_bg'], v)} />
+        <HexColorField label="Footer background" value={String(global.footer_bg || '')} onChange={(v) => patch(['chrome', 'global', 'footer_bg'], v)} />
+        <HexColorField label="Footer text" value={String(global.footer_text || '')} onChange={(v) => patch(['chrome', 'global', 'footer_text'], v)} />
+        <PxTokenField label="Header height" value={String(global.header_height_px || '64')} onChange={(v) => patch(['chrome', 'global', 'header_height_px'], parsePx(v))} />
+      </div>
+      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+        <label style={{ fontSize: 13 }}>
+          Header style
+          <select
+            value={String(global.header_variant || 'standard')}
+            onChange={(e) => patch(['chrome', 'global', 'header_variant'], e.target.value)}
+            style={{ display: 'block', marginTop: 6, padding: 8, borderRadius: 8, minWidth: 160 }}
+          >
+            <option value="standard">Standard</option>
+            <option value="compact">Compact</option>
+          </select>
+        </label>
+        <label style={{ fontSize: 13 }}>
+          Footer style
+          <select
+            value={String(global.footer_variant || 'full')}
+            onChange={(e) => patch(['chrome', 'global', 'footer_variant'], e.target.value)}
+            style={{ display: 'block', marginTop: 6, padding: 8, borderRadius: 8, minWidth: 160 }}
+          >
+            <option value="full">Full columns</option>
+            <option value="minimal">Minimal (copyright only)</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  )
+}
+
 export function PageTemplatesPanel({
   overrides,
   widths,
+  chrome,
   patch,
   onOpenWidth,
   onPreviewPath,
 }: {
   overrides: Record<string, Record<string, unknown>>
   widths: Record<string, unknown>
+  chrome: Record<string, unknown>
   patch: PatchFn
   onOpenWidth: (focus: WidthLayoutFocus) => void
   onPreviewPath?: (path: string) => void
 }) {
+  const chromeRoot = chrome as Record<string, unknown>
   return (
     <div style={{ display: 'grid', gap: 24 }}>
       <p style={{ margin: 0, color: '#64748B', maxWidth: 720, fontSize: 13 }}>
@@ -564,6 +643,37 @@ export function PageTemplatesPanel({
                   />
                 ))}
                 <PxTokenField label="Page max (desktop)" value={pageMax} onChange={setPageMax} />
+                <PxTokenField
+                  label="Page title size"
+                  value={readNestedString({ overrides }, templateTypographyPath(t, 'page_title', 'size_desktop'))}
+                  onChange={(v) => patch(templateTypographyPath(t, 'page_title', 'size_desktop'), parsePx(v))}
+                />
+                <PxTokenField
+                  label="Body text size"
+                  value={readNestedString({ overrides }, templateTypographyPath(t, 'body', 'size_desktop'))}
+                  onChange={(v) => patch(templateTypographyPath(t, 'body', 'size_desktop'), parsePx(v))}
+                />
+                <HexColorField
+                  label="Footer background"
+                  hint="Template-only footer"
+                  value={readNestedString({ chrome: chromeRoot }, templateChromePath(t, 'footer_bg'))}
+                  onChange={(v) => patch(templateChromePath(t, 'footer_bg'), v || undefined)}
+                />
+                <label style={{ fontSize: 13 }}>
+                  Footer layout
+                  <select
+                    value={readNestedString({ chrome: chromeRoot }, templateChromePath(t, 'footer_variant')) || 'inherit'}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      patch(templateChromePath(t, 'footer_variant'), val === 'inherit' ? undefined : val)
+                    }}
+                    style={{ display: 'block', width: '100%', marginTop: 6, padding: 8, borderRadius: 8, border: '1px solid #E2E8F0' }}
+                  >
+                    <option value="inherit">Inherit global</option>
+                    <option value="full">Full</option>
+                    <option value="minimal">Minimal</option>
+                  </select>
+                </label>
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                 <button

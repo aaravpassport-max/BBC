@@ -8,7 +8,7 @@
  *   4. Footer (logo, tagline, social, 5-column links, newsletter, copyright)
  */
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import { useLangSwitch } from '@/lib/i18n'
@@ -19,6 +19,9 @@ import type { NavItem, Service } from '@/types'
 import { BottomNav } from './BottomNav'
 import { resolvePrimary } from '@/lib/design-tokens'
 import { PageWidthScope } from '@/components/public/PageWidthScope'
+import { getRuntimeDesignConfig } from '@/lib/apply-design-config'
+import { resolveChromeLayer } from '@/lib/design-resolve'
+import { pageContextFromPath } from '@/lib/width-layout'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -120,9 +123,26 @@ export function Layout({ children }: LayoutProps) {
   const isStaff = user && STAFF_ROLES.includes(user.s2nri_role)
   const dashUrl = isStaff ? '/admin' : '/dashboard'
 
+  const chrome = useMemo(() => {
+    const design = getRuntimeDesignConfig()?.design as Record<string, unknown> | undefined
+    return resolveChromeLayer(design, pageContextFromPath(location.pathname))
+  }, [location.pathname])
+
+  const pageCtx = pageContextFromPath(location.pathname)
+  const wrapClass = [
+    's2-page-wrap',
+    chrome.show_topbar === false ? 's2-page-wrap--no-topbar' : '',
+    chrome.footer_variant === 'minimal' ? 's2-page-wrap--footer-minimal' : '',
+    chrome.header_variant === 'compact' ? 's2-page-wrap--header-compact' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
     <div
-      className="s2-page-wrap"
+      className={wrapClass}
+      data-s2-page-type={pageCtx.page_type}
+      data-s2-page-slug={pageCtx.page_slug}
       style={{
         minHeight: '100vh',
         display: 'flex',
@@ -131,7 +151,7 @@ export function Layout({ children }: LayoutProps) {
       }}
     >
       {/* ── Top bar ────────────────────────────────────────────────────────── */}
-      <div style={{ background: primary, color: '#fff', padding: '6px 20px', fontSize: 13 }}>
+      <div className="s2-site-topbar">
         <div
           className="s2-layout-header-inner"
           style={{
@@ -255,25 +275,8 @@ export function Layout({ children }: LayoutProps) {
       </div>
 
       {/* ── Sticky header ─────────────────────────────────────────────────── */}
-      <header
-        style={{
-          background: '#fff',
-          position: 'sticky',
-          top: 0,
-          zIndex: 200,
-          boxShadow: scrolled ? '0 2px 20px rgba(0,0,0,.12)' : '0 1px 0 #EBF0F8',
-          transition: 'box-shadow .2s',
-        }}
-      >
-        <div
-          className="s2-layout-header-inner"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            height: 64,
-            gap: 24,
-          }}
-        >
+      <header className={`s2-site-header${scrolled ? ' s2-site-header--scrolled' : ''}`}>
+        <div className="s2-layout-header-inner s2-site-header__inner">
           {/* Logo */}
           <Link to="/" style={{ textDecoration: 'none', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
             {logo ? (
@@ -601,10 +604,10 @@ export function Layout({ children }: LayoutProps) {
       <PageWidthScope>{children}</PageWidthScope>
 
       {/* ── Footer ────────────────────────────────────────────────────────── */}
-      <footer style={{ background: '#1E2D40', color: '#9ca3af', padding: '56px 20px 0' }}>
+      <footer className="s2-site-footer">
         <div className="s2-layout-footer-inner">
           <div
-            className="s2-mobile-stack"
+            className="s2-mobile-stack s2-site-footer__grid"
             style={{
               display: 'grid',
               gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
@@ -646,14 +649,12 @@ export function Layout({ children }: LayoutProps) {
 
             {/* Services */}
             <div>
-              <h4 style={footerHeadStyle}>Services</h4>
+              <h4 className="s2-site-footer__heading">Services</h4>
               {(footerServices.length ? footerServices : [{ name: 'All Services', slug: '' }]).map((s) => (
                 <Link
                   key={s.slug || s.name}
                   to={s.slug ? `/service/${s.slug}` : '/services'}
-                  style={footerLinkStyle}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = '#6b7280')}
+                  className="s2-site-footer__link"
                 >
                   {s.name}
                 </Link>
@@ -662,7 +663,7 @@ export function Layout({ children }: LayoutProps) {
 
             {/* Quick Links */}
             <div>
-              <h4 style={footerHeadStyle}>Quick Links</h4>
+              <h4 className="s2-site-footer__heading">Quick Links</h4>
               {[
                 ['/about', 'About Us'],
                 ['/contact', 'Contact Us'],
@@ -672,10 +673,7 @@ export function Layout({ children }: LayoutProps) {
                 ['/pricing', 'Pricing'],
                 ['/dashboard/bookings', 'Track Order'],
               ].map(([to, label]) => (
-                <Link key={to} to={to} style={footerLinkStyle}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = '#6b7280')}
-                >
+                <Link key={to} to={to} className="s2-site-footer__link">
                   {label}
                 </Link>
               ))}
@@ -683,14 +681,12 @@ export function Layout({ children }: LayoutProps) {
 
             {/* Locations */}
             <div>
-              <h4 style={footerHeadStyle}>Locations</h4>
+              <h4 className="s2-site-footer__heading">Locations</h4>
               {['Mumbai', 'Delhi', 'Bangalore', 'Pune', 'Hyderabad', 'Chennai', 'Ahmedabad', 'Nagpur'].map((city) => (
                 <Link
                   key={city}
                   to={`/cities/property-management-in-${city.toLowerCase()}`}
-                  style={footerLinkStyle}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = '#fff')}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = '#6b7280')}
+                  className="s2-site-footer__link"
                 >
                   {city}
                 </Link>
@@ -699,7 +695,7 @@ export function Layout({ children }: LayoutProps) {
 
             {/* Contact */}
             <div>
-              <h4 style={footerHeadStyle}>Contact</h4>
+              <h4 className="s2-site-footer__heading">Contact</h4>
               {settings.platform_email && (
                 <p style={{ fontSize: 13, margin: '0 0 10px', color: '#6b7280' }}>
                   ✉ {settings.platform_email}
@@ -725,6 +721,7 @@ export function Layout({ children }: LayoutProps) {
 
           {/* Newsletter */}
           <div
+            className="s2-site-footer__newsletter"
             style={{
               background: 'rgba(255,255,255,.04)',
               borderRadius: 12,
@@ -805,24 +802,6 @@ export function Layout({ children }: LayoutProps) {
 }
 
 // ── Styles ────────────────────────────────────────────────────────────────────
-const footerHeadStyle: React.CSSProperties = {
-  color: '#fff',
-  fontSize: 14,
-  fontWeight: 700,
-  margin: '0 0 16px',
-  textTransform: 'uppercase',
-  letterSpacing: 1,
-}
-
-const footerLinkStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: 13,
-  color: '#6b7280',
-  textDecoration: 'none',
-  marginBottom: 8,
-  transition: 'color .15s',
-}
-
 const socialStyle: React.CSSProperties = {
   width: 34,
   height: 34,

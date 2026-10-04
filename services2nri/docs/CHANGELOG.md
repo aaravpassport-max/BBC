@@ -5,6 +5,15 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.6] — 2026-10-04 — Cloud Agent
+
+- **Site chrome** — header, top bar, footer driven by `chrome` tokens (`--s2-chrome-*`) with global + per-template overrides.
+- **Admin:** **Site Chrome** tab; **Page Templates** adds typography sizes (px), footer bg, footer layout per template.
+- **SPA:** route changes apply chrome vars + runtime typography stylesheet (`#s2nri-typography-runtime`).
+- **Layout** uses `public-site-chrome.css` (removed hard-coded footer `#1E2D40`).
+
+---
+
 ## [4.7.5] — 2026-10-04 — Cloud Agent
 
 - **Enterprise audit fixes:** SPA re-applies design tokens on every route (`resolveDesignConfig` + page-type/page overrides).
