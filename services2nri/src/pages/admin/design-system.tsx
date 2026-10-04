@@ -25,6 +25,7 @@ import {
 import { WidthLayoutPanel, type WidthLayoutFocus } from './width-layout-panel'
 import { HexColorField, HexAlphaColorField } from './design-admin-fields'
 import { broadcastDesignSaved } from '@/lib/design-live-sync'
+import { AdminScreen } from '@/components/admin/AdminMobileUi'
 import { ensurePatchPath, normalizeAdminDesignConfig, prepareDesignConfigForSave } from '@/lib/design-admin-config'
 
 type DesignConfig = Record<string, unknown>
@@ -250,8 +251,14 @@ export function AdminDesignSystem() {
     return <div style={{ padding: 24 }}>Loading design system…</div>
   }
 
+  const publishBtn = (
+    <button type="button" onClick={save} disabled={saving} className="s2-btn s2-btn--primary">
+      {saving ? 'Saving…' : 'Publish design'}
+    </button>
+  )
   return (
-    <div className="s2-design-system-page" style={{ padding: '24px 28px', maxWidth: 1200 }}>
+    <AdminScreen sticky={publishBtn}>
+    <div className="s2-design-system-page s2-design-system-body" style={{ padding: '24px 28px', maxWidth: 1200 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 26 }}>Design &amp; Style System</h1>
@@ -260,9 +267,7 @@ export function AdminDesignSystem() {
             Changes inherit: Global → page type → page → section.
           </p>
         </div>
-        <button type="button" onClick={save} disabled={saving} className="s2-btn s2-btn--primary">
-          {saving ? 'Saving…' : 'Publish design'}
-        </button>
+        <div className="s2-design-system-header-actions--desktop">{publishBtn}</div>
       </div>
       {message && (
         <div className="s2-alert s2-alert--info" style={{ marginTop: 16, padding: 12 }}>
@@ -540,7 +545,7 @@ export function AdminDesignSystem() {
             Hide or publish a service once — navigation, homepage, search, forms, footer, and related sections update automatically.
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.2fr', gap: 20, marginTop: 16 }}>
-            <div style={{ border: '1px solid #E2E8F0', borderRadius: 12, maxHeight: 400, overflow: 'auto' }}>
+            <div className="s2-design-system-panel" style={{ border: '1px solid #E2E8F0', borderRadius: 12, maxHeight: 400, overflow: 'auto' }}>
               {registry.map((s) => (
                 <button
                   key={s.id}
@@ -562,7 +567,7 @@ export function AdminDesignSystem() {
                 </button>
               ))}
             </div>
-            <div style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 16 }}>
+            <div className="s2-design-system-panel" style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 16 }}>
               {selectedSvc ? (
                 <>
                   <h3 style={{ marginTop: 0 }}>Visibility</h3>
@@ -614,5 +619,6 @@ export function AdminDesignSystem() {
         <CityRegistryPanel cities={cities} surfaces={citySurfaces} onSave={saveCity} />
       )}
     </div>
+    </AdminScreen>
   )
 }

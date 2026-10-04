@@ -1,5 +1,5 @@
 # Generated audit index
-Generated: 2026-10-04T19:09:58+00:00
+Generated: 2026-10-04T19:18:19+00:00
 
 ## Routes
 | `/` | `HomePage.tsx` | page_type `homepage` |
@@ -15,7 +15,7 @@ Generated: 2026-10-04T19:09:58+00:00
 | `/admin` | `admin/index.tsx` | page_type `portal` |
 
 ## Design asset bundles
-- `platform-mobile-app.css` (7638 bytes)
+- `platform-mobile-app.css` (11838 bytes)
 - `portal-experience.css` (1921 bytes)
 - `public-contrast-system.css` (4861 bytes)
 - `public-design-system.css` (6905 bytes)

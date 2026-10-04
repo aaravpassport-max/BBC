@@ -203,6 +203,52 @@ export function handleMockApi(pathname, method) {
     }
   }
 
+  if (method === 'GET' && path.startsWith('admin/bookings')) {
+    return {
+      rows: [
+        {
+          id: 1,
+          booking_ref: 'BK-E2E-001',
+          customer_name: 'E2E Customer',
+          service_name: 'Property Management',
+          status: 'submitted',
+          qual_status: 'qualified',
+          created_at: '2026-01-15 10:00:00',
+        },
+      ],
+      total: 1,
+    }
+  }
+  if (method === 'GET' && path === 'admin/settings') {
+    return { settings: { platform_name: { value: 'Services2NRI E2E' }, primary_color: { value: '#4A6FA5' } } }
+  }
+  if (method === 'GET' && path === 'admin/design') {
+    return {
+      config: {
+        colors: { primary: '#4A6FA5' },
+        spacing: {},
+        fonts: {},
+        typography: {},
+        radius: {},
+        shadow: {},
+        motion: {},
+        breakpoints: { sm: 640, md: 768, lg: 1024 },
+        components: {},
+        overrides: {},
+        chrome: {},
+      },
+      presets: { modern: { label: 'Modern', description: 'Default' } },
+      fonts: { library: [] },
+      revision: 'e2e-1',
+    }
+  }
+  if (method === 'GET' && path === 'admin/service-registry') {
+    return { services: [], categories: [], cities: [], surfaces: {}, city_surfaces: {} }
+  }
+  if (method === 'GET' && path === 'admin/analytics/dashboard') {
+    return { stats: { total_bookings: 1 }, recent: [], trends: {} }
+  }
+
   const routes = {
     'GET settings/public': { settings: windowLikeSettings() },
     'GET navigation/public': { menu: { cols: [] }, flat: [] },

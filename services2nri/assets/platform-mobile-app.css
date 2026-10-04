@@ -254,6 +254,168 @@
   .s2-mobile-app-surface .s2-dash-table tbody td:empty {
     display: none;
   }
+
+  /* Card rows for any dashboard data table (not only inside .s2-dash-card) */
+  .s2-mobile-app-surface .s2-dash-table {
+    display: block;
+    width: 100%;
+  }
+
+  .s2-mobile-app-surface .s2-dash-table thead {
+    display: none;
+  }
+
+  .s2-mobile-app-surface .s2-dash-table tbody tr {
+    display: block;
+    margin-bottom: 12px;
+    padding: 14px;
+    border-radius: var(--s2-app-card-radius);
+    border: 1px solid var(--s2-color-border, #e2e8f0);
+    background: var(--s2-app-card, #fff);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.05);
+  }
+
+  .s2-mobile-app-surface .s2-dash-table tbody td {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 6px 0 !important;
+    border: none !important;
+    font-size: 14px;
+    align-items: flex-start;
+  }
+
+  .s2-mobile-app-surface .s2-dash-table tbody td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--s2-color-muted, #64748b);
+    flex-shrink: 0;
+    max-width: 42%;
+  }
+
+  .s2-mobile-app-surface .s2-dash-table tbody td[data-label='']::before,
+  .s2-mobile-app-surface .s2-dash-table tbody td:not([data-label])::before {
+    content: none;
+  }
+
+  /* ── Admin screen shell ─────────────────────────────────────────────────── */
+  .s2-admin-screen {
+    min-height: 0;
+  }
+
+  .s2-admin-screen--sticky {
+    padding-bottom: calc(var(--s2-app-nav-h) + 76px);
+  }
+
+  .s2-admin-sticky-action-bar {
+    display: block;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: var(--s2-app-nav-h);
+    z-index: 35;
+    padding: 10px var(--s2-app-gutter);
+    padding-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    background: color-mix(in srgb, #fff 92%, transparent);
+    backdrop-filter: blur(14px);
+    border-top: 1px solid color-mix(in srgb, var(--s2-color-border, #e2e8f0) 90%, transparent);
+    box-shadow: 0 -4px 24px rgba(15, 23, 42, 0.08);
+  }
+
+  .s2-admin-sticky-action-bar__inner {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: stretch;
+  }
+
+  .s2-admin-sticky-action-bar__inner > * {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .s2-admin-sticky-action-bar__inner > button,
+  .s2-admin-sticky-action-bar__inner > .s2-btn,
+  .s2-admin-sticky-action-bar__inner > a.s2-btn {
+    flex: 1 1 45%;
+    min-height: var(--s2-app-touch-min);
+    justify-content: center;
+  }
+
+  /* Hide duplicate header actions when sticky bar shows the same controls */
+  .s2-admin-screen--sticky .s2-admin-page-header__actions--desktop-only {
+    display: none !important;
+  }
+
+  .s2-admin-page-header {
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .s2-admin-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .s2-admin-toolbar > input[type='search'],
+  .s2-admin-toolbar > select,
+  .s2-admin-toolbar > .s2-input {
+    flex: 1 1 100%;
+    min-width: 100%;
+  }
+
+  .s2-admin-form-stack label,
+  .s2-admin-form-stack .s2-field {
+    display: block;
+    width: 100%;
+  }
+
+  .s2-admin-form-stack input,
+  .s2-admin-form-stack select,
+  .s2-admin-form-stack textarea {
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  /* Design system studio — panels stack on phone */
+  .s2-design-system-page .s2-design-system-body {
+    padding-bottom: calc(var(--s2-app-nav-h) + 72px);
+  }
+
+  .s2-design-system-page div[style*='grid-template-columns: 1fr 1.2fr'],
+  .s2-design-system-page div[style*='grid-template-columns: 1fr 340px'] {
+    grid-template-columns: 1fr !important;
+  }
+
+  .s2-design-system-panel {
+    border-radius: var(--s2-app-card-radius) !important;
+    max-height: none !important;
+  }
+
+  .s2-design-system-page .s2-design-system-header-actions--desktop {
+    display: none !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .s2-admin-sticky-action-bar {
+    display: none !important;
+  }
+
+  .s2-admin-screen--sticky {
+    padding-bottom: 0 !important;
+  }
+
+  .s2-design-system-page .s2-design-system-header-actions--desktop {
+    display: flex !important;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

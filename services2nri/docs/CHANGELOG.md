@@ -5,6 +5,15 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.44] — 2026-10-04 — Cloud Agent
+
+- **Admin mobile parity (TSX):** `AdminMobileUi` — `AdminScreen`, sticky action bars, `AdminTableWrap`, toolbars, form stacks; applied across all admin list/form screens (bookings, payments, customers, services, categories, FAQs, blog, pricing, cities, diagnostics, builder).
+- **Design System studio:** mobile publish sticky bar, stacked registry panels, horizontal tab rail.
+- **CSS:** `.s2-dash-table` card rows outside cards; admin sticky bar above bottom nav; desktop hides duplicate header actions.
+- **E2E:** `admin-mobile.spec.ts` + admin mock API routes.
+
+---
+
 ## [4.7.43] — 2026-10-04 — Cloud Agent
 
 - **Dashboard tables (mobile):** `MobileDashTableEnhancer` sets `data-label` on cells for card-style admin/customer tables; wired globally in `App.tsx`.

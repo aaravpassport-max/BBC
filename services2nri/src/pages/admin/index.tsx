@@ -10,6 +10,13 @@ import { api } from '@/lib/api'
 import { STAFF_ROLES } from '@/lib/constants'
 import { SidebarLayout } from '@/components/layout/Layout'
 import { ServiceRegistryVisibilityBlock, CategoryRegistryVisibilityBlock } from '@/components/admin/RegistryVisibilityBlock'
+import {
+  AdminScreen,
+  AdminTableWrap,
+  AdminToolbar,
+  AdminFormStack,
+  adminTableProps,
+} from '@/components/admin/AdminMobileUi'
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 function Card({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
@@ -18,17 +25,33 @@ function Card({ children, style = {} }: { children: React.ReactNode; style?: Rea
 function PageCard({ children, style = {}, onClick }: { children: React.ReactNode; style?: React.CSSProperties; onClick?: () => void }) {
   return <div className="s2-dash-card" style={{ background: '#fff', borderRadius: 12, border: '1px solid #EBF0F8', padding: 24, boxShadow: '0 2px 8px rgba(0,0,0,.04)', ...style }} onClick={onClick}>{children}</div>
 }
-function PageWrap({ title, subtitle, action, children }: { title?: string; subtitle?: string; action?: React.ReactNode; children?: React.ReactNode }) {
+function PageWrap({
+  title,
+  subtitle,
+  action,
+  stickyAction,
+  children,
+}: {
+  title?: string
+  subtitle?: string
+  action?: React.ReactNode
+  stickyAction?: React.ReactNode
+  children?: React.ReactNode
+}) {
+  const sticky = stickyAction ?? action
   return (
-    <div>
+    <AdminScreen sticky={sticky}>
       {(title || action) && (
-        <div className="s2-dash-page-header" style={{ marginBottom: 28, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
-          <div>{title && <h1 style={{ fontSize: 22, fontWeight: 800, color: '#1E2D40', margin: '0 0 4px' }}>{title}</h1>}{subtitle && <p style={{ color: '#666', fontSize: 14, margin: 0 }}>{subtitle}</p>}</div>
-          {action}
+        <div className="s2-dash-page-header s2-admin-page-header">
+          <div>
+            {title && <h1 style={{ fontSize: 22, fontWeight: 800, color: '#1E2D40', margin: '0 0 4px' }}>{title}</h1>}
+            {subtitle && <p style={{ color: '#666', fontSize: 14, margin: 0 }}>{subtitle}</p>}
+          </div>
+          {action && <div className="s2-admin-page-header__actions--desktop-only">{action}</div>}
         </div>
       )}
       {children}
-    </div>
+    </AdminScreen>
   )
 }
 function Spinner() { return <div style={{ textAlign: 'center', padding: '48px 20px', color: '#9ca3af', fontSize: 14 }}>Loading…</div> }
@@ -44,9 +67,12 @@ function Empty({ icon = '📭', title, description, action }: { icon?: string; t
 }
 function PageHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <div className="s2-dash-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-      <div><h1 style={{ fontSize: 22, fontWeight: 800, color: '#1E2D40', margin: '0 0 4px' }}>{title}</h1>{subtitle && <p style={{ color: '#666', fontSize: 14, margin: 0 }}>{subtitle}</p>}</div>
-      {action && <div>{action}</div>}
+    <div className="s2-dash-page-header s2-admin-page-header">
+      <div>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: '#1E2D40', margin: '0 0 4px' }}>{title}</h1>
+        {subtitle && <p style={{ color: '#666', fontSize: 14, margin: 0 }}>{subtitle}</p>}
+      </div>
+      {action && <div className="s2-admin-page-header__actions--desktop-only">{action}</div>}
     </div>
   )
 }
@@ -203,7 +229,7 @@ export function AdminDashboard() {
   const trends = data?.trends as Record<string, unknown> | undefined
   const recent = (data?.recent || []) as Array<Record<string, unknown>>
   return (
-    <div>
+    <AdminScreen>
       <PageHeader title="Admin Dashboard" subtitle="Services2NRI Overview" />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16, marginBottom: 32 }}>
         {stats.map(({ label, value, icon, color, link }) => (
@@ -238,8 +264,8 @@ export function AdminDashboard() {
           <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Recent Bookings</h2>
           <Link to="/admin/requests" style={{ color: primary, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>View all →</Link>
         </div>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+        <AdminTableWrap>
+          <table {...adminTableProps(14)}>
             <thead><tr style={{ background: '#f9fafb', textAlign: 'left' }}>{['Ref', 'Customer', 'Service', 'Status', 'Date'].map(h => <th key={h} style={{ padding: '10px 12px', fontWeight: 600, color: '#374151', borderBottom: '1px solid #e5e7eb' }}>{h}</th>)}</tr></thead>
             <tbody>{recent.length === 0 ? <tr><td colSpan={5} style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>No bookings yet</td></tr> : recent.map(b => (
               <tr key={String(b.id)} style={{ borderBottom: '1px solid #f3f4f6' }}>
@@ -251,9 +277,9 @@ export function AdminDashboard() {
               </tr>
             ))}</tbody>
           </table>
-        </div>
+        </AdminTableWrap>
       </Card>
-    </div>
+    </AdminScreen>
   )
 }
 // ── AdminBookingList (Be) ─────────────────────────────────────────────────────
@@ -291,29 +317,34 @@ export function AdminBookingList() {
   }
   const allIds = data.rows.map(r => Number(r.id))
   const allSelected = allIds.length > 0 && allIds.every(id => selected.has(id))
+  const bookingSticky = (
+    <>
+      {selected.size > 0 && (
+        <>
+          <Btn variant="secondary" disabled={bulkBusy} onClick={() => bulkUpdate('in_progress')}>→ In Progress</Btn>
+          <Btn variant="primary" disabled={bulkBusy} onClick={() => bulkUpdate('completed')}>✓ Complete</Btn>
+          <Btn variant="ghost" onClick={() => setSelected(new Set())}>Clear</Btn>
+        </>
+      )}
+      <Btn variant="secondary" onClick={() => exportCSV('admin/export/bookings')}>⬇ Export CSV</Btn>
+    </>
+  )
   return (
-    <div>
+    <AdminScreen sticky={bookingSticky}>
       <Alert type="error" message={err} onClose={() => setErr('')} />
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <div><h1 style={{ fontSize: 22, fontWeight: 800, color: '#1E2D40', margin: '0 0 4px' }}>All Bookings</h1><p style={{ color: '#666', fontSize: 14, margin: 0 }}>{data.total} total bookings</p></div>
-        <div style={{ display: 'flex', gap: 10 }}>
-          {selected.size > 0 && <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#fff9e6', border: '1px solid #fde68a', borderRadius: 8, padding: '6px 12px' }}>
-            <span style={{ fontSize: 13, fontWeight: 600, color: '#92400e' }}>{selected.size} selected</span>
-            <button disabled={bulkBusy} onClick={() => bulkUpdate('in_progress')} style={{ fontSize: 12, fontWeight: 600, color: '#4A6FA5', background: '#d0effa', border: 'none', padding: '4px 10px', borderRadius: 6, cursor: 'pointer' }}>→ In Progress</button>
-            <button disabled={bulkBusy} onClick={() => bulkUpdate('completed')} style={{ fontSize: 12, fontWeight: 600, color: '#15803d', background: '#d1fae5', border: 'none', padding: '4px 10px', borderRadius: 6, cursor: 'pointer' }}>✓ Complete</button>
-            <button onClick={() => setSelected(new Set())} style={{ fontSize: 12, color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer' }}>✕</button>
-          </div>}
-          <button onClick={() => exportCSV('admin/export/bookings')} style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>⬇ Export CSV</button>
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+      <PageHeader
+        title="All Bookings"
+        subtitle={`${data.total} total bookings${selected.size ? ` · ${selected.size} selected` : ''}`}
+        action={bookingSticky}
+      />
+      <AdminToolbar>
         <input type="search" placeholder="Search by ref, email, name…" value={filters.search} onChange={e => setF('search')(e.target.value)} style={{ flex: 1, minWidth: 200, padding: '8px 14px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14 }} />
         <select value={filters.status} onChange={e => setF('status')(e.target.value)} style={{ padding: '8px 14px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, background: '#fff' }}>{STATUSES.map(s => <option key={s} value={s}>{s || 'All Statuses'}</option>)}</select>
         <select value={filters.qual_status} onChange={e => setF('qual_status')(e.target.value)} style={{ padding: '8px 14px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, background: '#fff' }}>{QUAL_STATS.map(s => <option key={s} value={s}>{QUAL_LABEL[s] || s}</option>)}</select>
-      </div>
+      </AdminToolbar>
       {loading ? <Spinner /> : <Card style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+        <AdminTableWrap>
+          <table {...adminTableProps(14)}>
             <thead><tr style={{ background: '#f9fafb' }}>
               <th style={{ padding: '12px 14px', width: 36 }}><input type="checkbox" checked={allSelected} onChange={e => e.target.checked ? setSelected(new Set(allIds)) : setSelected(new Set())} /></th>
               {['Ref', 'Customer', 'Service', 'Status', 'Lead', 'Date', ''].map(h => <th key={h} style={{ padding: '12px 14px', fontWeight: 600, color: '#374151', borderBottom: '1px solid #e5e7eb', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>)}
@@ -332,14 +363,14 @@ export function AdminBookingList() {
               </tr>
             })}</tbody>
           </table>
-        </div>
+        </AdminTableWrap>
         {data.total > 20 && <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: 12 }}>
           <Btn variant="ghost" onClick={() => setFilters(f => ({ ...f, page: Math.max(1, f.page - 1) }))} disabled={filters.page === 1}>← Prev</Btn>
           <span style={{ padding: '10px 16px', fontSize: 13, color: '#6b7280' }}>Page {filters.page} of {Math.ceil(data.total / 20)}</span>
           <Btn variant="ghost" onClick={() => setFilters(f => ({ ...f, page: f.page + 1 }))} disabled={filters.page >= Math.ceil(data.total / 20)}>Next →</Btn>
         </div>}
       </Card>}
-    </div>
+    </AdminScreen>
   )
 }
 // ── AdminBookingDetail ($e) ───────────────────────────────────────────────────
@@ -375,8 +406,14 @@ export function AdminBookingDetail() {
   const messages = (booking.messages || []) as Array<Record<string, unknown>>
   const fields = (booking.field_data || {}) as Record<string, unknown>
   const STATUSES = ['submitted','under_review','quote_sent','quote_approved','in_progress','docs_requested','docs_received','processing','completed','cancelled','on_hold']
+  const bookingActions = (
+    <>
+      <Btn onClick={updateStatus}>Update Status</Btn>
+      <Btn onClick={() => setShowQuote(true)} style={{ background: '#7c3aed' }}>Send Quote</Btn>
+    </>
+  )
   return (
-    <div>
+    <AdminScreen sticky={bookingActions}>
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
         <Link to="/admin/requests" style={{ color: primary, textDecoration: 'none', fontSize: 14 }}>← Requests</Link>
         <span style={{ color: '#d1d5db' }}>/</span><span style={{ fontSize: 14, color: '#374151' }}>{String(booking.booking_ref)}</span>
@@ -463,7 +500,7 @@ export function AdminBookingDetail() {
           </div>
         </div>
       </div>}
-    </div>
+    </AdminScreen>
   )
 }
 // ── AdminPayments (Ne) ────────────────────────────────────────────────────────
@@ -508,22 +545,20 @@ export function AdminPayments() {
     if (!confirm('Confirm this payment has actually been refunded externally (bank transfer reversal, Razorpay dashboard, etc.)? This only records that fact here — it does not itself move any money.')) return
     setVerifying(id); try { await api.post(`admin/payments/${id}/refund`, { reason }); setOk('Payment marked as refunded.'); load() } catch (e: unknown) { setErr((e as { message: string }).message) }; setVerifying(null)
   }
+  const paymentsExport = <Btn variant="secondary" onClick={() => exportCSV('admin/export/payments')}>⬇ Export CSV</Btn>
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <div><h1 style={{ fontSize: 22, fontWeight: 800, color: '#1E2D40', margin: '0 0 4px' }}>Payment Verification</h1><p style={{ color: '#666', fontSize: 14, margin: 0 }}>Verify bank transfers submitted by customers</p></div>
-        <button onClick={() => exportCSV('admin/export/payments')} style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>⬇ Export CSV</button>
-      </div>
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+    <AdminScreen sticky={paymentsExport}>
+      <PageHeader title="Payment Verification" subtitle="Verify bank transfers submitted by customers" action={paymentsExport} />
+      <AdminToolbar>
         <input type="search" placeholder="Search by UTR / booking ref / email…" value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 220, padding: '8px 14px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14 }} />
         <select value={status} onChange={e => setStatus(e.target.value)} style={{ padding: '8px 14px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, background: '#fff' }}>
           {['', 'pending', 'verified', 'failed', 'refunded'].map(s => <option key={s} value={s}>{s || 'All Statuses'}</option>)}
         </select>
-      </div>
+      </AdminToolbar>
       <Alert type="error" message={err} onClose={() => setErr('')} /><Alert type="success" message={ok} onClose={() => setOk('')} />
       {loading ? <Spinner /> : <Card style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+        <AdminTableWrap>
+          <table {...adminTableProps(14)}>
             <thead><tr style={{ background: '#f9fafb' }}>{['Booking', 'Customer', 'Amount', 'Method', 'UTR/Ref', 'Date', 'Action'].map(h => <th key={h} style={{ padding: '12px 14px', fontWeight: 600, color: '#374151', borderBottom: '1px solid #e5e7eb', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>)}</tr></thead>
             <tbody>{data.rows.length === 0 ? <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: '#9ca3af' }}>No pending payments</td></tr> : data.rows.map(r => (
               <tr key={String(r.id)} style={{ borderBottom: '1px solid #f3f4f6' }}>
@@ -546,9 +581,9 @@ export function AdminPayments() {
               </tr>
             ))}</tbody>
           </table>
-        </div>
+        </AdminTableWrap>
       </Card>}
-    </div>
+    </AdminScreen>
   )
 }
 // ── AdminSettings (Te) ────────────────────────────────────────────────────────
@@ -589,9 +624,10 @@ export function AdminSettings() {
     { title: '🔍 SEO & Verification', fields: [['seo_title','Default Page Title'],['seo_description','Default Meta Description'],['google_site_verification','Google Search Console Verification Code'],['facebook_pixel_id','Facebook Pixel ID'],['google_analytics_id','Google Analytics ID (G-XXXXXXX)']] },
   ]
   if (loading) return <Spinner />
+  const settingsSave = <Btn onClick={save} loading={saving}>Save All Changes</Btn>
   return (
-    <div>
-      <PageHeader title="Platform Settings" action={<Btn onClick={save} loading={saving}>Save All Changes</Btn>} />
+    <AdminScreen sticky={settingsSave}>
+      <PageHeader title="Platform Settings" action={settingsSave} />
       <Alert type="error" message={err} onClose={() => setErr('')} /><Alert type="success" message={ok} onClose={() => setOk('')} />
       <div style={{ background: '#e0f2fe', border: '1px solid #7dd3fc', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 14, color: '#1E2D40', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <span><strong>Visual settings</strong> (hero text, banners, stats, colors) are managed in the Homepage Builder.</span>
@@ -631,7 +667,7 @@ export function AdminSettings() {
           })}
         </Card>)}
       </div>
-    </div>
+    </AdminScreen>
   )
 }
 // ── AdminCustomers (Ae) ───────────────────────────────────────────────────────
@@ -641,16 +677,16 @@ export function AdminCustomers() {
   const [loading, setLoading] = useState(true), [search, setSearch] = useState('')
   const load = useCallback(() => { const qs = new URLSearchParams({ per_page: '50', ...(search && { search }) }); api.get<{ rows: Record<string, unknown>[]; total: number }>(`admin/customers?${qs}`).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false)) }, [search])
   useEffect(() => { const t = setTimeout(load, 300); return () => clearTimeout(t) }, [load])
+  const customerExport = <Btn variant="secondary" onClick={() => exportCSV('admin/export/customers')}>⬇ Export CSV</Btn>
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <div><h1 style={{ fontSize: 22, fontWeight: 800, color: '#1E2D40', margin: '0 0 4px' }}>Customers</h1><p style={{ color: '#666', fontSize: 14, margin: 0 }}>{data.total} total customers</p></div>
-        <button onClick={() => exportCSV('admin/export/customers')} style={{ background: '#f0fdf4', color: '#15803d', border: '1px solid #86efac', padding: '8px 16px', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>⬇ Export CSV</button>
-      </div>
-      <div style={{ marginBottom: 16 }}><input type="search" placeholder="Search by name, email, phone…" value={search} onChange={e => setSearch(e.target.value)} style={{ width: '100%', maxWidth: 400, padding: '8px 14px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14 }} /></div>
+    <AdminScreen sticky={customerExport}>
+      <PageHeader title="Customers" subtitle={`${data.total} total customers`} action={customerExport} />
+      <AdminToolbar>
+        <input type="search" placeholder="Search by name, email, phone…" value={search} onChange={e => setSearch(e.target.value)} style={{ width: '100%', maxWidth: 400, padding: '8px 14px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14 }} />
+      </AdminToolbar>
       {loading ? <Spinner /> : <Card style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+        <AdminTableWrap>
+          <table {...adminTableProps(14)}>
             <thead><tr style={{ background: '#f9fafb' }}>{['Name','Email','Country','Phone','Bookings','Total Paid',''].map(h => <th key={h} style={{ padding: '12px 14px', fontWeight: 600, color: '#374151', borderBottom: '1px solid #e5e7eb', textAlign: 'left' }}>{h}</th>)}</tr></thead>
             <tbody>{data.rows.map(c => <tr key={String(c.id)} style={{ borderBottom: '1px solid #f3f4f6', cursor: 'pointer' }} onClick={() => nav(`/admin/customers/${c.id}`)}>
               <td style={{ padding: '12px 14px', fontWeight: 600, color: '#111827' }}>{String(c.name)}</td>
@@ -665,9 +701,9 @@ export function AdminCustomers() {
               </div></td>
             </tr>)}</tbody>
           </table>
-        </div>
+        </AdminTableWrap>
       </Card>}
-    </div>
+    </AdminScreen>
   )
 }
 // ── AdminCustomerDetail (Oe) ──────────────────────────────────────────────────
@@ -698,8 +734,11 @@ export function AdminCustomerDetail() {
   const c = (data.customer || {}) as Record<string, unknown>
   const bookings = (data.bookings || []) as Array<Record<string, unknown>>
   const stats = (data.stats || {}) as Record<string, unknown>
+  const accountAction = c.is_disabled
+    ? <Btn onClick={async()=>{try{await api.post(`admin/customers/${id}/enable`,{});setOk('Account enabled.');reload()}catch(e:unknown){setErr((e as{message:string}).message)}}}>Enable Account</Btn>
+    : <Btn variant="danger" onClick={async()=>{if(!confirm(`Disable ${c.name}?`))return;try{await api.post(`admin/customers/${id}/disable`,{});setOk('Account disabled.');reload()}catch(e:unknown){setErr((e as{message:string}).message)}}}>Disable Account</Btn>
   return (
-    <div>
+    <AdminScreen sticky={accountAction}>
       <div style={{ marginBottom: 16, display: 'flex', gap: 8, alignItems: 'center' }}><Link to="/admin/customers" style={{ color: primary, textDecoration: 'none', fontSize: 14 }}>← Customers</Link><span>/</span><span style={{ fontSize: 14, color: '#374151' }}>{String(c.name)}</span></div>
       <Alert type="error" message={err} onClose={() => setErr('')} /><Alert type="success" message={ok} onClose={() => setOk('')} />
       <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 24 }}>
@@ -727,8 +766,8 @@ export function AdminCustomerDetail() {
         </div>
         <Card>
           <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>Booking History ({bookings.length})</h3>
-          {bookings.length === 0 ? <Empty icon="📋" title="No bookings" description="This customer has no bookings yet." /> : <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+          {bookings.length === 0 ? <Empty icon="📋" title="No bookings" description="This customer has no bookings yet." /> : <AdminTableWrap>
+            <table {...adminTableProps(14)}>
               <thead><tr style={{ background: '#f9fafb' }}>{['Ref','Service','Status','Amount','Date'].map(h=><th key={h} style={{ padding: '10px 12px', fontWeight: 600, color: '#374151', borderBottom: '1px solid #e5e7eb', textAlign: 'left' }}>{h}</th>)}</tr></thead>
               <tbody>{bookings.map(b=><tr key={String(b.id)} style={{ borderBottom: '1px solid #f3f4f6' }}>
                 <td style={{ padding: '10px 12px' }}><Link to={`/admin/bookings/${b.id}`} style={{ color: primary, fontWeight: 600 }}>{String(b.booking_ref)}</Link></td>
@@ -738,10 +777,10 @@ export function AdminCustomerDetail() {
                 <td style={{ padding: '10px 12px', color: '#9ca3af' }}>{new Date(String(b.created_at)).toLocaleDateString('en-IN')}</td>
               </tr>)}</tbody>
             </table>
-          </div>}
+          </AdminTableWrap>}
         </Card>
       </div>
-    </div>
+    </AdminScreen>
   )
 }
 // ── AdminStaff (De) ───────────────────────────────────────────────────────────
@@ -758,13 +797,15 @@ export function AdminStaff() {
   }
   async function toggle(id: number, isActive: boolean) { try { await api.put(`admin/staff/${id}`, { is_active: isActive ? 0 : 1 }); setOk(`Staff member ${isActive ? 'deactivated' : 'activated'}.`); load() } catch (e: unknown) { setErr((e as { message: string }).message) } }
   const ROLES = [{ value: 'agent', label: 'Agent — handles bookings, messages, docs' }, { value: 'manager', label: 'Manager — full access except super-admin' }, { value: 'finance', label: 'Finance — payment verification only' }]
+  const addStaffBtn = <Btn onClick={() => setShowModal(true)}>+ Add Staff</Btn>
   return (
-    <div>
-      <PageHeader title="Staff Management" subtitle={`${staff.length} team members`} action={<Btn onClick={() => setShowModal(true)}>+ Add Staff</Btn>} />
+    <AdminScreen sticky={addStaffBtn}>
+      <PageHeader title="Staff Management" subtitle={`${staff.length} team members`} action={addStaffBtn} />
       <Alert type="error" message={err} onClose={() => setErr('')} /><Alert type="success" message={ok} onClose={() => setOk('')} />
       {loading ? <Spinner /> : staff.length === 0 ? <Empty icon="👔" title="No staff members" description="Add team members to handle bookings and customer requests." action={<Btn onClick={() => setShowModal(true)}>Add First Staff Member</Btn>} /> : (
         <Card style={{ padding: 0, overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+          <AdminTableWrap>
+          <table {...adminTableProps(14)}>
             <thead><tr style={{ background: '#f9fafb' }}>{['Name','Email','Role','Phone','Status','Joined','Action'].map(h => <th key={h} style={{ padding: '12px 16px', fontWeight: 600, color: '#374151', borderBottom: '1px solid #e5e7eb', textAlign: 'left' }}>{h}</th>)}</tr></thead>
             <tbody>{staff.map(s => <tr key={String(s.id)} style={{ borderBottom: '1px solid #f3f4f6' }}>
               <td style={{ padding: '12px 16px', fontWeight: 600 }}>{String(s.name || s.display_name)}</td>
@@ -776,10 +817,11 @@ export function AdminStaff() {
               <td style={{ padding: '12px 16px' }}><Btn variant={s.is_active ? 'ghost' : 'secondary'} onClick={() => toggle(Number(s.id), Boolean(s.is_active))} style={{ padding: '5px 12px', fontSize: 12 }}>{s.is_active ? 'Deactivate' : 'Activate'}</Btn></td>
             </tr>)}</tbody>
           </table>
+          </AdminTableWrap>
         </Card>
       )}
-      {showModal && <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.5)', padding: 16 }} onClick={e => e.target === e.currentTarget && setShowModal(false)}>
-        <div style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480 }}>
+      {showModal && <div className="s2-modal-backdrop" style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,.5)', padding: 16 }} onClick={e => e.target === e.currentTarget && setShowModal(false)}>
+        <div className="s2-modal-panel" style={{ background: '#fff', borderRadius: 16, width: '100%', maxWidth: 480 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', padding: '20px 24px', borderBottom: '1px solid #e5e7eb' }}><h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Add Staff Member</h2><button onClick={() => setShowModal(false)} style={{ background: 'none', border: 'none', fontSize: 24, cursor: 'pointer', color: '#6b7280' }}>×</button></div>
           <div style={{ padding: 24 }}>
             <p style={{ margin: '0 0 16px', color: '#6b7280', fontSize: 14 }}>A WordPress account will be created. They can log in via OTP or set a password.</p>
@@ -795,7 +837,7 @@ export function AdminStaff() {
           </div>
         </div>
       </div>}
-    </div>
+    </AdminScreen>
   )
 }
 // ── AdminReviews (Fe) ─────────────────────────────────────────────────────────
@@ -808,7 +850,7 @@ export function AdminReviews() {
   async function publish(id: number) { try { await api.patch(`admin/reviews/${id}/publish`, {}); setOk('Review published.'); load() } catch (e: unknown) { setErr((e as { message: string }).message) } }
   async function reject(id: number) { if (!confirm('Reject and hide this review?')) return; try { await api.patch(`admin/reviews/${id}/reject`, {}); setOk('Review rejected.'); load() } catch (e: unknown) { setErr((e as { message: string }).message) } }
   return (
-    <div>
+    <AdminScreen>
       <PageHeader title="Reviews" subtitle={`${data.total} total`} />
       <Alert type="error" message={err} onClose={() => setErr('')} /><Alert type="success" message={ok} onClose={() => setOk('')} />
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>{['pending','published','rejected'].map(s => <button key={s} onClick={() => setStatus(s)} style={{ padding: '7px 16px', border: `1px solid ${status===s?primary:'#e5e7eb'}`, borderRadius: 99, background: status===s?`${primary}15`:'#fff', color: status===s?primary:'#374151', fontWeight: status===s?700:500, cursor: 'pointer', fontSize: 13, textTransform: 'capitalize' }}>{s}</button>)}</div>
@@ -832,7 +874,7 @@ export function AdminReviews() {
           </Card>)}
         </div>
       )}
-    </div>
+    </AdminScreen>
   )
 }
 // ── AdminTickets (Ee) ─────────────────────────────────────────────────────────
@@ -848,7 +890,7 @@ export function AdminTickets() {
   async function sendReply() { if (!reply.trim()) return; setReplying(true); try { await api.post(`admin/tickets/${openId}/messages`, { message: reply }); setReply(''); api.get<{ ticket: Record<string, unknown> }>(`admin/tickets/${openId}`).then(d => setDetail(d.ticket)).catch(() => {}) } catch (e: unknown) { setErr((e as { message: string }).message) }; setReplying(false) }
   async function changeStatus(id: number, s: string) { try { await api.patch(`admin/tickets/${id}/status`, { status: s }); load(); if (openId === id) setOpenId(null) } catch (e: unknown) { setErr((e as { message: string }).message) } }
   return (
-    <div>
+    <AdminScreen>
       <PageHeader title="Support Tickets" subtitle={`${data.rows.length} ${sFilter}`} />
       <Alert type="error" message={err} onClose={() => setErr('')} />
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>{['open','in_progress','resolved','closed'].map(s => <button key={s} onClick={() => { setSFilter(s); setOpenId(null) }} style={{ padding: '7px 16px', border: `1px solid ${sFilter===s?primary:'#e5e7eb'}`, borderRadius: 99, background: sFilter===s?`${primary}15`:'#fff', color: sFilter===s?primary:'#374151', fontWeight: sFilter===s?700:500, cursor: 'pointer', fontSize: 13 }}>{s.replace('_',' ')}</button>)}</div>
@@ -879,7 +921,7 @@ export function AdminTickets() {
           </Card>)}
         </div>
       )}
-    </div>
+    </AdminScreen>
   )
 }
 // ── AdminAuditLog (qe) ────────────────────────────────────────────────────────
@@ -906,16 +948,17 @@ export function AdminAuditLog() {
   }, [filters])
   useEffect(() => { load() }, [load])
   return (
-    <div>
+    <AdminScreen>
       <PageHeader title="Audit Log" subtitle="All system activity" />
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>
+      <AdminToolbar>
         <input type="search" placeholder="Search by user, booking ref…" value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value, page: 1 }))} style={{ flex: 1, minWidth: 200, padding: '8px 14px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14 }} />
         <select value={filters.action} onChange={e => setFilters(f => ({ ...f, action: e.target.value, page: 1 }))} style={{ padding: '8px 14px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, background: '#fff' }}>
           <option value="">All actions</option>{ACTIONS.map(a => <option key={a} value={a}>{a.replace(/_/g,' ')}</option>)}
         </select>
-      </div>
+      </AdminToolbar>
       {loading ? <Spinner /> : <Card style={{ padding: 0, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <AdminTableWrap>
+        <table {...adminTableProps(13)}>
           <thead><tr style={{ background: '#f9fafb' }}>{['Time','User','Action','Booking','Detail'].map(h => <th key={h} style={{ padding: '10px 14px', fontWeight: 600, color: '#374151', borderBottom: '1px solid #e5e7eb', textAlign: 'left' }}>{h}</th>)}</tr></thead>
           <tbody>{data.rows.length === 0 ? <tr><td colSpan={5} style={{ padding: 32, textAlign: 'center', color: '#9ca3af' }}>No activity found</td></tr> : data.rows.map(r => <tr key={String(r.id)} style={{ borderBottom: '1px solid #f9fafb' }}>
             <td style={{ padding: '10px 14px', color: '#9ca3af', whiteSpace: 'nowrap' }}>{new Date(String(r.created_at)).toLocaleString('en-IN',{ day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit' })}</td>
@@ -925,13 +968,14 @@ export function AdminAuditLog() {
             <td style={{ padding: '10px 14px', color: '#6b7280', maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.details?typeof r.details==='string'?r.details:JSON.stringify(r.details):'—'}</td>
           </tr>)}</tbody>
         </table>
+        </AdminTableWrap>
         {data.total > 50 && <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: 12 }}>
           <Btn variant="ghost" onClick={() => setFilters(f => ({ ...f, page: Math.max(1,f.page-1) }))} disabled={filters.page===1}>← Prev</Btn>
           <span style={{ padding: '10px', fontSize: 13, color: '#6b7280' }}>Page {filters.page} of {Math.ceil(data.total/50)}</span>
           <Btn variant="ghost" onClick={() => setFilters(f => ({ ...f, page: f.page+1 }))} disabled={filters.page>=Math.ceil(data.total/50)}>Next →</Btn>
         </div>}
       </Card>}
-    </div>
+    </AdminScreen>
   )
 }
 // ── AdminServices (Pe) — CRUD + schema editor + reseed ────────────────────────
@@ -987,9 +1031,16 @@ export function AdminServices() {
   }
   async function toggle(svc: Record<string, unknown>) { try { await api.patch(`admin/services/${svc.id}/toggle`,{}); setOk(`"${svc.name}" ${svc.is_active?'deactivated':'activated'}.`); load() } catch(e: unknown){setPErr((e as{message:string}).message)} }
   async function reseed() { if(!confirm('Add any missing default services without touching existing ones?')) return; try { const r = await api.post<{total_services:number;active_services:number;orphans_fixed:number}>('admin/services/reseed',{}); setOk(`Done. ${r.total_services} total (${r.active_services} active).${r.orphans_fixed>0?` Fixed ${r.orphans_fixed} category assignment(s).`:''}`); load() } catch(e: unknown){setPErr((e as{message:string}).message)} }
+  const servicesHeaderActions = <div style={{display:'flex',gap:8}}><Btn variant="ghost" onClick={reseed}>Reseed Defaults</Btn><Btn onClick={openNew}>+ Add Service</Btn></div>
+  const servicesSticky = showForm ? (
+    <>
+      <Btn variant="ghost" onClick={()=>{setShowForm(false);setFErr('')}}>Cancel</Btn>
+      <Btn onClick={save} loading={saving}>{editId?'Save Changes':'Create Service'}</Btn>
+    </>
+  ) : servicesHeaderActions
   return (
-    <div>
-      <PageHeader title="Services" subtitle={`${services.length} services`} action={<div style={{display:'flex',gap:8}}><Btn variant="ghost" onClick={reseed}>Reseed Defaults</Btn><Btn onClick={openNew}>+ Add Service</Btn></div>} />
+    <AdminScreen sticky={servicesSticky}>
+      <PageHeader title="Services" subtitle={`${services.length} services`} action={servicesHeaderActions} />
       <Alert type="error" message={pErr} onClose={()=>setPErr('')} /><Alert type="success" message={ok} onClose={()=>setOk('')} />
       {pendingBuilderUrl && (
         <div style={{ background:'#EBF0F8',border:'1px solid #7dd3fc',borderRadius:10,padding:'14px 18px',marginBottom:16,display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:10 }}>
@@ -1006,7 +1057,7 @@ export function AdminServices() {
       {showForm && <Card style={{ marginBottom: 20, border: `2px solid ${primary}` }}>
         <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 16px' }}>{editId?'Edit Service':'New Service'}</h3>
         {fErr && <Alert type="error" message={fErr} onClose={()=>setFErr('')} />}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+        <AdminFormStack style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
           <FormInput label="Service Name *" value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} required placeholder="e.g. OCI Card Renewal" />
           <FormInput label="Hindi Name" value={form.name_hi} onChange={e=>setForm(f=>({...f,name_hi:e.target.value}))} placeholder="हिंदी नाम" />
           <div style={{ marginBottom: 14 }}>
@@ -1016,7 +1067,7 @@ export function AdminServices() {
           <FormInput label="Icon (emoji)" value={form.icon} onChange={e=>setForm(f=>({...f,icon:e.target.value}))} placeholder="📋" />
           <FormInput label="Turnaround (days)" type="number" value={form.turnaround_days} onChange={e=>setForm(f=>({...f,turnaround_days:e.target.value}))} placeholder="7" />
           <FormInput label="Image URL" value={form.image_url} onChange={e=>setForm(f=>({...f,image_url:e.target.value}))} placeholder="https://…" />
-        </div>
+        </AdminFormStack>
         <Textarea label="Short Description" value={form.short_desc} onChange={e=>setForm(f=>({...f,short_desc:e.target.value}))} placeholder="1-2 sentence summary" rows={2} />
         <Textarea label="Full Description" value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} placeholder="Detailed description" rows={4} />
         <Textarea label="Required Documents (one per line)" value={form.required_docs} onChange={e=>setForm(f=>({...f,required_docs:e.target.value}))} placeholder={`Valid Passport\nOld OCI Card\n2 Passport Photos`} rows={4} />
@@ -1052,7 +1103,8 @@ export function AdminServices() {
         </div>
       </Card>}
       {loading ? <Spinner /> : <Card style={{ padding: 0, overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
+        <AdminTableWrap>
+        <table {...adminTableProps(14)}>
           <thead><tr style={{ background: '#f9fafb' }}>{['Icon','Name','Category','Form','Status','Sort','Actions'].map(h=><th key={h} style={{ padding:'12px 14px',fontWeight:600,color:'#374151',borderBottom:'1px solid #e5e7eb',textAlign:'left' }}>{h}</th>)}</tr></thead>
           <tbody>{services.length===0?<tr><td colSpan={7} style={{ padding:32,textAlign:'center',color:'#9ca3af' }}>No services found. Click "Reseed Defaults" to add all seeded services.</td></tr>:services.map(svc=><tr key={String(svc.id)} style={{ borderBottom:'1px solid #f3f4f6' }}>
             <td style={{ padding:'12px 14px',fontSize:20 }}>{String(svc.icon||'📋')}</td>
@@ -1069,8 +1121,9 @@ export function AdminServices() {
             </div></td>
           </tr>)}</tbody>
         </table>
+        </AdminTableWrap>
       </Card>}
-    </div>
+    </AdminScreen>
   )
 }
 // ── AdminCategories (Le) — with image upload ──────────────────────────────────
@@ -1105,9 +1158,16 @@ export function AdminCategories() {
     const url = await uploadImageToEndpoint(`admin/categories/${editId}/image`)
     if(url){setForm(f=>({...f,image_url:url}));setOk('Image uploaded.')}else setErr('Upload failed.'); setUploading(false)
   }
+  const addCategoryBtn = <Btn onClick={openNew}>+ Add Category</Btn>
+  const categorySticky = showForm ? (
+    <>
+      <Btn variant="ghost" onClick={()=>{setShowForm(false);setErr('')}}>Cancel</Btn>
+      <Btn onClick={save} loading={saving}>{editId?'Save Changes':'Create Category'}</Btn>
+    </>
+  ) : addCategoryBtn
   return (
-    <div>
-      <PageHeader title="Service Categories" subtitle={`${cats.length} categories · each becomes a tab on the homepage`} action={<Btn onClick={openNew}>+ Add Category</Btn>} />
+    <AdminScreen sticky={categorySticky}>
+      <PageHeader title="Service Categories" subtitle={`${cats.length} categories · each becomes a tab on the homepage`} action={addCategoryBtn} />
       <Alert type="error" message={err} onClose={()=>setErr('')} /><Alert type="success" message={ok} onClose={()=>setOk('')} />
       <div style={{ background:`${primary}08`,border:`1px solid ${primary}20`,borderRadius:10,padding:'12px 16px',marginBottom:20,fontSize:13,color:'#374151' }}>
         <strong>Homepage tabs</strong> — each active category appears as a tab on the homepage services section. Reorder using Sort Order.
@@ -1157,7 +1217,7 @@ export function AdminCategories() {
           </Card>)}
         </div>
       )}
-    </div>
+    </AdminScreen>
   )
 }
 // ── Diagnostics components (Me, He, Ge, Xe) ───────────────────────────────────
@@ -1237,12 +1297,14 @@ export function DiagnosticsPage() {
   const latestRun=runs[0]
   const catScores=CAT_TABS.map(c=>{const inCat=findings.filter(f=>f.category===c.key);const score=inCat.some(f=>f.severity==='critical')?20:inCat.some(f=>f.severity==='high')?60:inCat.some(f=>f.severity==='medium')?80:inCat.length>0?90:100;return{...c,score,count:inCat.length,color:score>=90?'#16a34a':score>=70?'#d97706':'#dc2626'}})
   if(loading)return<Spinner/>
+  const scanBtn = <Btn onClick={runScan} loading={scanning} style={{background:primary,color:'#fff'}}>{scanning?'Scanning…':'▶ Run Full Scan'}</Btn>
+  const diagHeaderActions = <div style={{display:'flex',gap:8,alignItems:'center'}}>
+        <label className="s2-admin-page-header__actions--desktop-only" style={{display:'flex',alignItems:'center',gap:6,fontSize:13,color:'#6b7280',cursor:'pointer'}}><input type="checkbox" checked={autoRefresh} onChange={e=>setAutoRefresh(e.target.checked)} /> Auto-refresh (30s)</label>
+        {scanBtn}
+      </div>
   return (
-    <div>
-      <PageHeader title="🔍 Diagnostic & Error Intelligence" subtitle="Full-stack: PHP · Database · WordPress · API · Performance · Security · Frontend · Browser" action={<div style={{display:'flex',gap:8,alignItems:'center'}}>
-        <label style={{display:'flex',alignItems:'center',gap:6,fontSize:13,color:'#6b7280',cursor:'pointer'}}><input type="checkbox" checked={autoRefresh} onChange={e=>setAutoRefresh(e.target.checked)} /> Auto-refresh (30s)</label>
-        <Btn onClick={runScan} loading={scanning} style={{background:primary,color:'#fff'}}>{scanning?'Scanning…':'▶ Run Full Scan'}</Btn>
-      </div>} />
+    <AdminScreen sticky={scanBtn}>
+      <PageHeader title="🔍 Diagnostic & Error Intelligence" subtitle="Full-stack: PHP · Database · WordPress · API · Performance · Security · Frontend · Browser" action={diagHeaderActions} />
       <Alert type="error" message={errMsg} onClose={()=>setErrMsg('')} />
       {latestRun && <Card style={{ marginBottom:20 }}>
         <div style={{ display:'grid',gridTemplateColumns:'auto 1fr auto',gap:24,alignItems:'center' }}>
@@ -1294,7 +1356,7 @@ export function DiagnosticsPage() {
           </>}
         </div>
       </div>
-    </div>
+    </AdminScreen>
   )
 }
 // ── AdminHomepage (Ve) — section-based settings editor ────────────────────────
@@ -1421,8 +1483,15 @@ export function AdminFAQs() {
   function openEdit(faq:Record<string,unknown>|null=null){setEditId(faq?.id as number||'new');setForm(faq?{question:String(faq.question||faq.q||''),answer:String(faq.answer||faq.a||''),category:String(faq.category||'General'),sort_order:Number(faq.sort_order||0)}:{question:'',answer:'',category:'General',sort_order:faqs.length})}
   async function save(){if(!form.question||!form.answer)return;setSaving(true);try{editId==='new'?await api.post('admin/faqs',form):await api.put(`admin/faqs/${editId}`,form);await load();setEditId(null)}catch{alert('Save failed')};setSaving(false)}
   async function del(id:unknown,question?:unknown){if(!confirm(`Delete FAQ "${String(question||'this question').slice(0,60)}"? This cannot be undone.`))return;try{await api.delete(`admin/faqs/${id}`);await load()}catch{alert('Delete failed')}}
+  const faqAdd = <button onClick={()=>openEdit()} style={{background:s,color:'#fff',border:'none',padding:'10px 20px',borderRadius:8,fontWeight:700,fontSize:14,cursor:'pointer'}}>+ Add FAQ</button>
+  const faqSticky = editId !== null ? (
+    <>
+      <button onClick={()=>setEditId(null)} style={{background:'#f3f4f6',color:'#374151',border:'none',padding:'10px 22px',borderRadius:8,fontWeight:600,fontSize:14,cursor:'pointer'}}>Cancel</button>
+      <button onClick={save} disabled={saving} style={{background:s,color:'#fff',border:'none',padding:'10px 22px',borderRadius:8,fontWeight:700,fontSize:14,cursor:'pointer'}}>{saving?'Saving…':'Save FAQ'}</button>
+    </>
+  ) : faqAdd
   return (
-    <PageWrap title="FAQ Manager" subtitle="Add, edit, and reorder frequently asked questions shown on the FAQ page and homepage." action={<button onClick={()=>openEdit()} style={{background:s,color:'#fff',border:'none',padding:'10px 20px',borderRadius:8,fontWeight:700,fontSize:14,cursor:'pointer'}}>+ Add FAQ</button>}>
+    <PageWrap title="FAQ Manager" subtitle="Add, edit, and reorder frequently asked questions shown on the FAQ page and homepage." action={faqAdd} stickyAction={faqSticky}>
       {editId!==null&&<PageCard style={{marginBottom:20,border:`2px solid ${s}`}}>
         <h3 style={{fontSize:16,fontWeight:700,margin:'0 0 16px'}}>{editId==='new'?'New FAQ':'Edit FAQ'}</h3>
         <div style={{display:'grid',gridTemplateColumns:'1fr auto',gap:12,marginBottom:12}}>
@@ -1436,7 +1505,8 @@ export function AdminFAQs() {
         </div>
       </PageCard>}
       {loading?<div style={{padding:40,textAlign:'center',color:'#888'}}>Loading…</div>:<PageCard>
-        <table style={{width:'100%',borderCollapse:'collapse'}}>
+        <AdminTableWrap>
+        <table {...adminTableProps(14)}>
           <thead><tr style={{background:'#F5F7FA'}}>{['#','Question','Category','Actions'].map(h=><th key={h} style={{padding:'12px 14px',textAlign:'left',fontSize:12,fontWeight:700,color:'#666',textTransform:'uppercase',letterSpacing:1,borderBottom:'1px solid #EBF0F8'}}>{h}</th>)}</tr></thead>
           <tbody>{faqs.length===0?<tr><td colSpan={4} style={{textAlign:'center',padding:40,color:'#888'}}>No FAQs yet. Click "Add FAQ" to create your first one.</td></tr>:faqs.map((f,i)=><tr key={String(f.id)} style={{borderBottom:'1px solid #f5f5f5'}}>
             <td style={{padding:'12px 14px',color:'#9ca3af',fontSize:13}}>{i+1}</td>
@@ -1448,6 +1518,7 @@ export function AdminFAQs() {
             </div></td>
           </tr>)}</tbody>
         </table>
+        </AdminTableWrap>
       </PageCard>}
     </PageWrap>
   )
@@ -1462,8 +1533,15 @@ export function AdminTestimonials() {
   function openEdit(t:Record<string,unknown>|null=null){setEditId(t?.id as number||'new');setForm(t?{name:String(t.name||''),location:String(t.location||''),rating:Number(t.rating||5),text:String(t.text||t.review||''),image_url:String(t.image_url||''),is_active:t.is_active!==false as boolean}:{name:'',location:'',rating:5,text:'',image_url:'',is_active:true})}
   async function save(){if(!form.name||!form.text)return;setSaving(true);try{editId==='new'?await api.post('admin/testimonials',form):await api.put(`admin/testimonials/${editId}`,form);await load();setEditId(null)}catch{alert('Save failed')};setSaving(false)}
   async function del(id:unknown){if(!confirm('Delete this testimonial?'))return;try{await api.delete(`admin/testimonials/${id}`);await load()}catch{alert('Delete failed')}}
+  const testimonialAdd = <button onClick={()=>openEdit()} style={{background:s,color:'#fff',border:'none',padding:'10px 20px',borderRadius:8,fontWeight:700,fontSize:14,cursor:'pointer'}}>+ Add Testimonial</button>
+  const testimonialSticky = editId !== null ? (
+    <>
+      <button onClick={()=>setEditId(null)} style={{background:'#f3f4f6',color:'#374151',border:'none',padding:'10px 22px',borderRadius:8,fontWeight:600,fontSize:14,cursor:'pointer'}}>Cancel</button>
+      <button onClick={save} disabled={saving} style={{background:s,color:'#fff',border:'none',padding:'10px 22px',borderRadius:8,fontWeight:700,fontSize:14,cursor:'pointer'}}>{saving?'Saving…':'Save'}</button>
+    </>
+  ) : testimonialAdd
   return (
-    <PageWrap title="Testimonials Manager" subtitle="Manage customer testimonials displayed on the homepage and service pages." action={<button onClick={()=>openEdit()} style={{background:s,color:'#fff',border:'none',padding:'10px 20px',borderRadius:8,fontWeight:700,fontSize:14,cursor:'pointer'}}>+ Add Testimonial</button>}>
+    <PageWrap title="Testimonials Manager" subtitle="Manage customer testimonials displayed on the homepage and service pages." action={testimonialAdd} stickyAction={testimonialSticky}>
       {editId!==null&&<PageCard style={{marginBottom:20,border:`2px solid ${s}`}}>
         <h3 style={{fontSize:16,fontWeight:700,margin:'0 0 16px'}}>{editId==='new'?'New Testimonial':'Edit Testimonial'}</h3>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
@@ -1513,8 +1591,15 @@ export function AdminBlog() {
   function openEdit(p:Record<string,unknown>|null=null){setEditId(p?.id as number||'new');setForm(p?{title:String(p.title||''),slug:String(p.slug||''),excerpt:String(p.excerpt||''),content:String(p.content||p.body||''),category:String(p.category||''),image_url:String(p.image_url||''),is_published:Boolean(p.is_published)}:{title:'',slug:'',excerpt:'',content:'',category:'',image_url:'',is_published:false})}
   async function save(){if(!form.title||!form.content)return;setSaving(true);const p={...form,slug:form.slug||slugify(form.title)};try{editId==='new'?await api.post('admin/blog',p):await api.put(`admin/blog/${editId}`,p);await load();setEditId(null)}catch{alert('Save failed')};setSaving(false)}
   async function del(id:unknown){if(!confirm('Delete this post?'))return;try{await api.delete(`admin/blog/${id}`);await load()}catch{alert('Delete failed')}}
+  const blogBack = <button onClick={()=>setEditId(null)} style={{background:'#f3f4f6',color:'#374151',border:'none',padding:'10px 20px',borderRadius:8,fontWeight:600,fontSize:14,cursor:'pointer'}}>← Back to Posts</button>
+  const blogSaveSticky = (
+    <>
+      <button onClick={()=>setEditId(null)} style={{background:'#f3f4f6',color:'#374151',border:'none',padding:'10px 22px',borderRadius:8,fontWeight:600,fontSize:14,cursor:'pointer'}}>Cancel</button>
+      <button onClick={save} disabled={saving} style={{background:s,color:'#fff',border:'none',padding:'10px 22px',borderRadius:8,fontWeight:700,fontSize:14,cursor:'pointer'}}>{saving?'Saving…':'Save Post'}</button>
+    </>
+  )
   if(editId!==null)return(
-    <PageWrap title={editId==='new'?'New Blog Post':'Edit Blog Post'} action={<button onClick={()=>setEditId(null)} style={{background:'#f3f4f6',color:'#374151',border:'none',padding:'10px 20px',borderRadius:8,fontWeight:600,fontSize:14,cursor:'pointer'}}>← Back to Posts</button>}>
+    <PageWrap title={editId==='new'?'New Blog Post':'Edit Blog Post'} action={blogBack} stickyAction={blogSaveSticky}>
       <PageCard>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:14,marginBottom:14}}>
           <div style={{gridColumn:'1/-1'}}>
@@ -1548,7 +1633,8 @@ export function AdminBlog() {
     <PageWrap title="Blog Posts" subtitle={`${posts.length} posts`} action={<button onClick={()=>openEdit()} style={{background:s,color:'#fff',border:'none',padding:'10px 20px',borderRadius:8,fontWeight:700,fontSize:14,cursor:'pointer'}}>+ New Post</button>}>
       {loading?<Spinner/>:posts.length===0?<Empty icon="✍️" title="No blog posts" description="Create your first NRI knowledge article." action={<Btn onClick={()=>openEdit()}>Write First Post</Btn>}/>:(
         <PageCard style={{padding:0,overflow:'hidden'}}>
-          <table style={{width:'100%',borderCollapse:'collapse',fontSize:14}}>
+          <AdminTableWrap>
+          <table {...adminTableProps(14)}>
             <thead><tr style={{background:'#f9fafb'}}>{['Title','Category','Status','Date','Actions'].map(h=><th key={h} style={{padding:'12px 14px',fontWeight:600,color:'#374151',borderBottom:'1px solid #e5e7eb',textAlign:'left'}}>{h}</th>)}</tr></thead>
             <tbody>{posts.map(p=><tr key={String(p.id)} style={{borderBottom:'1px solid #f3f4f6'}}>
               <td style={{padding:'12px 14px',fontWeight:600,color:'#111827',maxWidth:300,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{String(p.title)}</td>
@@ -1561,6 +1647,7 @@ export function AdminBlog() {
               </div></td>
             </tr>)}</tbody>
           </table>
+          </AdminTableWrap>
         </PageCard>
       )}
     </PageWrap>
@@ -1576,8 +1663,15 @@ export function AdminPricing() {
   function openEdit(p:Record<string,unknown>|null=null){setEditId(p?.id as number||'new');setForm(p?{name:String(p.name||''),subtitle:String(p.subtitle||''),price:String(p.price||''),price_note:String(p.price_note||''),color:String(p.color||s),popular:Boolean(p.popular),features:((p.features as string[])||[]).join('\n')}:{name:'',subtitle:'',price:'',price_note:'',color:s,popular:false,features:''})}
   async function save(){if(!form.name||!form.price)return;setSaving(true);const p={...form,features:form.features.split('\n').map(x=>x.trim()).filter(Boolean)};try{editId==='new'?await api.post('admin/pricing-plans',p):await api.put(`admin/pricing-plans/${editId}`,p);await load();setEditId(null)}catch{alert('Save failed')};setSaving(false)}
   async function del(id:unknown){if(!confirm('Delete this plan?'))return;try{await api.delete(`admin/pricing-plans/${id}`);await load()}catch{alert('Delete failed')}}
+  const planAdd = <button onClick={()=>openEdit()} style={{background:s,color:'#fff',border:'none',padding:'10px 20px',borderRadius:8,fontWeight:700,fontSize:14,cursor:'pointer'}}>+ Add Plan</button>
+  const planSticky = editId !== null ? (
+    <>
+      <button onClick={()=>setEditId(null)} style={{background:'#f3f4f6',color:'#374151',border:'none',padding:'10px 22px',borderRadius:8,fontWeight:600,fontSize:14,cursor:'pointer'}}>Cancel</button>
+      <button onClick={save} disabled={saving} style={{background:s,color:'#fff',border:'none',padding:'10px 22px',borderRadius:8,fontWeight:700,fontSize:14,cursor:'pointer'}}>{saving?'Saving…':editId==='new'?'Create Plan':'Save Changes'}</button>
+    </>
+  ) : planAdd
   return (
-    <PageWrap title="Pricing Plans Manager" subtitle="Manage the pricing plans shown on the Pricing page." action={<button onClick={()=>openEdit()} style={{background:s,color:'#fff',border:'none',padding:'10px 20px',borderRadius:8,fontWeight:700,fontSize:14,cursor:'pointer'}}>+ Add Plan</button>}>
+    <PageWrap title="Pricing Plans Manager" subtitle="Manage the pricing plans shown on the Pricing page." action={planAdd} stickyAction={planSticky}>
       {editId!==null&&<PageCard style={{marginBottom:20,border:`2px solid ${s}`}}>
         <h3 style={{fontSize:16,fontWeight:700,margin:'0 0 16px'}}>{editId==='new'?'New Plan':'Edit Plan'}</h3>
         <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
@@ -1637,9 +1731,16 @@ export function AdminCities() {
     const url=await uploadImageToEndpoint(`admin/cities/${catId}/image`)
     if(url){setOk('Image uploaded.');if(editId===catId)setForm(f=>({...f,image_url:url}));load()}else setErr('Upload failed.');setUploading(false)
   }
+  const addCityBtn = <Btn onClick={openNew}>+ Add City</Btn>
+  const citySticky = editId !== null ? (
+    <>
+      <Btn variant="ghost" onClick={()=>{setEditId(null);setErr('')}}>Cancel</Btn>
+      <Btn onClick={save} loading={saving}>{editId==='new'?'Add City':'Save Changes'}</Btn>
+    </>
+  ) : addCityBtn
   return (
-    <div>
-      <PageHeader title="City Manager" subtitle="Manage cities shown on homepage and city SEO pages" action={<button onClick={openNew} style={{background:s,color:'#fff',border:'none',padding:'10px 20px',borderRadius:8,fontWeight:700,fontSize:14,cursor:'pointer'}}>+ Add City</button>} />
+    <AdminScreen sticky={citySticky}>
+      <PageHeader title="City Manager" subtitle="Manage cities shown on homepage and city SEO pages" action={addCityBtn} />
       <Alert type="error" message={err} onClose={()=>setErr('')} /><Alert type="success" message={ok} onClose={()=>setOk('')} />
       {editId!==null&&<Card style={{marginBottom:20,border:`2px solid ${s}`}}>
         <h3 style={{fontSize:16,fontWeight:700,margin:'0 0 16px'}}>{editId==='new'?'Add New City':`Edit: ${form.name}`}</h3>
@@ -1682,7 +1783,7 @@ export function AdminCities() {
           </Card>)}
         </div>
       )}
-    </div>
+    </AdminScreen>
   )
 }
 // ── Service Page Builder sub-components (je, re, it, me, nt, ot, st, at) ──────
@@ -1914,8 +2015,9 @@ export function AdminServicePageBuilder() {
   async function addSection(type:string){try{const r=await api.post<{section:Record<string,unknown>}>(`admin/services/${id}/sections`,{type,title:SECTION_META[type]?.label||type,content:DEFAULT_CONTENT[type]||{},sort_order:(sections.length+1)*10,is_visible:1});setSections(prev=>[...prev,r.section]);setMsg('success','Section added.')}catch(e:unknown){setMsg('error',(e as{message:string}).message)}}
   function moveSection(from:number,to:number){const l=[...sections];[l[from],l[to]]=[l[to],l[from]];setSections(l)}
   if(loading)return<Spinner/>
+  const builderSticky = <Btn onClick={()=>seedDefaults(false)}>✨ Seed Defaults</Btn>
   return (
-    <div>
+    <AdminScreen sticky={builderSticky}>
       <div style={{marginBottom:16,display:'flex',gap:8,alignItems:'center'}}><Link to="/admin/services" style={{color:primary,textDecoration:'none',fontSize:14}}>← Services</Link><span>/</span><span style={{fontSize:14,color:'#374151'}}>{String(svc?.name||id)} — Page Builder</span></div>
       {feedback.text&&<Alert type={feedback.type==='success'?'success':'error'} message={feedback.text} onClose={()=>setFeedback({type:'',text:''})} />}
       <div style={{display:'grid',gridTemplateColumns:'1fr 280px',gap:20}}>
@@ -1956,6 +2058,6 @@ export function AdminServicePageBuilder() {
           </Card>
         </div>
       </div>
-    </div>
+    </AdminScreen>
   )
 }
