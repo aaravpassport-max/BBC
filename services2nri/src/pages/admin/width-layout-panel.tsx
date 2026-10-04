@@ -282,6 +282,14 @@ export function WidthLayoutPanel({
     if (focus.selectedSection) setSelectedSection(focus.selectedSection)
   }, [focus])
 
+  React.useEffect(() => {
+    const task = TASKS.find((t) => t.id === taskId)
+    if (task?.defaultSection) setSelectedSection(task.defaultSection)
+    if (taskId === 'marketing_section' && selectedSection === 'hero') {
+      setSelectedSection('cities')
+    }
+  }, [taskId])
+
   const activeLayer = useMemo(() => {
     if (scope === 'global') return global
     if (scope === 'page_type_section') return homeHeroLayer(pageTypes)

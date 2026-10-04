@@ -25,6 +25,7 @@ import {
 import { WidthLayoutPanel, type WidthLayoutFocus } from './width-layout-panel'
 import { HexColorField, HexAlphaColorField } from './design-admin-fields'
 import { broadcastDesignSaved } from '@/lib/design-live-sync'
+import { ensurePatchPath, normalizeAdminDesignConfig } from '@/lib/design-admin-config'
 
 type DesignConfig = Record<string, unknown>
 
@@ -68,36 +69,40 @@ export function AdminDesignSystem() {
   const [svcPopular, setSvcPopular] = useState(false)
   const [widthFocus, setWidthFocus] = useState<WidthLayoutFocus | null>(null)
   const [previewPath, setPreviewPath] = useState('/')
+  const [designRevision, setDesignRevision] = useState('')
   const configRef = useRef<DesignConfig | null>(null)
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { registry?: boolean }) => {
     const data = await api.get<{
       config: DesignConfig
+      revision?: string
       presets: Record<string, { label: string; description: string }>
       fonts: { library: Array<{ id: string; name: string; category: string; pairing: string }> }
     }>('admin/design')
-    setConfig(data.config)
+    const normalized = normalizeAdminDesignConfig(data.config)
+    configRef.current = normalized
+    setConfig(normalized)
+    setDesignRevision(data.revision || '')
     setPresets(data.presets || {})
     setFonts(data.fonts?.library || [])
-    const reg = await api.get<{
-      services: RegistryService[]
-      categories: RegistryCategory[]
-      cities: RegistryCity[]
-      surfaces: Record<string, string>
-      city_surfaces: Record<string, string>
-    }>('admin/service-registry')
-    setRegistry(reg.services || [])
-    setCategories(reg.categories || [])
-    setCities(reg.cities || [])
-    setSurfaces(reg.surfaces || {})
-    setCitySurfaces(reg.city_surfaces || {})
+    if (opts?.registry !== false) {
+      const reg = await api.get<{
+        services: RegistryService[]
+        categories: RegistryCategory[]
+        cities: RegistryCity[]
+        surfaces: Record<string, string>
+        city_surfaces: Record<string, string>
+      }>('admin/service-registry')
+      setRegistry(reg.services || [])
+      setCategories(reg.categories || [])
+      setCities(reg.cities || [])
+      setSurfaces(reg.surfaces || {})
+      setCitySurfaces(reg.city_surfaces || {})
+    }
+    return data
   }, [])
 
   useEffect(() => { load().catch(() => setMessage('Failed to load design system')) }, [load])
-
-  useEffect(() => {
-    configRef.current = config
-  }, [config])
 
   const colors = (config?.colors || {}) as Record<string, string>
   const spacing = (config?.spacing || {}) as Record<string, string>
@@ -125,19 +130,15 @@ export function AdminDesignSystem() {
   const patch = (path: string[], value: unknown) => {
     setConfig((prev) => {
       if (!prev) return prev
-      const next = JSON.parse(JSON.stringify(prev)) as DesignConfig
-      let cur: Record<string, unknown> = next
-      for (let i = 0; i < path.length - 1; i++) {
-        const k = path[i]
-        if (typeof cur[k] !== 'object' || cur[k] === null) cur[k] = {}
-        cur = cur[k] as Record<string, unknown>
-      }
+      const next = normalizeAdminDesignConfig(JSON.parse(JSON.stringify(prev)) as DesignConfig)
+      const cur = ensurePatchPath(next, path)
       const leaf = path[path.length - 1]
       if (value === undefined) {
         delete cur[leaf]
       } else {
         cur[leaf] = value
       }
+      configRef.current = next
       return next
     })
   }
@@ -145,14 +146,35 @@ export function AdminDesignSystem() {
   const save = async () => {
     const payload = configRef.current
     if (!payload) return
+    const revisionBefore = designRevision
     setSaving(true)
     setMessage('')
     try {
-      const res = await api.put<{ config: DesignConfig }>('admin/design', payload)
-      if (res.config) setConfig(res.config)
-      await load()
-      broadcastDesignSaved()
-      setMessage('Design system published — public pages update automatically (no hard refresh needed).')
+      const body = normalizeAdminDesignConfig(payload)
+      configRef.current = body
+      const res = await api.put<{ ok?: boolean; config: DesignConfig; revision?: string }>('admin/design', body)
+      if (res.ok === false) {
+        throw new Error('Server did not confirm save.')
+      }
+      const normalized = res.config ? normalizeAdminDesignConfig(res.config) : null
+      if (normalized) {
+        configRef.current = normalized
+        setConfig(normalized)
+      }
+      const reloaded = await load({ registry: false })
+      const storedRevision = reloaded.revision || res.revision || ''
+      if (revisionBefore && storedRevision && revisionBefore === storedRevision) {
+        setMessage(
+          'Publish finished, but the stored revision did not change — no new data was written. Change a value and publish again, or reinstall the latest plugin build if this persists.',
+        )
+      } else {
+        broadcastDesignSaved()
+        setMessage(
+          storedRevision
+            ? `Design saved successfully (revision ${storedRevision.slice(0, 8)}). Values are stored — safe to reload this page.`
+            : 'Design saved successfully. Values are stored — safe to reload this page.',
+        )
+      }
     } catch (e: unknown) {
       setMessage(e instanceof Error ? e.message : 'Save failed')
     } finally {
@@ -169,7 +191,9 @@ export function AdminDesignSystem() {
     setSaving(true)
     try {
       const res = await api.post<{ config: DesignConfig }>('admin/design/preset', { preset: id, mode })
-      setConfig(res.config)
+      const normalized = normalizeAdminDesignConfig(res.config)
+      configRef.current = normalized
+      setConfig(normalized)
       broadcastDesignSaved()
       setMessage(`Preset "${label}" applied site-wide — open or switch to a public tab to see it live (no hard refresh).`)
     } catch (e: unknown) {

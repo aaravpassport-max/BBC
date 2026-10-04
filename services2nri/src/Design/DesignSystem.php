@@ -835,6 +835,10 @@ class DesignSystem {
         $out = [];
         foreach ( $layers as $layer ) {
             foreach ( $layer as $k => $v ) {
+                if ( is_array( $v ) && $v === [] && isset( $out[ $k ] ) && is_array( $out[ $k ] ) && $out[ $k ] !== [] ) {
+                    // Empty patch container must not wipe stored nested width/design layers.
+                    continue;
+                }
                 if ( is_array( $v ) && isset( $out[ $k ] ) && is_array( $out[ $k ] ) && self::isAssoc( $v ) && self::isAssoc( $out[ $k ] ) ) {
                     $out[ $k ] = self::deepMerge( $out[ $k ], $v );
                 } else {

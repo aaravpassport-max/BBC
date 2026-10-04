@@ -28,9 +28,10 @@ class DesignSystemController extends BaseController {
     public function getAdmin( Request $req ): void {
         $this->requireManager();
         Response::json( [
-            'config'  => DesignSystem::resolve( [] ),
-            'presets' => DesignPresets::list(),
-            'fonts'   => [
+            'config'   => DesignSystem::resolve( [] ),
+            'revision' => DesignSystem::publicRevision(),
+            'presets'  => DesignPresets::list(),
+            'fonts'    => [
                 'categories' => FontLibrary::categories(),
                 'library'    => FontLibrary::all(),
             ],
@@ -45,7 +46,11 @@ class DesignSystemController extends BaseController {
             return;
         }
         DesignSystem::save( $body );
-        Response::json( [ 'ok' => true, 'config' => DesignSystem::resolve( [] ) ] );
+        Response::json( [
+            'ok'       => true,
+            'config'   => DesignSystem::resolve( [] ),
+            'revision' => DesignSystem::publicRevision(),
+        ] );
     }
 
     public function applyPreset( Request $req ): void {

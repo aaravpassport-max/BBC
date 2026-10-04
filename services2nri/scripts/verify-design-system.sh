@@ -65,6 +65,8 @@ fi
 
 grep -q 'sectionMaxFromLayer' src/Design/WidthLayout.php && grep -q 'sec-.*-max' src/Design/WidthLayout.php && ok section width max shorthand || bad section width max shorthand
 [[ -f src/lib/design-resolve.ts ]] && grep -q 'resolveDesignConfig' src/lib/design-resolve.ts && ok design client resolver || bad design client resolver
+[[ -f src/lib/design-admin-config.ts ]] && grep -q 'normalizeAdminDesignConfig' src/lib/design-admin-config.ts && ok design admin config normalize || bad design admin config normalize
+grep -q "'revision'" src/Api/Controllers/DesignControllers.php && ok design admin revision api || bad design admin revision api
 grep -q 'applySectionOverrideCss' src/lib/design-resolve.ts && ok section override live sync || bad section override live sync
 grep -q 'renderSectionOverrideCss' src/Design/DesignSystem.php && ok section override css || bad section override css
 grep -q 'configFromPreset' src/Design/DesignSystem.php && ok preset full look builder || bad preset full look builder

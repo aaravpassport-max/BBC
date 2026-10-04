@@ -21,24 +21,22 @@ function assert_true(bool $cond, string $msg): void {
     echo "OK  $msg\n";
 }
 
+function responsive(string $px): array {
+    return [
+        'desktop' => $px,
+        'laptop' => $px,
+        'tablet' => $px,
+        'mobile' => $px,
+    ];
+}
+
 Setting::resetStore();
 
 $heroLayer = [
-    'content_max' => [
-        'desktop' => '1320px',
-        'laptop' => '1320px',
-        'tablet' => '1320px',
-        'mobile' => '1320px',
-    ],
-    'section_wide' => [
-        'desktop' => '1320px',
-        'laptop' => '1320px',
-        'tablet' => '1320px',
-        'mobile' => '1320px',
-    ],
+    'content_max' => responsive('1320px'),
+    'section_wide' => responsive('1320px'),
 ];
 
-// Simulate admin publish with a partial widths payload (missing other stored layers).
 DesignSystem::save([
     'widths' => [
         'page_types' => [
@@ -59,27 +57,71 @@ assert_true(
     'home hero content_max persisted'
 );
 
-// Second save without hero in client payload must not drop stored hero.
 DesignSystem::save([
     'colors' => ['primary' => '#112233'],
     'widths' => [
         'global' => [
-            'page_max' => [
-                'desktop' => '1200px',
-                'laptop' => '1200px',
-                'tablet' => '94%',
-                'mobile' => '100%',
-            ],
+            'page_max' => responsive('1200px'),
         ],
+        'page_types' => [],
     ],
 ]);
 
 $resolved2 = DesignSystem::resolve([]);
 $storedHero2 = $resolved2['widths']['page_types']['home']['sections']['hero'] ?? null;
-assert_true(is_array($storedHero2), 'home hero survives partial widths publish');
+assert_true(is_array($storedHero2), 'home hero survives empty page_types publish');
 assert_true(
     ($storedHero2['content_max']['desktop'] ?? '') === '1320px',
-    'home hero content_max still 1320px after partial publish'
+    'home hero content_max after empty page_types publish'
+);
+
+DesignSystem::save([
+    'widths' => [
+        'sections' => [
+            'newsletter' => [
+                'section_standard' => responsive('980px'),
+            ],
+        ],
+        'service_page' => [
+            'sections' => [
+                'hero' => [
+                    'content_max' => responsive('1100px'),
+                ],
+            ],
+        ],
+        'pages' => [
+            'about' => [
+                'content_max' => responsive('900px'),
+            ],
+        ],
+        'page_types' => [
+            'blog' => [
+                'page_max' => responsive('1280px'),
+            ],
+        ],
+    ],
+]);
+
+$r3 = DesignSystem::resolve([]);
+assert_true(
+    ($r3['widths']['sections']['newsletter']['section_standard']['desktop'] ?? '') === '980px',
+    'global marketing section width stored'
+);
+assert_true(
+    ($r3['widths']['service_page']['sections']['hero']['content_max']['desktop'] ?? '') === '1100px',
+    'service hero section stored'
+);
+assert_true(
+    ($r3['widths']['pages']['about']['content_max']['desktop'] ?? '') === '900px',
+    'single page slug width stored'
+);
+assert_true(
+    ($r3['widths']['page_types']['blog']['page_max']['desktop'] ?? '') === '1280px',
+    'page template width stored'
+);
+assert_true(
+    ($r3['widths']['page_types']['home']['sections']['hero']['content_max']['desktop'] ?? '') === '1320px',
+    'home hero preserved when saving other width layers'
 );
 
 echo "All design-system save tests passed.\n";
