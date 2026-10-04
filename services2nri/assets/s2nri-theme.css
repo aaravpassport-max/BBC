@@ -1,0 +1,249 @@
+/*
+ * Services2NRI — Slate & Coral Colour Theme
+ * Palette: Slate & Coral (selected by site owner)
+ *
+ * Primary:   #4A6FA5  (steel blue)
+ * Secondary: #5E87BF  (lighter steel blue)
+ * Accent:    #E8735A  (coral)
+ * Dark:      #1E2D40  (footer / near-black text / dark gradient stops)
+ * Light bg:  #EBF0F8  (card borders, light tints)
+ * Page bg:   #F5F7FA  (section backgrounds)
+ *
+ * This file is injected AFTER app.css so it has higher cascade priority.
+ * All old teal/blue overrides replaced with the Slate & Coral values.
+ */
+
+/* ── CSS custom properties ─────────────────────────────────────────────── */
+:root {
+  --s2-primary:       #4A6FA5;
+  --s2-secondary:     #5E87BF;
+  --s2-accent:        #E8735A;
+  --s2-dark:          #1E2D40;
+  --s2-light-bg:      #EBF0F8;
+  --s2-page-bg:       #F5F7FA;
+  --s2-brand-light:   rgba(74,111,165,.1);
+  --swiper-theme-color: #4A6FA5;
+  --swiper-navigation-color: #4A6FA5;
+  --swiper-pagination-color: #4A6FA5;
+}
+
+/* ── Swiper (carousel) ─────────────────────────────────────────────────── */
+.swiper-button-next,
+.swiper-button-prev {
+  color: #4A6FA5 !important;
+}
+.swiper-pagination-bullet-active {
+  background: #4A6FA5 !important;
+}
+
+/* ── Override any remaining old teal/blue values ────────────────────────── */
+[style*="color: #339fcd"],
+[style*="color:#339fcd"],
+[style*="color: #1565c0"],
+[style*="color:#1565c0"],
+[style*="color: #0f4c81"],
+[style*="color:#0f4c81"] {
+  color: #4A6FA5 !important;
+}
+
+[style*="background: #339fcd"],
+[style*="background:#339fcd"],
+[style*="background-color: #339fcd"],
+[style*="background-color:#339fcd"],
+[style*="background: #1565c0"],
+[style*="background:#1565c0"],
+[style*="background-color: #1565c0"],
+[style*="background-color:#1565c0"] {
+  background: #4A6FA5 !important;
+  background-color: #4A6FA5 !important;
+}
+
+[style*="background: #217fa6"],
+[style*="background:#217fa6"],
+[style*="background-color: #217fa6"],
+[style*="background-color:#217fa6"],
+[style*="background: #0d2b6e"],
+[style*="background:#0d2b6e"],
+[style*="background: #1a1a2e"],
+[style*="background:#1a1a2e"],
+[style*="background: #0f1923"],
+[style*="background:#0f1923"],
+[style*="background-color: #0f1923"],
+[style*="background-color:#0f1923"] {
+  background: #1E2D40 !important;
+  background-color: #1E2D40 !important;
+}
+
+/* ── border-color overrides ─────────────────────────────────────────────── */
+[style*="border-color: #339fcd"],
+[style*="border-color:#339fcd"],
+[style*="border-left: 3px solid #339fcd"],
+[style*="border-bottom: 3px solid #339fcd"],
+[style*="border-color: #1565c0"],
+[style*="border-color:#1565c0"] {
+  border-color: #4A6FA5 !important;
+}
+
+/* ── Scrollbar accent ──────────────────────────────────────────────────── */
+* { scrollbar-color: #4A6FA5 #EBF0F8; }
+::-webkit-scrollbar-thumb { background: #4A6FA5; }
+::-webkit-scrollbar-track { background: #EBF0F8; }
+::-webkit-scrollbar { width: 6px; }
+
+/* ── Selection highlight ────────────────────────────────────────────────── */
+::selection { background: rgba(74,111,165,.22); color: #1E2D40; }
+
+/* ── Focus ring ─────────────────────────────────────────────────────────── */
+input:focus, select:focus, textarea:focus, button:focus-visible {
+  outline: 2px solid #4A6FA5;
+  outline-offset: 2px;
+}
+
+/* ── Link hover accent ──────────────────────────────────────────────────── */
+a:not([style]):hover { color: #E8735A; }
+
+/* ── Homepage Builder Target Selectors ──────────────────────────────────── */
+
+/* Services Grid */
+.s2-svc-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+  padding: 0 0 40px;
+}
+@media (max-width: 1024px) { .s2-svc-grid { grid-template-columns: repeat(3, 1fr) !important; } }
+@media (max-width: 768px)  { .s2-svc-grid { grid-template-columns: repeat(2, 1fr) !important; } }
+@media (max-width: 480px)  { .s2-svc-grid { grid-template-columns: 1fr !important; } }
+
+/* Why Choose Us Grid */
+.s2-feat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+@media (max-width: 900px) { .s2-feat-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .s2-feat-grid { grid-template-columns: 1fr; } }
+
+/* How It Works Grid */
+.s2-how-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 32px;
+}
+@media (max-width: 900px) { .s2-how-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .s2-how-grid { grid-template-columns: 1fr; } }
+
+/* Stats Grid */
+.s2-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 24px;
+}
+@media (max-width: 768px) { .s2-stats-grid { grid-template-columns: repeat(2, 1fr); } }
+
+/* Tabs container */
+.s2-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 2px solid #EBF0F8;
+  margin-bottom: 24px;
+}
+
+/* Tab button active underline colour */
+.s2-tab-btn.active {
+  border-bottom-color: #4A6FA5 !important;
+  color: #4A6FA5 !important;
+}
+
+/* Hero section wrapper */
+.s2-hero-section {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+/* Builder section wrappers */
+.s2nri-stats-wrap   { }
+.s2nri-services-wrap{ }
+.s2nri-how-wrap     { }
+
+/* ── Section visibility controls ────────────────────────────────────────── */
+.s2nri-sec-services.s2nri-section-hidden,
+[data-s2nri-section="services"].s2nri-section-hidden { display: none !important; }
+.s2nri-sec-stats.s2nri-section-hidden,
+[data-s2nri-section="stats"].s2nri-section-hidden    { display: none !important; }
+.s2nri-sec-how.s2nri-section-hidden,
+[data-s2nri-section="how"].s2nri-section-hidden      { display: none !important; }
+.s2nri-sec-tagline.s2nri-section-hidden,
+[data-s2nri-section="tagline"].s2nri-section-hidden  { display: none !important; }
+.s2-hero-section.s2nri-section-hidden                { display: none !important; }
+
+/* ── Coral accent for CTA elements ──────────────────────────────────────── */
+.s2-cta-coral {
+  background: #E8735A !important;
+  color: #fff !important;
+}
+.s2-cta-coral:hover {
+  background: #d4624a !important;
+}
+
+/* ── Card border tint ────────────────────────────────────────────────────── */
+.s2-card-border {
+  border: 1px solid #EBF0F8;
+}
+
+/* ── Section nav sidebar (service pages) ────────────────────────────────── */
+#s2nri-nav {
+  border-left-color: #4A6FA5 !important;
+}
+#s2nri-nav a:hover,
+#s2nri-nav a.on {
+  color: #4A6FA5 !important;
+  border-left-color: #4A6FA5 !important;
+}
+
+/* ── Responsive desktop nav hide on mobile ──────────────────────────────── */
+@media (max-width: 900px) {
+  .s2-desktop-nav { display: none !important; }
+  .s2-mobile-hamburger { display: flex !important; }
+}
+@media (min-width: 901px) {
+  .s2-mobile-hamburger { display: none !important; }
+  .s2-dash-sidebar { display: flex !important; }
+}
+
+/* ── Hero overlay complete removal ─────────────────────────────────────────
+ * Belt-and-suspenders: even if any compiled JS or theme CSS tries to apply
+ * a filter or overlay to the hero slider images, these rules override it.
+ * Targets the Swiper slide image div directly.
+ * ─────────────────────────────────────────────────────────────────────── */
+
+/* Remove any CSS filter from hero slide images */
+.swiper-slide > div[style*="backgroundImage"],
+.swiper-slide > div[style*="background-image"] {
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+/* Prevent any pseudo-element overlays on Swiper slides */
+.swiper-slide::before,
+.swiper-slide::after,
+.swiper-slide > div::before,
+.swiper-slide > div::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* Remove any background-color/gradient overlay divs inside hero */
+.swiper-slide > div[style*="rgba(0,0,0"],
+.swiper-slide > div[style*="rgba(0, 0, 0"],
+.swiper-slide > div[style*="linear-gradient"] {
+  display: none !important;
+}
+
+/* Remove brightness filter applied via inline style anywhere in hero */
+[style*="filter: brightness"],
+[style*="filter:brightness"] {
+  filter: none !important;
+}

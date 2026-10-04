@@ -1,0 +1,116 @@
+/**
+ * Navigation menu data — exact match of ie[] array from booking-ChxRsZYG.js
+ *
+ * The Q layout component uses this as the default nav, then overlays
+ * with live service slugs fetched from the API (GET services).
+ */
+
+import type { NavItem } from '@/types'
+
+export const NAV_MENU: NavItem[] = [
+  {
+    label: 'All Services',
+    key: 'all',
+    cols: [
+      {
+        heading: 'Documentation',
+        items: [
+          { label: 'Birth Certificate', slug: 'birth-certificate' },
+          { label: 'NABC', slug: 'nabc' },
+          { label: 'Apostille', slug: 'apostille' },
+          { label: 'Affidavit', slug: 'affidavit' },
+          { label: 'HRD Attestation', slug: 'hrd-attestation' },
+          { label: 'Police Clearance (PCC)', slug: 'police-clearance' },
+          { label: 'Single Status Certificate', slug: 'single-status-certificate' },
+          { label: 'Translation Service', slug: 'translation-services' },
+          { label: 'Emergency Support India', slug: 'emergency-support' },
+        ],
+      },
+      {
+        heading: 'Education',
+        items: [
+          { label: 'University Transcripts', slug: 'university-transcript' },
+          { label: 'MOI Certificate', slug: 'moi' },
+          { label: 'Degree Certificate', slug: 'degree-certificate' },
+          { label: 'Duplicate Marksheet', slug: 'duplicate-marksheet' },
+          { label: 'Character Certificate', slug: 'character-certificate' },
+          { label: 'Migration Certificate', slug: 'migration-certificate' },
+        ],
+      },
+      {
+        heading: 'Immigration',
+        items: [
+          { label: 'OCI Card New', slug: 'oci-card-new' },
+          { label: 'OCI Card Renewal', slug: 'oci-card-renewal' },
+          { label: 'Indian Passport Renewal', slug: 'indian-passport-renewal' },
+          { label: 'India e-Visa', slug: 'india-visa' },
+          { label: 'Embassy Attestation', slug: 'apostille' },
+          { label: 'Overseas Visa Assistance', slug: 'overseas-visa-assistance' },
+        ],
+      },
+      {
+        heading: 'Property',
+        items: [
+          { label: 'Property Management', slug: 'complete-property-management' },
+          { label: 'Tenancy Management', slug: 'tenancy-management' },
+          { label: 'Rent Collection', slug: 'rent-collection' },
+          { label: 'Rental Agreement', slug: 'rent-agreement' },
+          { label: 'Property Inspection', slug: 'property-inspection' },
+          { label: 'Housekeeping', slug: 'housekeeping-services' },
+        ],
+      },
+      {
+        heading: 'Financial',
+        items: [
+          { label: 'ITR Filing', slug: 'itr-filing' },
+          { label: 'EPF/PF Withdrawal', slug: 'epf-pf-withdrawal' },
+          { label: 'NRE/NRO Account', slug: 'nre-nro-account' },
+          { label: 'Financial Planning', slug: 'financial-planning' },
+          { label: 'CA Services', slug: 'financial-planning' },
+          { label: 'GST Registration', slug: 'gst-registration' },
+        ],
+      },
+    ],
+  },
+  {
+    label: 'OCI / Passport / Visa',
+    key: 'oci',
+    cols: [
+      {
+        heading: 'OCI Services',
+        items: [
+          { label: 'OCI Card New', slug: 'oci-card-new' },
+          { label: 'OCI Card Renewal', slug: 'oci-card-renewal' },
+          { label: 'OCI Card Correction', slug: 'oci-card-update' },
+        ],
+      },
+      {
+        heading: 'Passport',
+        items: [
+          { label: 'Indian Passport Renewal', slug: 'indian-passport-renewal' },
+          { label: 'Passport Tatkal', slug: 'indian-passport-renewal' },
+        ],
+      },
+      {
+        heading: 'Visa',
+        items: [
+          { label: 'India e-Visa', slug: 'india-visa' },
+          { label: 'India Business Visa', slug: 'india-visa' },
+          { label: 'Overseas Visa Assistance', slug: 'overseas-visa-assistance' },
+        ],
+      },
+      {
+        heading: 'USCIS Services',
+        items: [
+          { label: 'EAD Card', slug: 'ead-assistance' },
+          { label: 'Green Card', slug: 'green-card-assistance' },
+          { label: 'Green Card Renewal', slug: 'green-card-renewal' },
+          { label: 'US Citizenship', slug: 'us-citizenship' },
+        ],
+      },
+    ],
+  },
+  { label: 'Property', key: 'property', link: '/services/property' },
+  { label: 'Financial', key: 'financial', link: '/services/financial' },
+  { label: 'Blogs', key: 'blogs', link: '/blog' },
+]

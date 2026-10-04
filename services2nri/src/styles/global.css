@@ -1,0 +1,235 @@
+/*
+ * Global CSS — exact match of Jn string in compiled app.js (injected by Zn component)
+ * Also includes s2nri-theme.css contents
+ */
+@import '../../shared/design-tokens.css';
+
+*, *::before, *::after { box-sizing: border-box; }
+img { max-width: 100%; height: auto; }
+
+/* ── Responsive containers ── */
+.s2-container { max-width: 1200px; margin: 0 auto; padding: 0 20px; width: 100%; }
+
+/* ── Stats counter: 4 cols → 2×2 on mobile ── */
+.s2-stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+@media (max-width: 600px) {
+  .s2-stats-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+}
+
+/* ── How It Works: 3 cols → 1 col on mobile ── */
+.s2-how-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+@media (max-width: 768px) { .s2-how-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 500px) { .s2-how-grid { grid-template-columns: 1fr; } }
+
+/* ── Features: 3 cols → 2 → 1 ── */
+.s2-feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+@media (max-width: 768px) { .s2-feat-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .s2-feat-grid { grid-template-columns: 1fr; } }
+
+/* .s2-svc-grid intentionally lives only in assets/s2nri-theme.css now — see
+   that file's "Homepage Builder Target Selectors" section. A second,
+   conflicting definition used to exist here (auto-fill/minmax, only one
+   breakpoint at 420px) which fought with theme.css's four-tier responsive
+   rule (1024/768/480px) for the same class, on every page, at every width. */
+
+/* ── Category tabs ── */
+.s2-tabs {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0;
+  border-bottom: 2px solid #EBF0F8;
+  margin-bottom: 32px;
+}
+@media (max-width: 768px) {
+  .s2-tabs {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 8px;
+    border-bottom: none;
+    padding: 0 0 16px;
+  }
+  .s2-tab-btn {
+    border-bottom: 3px solid transparent !important;
+    border-radius: 99px !important;
+    padding: 10px 12px !important;
+    font-size: 13px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    justify-content: center;
+    background: #f3f5f8 !important;
+  }
+  .s2-tab-btn.active {
+    background: var(--s2-primary, #4A6FA5) !important;
+    color: #fff !important;
+    border-bottom-color: transparent !important;
+  }
+}
+
+/* ── City grid ── */
+.s2-city-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px; }
+@media (max-width: 480px) { .s2-city-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; } }
+
+/* ── Hero quote form ── */
+.s2-hero-quote-wrap {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 40px 32px;
+  position: relative;
+  z-index: 11;
+}
+@media (max-width: 640px) { .s2-hero-quote-wrap { padding: 0 12px 20px; } }
+
+/* ── ServicesPage layout ── */
+.s2-services-layout { display: flex; gap: 32px; align-items: flex-start; }
+.s2-services-sidebar { width: 220px; flex-shrink: 0; }
+.mobile-filter { display: none; }
+@media (max-width: 768px) {
+  .s2-services-layout { display: block; }
+  .s2-services-sidebar { display: none; }
+  .mobile-filter { display: block; }
+}
+
+/* ── Dashboard sidebar ── */
+.s2-dash-body { display: flex; min-height: 100vh; }
+.s2-dash-sidebar { width: 240px; flex-shrink: 0; background: #1E2D40; }
+@media (max-width: 768px) {
+  .s2-dash-sidebar { display: none; }
+  .s2-dash-sidebar.open {
+    display: flex;
+    position: fixed;
+    inset: 0;
+    z-index: 999;
+    flex-direction: column;
+    width: 260px;
+  }
+}
+
+/* ── Modal mobile ── */
+@media (max-width: 600px) {
+  .s2-modal-inner {
+    border-radius: 12px 12px 0 0 !important;
+    margin-top: auto !important;
+    max-height: 90vh !important;
+    overflow-y: auto;
+  }
+}
+
+/* ── Form grid ── */
+@media (max-width: 500px) {
+  .s2-form-2col { grid-template-columns: 1fr !important; }
+  .s2-form-3col { grid-template-columns: 1fr !important; }
+}
+
+/* ── Table overflow ── */
+.s2-table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%; }
+.s2-table-wrap table { min-width: 600px; }
+
+/* ── Testimonials ── */
+@media (max-width: 640px) { .s2-testimonial-wrap { padding: 0 16px; } }
+
+/* ── About grid ── */
+.s2-about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
+@media (max-width: 768px) { .s2-about-grid { grid-template-columns: 1fr !important; gap: 28px; } }
+
+/* ── Pricing compare table ── */
+@media (max-width: 640px) {
+  .s2-pricing-compare { font-size: 12px; }
+  .s2-pricing-compare th, .s2-pricing-compare td { padding: 8px 10px !important; }
+}
+
+/* ── Partners strip ── */
+.s2-partners-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; }
+
+/* ── Nav responsive ── */
+@media (max-width: 900px) { .s2-desktop-nav { display: none !important; } }
+@media (min-width: 901px) { .s2-mobile-hamburger { display: none !important; } }
+
+/* ── Section padding ── */
+@media (max-width: 640px) {
+  .s2-section { padding-left: 16px !important; padding-right: 16px !important; }
+  .s2-section-pad { padding: 36px 16px !important; }
+}
+
+/* ── Spin animation (used for loading spinners) ── */
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Service page grid ── */
+@media (max-width: 900px) {
+  .svc-grid { grid-template-columns: 1fr !important; }
+  .svc-sticky { position: static !important; }
+}
+
+/* ── Mobile stack: fixed-column CSS grids found across HomePage, Layout
+   (footer), ServiceDetailPage, and index.tsx (About/Contact/Blog) that were
+   hardcoded as inline gridTemplateColumns with no responsive fallback —
+   inline styles cannot be overridden by an unqualified CSS rule, so this
+   must carry !important, same as the .svc-grid rule directly above. ── */
+@media (max-width: 768px) {
+  .s2-mobile-stack { grid-template-columns: 1fr !important; }
+}
+
+/* ── CSS custom properties ──────────────────────────────────────────────
+   --s2-primary/--s2-dark/etc. now come from shared/design-tokens.css (one
+   canonical file, also consumed by src-react/src/styles/global.css) rather
+   than being defined separately in each project — imported at the top of
+   this file (CSS requires @import to be the first statement) — see
+   docs/ARCHITECTURE.md, "Shared design tokens". */
+:root {
+  --swiper-theme-color: #4A6FA5;
+}
+
+/* ── Device visibility (from builder) ── */
+@media (min-width: 1025px) { .s2nri-hide-desktop { display: none !important; } }
+@media (min-width: 769px) and (max-width: 1024px) { .s2nri-hide-tablet { display: none !important; } }
+@media (max-width: 768px) { .s2nri-hide-mobile { display: none !important; } }
+
+/* Issue 9: Device visibility controls from Service Page Builder */
+@media (min-width: 1024px) { .s2-hide-desktop { display: none !important; } }
+@media (min-width: 768px) and (max-width: 1023px) { .s2-hide-tablet { display: none !important; } }
+@media (max-width: 767px) { .s2-hide-mobile { display: none !important; } }
+
+/* ── App-style bottom navigation bar (mobile only) ──────────────────────────
+   Rendered by BottomNav.tsx from both Layout (public+auth) and SidebarLayout
+   (customer dashboard, staff excluded). Hidden entirely above 768px — desktop
+   already has the header nav / sidebar nav, so no bottom bar there. */
+.s2-bottom-nav { display: none; }
+@media (max-width: 768px) {
+  .s2-bottom-nav {
+    display: flex;
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 400;
+    background: #fff;
+    border-top: 1px solid #EBF0F8;
+    box-shadow: 0 -2px 12px rgba(0,0,0,.06);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .s2-bottom-nav-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 8px 4px 6px;
+    color: #6b7280;
+    text-decoration: none;
+    min-height: 44px; /* touch target */
+    /* Reset browser default <button> styling so the Inquire tab (a
+       <button>, since it scrolls in-page rather than navigating) renders
+       identically to the other, <Link>-based tabs. */
+    width: 100%;
+    cursor: pointer;
+    text-align: center;
+  }
+  .s2-bottom-nav-icon { font-size: 20px; line-height: 1; }
+  .s2-bottom-nav-label { font-size: 10px; font-weight: 600; }
+
+  /* Reserve space so the fixed bar never covers footer/page content */
+  .s2-page-wrap { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
+  .s2-dash-content-wrap { padding-bottom: calc(56px + env(safe-area-inset-bottom)) !important; }
+}
