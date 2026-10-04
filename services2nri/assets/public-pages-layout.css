@@ -269,6 +269,10 @@
   color: #fff;
 }
 
+.s2-public-compare-table th.s2-public-compare-table__feature {
+  width: 40%;
+}
+
 .s2-public-pricing-hero-badges {
   display: flex;
   gap: 16px;

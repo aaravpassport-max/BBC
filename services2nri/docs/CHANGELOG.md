@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.6.6] — 2026-10-04 — Cloud Agent
+
+- **Marketing routes** in `index.tsx` (About, Contact, How It Works, FAQ, Pricing, Blog, Terms, Privacy, City) migrated to `public-marketing-pages.css` with `PublicLayout` primitives.
+- Wired bundle in `DesignSystem::renderInlineCss()`; verify script requires `public-marketing-pages.css`.
+- Remaining inline styles on marketing pages are dynamic `--s2-primary` overrides only; container/compare widths use token classes.
+
+---
+
 ## [4.6.5] — 2026-10-04 — Cloud Agent
 
 - **ServiceDetailPage** wizard chrome migrated: step tracker, success screen, hero CTAs, confirm summary, login gate, upload UI, and CMS section typography (`public-service-detail.css`).

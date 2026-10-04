@@ -298,6 +298,9 @@ class DesignSystem {
         $css .= file_exists( S2NRI_DIR . 'assets/public-pages-layout.css' )
             ? file_get_contents( S2NRI_DIR . 'assets/public-pages-layout.css' )
             : '';
+        $css .= file_exists( S2NRI_DIR . 'assets/public-marketing-pages.css' )
+            ? file_get_contents( S2NRI_DIR . 'assets/public-marketing-pages.css' )
+            : '';
         $css .= file_exists( S2NRI_DIR . 'assets/public-service-detail.css' )
             ? file_get_contents( S2NRI_DIR . 'assets/public-service-detail.css' )
             : '';

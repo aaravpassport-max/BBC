@@ -48,35 +48,33 @@ export function AboutPage() {
       <PageHero title="About Us" subtitle={`Trusted NRI service partner since 2015 — making India management effortless from anywhere in the world.`} />
 
       <PublicSection>
-        <div className="s2-mobile-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'center' }}>
+        <div className="s2-marketing-page s2-public-split-grid s2-mobile-stack" style={{ ['--s2-primary' as string]: primary }}>
           <div>
             <PublicSectionHead eyebrow="Our Story" title={settings.about_heading || `${name} — Your Bridge to India`} />
-            <p className="s2-t-body" style={{ margin: '0 0 14px' }}>
+            <p className="s2-t-body s2-public-body-tight">
               {settings.about_text || `${name} was founded with a single mission: to eliminate the paperwork stress that NRIs face when managing affairs back home.`}
             </p>
-            <p className="s2-t-body" style={{ margin: '0 0 24px' }}>
+            <p className="s2-t-body s2-public-body-tight s2-public-body-tight--lg">
               Our team of lawyers, CAs, property managers, and immigration specialists has helped over 10,000 NRIs across 50+ countries resolve their India-related needs without a single trip back home.
             </p>
             <PublicGrid min={120}>
               {[['10,000+', 'Clients Served'], ['44+', 'Services'], ['50+', 'Cities']].map(([val, lbl]) => (
                 <PublicCard key={lbl} className="s2-public-icon-tile">
-                  <div className="s2-text-primary" style={{ fontSize: 26, fontWeight: 900 }}>{val}</div>
-                  <div className="s2-text-muted" style={{ fontSize: 12, marginTop: 3 }}>{lbl}</div>
+                  <div className="s2-text-primary s2-public-stat-val">{val}</div>
+                  <div className="s2-text-muted s2-public-stat-lbl">{lbl}</div>
                 </PublicCard>
               ))}
             </PublicGrid>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 24 }}>
+            <div className="s2-public-actions">
               <PublicCtaLink to="/services">Our Services →</PublicCtaLink>
               {whatsapp && <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="s2-btn s2-btn--secondary s2-btn--sm">💬 Chat with Us</a>}
             </div>
           </div>
-          <div style={{ position: 'relative' }}>
-            <img src={settings.about_image_url || IMAGES.about} alt={`About ${name}`} style={{ width: '100%', height: 360, objectFit: 'cover', borderRadius: 16, boxShadow: '0 8px 40px rgba(0,0,0,.15)' }} />
+          <div className="s2-home-about__img-wrap">
+            <img src={settings.about_image_url || IMAGES.about} alt={`About ${name}`} className="s2-home-about__img" />
             {settings.about_video_url && (
-              <a href={settings.about_video_url} target="_blank" rel="noopener noreferrer" style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}>
-                <div style={{ width: 72, height: 72, background: 'rgba(255,255,255,.9)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(0,0,0,.25)' }}>
-                  <span style={{ fontSize: 28, marginLeft: 4, color: primary }}>▶</span>
-                </div>
+              <a href={settings.about_video_url} target="_blank" rel="noopener noreferrer" className="s2-home-about__video-link" aria-label="Watch video">
+                <div className="s2-home-about__play"><span aria-hidden>▶</span></div>
               </a>
             )}
           </div>
@@ -96,18 +94,17 @@ export function AboutPage() {
         </PublicGrid>
       </PublicSection>
 
-      {/* Team */}
-      <section style={{ padding: '56px 20px', background: '#fff' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <h2 style={{ textAlign: 'center', fontSize: 'clamp(20px, 3vw, 30px)', fontWeight: 800, color: '#1E2D40', margin: '0 0 32px' }}>Meet Our Team</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 24 }}>
+      <section className="s2-public-team-section">
+        <div className="s2-container">
+          <h2 className="s2-public-section-title s2-public-section-title--center">Meet Our Team</h2>
+          <div className="s2-public-team-grid">
             {team.map(({ name: n, role, img, bio }) => (
-              <div key={n} style={{ background: '#fff', border: '1px solid #EBF0F8', borderRadius: 14, overflow: 'hidden', textAlign: 'center' }}>
-                <img src={img} alt={n} style={{ width: '100%', height: 200, objectFit: 'cover' }} />
-                <div style={{ padding: '20px 16px' }}>
-                  <h3 style={{ fontWeight: 700, fontSize: 16, margin: '0 0 4px', color: '#1E2D40' }}>{n}</h3>
-                  <div style={{ fontSize: 13, color: primary, fontWeight: 600, marginBottom: 8 }}>{role}</div>
-                  <p style={{ fontSize: 13, color: '#666', lineHeight: 1.6, margin: 0 }}>{bio}</p>
+              <div key={n} className="s2-public-team-card">
+                <img src={img} alt={n} />
+                <div className="s2-public-team-card__body">
+                  <h3 className="s2-public-team-card__name">{n}</h3>
+                  <div className="s2-public-team-card__role">{role}</div>
+                  <p className="s2-public-team-card__bio">{bio}</p>
                 </div>
               </div>
             ))}
@@ -115,13 +112,12 @@ export function AboutPage() {
         </div>
       </section>
 
-      {/* CTA */}
-      <section style={{ background: `linear-gradient(135deg, #1E2D40 0%, ${primary} 100%)`, padding: '48px 20px', textAlign: 'center', color: '#fff' }}>
-        <h2 style={{ fontSize: 'clamp(20px, 3vw, 32px)', fontWeight: 800, margin: '0 0 12px' }}>Ready to Get Started?</h2>
-        <p style={{ fontSize: 15, opacity: 0.85, margin: '0 0 24px' }}>Let us handle your India affairs while you focus on what matters.</p>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link to="/services" style={{ background: '#fff', color: primary, padding: '13px 30px', borderRadius: 9, fontWeight: 700, fontSize: 15, textDecoration: 'none' }}>Explore Services</Link>
-          <Link to="/register" style={{ background: 'transparent', color: '#fff', padding: '13px 30px', borderRadius: 9, fontWeight: 600, fontSize: 15, textDecoration: 'none', border: '2px solid rgba(255,255,255,.5)' }}>Create Free Account</Link>
+      <section className="s2-public-band-dark s2-marketing-page" style={{ ['--s2-primary' as string]: primary }}>
+        <h2 className="s2-public-band-dark__title">Ready to Get Started?</h2>
+        <p className="s2-public-band-dark__sub">Let us handle your India affairs while you focus on what matters.</p>
+        <div className="s2-public-band-dark__actions">
+          <Link to="/services" className="s2-public-band-dark__btn-primary">Explore Services</Link>
+          <Link to="/register" className="s2-public-band-dark__btn-ghost">Create Free Account</Link>
         </div>
       </section>
     </Layout>
@@ -180,17 +176,17 @@ export function ContactPage() {
               <div key={t} className="s2-public-contact-row">
                 <div className="s2-public-contact-icon">{icon}</div>
                 <div>
-                  <div className="s2-t-eyebrow" style={{ marginBottom: 3 }}>{t}</div>
-                  {v ? <a href={v} target="_blank" rel="noopener noreferrer" className="s2-text-primary" style={{ fontWeight: 600, textDecoration: 'none' }}>{label}</a>
+                  <div className="s2-t-eyebrow s2-public-stat-lbl">{t}</div>
+                  {v ? <a href={v} target="_blank" rel="noopener noreferrer" className="s2-text-primary s2-public-contact-link">{label}</a>
                      : <span className="s2-t-body">{label}</span>}
                 </div>
               </div>
             ))}
-            <PublicCard style={{ marginTop: 28 }}>
-              <h3 className="s2-t-h3" style={{ margin: '0 0 8px', fontSize: 15 }}>Business Hours</h3>
+            <PublicCard className="s2-public-card--hours">
+              <h3 className="s2-t-h3 s2-public-card__title--sm">Business Hours</h3>
               {[['Mon – Fri', '9:00 AM – 8:00 PM IST'], ['Saturday', '10:00 AM – 6:00 PM IST'], ['Sunday', 'Emergency Support Only']].map(([day, hrs]) => (
-                <div key={day} className="s2-t-body" style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: '1px solid var(--s2-color-divider)' }}>
-                  <span style={{ fontWeight: 500 }}>{day}</span>
+                <div key={day} className="s2-t-body s2-public-hours-row">
+                  <span>{day}</span>
                   <span>{hrs}</span>
                 </div>
               ))}
@@ -199,25 +195,25 @@ export function ContactPage() {
 
           <div>
             {success ? (
-              <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-                <div style={{ fontSize: 52, marginBottom: 14 }}>✅</div>
-                <h3 className="s2-text-success" style={{ fontSize: 20, fontWeight: 700, margin: '0 0 8px' }}>Message Sent!</h3>
+              <div className="s2-public-form-msg">
+                <div className="s2-public-form-msg__icon">✅</div>
+                <h3 className="s2-text-success s2-public-form-msg__title">Message Sent!</h3>
                 <p className="s2-t-body">We'll get back to you within 24 hours. You can also WhatsApp us for faster response.</p>
-                {whatsapp && <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="s2-btn s2-btn--whatsapp" style={{ display: 'inline-block', marginTop: 16 }}>💬 WhatsApp Us</a>}
+                {whatsapp && <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="s2-btn s2-btn--whatsapp s2-public-form-msg__wa">💬 WhatsApp Us</a>}
               </div>
             ) : failed ? (
-              <div style={{ textAlign: 'center', padding: '40px 20px' }}>
-                <div style={{ fontSize: 52, marginBottom: 14 }}>⚠️</div>
-                <h3 style={{ color: 'var(--s2-color-error)', fontSize: 20, fontWeight: 700, margin: '0 0 8px' }}>Couldn't send your message</h3>
-                <p className="s2-t-body" style={{ marginBottom: 4 }}>Something went wrong on our end. Please try again, or reach us directly on WhatsApp for a faster response.</p>
-                {whatsapp && <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="s2-btn s2-btn--whatsapp" style={{ display: 'inline-block', marginTop: 16 }}>💬 WhatsApp Us</a>}
-                <div style={{ marginTop: 16 }}>
+              <div className="s2-public-form-msg">
+                <div className="s2-public-form-msg__icon">⚠️</div>
+                <h3 className="s2-public-form-msg__title s2-public-form-msg__title--error">Couldn't send your message</h3>
+                <p className="s2-t-body">Something went wrong on our end. Please try again, or reach us directly on WhatsApp for a faster response.</p>
+                {whatsapp && <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="s2-btn s2-btn--whatsapp s2-public-form-msg__wa">💬 WhatsApp Us</a>}
+                <div className="s2-public-form-msg__retry">
                   <button type="button" onClick={() => setFailed(false)} className="s2-btn s2-btn--ghost s2-btn--sm">← Try again</button>
                 </div>
               </div>
             ) : (
               <div className="s2-public-contact-form">
-                <h3 className="s2-t-h3" style={{ margin: '0 0 20px' }}>Send Us a Message</h3>
+                <h3 className="s2-t-h3">Send Us a Message</h3>
                 <div className="s2-public-form-grid">
                   {[['name', 'Full Name', 'text'], ['email', 'Email Address', 'email'], ['phone', 'Phone / WhatsApp', 'tel'], ['subject', 'Subject', 'text']].map(([field, ph, type]) => (
                     <input key={field} type={type} placeholder={ph} value={form[field as keyof typeof form]} onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
@@ -226,7 +222,7 @@ export function ContactPage() {
                 </div>
                 <textarea rows={5} placeholder="Your message — describe what you need..." value={form.message} onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
                   className="s2-textarea s2-wizard-textarea" />
-                <button type="button" onClick={handleSubmit} disabled={loading} className="s2-btn s2-btn--primary" style={{ width: '100%' }}>
+                <button type="button" onClick={handleSubmit} disabled={loading} className="s2-btn s2-btn--primary s2-btn--block">
                   {loading ? 'Sending…' : 'Send Message →'}
                 </button>
               </div>
@@ -254,27 +250,29 @@ export function HowItWorksPage() {
   return (
     <Layout>
       <PageHero title="How It Works" subtitle="Get your NRI service done in 6 simple steps — from anywhere in the world." primary={primary} />
-      <section style={{ padding: '64px 20px', background: '#fff' }}>
-        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+      <section className="s2-public-how-section s2-marketing-page" style={{ ['--s2-primary' as string]: primary }}>
+        <div className="s2-container s2-container--w1000">
           {steps.map(({ n, icon, t, d }, i) => (
-            <div key={n} style={{ display: 'flex', gap: 24, marginBottom: i < steps.length - 1 ? 40 : 0, alignItems: 'flex-start' }}>
-              <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0 }}>
-                <div style={{ width: 60, height: 60, background: primary, color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, boxShadow: `0 4px 14px ${primary}50`, flexShrink: 0 }}>{icon}</div>
-                {i < steps.length - 1 && <div style={{ width: 2, height: 32, background: `${primary}30`, margin: '6px 0' }} />}
+            <div key={n} className="s2-public-how-step">
+              <div className="s2-public-how-step__rail">
+                <div className="s2-public-how-step__icon">{icon}</div>
+                {i < steps.length - 1 && <div className="s2-public-how-step__line" />}
               </div>
-              <div style={{ paddingTop: 8 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: primary, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 4 }}>Step {n}</div>
-                <h3 style={{ fontSize: 20, fontWeight: 700, color: '#1E2D40', margin: '0 0 8px' }}>{t}</h3>
-                <p style={{ fontSize: 15, color: '#555', lineHeight: 1.8, margin: 0 }}>{d}</p>
+              <div className="s2-public-how-step__body">
+                <div className="s2-public-how-step__eyebrow">Step {n}</div>
+                <h3 className="s2-public-how-step__title">{t}</h3>
+                <p className="s2-public-how-step__desc">{d}</p>
               </div>
             </div>
           ))}
 
-          <div style={{ marginTop: 48, background: `${primary}08`, borderRadius: 14, padding: '28px 32px', border: `1px solid ${primary}20`, textAlign: 'center' }}>
-            <h3 style={{ fontWeight: 700, fontSize: 18, margin: '0 0 8px', color: '#1E2D40' }}>Have Questions? Talk to Us First.</h3>
-            <p style={{ color: '#555', fontSize: 14, margin: '0 0 18px' }}>Our team is available 24/7 on WhatsApp for a free consultation before you place a request.</p>
-            <Link to="/services" style={{ background: primary, color: '#fff', padding: '12px 28px', borderRadius: 9, fontWeight: 700, fontSize: 15, textDecoration: 'none', marginRight: 12 }}>Browse Services →</Link>
-            <Link to="/contact" style={{ color: primary, fontWeight: 700, fontSize: 15, textDecoration: 'none', borderBottom: `2px solid ${primary}`, paddingBottom: 2 }}>Contact Us</Link>
+          <div className="s2-public-how-callout">
+            <h3 className="s2-public-how-callout__title">Have Questions? Talk to Us First.</h3>
+            <p className="s2-public-how-callout__sub">Our team is available 24/7 on WhatsApp for a free consultation before you place a request.</p>
+            <div className="s2-public-how-callout__actions">
+              <Link to="/services" className="s2-btn s2-btn--primary">Browse Services →</Link>
+              <Link to="/contact" className="s2-home-text-link">Contact Us</Link>
+            </div>
           </div>
         </div>
       </section>
@@ -312,9 +310,9 @@ export function FAQPage() {
     <Layout>
       <PageHero title="Frequently Asked Questions" subtitle="Everything you need to know before placing a service request." primary={primary} />
       <PublicSection className="s2-public-faq">
-        <div style={{ maxWidth: 860, margin: '0 auto' }}>
+        <div className="s2-container s2-container--w860">
           {loading ? (
-            <div className="s2-text-muted" style={{ textAlign: 'center', padding: 40 }}>Loading FAQs…</div>
+            <div className="s2-text-muted s2-public-faq-loading">Loading FAQs…</div>
           ) : (
             display.map((faq, i) => (
               <div key={faq.id || i} className={`s2-public-faq-item${openIdx === i ? ' s2-public-faq-item--open' : ''}`}>
@@ -334,9 +332,9 @@ export function FAQPage() {
             ))
           )}
 
-          <PublicCard className="s2-public-cta-band" style={{ marginTop: 40, textAlign: 'center', padding: 28 }}>
-            <h3 className="s2-t-h3" style={{ margin: '0 0 8px' }}>Still have questions?</h3>
-            <p className="s2-t-body" style={{ margin: '0 0 16px' }}>Our team responds within 30 minutes on WhatsApp during business hours.</p>
+          <PublicCard className="s2-public-cta-band s2-public-cta-band--spaced">
+            <h3 className="s2-t-h3">Still have questions?</h3>
+            <p className="s2-t-body">Our team responds within 30 minutes on WhatsApp during business hours.</p>
             <PublicCtaLink to="/contact">Contact Us →</PublicCtaLink>
           </PublicCard>
         </div>
@@ -390,23 +388,22 @@ export function PricingPage() {
           title="Choose the right level of support"
           subtitle="Compliance-driven · Simple & intuitive · Straightforward pricing"
         />
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        <div className="s2-container">
           <div className="s2-public-pricing-grid">
             {display.map((plan) => (
               <div
                 key={plan.id}
                 className={`s2-public-pricing-card${plan.popular ? ' s2-public-pricing-card--popular' : ''}`}
-                style={{ position: 'relative' }}
               >
                 {plan.popular && <div className="s2-public-pricing-card__ribbon">⭐ MOST POPULAR</div>}
                 <div
                   className={`s2-public-pricing-card__head${plan.popular ? ' s2-public-pricing-card__head--popular' : ''}`}
                   style={plan.popular ? undefined : { background: plan.color || 'var(--s2-color-secondary)' }}
                 >
-                  <div className="s2-t-eyebrow" style={{ color: 'rgba(255,255,255,.85)', marginBottom: 4 }}>{plan.subtitle}</div>
-                  <h3 className="s2-t-h2" style={{ color: '#fff', margin: '0 0 12px' }}>{plan.name}</h3>
-                  <div className="s2-t-h1" style={{ color: '#fff', fontSize: 'clamp(1.375rem, 3vw, 2rem)' }}>{plan.price}</div>
-                  {plan.price_note && <div className="s2-t-body" style={{ color: 'rgba(255,255,255,.85)', marginTop: 3 }}>{plan.price_note}</div>}
+                  <div className="s2-t-eyebrow s2-public-pricing-head-eyebrow">{plan.subtitle}</div>
+                  <h3 className="s2-t-h2 s2-public-pricing-head-title">{plan.name}</h3>
+                  <div className="s2-t-h1 s2-public-pricing-head-price">{plan.price}</div>
+                  {plan.price_note && <div className="s2-t-body s2-public-pricing-head-note">{plan.price_note}</div>}
                 </div>
                 <div className="s2-public-pricing-card__features">
                   {(plan.features || []).map((f, i) => (
@@ -417,8 +414,7 @@ export function PricingPage() {
                   ))}
                   <Link
                     to="/contact"
-                    className={`s2-btn s2-btn--${plan.popular ? 'primary' : 'outline'}`}
-                    style={{ display: 'block', marginTop: 'auto', textAlign: 'center' }}
+                    className={`s2-btn s2-btn--${plan.popular ? 'primary' : 'outline'} s2-public-pricing-cta`}
                   >
                     {plan.price === 'Free' ? 'Get Started Free' : 'Choose Plan →'}
                   </Link>
@@ -445,15 +441,15 @@ export function PricingPage() {
       {plans.length === 0 && (
         <PublicSection>
           <PublicSectionHead title="Services2NRI vs Others" subtitle="See why NRIs choose us over traditional property managers" />
-          <div className="s2-public-compare-wrap" style={{ maxWidth: 1000, margin: '0 auto' }}>
+          <div className="s2-public-compare-wrap s2-container s2-container--w1000">
             <table className="s2-public-compare-table">
               <thead>
                 <tr>
                   <th>Feature</th>
                   {display.map((p) => (
-                    <th key={p.id} style={p.popular ? { color: 'var(--s2-color-primary)' } : undefined}>{p.name}</th>
+                    <th key={p.id} className={p.popular ? 's2-public-compare-th-popular' : undefined}>{p.name}</th>
                   ))}
-                  <th style={{ color: 'var(--s2-color-error)' }}>Others</th>
+                  <th className="s2-public-compare-th-danger">Others</th>
                 </tr>
               </thead>
               <tbody>
@@ -461,9 +457,9 @@ export function PricingPage() {
                   <tr key={feature}>
                     <td>{feature}</td>
                     {vals.map((v, j) => (
-                      <td key={j} style={{ textAlign: 'center' }}>{v ? '✓' : '—'}</td>
+                      <td key={j} className="s2-public-compare-td-center">{v ? '✓' : '—'}</td>
                     ))}
-                    <td style={{ textAlign: 'center' }}>✕</td>
+                    <td className="s2-public-compare-td-center">✕</td>
                   </tr>
                 ))}
               </tbody>
@@ -474,11 +470,11 @@ export function PricingPage() {
 
       <PublicSection>
         <PublicSectionHead title="NRIWAY vs. Traditional Agents" subtitle="See why NRIs across 50+ countries trust NRIWAY" />
-        <div className="s2-public-compare-wrap" style={{ maxWidth: 860, margin: '0 auto' }}>
+        <div className="s2-public-compare-wrap s2-container s2-container--w860">
           <table className="s2-public-compare-table">
             <thead>
               <tr>
-                <th style={{ width: '40%' }}>Feature</th>
+                <th className="s2-public-compare-table__feature">Feature</th>
                 <th className="s2-public-compare-table__brand">NRIWAY</th>
                 <th>Traditional Agents</th>
               </tr>
@@ -494,9 +490,9 @@ export function PricingPage() {
                 ['No upfront fee for quote', '✅ Free consultation always', '❌ Retainer required'],
               ].map(([feat, us, them]) => (
                 <tr key={feat}>
-                  <td style={{ fontWeight: 600 }}>{feat}</td>
-                  <td style={{ textAlign: 'center', color: 'var(--s2-color-success)' }}>{us}</td>
-                  <td style={{ textAlign: 'center', color: 'var(--s2-color-muted)' }}>{them}</td>
+                  <td className="s2-public-compare-feat">{feat}</td>
+                  <td className="s2-public-compare-td-success">{us}</td>
+                  <td className="s2-public-compare-td-muted">{them}</td>
                 </tr>
               ))}
             </tbody>
@@ -505,9 +501,9 @@ export function PricingPage() {
       </PublicSection>
 
       <PublicSection alt className="s2-public-cta-band">
-        <div style={{ textAlign: 'center', maxWidth: 640, margin: '0 auto' }}>
-          <h2 className="s2-t-h2" style={{ margin: '0 0 10px' }}>Book a Free Consultation</h2>
-          <p className="s2-t-body" style={{ margin: '0 0 20px' }}>Not sure which plan is right for you? Talk to our team for free.</p>
+        <div className="s2-public-center-copy">
+          <h2 className="s2-t-h2">Book a Free Consultation</h2>
+          <p className="s2-t-body">Not sure which plan is right for you? Talk to our team for free.</p>
           <PublicCtaLink to="/contact">Book Free Consultation →</PublicCtaLink>
         </div>
       </PublicSection>
@@ -557,83 +553,73 @@ export function BlogListPage() {
 
   return (
     <Layout>
-      {/* Hero */}
-      <div style={{ background: `linear-gradient(135deg, #1E2D40 0%, ${primary} 100%)`, padding: '56px 20px', color: '#fff' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, opacity: 0.7, margin: '0 0 10px' }}>NRI Knowledge Hub</p>
-          <h1 style={{ fontSize: 'clamp(26px, 4vw, 48px)', fontWeight: 900, margin: '0 0 12px', maxWidth: 600, lineHeight: 1.2 }}>Expert Guides for NRIs Living Abroad</h1>
-          <p style={{ fontSize: 16, opacity: 0.8, maxWidth: 500, margin: '0 0 28px', lineHeight: 1.7 }}>Real advice on OCI cards, property management, taxation, and more — written by {siteName} specialists.</p>
-          {/* Search */}
-          <div style={{ display: 'flex', maxWidth: 480, background: 'rgba(255,255,255,.12)', borderRadius: 10, border: '1px solid rgba(255,255,255,.2)', overflow: 'hidden' }}>
-            <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search articles…"
-              style={{ flex: 1, background: 'transparent', border: 'none', padding: '13px 16px', fontSize: 15, color: '#fff', outline: 'none' }} />
-            <div style={{ padding: '13px 16px', fontSize: 16, opacity: 0.6 }}>🔍</div>
+      <div className="s2-marketing-page s2-blog-hero" style={{ ['--s2-primary' as string]: primary }}>
+        <div className="s2-container">
+          <p className="s2-blog-hero__eyebrow">NRI Knowledge Hub</p>
+          <h1 className="s2-blog-hero__title">Expert Guides for NRIs Living Abroad</h1>
+          <p className="s2-blog-hero__sub">Real advice on OCI cards, property management, taxation, and more — written by {siteName} specialists.</p>
+          <div className="s2-blog-search">
+            <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search articles…" aria-label="Search articles" />
+            <div className="s2-blog-search__icon" aria-hidden>🔍</div>
           </div>
         </div>
       </div>
 
-      {/* Category filters */}
-      <div style={{ background: '#F5F7FA', borderBottom: '1px solid #EBF0F8', padding: '12px 20px', overflowX: 'auto' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', display: 'flex', gap: 8, whiteSpace: 'nowrap' }}>
+      <div className="s2-blog-filters">
+        <div className="s2-container s2-blog-filters__row">
           {BLOG_CATEGORIES.map(cat => (
-            <button key={cat} onClick={() => setActiveCategory(cat)}
-              style={{ padding: '6px 16px', borderRadius: 99, border: `1.5px solid ${activeCategory === cat ? primary : '#e0e0e0'}`, background: activeCategory === cat ? primary : '#fff', color: activeCategory === cat ? '#fff' : '#374151', fontWeight: activeCategory === cat ? 700 : 500, fontSize: 13, cursor: 'pointer', flexShrink: 0 }}>
+            <button
+              key={cat}
+              type="button"
+              onClick={() => setActiveCategory(cat)}
+              className={`s2-blog-chip${activeCategory === cat ? ' s2-blog-chip--active' : ''}`}
+            >
               {cat}
             </button>
           ))}
         </div>
       </div>
 
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 20px 72px' }}>
+      <div className="s2-container s2-blog-main">
         {loading ? (
-          <div style={{ textAlign: 'center', padding: 60, color: '#888' }}><div style={{ fontSize: 40, marginBottom: 12 }}>📖</div>Loading articles…</div>
+          <div className="s2-blog-loading"><div className="s2-blog-loading__icon">📖</div>Loading articles…</div>
         ) : (
           <>
-            {/* Featured post */}
             {featured && activeCategory === 'All' && !search && (
-              <Link to={`/blog/${featured.slug}`} className="s2-mobile-stack" style={{ textDecoration: 'none', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0, background: '#1E2D40', borderRadius: 16, overflow: 'hidden', marginBottom: 48, boxShadow: '0 4px 32px rgba(0,0,0,.18)' }}
-                onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 8px 40px rgba(0,0,0,.22)' }}
-                onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 32px rgba(0,0,0,.18)' }}>
-                <img src={featured.img || featured.image_url || IMAGES.about} alt={featured.title} style={{ width: '100%', height: 320, objectFit: 'cover', display: 'block' }} />
-                <div style={{ padding: '40px 36px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 14 }}>
-                    <span style={{ fontSize: 11, fontWeight: 700, background: `${primary}30`, color: primary, padding: '4px 12px', borderRadius: 99, textTransform: 'uppercase', letterSpacing: 1 }}>Featured</span>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: '#6b7280' }}>{featured.category}</span>
+              <Link to={`/blog/${featured.slug}`} className="s2-blog-featured s2-mobile-stack">
+                <img src={featured.img || featured.image_url || IMAGES.about} alt={featured.title} />
+                <div className="s2-blog-featured__body">
+                  <div className="s2-blog-featured__meta">
+                    <span className="s2-blog-badge s2-blog-badge--featured">Featured</span>
+                    <span className="s2-blog-featured__cat">{featured.category}</span>
                   </div>
-                  <h2 style={{ fontSize: 'clamp(18px, 2vw, 24px)', fontWeight: 900, color: '#fff', margin: '0 0 12px', lineHeight: 1.3 }}>{featured.title}</h2>
-                  <p style={{ fontSize: 14, color: '#9ca3af', lineHeight: 1.75, margin: '0 0 20px' }}>{featured.excerpt}</p>
-                  <div style={{ display: 'flex', gap: 14, alignItems: 'center', fontSize: 12, color: '#6b7280' }}>
+                  <h2 className="s2-blog-featured__title">{featured.title}</h2>
+                  <p className="s2-blog-featured__excerpt">{featured.excerpt}</p>
+                  <div className="s2-blog-featured__foot">
                     <span>📅 {featured.date || featured.created_at?.split(' ')[0]}</span>
                     <span>⏱ {featured.read_time || estimateReadTime(featured.content)}</span>
                   </div>
-                  <div style={{ marginTop: 20, display: 'inline-flex', alignItems: 'center', gap: 6, background: primary, color: '#fff', padding: '10px 20px', borderRadius: 8, fontWeight: 700, fontSize: 14, width: 'fit-content' }}>
-                    Read Article →
-                  </div>
+                  <div className="s2-blog-featured__cta">Read Article →</div>
                 </div>
               </Link>
             )}
 
-            {/* Article grid */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 28 }}>
+            <div className="s2-blog-grid">
               {rest.map(post => (
-                <Link key={post.id} to={`/blog/${post.slug}`} style={{ textDecoration: 'none', borderRadius: 14, overflow: 'hidden', background: '#fff', boxShadow: '0 2px 12px rgba(0,0,0,.07)', display: 'flex', flexDirection: 'column', border: '1px solid #EBF0F8', transition: 'transform .2s, box-shadow .2s' }}
-                  onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 8px 28px rgba(0,0,0,.13)' }}
-                  onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,.07)' }}>
-                  <div style={{ position: 'relative', height: 200, overflow: 'hidden' }}>
-                    <img src={post.img || post.image_url || IMAGES.about} alt={post.title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block', transition: 'transform .3s' }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLImageElement).style.transform = 'scale(1.04)' }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLImageElement).style.transform = '' }} />
-                    <div style={{ position: 'absolute', top: 12, left: 12, background: `${primary}ee`, color: '#fff', padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700 }}>{post.category}</div>
+                <Link key={post.id} to={`/blog/${post.slug}`} className="s2-blog-card">
+                  <div className="s2-blog-card__img-wrap">
+                    <img src={post.img || post.image_url || IMAGES.about} alt={post.title} />
+                    <div className="s2-blog-card__cat">{post.category}</div>
                   </div>
-                  <div style={{ padding: '20px 22px 24px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                    <h3 style={{ fontSize: 16, fontWeight: 800, color: '#1E2D40', margin: '0 0 10px', lineHeight: 1.4 }}>{post.title}</h3>
-                    <p style={{ fontSize: 13, color: '#555', lineHeight: 1.75, margin: '0 0 16px', flex: 1 }}>{post.excerpt}</p>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 12, borderTop: '1px solid #f0f0f0' }}>
-                      <div style={{ display: 'flex', gap: 10, fontSize: 12, color: '#888' }}>
+                  <div className="s2-blog-card__body">
+                    <h3 className="s2-blog-card__title">{post.title}</h3>
+                    <p className="s2-blog-card__excerpt">{post.excerpt}</p>
+                    <div className="s2-blog-card__foot">
+                      <div className="s2-blog-card__meta">
                         <span>📅 {post.date || post.created_at?.split(' ')[0]}</span>
                         <span>⏱ {post.read_time || estimateReadTime(post.content)}</span>
                       </div>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: primary }}>Read →</span>
+                      <span className="s2-blog-card__read">Read →</span>
                     </div>
                   </div>
                 </Link>
@@ -641,11 +627,11 @@ export function BlogListPage() {
             </div>
 
             {rest.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '60px 20px', color: '#888' }}>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
-                <h3 style={{ color: '#374151', fontSize: 18, margin: '0 0 8px' }}>No articles found</h3>
-                <p style={{ fontSize: 14 }}>Try a different search term or category.</p>
-                <button onClick={() => { setSearch(''); setActiveCategory('All') }} style={{ marginTop: 16, background: primary, color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 8, fontWeight: 700, cursor: 'pointer' }}>Clear Filters</button>
+              <div className="s2-blog-empty">
+                <div className="s2-blog-empty__icon">🔍</div>
+                <h3 className="s2-blog-empty__title">No articles found</h3>
+                <p className="s2-t-body">Try a different search term or category.</p>
+                <button type="button" onClick={() => { setSearch(''); setActiveCategory('All') }} className="s2-btn s2-btn--primary s2-blog-empty__btn">Clear Filters</button>
               </div>
             )}
           </>
@@ -703,20 +689,24 @@ export function BlogDetailPage() {
   const readTime = display?.read_time || estimateReadTime(display?.content)
 
   if (loading) {
-    return <Layout><div style={{ padding: 80, textAlign: 'center', color: '#888' }}>
-      <div style={{ width: 40, height: 40, border: `4px solid ${primary}30`, borderTop: `4px solid ${primary}`, borderRadius: '50%', animation: 'spin .7s linear infinite', margin: '0 auto 16px' }} />
-      Loading article…
-    </div></Layout>
+    return (
+      <Layout>
+        <div className="s2-blog-state s2-text-muted">
+          <div className="s2-svc-spinner" aria-label="Loading" />
+          Loading article…
+        </div>
+      </Layout>
+    )
   }
 
   if (loadFailed) {
     return (
       <Layout>
-        <div style={{ padding: 80, textAlign: 'center' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
-          <h2 style={{ color: '#374151', marginBottom: 10 }}>Couldn't load this article</h2>
-          <p style={{ color: '#6b7280', marginBottom: 20 }}>Something went wrong on our end. Please try again.</p>
-          <button onClick={loadPost} style={{ background: primary, color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 14 }}>Retry</button>
+        <div className="s2-blog-state">
+          <div className="s2-blog-state__icon">⚠️</div>
+          <h2 className="s2-t-h2">Couldn't load this article</h2>
+          <p className="s2-t-body">Something went wrong on our end. Please try again.</p>
+          <button type="button" onClick={loadPost} className="s2-btn s2-btn--primary">Retry</button>
         </div>
       </Layout>
     )
@@ -725,10 +715,10 @@ export function BlogDetailPage() {
   if (!display) {
     return (
       <Layout>
-        <div style={{ padding: 80, textAlign: 'center' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>📄</div>
-          <h2 style={{ color: '#374151', marginBottom: 10 }}>Article not found</h2>
-          <Link to="/blog" style={{ color: primary, fontWeight: 700, textDecoration: 'none' }}>← Back to Knowledge Hub</Link>
+        <div className="s2-blog-state">
+          <div className="s2-blog-state__icon">📄</div>
+          <h2 className="s2-t-h2">Article not found</h2>
+          <Link to="/blog" className="s2-home-text-link">← Back to Knowledge Hub</Link>
         </div>
       </Layout>
     )
@@ -744,84 +734,62 @@ export function BlogDetailPage() {
 
   return (
     <Layout>
-      {/* Article hero */}
-      <div style={{ background: `linear-gradient(to bottom, #1E2D40 0%, ${primary}cc 100%)`, padding: '48px 20px 56px', color: '#fff' }}>
-        <div style={{ maxWidth: 860, margin: '0 auto' }}>
-          <Link to="/blog" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'rgba(255,255,255,.7)', fontSize: 13, textDecoration: 'none', marginBottom: 20, fontWeight: 500 }}>← Knowledge Hub</Link>
-          <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: 12, fontWeight: 700, background: `${primary}40`, color: '#fff', padding: '4px 12px', borderRadius: 99, border: `1px solid ${primary}60` }}>{display.category}</span>
-            <span style={{ fontSize: 12, color: 'rgba(255,255,255,.65)' }}>📅 {display.date || display.created_at?.split(' ')[0]}</span>
-            <span style={{ fontSize: 12, color: 'rgba(255,255,255,.65)' }}>⏱ {readTime}</span>
+      <div className="s2-marketing-page s2-blog-article-hero" style={{ ['--s2-primary' as string]: primary }}>
+        <div className="s2-container s2-container--w860">
+          <Link to="/blog" className="s2-blog-article-hero__back">← Knowledge Hub</Link>
+          <div className="s2-blog-article-hero__meta">
+            <span className="s2-blog-article-hero__cat">{display.category}</span>
+            <span className="s2-blog-article-hero__date">📅 {display.date || display.created_at?.split(' ')[0]}</span>
+            <span className="s2-blog-article-hero__date">⏱ {readTime}</span>
           </div>
-          <h1 style={{ fontSize: 'clamp(22px, 4vw, 40px)', fontWeight: 900, lineHeight: 1.25, color: '#fff', margin: '0 0 16px' }}>{display.title}</h1>
-          {display.excerpt && <p style={{ fontSize: 16, color: 'rgba(255,255,255,.8)', lineHeight: 1.75, margin: 0, maxWidth: 680 }}>{display.excerpt}</p>}
+          <h1 className="s2-blog-article-hero__title">{display.title}</h1>
+          {display.excerpt && <p className="s2-blog-article-hero__excerpt">{display.excerpt}</p>}
         </div>
       </div>
 
       {display.image_url && (
-        <div style={{ maxWidth: 860, margin: '0 auto', padding: '0 20px', marginTop: -32 }}>
-          <img src={display.image_url} alt={display.title} style={{ width: '100%', borderRadius: 14, boxShadow: '0 8px 40px rgba(0,0,0,.2)', maxHeight: 420, objectFit: 'cover', display: 'block' }} />
+        <div className="s2-blog-hero-image">
+          <img src={display.image_url} alt={display.title} />
         </div>
       )}
 
-      {/* Content + ToC */}
-      <div className="s2-mobile-stack" style={{ maxWidth: 1200, margin: '0 auto', padding: '48px 20px 80px', display: 'grid', gridTemplateColumns: headings.length > 2 ? '1fr 260px' : '1fr', gap: 48, alignItems: 'flex-start' }}>
-
-        {/* Main article */}
-        <article>
-          <style>{`
-            article h1, article h2, article h3 { color: #1E2D40; line-height: 1.35; margin: 2em 0 .75em; }
-            article h2 { font-size: clamp(20px, 2.5vw, 26px); font-weight: 800; border-bottom: 2px solid #EBF0F8; padding-bottom: 8px; }
-            article h3 { font-size: clamp(17px, 2vw, 21px); font-weight: 700; }
-            article p  { font-size: 16px; line-height: 1.9; color: #374151; margin: 0 0 1.2em; }
-            article ul, article ol { padding-left: 24px; margin: 0 0 1.2em; }
-            article li { font-size: 15px; line-height: 1.8; color: #374151; margin-bottom: 6px; }
-            article a  { color: ${primary}; text-decoration: underline; font-weight: 500; }
-            article blockquote { margin: 1.5em 0; padding: 16px 20px 16px 24px; border-left: 4px solid ${primary}; background: ${primary}08; border-radius: 0 8px 8px 0; font-style: italic; }
-            article strong { color: #1E2D40; font-weight: 700; }
-            article code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-size: 0.9em; }
-          `}</style>
+      <div className={`s2-container s2-blog-layout s2-mobile-stack${headings.length > 2 ? ' s2-blog-layout--toc' : ''}`}>
+        <article className="s2-blog-prose">
           <div dangerouslySetInnerHTML={{ __html: contentWithIds || '<p>Content coming soon.</p>' }} />
 
-          {/* Social sharing */}
-          <div style={{ marginTop: 48, padding: '24px 28px', background: '#F5F7FA', borderRadius: 12, border: '1px solid #EBF0F8' }}>
-            <p style={{ fontSize: 14, fontWeight: 700, color: '#374151', margin: '0 0 12px' }}>Share this article</p>
-            <div style={{ display: 'flex', gap: 10 }}>
+          <div className="s2-blog-share">
+            <p className="s2-blog-share__label">Share this article</p>
+            <div className="s2-blog-share__row">
               {[
                 { label: '🐦 Twitter/X', url: `https://twitter.com/intent/tweet?text=${encodeURIComponent(display.title)}&url=${encodeURIComponent(window.location.href)}` },
                 { label: '💼 LinkedIn', url: `https://www.linkedin.com/shareArticle?mini=true&url=${encodeURIComponent(window.location.href)}&title=${encodeURIComponent(display.title)}` },
                 { label: '💬 WhatsApp', url: `https://wa.me/?text=${encodeURIComponent(display.title + ' ' + window.location.href)}` },
               ].map(s => (
-                <a key={s.label} href={s.url} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: 13, fontWeight: 600, padding: '8px 16px', borderRadius: 7, background: '#fff', border: '1px solid #e0e0e0', textDecoration: 'none', color: '#374151', transition: 'border-color .15s' }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = primary }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.borderColor = '#e0e0e0' }}>
+                <a key={s.label} href={s.url} target="_blank" rel="noopener noreferrer" className="s2-blog-share__link">
                   {s.label}
                 </a>
               ))}
             </div>
           </div>
 
-          {/* CTA */}
-          <div style={{ marginTop: 32, background: `linear-gradient(135deg, #1E2D40 0%, ${primary} 100%)`, borderRadius: 14, padding: '32px 28px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 20 }}>
+          <div className="s2-blog-inline-cta">
             <div>
-              <h3 style={{ fontSize: 20, fontWeight: 800, margin: '0 0 6px' }}>Need Help With {display.category} Services?</h3>
-              <p style={{ fontSize: 14, opacity: 0.85, margin: 0 }}>{siteName} experts handle everything. Get a free quote today.</p>
+              <h3 className="s2-blog-inline-cta__title">Need Help With {display.category} Services?</h3>
+              <p className="s2-blog-inline-cta__sub">{siteName} experts handle everything. Get a free quote today.</p>
             </div>
-            <Link to="/services" style={{ background: '#fff', color: primary, padding: '12px 24px', borderRadius: 9, fontWeight: 700, fontSize: 14, textDecoration: 'none', flexShrink: 0 }}>Explore Services →</Link>
+            <Link to="/services" className="s2-blog-inline-cta__btn">Explore Services →</Link>
           </div>
 
-          {/* Related posts */}
           {related.length > 0 && (
-            <div style={{ marginTop: 48 }}>
-              <h2 style={{ fontSize: 22, fontWeight: 800, color: '#1E2D40', margin: '0 0 20px', borderBottom: '2px solid #EBF0F8', paddingBottom: 8 }}>Related Articles</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 20 }}>
+            <div className="s2-blog-related">
+              <h2 className="s2-blog-related__title">Related Articles</h2>
+              <div className="s2-blog-related-grid">
                 {related.map(r => (
-                  <Link key={r.id} to={`/blog/${r.slug}`} style={{ textDecoration: 'none', borderRadius: 10, overflow: 'hidden', background: '#fff', border: '1px solid #EBF0F8', boxShadow: '0 2px 8px rgba(0,0,0,.05)', display: 'flex', flexDirection: 'column' }}>
-                    <img src={r.img || r.image_url || IMAGES.about} alt={r.title} style={{ width: '100%', height: 120, objectFit: 'cover' }} />
-                    <div style={{ padding: '14px 16px' }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: primary, marginBottom: 6 }}>{r.category}</div>
-                      <h4 style={{ fontSize: 14, fontWeight: 700, color: '#1E2D40', margin: 0, lineHeight: 1.4 }}>{r.title}</h4>
+                  <Link key={r.id} to={`/blog/${r.slug}`} className="s2-blog-related-card">
+                    <img src={r.img || r.image_url || IMAGES.about} alt={r.title} />
+                    <div className="s2-blog-related-card__body">
+                      <div className="s2-blog-related-card__cat">{r.category}</div>
+                      <h4 className="s2-blog-related-card__title">{r.title}</h4>
                     </div>
                   </Link>
                 ))}
@@ -830,17 +798,17 @@ export function BlogDetailPage() {
           )}
         </article>
 
-        {/* Sticky table of contents */}
         {headings.length > 2 && (
-          <aside style={{ position: 'sticky', top: 80, background: '#F5F7FA', borderRadius: 12, border: '1px solid #EBF0F8', padding: '20px 0', overflow: 'hidden' }}>
-            <div style={{ padding: '0 18px 12px', fontSize: 11, fontWeight: 800, color: '#9ca3af', textTransform: 'uppercase', letterSpacing: 1.5, borderBottom: '1px solid #EBF0F8', marginBottom: 8 }}>Table of Contents</div>
+          <aside className="s2-blog-toc">
+            <div className="s2-blog-toc__label">Table of Contents</div>
             {headings.map(h => (
-              <a key={h.id} href={`#${h.id}`}
+              <a
+                key={h.id}
+                href={`#${h.id}`}
+                className={`s2-blog-toc__link${h.level === 3 ? ' s2-blog-toc__link--h3' : ''}`}
                 onClick={e => { e.preventDefault(); document.getElementById(h.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' }) }}
-                style={{ display: 'block', padding: `7px ${h.level === 3 ? 24 : 16}px`, fontSize: h.level === 3 ? 12 : 13, fontWeight: h.level === 2 ? 600 : 500, color: '#555', textDecoration: 'none', lineHeight: 1.4, transition: 'color .15s, background .15s' }}
-                onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.color = primary; (e.currentTarget as HTMLAnchorElement).style.background = `${primary}08` }}
-                onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.color = '#555'; (e.currentTarget as HTMLAnchorElement).style.background = '' }}>
-                {h.level === 3 && <span style={{ marginRight: 6, opacity: 0.4 }}>↳</span>}{h.text}
+              >
+                {h.level === 3 && <span className="s2-blog-toc__prefix">↳</span>}{h.text}
               </a>
             ))}
           </aside>
@@ -870,11 +838,11 @@ export function TermsPage() {
   return (
     <Layout>
       <PageHero title="Terms & Conditions" subtitle="Last updated: January 2025" primary={primary} />
-      <div style={{ maxWidth: 860, margin: '0 auto', padding: '56px 20px' }}>
+      <div className="s2-legal-page">
         {sections.map(([title, body]) => (
-          <div key={title} style={{ marginBottom: 28 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, color: '#1E2D40', margin: '0 0 8px' }}>{title}</h2>
-            <p style={{ fontSize: 15, color: '#555', lineHeight: 1.8, margin: 0 }}>{body}</p>
+          <div key={title} className="s2-legal-section">
+            <h2 className="s2-legal-section__title">{title}</h2>
+            <p className="s2-legal-section__body">{body}</p>
           </div>
         ))}
       </div>
@@ -900,21 +868,21 @@ export function PrivacyPage() {
   ]
 
   return (
-    <div style={{ background: '#F5F7FA', minHeight: '100vh' }}>
-      <div style={{ background: primary, padding: '48px 20px', textAlign: 'center' }}>
-        <h1 style={{ color: '#fff', fontSize: 'clamp(24px, 3vw, 36px)', fontWeight: 900, margin: '0 0 10px' }}>Privacy Policy</h1>
-        <p style={{ color: 'rgba(255,255,255,.85)', fontSize: 16, margin: 0 }}>Last updated: January 2025</p>
+    <div className="s2-privacy-page s2-marketing-page" style={{ ['--s2-primary' as string]: primary }}>
+      <div className="s2-privacy-hero">
+        <h1 className="s2-privacy-hero__title">Privacy Policy</h1>
+        <p className="s2-privacy-hero__sub">Last updated: January 2025</p>
       </div>
-      <div style={{ maxWidth: 800, margin: '0 auto', padding: '40px 20px 80px' }}>
-        <div style={{ background: '#fff', border: `1px solid ${primary}30`, borderRadius: 12, padding: '20px 24px', marginBottom: 28 }}>
-          <p style={{ fontSize: 15, color: '#374151', lineHeight: 1.8, margin: 0 }}>
+      <div className="s2-privacy-body">
+        <div className="s2-privacy-intro">
+          <p>
             This Privacy Policy explains how <strong>{name}</strong> collects, uses, and protects your personal information when you use our platform. By using our services, you agree to the practices described in this policy.
           </p>
         </div>
         {sections.map((s) => (
-          <div key={s.title} style={{ background: '#fff', border: '1px solid #EBF0F8', borderRadius: 12, padding: '24px 28px', marginBottom: 16 }}>
-            <h2 style={{ fontSize: 17, fontWeight: 800, color: primary, margin: '0 0 12px' }}>{s.title}</h2>
-            <p style={{ fontSize: 14, color: '#374151', lineHeight: 1.85, margin: 0 }}>{s.body}</p>
+          <div key={s.title} className="s2-privacy-card">
+            <h2 className="s2-privacy-card__title">{s.title}</h2>
+            <p className="s2-privacy-card__body">{s.body}</p>
           </div>
         ))}
       </div>
@@ -970,75 +938,68 @@ export function CityPage() {
 
   return (
     <Layout>
-      {/* Hero */}
-      <div style={{ background: `linear-gradient(135deg, #1E2D40 0%, ${primary} 100%)`, color: '#fff', padding: '56px 20px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, opacity: 0.75, margin: '0 0 8px' }}>
-            <Link to="/" style={{ color: 'rgba(255,255,255,.7)', textDecoration: 'none' }}>Home</Link>
+      <div className="s2-marketing-page s2-city-hero" style={{ ['--s2-primary' as string]: primary }}>
+        <div className="s2-container">
+          <p className="s2-city-hero__crumb">
+            <Link to="/">Home</Link>
             {' › '}
-            <Link to="/services/property" style={{ color: 'rgba(255,255,255,.7)', textDecoration: 'none' }}>Property Management</Link>
+            <Link to="/services/property">Property Management</Link>
             {' › '}
             {data.name}
           </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
-            <span style={{ fontSize: 52 }}>{data.emoji}</span>
+          <div className="s2-city-hero__head">
+            <span className="s2-city-hero__emoji">{data.emoji}</span>
             <div>
-              <h1 style={{ fontSize: 'clamp(24px, 4vw, 44px)', fontWeight: 900, margin: '0 0 6px' }}>NRI Property Management in {data.name}</h1>
-              <p style={{ fontSize: 15, opacity: 0.85, margin: 0 }}>{data.state} · {data.pop} population · {data.tagline}</p>
+              <h1 className="s2-city-hero__title">NRI Property Management in {data.name}</h1>
+              <p className="s2-city-hero__sub">{data.state} · {data.pop} population · {data.tagline}</p>
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <Link to="/contact" style={{ background: '#fff', color: primary, padding: '11px 24px', borderRadius: 8, fontWeight: 700, fontSize: 14, textDecoration: 'none' }}>Get Free Quote for {data.name} →</Link>
-            <Link to="/register" style={{ background: 'transparent', color: '#fff', padding: '11px 24px', borderRadius: 8, fontWeight: 600, fontSize: 14, textDecoration: 'none', border: '2px solid rgba(255,255,255,.5)' }}>Create Free Account</Link>
+          <div className="s2-city-hero__actions">
+            <Link to="/contact" className="s2-city-hero__btn-primary">Get Free Quote for {data.name} →</Link>
+            <Link to="/register" className="s2-city-hero__btn-ghost">Create Free Account</Link>
           </div>
         </div>
       </div>
 
-      {/* Services */}
-      <section style={{ padding: '56px 20px', background: '#fff' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <h2 style={{ fontSize: 'clamp(20px, 3vw, 30px)', fontWeight: 800, color: '#1E2D40', margin: '0 0 8px' }}>Our Services in {data.name}</h2>
-          <p style={{ color: '#666', fontSize: 15, margin: '0 0 28px' }}>{name} provides end-to-end property management for NRIs with properties in {data.name}, {data.state}.</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 20 }}>
+      <PublicSection>
+        <div className="s2-container">
+          <h2 className="s2-public-section-title">Our Services in {data.name}</h2>
+          <p className="s2-public-section-sub">{name} provides end-to-end property management for NRIs with properties in {data.name}, {data.state}.</p>
+          <div className="s2-city-services-grid">
             {data.services.map((svc) => (
-              <Link key={svc} to={`/service/${SERVICE_SLUG_MAP[svc] || 'complete-property-management'}`}
-                style={{ textDecoration: 'none', background: '#fff', border: '1px solid #EBF0F8', borderRadius: 12, padding: 20, display: 'flex', gap: 14, alignItems: 'flex-start', transition: 'box-shadow .2s, transform .2s' }}
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,.1)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = ''; e.currentTarget.style.transform = '' }}
-              >
-                <div style={{ width: 44, height: 44, background: `${primary}15`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>🏠</div>
+              <Link key={svc} to={`/service/${SERVICE_SLUG_MAP[svc] || 'complete-property-management'}`} className="s2-city-service-card">
+                <div className="s2-city-service-card__icon">🏠</div>
                 <div>
-                  <h3 style={{ fontSize: 15, fontWeight: 700, color: '#1E2D40', margin: '0 0 4px' }}>{svc}</h3>
-                  <p style={{ fontSize: 13, color: primary, fontWeight: 600, margin: 0 }}>Available in {data.name} →</p>
+                  <h3 className="s2-city-service-card__title">{svc}</h3>
+                  <p className="s2-city-service-card__link">Available in {data.name} →</p>
                 </div>
               </Link>
             ))}
           </div>
         </div>
-      </section>
+      </PublicSection>
 
       {/* Facts */}
       {data.facts.length > 0 && (
-        <section style={{ padding: '48px 20px', background: '#F5F7FA' }}>
-          <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-            <h2 style={{ fontSize: 'clamp(18px, 2.5vw, 26px)', fontWeight: 800, color: '#1E2D40', margin: '0 0 20px' }}>{data.name} Real Estate — Key Facts for NRIs</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+        <PublicSection alt>
+          <div className="s2-container">
+            <h2 className="s2-public-section-title s2-public-section-title--sm">{data.name} Real Estate — Key Facts for NRIs</h2>
+            <div className="s2-city-facts-grid">
               {data.facts.map((fact, i) => (
-                <div key={i} style={{ background: '#fff', borderRadius: 10, padding: '18px 20px', border: '1px solid #EBF0F8', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                  <span style={{ color: primary, fontWeight: 700, fontSize: 18, flexShrink: 0 }}>✓</span>
-                  <p style={{ margin: 0, fontSize: 14, color: '#374151', lineHeight: 1.6 }}>{fact}</p>
+                <div key={i} className="s2-city-fact-card">
+                  <mark>✓</mark>
+                  <p>{fact}</p>
                 </div>
               ))}
             </div>
           </div>
-        </section>
+        </PublicSection>
       )}
 
-      {/* Process */}
-      <section style={{ padding: '48px 20px', background: '#fff' }}>
-        <div style={{ maxWidth: 900, margin: '0 auto' }}>
-          <h2 style={{ fontSize: 22, fontWeight: 800, color: '#1E2D40', margin: '0 0 24px', textAlign: 'center' }}>How We Manage Your {data.name} Property</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+      <PublicSection>
+        <div className="s2-container s2-container--w900">
+          <h2 className="s2-public-section-title s2-public-section-title--center s2-public-section-title--md">How We Manage Your {data.name} Property</h2>
+          <div className="s2-city-process-grid">
             {[
               { n: '1', t: 'Free Consultation',  d: `Tell us about your ${data.name} property — location, type, current status. We give you a free assessment.` },
               { n: '2', t: 'Property Onboarding', d: 'We visit, photograph, and document your property condition. We handle any repairs needed before renting.' },
@@ -1046,27 +1007,24 @@ export function CityPage() {
               { n: '4', t: 'Agreement & Registration', d: 'Rental agreement is drafted, signed, and registered at the local sub-registrar. You get a certified copy.' },
               { n: '5', t: 'Monthly Management', d: 'Rent collected, bills paid, maintenance coordinated. Monthly statement and photos sent to you every month.' },
             ].map(({ n, t, d }) => (
-              <div key={n} style={{ background: '#F5F7FA', borderRadius: 10, padding: '18px 20px', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-                <div style={{ width: 32, height: 32, background: primary, color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, flexShrink: 0 }}>{n}</div>
+              <div key={n} className="s2-city-process-card">
+                <div className="s2-city-process-card__num">{n}</div>
                 <div>
-                  <div style={{ fontWeight: 700, fontSize: 14, color: '#1E2D40', marginBottom: 4 }}>{t}</div>
-                  <div style={{ fontSize: 13, color: '#555', lineHeight: 1.6 }}>{d}</div>
+                  <div className="s2-city-process-card__title">{t}</div>
+                  <div className="s2-city-process-card__desc">{d}</div>
                 </div>
               </div>
             ))}
           </div>
         </div>
-      </section>
+      </PublicSection>
 
-      {/* CTA */}
-      <section style={{ background: `linear-gradient(135deg, #1E2D40 0%, ${primary} 100%)`, padding: '48px 20px', textAlign: 'center', color: '#fff' }}>
-        <h2 style={{ fontSize: 'clamp(20px, 3vw, 32px)', fontWeight: 800, margin: '0 0 10px' }}>Start Managing Your {data.name} Property Today</h2>
-        <p style={{ fontSize: 15, opacity: 0.85, margin: '0 0 24px', maxWidth: 500, marginLeft: 'auto', marginRight: 'auto' }}>
-          Get a free property assessment and management quote within 24 hours.
-        </p>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link to="/contact" style={{ background: '#fff', color: primary, padding: '13px 28px', borderRadius: 9, fontWeight: 700, fontSize: 15, textDecoration: 'none' }}>Get Free {data.name} Quote →</Link>
-          <Link to="/pricing" style={{ background: 'transparent', color: '#fff', padding: '13px 28px', borderRadius: 9, fontWeight: 600, fontSize: 15, textDecoration: 'none', border: '2px solid rgba(255,255,255,.5)' }}>View Pricing Plans</Link>
+      <section className="s2-public-band-dark s2-marketing-page" style={{ ['--s2-primary' as string]: primary }}>
+        <h2 className="s2-public-band-dark__title">Start Managing Your {data.name} Property Today</h2>
+        <p className="s2-city-cta__sub">Get a free property assessment and management quote within 24 hours.</p>
+        <div className="s2-public-band-dark__actions">
+          <Link to="/contact" className="s2-public-band-dark__btn-primary">Get Free {data.name} Quote →</Link>
+          <Link to="/pricing" className="s2-public-band-dark__btn-ghost">View Pricing Plans</Link>
         </div>
       </section>
     </Layout>
