@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.3] — 2026-10-04 — Cloud Agent
+
+- **Service Page Builder** — Hero Settings panel exposes **Hero content max width** (`hero_settings.container_max`), with inherit/preset/custom; deep-link `?tab=hero`.
+- **Admin Page Builder** sidebar links to external Hero Settings for the current service.
+- **`docs/WIDTH_LAYOUT.md`** documents builder path for per-service hero width.
+
+---
+
 ## [4.7.2] — 2026-10-04 — Cloud Agent
 
 - **Homepage** — all major blocks tagged with `data-s2-section` (hero, services, cities, stats, FAQ, newsletter, app, etc.).
