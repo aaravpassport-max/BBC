@@ -5,6 +5,16 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.6.2] — 2026-10-04 — Cloud Agent
+
+### Public pages + E2E
+
+- **Pricing** page migrated to `PublicLayout` + pricing token CSS.
+- **ServiceDetailPage** shell, wizard, breadcrumb, hero, and footer migrated to `public-service-detail.css` classes.
+- **Playwright** smoke suite (`e2e/smoke.spec.ts`) with mock API static server; runs in CI after build.
+
+---
+
 ## [4.6.1] — 2026-10-04 — Cloud Agent
 
 ### Plug & play

@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Services2NRI E2E</title>
+    <link rel="stylesheet" href="/assets/app.css" />
+    <style>
+      :root {
+        --s2-primary: #4a6fa5;
+        --s2-color-primary: #4a6fa5;
+        --s2-color-secondary: #1e2d40;
+        --s2-color-heading: #1e2d40;
+        --s2-color-body: #334155;
+        --s2-color-muted: #64748b;
+        --s2-color-border: #e2e8f0;
+        --s2-color-divider: #ebf0f8;
+        --s2-color-surface: #fff;
+        --s2-color-surface_alt: #ebf0f8;
+        --s2-color-success: #059669;
+        --s2-color-error: #dc2626;
+        --s2-font-heading: system-ui, sans-serif;
+        --s2-font-body: system-ui, sans-serif;
+        --s2-radius-md: 10px;
+        --s2-radius-lg: 16px;
+        --s2-radius-pill: 999px;
+        --s2-shadow-card: 0 2px 8px rgba(0,0,0,.04);
+        --s2-shadow-lg: 0 12px 40px rgba(15,23,42,.12);
+      }
+    </style>
+    <script>
+      window.S2NRI_CONFIG = {
+        apiBase: '/mock-api',
+        nonce: 'e2e-nonce',
+        portalToken: null,
+        basePath: '',
+        settings: {
+          platform_name: 'Services2NRI E2E',
+          primary_color: '#4A6FA5',
+          platform_whatsapp: '919876543210',
+        },
+        design: {
+          colors: { primary: '#4A6FA5', secondary: '#1E2D40' },
+        },
+      };
+    </script>
+  </head>
+  <body>
+    <div id="s2nri-root"></div>
+    <script type="module" src="/assets/app.js"></script>
+  </body>
+</html>

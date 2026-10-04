@@ -15,6 +15,9 @@ bad() { echo "FAIL $1"; fail=1; }
 [[ -f assets/public-home-sections.css ]] && ok public-home-sections.css || bad public-home-sections.css
 [[ -f assets/public-marketing-sections.css ]] && ok public-marketing-sections.css || bad public-marketing-sections.css
 [[ -f assets/public-pages-layout.css ]] && ok public-pages-layout.css || bad public-pages-layout.css
+[[ -f assets/public-service-detail.css ]] && ok public-service-detail.css || bad public-service-detail.css
+[[ -f playwright.config.ts ]] && ok playwright.config || bad playwright.config
+[[ -f e2e/smoke.spec.ts ]] && ok e2e smoke spec || bad e2e smoke spec
 [[ -f README.md ]] && ok README.md || bad README.md
 [[ -f docs/PLUG_AND_PLAY.md ]] && ok PLUG_AND_PLAY.md || bad PLUG_AND_PLAY.md
 grep -q "ensureSeeded" src/Design/DesignSystem.php && ok design ensureSeeded || bad design ensureSeeded

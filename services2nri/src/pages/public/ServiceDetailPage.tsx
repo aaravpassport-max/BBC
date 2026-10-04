@@ -27,6 +27,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { resolvePrimary } from '@/lib/design-tokens'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
+import { PublicGrid, PublicCard } from '@/components/public/PublicLayout'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { getServiceImage } from '@/lib/images'
@@ -250,24 +251,24 @@ function FieldRenderer({ field, value, onChange, error, primary }: {
 }
 
 // ── Section renderer (Wn — service content sections) ─────────────────────────
-function FaqItem({ q, a, primary }: { q: string; a: string; primary: string }) {
+function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false)
   return (
-    <div style={{ borderBottom: '1px solid #f0f0f0', paddingBottom: 10, marginBottom: 10 }}>
-      <button onClick={() => setOpen(o => !o)} style={{ width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', gap: 10 }}>
-        <span style={{ fontWeight: 700, fontSize: 14, color: '#1E2D40', lineHeight: 1.5 }}>{q}</span>
-        <span style={{ color: primary, fontWeight: 700, fontSize: 16, flexShrink: 0 }}>{open ? '−' : '+'}</span>
+    <div className="s2-svc-faq-inline" style={{ borderBottom: '1px solid var(--s2-color-divider)', paddingBottom: 10, marginBottom: 10 }}>
+      <button type="button" onClick={() => setOpen(o => !o)}>
+        <span>{q}</span>
+        <span className="s2-text-primary">{open ? '−' : '+'}</span>
       </button>
-      {open && <p style={{ fontSize: 13, color: '#555', lineHeight: 1.7, margin: '8px 0 0' }}>{a}</p>}
+      {open && <p className="s2-t-body" style={{ margin: '8px 0 0', fontSize: '0.8125rem' }}>{a}</p>}
     </div>
   )
 }
 
 function SectionRenderer({ sec, primary }: { sec: ServiceSection; primary: string }) {
   const r = (sec.content || {}) as Record<string, unknown>
-  const wrap = (children: React.ReactNode, style: React.CSSProperties = {}) => (
-    <div style={{ background: '#fff', border: '1px solid #EBF0F8', borderRadius: 12, padding: '24px 28px', marginBottom: 22, ...style }}>
-      {sec.title && <h3 style={{ fontSize: 16, fontWeight: 800, color: '#1E2D40', margin: '0 0 14px' }}>{sec.title}</h3>}
+  const wrap = (children: React.ReactNode, extraClass = '') => (
+    <div className={`s2-svc-block ${extraClass}`.trim()}>
+      {sec.title && <h3 className="s2-svc-block__title">{sec.title}</h3>}
       {children}
     </div>
   )
@@ -308,7 +309,7 @@ function SectionRenderer({ sec, primary }: { sec: ServiceSection; primary: strin
         </div>
       ))}</div>)
     case 'faq':
-      return wrap(<div>{((r.items as Array<{ q: string; a: string }>) || []).map((item, i) => <FaqItem key={i} q={item.q} a={item.a} primary={primary} />)}</div>)
+      return wrap(<div>{((r.items as Array<{ q: string; a: string }>) || []).map((item, i) => <FaqItem key={i} q={item.q} a={item.a} />)}</div>)
     case 'benefits':
       return wrap(<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
         {((r.items as Array<{ icon?: string; text: string }>) || []).map((item, i) => (
@@ -581,34 +582,29 @@ export function ServiceDetailPage() {
   // ── Loading ──────────────────────────────────────────────────────────────────
   if (loading) return (
     <Layout>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <div style={{ width: 52, height: 52, border: `4px solid ${primary}30`, borderTop: `4px solid ${primary}`, borderRadius: '50%', animation: 'spin .7s linear infinite' }} />
+      <div className="s2-svc-spinner-wrap">
+        <div className="s2-svc-spinner" aria-label="Loading service" />
       </div>
     </Layout>
   )
 
   if (loadFailed) return (
     <Layout>
-      <div style={{ textAlign: 'center', padding: '80px 20px' }}>
+      <div className="s2-svc-state">
         <div style={{ fontSize: 56, marginBottom: 16 }}>⚠️</div>
-        <h2 style={{ color: '#374151', marginBottom: 12 }}>Couldn't load this page</h2>
-        <p style={{ color: '#6b7280', marginBottom: 20 }}>Something went wrong on our end. Please try again.</p>
-        <button
-          onClick={loadService}
-          style={{ background: primary, color: '#fff', border: 'none', padding: '10px 24px', borderRadius: 8, fontWeight: 700, cursor: 'pointer', fontSize: 14 }}
-        >
-          Retry
-        </button>
+        <h2 className="s2-t-h2">Couldn't load this page</h2>
+        <p className="s2-t-body" style={{ marginBottom: 20 }}>Something went wrong on our end. Please try again.</p>
+        <button type="button" onClick={loadService} className="s2-btn s2-btn--primary">Retry</button>
       </div>
     </Layout>
   )
 
   if (!svc) return (
     <Layout>
-      <div style={{ textAlign: 'center', padding: '80px 20px' }}>
+      <div className="s2-svc-state">
         <div style={{ fontSize: 56, marginBottom: 16 }}>🔍</div>
-        <h2 style={{ color: '#374151', marginBottom: 12 }}>Service not found</h2>
-        <Link to="/services" style={{ color: primary, fontWeight: 700, fontSize: 15 }}>← Browse All Services</Link>
+        <h2 className="s2-t-h2">Service not found</h2>
+        <Link to="/services" className="s2-btn s2-btn--ghost">← Browse All Services</Link>
       </div>
     </Layout>
   )
@@ -666,49 +662,46 @@ export function ServiceDetailPage() {
 
   return (
     <Layout>
-      {/* Breadcrumb */}
-      <div style={{ background: '#F5F7FA', borderBottom: '1px solid #EBF0F8', padding: '10px 20px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', fontSize: 13, color: '#666', display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Link to="/" style={{ color: primary, textDecoration: 'none' }}>Home</Link>
+      <div className="s2-svc-breadcrumb">
+        <div className="s2-svc-breadcrumb__inner">
+          <Link to="/">Home</Link>
           <span>›</span>
-          <Link to="/services" style={{ color: primary, textDecoration: 'none' }}>Services</Link>
-          {svc.category_name && <><span>›</span><Link to={`/services/${svc.category_slug}`} style={{ color: primary, textDecoration: 'none' }}>{svc.category_name}</Link></>}
+          <Link to="/services">Services</Link>
+          {svc.category_name && <><span>›</span><Link to={`/services/${svc.category_slug}`}>{svc.category_name}</Link></>}
           <span>›</span>
-          <span style={{ color: '#444', fontWeight: 600 }}>{svc.name}</span>
+          <span className="s2-svc-breadcrumb__current">{svc.name}</span>
         </div>
       </div>
 
       {/* Issue 8: Marquee — positioned immediately after hero/breadcrumb, before sections */}
       {marquee && marquee.enabled && marquee.text ? (
-        <div style={{
-          overflow: 'hidden', background: String(marquee.bg_color || primary),
-          color: String(marquee.text_color || '#fff'), padding: '10px 0',
-          fontSize: 14, fontWeight: 600,
-        }}>
-          <style>{`@keyframes s2-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}`}</style>
-          <div style={{
-            display: 'flex', whiteSpace: 'nowrap',
-            animation: `s2-marquee ${Number(marquee.speed) || 30}s linear infinite`,
-          }}>
-            <span style={{ paddingRight: 80 }}>{String(marquee.text)}</span>
-            <span style={{ paddingRight: 80 }}>{String(marquee.text)}</span>
+        <div
+          className="s2-svc-marquee"
+          style={{
+            ['--s2-marquee-bg' as string]: String(marquee.bg_color || 'var(--s2-color-primary)'),
+            ['--s2-marquee-fg' as string]: String(marquee.text_color || '#fff'),
+            ['--s2-marquee-duration' as string]: `${Number(marquee.speed) || 30}s`,
+          }}
+        >
+          <div className="s2-svc-marquee__track">
+            <span>{String(marquee.text)}</span>
+            <span>{String(marquee.text)}</span>
           </div>
         </div>
       ) : null}
 
-      {/* 2-col layout: [section nav + content] + [booking wizard] */}
-      <div className="svc-grid" style={{ maxWidth: 1200, margin: '0 auto', padding: '36px 20px 60px', display: 'grid', gridTemplateColumns: '1fr 420px', gap: 40, alignItems: 'flex-start' }}>
+      <div className="s2-svc-layout svc-grid">
 
         {/* Left: service info */}
         <div>
           {/* Hero */}
-          <div style={{ borderRadius: 14, overflow: 'hidden', marginBottom: 28, position: 'relative', height: heroHeight }}>
-            <img src={heroImg} alt={heroTitle} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-            <div style={{ position: 'absolute', inset: 0, background: `linear-gradient(to top, ${heroOverlay} 0%, transparent 50%)` }} />
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '20px 24px', textAlign: heroAlign as React.CSSProperties['textAlign'] }}>
-              {svc.category_name && <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: primary, color: '#fff', padding: '4px 12px', borderRadius: 99, fontSize: 12, fontWeight: 700, marginBottom: 8 }}>{svc.category_name}</div>}
-              <h1 style={{ color: '#fff', fontSize: 'clamp(20px, 3vw, 28px)', fontWeight: 900, margin: 0, lineHeight: 1.2, textShadow: '0 2px 8px rgba(0,0,0,.4)' }}>{heroTitle}</h1>
-              {hero && hero.subtitle ? <p style={{ color: 'rgba(255,255,255,.85)', margin: '6px 0 0', fontSize: 14 }}>{String(hero.subtitle)}</p> : null}
+          <div className="s2-svc-hero" style={{ height: heroHeight, ['--s2-hero-overlay' as string]: heroOverlay, textAlign: heroAlign as React.CSSProperties['textAlign'] }}>
+            <img src={heroImg} alt={heroTitle} />
+            <div className="s2-svc-hero__shade" />
+            <div className="s2-svc-hero__content">
+              {svc.category_name && <div className="s2-svc-hero__badge">{svc.category_name}</div>}
+              <h1 className="s2-svc-hero__title">{heroTitle}</h1>
+              {hero && hero.subtitle ? <p className="s2-svc-hero__sub">{String(hero.subtitle)}</p> : null}
               {/* Issue 5: CTA buttons from hero_settings */}
               {hero && (hero.cta_text || hero.cta2_text) ? (
                 <div style={{ display: 'flex', gap: 10, marginTop: 12, justifyContent: heroAlign === 'center' ? 'center' : 'flex-start', flexWrap: 'wrap' }}>
@@ -736,9 +729,9 @@ export function ServiceDetailPage() {
               })
             : <>
                 {/* Trust badges */}
-                <div className="s2-mobile-stack" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 28 }}>
+                <div className="s2-svc-trust-grid s2-mobile-stack">
                   {[{ icon: '⭐', val: settings.google_rating || '4.9', label: 'Google Rating' }, { icon: '👥', val: settings.google_review_count || '10,000+', label: 'Happy Customers' }, { icon: '🌏', val: '750+', label: 'Pan India Coverage' }].map(({ icon, val, label }) => (
-                    <div key={label} style={{ background: primary, color: '#fff', borderRadius: 10, padding: '18px 16px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+                    <div key={label} className="s2-svc-trust-tile">
                       <div style={{ fontSize: 28 }}>{icon}</div>
                       <div style={{ fontWeight: 900, fontSize: 22, lineHeight: 1 }}>{val}</div>
                       <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 500 }}>{label}</div>
@@ -771,10 +764,9 @@ export function ServiceDetailPage() {
         </div>
 
         {/* Right: sticky booking wizard */}
-        <div id="booking-form" style={{ position: 'sticky', top: 80 }}>
+        <div id="booking-form" className="s2-svc-wizard-sticky">
 
-          {/* ── Gradient header with step tracker ── */}
-          <div style={{ background: `linear-gradient(135deg, #1E2D40 0%, ${primary} 100%)`, padding: '20px 24px 0', borderRadius: '16px 16px 0 0', userSelect: 'none' }}>
+          <div className="s2-svc-wizard-head">
             {/* Service name + meta */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
               <div style={{ width: 48, height: 48, background: 'rgba(255,255,255,.18)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>
@@ -822,22 +814,17 @@ export function ServiceDetailPage() {
             </div>
           </div>
 
-          {/* ── Form card ── */}
-          <div style={{ background: '#fff', borderRadius: '0 0 16px 16px', boxShadow: '0 6px 36px rgba(0,0,0,.12)' }}>
-            {/* Step header */}
-            <div style={{ padding: '18px 24px 14px', borderBottom: '1px solid #f0f0f0' }}>
-              <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: 2.5, color: primary, marginBottom: 3 }}>
+          <div className="s2-svc-wizard-card">
+            <div className="s2-svc-wizard-step-hdr">
+              <div className="s2-svc-wizard-step-label">
                 Step {stepIdx + 1} of {totalSteps}
               </div>
-              <h2 style={{ fontSize: 19, fontWeight: 800, color: '#1E2D40', margin: 0 }}>{stepLabel}</h2>
+              <h2 className="s2-svc-wizard-step-title">{stepLabel}</h2>
             </div>
 
-            {/* Fields */}
-            <div style={{ padding: '20px 24px' }}>
+            <div className="s2-svc-wizard-body">
               {apiError && (
-                <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 9, padding: '12px 16px', marginBottom: 20, color: '#b91c1c', fontSize: 14, fontWeight: 600 }}>
-                  ⚠ {apiError}
-                </div>
+                <div className="s2-svc-alert-error">⚠ {apiError}</div>
               )}
 
               {/* Show service overview on step 1 if no fields */}
@@ -930,10 +917,8 @@ export function ServiceDetailPage() {
               )}
             </div>
 
-            {/* Navigation footer */}
-            <div style={{ padding: '16px 24px 22px', borderTop: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-              <button type="button" onClick={prev}
-                style={{ background: '#f3f4f6', color: '#374151', border: 'none', padding: '12px 22px', borderRadius: 9, fontWeight: 600, fontSize: 15, cursor: 'pointer', flexShrink: 0 }}>
+            <div className="s2-svc-wizard-foot">
+              <button type="button" onClick={prev} className="s2-btn s2-btn--ghost">
                 ← {stepIdx === 0 ? 'Back' : 'Previous'}
               </button>
 
@@ -945,33 +930,26 @@ export function ServiceDetailPage() {
               </div>
 
               {!isConfirm ? (
-                <button type="button" onClick={next}
-                  style={{ background: primary, color: '#fff', border: 'none', padding: '12px 26px', borderRadius: 9, fontWeight: 700, fontSize: 15, cursor: 'pointer', flexShrink: 0 }}>
+                <button type="button" onClick={next} className="s2-btn s2-btn--primary">
                   Next Step →
                 </button>
               ) : (
-                <button type="button" onClick={submit} disabled={submitting || !user}
-                  style={{ background: user ? primary : '#9ca3af', color: '#fff', border: 'none', padding: '13px 28px', borderRadius: 9, fontWeight: 700, fontSize: 15, cursor: user ? 'pointer' : 'not-allowed', opacity: submitting ? 0.75 : 1, display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-                  {submitting ? (
-                    <><div style={{ width: 18, height: 18, border: '3px solid rgba(255,255,255,.4)', borderTop: '3px solid #fff', borderRadius: '50%', animation: 'spin .7s linear infinite' }} />Submitting…</>
-                  ) : '⚡ Submit Request'}
+                <button type="button" onClick={submit} disabled={submitting || !user} className="s2-btn s2-btn--primary">
+                  {submitting ? 'Submitting…' : '⚡ Submit Request'}
                 </button>
               )}
             </div>
 
-            {/* Trust signals */}
-            <div style={{ display: 'flex', justifyContent: 'center', gap: 16, padding: '0 20px 18px', flexWrap: 'wrap' }}>
-              {['🔒 256-bit SSL','📧 Quote in 24h','💰 Pay after approval','✅ 10,000+ NRIs'].map(s => (
-                <span key={s} style={{ fontSize: 11, color: '#9ca3af' }}>{s}</span>
+            <div className="s2-svc-wizard-trust">
+              {['🔒 256-bit SSL', '📧 Quote in 24h', '💰 Pay after approval', '✅ 10,000+ NRIs'].map(s => (
+                <span key={s}>{s}</span>
               ))}
             </div>
           </div>
 
-          {/* WhatsApp fallback */}
           {waNum && (
             <div style={{ marginTop: 14, textAlign: 'center' }}>
-              <a href={`https://wa.me/${String(waNum).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: '#25d366', color: '#fff', padding: '10px 22px', borderRadius: 10, fontSize: 14, fontWeight: 700, textDecoration: 'none' }}>
+              <a href={`https://wa.me/${String(waNum).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="s2-btn s2-btn--whatsapp">
                 💬 Prefer WhatsApp? Chat with Us
               </a>
             </div>
@@ -979,28 +957,29 @@ export function ServiceDetailPage() {
         </div>
       </div>
 
-      {/* Why choose us */}
-      <section style={{ background: '#F5F7FA', padding: '48px 20px', borderTop: '1px solid #EBF0F8' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <h2 style={{ textAlign: 'center', fontSize: 'clamp(18px, 2.5vw, 26px)', fontWeight: 800, color: '#1E2D40', margin: '0 0 24px' }}>Why Choose {siteName}?</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 16 }}>
+      <section className="s2-svc-why">
+        <div className="s2-svc-why__inner">
+          <h2 className="s2-svc-why__title">Why Choose {siteName}?</h2>
+          <PublicGrid min={250}>
             {[
-              { icon: '🔐', t: 'Secure Platform',         d: 'AES-256 encrypted document storage. Never shared or emailed.' },
-              { icon: '📊', t: 'Real-Time Tracking',      d: 'Track every step in your dashboard. No black boxes.' },
-              { icon: '💰', t: 'Money-Back Guarantee',    d: 'If we cannot deliver, you receive a full refund.' },
-              { icon: '🌍', t: 'Global NRI Coverage',     d: 'Serving NRIs in 50+ countries with India-based execution.' },
-              { icon: '⚡', t: 'Fast Turnaround',         d: 'Most services delivered in 7–30 days from submission.' },
-              { icon: '🏆', t: 'Startup India Recognised',d: 'Government recognised. Professionally managed.' },
+              { icon: '🔐', t: 'Secure Platform', d: 'AES-256 encrypted document storage. Never shared or emailed.' },
+              { icon: '📊', t: 'Real-Time Tracking', d: 'Track every step in your dashboard. No black boxes.' },
+              { icon: '💰', t: 'Money-Back Guarantee', d: 'If we cannot deliver, you receive a full refund.' },
+              { icon: '🌍', t: 'Global NRI Coverage', d: 'Serving NRIs in 50+ countries with India-based execution.' },
+              { icon: '⚡', t: 'Fast Turnaround', d: 'Most services delivered in 7–30 days from submission.' },
+              { icon: '🏆', t: 'Startup India Recognised', d: 'Government recognised. Professionally managed.' },
             ].map(({ icon, t, d }) => (
-              <div key={t} style={{ background: '#fff', border: '1px solid #EBF0F8', borderRadius: 12, padding: 20, display: 'flex', gap: 12 }}>
-                <div style={{ width: 44, height: 44, background: `${primary}15`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{icon}</div>
-                <div>
-                  <h4 style={{ fontSize: 14, fontWeight: 700, color: '#1E2D40', margin: '0 0 4px' }}>{t}</h4>
-                  <p style={{ fontSize: 13, color: '#666', lineHeight: 1.5, margin: 0 }}>{d}</p>
+              <PublicCard key={t}>
+                <div className="s2-public-contact-row" style={{ marginBottom: 0 }}>
+                  <div className="s2-public-contact-icon">{icon}</div>
+                  <div>
+                    <h4 className="s2-public-card__title" style={{ fontSize: 14 }}>{t}</h4>
+                    <p className="s2-public-card__body" style={{ fontSize: 13 }}>{d}</p>
+                  </div>
                 </div>
-              </div>
+              </PublicCard>
             ))}
-          </div>
+          </PublicGrid>
         </div>
       </section>
     </Layout>
