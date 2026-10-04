@@ -283,5 +283,8 @@ img { max-width: 100%; height: auto; }
 
   /* Reserve space so the fixed bar never covers footer/page content */
   .s2-page-wrap { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
-  .s2-dash-content-wrap { padding-bottom: calc(64px + env(safe-area-inset-bottom)) !important; }
+  .s2-dash-content-wrap {
+    padding-bottom: calc(64px + env(safe-area-inset-bottom)) !important;
+    background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 120px, #f9fafb 100%);
+  }
 }

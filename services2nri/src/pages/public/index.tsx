@@ -248,7 +248,16 @@ export function HowItWorksPage() {
 
   return (
     <Layout>
-      <PageHero title="How It Works" subtitle="Get your NRI service done in 6 simple steps — from anywhere in the world." primary={primary} />
+      <PageHero
+        title="How It Works"
+        subtitle="Get your NRI service done in 6 simple steps — from anywhere in the world."
+        primary={primary}
+        meta={[
+          { icon: '📝', label: 'Submit online' },
+          { icon: '💬', label: 'Quote in 24h' },
+          { icon: '✅', label: 'Pay after approval' },
+        ]}
+      />
       <section className="s2-public-how-section s2-marketing-page">
         <div className="s2-container s2-width-wide">
           {steps.map(({ n, icon, t, d }, i) => (
@@ -307,7 +316,15 @@ export function FAQPage() {
 
   return (
     <Layout>
-      <PageHero title="Frequently Asked Questions" subtitle="Everything you need to know before placing a service request." primary={primary} />
+      <PageHero
+        title="Frequently Asked Questions"
+        subtitle="Everything you need to know before placing a service request."
+        primary={primary}
+        meta={[
+          { icon: '⚡', label: 'Fast responses' },
+          { icon: '🛡️', label: 'Transparent process' },
+        ]}
+      />
       <PublicSection className="s2-public-faq" sectionKey="faq" width="narrow">
         <div className="s2-container s2-width-narrow">
           {loading ? (

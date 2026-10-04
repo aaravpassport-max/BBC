@@ -27,6 +27,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { cssVars, resolvePrimary } from '@/lib/design-tokens'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
+import { ServiceMobileStickyCta } from '@/components/public/ServiceMobileStickyCta'
 import { PublicGrid, PublicCard } from '@/components/public/PublicLayout'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
@@ -257,12 +258,31 @@ function FieldRenderer({ field, value, onChange, error }: {
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false)
   return (
-    <div className="s2-svc-faq-inline">
-      <button type="button" onClick={() => setOpen(o => !o)}>
+    <div className={`s2-svc-faq-inline${open ? ' s2-public-faq-item--open' : ''}`}>
+      <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open}>
         <span>{q}</span>
-        <span className="s2-text-primary">{open ? '−' : '+'}</span>
+        <span className="s2-public-faq-toggle" aria-hidden>{open ? '−' : '+'}</span>
       </button>
       {open && <p className="s2-t-body s2-svc-faq-inline__answer">{a}</p>}
+    </div>
+  )
+}
+
+type FeeRow = { label: string; amount: string; total?: boolean }
+
+function FeeBreakdown({ rows }: { rows: FeeRow[] }) {
+  return (
+    <div className="s2-fee-breakdown" role="table" aria-label="Fee breakdown">
+      {rows.map((row, i) => (
+        <div
+          key={`${row.label}-${i}`}
+          className={`s2-fee-breakdown__row${row.total ? ' s2-fee-breakdown__row--total' : ''}`}
+          role="row"
+        >
+          <span role="cell">{row.label}</span>
+          <strong role="cell">{row.amount}</strong>
+        </div>
+      ))}
     </div>
   )
 }
@@ -293,6 +313,7 @@ function SectionRenderer({ sec }: { sec: ServiceSection; primary: string }) {
   const wrap = (children: React.ReactNode, extraClass = '', section = sectionKey) => (
     <div
       className={`s2-svc-block s2-section-inner s2-width-standard ${extraClass}`.trim()}
+      data-s2-reveal=""
       {...(section ? { 'data-s2-section': section } : {})}
     >
       {sec.title && <h3 className="s2-svc-block__title">{sec.title}</h3>}
@@ -304,8 +325,9 @@ function SectionRenderer({ sec }: { sec: ServiceSection; primary: string }) {
       const badges = (r.badges as Array<{ icon: string; value: string; label: string }>) || []
       return (
         <div
-          className="s2-svc-trust-grid s2-svc-trust-grid--auto s2-mobile-stack"
+          className="s2-svc-trust-grid s2-svc-trust-grid--auto s2-mobile-stack s2-stagger"
           data-s2-section="trust_badges"
+          data-s2-reveal=""
           style={cssVars({ 's2-trust-cols': badges.length || 3 })}
         >
           {badges.map((b, i) => (
@@ -321,7 +343,7 @@ function SectionRenderer({ sec }: { sec: ServiceSection; primary: string }) {
     case 'why_choose': {
       const cards = (r.cards as Array<{ icon: string; title: string; desc: string }>) || []
       return (
-        <section className="s2-svc-panel s2-section-inner s2-width-standard" data-s2-section="features">
+        <section className="s2-svc-panel s2-section-inner s2-width-standard" data-s2-section="features" data-s2-reveal="">
           {sec.title && <h3 className="s2-svc-panel__title">{sec.title}</h3>}
           <PublicGrid min={220}>
             {cards.map((c, i) => (
@@ -337,29 +359,52 @@ function SectionRenderer({ sec }: { sec: ServiceSection; primary: string }) {
         </section>
       )
     }
-    case 'description': case 'security': case 'charges': case 'text':
+    case 'description': case 'security': case 'text':
       return (
         <div
           className={`s2-svc-block s2-section-inner s2-width-standard${sec.type === 'security' ? ' s2-svc-block--security' : ''}`}
           data-s2-section={sectionKey || 'description'}
+          data-s2-reveal=""
         >
           {!!(r.heading as string || sec.title) && (
             <h2 className={`s2-svc-block__title${sec.type === 'description' ? ' s2-svc-block__title--lg' : ''}`}>{r.heading as string || sec.title}</h2>
           )}
           {!!r.html && <div className="s2-svc-prose" dangerouslySetInnerHTML={{ __html: String(r.html) }} />}
-          {sec.type === 'charges' && !!r.note && <div className="s2-svc-pill-note">{'📦 ' + String(r.note)}</div>}
         </div>
       )
-    case 'process':
-      return wrap(<div>{((r.steps as Array<{ title: string; desc: string }>) || []).map((s, i) => (
-        <div key={i} className="s2-svc-step-row">
-          <div className="s2-svc-step-num">{i + 1}</div>
-          <div>
-            <div className="s2-public-card__title s2-public-card__title--sm">{s.title}</div>
-            <div className="s2-public-card__body s2-public-card__body--sm">{s.desc}</div>
-          </div>
+    case 'charges': {
+      const feeRows = (r.rows as FeeRow[]) || (r.line_items as FeeRow[]) || []
+      return (
+        <div
+          className="s2-svc-block s2-svc-block--charges s2-section-inner s2-width-standard"
+          data-s2-section="pricing"
+          data-s2-reveal=""
+        >
+          {!!(r.heading as string || sec.title) && (
+            <h2 className="s2-svc-block__title">{r.heading as string || sec.title}</h2>
+          )}
+          {!!r.html && <div className="s2-svc-prose" dangerouslySetInnerHTML={{ __html: String(r.html) }} />}
+          {feeRows.length > 0 && <FeeBreakdown rows={feeRows} />}
+          {!!r.note && <div className="s2-svc-pill-note">{'📦 ' + String(r.note)}</div>}
         </div>
-      ))}</div>)
+      )
+    }
+    case 'process':
+      return wrap(
+        <div className="s2-svc-process-journey s2-stagger">
+          {((r.steps as Array<{ title: string; desc: string }>) || []).map((s, i) => (
+            <div key={i} className="s2-svc-step-row">
+              <div className="s2-svc-step-num">{i + 1}</div>
+              <div>
+                <div className="s2-public-card__title s2-public-card__title--sm">{s.title}</div>
+                <div className="s2-public-card__body s2-public-card__body--sm">{s.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>,
+        '',
+        'process',
+      )
     case 'faq':
       return wrap(<div>{((r.items as Array<{ q: string; a: string }>) || []).map((item, i) => <FaqItem key={i} q={item.q} a={item.a} />)}</div>)
     case 'benefits':
@@ -380,7 +425,7 @@ function SectionRenderer({ sec }: { sec: ServiceSection; primary: string }) {
       return wrap(<ul className="s2-svc-prose s2-svc-prose-list">{((r.items as string[]) || []).map((item, i) => <li key={i}>{item}</li>)}</ul>)
     case 'cta':
       return (
-        <div className="s2-svc-cta-band s2-section-inner s2-width-wide" data-s2-section="cta">
+        <div className="s2-svc-cta-band s2-surface-dark s2-section-inner s2-width-wide" data-s2-section="cta" data-s2-reveal="">
           {!!(sec.title || r.headline) && <h3 className="s2-t-h3">{sec.title || String(r.headline)}</h3>}
           {!!r.sub && <p className="s2-t-body">{String(r.sub)}</p>}
           {!!r.btn && <a href={String(r.url || '#booking-form')} className="s2-btn s2-btn--secondary s2-svc-cta-band__btn">{String(r.btn)}</a>}
@@ -426,16 +471,18 @@ function SectionRenderer({ sec }: { sec: ServiceSection; primary: string }) {
 // ── Fallback content ──────────────────────────────────────────────────────────
 function FallbackContent({ svc, siteName }: { svc: Service; primary: string; siteName: string }) {
   return <>
-    <div className="s2-svc-block">
+    <div className="s2-svc-block" data-s2-reveal="">
       <h3 className="s2-svc-block__title">How the Process Works</h3>
+      <div className="s2-svc-process-journey s2-stagger">
       {[['Submit Request','Fill the form in steps. No login needed to start.'],['Document Review','Our expert team reviews your submission within 24 hours.'],['Get Quote','Receive a detailed, itemised quote. Pay only after approval.'],['Processing','We handle everything in India with real-time updates.'],['Delivery','Documents delivered to your overseas address by courier.']].map(([t, d], i) => (
         <div key={i} className="s2-svc-step-row">
           <div className="s2-svc-step-num">{i + 1}</div>
           <div><div className="s2-public-card__title s2-public-card__title--sm">{t}</div><div className="s2-public-card__body s2-public-card__body--sm">{d}</div></div>
         </div>
       ))}
+      </div>
     </div>
-    <div className="s2-svc-block s2-svc-block--security">
+    <div className="s2-svc-block s2-svc-block--security" data-s2-reveal="">
       <h3 className="s2-svc-block__title">🔐 Is My Data Secure?</h3>
       <p className="s2-svc-prose">{siteName} uses AES-256 encryption for all document uploads. Documents are never shared via email or WhatsApp and are permanently deleted after service completion.</p>
     </div>
@@ -701,8 +748,9 @@ export function ServiceDetailPage() {
   )
 
   const img = svc.image_url || getServiceImage(slug || '')
-  const hero = (svc as unknown as Record<string, unknown>).hero_settings as Record<string, unknown> | null | undefined
-  const marquee = (svc as unknown as Record<string, unknown>).marquee_settings as Record<string, unknown> | null | undefined
+  const svcMeta = svc as unknown as { hero_settings?: Record<string, unknown>; marquee_settings?: Record<string, unknown> }
+  const hero = svcMeta.hero_settings
+  const marquee = svcMeta.marquee_settings
 
   // Issue 5: hero image/title/overlay from builder settings or fallback to defaults
   const heroImg     = hero && hero.enabled !== false && hero.image_url ? String(hero.image_url) : img
@@ -747,7 +795,8 @@ export function ServiceDetailPage() {
         </div>
       ) : null}
 
-      <div className="s2-svc-layout svc-grid">
+      <div className="s2-svc-page-main">
+      <div className="s2-svc-layout svc-grid s2-svc-layout--with-mobile-cta">
 
         {/* Left: service info */}
         <div>
@@ -778,6 +827,13 @@ export function ServiceDetailPage() {
                   {hero.cta2_text ? <a href={String(hero.cta2_url || '#booking-form')} className="s2-svc-hero__cta s2-svc-hero__cta--ghost">{String(hero.cta2_text)}</a> : null}
                 </div>
               ) : null}
+              <div className="s2-svc-hero__meta">
+                {(svc.turnaround_days || svc.turnaround) && (
+                  <span className="s2-svc-hero__meta-chip">⏱ {svc.turnaround_days || svc.turnaround} day turnaround</span>
+                )}
+                {svc.price_range && <span className="s2-svc-hero__meta-chip">💰 From {svc.price_range}</span>}
+                <span className="s2-svc-hero__meta-chip">🔒 Secure & encrypted</span>
+              </div>
             </div>
           </div>
 
@@ -791,7 +847,7 @@ export function ServiceDetailPage() {
                   dv.mobile  === false ? 's2-hide-mobile'  : '',
                 ].filter(Boolean).join(' ') : ''
                 return (
-                  <div key={sec.id} className={dvClass || undefined}>
+                  <div key={sec.id} className={`s2-svc-section-wrap${dvClass ? ` ${dvClass}` : ''}`}>
                     <SectionRenderer sec={sec} primary={primary} />
                   </div>
                 )
@@ -1019,8 +1075,15 @@ export function ServiceDetailPage() {
           )}
         </div>
       </div>
+      </div>
 
-      <section className="s2-svc-why">
+      <ServiceMobileStickyCta
+        label="Start Request"
+        secondaryLabel={waNum ? 'WhatsApp' : undefined}
+        secondaryHref={waNum ? `https://wa.me/${String(waNum).replace(/\D/g, '')}` : undefined}
+      />
+
+      <section className="s2-svc-why s2-experience-section" data-s2-reveal="">
         <div className="s2-svc-why__inner">
           <h2 className="s2-svc-why__title">Why Choose {siteName}?</h2>
           <PublicGrid min={250}>

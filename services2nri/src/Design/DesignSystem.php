@@ -554,6 +554,9 @@ class DesignSystem {
         $css .= file_exists( S2NRI_DIR . 'assets/public-platform-experience.css' )
             ? file_get_contents( S2NRI_DIR . 'assets/public-platform-experience.css' )
             : '';
+        $css .= file_exists( S2NRI_DIR . 'assets/public-service-experience.css' )
+            ? file_get_contents( S2NRI_DIR . 'assets/public-service-experience.css' )
+            : '';
         $css .= WidthLayout::renderScopeCss( $config, $ctx );
         $css .= self::renderSectionOverrideCss( $config );
         if ( ! empty( $config['motion']['reduce_motion'] ) ) {

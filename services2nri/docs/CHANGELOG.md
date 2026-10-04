@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.38] — 2026-10-04 — Cloud Agent
+
+- **Service journey:** trust tile depth, visual process timeline, fee breakdown component (`rows` / `line_items` on charges sections), hero meta chips, mobile sticky CTA above bottom nav.
+- **Marketing heroes:** optional trust/meta chips on `PageHero` (FAQ, How It Works) and services directory hero.
+- **`public-service-experience.css`:** service-detail styling layered on platform experience; portal mobile background polish.
+
+---
+
 ## [4.7.37] — 2026-10-04 — Cloud Agent
 
 - **Platform experience layer:** `public-platform-experience.css` — section bands, premium hero glow, unified card/button motion, pricing emphasis, process/testimonial depth, FAQ micro-motion (reduced-motion safe).

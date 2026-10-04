@@ -60,4 +60,12 @@ test.describe('Service detail smoke', () => {
     await expect(page.locator('#booking-form')).toBeVisible();
     await expect(page.getByRole('button', { name: /Next Step/i })).toBeVisible();
   });
+
+  test('service detail mobile sticky CTA links to wizard', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/service/complete-property-management');
+    const sticky = page.locator('.s2-svc-mobile-cta');
+    await expect(sticky).toBeVisible({ timeout: 25_000 });
+    await expect(sticky.getByRole('link', { name: /Start Request/i })).toHaveAttribute('href', '#booking-form');
+  });
 });

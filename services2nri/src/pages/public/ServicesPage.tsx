@@ -80,6 +80,11 @@ export function ServicesPage() {
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Search services"
             />
+            <div className="s2-page-hero__meta">
+              <span className="s2-hero-meta-chip">🌐 Trusted by NRIs worldwide</span>
+              <span className="s2-hero-meta-chip">⚡ Quote within 24 hours</span>
+              <span className="s2-hero-meta-chip">🔒 Secure document handling</span>
+            </div>
           </div>
         </section>
 

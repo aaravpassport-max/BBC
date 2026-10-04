@@ -845,8 +845,9 @@ interface PageHeroProps {
   subtitle?: string
   bg?: string
   primary?: string
+  meta?: { icon?: string; label: string }[]
 }
-export function PageHero({ title, subtitle, bg }: PageHeroProps) {
+export function PageHero({ title, subtitle, bg, meta }: PageHeroProps) {
   return (
     <div
       className="s2-page-hero s2-surface-dark s2-hero--premium"
@@ -861,6 +862,16 @@ export function PageHero({ title, subtitle, bg }: PageHeroProps) {
         </div>
         <h1 className="s2-page-hero__title">{title}</h1>
         {subtitle && <p className="s2-page-hero__subtitle">{subtitle}</p>}
+        {meta && meta.length > 0 && (
+          <div className="s2-page-hero__meta">
+            {meta.map((m) => (
+              <span key={m.label} className="s2-hero-meta-chip">
+                {m.icon ? <span aria-hidden>{m.icon}</span> : null}
+                {m.label}
+              </span>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   )
