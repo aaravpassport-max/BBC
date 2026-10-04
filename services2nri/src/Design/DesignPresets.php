@@ -108,6 +108,10 @@ class DesignPresets {
                 'spacing' => [ 'section_y' => '72px', 'grid_gap' => '24px' ],
                 'radius' => [ 'md' => '12px', 'lg' => '16px', 'pill' => '999px' ],
                 'shadow' => [ 'card' => '0 8px 30px rgba(15,23,42,.08)' ],
+                'typography' => [
+                    'page_title' => [ 'size_desktop' => '2.875rem', 'size_tablet' => '2.375rem', 'size_mobile' => '2rem' ],
+                    'h1'         => [ 'size_desktop' => '2.875rem', 'size_tablet' => '2.375rem', 'size_mobile' => '2rem' ],
+                ],
             ],
             'premium' => [
                 'colors' => [
@@ -125,6 +129,10 @@ class DesignPresets {
                         'footer_heading_text' => '#C9A227',
                     ],
                 ],
+                'typography' => [
+                    'page_title' => [ 'size_desktop' => '3rem', 'size_tablet' => '2.5rem', 'size_mobile' => '2rem' ],
+                    'h1'         => [ 'size_desktop' => '3rem', 'size_tablet' => '2.5rem', 'size_mobile' => '2rem' ],
+                ],
             ],
             'corporate' => [
                 'colors' => [
@@ -138,6 +146,10 @@ class DesignPresets {
                 'radius' => [ 'md' => '8px', 'lg' => '12px', 'pill' => '8px' ],
                 'shadow' => [ 'card' => '0 4px 20px rgba(26,26,46,.08)' ],
                 'chrome' => [ 'global' => [ 'header_variant' => 'compact', 'header_height_px' => '60' ] ],
+                'typography' => [
+                    'h1' => [ 'size_desktop' => '2.375rem', 'size_tablet' => '2.125rem', 'size_mobile' => '1.75rem' ],
+                    'h2' => [ 'size_desktop' => '1.75rem', 'size_tablet' => '1.5rem', 'size_mobile' => '1.375rem' ],
+                ],
             ],
             'elegant' => [
                 'colors' => [
@@ -150,6 +162,11 @@ class DesignPresets {
                 'spacing' => [ 'section_y' => '88px', 'grid_gap' => '28px' ],
                 'radius' => [ 'md' => '12px', 'lg' => '18px', 'pill' => '999px' ],
                 'shadow' => [ 'card' => '0 10px 36px rgba(44,62,80,.07)' ],
+                'typography' => [
+                    'page_title' => [ 'size_desktop' => '3.25rem', 'size_tablet' => '2.625rem', 'size_mobile' => '2.125rem' ],
+                    'h1'         => [ 'size_desktop' => '3.25rem', 'size_tablet' => '2.625rem', 'size_mobile' => '2.125rem' ],
+                    'section_heading' => [ 'size_desktop' => '2.125rem' ],
+                ],
             ],
             'vibrant' => [
                 'colors' => [
@@ -162,6 +179,10 @@ class DesignPresets {
                 'spacing' => [ 'section_y' => '68px', 'grid_gap' => '22px' ],
                 'radius' => [ 'md' => '14px', 'lg' => '22px', 'pill' => '999px' ],
                 'shadow' => [ 'card' => '0 10px 40px rgba(124,58,237,.12)' ],
+                'typography' => [
+                    'page_title' => [ 'size_desktop' => '3rem', 'size_tablet' => '2.5rem', 'size_mobile' => '2rem' ],
+                    'h1'         => [ 'size_desktop' => '3rem', 'size_tablet' => '2.5rem', 'size_mobile' => '2rem' ],
+                ],
             ],
             'minimal' => [
                 'colors' => [
@@ -180,6 +201,11 @@ class DesignPresets {
                         'footer_variant' => 'minimal',
                         'header_height_px' => '56',
                     ],
+                ],
+                'typography' => [
+                    'page_title' => [ 'size_desktop' => '2.25rem', 'size_tablet' => '2rem', 'size_mobile' => '1.75rem' ],
+                    'h1'         => [ 'size_desktop' => '2.25rem', 'size_tablet' => '2rem', 'size_mobile' => '1.75rem' ],
+                    'section_heading' => [ 'size_desktop' => '1.625rem' ],
                 ],
             ],
             'professional' => [
@@ -204,6 +230,10 @@ class DesignPresets {
                 'spacing' => [ 'section_y' => '72px', 'grid_gap' => '24px' ],
                 'radius' => [ 'md' => '12px', 'lg' => '20px', 'pill' => '999px' ],
                 'shadow' => [ 'card' => '0 8px 28px rgba(13,148,136,.10)' ],
+                'typography' => [
+                    'page_title' => [ 'size_desktop' => '2.625rem' ],
+                    'button'     => [ 'size_desktop' => '1rem' ],
+                ],
             ],
             'government' => [
                 'colors' => [
@@ -217,6 +247,10 @@ class DesignPresets {
                 'radius' => [ 'md' => '4px', 'lg' => '6px', 'pill' => '4px' ],
                 'shadow' => [ 'card' => '0 2px 8px rgba(27,27,27,.08)' ],
                 'chrome' => [ 'global' => [ 'header_variant' => 'standard', 'footer_variant' => 'full' ] ],
+                'typography' => [
+                    'body' => [ 'size_desktop' => '1.0625rem', 'line_height' => '1.65' ],
+                    'h1'   => [ 'size_desktop' => '2.375rem', 'size_tablet' => '2.125rem', 'size_mobile' => '1.75rem' ],
+                ],
             ],
             'marketplace' => [
                 'colors' => [
@@ -232,6 +266,10 @@ class DesignPresets {
                         'page_max'         => [ 'desktop' => '1200px', 'laptop' => '1200px', 'tablet' => '94%', 'mobile' => '100%' ],
                         'section_standard' => [ 'desktop' => '1100px', 'laptop' => '1100px', 'tablet' => '94%', 'mobile' => '100%' ],
                     ],
+                ],
+                'typography' => [
+                    'card_title' => [ 'size_desktop' => '1.0625rem' ],
+                    'h2'         => [ 'size_desktop' => '1.875rem' ],
                 ],
             ],
         ];
