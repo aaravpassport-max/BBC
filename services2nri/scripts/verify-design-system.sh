@@ -46,6 +46,12 @@ else
   ok public primary scope
 fi
 
+if rg -q 'max-width:\s*(1200|1280|1100|1000|900|860)px' assets/public-*.css -g '!public-width-layout.css' 2>/dev/null; then
+  bad "hard-coded layout max-width in public CSS (use --s2-width-* tokens)"
+else
+  ok public width tokens
+fi
+
 if [[ $fail -ne 0 ]]; then
   echo "Verification failed."
   exit 1

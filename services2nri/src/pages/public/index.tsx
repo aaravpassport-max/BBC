@@ -46,7 +46,7 @@ export function AboutPage() {
     <Layout>
       <PageHero title="About Us" subtitle={`Trusted NRI service partner since 2015 — making India management effortless from anywhere in the world.`} />
 
-      <PublicSection>
+      <PublicSection sectionKey="intro" width="wide">
         <div className="s2-marketing-page s2-public-split-grid s2-mobile-stack">
           <div>
             <PublicSectionHead eyebrow="Our Story" title={settings.about_heading || `${name} — Your Bridge to India`} />
@@ -167,7 +167,7 @@ export function ContactPage() {
   return (
     <Layout>
       <PageHero title="Contact Us" subtitle="We're here to help. Reach us via WhatsApp, email, or the form below." primary={primary} />
-      <PublicSection>
+      <PublicSection sectionKey="contact" width="wide">
         <div className="s2-public-contact-grid s2-mobile-stack">
           <div>
             <PublicSectionHead title="Get in Touch" />
@@ -308,7 +308,7 @@ export function FAQPage() {
   return (
     <Layout>
       <PageHero title="Frequently Asked Questions" subtitle="Everything you need to know before placing a service request." primary={primary} />
-      <PublicSection className="s2-public-faq">
+      <PublicSection className="s2-public-faq" sectionKey="faq" width="narrow">
         <div className="s2-container s2-width-narrow">
           {loading ? (
             <div className="s2-text-muted s2-public-faq-loading">Loading FAQs…</div>
@@ -381,7 +381,7 @@ export function PricingPage() {
         subtitle="Transparent pricing, no hidden charges. Pay only after approving your quote."
         bg={heroBg}
       />
-      <PublicSection alt>
+      <PublicSection alt sectionKey="pricing" width="standard">
         <PublicSectionHead
           eyebrow="Pricing plans"
           title="Choose the right level of support"
@@ -438,7 +438,7 @@ export function PricingPage() {
           problem, not just a cosmetic one. Only shown when displaying
           the fallback content it was actually authored for. */}
       {plans.length === 0 && (
-        <PublicSection>
+        <PublicSection sectionKey="compare" width="wide">
           <PublicSectionHead title="Services2NRI vs Others" subtitle="See why NRIs choose us over traditional property managers" />
           <div className="s2-public-compare-wrap s2-container s2-width-wide">
             <table className="s2-public-compare-table">

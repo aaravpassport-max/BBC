@@ -31,7 +31,7 @@
   font-size: 16px;
   opacity: 0.85;
   margin: 0;
-  max-width: 580px;
+  max-width: var(--s2-width-section-compact, 580px);
 }
 
 .s2-marketing-section {

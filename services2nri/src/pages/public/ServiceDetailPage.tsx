@@ -702,6 +702,7 @@ export function ServiceDetailPage() {
       {marquee && marquee.enabled && marquee.text ? (
         <div
           className="s2-svc-marquee"
+          data-s2-section="marquee"
           style={cssVars({
             's2-marquee-bg': String(marquee.bg_color || 'var(--s2-color-primary)'),
             's2-marquee-fg': String(marquee.text_color || '#fff'),

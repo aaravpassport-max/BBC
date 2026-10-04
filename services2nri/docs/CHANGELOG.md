@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.1] — 2026-10-04 — Cloud Agent
+
+- Public CSS bundles: layout `max-width` values use **`--s2-width-*`** tokens (no hard-coded 1200/860/1100px in section CSS).
+- Verify script guards against regressions; **`docs/WIDTH_LAYOUT.md`** added.
+- Marketing/service sections wired with **`sectionKey`** + directory/hero `data-s2-section` hooks.
+
+---
+
 ## [4.7.0] — 2026-10-04 — Cloud Agent
 
 - **Width & Layout Management** — centralized `widths` tokens with inheritance (global → page type → page → section + service-page sections).
