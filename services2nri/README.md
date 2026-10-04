@@ -23,7 +23,7 @@ Production-ready NRI service marketplace: public site, booking wizards, customer
 
 - Default staff login uses your WordPress administrator account when opening the portal from WP Admin.
 - Optional: **Settings → Platform** for name, WhatsApp, email, and legacy colors.
-- **Design System** (`/admin/design`) — change fonts/colors and **Publish** (pre-seeded on first activate in 4.6.1+).
+- **Design System** (`/admin/design`) — change fonts/colors and **Publish** (pre-seeded on first activate in 4.6.1+). Public marketing pages use centralized CSS bundles (4.6.8+).
 
 ## Verify
 

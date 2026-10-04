@@ -24,7 +24,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { resolvePrimary } from '@/lib/design-tokens'
+import { cssVars, resolvePrimary } from '@/lib/design-tokens'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
 import { PublicGrid, PublicCard } from '@/components/public/PublicLayout'
@@ -115,16 +115,13 @@ function SearchableSelect({ field, value, onChange, error }: { field: FormField;
   }, [])
   const filtered = opts.filter(o => o.toLowerCase().includes(query.toLowerCase())).slice(0, 10)
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
+    <div ref={ref} className="s2-wizard-typeahead">
       <input value={query} onChange={e => { setQuery(e.target.value); onChange(e.target.value); setOpen(true) }}
         onFocus={() => setOpen(true)} placeholder={field.placeholder || 'Type to search…'} className={fieldClass(error)} />
       {open && filtered.length > 0 && (
-        <div style={{ position: 'absolute', top: 'calc(100% + 4px)', left: 0, right: 0, background: '#fff', border: '1px solid #e0e0e0', borderRadius: 9, boxShadow: '0 8px 24px rgba(0,0,0,.12)', zIndex: 200, maxHeight: 220, overflowY: 'auto' }}>
+        <div className="s2-wizard-typeahead-menu">
           {filtered.map(opt => (
-            <div key={opt} onMouseDown={() => { setQuery(opt); onChange(opt); setOpen(false) }}
-              style={{ padding: '10px 14px', cursor: 'pointer', fontSize: 14, color: '#374151' }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#EBF0F8')}
-              onMouseLeave={e => (e.currentTarget.style.background = '')}>{opt}</div>
+            <div key={opt} className="s2-wizard-typeahead-item" onMouseDown={() => { setQuery(opt); onChange(opt); setOpen(false) }}>{opt}</div>
           ))}
         </div>
       )}
@@ -139,26 +136,31 @@ function FileUpload({ field, value, onChange, error }: { field: FormField; value
   const remove = (i: number) => onChange(value.filter((_, j) => j !== i))
   return (
     <div>
-      <div onClick={() => inputRef.current?.click()}
-        onDragOver={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#4A6FA5' }}
-        onDragLeave={e => { e.currentTarget.style.borderColor = '#d1d5db' }}
-        onDrop={e => { e.preventDefault(); e.currentTarget.style.borderColor = '#d1d5db'; add(e.dataTransfer.files) }}
-        style={{ border: `2px dashed ${error ? '#f87171' : '#d1d5db'}`, borderRadius: 10, padding: '28px 20px', textAlign: 'center', cursor: 'pointer', background: '#fafafa', transition: 'border-color .2s' }}>
-        <div style={{ fontSize: 36, marginBottom: 10 }}>📎</div>
-        <div style={{ fontWeight: 600, fontSize: 14, color: '#374151', marginBottom: 4 }}>
-          Drop files here or <span style={{ color: '#4A6FA5', textDecoration: 'underline' }}>browse</span>
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => inputRef.current?.click()}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click() }}
+        onDragOver={e => { e.preventDefault(); e.currentTarget.classList.add('s2-wizard-upload--drag') }}
+        onDragLeave={e => { e.currentTarget.classList.remove('s2-wizard-upload--drag') }}
+        onDrop={e => { e.preventDefault(); e.currentTarget.classList.remove('s2-wizard-upload--drag'); add(e.dataTransfer.files) }}
+        className={`s2-wizard-upload${error ? ' s2-wizard-upload--error' : ''}`}
+      >
+        <div className="s2-wizard-upload__icon">📎</div>
+        <div className="s2-t-body s2-wizard-upload__title">
+          Drop files here or <span className="s2-text-primary s2-wizard-upload__browse">browse</span>
         </div>
-        <div style={{ fontSize: 12, color: '#9ca3af' }}>PDF, JPG, PNG · Max 10 MB each</div>
-        <input ref={inputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" style={{ display: 'none' }} onChange={e => add(e.target.files)} />
+        <div className="s2-text-muted s2-wizard-upload__hint">PDF, JPG, PNG · Max 10 MB each</div>
+        <input ref={inputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="s2-sr-file-input" onChange={e => add(e.target.files)} />
       </div>
       {value.length > 0 && (
-        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 7 }}>
+        <div className="s2-wizard-upload-list">
           {value.map((f, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, background: '#EBF0F8', borderRadius: 8, padding: '9px 14px' }}>
-              <span style={{ fontSize: 18, flexShrink: 0 }}>{f.type.includes('pdf') ? '📄' : '🖼️'}</span>
-              <div style={{ flex: 1, fontSize: 13, color: '#374151', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</div>
-              <span style={{ fontSize: 11, color: '#9ca3af', flexShrink: 0 }}>{(f.size / 1024).toFixed(0)} KB</span>
-              <button type="button" onClick={() => remove(i)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#ef4444', fontSize: 18, lineHeight: 1, padding: 0 }}>×</button>
+            <div key={i} className="s2-wizard-upload-item">
+              <span className="s2-wizard-upload-item__icon">{f.type.includes('pdf') ? '📄' : '🖼️'}</span>
+              <div className="s2-wizard-upload-item__name">{f.name}</div>
+              <span className="s2-text-muted s2-wizard-upload-item__size">{(f.size / 1024).toFixed(0)} KB</span>
+              <button type="button" onClick={() => remove(i)} className="s2-btn s2-btn--ghost s2-btn--sm s2-wizard-upload-item__remove" aria-label="Remove file">×</button>
             </div>
           ))}
         </div>
@@ -173,9 +175,9 @@ function PhoneField({ field, value, onChange, error }: { field: FormField; value
   const local = (value || '').replace(/^\+\d{1,4}\s?/, '')
   const update = (c: string, n: string) => onChange(`${c} ${n}`)
   return (
-    <div style={{ display: 'flex', gap: 8 }}>
+    <div className="s2-wizard-phone-row">
       <select value={code} onChange={e => { setCode(e.target.value); update(e.target.value, local) }}
-        style={{ width: 130, padding: '11px 10px', border: `1.5px solid ${error ? '#f87171' : '#d1d5db'}`, borderRadius: 9, fontSize: 13, fontFamily: 'inherit', outline: 'none', background: '#fff', flexShrink: 0 }}>
+        className={`s2-select s2-wizard-phone-code ${error ? 's2-input--error' : ''}`}>
         {DIAL_CODES.map(d => <option key={`${d.flag}${d.code}`} value={d.code}>{d.flag} {d.name} {d.code}</option>)}
       </select>
       <input type="tel" value={local} onChange={e => update(code, e.target.value)}
@@ -185,8 +187,8 @@ function PhoneField({ field, value, onChange, error }: { field: FormField; value
 }
 
 // ── FieldRenderer — placeholder-first compact design ──────────────────────────
-function FieldRenderer({ field, value, onChange, error, primary }: {
-  field: FormField; value: unknown; onChange: (v: unknown) => void; error?: string; primary: string
+function FieldRenderer({ field, value, onChange, error }: {
+  field: FormField; value: unknown; onChange: (v: unknown) => void; error?: string; primary?: string
 }) {
   const lang = (() => { try { return localStorage.getItem('s2nri_lang') || 'en' } catch { return 'en' } })()
   const label = lang === 'hi' && field.label_hi ? field.label_hi : field.label
@@ -195,14 +197,14 @@ function FieldRenderer({ field, value, onChange, error, primary }: {
   const isFile = type === 'file' || field.key.includes('document') || field.key.includes('upload')
 
   const wrap = (input: React.ReactNode) => (
-    <div style={{ marginBottom: 18 }}>
-      <label htmlFor={id} style={{ display: 'block', fontSize: 11, fontWeight: 700, color: '#6b7280', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-        {label}{field.required && <span style={{ color: '#dc2626', marginLeft: 3 }}>*</span>}
+    <div className="s2-wizard-field-wrap">
+      <label htmlFor={id} className="s2-wizard-field-label">
+        {label}{field.required && <span className="s2-wizard-required">*</span>}
       </label>
       {input}
-      {field.description && !error && <p style={{ margin: '5px 0 0', fontSize: 12, color: '#6b7280', lineHeight: 1.5 }}>{field.description}</p>}
-      {field.hint && !error && <p style={{ margin: '5px 0 0', fontSize: 12, color: '#6b7280' }}>{field.hint}</p>}
-      {error && <p role="alert" style={{ margin: '5px 0 0', fontSize: 12, color: '#b91c1c', fontWeight: 600 }}>⚠ {error}</p>}
+      {field.description && !error && <p className="s2-wizard-field-hint">{field.description}</p>}
+      {field.hint && !error && <p className="s2-wizard-field-hint">{field.hint}</p>}
+      {error && <p role="alert" className="s2-wizard-field-error">⚠ {error}</p>}
     </div>
   )
 
@@ -220,16 +222,16 @@ function FieldRenderer({ field, value, onChange, error, primary }: {
     </select>
   )
   if (type === 'radio') return wrap(
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 4 }}>
+    <div className="s2-wizard-options">
       {(field.options || []).map(opt => (
-        <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', padding: '9px 16px', border: `1.5px solid ${value === opt ? primary : '#e0e0e0'}`, borderRadius: 8, background: value === opt ? `${primary}10` : '#fff', fontSize: 14, fontWeight: value === opt ? 700 : 400, color: value === opt ? primary : '#374151', transition: 'all .15s', userSelect: 'none' }}>
-          <input type="radio" name={id} value={opt} checked={value === opt} onChange={() => onChange(opt)} style={{ accentColor: primary, width: 16, height: 16 }} />{opt}
+        <label key={opt} className={`s2-wizard-option${value === opt ? ' s2-wizard-option--checked' : ''}`}>
+          <input type="radio" name={id} value={opt} checked={value === opt} onChange={() => onChange(opt)} className="s2-wizard-control" />{opt}
         </label>
       ))}
     </div>
   )
   if (type === 'checkbox') return wrap(
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 4 }}>
+    <div className="s2-wizard-options s2-wizard-options--stack">
       {(field.options || []).map(opt => {
         const checked = Array.isArray(value) ? (value as string[]).includes(opt) : false
         const toggle  = () => {
@@ -237,8 +239,8 @@ function FieldRenderer({ field, value, onChange, error, primary }: {
           onChange(checked ? arr.filter(v => v !== opt) : [...arr, opt])
         }
         return (
-          <label key={opt} style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '9px 14px', border: `1.5px solid ${checked ? primary : '#e0e0e0'}`, borderRadius: 8, background: checked ? `${primary}08` : '#fff', fontSize: 14, transition: 'all .15s' }}>
-            <input type="checkbox" checked={checked} onChange={toggle} style={{ accentColor: primary, width: 16, height: 16, flexShrink: 0 }} />{opt}
+          <label key={opt} className={`s2-wizard-option s2-wizard-option--stack${checked ? ' s2-wizard-option--checked' : ''}`}>
+            <input type="checkbox" checked={checked} onChange={toggle} className="s2-wizard-control" />{opt}
           </label>
         )
       })}
@@ -254,17 +256,17 @@ function FieldRenderer({ field, value, onChange, error, primary }: {
 function FaqItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false)
   return (
-    <div className="s2-svc-faq-inline" style={{ borderBottom: '1px solid var(--s2-color-divider)', paddingBottom: 10, marginBottom: 10 }}>
+    <div className="s2-svc-faq-inline">
       <button type="button" onClick={() => setOpen(o => !o)}>
         <span>{q}</span>
         <span className="s2-text-primary">{open ? '−' : '+'}</span>
       </button>
-      {open && <p className="s2-t-body" style={{ margin: '8px 0 0', fontSize: '0.8125rem' }}>{a}</p>}
+      {open && <p className="s2-t-body s2-svc-faq-inline__answer">{a}</p>}
     </div>
   )
 }
 
-function SectionRenderer({ sec, primary }: { sec: ServiceSection; primary: string }) {
+function SectionRenderer({ sec }: { sec: ServiceSection; primary: string }) {
   const r = (sec.content || {}) as Record<string, unknown>
   const wrap = (children: React.ReactNode, extraClass = '') => (
     <div className={`s2-svc-block ${extraClass}`.trim()}>
@@ -275,71 +277,92 @@ function SectionRenderer({ sec, primary }: { sec: ServiceSection; primary: strin
   switch (sec.type as SectionType) {
     case 'trust_badges': {
       const badges = (r.badges as Array<{ icon: string; value: string; label: string }>) || []
-      return <div className="s2-mobile-stack" style={{ display: 'grid', gridTemplateColumns: `repeat(${badges.length || 3}, 1fr)`, gap: 12, marginBottom: 22 }}>
-        {badges.map((b, i) => <div key={i} style={{ background: primary, color: '#fff', borderRadius: 10, padding: '18px 16px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
-          <div style={{ fontSize: 28 }}>{b.icon}</div>
-          <div style={{ fontWeight: 900, fontSize: 22, lineHeight: 1 }}>{b.value}</div>
-          <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 500 }}>{b.label}</div>
-        </div>)}
-      </div>
+      return (
+        <div
+          className="s2-svc-trust-grid s2-svc-trust-grid--auto s2-mobile-stack"
+          style={cssVars({ 's2-trust-cols': badges.length || 3 })}
+        >
+          {badges.map((b, i) => (
+            <div key={i} className="s2-svc-trust-tile">
+              <div className="s2-svc-trust-tile__icon">{b.icon}</div>
+              <div className="s2-svc-trust-tile__value">{b.value}</div>
+              <div className="s2-svc-trust-tile__label">{b.label}</div>
+            </div>
+          ))}
+        </div>
+      )
     }
     case 'why_choose': {
       const cards = (r.cards as Array<{ icon: string; title: string; desc: string }>) || []
-      return <section style={{ background: '#F5F7FA', borderRadius: 14, padding: '32px 28px', marginBottom: 22, border: '1px solid #EBF0F8' }}>
-        {sec.title && <h3 style={{ fontSize: 18, fontWeight: 800, color: '#1E2D40', margin: '0 0 20px', textAlign: 'center' }}>{sec.title}</h3>}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
-          {cards.map((c, i) => <div key={i} style={{ background: '#fff', border: '1px solid #EBF0F8', borderRadius: 12, padding: 18, display: 'flex', gap: 12 }}>
-            <div style={{ width: 42, height: 42, background: `${primary}15`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, flexShrink: 0 }}>{c.icon}</div>
-            <div><h4 style={{ fontSize: 14, fontWeight: 700, color: '#1E2D40', margin: '0 0 4px' }}>{c.title}</h4><p style={{ fontSize: 12, color: '#666', lineHeight: 1.5, margin: 0 }}>{c.desc}</p></div>
-          </div>)}
-        </div>
-      </section>
+      return (
+        <section className="s2-svc-panel">
+          {sec.title && <h3 className="s2-svc-panel__title">{sec.title}</h3>}
+          <PublicGrid min={220}>
+            {cards.map((c, i) => (
+              <div key={i} className="s2-svc-mini-card">
+                <div className="s2-svc-mini-card__icon">{c.icon}</div>
+                <div>
+                  <h4 className="s2-public-card__title s2-public-card__title--sm">{c.title}</h4>
+                  <p className="s2-public-card__body s2-public-card__body--xs">{c.desc}</p>
+                </div>
+              </div>
+            ))}
+          </PublicGrid>
+        </section>
+      )
     }
     case 'description': case 'security': case 'charges': case 'text':
-      return <div style={{ background: sec.type === 'security' ? `${primary}08` : '#fff', border: `1px solid ${sec.type === 'security' ? primary + '20' : '#EBF0F8'}`, borderRadius: 12, padding: '24px 28px', marginBottom: 22 }}>
-        {!!(r.heading as string || sec.title) && <h2 style={{ fontSize: sec.type === 'description' ? 20 : 16, fontWeight: 800, color: '#1E2D40', margin: '0 0 14px' }}>{r.heading as string || sec.title}</h2>}
-        {!!r.html && <div style={{ fontSize: 14, color: '#374151', lineHeight: 1.8 }} dangerouslySetInnerHTML={{ __html: String(r.html) }} />}
-        {sec.type === 'charges' && !!r.note && <div style={{ marginTop: 12, display: 'inline-flex', alignItems: 'center', gap: 6, background: `${primary}15`, color: primary, padding: '6px 14px', borderRadius: 99, fontSize: 14, fontWeight: 700 }}>{'📦 ' + String(r.note)}</div>}
-      </div>
+      return (
+        <div className={`s2-svc-block${sec.type === 'security' ? ' s2-svc-block--security' : ''}`}>
+          {!!(r.heading as string || sec.title) && (
+            <h2 className={`s2-svc-block__title${sec.type === 'description' ? ' s2-svc-block__title--lg' : ''}`}>{r.heading as string || sec.title}</h2>
+          )}
+          {!!r.html && <div className="s2-svc-prose" dangerouslySetInnerHTML={{ __html: String(r.html) }} />}
+          {sec.type === 'charges' && !!r.note && <div className="s2-svc-pill-note">{'📦 ' + String(r.note)}</div>}
+        </div>
+      )
     case 'process':
-      return wrap(<div>{((r.steps as Array<{ title: string; desc: string }>) || []).map((s, i, arr) => (
-        <div key={i} style={{ display: 'flex', gap: 14, marginBottom: i < arr.length - 1 ? 14 : 0, alignItems: 'flex-start' }}>
-          <div style={{ width: 28, height: 28, background: primary, color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
-          <div><div style={{ fontWeight: 700, fontSize: 14, color: '#1E2D40', marginBottom: 2 }}>{s.title}</div><div style={{ fontSize: 13, color: '#666', lineHeight: 1.6 }}>{s.desc}</div></div>
+      return wrap(<div>{((r.steps as Array<{ title: string; desc: string }>) || []).map((s, i) => (
+        <div key={i} className="s2-svc-step-row">
+          <div className="s2-svc-step-num">{i + 1}</div>
+          <div>
+            <div className="s2-public-card__title s2-public-card__title--sm">{s.title}</div>
+            <div className="s2-public-card__body s2-public-card__body--sm">{s.desc}</div>
+          </div>
         </div>
       ))}</div>)
     case 'faq':
       return wrap(<div>{((r.items as Array<{ q: string; a: string }>) || []).map((item, i) => <FaqItem key={i} q={item.q} a={item.a} />)}</div>)
     case 'benefits':
-      return wrap(<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 10 }}>
+      return wrap(<PublicGrid min={220}>
         {((r.items as Array<{ icon?: string; text: string }>) || []).map((item, i) => (
-          <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', padding: '10px 12px', background: `${primary}06`, borderRadius: 9 }}>
-            <span style={{ fontSize: 20 }}>{item.icon || '✅'}</span><span style={{ fontSize: 13, color: '#374151', lineHeight: 1.5 }}>{item.text}</span>
+          <div key={i} className="s2-svc-benefit-row">
+            <span className="s2-svc-benefit-row__icon">{item.icon || '✅'}</span><span>{item.text}</span>
           </div>
         ))}
-      </div>)
+      </PublicGrid>)
     case 'documents': case 'eligibility':
-      return wrap(<div className="s2-mobile-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+      return wrap(<div className="s2-mobile-stack s2-public-form-grid s2-public-form-grid--2col">
         {((r.items as string[]) || []).map((item, i) => (
-          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14, color: '#374151', padding: '6px 0', borderBottom: '1px solid #f5f5f5' }}>
-            <span style={{ color: '#2e7d32', fontWeight: 700, flexShrink: 0 }}>✓</span>{item}
-          </div>
+          <div key={i} className="s2-svc-doc-row"><mark>✓</mark>{item}</div>
         ))}
       </div>)
     case 'notes':
-      return wrap(<ul style={{ margin: 0, paddingLeft: 20, color: '#374151', fontSize: 14, lineHeight: 2 }}>{((r.items as string[]) || []).map((item, i) => <li key={i}>{item}</li>)}</ul>)
+      return wrap(<ul className="s2-svc-prose s2-svc-prose-list">{((r.items as string[]) || []).map((item, i) => <li key={i}>{item}</li>)}</ul>)
     case 'cta':
-      return <div style={{ background: `linear-gradient(135deg, #1E2D40, ${primary})`, borderRadius: 14, padding: '32px 28px', marginBottom: 22, textAlign: 'center', color: '#fff' }}>
-        {!!(sec.title || r.headline) && <h3 style={{ fontSize: 20, fontWeight: 900, margin: '0 0 8px' }}>{sec.title || String(r.headline)}</h3>}
-        {!!r.sub && <p style={{ opacity: 0.85, fontSize: 15, margin: '0 0 20px' }}>{String(r.sub)}</p>}
-        {!!r.btn && <a href={String(r.url || '#booking-form')} style={{ display: 'inline-block', background: '#fff', color: primary, padding: '12px 28px', borderRadius: 9, fontWeight: 800, fontSize: 15, textDecoration: 'none' }}>{String(r.btn)}</a>}
-      </div>
+      return (
+        <div className="s2-svc-cta-band">
+          {!!(sec.title || r.headline) && <h3 className="s2-t-h3">{sec.title || String(r.headline)}</h3>}
+          {!!r.sub && <p className="s2-t-body">{String(r.sub)}</p>}
+          {!!r.btn && <a href={String(r.url || '#booking-form')} className="s2-btn s2-btn--secondary s2-svc-cta-band__btn">{String(r.btn)}</a>}
+        </div>
+      )
     case 'related':
       return wrap(((r.slugs as string[]) || []).length === 0
-        ? <p style={{ color: '#9ca3af', fontSize: 13, margin: 0 }}>No related services configured.</p>
-        : <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+        ? <p className="s2-text-muted s2-public-card__body--sm">No related services configured.</p>
+        : <div className="s2-svc-related-wrap">
             {((r.slugs as string[]) || []).map((slug, i) => (
-              <Link key={i} to={`/service/${slug}`} style={{ padding: '7px 14px', background: `${primary}10`, color: primary, borderRadius: 99, fontSize: 13, fontWeight: 600, textDecoration: 'none', border: `1px solid ${primary}25` }}>
+              <Link key={i} to={`/service/${slug}`} className="s2-svc-related-link">
                 {slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
               </Link>
             ))}
@@ -347,48 +370,50 @@ function SectionRenderer({ sec, primary }: { sec: ServiceSection; primary: strin
       )
     case 'testimonials': {
       const items = (r.items as Array<{ name: string; quote: string; rating?: number }>) || []
-      return wrap(<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 }}>
-        {items.map((t, i) => <div key={i} style={{ background: '#F5F7FA', border: '1px solid #EBF0F8', borderRadius: 12, padding: 18 }}>
-          {typeof t.rating === 'number' && <div style={{ color: '#f59e0b', fontSize: 14, marginBottom: 8 }}>{'★'.repeat(Math.round(t.rating))}{'☆'.repeat(5 - Math.round(t.rating))}</div>}
-          <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.6, margin: '0 0 10px', fontStyle: 'italic' }}>&ldquo;{t.quote}&rdquo;</p>
-          <div style={{ fontWeight: 700, fontSize: 13, color: '#1E2D40' }}>{t.name}</div>
-        </div>)}
-      </div>)
-    }
-    case 'features': case 'highlights':
-      return wrap(<div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
-        {((r.items as Array<{ icon?: string; title: string; desc: string }>) || []).map((item, i) => (
-          <div key={i} style={{ padding: '14px 16px', border: '1px solid #EBF0F8', borderRadius: 10, background: '#fff' }}>
-            <div style={{ fontSize: 24, marginBottom: 6 }}>{item.icon || '⭐'}</div>
-            <div style={{ fontWeight: 700, fontSize: 14, color: '#1E2D40', marginBottom: 4 }}>{item.title}</div>
-            <div style={{ fontSize: 12, color: '#666', lineHeight: 1.5 }}>{item.desc}</div>
+      return wrap(<PublicGrid min={240}>
+        {items.map((t, i) => (
+          <div key={i} className="s2-svc-testimonial">
+            {typeof t.rating === 'number' && <div className="s2-svc-testimonial__stars">{'★'.repeat(Math.round(t.rating))}{'☆'.repeat(5 - Math.round(t.rating))}</div>}
+            <p className="s2-t-body s2-svc-testimonial__quote">&ldquo;{t.quote}&rdquo;</p>
+            <div className="s2-public-card__title s2-public-card__body--sm">{t.name}</div>
           </div>
         ))}
-      </div>)
+      </PublicGrid>)
+    }
+    case 'features': case 'highlights':
+      return wrap(<PublicGrid min={220}>
+        {((r.items as Array<{ icon?: string; title: string; desc: string }>) || []).map((item, i) => (
+          <div key={i} className="s2-svc-feature-tile">
+            <div className="s2-svc-feature-tile__icon">{item.icon || '⭐'}</div>
+            <div className="s2-public-card__title s2-public-card__title--sm">{item.title}</div>
+            <div className="s2-public-card__body s2-public-card__body--xs">{item.desc}</div>
+          </div>
+        ))}
+      </PublicGrid>)
     default: return null
   }
 }
 
 // ── Fallback content ──────────────────────────────────────────────────────────
-function FallbackContent({ svc, primary, siteName }: { svc: Service; primary: string; siteName: string }) {
+function FallbackContent({ svc, siteName }: { svc: Service; primary: string; siteName: string }) {
   return <>
-    <div style={{ background: '#fff', border: '1px solid #EBF0F8', borderRadius: 12, padding: '24px 28px', marginBottom: 22 }}>
-      <h3 style={{ fontSize: 16, fontWeight: 800, color: '#1E2D40', margin: '0 0 14px' }}>How the Process Works</h3>
-      {[['Submit Request','Fill the form in steps. No login needed to start.'],['Document Review','Our expert team reviews your submission within 24 hours.'],['Get Quote','Receive a detailed, itemised quote. Pay only after approval.'],['Processing','We handle everything in India with real-time updates.'],['Delivery','Documents delivered to your overseas address by courier.']].map(([t, d], i, arr) => (
-        <div key={i} style={{ display: 'flex', gap: 14, marginBottom: i < arr.length - 1 ? 14 : 0, alignItems: 'flex-start' }}>
-          <div style={{ width: 28, height: 28, background: primary, color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, flexShrink: 0, marginTop: 1 }}>{i + 1}</div>
-          <div><div style={{ fontWeight: 700, fontSize: 14, color: '#1E2D40', marginBottom: 2 }}>{t}</div><div style={{ fontSize: 13, color: '#666', lineHeight: 1.6 }}>{d}</div></div>
+    <div className="s2-svc-block">
+      <h3 className="s2-svc-block__title">How the Process Works</h3>
+      {[['Submit Request','Fill the form in steps. No login needed to start.'],['Document Review','Our expert team reviews your submission within 24 hours.'],['Get Quote','Receive a detailed, itemised quote. Pay only after approval.'],['Processing','We handle everything in India with real-time updates.'],['Delivery','Documents delivered to your overseas address by courier.']].map(([t, d], i) => (
+        <div key={i} className="s2-svc-step-row">
+          <div className="s2-svc-step-num">{i + 1}</div>
+          <div><div className="s2-public-card__title s2-public-card__title--sm">{t}</div><div className="s2-public-card__body s2-public-card__body--sm">{d}</div></div>
         </div>
       ))}
     </div>
-    <div style={{ background: `${primary}08`, border: `1px solid ${primary}20`, borderRadius: 12, padding: '20px 24px', marginBottom: 22 }}>
-      <h3 style={{ fontSize: 15, fontWeight: 700, color: '#1E2D40', margin: '0 0 10px' }}>🔐 Is My Data Secure?</h3>
-      <p style={{ fontSize: 14, color: '#555', lineHeight: 1.7, margin: 0 }}>{siteName} uses AES-256 encryption for all document uploads. Documents are never shared via email or WhatsApp and are permanently deleted after service completion.</p>
+    <div className="s2-svc-block s2-svc-block--security">
+      <h3 className="s2-svc-block__title">🔐 Is My Data Secure?</h3>
+      <p className="s2-svc-prose">{siteName} uses AES-256 encryption for all document uploads. Documents are never shared via email or WhatsApp and are permanently deleted after service completion.</p>
     </div>
-    <div style={{ background: '#fff', border: '1px solid #EBF0F8', borderRadius: 12, padding: '20px 24px' }}>
-      <h3 style={{ fontSize: 15, fontWeight: 700, color: '#1E2D40', margin: '0 0 10px' }}>💰 Charges & Payment</h3>
-      <p style={{ fontSize: 14, color: '#555', lineHeight: 1.7, margin: '0 0 8px' }}>Get a personalised quote by submitting the form. No payment required until you approve the quote.</p>
-      {svc.price_range && <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: `${primary}15`, color: primary, padding: '6px 14px', borderRadius: 99, fontSize: 14, fontWeight: 700 }}>📦 Starting from {svc.price_range}</div>}
+    <div className="s2-svc-block">
+      <h3 className="s2-svc-block__title">💰 Charges & Payment</h3>
+      <p className="s2-svc-prose s2-svc-prose--mb">Get a personalised quote by submitting the form. No payment required until you approve the quote.</p>
+      {svc.price_range && <div className="s2-svc-pill-note">📦 Starting from {svc.price_range}</div>}
     </div>
   </>
 }
@@ -591,9 +616,9 @@ export function ServiceDetailPage() {
   if (loadFailed) return (
     <Layout>
       <div className="s2-svc-state">
-        <div style={{ fontSize: 56, marginBottom: 16 }}>⚠️</div>
+        <div className="s2-svc-state__emoji">⚠️</div>
         <h2 className="s2-t-h2">Couldn't load this page</h2>
-        <p className="s2-t-body" style={{ marginBottom: 20 }}>Something went wrong on our end. Please try again.</p>
+        <p className="s2-t-body s2-t-body--spaced">Something went wrong on our end. Please try again.</p>
         <button type="button" onClick={loadService} className="s2-btn s2-btn--primary">Retry</button>
       </div>
     </Layout>
@@ -602,7 +627,7 @@ export function ServiceDetailPage() {
   if (!svc) return (
     <Layout>
       <div className="s2-svc-state">
-        <div style={{ fontSize: 56, marginBottom: 16 }}>🔍</div>
+        <div className="s2-svc-state__emoji">🔍</div>
         <h2 className="s2-t-h2">Service not found</h2>
         <Link to="/services" className="s2-btn s2-btn--ghost">← Browse All Services</Link>
       </div>
@@ -612,33 +637,33 @@ export function ServiceDetailPage() {
   // ── Success screen ────────────────────────────────────────────────────────────
   if (submitted) return (
     <Layout>
-      <div style={{ maxWidth: 600, margin: '0 auto', padding: '72px 20px', textAlign: 'center' }}>
-        <div style={{ width: 88, height: 88, background: '#d1fae5', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 44, margin: '0 auto 24px', boxShadow: '0 0 0 8px #d1fae550' }}>✅</div>
-        <h1 style={{ fontSize: 30, fontWeight: 900, color: '#1E2D40', margin: '0 0 12px' }}>Request Submitted!</h1>
-        <p style={{ fontSize: 16, color: '#555', lineHeight: 1.75, margin: '0 0 10px' }}>Your <strong>{svc.name}</strong> request has been received.</p>
+      <div className="s2-svc-success">
+        <div className="s2-svc-success__icon">✅</div>
+        <h1 className="s2-svc-success__title">Request Submitted!</h1>
+        <p className="s2-svc-success__lead">Your <strong>{svc.name}</strong> request has been received.</p>
         {submitted.__uploadWarning && (
-          <div style={{ background: '#fffbeb', border: '1px solid #fbbf24', borderRadius: 8, padding: '10px 16px', marginBottom: 12, color: '#92400e', fontSize: 14 }}>⚠️ {submitted.__uploadWarning}</div>
+          <div className="s2-svc-alert-warn">⚠️ {submitted.__uploadWarning}</div>
         )}
-        <p style={{ fontSize: 15, color: '#666', lineHeight: 1.75, margin: '0 0 28px' }}>
-          Booking reference: <strong style={{ color: primary, fontSize: 17 }}>{submitted.booking_ref}</strong><br />
+        <p className="s2-svc-success__meta">
+          Booking reference: <strong className="s2-svc-success__ref">{submitted.booking_ref}</strong><br />
           Our team will review and send you an itemised quote within <strong>24 hours</strong>. A confirmation email has been sent.
         </p>
-        <div style={{ background: '#fff', border: `1px solid ${primary}20`, borderRadius: 14, padding: '20px 24px', marginBottom: 28, textAlign: 'left', boxShadow: `0 4px 16px ${primary}15` }}>
-          <div className="s2-mobile-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px 20px', fontSize: 14 }}>
-            {[['Service', svc.name], ['Booking Ref', submitted.booking_ref], ['Status', 'Under Review'], ['Quote in', '≤ 24 hours']].map(([label, val]) => (
+        <div className="s2-svc-success__card">
+          <div className="s2-svc-success__grid s2-mobile-stack">
+            {[['Service', svc.name, ''], ['Booking Ref', submitted.booking_ref, 'ref'], ['Status', 'Under Review', 'status'], ['Quote in', '≤ 24 hours', '']].map(([label, val, mod]) => (
               <div key={label}>
-                <div style={{ fontSize: 11, color: '#9ca3af', fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 2 }}>{label}</div>
-                <div style={{ fontWeight: 700, color: label === 'Booking Ref' ? primary : label === 'Status' ? '#15803d' : '#1E2D40' }}>{val}</div>
+                <div className="s2-svc-success__stat-label">{label}</div>
+                <div className={`s2-svc-success__stat-val${mod === 'ref' ? ' s2-svc-success__stat-val--ref' : mod === 'status' ? ' s2-svc-success__stat-val--status' : ''}`}>{val}</div>
               </div>
             ))}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+        <div className="s2-svc-success__actions">
           {user
-            ? <Link to={`/dashboard/bookings/${submitted.id}`} style={{ background: primary, color: '#fff', padding: '14px 32px', borderRadius: 10, fontWeight: 700, fontSize: 15, textDecoration: 'none' }}>Track My Booking →</Link>
-            : <Link to="/login" style={{ background: primary, color: '#fff', padding: '14px 32px', borderRadius: 10, fontWeight: 700, fontSize: 15, textDecoration: 'none' }}>Sign In to Track →</Link>
+            ? <Link to={`/dashboard/bookings/${submitted.id}`} className="s2-btn s2-btn--primary s2-btn--lg">Track My Booking →</Link>
+            : <Link to="/login" className="s2-btn s2-btn--primary s2-btn--lg">Sign In to Track →</Link>
           }
-          <Link to="/services" style={{ padding: '14px 28px', borderRadius: 10, fontWeight: 600, fontSize: 15, textDecoration: 'none', border: `1.5px solid ${primary}`, color: primary }}>Browse More Services</Link>
+          <Link to="/services" className="s2-btn s2-btn--outline">Browse More Services</Link>
         </div>
       </div>
     </Layout>
@@ -677,11 +702,11 @@ export function ServiceDetailPage() {
       {marquee && marquee.enabled && marquee.text ? (
         <div
           className="s2-svc-marquee"
-          style={{
-            ['--s2-marquee-bg' as string]: String(marquee.bg_color || 'var(--s2-color-primary)'),
-            ['--s2-marquee-fg' as string]: String(marquee.text_color || '#fff'),
-            ['--s2-marquee-duration' as string]: `${Number(marquee.speed) || 30}s`,
-          }}
+          style={cssVars({
+            's2-marquee-bg': String(marquee.bg_color || 'var(--s2-color-primary)'),
+            's2-marquee-fg': String(marquee.text_color || '#fff'),
+            's2-marquee-duration': `${Number(marquee.speed) || 30}s`,
+          })}
         >
           <div className="s2-svc-marquee__track">
             <span>{String(marquee.text)}</span>
@@ -695,7 +720,10 @@ export function ServiceDetailPage() {
         {/* Left: service info */}
         <div>
           {/* Hero */}
-          <div className="s2-svc-hero" style={{ height: heroHeight, ['--s2-hero-overlay' as string]: heroOverlay, textAlign: heroAlign as React.CSSProperties['textAlign'] }}>
+          <div
+            className={`s2-svc-hero${heroAlign === 'center' ? ' s2-svc-hero--align-center' : ''}`}
+            style={{ height: heroHeight, ...cssVars({ 's2-hero-overlay': heroOverlay }) }}
+          >
             <img src={heroImg} alt={heroTitle} />
             <div className="s2-svc-hero__shade" />
             <div className="s2-svc-hero__content">
@@ -704,9 +732,9 @@ export function ServiceDetailPage() {
               {hero && hero.subtitle ? <p className="s2-svc-hero__sub">{String(hero.subtitle)}</p> : null}
               {/* Issue 5: CTA buttons from hero_settings */}
               {hero && (hero.cta_text || hero.cta2_text) ? (
-                <div style={{ display: 'flex', gap: 10, marginTop: 12, justifyContent: heroAlign === 'center' ? 'center' : 'flex-start', flexWrap: 'wrap' }}>
-                  {hero.cta_text ? <a href={String(hero.cta_url || '#booking-form')} style={{ background: '#fff', color: primary, padding: '9px 20px', borderRadius: 7, fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>{String(hero.cta_text)}</a> : null}
-                  {hero.cta2_text ? <a href={String(hero.cta2_url || '#booking-form')} style={{ background: 'transparent', color: '#fff', padding: '9px 20px', borderRadius: 7, fontWeight: 600, fontSize: 13, textDecoration: 'none', border: '2px solid rgba(255,255,255,.6)' }}>{String(hero.cta2_text)}</a> : null}
+                <div className="s2-svc-hero__ctas">
+                  {hero.cta_text ? <a href={String(hero.cta_url || '#booking-form')} className="s2-svc-hero__cta">{String(hero.cta_text)}</a> : null}
+                  {hero.cta2_text ? <a href={String(hero.cta2_url || '#booking-form')} className="s2-svc-hero__cta s2-svc-hero__cta--ghost">{String(hero.cta2_text)}</a> : null}
                 </div>
               ) : null}
             </div>
@@ -732,28 +760,26 @@ export function ServiceDetailPage() {
                 <div className="s2-svc-trust-grid s2-mobile-stack">
                   {[{ icon: '⭐', val: settings.google_rating || '4.9', label: 'Google Rating' }, { icon: '👥', val: settings.google_review_count || '10,000+', label: 'Happy Customers' }, { icon: '🌏', val: '750+', label: 'Pan India Coverage' }].map(({ icon, val, label }) => (
                     <div key={label} className="s2-svc-trust-tile">
-                      <div style={{ fontSize: 28 }}>{icon}</div>
-                      <div style={{ fontWeight: 900, fontSize: 22, lineHeight: 1 }}>{val}</div>
-                      <div style={{ fontSize: 12, opacity: 0.85, fontWeight: 500 }}>{label}</div>
+                      <div className="s2-svc-trust-tile__icon">{icon}</div>
+                      <div className="s2-svc-trust-tile__value">{val}</div>
+                      <div className="s2-svc-trust-tile__label">{label}</div>
                     </div>
                   ))}
                 </div>
                 {/* Description */}
                 {(svc.description || svc.short_desc) && (
-                  <div style={{ background: '#fff', border: '1px solid #EBF0F8', borderRadius: 12, padding: '24px 28px', marginBottom: 22 }}>
-                    <h2 style={{ fontSize: 20, fontWeight: 800, color: '#1E2D40', margin: '0 0 14px' }}>{svc.name} — Complete Guide for NRIs</h2>
-                    <p style={{ fontSize: 15, color: '#374151', margin: 0, lineHeight: 1.8 }}>{svc.description || svc.short_desc}</p>
+                  <div className="s2-svc-block">
+                    <h2 className="s2-svc-block__title s2-svc-block__title--lg">{svc.name} — Complete Guide for NRIs</h2>
+                    <p className="s2-svc-prose">{svc.description || svc.short_desc}</p>
                   </div>
                 )}
                 {/* Required docs */}
                 {Array.isArray(svc.required_docs) && svc.required_docs.length > 0 && (
-                  <div style={{ background: '#fff', border: '1px solid #EBF0F8', borderRadius: 12, padding: '24px 28px', marginBottom: 22 }}>
-                    <h3 style={{ fontSize: 16, fontWeight: 800, color: '#1E2D40', margin: '0 0 14px' }}>📎 Documents Required</h3>
-                    <div className="s2-mobile-stack" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  <div className="s2-svc-block">
+                    <h3 className="s2-svc-block__title">📎 Documents Required</h3>
+                    <div className="s2-mobile-stack s2-public-form-grid s2-public-form-grid--2col">
                       {svc.required_docs.map((doc, i) => (
-                        <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14, color: '#374151', padding: '6px 0', borderBottom: '1px solid #f5f5f5' }}>
-                          <span style={{ color: '#2e7d32', fontWeight: 700, flexShrink: 0 }}>✓</span>{doc}
-                        </div>
+                        <div key={i} className="s2-svc-doc-row"><mark>✓</mark>{doc}</div>
                       ))}
                     </div>
                   </div>
@@ -768,15 +794,15 @@ export function ServiceDetailPage() {
 
           <div className="s2-svc-wizard-head">
             {/* Service name + meta */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-              <div style={{ width: 48, height: 48, background: 'rgba(255,255,255,.18)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>
+            <div className="s2-svc-wizard-service">
+              <div className="s2-svc-wizard-service__icon">
                 {svc.icon || '📋'}
               </div>
               <div>
-                <div style={{ color: '#fff', fontWeight: 800, fontSize: 15, lineHeight: 1.2 }}>{svc.name}</div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 5 }}>
+                <div className="s2-svc-wizard-service__name">{svc.name}</div>
+                <div className="s2-svc-wizard-service__tags">
                   {[svc.turnaround && `⏱ ${svc.turnaround}`, '🔒 SSL', '📧 Quote 24h'].filter(Boolean).map(t => (
-                    <span key={t as string} style={{ fontSize: 11, fontWeight: 600, color: 'rgba(255,255,255,.85)', background: 'rgba(255,255,255,.14)', padding: '3px 9px', borderRadius: 99 }}>{t}</span>
+                    <span key={t as string} className="s2-svc-wizard-tag">{t}</span>
                   ))}
                 </div>
               </div>
@@ -790,23 +816,23 @@ export function ServiceDetailPage() {
                 several steps can have a natural row width wider than a
                 mobile viewport. Without this, that width bled out past the
                 edge of the screen instead of scrolling within its own box. */}
-            <div style={{ display: 'flex', alignItems: 'center', paddingBottom: 1, overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <div className="s2-svc-step-track">
               {orderedStepNums.map((stepNum, idx) => {
                 const done = idx < stepIdx
                 const curr = idx === stepIdx
                 const label = stepNum === CONFIRM_STEP ? 'Confirm' : (STEP_LABEL[stepNum] || `Step ${stepNum}`)
                 return (
-                  <div key={stepNum} style={{ display: 'flex', alignItems: 'center', flex: idx < totalSteps - 1 ? 1 : 'none' as const }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: '50%', background: done ? '#22c55e' : curr ? '#fff' : 'rgba(255,255,255,.2)', color: done ? '#fff' : curr ? primary : 'rgba(255,255,255,.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 13, boxShadow: curr ? '0 0 0 4px rgba(255,255,255,.25)' : 'none', transition: 'all .3s' }}>
+                  <div key={stepNum} className={`s2-svc-step-track__row${idx < totalSteps - 1 ? ' s2-svc-step-track__row--grow' : ''}`}>
+                    <div className="s2-svc-step-track__step">
+                      <div className={`s2-svc-step-track__circle${done ? ' s2-svc-step-track__circle--done' : curr ? ' s2-svc-step-track__circle--current' : ''}`}>
                         {done ? '✓' : idx + 1}
                       </div>
-                      <span style={{ fontSize: 9, fontWeight: curr ? 700 : 400, color: curr ? '#fff' : 'rgba(255,255,255,.55)', marginTop: 4, whiteSpace: 'nowrap', maxWidth: 56, textAlign: 'center', lineHeight: 1.2 }}>
+                      <span className={`s2-svc-step-track__label${curr ? ' s2-svc-step-track__label--current' : ''}`}>
                         {label}
                       </span>
                     </div>
                     {idx < totalSteps - 1 && (
-                      <div style={{ flex: 1, height: 3, background: done ? '#22c55e' : 'rgba(255,255,255,.2)', margin: '0 4px', marginBottom: 16, borderRadius: 2, transition: 'background .35s' }} />
+                      <div className={`s2-svc-step-track__connector${done ? ' s2-svc-step-track__connector--done' : ''}`} />
                     )}
                   </div>
                 )
@@ -829,16 +855,14 @@ export function ServiceDetailPage() {
 
               {/* Show service overview on step 1 if no fields */}
               {!isConfirm && currentFields.length === 0 && stepIdx === 0 && (
-                <div style={{ color: '#555', fontSize: 15, lineHeight: 1.85 }}>
-                  <p style={{ margin: '0 0 12px' }}>You're booking: <strong>{svc.name}</strong></p>
-                  {svc.short_desc && <p style={{ margin: '0 0 14px', color: '#666' }}>{svc.short_desc}</p>}
+                <div className="s2-wizard-intro">
+                  <p>You're booking: <strong>{svc.name}</strong></p>
+                  {svc.short_desc && <p className="s2-wizard-intro__muted">{svc.short_desc}</p>}
                   {Array.isArray(svc.required_docs) && svc.required_docs.length > 0 && (
-                    <div style={{ background: '#F5F7FA', borderRadius: 10, padding: 18, border: '1px solid #EBF0F8' }}>
-                      <strong style={{ display: 'block', marginBottom: 10, fontSize: 14, color: '#1E2D40' }}>📎 Documents you'll need:</strong>
+                    <div className="s2-wizard-docs-box">
+                      <strong className="s2-wizard-docs-box__title">📎 Documents you'll need:</strong>
                       {svc.required_docs.map((doc, i) => (
-                        <div key={i} style={{ fontSize: 14, color: '#555', padding: '4px 0', display: 'flex', gap: 8 }}>
-                          <span style={{ color: primary, fontWeight: 700 }}>✓</span>{doc}
-                        </div>
+                        <div key={i} className="s2-wizard-doc-line"><mark>✓</mark>{doc}</div>
                       ))}
                     </div>
                   )}
@@ -860,20 +884,18 @@ export function ServiceDetailPage() {
               {/* Confirm step */}
               {isConfirm && (
                 <div>
-                  <div style={{ background: '#F5F7FA', borderRadius: 12, padding: '20px 22px', marginBottom: 20, border: '1px solid #EBF0F8' }}>
-                    <h3 style={{ fontSize: 15, fontWeight: 800, color: '#1E2D40', margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 8 }}>📋 Your Request Summary</h3>
-                    {/* Service row */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #EBF0F8', fontSize: 14 }}>
-                      <span style={{ color: '#9ca3af', flex: '0 0 38%' }}>Service</span>
-                      <span style={{ fontWeight: 600, color: '#1E2D40', textAlign: 'right', flex: '0 0 60%' }}>{svc.name}</span>
+                  <div className="s2-wizard-confirm-panel">
+                    <h3 className="s2-wizard-confirm-panel__title">📋 Your Request Summary</h3>
+                    <div className="s2-wizard-summary-row">
+                      <span className="s2-wizard-summary-row__label">Service</span>
+                      <span className="s2-wizard-summary-row__val">{svc.name}</span>
                     </div>
                     {svc.turnaround && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #EBF0F8', fontSize: 14 }}>
-                        <span style={{ color: '#9ca3af', flex: '0 0 38%' }}>Turnaround</span>
-                        <span style={{ fontWeight: 600, color: '#1E2D40', textAlign: 'right', flex: '0 0 60%' }}>{svc.turnaround}</span>
+                      <div className="s2-wizard-summary-row">
+                        <span className="s2-wizard-summary-row__label">Turnaround</span>
+                        <span className="s2-wizard-summary-row__val">{svc.turnaround}</span>
                       </div>
                     )}
-                    {/* Filled text values */}
                     {Object.entries(values)
                       .filter(([, v]) => v && typeof v === 'string' && (v as string).trim())
                       .slice(0, 12)
@@ -881,36 +903,33 @@ export function ServiceDetailPage() {
                         const f = schema.find(f => f.key === key)
                         const label = f?.label || key.replace(/_/g, ' ')
                         return (
-                          <div key={key} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #f0f0f0', fontSize: 14 }}>
-                            <span style={{ color: '#9ca3af', flex: '0 0 38%', textTransform: 'capitalize' }}>{label}</span>
-                            <span style={{ fontWeight: 500, color: '#374151', textAlign: 'right', flex: '0 0 60%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{String(val).slice(0, 60)}</span>
+                          <div key={key} className="s2-wizard-summary-row">
+                            <span className="s2-wizard-summary-row__label">{label}</span>
+                            <span className="s2-wizard-summary-row__val s2-wizard-summary-row__val--medium">{String(val).slice(0, 60)}</span>
                           </div>
                         )
                       })}
-                    {/* File count */}
                     {Object.values(values).some(v => Array.isArray(v) && (v as unknown[])[0] instanceof File) && (
-                      <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', fontSize: 14 }}>
-                        <span style={{ color: '#9ca3af' }}>Documents</span>
-                        <span style={{ fontWeight: 500, color: '#374151' }}>
+                      <div className="s2-wizard-summary-row">
+                        <span className="s2-wizard-summary-row__label">Documents</span>
+                        <span className="s2-wizard-summary-row__val s2-wizard-summary-row__val--medium">
                           {Object.values(values).filter(v => Array.isArray(v) && (v as unknown[])[0] instanceof File).flatMap(v => v as File[]).length} file(s) attached
                         </span>
                       </div>
                     )}
                   </div>
 
-                  {/* Login gate */}
                   {!user && (
-                    <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '16px 18px', marginBottom: 16 }}>
-                      <p style={{ fontSize: 14, color: '#92400e', margin: '0 0 12px', fontWeight: 700 }}>⚠ You need to sign in to submit this request</p>
-                      <div style={{ display: 'flex', gap: 10 }}>
-                        <Link to={`/login?redirect=/book/${slug}`} style={{ background: primary, color: '#fff', padding: '9px 20px', borderRadius: 8, fontWeight: 700, fontSize: 13, textDecoration: 'none' }}>Sign In</Link>
-                        <Link to={`/register?redirect=/book/${slug}`} style={{ color: primary, padding: '9px 20px', borderRadius: 8, fontWeight: 600, fontSize: 13, textDecoration: 'none', border: `1.5px solid ${primary}` }}>Create Account</Link>
+                    <div className="s2-wizard-login-gate">
+                      <p>⚠ You need to sign in to submit this request</p>
+                      <div className="s2-wizard-login-gate__actions">
+                        <Link to={`/login?redirect=/book/${slug}`} className="s2-btn s2-btn--primary s2-btn--sm">Sign In</Link>
+                        <Link to={`/register?redirect=/book/${slug}`} className="s2-btn s2-btn--outline s2-btn--sm">Create Account</Link>
                       </div>
                     </div>
                   )}
 
-                  {/* T&C */}
-                  <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '13px 16px', fontSize: 13, color: '#15803d', fontWeight: 500 }}>
+                  <div className="s2-wizard-tnc">
                     ✅ By submitting, you confirm the above details are accurate. We will send you an itemised quote within 24 hours. No payment is required until you approve the quote.
                   </div>
                 </div>
@@ -923,9 +942,12 @@ export function ServiceDetailPage() {
               </button>
 
               {/* Dot progress */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+              <div className="s2-svc-wizard-dots">
                 {orderedStepNums.map((_, i) => (
-                  <div key={i} style={{ width: stepIdx === i ? 22 : 7, height: 7, borderRadius: 4, background: stepIdx === i ? primary : stepIdx > i ? `${primary}60` : '#e0e0e0', transition: 'all .3s' }} />
+                  <div
+                    key={i}
+                    className={`s2-svc-wizard-dot${stepIdx === i ? ' s2-svc-wizard-dot--active' : stepIdx > i ? ' s2-svc-wizard-dot--done' : ''}`}
+                  />
                 ))}
               </div>
 
@@ -948,7 +970,7 @@ export function ServiceDetailPage() {
           </div>
 
           {waNum && (
-            <div style={{ marginTop: 14, textAlign: 'center' }}>
+            <div className="s2-wizard-wa-wrap">
               <a href={`https://wa.me/${String(waNum).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="s2-btn s2-btn--whatsapp">
                 💬 Prefer WhatsApp? Chat with Us
               </a>
@@ -970,11 +992,11 @@ export function ServiceDetailPage() {
               { icon: '🏆', t: 'Startup India Recognised', d: 'Government recognised. Professionally managed.' },
             ].map(({ icon, t, d }) => (
               <PublicCard key={t}>
-                <div className="s2-public-contact-row" style={{ marginBottom: 0 }}>
+                <div className="s2-public-contact-row s2-public-contact-row--flush">
                   <div className="s2-public-contact-icon">{icon}</div>
                   <div>
-                    <h4 className="s2-public-card__title" style={{ fontSize: 14 }}>{t}</h4>
-                    <p className="s2-public-card__body" style={{ fontSize: 13 }}>{d}</p>
+                    <h4 className="s2-public-card__title s2-public-card__title--sm">{t}</h4>
+                    <p className="s2-public-card__body s2-public-card__body--sm">{d}</p>
                   </div>
                 </div>
               </PublicCard>

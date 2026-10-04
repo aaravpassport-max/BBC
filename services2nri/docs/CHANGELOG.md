@@ -5,6 +5,53 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.6.8] — 2026-10-04 — Cloud Agent
+
+- **Public surface complete**: `--s2-primary` set once on `Layout` (`s2-page-wrap`); marketing/home/service pages no longer duplicate brand overrides.
+- **`cssVars()`** helper for CMS-driven custom properties (hero, marquee, grids, directory badges).
+- **Privacy** page uses site `Layout` (header/footer/nav) like Terms.
+- Verify script fails on duplicate `--s2-primary` in `src/pages/public`. Playwright: 10 public smokes (+ privacy, terms).
+
+---
+
+## [4.6.7] — 2026-10-04 — Cloud Agent
+
+- **ServicesPage** — removed layout/skeleton/state inlines; sidebar, mobile filter, and card badge use `public-services-directory.css` (dynamic category color via `--s2-dir-badge-bg` only).
+- Directory bundle includes responsive sidebar/mobile-filter layout for WP inline CSS.
+- Playwright: smoke tests for `/blog` and `/cities/property-management-in-pune`.
+
+---
+
+## [4.6.6] — 2026-10-04 — Cloud Agent
+
+- **Marketing routes** in `index.tsx` (About, Contact, How It Works, FAQ, Pricing, Blog, Terms, Privacy, City) migrated to `public-marketing-pages.css` with `PublicLayout` primitives.
+- Wired bundle in `DesignSystem::renderInlineCss()`; verify script requires `public-marketing-pages.css`.
+- Remaining inline styles on marketing pages are dynamic `--s2-primary` overrides only; container/compare widths use token classes.
+
+---
+
+## [4.6.5] — 2026-10-04 — Cloud Agent
+
+- **ServiceDetailPage** wizard chrome migrated: step tracker, success screen, hero CTAs, confirm summary, login gate, upload UI, and CMS section typography (`public-service-detail.css`).
+- Inline styles reduced to dynamic CSS variables only (hero height/overlay, marquee, primary override).
+
+---
+
+## [4.6.4] — 2026-10-04 — Cloud Agent
+
+- **HomePage** migrated to `public-home-sections.css` — hero, tabs, cities, testimonials, FAQ, newsletter, app strip, and location pills use token classes (dynamic hero images only).
+- Uses `PublicSectionHead` and `--s2-primary` wrapper for admin primary overrides.
+
+---
+
+## [4.6.3] — 2026-10-04 — Cloud Agent
+
+- **Services directory** (`ServicesPage`) migrated to `public-services-directory.css` (chips, sidebar, cards, skeletons).
+- **ServiceDetailPage** CMS sections + wizard fields migrated to token CSS (`SectionRenderer`, uploads, options).
+- Playwright smoke: added `/services` route test.
+
+---
+
 ## [4.6.2] — 2026-10-04 — Cloud Agent
 
 ### Public pages + E2E

@@ -298,8 +298,14 @@ class DesignSystem {
         $css .= file_exists( S2NRI_DIR . 'assets/public-pages-layout.css' )
             ? file_get_contents( S2NRI_DIR . 'assets/public-pages-layout.css' )
             : '';
+        $css .= file_exists( S2NRI_DIR . 'assets/public-marketing-pages.css' )
+            ? file_get_contents( S2NRI_DIR . 'assets/public-marketing-pages.css' )
+            : '';
         $css .= file_exists( S2NRI_DIR . 'assets/public-service-detail.css' )
             ? file_get_contents( S2NRI_DIR . 'assets/public-service-detail.css' )
+            : '';
+        $css .= file_exists( S2NRI_DIR . 'assets/public-services-directory.css' )
+            ? file_get_contents( S2NRI_DIR . 'assets/public-services-directory.css' )
             : '';
         if ( ! empty( $config['motion']['reduce_motion'] ) ) {
             $css .= "@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;}}\n";

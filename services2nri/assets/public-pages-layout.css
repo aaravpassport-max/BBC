@@ -122,6 +122,10 @@
   align-items: flex-start;
 }
 
+.s2-public-contact-row--flush {
+  margin-bottom: 0;
+}
+
 .s2-public-contact-icon {
   width: 44px;
   height: 44px;
@@ -263,6 +267,10 @@
 .s2-public-compare-table .s2-public-compare-table__brand {
   background: var(--s2-color-primary);
   color: #fff;
+}
+
+.s2-public-compare-table th.s2-public-compare-table__feature {
+  width: 40%;
 }
 
 .s2-public-pricing-hero-badges {
