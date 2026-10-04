@@ -155,6 +155,58 @@ export function resolveWidthCssVars(
   return layerToCssVars(merged)
 }
 
+/** Merged width layer for a page context (mirrors server resolveVars without section scope). */
+export function mergeWidthContext(
+  design: Record<string, unknown> | undefined,
+  ctx: PageWidthContext,
+): WidthLayer {
+  const widths = isRecord(design?.widths) ? (design.widths as Record<string, unknown>) : {}
+  const global = (isRecord(widths.global) ? widths.global : {}) as WidthLayer
+  let merged = { ...global }
+
+  const pageTypes = isRecord(widths.page_types) ? widths.page_types : {}
+  const ptLayer = pageTypes[ctx.page_type]
+  if (isRecord(ptLayer)) merged = mergeLayer(merged, ptLayer as WidthLayer)
+
+  if (
+    ctx.page_type === 'page' &&
+    ctx.page_slug &&
+    (WIDTH_PAGE_TYPE_SLUG_ALIASES as readonly string[]).includes(ctx.page_slug)
+  ) {
+    const aliasLayer = pageTypes[ctx.page_slug]
+    if (isRecord(aliasLayer)) merged = mergeLayer(merged, aliasLayer as WidthLayer)
+  }
+
+  if (ctx.page_type === 'service' && isRecord(widths.service_page)) {
+    merged = mergeLayer(merged, widths.service_page as WidthLayer)
+  }
+
+  const pages = isRecord(widths.pages) ? widths.pages : {}
+  const pageLayer = pages[ctx.page_slug]
+  if (isRecord(pageLayer)) merged = mergeLayer(merged, pageLayer as WidthLayer)
+
+  return merged
+}
+
+/** Section override layer (global sections + service sections when on service pages). */
+export function resolveSectionLayer(
+  design: Record<string, unknown> | undefined,
+  pageType: string,
+  section: string,
+): WidthLayer | null {
+  const widths = isRecord(design?.widths) ? (design.widths as Record<string, unknown>) : {}
+  const layers: WidthLayer[] = []
+  const sections = isRecord(widths.sections) ? widths.sections : {}
+  if (isRecord(sections[section])) layers.push(sections[section] as WidthLayer)
+  if (pageType === 'service') {
+    const sp = isRecord(widths.service_page) ? widths.service_page : {}
+    const ss = isRecord(sp.sections) ? sp.sections : {}
+    if (isRecord(ss[section])) layers.push(ss[section] as WidthLayer)
+  }
+  if (!layers.length) return null
+  return layers.reduce((acc, layer) => mergeLayer(acc, layer), {} as WidthLayer)
+}
+
 export function widthScopeStyle(
   design: Record<string, unknown> | undefined,
   ctx: PageWidthContext,

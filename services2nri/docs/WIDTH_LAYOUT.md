@@ -17,9 +17,9 @@ Unset levels **inherit** from the parent. Section overrides apply only when conf
 
 ## Admin
 
-1. **Admin Portal → Design System → Width & Layout**
-2. Pick a **task card** (most sites: **Whole site defaults** or **Service page hero width**)
-3. Use **Simple mode** for desktop-only edits, or expand **All breakpoints** per field
+1. **Admin Portal → Design System → Layout Studio**
+2. Choose a target in the left rail (most sites: **Site foundation** or **Service hero**)
+3. Use the **breakpoint bar** (Desktop / Laptop / Tablet / Mobile) and sliders; **Apply to all breakpoints** when values should match
 4. **Publish** design system
 5. Public SPA applies new widths automatically (live design sync, 4.7.9+); navigate or refocus the tab if needed
 

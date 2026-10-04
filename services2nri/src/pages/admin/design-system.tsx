@@ -29,7 +29,7 @@ import { broadcastDesignSaved } from '@/lib/design-live-sync'
 type DesignConfig = Record<string, unknown>
 
 const TABS = [
-  'Global', 'Site Chrome', 'Page Templates', 'Typography', 'Fonts', 'Colors', 'Spacing', 'Width & Layout', 'Components',
+  'Global', 'Site Chrome', 'Page Templates', 'Typography', 'Fonts', 'Colors', 'Spacing', 'Layout Studio', 'Components',
   'Containers', 'Borders', 'Shadows', 'Motion', 'Responsive', 'Overrides',
   'Presets', 'Preview', 'Live Site', 'Navigation', 'Icons',
   'Service Registry', 'Categories', 'Cities',
@@ -361,7 +361,7 @@ export function AdminDesignSystem() {
           patch={patch}
           onOpenWidth={(focus) => {
             setWidthFocus(focus)
-            setTab('Width & Layout')
+            setTab('Layout Studio')
           }}
           onPreviewPath={(path) => {
             setPreviewPath(path)
@@ -370,13 +370,13 @@ export function AdminDesignSystem() {
         />
       )}
 
-      {tab === 'Width & Layout' && config && (
+      {tab === 'Layout Studio' && config && (
         <WidthLayoutPanel config={config} patch={patch} focus={widthFocus} />
       )}
 
       {tab === 'Containers' && (
         <TokenGroupEditor
-          title="Layout containers (legacy spacing — prefer Width & Layout)"
+          title="Layout containers (legacy spacing — prefer Layout Studio)"
           basePath={['spacing']}
           tokens={spacing}
           patch={patch}

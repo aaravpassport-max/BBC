@@ -1,354 +1,242 @@
 /**
- * Admin — Width & Layout (task-first UX: pick what to change, then edit grouped controls).
+ * Layout Studio — enterprise width & layout control (Design System tab).
  */
 import React, { useMemo, useState } from 'react'
-import { WIDTH_PAGE_TYPES, WIDTH_SECTIONS } from '@/lib/width-layout'
-import { PxTokenField, PercentField, parsePx, stripPxForInput, WIDTH_DESKTOP_PRESETS } from './design-admin-fields'
+import {
+  mergeWidthContext,
+  resolveSectionLayer,
+  type PageWidthContext,
+} from '@/lib/width-layout'
+import { PercentField, parsePx, stripPxForInput, WIDTH_DESKTOP_PRESETS } from './design-admin-fields'
+import {
+  BP,
+  BP_META,
+  countLayerOverrides,
+  effectiveBp,
+  FIELD_META,
+  GLOBAL_KEYS,
+  GROUP_LABELS,
+  pageTypeOptions,
+  PREVIEW_SCENES,
+  sectionOptions,
+  TASKS,
+  taskFromFocus,
+  type BreakpointId,
+  type GlobalKey,
+  type WidthConfig,
+  type WidthLayoutFocus,
+  type WidthTaskId,
+  PAGE_TYPE_LABELS,
+} from './width-layout-shared'
+import './width-layout-studio.css'
 
 type PatchFn = (path: string[], value: unknown) => void
 
-const GLOBAL_KEYS = [
-  'page_max', 'content_max', 'inner_max', 'full_bleed',
-  'section_standard', 'section_wide', 'section_narrow', 'section_compact',
-  'padding_x', 'min_width', 'max_width_cap',
-] as const
+export type { WidthLayoutFocus }
 
-type GlobalKey = (typeof GLOBAL_KEYS)[number]
-
-const BP = ['desktop', 'laptop', 'tablet', 'mobile'] as const
-
-type WidthConfig = Record<string, unknown>
-
-const FIELD_META: Record<
-  GlobalKey,
-  { label: string; hint: string; group: 'shell' | 'content' | 'sections' | 'advanced'; heroRelevant?: boolean }
-> = {
-  page_max: {
-    label: 'Page container max width',
-    hint: 'Outer shell — header, footer, and full-width sections align to this.',
-    group: 'shell',
-    heroRelevant: true,
-  },
-  padding_x: {
-    label: 'Side padding',
-    hint: 'Horizontal inset on small screens and inside the page shell.',
-    group: 'shell',
-  },
-  content_max: {
-    label: 'Main content column',
-    hint: 'Articles, long copy, and primary content blocks.',
-    group: 'content',
-    heroRelevant: true,
-  },
-  inner_max: {
-    label: 'Narrow prose / forms',
-    hint: 'Subcopy, legal text, compact forms.',
-    group: 'content',
-  },
-  section_standard: {
-    label: 'Default section inner width',
-    hint: 'Most marketing sections use this unless a section override applies.',
-    group: 'sections',
-    heroRelevant: true,
-  },
-  section_wide: {
-    label: 'Wide sections',
-    hint: 'Compare tables, feature grids, full-bleed inner content.',
-    group: 'sections',
-  },
-  section_narrow: {
-    label: 'Narrow sections',
-    hint: 'FAQ lists, testimonials, tight columns.',
-    group: 'sections',
-  },
-  section_compact: {
-    label: 'Compact sections',
-    hint: 'Search bars, subtitles, utility rows.',
-    group: 'sections',
-  },
-  full_bleed: {
-    label: 'Full-bleed width',
-    hint: 'Percentage of viewport for edge-to-edge bands (advanced).',
-    group: 'advanced',
-  },
-  min_width: {
-    label: 'Minimum layout width',
-    hint: 'Prevents layout from shrinking below this (rare).',
-    group: 'advanced',
-  },
-  max_width_cap: {
-    label: 'Hard max cap',
-    hint: 'Absolute ceiling on any resolved width token.',
-    group: 'advanced',
-  },
+const NAV_ICONS: Record<WidthTaskId, string> = {
+  site_defaults: '◆',
+  service_hero: '▣',
+  marketing_section: '⌂',
+  service_block: '☰',
+  by_page_type: '▤',
+  single_page: '⌁',
 }
 
-const GROUP_LABELS: Record<(typeof FIELD_META)[GlobalKey]['group'], string> = {
-  shell: 'Page shell',
-  content: 'Content columns',
-  sections: 'Section presets',
-  advanced: 'Advanced',
-}
-
-type WidthTaskId =
-  | 'site_defaults'
-  | 'by_page_type'
-  | 'single_page'
-  | 'service_hero'
-  | 'service_block'
-  | 'marketing_section'
-
-const TASKS: {
-  id: WidthTaskId
-  title: string
-  description: string
-  scope: WidthLayoutFocus['scope']
-  defaultSection?: string
-}[] = [
-  {
-    id: 'site_defaults',
-    title: 'Whole site defaults',
-    description: 'Start here — every page inherits these unless you override a specific page or section.',
-    scope: 'global',
-  },
-  {
-    id: 'service_hero',
-    title: 'Service page hero width',
-    description: 'Controls hero content width on all /service/… pages. For one service only, use Service Page Builder → Hero Settings.',
-    scope: 'service_section',
-    defaultSection: 'hero',
-  },
-  {
-    id: 'by_page_type',
-    title: 'By page type',
-    description: 'Home, blog, city pages, etc. — override defaults for that template only.',
-    scope: 'page_type',
-  },
-  {
-    id: 'single_page',
-    title: 'One specific page',
-    description: 'Slug-based override (about, contact, or any marketing URL path).',
-    scope: 'page',
-  },
-  {
-    id: 'service_block',
-    title: 'Other service page sections',
-    description: 'FAQ, wizard, pricing blocks on service detail pages — not the global homepage.',
-    scope: 'service_section',
-  },
-  {
-    id: 'marketing_section',
-    title: 'Homepage & global sections',
-    description: 'Hero, cities, newsletter on the home page and shared section keys site-wide.',
-    scope: 'section',
-  },
+const PRESET_CARDS = [
+  { preset: WIDTH_DESKTOP_PRESETS[0], title: 'Marketplace', sub: '1200px shell · balanced catalog' },
+  { preset: WIDTH_DESKTOP_PRESETS[1], title: 'Compact', sub: '1080px shell · dense UI' },
+  { preset: WIDTH_DESKTOP_PRESETS[2], title: 'Wide marketing', sub: '1320px shell · hero-forward' },
 ]
 
-function taskFromFocus(focus: WidthLayoutFocus): WidthTaskId {
-  if (focus.scope === 'global') return 'site_defaults'
-  if (focus.scope === 'page_type') return 'by_page_type'
-  if (focus.scope === 'page') return 'single_page'
-  if (focus.scope === 'service_section') {
-    return focus.selectedSection === 'hero' ? 'service_hero' : 'service_block'
+function ensureResponsive(value: unknown): Record<string, string> {
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    return { desktop: '', laptop: '', tablet: '', mobile: '', ...(value as Record<string, string>) }
   }
-  return 'marketing_section'
+  if (value == null || value === '') {
+    return { desktop: '', laptop: '', tablet: '', mobile: '' }
+  }
+  const s = String(value)
+  return { desktop: s, laptop: s, tablet: s, mobile: s }
 }
 
-function focusFromTask(
-  taskId: WidthTaskId,
-  selectedType: string,
-  selectedPage: string,
-  selectedSection: string,
-): WidthLayoutFocus {
-  const task = TASKS.find((t) => t.id === taskId)!
-  const section =
-    task.defaultSection ??
-    (task.scope === 'service_section' || task.scope === 'section' ? selectedSection : undefined)
-  return {
-    scope: task.scope,
-    selectedType: task.scope === 'page_type' ? selectedType : undefined,
-    selectedPage: task.scope === 'page' ? selectedPage : undefined,
-    selectedSection: section,
-  }
-}
-
-function readDesktopPx(value: unknown): number | null {
-  if (value == null || value === 'inherit') return null
+function readRawAtBp(value: unknown, bp: BreakpointId): string {
+  if (value == null) return ''
   if (typeof value === 'object' && !Array.isArray(value)) {
-    const raw = String((value as Record<string, string>).desktop ?? Object.values(value as Record<string, string>)[0] ?? '')
+    const obj = value as Record<string, string>
+    return String(obj[bp] ?? obj.desktop ?? '')
+  }
+  return String(value)
+}
+
+function LayoutWireframe({
+  pagePx,
+  sectionPx,
+  contentPx,
+  paddingPx,
+  url,
+}: {
+  pagePx: number
+  sectionPx: number
+  contentPx: number
+  paddingPx: number
+  url: string
+}) {
+  const ref = 1440
+  const pct = (px: number) => `${Math.min(100, (px / ref) * 100)}%`
+  const padPct = `${Math.min(12, (paddingPx / ref) * 100)}%`
+
+  return (
+    <div className="s2-wls__browser">
+      <div className="s2-wls__browser-chrome">
+        <span className="s2-wls__dot" />
+        <span className="s2-wls__dot" />
+        <span className="s2-wls__dot" />
+        <div className="s2-wls__browser-url">{url}</div>
+      </div>
+      <div className="s2-wls__viewport">
+        <div className="s2-wls__wire-page">
+          <div className="s2-wls__wire-bar s2-wls__wire-bar--page" style={{ width: pct(pagePx) }}>
+            PAGE {pagePx}px
+          </div>
+          <div className="s2-wls__wire-bar s2-wls__wire-bar--section" style={{ width: pct(sectionPx) }}>
+            SECTION {sectionPx}px
+          </div>
+          <div className="s2-wls__wire-bar s2-wls__wire-bar--content" style={{ width: pct(contentPx) }}>
+            CONTENT {contentPx}px
+          </div>
+          <div className="s2-wls__wire-bar s2-wls__wire-bar--pad" style={{ width: `calc(${pct(pagePx)} - ${padPct} * 2)` }}>
+            Gutter {paddingPx}px
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function WidthControl({
+  fieldKey,
+  bp,
+  value,
+  inherited,
+  global,
+  onChange,
+  onReset,
+  onSyncBreakpoints,
+}: {
+  fieldKey: GlobalKey
+  bp: BreakpointId
+  value: unknown
+  inherited: boolean
+  global: Record<string, unknown>
+  onChange: (v: Record<string, string> | string) => void
+  onReset?: () => void
+  onSyncBreakpoints: () => void
+}) {
+  const meta = FIELD_META[fieldKey]
+  const isPercent = fieldKey === 'full_bleed'
+
+  function readBpPxLocal(v: unknown, breakpoint: BreakpointId): number | null {
+    const raw = readRawAtBp(v, breakpoint)
+    if (!raw) return null
     const n = parseInt(stripPxForInput(raw), 10)
     return Number.isFinite(n) ? n : null
   }
-  const n = parseInt(stripPxForInput(String(value)), 10)
-  return Number.isFinite(n) ? n : null
-}
 
-function effectiveDesktop(layer: Record<string, unknown>, global: Record<string, unknown>, key: GlobalKey): number | null {
-  return readDesktopPx(layer[key]) ?? readDesktopPx(global[key])
-}
+  const effective = inherited
+    ? effectiveBp({}, global, fieldKey, bp)
+    : readBpPxLocal(value, bp) ?? effectiveBp({}, global, fieldKey, bp)
+  const displayNum = effective ?? (meta.slider?.min ?? 960)
 
-function WidthPreview({
-  global,
-  layer,
-  title,
-}: {
-  global: Record<string, unknown>
-  layer: Record<string, unknown>
-  title: string
-}) {
-  const page = effectiveDesktop(layer, global, 'page_max') ?? 1200
-  const content = effectiveDesktop(layer, global, 'content_max') ?? 960
-  const section = effectiveDesktop(layer, global, 'section_standard') ?? 1100
-  const max = Math.max(page, content, section, 400)
-  const bar = (w: number, color: string, label: string) => (
-    <div key={label} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12 }}>
-      <span style={{ width: 120, color: '#64748B' }}>{label}</span>
-      <div style={{ flex: 1, height: 10, background: '#E2E8F0', borderRadius: 999, overflow: 'hidden' }}>
-        <div style={{ width: `${Math.min(100, (w / max) * 100)}%`, height: '100%', background: color, borderRadius: 999 }} />
-      </div>
-      <span style={{ width: 48, textAlign: 'right', fontWeight: 600 }}>{w}px</span>
-    </div>
-  )
-  return (
-    <div
-      style={{
-        border: '1px solid #E2E8F0',
-        borderRadius: 12,
-        padding: 16,
-        background: '#F8FAFC',
-        display: 'grid',
-        gap: 10,
-      }}
-    >
-      <div style={{ fontWeight: 700, fontSize: 14 }}>{title}</div>
-      <p style={{ margin: 0, fontSize: 12, color: '#64748B' }}>Desktop preview — inherited values count toward the bars.</p>
-      {bar(page, '#2563EB', 'Page shell')}
-      {bar(section, '#7C3AED', 'Section default')}
-      {bar(content, '#059669', 'Content column')}
-    </div>
-  )
-}
+  function setAtBp(next: string) {
+    const responsive = ensureResponsive(value)
+    responsive[bp] = isPercent ? next : parsePx(next)
+    onChange(responsive)
+  }
 
-function ResponsiveField({
-  fieldKey,
-  meta,
-  value,
-  onChange,
-  onReset,
-  inherited,
-  simple,
-}: {
-  fieldKey: GlobalKey
-  meta: (typeof FIELD_META)[GlobalKey]
-  value: unknown
-  onChange: (v: Record<string, string> | string) => void
-  onReset?: () => void
-  inherited?: boolean
-  simple: boolean
-}) {
-  const [expanded, setExpanded] = useState(false)
-  const isPercent = fieldKey === 'full_bleed'
-  const isResponsive = typeof value === 'object' && value !== null && !Array.isArray(value)
-  const formatOut = (raw: string) => (isPercent ? (raw.includes('%') ? raw : `${raw}%`) : parsePx(raw))
+  const rawCurrent = readRawAtBp(value, bp)
 
-  const desktopOnly = simple && !expanded && isResponsive
-
-  return (
-    <div
-      style={{
-        border: '1px solid #E2E8F0',
-        borderRadius: 10,
-        padding: 12,
-        background: inherited ? '#fff' : '#F0FDF4',
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start', marginBottom: 8 }}>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 13 }}>{meta.label}</div>
-          <div style={{ fontSize: 11, color: '#64748B', marginTop: 2 }}>{meta.hint}</div>
+  if (isPercent) {
+    return (
+      <div className={`s2-wls__control ${!inherited ? 'is-custom' : ''}`}>
+        <div className="s2-wls__control-top">
+          <div>
+            <div className="s2-wls__control-label">{meta.label}</div>
+            <div className="s2-wls__control-hint">{meta.hint}</div>
+          </div>
+          <span className={`s2-wls__status ${inherited ? 's2-wls__status--inherit' : 's2-wls__status--custom'}`}>
+            {inherited ? 'Inherited' : 'Custom'}
+          </span>
         </div>
-        <span
-          style={{
-            fontWeight: 600,
-            fontSize: 11,
-            color: inherited ? '#64748B' : '#059669',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          {inherited ? 'Using inherited' : 'Custom here'}
+        <PercentField label={BP_META[bp].label} value={rawCurrent || String(effective ?? '')} onChange={(v) => setAtBp(v)} />
+        <div className="s2-wls__control-actions">
+          {onReset && (
+            <button type="button" className="s2-btn s2-btn--ghost s2-btn--sm" onClick={onReset}>
+              Clear override
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  const slider = meta.slider
+  const numVal = readBpPxLocal(value, bp) ?? displayNum
+
+  return (
+    <div className={`s2-wls__control ${!inherited ? 'is-custom' : ''}`}>
+      <div className="s2-wls__control-top">
+        <div>
+          <div className="s2-wls__control-label">{meta.label}</div>
+          <div className="s2-wls__control-hint">{meta.hint}</div>
+        </div>
+        <span className={`s2-wls__status ${inherited ? 's2-wls__status--inherit' : 's2-wls__status--custom'}`}>
+          {inherited ? 'Inherited' : 'Custom'}
         </span>
       </div>
-
-      {desktopOnly ? (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
-          {isPercent ? (
-            <PercentField
-              label="Desktop"
-              value={String((value as Record<string, string>).desktop ?? '')}
-              onChange={(v) => onChange({ ...(value as Record<string, string>), desktop: v })}
+      {slider ? (
+        <div className="s2-wls__slider-row">
+          <input
+            type="range"
+            className="s2-wls__slider"
+            min={slider.min}
+            max={slider.max}
+            step={slider.step ?? 1}
+            value={numVal}
+            onChange={(e) => setAtBp(`${e.target.value}px`)}
+          />
+          <div className="s2-wls__value-box">
+            <input
+              type="number"
+              min={slider.min}
+              max={slider.max}
+              step={slider.step ?? 1}
+              value={numVal}
+              onChange={(e) => setAtBp(`${e.target.value}px`)}
             />
-          ) : (
-            <PxTokenField
-              label="Desktop"
-              value={String((value as Record<string, string>).desktop ?? '')}
-              onChange={(v) => onChange({ ...(value as Record<string, string>), desktop: formatOut(v) })}
-            />
-          )}
-          <button type="button" className="s2-btn s2-btn--ghost s2-btn--sm" onClick={() => setExpanded(true)}>
-            All breakpoints…
-          </button>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#64748B' }}>px</span>
+          </div>
         </div>
-      ) : isResponsive ? (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
-          {BP.map((bp) => (
-            <div key={bp}>
-              {isPercent ? (
-                <PercentField
-                  label={bp}
-                  value={String((value as Record<string, string>)[bp] ?? '')}
-                  onChange={(v) => onChange({ ...(value as Record<string, string>), [bp]: v })}
-                />
-              ) : (
-                <PxTokenField
-                  label={bp}
-                  value={String((value as Record<string, string>)[bp] ?? '')}
-                  onChange={(v) => onChange({ ...(value as Record<string, string>), [bp]: formatOut(v) })}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-      ) : isPercent ? (
-        <PercentField label="Value" value={String(value ?? '')} onChange={(v) => onChange(v)} />
       ) : (
-        <PxTokenField
-          label="All breakpoints"
-          value={String(value ?? '')}
-          onChange={(v) => onChange(formatOut(stripPxForInput(v) ? `${stripPxForInput(v)}px` : v))}
+        <input
+          type="text"
+          value={rawCurrent}
+          onChange={(e) => setAtBp(parsePx(e.target.value))}
+          style={{ width: '100%', padding: 8, borderRadius: 8, border: '1px solid #E2E8F0' }}
         />
       )}
-
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 8 }}>
-        {simple && expanded && (
-          <button type="button" className="s2-btn s2-btn--ghost s2-btn--sm" onClick={() => setExpanded(false)}>
-            Simple view
-          </button>
-        )}
+      <div className="s2-wls__control-actions">
+        <button type="button" className="s2-btn s2-btn--ghost s2-btn--sm" onClick={onSyncBreakpoints}>
+          Apply {BP_META[bp].label} to all breakpoints
+        </button>
         {onReset && (
           <button type="button" className="s2-btn s2-btn--ghost s2-btn--sm" onClick={onReset}>
-            Clear override (inherit)
+            Clear override
           </button>
         )}
       </div>
     </div>
   )
-}
-
-export type WidthLayoutFocus = {
-  scope: 'global' | 'page_type' | 'page' | 'service_section' | 'section'
-  selectedType?: string
-  selectedPage?: string
-  selectedSection?: string
 }
 
 export function WidthLayoutPanel({
@@ -369,11 +257,12 @@ export function WidthLayoutPanel({
   const serviceSections = (servicePage.sections || {}) as Record<string, Record<string, unknown>>
 
   const [taskId, setTaskId] = useState<WidthTaskId>('site_defaults')
-  const [selectedType, setSelectedType] = useState<string>('home')
-  const [selectedPage, setSelectedPage] = useState<string>('about')
-  const [selectedSection, setSelectedSection] = useState<string>('hero')
-  const [simpleMode, setSimpleMode] = useState(true)
-  const [showAdvancedFields, setShowAdvancedFields] = useState(false)
+  const [selectedType, setSelectedType] = useState('home')
+  const [selectedPage, setSelectedPage] = useState('about')
+  const [selectedSection, setSelectedSection] = useState('hero')
+  const [activeBp, setActiveBp] = useState<BreakpointId>('desktop')
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [previewSceneId, setPreviewSceneId] = useState<(typeof PREVIEW_SCENES)[number]['id']>('home')
 
   const task = TASKS.find((t) => t.id === taskId)!
   const scope = task.scope
@@ -402,15 +291,17 @@ export function WidthLayoutPanel({
     return ['widths', 'sections', selectedSection]
   }, [scope, selectedType, selectedPage, selectedSection])
 
+  const overrideCount = countLayerOverrides(activeLayer)
+
   const visibleKeys = useMemo(() => {
     if (taskId === 'service_hero') {
       return GLOBAL_KEYS.filter((k) => FIELD_META[k].heroRelevant)
     }
-    if (!showAdvancedFields) {
+    if (!showAdvanced) {
       return GLOBAL_KEYS.filter((k) => FIELD_META[k].group !== 'advanced')
     }
     return [...GLOBAL_KEYS]
-  }, [taskId, showAdvancedFields])
+  }, [taskId, showAdvanced])
 
   const keysByGroup = useMemo(() => {
     const groups: Record<string, GlobalKey[]> = { shell: [], content: [], sections: [], advanced: [] }
@@ -423,192 +314,291 @@ export function WidthLayoutPanel({
   function applyDesktopPreset(preset: (typeof WIDTH_DESKTOP_PRESETS)[0]) {
     for (const [key, num] of Object.entries(preset.values)) {
       const cur = activeLayer[key]
-      const responsive =
-        typeof cur === 'object' && cur !== null && !Array.isArray(cur)
-          ? { ...(cur as Record<string, string>) }
-          : { desktop: '', laptop: '', tablet: '', mobile: '' }
-      responsive.desktop = `${num}px`
-      responsive.laptop = `${num}px`
+      const responsive = ensureResponsive(cur)
+      for (const bp of BP) {
+        responsive[bp] = `${num}px`
+      }
       patch([...basePath, key], responsive)
     }
   }
 
-  const breadcrumb = useMemo(() => {
-    const parts = ['Global defaults']
-    if (scope === 'page_type') parts.push(`Page type: ${selectedType}`)
-    if (scope === 'page') parts.push(`Page: /${selectedPage}`)
-    if (scope === 'service_section') parts.push(`Service page → ${selectedSection.replace(/_/g, ' ')}`)
-    if (scope === 'section') parts.push(`Section: ${selectedSection.replace(/_/g, ' ')}`)
-    return parts.join(' → ')
+  function syncAllBreakpoints(key: GlobalKey) {
+    const raw = readRawAtBp(activeLayer[key], activeBp)
+    if (!raw) return
+    const responsive = ensureResponsive(activeLayer[key])
+    for (const bp of BP) {
+      responsive[bp] = raw
+    }
+    patch([...basePath, key], responsive)
+  }
+
+  const steps = useMemo(() => {
+    const list = ['Global foundation']
+    if (scope === 'page_type') list.push(`Template · ${PAGE_TYPE_LABELS[selectedType] || selectedType}`)
+    if (scope === 'page') list.push(`Page · /${selectedPage}`)
+    if (scope === 'service_section') list.push(`Service · ${selectedSection.replace(/_/g, ' ')}`)
+    if (scope === 'section') list.push(`Section · ${selectedSection.replace(/_/g, ' ')}`)
+    return list
   }, [scope, selectedType, selectedPage, selectedSection])
 
+  const previewScene = PREVIEW_SCENES.find((s) => s.id === previewSceneId) ?? PREVIEW_SCENES[0]
+
+  const previewMetrics = useMemo(() => {
+    const ctx = previewScene.ctx as PageWidthContext
+    let merged = mergeWidthContext(config, ctx)
+    const sec = previewScene.section
+    if (sec) {
+      const secLayer = resolveSectionLayer(config, ctx.page_type, sec)
+      if (secLayer) {
+        merged = { ...merged, ...secLayer }
+      }
+    }
+    const g = global
+    const pagePx = effectiveBp(merged, g, 'page_max', activeBp) ?? 1200
+    const sectionPx = effectiveBp(merged, g, 'section_standard', activeBp) ?? pagePx
+    const contentPx = effectiveBp(merged, g, 'content_max', activeBp) ?? 960
+    const paddingPx = effectiveBp(merged, g, 'padding_x', activeBp) ?? 20
+    return { pagePx, sectionPx, contentPx, paddingPx }
+  }, [config, previewScene, global, activeBp])
+
+  const pageSlugSuggestions = useMemo(() => Object.keys(pages).slice(0, 8), [pages])
+
+  const navGroups = [
+    { id: 'foundation', label: 'Foundation' },
+    { id: 'experiences', label: 'Experiences' },
+    { id: 'targets', label: 'Targets' },
+  ] as const
+
   return (
-    <div style={{ display: 'grid', gap: 20, maxWidth: 960 }}>
-      <div style={{ display: 'grid', gap: 8 }}>
-        <h3 className="s2-t-h3" style={{ margin: 0 }}>
-          Width &amp; layout
-        </h3>
-        <p className="s2-t-body" style={{ margin: 0, color: '#475569' }}>
-          Pick <strong>what you want to change</strong>, adjust a few widths, then publish. You do not need every token — most sites only touch{' '}
-          <strong>site defaults</strong> or <strong>service hero width</strong>.
-        </p>
-      </div>
-
-      <div style={{ display: 'grid', gap: 10 }}>
-        <span style={{ fontSize: 13, fontWeight: 700 }}>What are you changing?</span>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 10 }}>
-          {TASKS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => {
-                setTaskId(t.id)
-                if (t.defaultSection) setSelectedSection(t.defaultSection)
-              }}
-              style={{
-                textAlign: 'left',
-                padding: 14,
-                borderRadius: 12,
-                border: taskId === t.id ? '2px solid #2563EB' : '1px solid #E2E8F0',
-                background: taskId === t.id ? '#EFF6FF' : '#fff',
-                cursor: 'pointer',
-              }}
-            >
-              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 4 }}>{t.title}</div>
-              <div style={{ fontSize: 12, color: '#64748B', lineHeight: 1.4 }}>{t.description}</div>
-            </button>
-          ))}
+    <div className="s2-wls">
+      <header className="s2-wls__hero">
+        <div>
+          <p className="s2-wls__hero-kicker">Design System</p>
+          <h2 className="s2-wls__hero-title">Layout Studio</h2>
+          <p className="s2-wls__hero-sub">
+            Set how wide your site feels — site shell, reading columns, and section bands — with a clear inheritance chain.
+            Publish when finished; the live site updates automatically.
+          </p>
         </div>
-      </div>
-
-      <div
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          gap: 12,
-          alignItems: 'center',
-          padding: '10px 14px',
-          background: '#F1F5F9',
-          borderRadius: 10,
-          fontSize: 12,
-        }}
-      >
-        <span>
-          <strong>Inheritance:</strong> {breadcrumb}
-        </span>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto', cursor: 'pointer' }}>
-          <input type="checkbox" checked={simpleMode} onChange={(e) => setSimpleMode(e.target.checked)} />
-          Simple mode (desktop only)
-        </label>
-      </div>
-
-      {taskId === 'site_defaults' && (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
-          <span style={{ fontSize: 13, fontWeight: 600 }}>Quick site presets (desktop):</span>
-          {WIDTH_DESKTOP_PRESETS.map((p) => (
-            <button key={p.label} type="button" className="s2-btn s2-btn--sm s2-btn--outline" onClick={() => applyDesktopPreset(p)}>
-              {p.label.split('(')[0].trim()}
-            </button>
-          ))}
+        <div className="s2-wls__hero-meta">
+          <span className="s2-wls__pill">{overrideCount ? `${overrideCount} custom token${overrideCount === 1 ? '' : 's'}` : 'All inherited'}</span>
+          <span className="s2-wls__pill">{BP_META[activeBp].label} editing</span>
         </div>
-      )}
+      </header>
 
-      {scope === 'page_type' && (
-        <label style={{ fontSize: 13, maxWidth: 320 }}>
-          Page type
-          <select
-            value={selectedType}
-            onChange={(e) => setSelectedType(e.target.value)}
-            style={{ display: 'block', marginTop: 6, padding: 8, borderRadius: 8, width: '100%' }}
-          >
-            {WIDTH_PAGE_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      <div className="s2-wls__shell">
+        <nav className="s2-wls__rail" aria-label="Layout targets">
+          {navGroups.map((group) => (
+            <div key={group.id} className="s2-wls__rail-group">
+              <div className="s2-wls__rail-label">{group.label}</div>
+              {TASKS.filter((t) => t.navGroup === group.id).map((t) => {
+                const count =
+                  t.id === taskId
+                    ? overrideCount
+                    : t.scope === 'global'
+                      ? countLayerOverrides(global)
+                      : t.scope === 'page_type'
+                        ? countLayerOverrides(pageTypes[selectedType] || {})
+                        : t.scope === 'page'
+                          ? countLayerOverrides(pages[selectedPage] || {})
+                          : t.scope === 'service_section'
+                            ? countLayerOverrides(serviceSections[selectedSection] || {})
+                            : countLayerOverrides(sections[selectedSection] || {})
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    className={`s2-wls__nav-item ${taskId === t.id ? 'is-active' : ''}`}
+                    onClick={() => {
+                      setTaskId(t.id)
+                      if (t.defaultSection) setSelectedSection(t.defaultSection)
+                    }}
+                  >
+                    <span className="s2-wls__nav-icon" aria-hidden>
+                      {NAV_ICONS[t.id]}
+                    </span>
+                    <span>
+                      <div className="s2-wls__nav-title">{t.title}</div>
+                      <div className="s2-wls__nav-desc">{t.description}</div>
+                    </span>
+                    {count > 0 && <span className="s2-wls__badge">{count}</span>}
+                  </button>
+                )
+              })}
+            </div>
+          ))}
+        </nav>
 
-      {scope === 'page' && (
-        <label style={{ fontSize: 13, maxWidth: 360 }}>
-          Page slug (URL path without leading slash)
-          <input
-            type="text"
-            value={selectedPage}
-            onChange={(e) => setSelectedPage(e.target.value.replace(/\s+/g, '-').toLowerCase())}
-            placeholder="about, contact, faq…"
-            style={{ display: 'block', marginTop: 6, padding: 8, borderRadius: 8, width: '100%' }}
-          />
-        </label>
-      )}
-
-      {(scope === 'section' || scope === 'service_section') && taskId !== 'service_hero' && (
-        <label style={{ fontSize: 13, maxWidth: 360 }}>
-          Section block
-          <select
-            value={selectedSection}
-            onChange={(e) => setSelectedSection(e.target.value)}
-            style={{ display: 'block', marginTop: 6, padding: 8, borderRadius: 8, width: '100%' }}
-          >
-            {WIDTH_SECTIONS.map((s) => (
-              <option key={s} value={s}>
-                {s.replace(/_/g, ' ')}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-
-      <WidthPreview global={global} layer={activeLayer} title={`Preview — ${task.title}`} />
-
-      {taskId === 'service_hero' && (
-        <p style={{ margin: 0, fontSize: 13, padding: 12, background: '#FFFBEB', borderRadius: 10, border: '1px solid #FDE68A' }}>
-          These values apply to <strong>every</strong> service page hero. To change one service, open{' '}
-          <strong>Service Page Builder → Hero Settings → Hero content max width</strong> instead.
-        </p>
-      )}
-
-      {(['shell', 'content', 'sections', 'advanced'] as const).map((group) => {
-        const keys = keysByGroup[group]
-        if (!keys.length) return null
-        return (
-          <section key={group} style={{ display: 'grid', gap: 12 }}>
-            <h4 style={{ margin: 0, fontSize: 15 }}>{GROUP_LABELS[group]}</h4>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-              {keys.map((key) => (
-                <ResponsiveField
-                  key={key}
-                  fieldKey={key}
-                  meta={FIELD_META[key]}
-                  value={activeLayer[key]}
-                  inherited={scope !== 'global' && activeLayer[key] == null}
-                  simple={simpleMode}
-                  onChange={(v) => patch([...basePath, key], v)}
-                  onReset={scope !== 'global' ? () => patch([...basePath, key], undefined) : undefined}
-                />
+        <main className="s2-wls__workspace">
+          <div className="s2-wls__toolbar">
+            <div className="s2-wls__stepper" aria-label="Inheritance">
+              {steps.map((step, i) => (
+                <React.Fragment key={step}>
+                  {i > 0 && <span aria-hidden>›</span>}
+                  <span className={`s2-wls__step ${i === steps.length - 1 ? 'is-current' : ''}`}>{step}</span>
+                </React.Fragment>
               ))}
             </div>
-          </section>
-        )
-      })}
+            <div className="s2-wls__bp-bar" role="tablist" aria-label="Breakpoint">
+              {BP.map((bp) => (
+                <button
+                  key={bp}
+                  type="button"
+                  role="tab"
+                  aria-selected={activeBp === bp}
+                  className={`s2-wls__bp-btn ${activeBp === bp ? 'is-active' : ''}`}
+                  title={BP_META[bp].hint}
+                  onClick={() => setActiveBp(bp)}
+                >
+                  {BP_META[bp].label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-      {taskId !== 'service_hero' && (
-        <button
-          type="button"
-          className="s2-btn s2-btn--ghost s2-btn--sm"
-          onClick={() => setShowAdvancedFields((v) => !v)}
-          style={{ justifySelf: 'start' }}
-        >
-          {showAdvancedFields ? 'Hide advanced tokens' : 'Show advanced tokens (full bleed, min/max caps)'}
-        </button>
-      )}
+          {(scope === 'page_type' || scope === 'page' || scope === 'section' || scope === 'service_section') && (
+            <div className="s2-wls__select-row">
+              {scope === 'page_type' && (
+                <div className="s2-wls__field">
+                  <label htmlFor="wls-page-type">Template</label>
+                  <select id="wls-page-type" value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
+                    {pageTypeOptions().map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {scope === 'page' && (
+                <div className="s2-wls__field">
+                  <label htmlFor="wls-page-slug">Page slug</label>
+                  <input
+                    id="wls-page-slug"
+                    list="wls-page-slugs"
+                    value={selectedPage}
+                    onChange={(e) => setSelectedPage(e.target.value.replace(/\s+/g, '-').toLowerCase())}
+                    placeholder="about, contact, pricing…"
+                  />
+                  <datalist id="wls-page-slugs">
+                    {pageSlugSuggestions.map((s) => (
+                      <option key={s} value={s} />
+                    ))}
+                  </datalist>
+                </div>
+              )}
+              {(scope === 'section' || scope === 'service_section') && taskId !== 'service_hero' && (
+                <div className="s2-wls__field">
+                  <label htmlFor="wls-section">Block</label>
+                  <select id="wls-section" value={selectedSection} onChange={(e) => setSelectedSection(e.target.value)}>
+                    {sectionOptions().map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.group} — {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+            </div>
+          )}
 
-      {scope === 'global' && (
-        <p style={{ fontSize: 12, color: '#64748B', margin: 0 }}>
-          After publish, the Spacing tab keeps legacy <code>container_max</code> in sync with <strong>page container max width (desktop)</strong>.
-        </p>
-      )}
+          {taskId === 'service_hero' && (
+            <div className="s2-wls__callout">
+              Applies to <strong>every service page hero</strong>. For a single service, use{' '}
+              <strong>Service Page Builder → Hero Settings → Hero content max width</strong>.
+            </div>
+          )}
+
+          {taskId === 'site_defaults' && (
+            <div className="s2-wls__presets">
+              {PRESET_CARDS.map(({ preset, title, sub }) => (
+                <button key={title} type="button" className="s2-wls__preset" onClick={() => applyDesktopPreset(preset)}>
+                  <div className="s2-wls__preset-title">{title}</div>
+                  <div className="s2-wls__preset-sub">{sub}</div>
+                  <div className="s2-wls__preset-bars" aria-hidden>
+                    <div className="s2-wls__preset-bar" style={{ width: `${(Number(preset.values.page_max) / 1400) * 100}%` }} />
+                    <div className="s2-wls__preset-bar" style={{ width: `${(Number(preset.values.content_max) / 1400) * 100}%`, opacity: 0.7 }} />
+                    <div className="s2-wls__preset-bar" style={{ width: `${(Number(preset.values.section_standard) / 1400) * 100}%`, opacity: 0.5 }} />
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {(['shell', 'content', 'sections', 'advanced'] as const).map((group) => {
+            const keys = keysByGroup[group]
+            if (!keys.length) return null
+            const meta = GROUP_LABELS[group]
+            return (
+              <section key={group} className="s2-wls__group">
+                <div className="s2-wls__group-head">
+                  <h3 className="s2-wls__group-title">{meta.title}</h3>
+                  <p className="s2-wls__group-blurb">{meta.blurb}</p>
+                </div>
+                {keys.map((key) => (
+                  <WidthControl
+                    key={key}
+                    fieldKey={key}
+                    bp={activeBp}
+                    value={activeLayer[key]}
+                    inherited={scope !== 'global' && activeLayer[key] == null}
+                    global={global}
+                    onChange={(v) => patch([...basePath, key], v)}
+                    onReset={scope !== 'global' ? () => patch([...basePath, key], undefined) : undefined}
+                    onSyncBreakpoints={() => syncAllBreakpoints(key)}
+                  />
+                ))}
+              </section>
+            )
+          })}
+
+          {taskId !== 'service_hero' && (
+            <button type="button" className="s2-btn s2-btn--ghost s2-btn--sm" onClick={() => setShowAdvanced((v) => !v)}>
+              {showAdvanced ? 'Hide advanced tokens' : 'Show advanced tokens'}
+            </button>
+          )}
+        </main>
+
+        <aside className="s2-wls__preview">
+          <p className="s2-wls__preview-title">Live structure preview</p>
+          <div className="s2-wls__scene-tabs">
+            {PREVIEW_SCENES.map((scene) => (
+              <button
+                key={scene.id}
+                type="button"
+                className={`s2-wls__scene-tab ${previewSceneId === scene.id ? 'is-active' : ''}`}
+                onClick={() => setPreviewSceneId(scene.id)}
+              >
+                {scene.label}
+              </button>
+            ))}
+          </div>
+          <LayoutWireframe
+            pagePx={previewMetrics.pagePx}
+            sectionPx={previewMetrics.sectionPx}
+            contentPx={previewMetrics.contentPx}
+            paddingPx={previewMetrics.paddingPx}
+            url={
+              previewScene.ctx.page_type === 'home'
+                ? '/'
+                : previewScene.ctx.page_type === 'service'
+                  ? '/service/passport'
+                  : `/${previewScene.ctx.page_slug}`
+            }
+          />
+          <div className="s2-wls__legend">
+            <div>Preview uses published config + your unsaved edits in this panel.</div>
+            <div>
+              {BP_META[activeBp].label}: page {previewMetrics.pagePx}px · section {previewMetrics.sectionPx}px · content{' '}
+              {previewMetrics.contentPx}px
+            </div>
+          </div>
+          <p className="s2-wls__footnote">
+            Width tokens map to CSS variables on the public site (e.g. <code>--s2-width-page-max</code>,{' '}
+            <code>--s2-width-sec-hero-max</code>).
+          </p>
+        </aside>
+      </div>
     </div>
   )
 }
