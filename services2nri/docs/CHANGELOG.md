@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.11] — 2026-10-04 — Cloud Agent
+
+- **Release zip:** full source tree (PHP, TS, `src-react/`, docs, tests, scripts) + prebuilt `assets/`; **all `node_modules` excluded** (~3 MB instead of ~20 MB). See `docs/SOURCE_PACKAGE.md`.
+
+---
+
 ## [4.7.10] — 2026-10-04 — Cloud Agent
 
 - **Presets:** per-theme typography scale patches (heading/body sizes) so presets differ in type rhythm, not only color/fonts.
