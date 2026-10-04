@@ -159,6 +159,10 @@ class WidthLayout {
                 continue;
             }
             $secVars = self::layerToVars( $secLayer, 'sec-' . $sec . '-' );
+            $secMax = self::sectionMaxFromLayer( $secLayer );
+            if ( $secMax !== null ) {
+                $secVars[ '--s2-width-sec-' . $sec . '-max' ] = $secMax;
+            }
             $css .= "[data-s2-section=\"{$sec}\"]{\n" . self::varsBlock( $secVars ) . "}\n";
         }
 
@@ -198,6 +202,29 @@ class WidthLayout {
             }
         }
         return $base;
+    }
+
+    /**
+     * Shorthand used by public-width-layout.css (--s2-width-sec-{section}-max).
+     *
+     * @param array<string, mixed> $layer
+     */
+    public static function sectionMaxFromLayer( array $layer ): ?string {
+        $priority = [ 'content_max', 'section_wide', 'section_standard', 'section_narrow', 'page_max', 'inner_max' ];
+        foreach ( $priority as $key ) {
+            if ( ! isset( $layer[ $key ] ) ) {
+                continue;
+            }
+            $val = $layer[ $key ];
+            if ( is_array( $val ) ) {
+                $val = (string) ( $val['desktop'] ?? reset( $val ) ?: '' );
+            }
+            $val = trim( (string) $val );
+            if ( $val !== '' && $val !== 'inherit' ) {
+                return $val;
+            }
+        }
+        return null;
     }
 
     /** @param array<string, mixed> $layer */

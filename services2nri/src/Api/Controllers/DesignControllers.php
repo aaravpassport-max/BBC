@@ -49,7 +49,11 @@ class DesignSystemController extends BaseController {
             Response::json( [ 'error' => 'Unknown preset.' ], 422 );
             return;
         }
-        $config = DesignSystem::applyPreset( $id );
+        $mode = sanitize_key( (string) $req->input( 'mode', 'theme' ) );
+        if ( ! in_array( $mode, [ 'theme', 'factory' ], true ) ) {
+            $mode = 'theme';
+        }
+        $config = DesignSystem::applyPreset( $id, $mode );
         Response::json( [ 'ok' => true, 'config' => $config ] );
     }
 

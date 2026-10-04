@@ -181,7 +181,9 @@ class DesignSystem {
 
     /** @param array<string, mixed> $patch */
     public static function save( array $patch ): void {
-        $merged = self::deepMerge( self::defaults(), self::loadStored(), $patch );
+        // Admin publishes the full config tree; merge only with defaults (not stored) so cleared overrides inherit correctly.
+        $merged = self::deepMerge( self::defaults(), $patch );
+        $merged = self::normalizeConfig( $merged );
         $desktopPage = $merged['widths']['global']['page_max']['desktop'] ?? null;
         if ( is_string( $desktopPage ) && $desktopPage !== '' ) {
             $merged['spacing']['container_max'] = $desktopPage;
@@ -196,10 +198,30 @@ class DesignSystem {
         }
     }
 
-    public static function applyPreset( string $preset_id ): array {
-        $patch = DesignPresets::patch( $preset_id );
-        $patch['preset'] = sanitize_key( $preset_id );
-        self::save( $patch );
+    /**
+     * @param string $preset_id Preset key.
+     * @param string $mode      theme = colors/fonts/spacing/radius/shadow only; factory = reset to defaults + preset.
+     */
+    public static function applyPreset( string $preset_id, string $mode = 'theme' ): array {
+        $id    = sanitize_key( $preset_id );
+        $theme = DesignPresets::expanded( $id );
+        if ( $mode === 'factory' ) {
+            $base = self::defaults();
+            $patch = DesignPresets::patch( $id );
+            $config = self::deepMerge( $base, $patch );
+            $config['preset'] = $id;
+            $config['overrides'] = $base['overrides'];
+            self::save( $config );
+            return self::resolve( [] );
+        }
+        $current = self::resolve( [] );
+        foreach ( [ 'colors', 'fonts', 'radius', 'shadow', 'spacing' ] as $section ) {
+            if ( isset( $theme[ $section ] ) && is_array( $theme[ $section ] ) ) {
+                $current[ $section ] = $theme[ $section ];
+            }
+        }
+        $current['preset'] = $id;
+        self::save( $current );
         return self::resolve( [] );
     }
 
@@ -364,7 +386,7 @@ class DesignSystem {
         $lines[] = '  --s2-font-button:' . FontLibrary::stackFor( (string) ( $fonts['button'] ?? 'montserrat' ), $fallback ) . ';';
         $lines[] = '  --s2-font-fallback:' . esc_attr( $fallback ) . ';';
 
-        $widthVars = WidthLayout::resolveVars( $config, $ctx ?? [] );
+        $widthVars = WidthLayout::resolveVars( $config, [] );
         foreach ( $widthVars as $k => $v ) {
             $lines[] = '  ' . $k . ':' . esc_attr( $v ) . ';';
         }
@@ -437,6 +459,72 @@ class DesignSystem {
             return 'var(--s2-color-' . sanitize_key( $m[1] ) . ')';
         }
         return esc_attr( $value );
+    }
+
+    /** Normalize admin-published values (hex colors, px spacing). */
+    private static function normalizeConfig( array $config ): array {
+        if ( ! empty( $config['colors'] ) && is_array( $config['colors'] ) ) {
+            foreach ( $config['colors'] as $k => $v ) {
+                if ( ! is_string( $v ) ) {
+                    continue;
+                }
+                $v = trim( $v );
+                if ( str_starts_with( $v, '#' ) ) {
+                    $hex = sanitize_hex_color( $v );
+                    if ( $hex ) {
+                        $config['colors'][ $k ] = strtoupper( $hex );
+                    }
+                }
+            }
+            if ( ! empty( $config['colors']['primary'] ) ) {
+                $config['colors']['link'] = $config['colors']['link'] ?? $config['colors']['primary'];
+            }
+        }
+        if ( ! empty( $config['spacing'] ) && is_array( $config['spacing'] ) ) {
+            $config['spacing'] = self::normalizePxMap( $config['spacing'] );
+        }
+        if ( ! empty( $config['radius'] ) && is_array( $config['radius'] ) ) {
+            $config['radius'] = self::normalizePxMap( $config['radius'] );
+        }
+        if ( ! empty( $config['widths'] ) && is_array( $config['widths'] ) ) {
+            $config['widths'] = self::normalizeWidthTree( $config['widths'] );
+        }
+        return $config;
+    }
+
+    /** @param array<string, mixed> $map */
+    private static function normalizePxMap( array $map ): array {
+        foreach ( $map as $k => $v ) {
+            if ( is_string( $v ) && preg_match( '/^\d+(\.\d+)?$/', trim( $v ) ) ) {
+                $map[ $k ] = trim( $v ) . 'px';
+            }
+        }
+        return $map;
+    }
+
+    /** @param array<string, mixed> $widths */
+    private static function normalizeWidthTree( array $widths ): array {
+        $bps = [ 'desktop', 'laptop', 'tablet', 'mobile' ];
+        foreach ( $widths as $k => $v ) {
+            if ( ! is_array( $v ) ) {
+                if ( is_string( $v ) && preg_match( '/^\d+(\.\d+)?$/', trim( $v ) ) ) {
+                    $widths[ $k ] = trim( $v ) . 'px';
+                }
+                continue;
+            }
+            $isBp = array_intersect( array_keys( $v ), $bps ) !== [];
+            if ( $isBp ) {
+                foreach ( $v as $bp => $val ) {
+                    if ( is_string( $val ) && preg_match( '/^\d+(\.\d+)?$/', trim( $val ) ) ) {
+                        $v[ $bp ] = trim( $val ) . 'px';
+                    }
+                }
+                $widths[ $k ] = $v;
+            } else {
+                $widths[ $k ] = self::normalizeWidthTree( $v );
+            }
+        }
+        return $widths;
     }
 
     /** @param array<string, mixed> ...$layers */

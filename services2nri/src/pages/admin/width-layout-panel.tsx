@@ -3,6 +3,7 @@
  */
 import React, { useMemo, useState } from 'react'
 import { WIDTH_PAGE_TYPES, WIDTH_SECTIONS } from '@/lib/width-layout'
+import { PxTokenField, PercentField, parsePx, stripPxForInput, WIDTH_DESKTOP_PRESETS } from './design-admin-fields'
 
 type PatchFn = (path: string[], value: unknown) => void
 
@@ -18,18 +19,22 @@ type WidthConfig = Record<string, unknown>
 
 function ResponsiveField({
   label,
+  fieldKey,
   value,
   onChange,
   onReset,
   inherited,
 }: {
   label: string
+  fieldKey: string
   value: unknown
   onChange: (v: Record<string, string> | string) => void
   onReset?: () => void
   inherited?: boolean
 }) {
+  const isPercent = fieldKey === 'full_bleed'
   const isResponsive = typeof value === 'object' && value !== null && !Array.isArray(value)
+  const formatOut = (raw: string) => (isPercent ? (raw.includes('%') ? raw : `${raw}%`) : parsePx(raw))
   return (
     <fieldset style={{ border: '1px solid #E2E8F0', borderRadius: 10, padding: 12, margin: 0 }}>
       <legend style={{ fontWeight: 700, fontSize: 13, padding: '0 6px' }}>
@@ -41,23 +46,30 @@ function ResponsiveField({
       {isResponsive ? (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: 8 }}>
           {BP.map((bp) => (
-            <label key={bp} style={{ fontSize: 11 }}>
-              {bp}
-              <input
-                type="text"
-                value={String((value as Record<string, string>)[bp] ?? '')}
-                onChange={(e) => onChange({ ...(value as Record<string, string>), [bp]: e.target.value })}
-                style={{ display: 'block', width: '100%', marginTop: 4, padding: 6, borderRadius: 6, border: '1px solid #E2E8F0' }}
-              />
-            </label>
+            <div key={bp}>
+              {isPercent ? (
+                <PercentField
+                  label={bp}
+                  value={String((value as Record<string, string>)[bp] ?? '')}
+                  onChange={(v) => onChange({ ...(value as Record<string, string>), [bp]: v })}
+                />
+              ) : (
+                <PxTokenField
+                  label={bp}
+                  value={String((value as Record<string, string>)[bp] ?? '')}
+                  onChange={(v) => onChange({ ...(value as Record<string, string>), [bp]: formatOut(v) })}
+                />
+              )}
+            </div>
           ))}
         </div>
+      ) : isPercent ? (
+        <PercentField label="Value" value={String(value ?? '')} onChange={(v) => onChange(v)} />
       ) : (
-        <input
-          type="text"
+        <PxTokenField
+          label="All breakpoints"
           value={String(value ?? '')}
-          onChange={(e) => onChange(e.target.value)}
-          style={{ width: '100%', padding: 8, borderRadius: 8, border: '1px solid #E2E8F0' }}
+          onChange={(v) => onChange(formatOut(stripPxForInput(v) ? `${stripPxForInput(v)}px` : v))}
         />
       )}
       {onReset && (
@@ -105,12 +117,37 @@ export function WidthLayoutPanel({
     return ['widths', 'sections', selectedSection]
   }, [scope, selectedType, selectedPage, selectedSection])
 
+  function applyDesktopPreset(preset: (typeof WIDTH_DESKTOP_PRESETS)[0]) {
+    for (const [key, num] of Object.entries(preset.values)) {
+      const cur = activeLayer[key]
+      const responsive =
+        typeof cur === 'object' && cur !== null && !Array.isArray(cur)
+          ? { ...(cur as Record<string, string>) }
+          : { desktop: '', laptop: '', tablet: '', mobile: '' }
+      responsive.desktop = `${num}px`
+      responsive.laptop = `${num}px`
+      patch([...basePath, key], responsive)
+    }
+  }
+
   return (
     <div style={{ display: 'grid', gap: 20 }}>
       <p className="s2-t-body" style={{ maxWidth: 720, margin: 0 }}>
-        Central width hierarchy: <strong>Global → Page type → Page → Section</strong>. Service pages also inherit{' '}
-        <strong>Service page defaults</strong> before section overrides. Public CSS uses <code>--s2-width-*</code> tokens only.
+        All widths use <strong>px</strong> (except full bleed = %). Hierarchy:{' '}
+        <strong>Global → Page type → Page → Section</strong>. Hero/service section max maps to{' '}
+        <code>--s2-width-sec-hero-max</code> on the live site.
       </p>
+
+      {scope === 'global' && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          <span style={{ fontSize: 13, fontWeight: 600 }}>Desktop presets:</span>
+          {WIDTH_DESKTOP_PRESETS.map((p) => (
+            <button key={p.label} type="button" className="s2-btn s2-btn--sm s2-btn--outline" onClick={() => applyDesktopPreset(p)}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+      )}
 
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         {(['global', 'page_type', 'page', 'service_section', 'section'] as const).map((s) => (
@@ -164,6 +201,7 @@ export function WidthLayoutPanel({
         {GLOBAL_KEYS.map((key) => (
           <ResponsiveField
             key={key}
+            fieldKey={key}
             label={key.replace(/_/g, ' ')}
             value={activeLayer[key]}
             inherited={scope !== 'global' && activeLayer[key] == null}
