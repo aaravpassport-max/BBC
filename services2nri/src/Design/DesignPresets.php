@@ -23,6 +23,34 @@ class DesignPresets {
         ];
     }
 
+    /** Full theme slice for apply (defaults + preset patch). */
+    public static function expanded( string $preset_id ): array {
+        $defaults = DesignSystem::defaults();
+        $patch    = self::patch( $preset_id );
+        $merged   = self::deepMergePresets( $defaults, $patch );
+        if ( ! empty( $merged['colors']['primary'] ) && empty( $patch['colors']['primary_hover'] ?? null ) ) {
+            $merged['colors']['primary_hover'] = $merged['colors']['primary_hover'] ?? $merged['colors']['primary'];
+        }
+        if ( ! empty( $merged['colors']['primary'] ) ) {
+            $merged['colors']['link']       = $merged['colors']['link'] ?? $merged['colors']['primary'];
+            $merged['colors']['link_hover'] = $merged['colors']['link_hover'] ?? ( $merged['colors']['primary_hover'] ?? $merged['colors']['primary'] );
+        }
+        return $merged;
+    }
+
+    /** @param array<string, mixed> $base @param array<string, mixed> $patch */
+    private static function deepMergePresets( array $base, array $patch ): array {
+        $out = $base;
+        foreach ( $patch as $k => $v ) {
+            if ( is_array( $v ) && isset( $out[ $k ] ) && is_array( $out[ $k ] ) ) {
+                $out[ $k ] = self::deepMergePresets( $out[ $k ], $v );
+            } else {
+                $out[ $k ] = $v;
+            }
+        }
+        return $out;
+    }
+
     /** Partial design config patches keyed by preset id. */
     public static function patch( string $preset_id ): array {
         $p = sanitize_key( $preset_id );
@@ -100,7 +128,7 @@ class DesignPresets {
                     'primary' => '#2563EB', 'accent' => '#10B981', 'card' => '#FFFFFF',
                     'background' => '#F1F5F9', 'heading' => '#0F172A',
                 ],
-                'spacing' => [ 'section_y' => '72px', 'card_gap' => '20px' ],
+                'spacing' => [ 'section_y' => '72px', 'grid_gap' => '20px', 'container_max' => '1200px', 'content_max' => '760px' ],
                 'fonts' => [ 'heading' => 'poppins', 'body' => 'roboto', 'ui' => 'roboto', 'button' => 'poppins' ],
             ],
         ];

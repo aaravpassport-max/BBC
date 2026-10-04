@@ -5,6 +5,16 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.4] — 2026-10-04 — Cloud Agent
+
+- **Fix:** Section width tokens emit `--s2-width-sec-{section}-max` (hero/wizard/directory presets work with Width & Layout).
+- **Fix:** Design publish merges full admin config with defaults only (reset-to-inherited actually clears overrides).
+- **Fix:** `buildCssVariables()` width resolver no longer uses undefined page context.
+- **Presets:** **Apply theme** vs **Factory reset + apply**; expanded palette per preset; marketplace `grid_gap` fix.
+- **Admin UX:** Hex color fields, px spacing/radius/width inputs, global width desktop presets, overlay/shadow hex+opacity.
+
+---
+
 ## [4.7.3] — 2026-10-04 — Cloud Agent
 
 - **Service Page Builder** — Hero Settings panel exposes **Hero content max width** (`hero_settings.container_max`), with inherit/preset/custom; deep-link `?tab=hero`.

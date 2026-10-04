@@ -22,6 +22,7 @@ import {
   type RegistryCity,
 } from './design-system-panels'
 import { WidthLayoutPanel } from './width-layout-panel'
+import { HexColorField, HexAlphaColorField } from './design-admin-fields'
 
 type DesignConfig = Record<string, unknown>
 
@@ -34,12 +35,14 @@ const TABS = [
 
 type Tab = (typeof TABS)[number]
 
-const COLOR_KEYS = [
+const COLOR_KEYS_HEX = [
   'primary', 'primary_hover', 'primary_active', 'secondary', 'secondary_hover',
   'accent', 'accent_hover', 'background', 'surface', 'surface_alt', 'card',
   'border', 'divider', 'heading', 'body', 'muted', 'placeholder', 'link', 'link_hover',
-  'success', 'warning', 'error', 'info', 'disabled', 'overlay', 'shadow',
-]
+  'success', 'warning', 'error', 'info', 'disabled',
+] as const
+
+const COLOR_KEYS_ALPHA = ['overlay', 'shadow'] as const
 
 export function AdminDesignSystem() {
   const [tab, setTab] = useState<Tab>('Global')
@@ -129,8 +132,9 @@ export function AdminDesignSystem() {
     setSaving(true)
     setMessage('')
     try {
-      await api.put('admin/design', config)
-      setMessage('Design system saved. Refresh the public site to see changes.')
+      const res = await api.put<{ config: DesignConfig }>('admin/design', config)
+      if (res.config) setConfig(res.config)
+      setMessage('Design system published. Hard-refresh the public site (Ctrl+Shift+R) to load new CSS.')
     } catch (e: unknown) {
       setMessage(e instanceof Error ? e.message : 'Save failed')
     } finally {
@@ -138,12 +142,20 @@ export function AdminDesignSystem() {
     }
   }
 
-  const applyPreset = async (id: string) => {
+  const applyPreset = async (id: string, mode: 'theme' | 'factory' = 'theme') => {
+    const label = presets[id]?.label || id
+    if (mode === 'factory' && !window.confirm(`Reset ALL design settings to defaults and apply "${label}"? Width overrides and custom typography will be cleared.`)) {
+      return
+    }
     setSaving(true)
     try {
-      const res = await api.post<{ config: DesignConfig }>('admin/design/preset', { preset: id })
+      const res = await api.post<{ config: DesignConfig }>('admin/design/preset', { preset: id, mode })
       setConfig(res.config)
-      setMessage(`Preset "${presets[id]?.label || id}" applied.`)
+      setMessage(
+        mode === 'factory'
+          ? `Factory preset "${label}" applied — full reset + theme. Hard-refresh the public site.`
+          : `Theme preset "${label}" applied (colors, fonts, spacing, radius). Width & layout kept. Publish not required — already saved.`,
+      )
     } catch (e: unknown) {
       setMessage(e instanceof Error ? e.message : 'Preset failed')
     } finally {
@@ -238,30 +250,35 @@ export function AdminDesignSystem() {
       </div>
 
       {tab === 'Colors' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
-          {COLOR_KEYS.map((key) => (
-            <label key={key} style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
-              <span style={{ fontWeight: 600 }}>{key.replace(/_/g, ' ')}</span>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input
-                  type="color"
-                  value={(colors[key] || '#000000').startsWith('#') ? colors[key] : '#4A6FA5'}
-                  onChange={(e) => patch(['colors', key], e.target.value)}
-                />
-                <input
-                  type="text"
-                  value={colors[key] || ''}
-                  onChange={(e) => patch(['colors', key], e.target.value)}
-                  style={{ flex: 1, padding: 8, borderRadius: 8, border: '1px solid #E2E8F0' }}
-                />
-              </div>
-            </label>
-          ))}
+        <div style={{ display: 'grid', gap: 24 }}>
+          <p style={{ margin: 0, fontSize: 13, color: '#64748B', maxWidth: 640 }}>
+            Brand and UI colors use <strong>#HEX</strong> codes. Overlay and shadow support hex + opacity (saved as 8-digit hex).
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
+            {COLOR_KEYS_HEX.map((key) => (
+              <HexColorField
+                key={key}
+                label={key.replace(/_/g, ' ')}
+                value={colors[key] || ''}
+                onChange={(v) => patch(['colors', key], v)}
+              />
+            ))}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+            {COLOR_KEYS_ALPHA.map((key) => (
+              <HexAlphaColorField
+                key={key}
+                label={key.replace(/_/g, ' ')}
+                value={colors[key] || ''}
+                onChange={(v) => patch(['colors', key], v)}
+              />
+            ))}
+          </div>
         </div>
       )}
 
       {tab === 'Spacing' && (
-        <TokenGroupEditor title="Spacing scale" basePath={['spacing']} tokens={spacing} patch={patch} keys={Object.keys(spacing)} />
+        <TokenGroupEditor title="Spacing scale (px)" basePath={['spacing']} tokens={spacing} patch={patch} keys={Object.keys(spacing)} unit="px" />
       )}
 
       {tab === 'Fonts' && (
@@ -337,7 +354,7 @@ export function AdminDesignSystem() {
       )}
 
       {tab === 'Borders' && (
-        <TokenGroupEditor title="Border radius" basePath={['radius']} tokens={radius} patch={patch} keys={Object.keys(radius)} />
+        <TokenGroupEditor title="Border radius (px)" basePath={['radius']} tokens={radius} patch={patch} keys={Object.keys(radius)} unit="px" />
       )}
 
       {tab === 'Shadows' && (
@@ -379,16 +396,27 @@ export function AdminDesignSystem() {
       )}
 
       {tab === 'Presets' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
-          {Object.entries(presets).map(([id, p]) => (
-            <div key={id} className="s2-card" style={{ border: '1px solid #E2E8F0', borderRadius: 16, padding: 20 }}>
-              <h3 style={{ margin: '0 0 8px' }}>{p.label}</h3>
-              <p style={{ fontSize: 13, color: '#64748B', minHeight: 40 }}>{p.description}</p>
-              <button type="button" onClick={() => applyPreset(id)} className="s2-btn s2-btn--secondary">
-                Apply preset
-              </button>
-            </div>
-          ))}
+        <div style={{ display: 'grid', gap: 20 }}>
+          <p style={{ margin: 0, fontSize: 13, color: '#64748B', maxWidth: 720 }}>
+            <strong>Apply theme</strong> updates colors, fonts, spacing, radius, and shadows (keeps your width/layout and overrides).{' '}
+            <strong>Factory reset</strong> restores defaults and applies the preset everywhere.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+            {Object.entries(presets).map(([id, p]) => (
+              <div key={id} className="s2-card" style={{ border: '1px solid #E2E8F0', borderRadius: 16, padding: 20 }}>
+                <h3 style={{ margin: '0 0 8px' }}>{p.label}</h3>
+                <p style={{ fontSize: 13, color: '#64748B', minHeight: 48 }}>{p.description}</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <button type="button" onClick={() => applyPreset(id, 'theme')} className="s2-btn s2-btn--primary" disabled={saving}>
+                    Apply theme
+                  </button>
+                  <button type="button" onClick={() => applyPreset(id, 'factory')} className="s2-btn s2-btn--ghost" disabled={saving}>
+                    Factory reset + apply
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

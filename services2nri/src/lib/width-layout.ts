@@ -55,6 +55,22 @@ function mergeLayer(base: WidthLayer, patch: WidthLayer): WidthLayer {
   return out
 }
 
+export function sectionMaxFromLayer(layer: WidthLayer): string | null {
+  const priority = ['content_max', 'section_wide', 'section_standard', 'section_narrow', 'page_max', 'inner_max']
+  for (const key of priority) {
+    const raw = layer[key]
+    if (raw == null || raw === 'inherit') continue
+    let val: string
+    if (isRecord(raw)) {
+      val = String(raw.desktop ?? Object.values(raw)[0] ?? '')
+    } else {
+      val = String(raw)
+    }
+    if (val.trim()) return val
+  }
+  return null
+}
+
 function layerToCssVars(layer: WidthLayer, prefix = ''): Record<string, string> {
   const vars: Record<string, string> = {}
   for (const [key, cssKey] of Object.entries(TOKEN_MAP)) {

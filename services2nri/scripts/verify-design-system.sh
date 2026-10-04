@@ -59,6 +59,8 @@ else
   ok blog width tokens
 fi
 
+grep -q 'sectionMaxFromLayer' src/Design/WidthLayout.php && grep -q 'sec-.*-max' src/Design/WidthLayout.php && ok section width max shorthand || bad section width max shorthand
+
 if [[ $fail -ne 0 ]]; then
   echo "Verification failed."
   exit 1

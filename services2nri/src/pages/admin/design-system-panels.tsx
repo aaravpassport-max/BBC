@@ -3,6 +3,7 @@
  */
 import React from 'react'
 import { api } from '@/lib/api'
+import { PxTokenField, parsePx } from './design-admin-fields'
 
 type PatchFn = (path: string[], value: unknown) => void
 
@@ -52,28 +53,39 @@ export function TokenGroupEditor({
   tokens,
   patch,
   keys,
+  unit = 'px',
 }: {
   title: string
   basePath: string[]
   tokens: Record<string, string>
   patch: PatchFn
   keys: string[]
+  unit?: 'px' | 'text'
 }) {
   return (
     <div>
       <h3 style={{ marginTop: 0 }}>{title}</h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
-        {keys.map((key) => (
-          <label key={key} style={{ fontSize: 13 }}>
-            {key}
-            <input
-              type="text"
+        {keys.map((key) =>
+          unit === 'px' ? (
+            <PxTokenField
+              key={key}
+              label={key.replace(/_/g, ' ')}
               value={tokens[key] || ''}
-              onChange={(e) => patch([...basePath, key], e.target.value)}
-              style={{ display: 'block', width: '100%', marginTop: 4, padding: 8, borderRadius: 8, border: '1px solid #E2E8F0' }}
+              onChange={(v) => patch([...basePath, key], parsePx(v))}
             />
-          </label>
-        ))}
+          ) : (
+            <label key={key} style={{ fontSize: 13 }}>
+              {key.replace(/_/g, ' ')}
+              <input
+                type="text"
+                value={tokens[key] || ''}
+                onChange={(e) => patch([...basePath, key], e.target.value)}
+                style={{ display: 'block', width: '100%', marginTop: 4, padding: 8, borderRadius: 8, border: '1px solid #E2E8F0' }}
+              />
+            </label>
+          )
+        )}
       </div>
     </div>
   )
