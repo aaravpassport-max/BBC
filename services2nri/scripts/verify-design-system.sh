@@ -53,6 +53,12 @@ else
   ok public width tokens
 fi
 
+if rg -q 'max-width:1200px' src/Blog.php 2>/dev/null; then
+  bad "Blog.php hard-coded 1200px (use --s2-width-page-max)"
+else
+  ok blog width tokens
+fi
+
 if [[ $fail -ne 0 ]]; then
   echo "Verification failed."
   exit 1

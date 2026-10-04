@@ -30,6 +30,7 @@ class WidthLayout {
             'requirements', 'documents', 'pricing', 'faq', 'cta',
             'related_services', 'related_content', 'testimonials', 'wizard',
             'marquee', 'trust_badges', 'cms', 'compare', 'newsletter', 'directory',
+            'cities', 'stats', 'partners', 'about', 'app', 'home_services',
         ];
     }
 

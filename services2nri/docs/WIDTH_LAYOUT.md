@@ -47,6 +47,14 @@ Utilities: `s2-width-narrow`, `s2-width-wide`, `s2-width-standard`, `s2-width-co
 - `PublicSection` accepts `sectionKey` and `width` for `data-s2-section` + inner utility class.
 - Route changes re-resolve tokens from `S2NRI_CONFIG.design.widths`.
 
+## Homepage blocks
+
+Each home section exposes `data-s2-section` (e.g. `hero`, `home_services`, `cities`, `faq`, `newsletter`) so Width & Layout → **section** overrides apply on `/`.
+
+## PHP blog pages
+
+`/blog` and `/blog/{slug}` PHP templates use the same `--s2-width-*` variables as the SPA (via inline design-system CSS).
+
 ## Service hero width
 
 Per-service JSON **`hero_settings`**:

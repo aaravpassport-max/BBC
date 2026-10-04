@@ -109,7 +109,7 @@ class Blog {
     body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#F5F7FA;color:#1E2D40}
     a{text-decoration:none;color:inherit}
     img{display:block;width:100%;object-fit:cover}
-    .blog-wrap{max-width:1200px;margin:0 auto;padding:0 20px}
+    .blog-wrap{max-width:var(--s2-width-page-max,1200px);margin:0 auto;padding:0 var(--s2-width-padding-x,20px);width:100%;box-sizing:border-box}
 
     /* ── Header ── */
     .blog-header{background:#fff;border-bottom:1px solid #EBF0F8;padding:16px 0;position:sticky;top:0;z-index:100;box-shadow:0 1px 8px rgba(0,0,0,.06)}
@@ -123,8 +123,8 @@ class Blog {
     /* ── Page Hero ── */
     .blog-page-hero{background:linear-gradient(135deg,<?php echo $brand; ?> 0%,<?php echo $brand; ?>cc 100%);padding:64px 0 56px;color:#fff;text-align:center}
     .blog-page-hero h1{font-size:clamp(28px,4vw,48px);font-weight:900;margin:0 0 12px;line-height:1.1}
-    .blog-page-hero p{font-size:18px;opacity:.9;margin:0 auto 28px;max-width:560px}
-    .blog-search-form{display:flex;gap:0;max-width:480px;margin:0 auto;border-radius:8px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.15)}
+    .blog-page-hero p{font-size:18px;opacity:.9;margin:0 auto 28px;max-width:var(--s2-width-section-compact,560px)}
+    .blog-search-form{display:flex;gap:0;max-width:var(--s2-width-inner-max,480px);margin:0 auto;border-radius:8px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.15)}
     .blog-search-form input{flex:1;padding:14px 18px;border:none;font-size:15px;outline:none;font-family:inherit}
     .blog-search-form button{background:#1E2D40;color:#fff;border:none;padding:0 22px;font-size:14px;font-weight:700;cursor:pointer;transition:background .15s}
     .blog-search-form button:hover{background:#1a2f45}
@@ -198,7 +198,7 @@ class Blog {
 </header>
 
 <!-- Page Hero -->
-<section class="blog-page-hero">
+<section class="blog-page-hero" data-s2-section="hero">
   <div class="blog-wrap">
     <h1>NRI Knowledge Hub</h1>
     <p>Expert guides, tips, and updates on NRI services, property, taxation, and more.</p>
@@ -406,7 +406,7 @@ class Blog {
     body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#F5F7FA;color:#1E2D40}
     a{color:<?php echo $brand; ?>}
     img{display:block;max-width:100%}
-    .wrap{max-width:1200px;margin:0 auto;padding:0 20px}
+    .wrap{max-width:var(--s2-width-page-max,1200px);margin:0 auto;padding:0 var(--s2-width-padding-x,20px);width:100%;box-sizing:border-box}
 
     .blog-header{background:#fff;border-bottom:1px solid #EBF0F8;padding:16px 0;position:sticky;top:0;z-index:100;box-shadow:0 1px 8px rgba(0,0,0,.06)}
     .blog-header-inner{display:flex;align-items:center;justify-content:space-between;gap:16px}
@@ -421,7 +421,7 @@ class Blog {
     .article-hero-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.8) 0%,rgba(0,0,0,.3) 50%,transparent 100%)}
     .article-hero-content{position:absolute;bottom:0;left:0;right:0;padding:40px}
     .article-cat-badge{display:inline-flex;background:<?php echo $brand; ?>;color:#fff;font-size:12px;font-weight:800;padding:5px 14px;border-radius:99px;text-transform:uppercase;letter-spacing:.5px;margin-bottom:14px;text-decoration:none}
-    .article-title{font-size:clamp(22px,3.5vw,40px);font-weight:900;color:#fff;margin:0 0 16px;line-height:1.15;max-width:800px;text-shadow:0 2px 12px rgba(0,0,0,.4)}
+    .article-title{font-size:clamp(22px,3.5vw,40px);font-weight:900;color:#fff;margin:0 0 16px;line-height:1.15;max-width:var(--s2-width-content-max,800px);text-shadow:0 2px 12px rgba(0,0,0,.4)}
     .article-meta-bar{display:flex;align-items:center;gap:20px;color:rgba(255,255,255,.85);font-size:14px;flex-wrap:wrap}
     .article-meta-bar span{display:flex;align-items:center;gap:6px}
 
@@ -512,7 +512,7 @@ class Blog {
 </header>
 
 <!-- Hero Image -->
-<div class="article-hero">
+<div class="article-hero" data-s2-section="hero">
   <img src="<?php echo $post_img; ?>" alt="<?php echo esc_attr( $post['title'] ); ?>">
   <div class="article-hero-overlay"></div>
   <div class="article-hero-content">

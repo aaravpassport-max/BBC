@@ -252,7 +252,7 @@ export function HomePage() {
     <Layout>
       <div className="s2-home-page">
       {/* ── 1. Hero Slider — banner/carousel only, no overlay content ───────── */}
-      <div className="s2-hero-section">
+      <div className="s2-hero-section" data-s2-section="hero">
         <Swiper
           className="s2-home-hero-swiper"
           modules={[Autoplay, Pagination, Navigation, EffectFade]}
@@ -279,8 +279,8 @@ export function HomePage() {
       </div>
 
       {/* ── 3. Services section ───────────────────────────────────────────── */}
-      <section className="s2-section s2-marketing-section">
-        <div className="s2-container">
+      <section className="s2-section s2-marketing-section" data-s2-section="home_services">
+        <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead
             eyebrow="What We Offer"
             title="Our Services"
@@ -336,8 +336,8 @@ export function HomePage() {
       </section>
 
       {/* ── 4. Cities grid ────────────────────────────────────────────────── */}
-      <section className="s2-marketing-section s2-marketing-section--alt">
-        <div className="s2-container">
+      <section className="s2-marketing-section s2-marketing-section--alt" data-s2-section="cities">
+        <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead
             title="Property Management Cities"
             subtitle="We manage NRI properties across all major Indian cities"
@@ -363,7 +363,7 @@ export function HomePage() {
       </section>
 
       {/* ── 5. Stats bar ──────────────────────────────────────────────────── */}
-      <section className="s2-hero-stat-bar s2-stats-bar">
+      <section className="s2-hero-stat-bar s2-stats-bar" data-s2-section="stats">
         <div className="s2-stats-bar__grid">
           {stats.map(({ n, l }) => <StatCard key={l} number={n} label={l} />)}
         </div>
@@ -377,8 +377,8 @@ export function HomePage() {
       </div>
 
       {/* ── 7. Why Choose Us ──────────────────────────────────────────────── */}
-      <section className="s2-marketing-section s2-marketing-section--alt">
-        <div className="s2-container">
+      <section className="s2-marketing-section s2-marketing-section--alt" data-s2-section="features">
+        <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead eyebrow="Why Choose Us" title="Why Our Customers Love Us" />
           <div className="s2-feat-grid">
             {WHY_CHOOSE.map(({ icon, title, sub }) => (
@@ -395,8 +395,8 @@ export function HomePage() {
       </section>
 
       {/* ── 8. Testimonials ───────────────────────────────────────────────── */}
-      <section className="s2-marketing-section">
-        <div className="s2-container">
+      <section className="s2-marketing-section" data-s2-section="testimonials">
+        <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead eyebrow="Client Testimonials" title="What Our Customers Say" />
           <Swiper
             className="s2-home-testimonials-swiper"
@@ -444,8 +444,8 @@ export function HomePage() {
       </section>
 
       {/* ── 9. How It Works ───────────────────────────────────────────────── */}
-      <section className="s2-marketing-section s2-marketing-section--alt">
-        <div className="s2-container">
+      <section className="s2-marketing-section s2-marketing-section--alt" data-s2-section="process">
+        <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead eyebrow="Simple Process" title="How It Works" />
           <div className="s2-how-grid">
             {HOW_IT_WORKS.map(({ n, icon, title, desc }) => (
@@ -466,7 +466,7 @@ export function HomePage() {
       </section>
 
       {/* ── 10. As Featured In ────────────────────────────────────────────── */}
-      <div className="s2-home-logo-strip s2-marketing-section">
+      <div className="s2-home-logo-strip s2-marketing-section" data-s2-section="partners">
         <p className="s2-home-logo-strip__label">As Featured In</p>
         <div className="s2-home-logo-strip__row">
           {FEATURED_IN.map(({ name, brand }) => (
@@ -486,8 +486,8 @@ export function HomePage() {
       </div>
 
       {/* ── 12. About section ─────────────────────────────────────────────── */}
-      <section className="s2-marketing-section">
-        <div className="s2-home-about-grid s2-mobile-stack">
+      <section className="s2-marketing-section" data-s2-section="about">
+        <div className="s2-home-about-grid s2-mobile-stack s2-container s2-section-inner s2-width-wide">
           <div>
             <p className="s2-t-eyebrow">About Us</p>
             <h2 className="s2-t-section-heading">
@@ -550,8 +550,8 @@ export function HomePage() {
       </div>
 
       {/* ── 14. FAQ ───────────────────────────────────────────────────────── */}
-      <section className="s2-marketing-section">
-        <div className="s2-home-faq">
+      <section className="s2-marketing-section" data-s2-section="faq">
+        <div className="s2-home-faq s2-container s2-section-inner s2-width-narrow">
           <PublicSectionHead eyebrow="FAQ" title="Let's Clear All The Doubts!" />
           <div className="s2-home-faq__list">
             {FAQ_DATA.map(({ q, a }, i) => (
@@ -579,7 +579,7 @@ export function HomePage() {
       </section>
 
       {/* ── 15. Newsletter ────────────────────────────────────────────────── */}
-      <section className="s2-home-newsletter">
+      <section className="s2-home-newsletter" data-s2-section="newsletter">
         <h3 className="s2-home-newsletter__title">Subscribe to Our Newsletter</h3>
         <p className="s2-home-newsletter__sub">Stay updated on the latest NRI news, service launches, and important updates.</p>
         <div className="s2-home-newsletter__form">
@@ -589,7 +589,7 @@ export function HomePage() {
       </section>
 
       {/* ── 16. App download ──────────────────────────────────────────────── */}
-      <section className="s2-home-app">
+      <section className="s2-home-app" data-s2-section="app">
         <div className="s2-home-app__grid s2-mobile-stack">
           <div>
             <p className="s2-home-app__eyebrow">Mobile App</p>

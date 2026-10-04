@@ -14,6 +14,7 @@ export const WIDTH_SECTIONS = [
   'requirements', 'documents', 'pricing', 'faq', 'cta',
   'related_services', 'related_content', 'testimonials', 'wizard',
   'marquee', 'trust_badges', 'cms', 'compare', 'newsletter', 'directory',
+  'cities', 'stats', 'partners', 'about', 'app', 'home_services',
 ] as const
 
 export type PageWidthContext = {
