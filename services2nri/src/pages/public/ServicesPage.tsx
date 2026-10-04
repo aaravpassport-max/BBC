@@ -56,6 +56,13 @@ export function ServicesPage() {
   const catalog = searchResults ?? services
   const filtered = catalog.filter((s) => !activeSlug || s.category_slug === activeSlug)
 
+  const formatDesc = (text: string, max = 100) => {
+    const t = (text || '').trim()
+    if (!t) return 'Expert NRI assistance — view details for scope and turnaround.'
+    if (t.length <= max) return t
+    return `${t.slice(0, max).trim()}…`
+  }
+
   return (
     <Layout>
       <div className="s2-services-hero" data-s2-section="hero">
@@ -155,16 +162,18 @@ export function ServicesPage() {
                       alt={svc.name}
                       loading="lazy"
                     />
-                    <div
-                      className="s2-dir-card__badge"
-                      style={svc.color ? cssVars({ 's2-dir-badge-bg': svc.color }) : undefined}
-                    >
-                      {svc.category_name}
-                    </div>
+                    {svc.category_name && (
+                      <div
+                        className="s2-dir-card__badge"
+                        style={svc.color ? cssVars({ 's2-dir-badge-bg': svc.color }) : undefined}
+                      >
+                        {svc.category_name}
+                      </div>
+                    )}
                   </div>
                   <div className="s2-dir-card__body">
                     <h3 className="s2-dir-card__title">{svc.name}</h3>
-                    <p className="s2-dir-card__desc">{(svc.short_desc || '').slice(0, 100)}...</p>
+                    <p className="s2-dir-card__desc">{formatDesc(svc.short_desc || '')}</p>
                     <div className="s2-dir-card__foot">
                       <span className="s2-dir-card__link">View Details →</span>
                       {(svc.turnaround_days || svc.turnaround) && (

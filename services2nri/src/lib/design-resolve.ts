@@ -204,6 +204,9 @@ export function applyResolvedDesignToDocument(resolved: DesignPayload, ctx: Page
   if (widthVars['s2-width-page-max']) {
     root.style.setProperty('--s2-space-container_max', widthVars['s2-width-page-max'])
   }
+  if (widthVars['s2-width-padding-x']) {
+    root.style.setProperty('--s2-space-page_margin', widthVars['s2-width-padding-x'])
+  }
 
   const chrome = resolveChromeLayer(resolved, ctx)
   applyChromeVars(chrome, resolved)

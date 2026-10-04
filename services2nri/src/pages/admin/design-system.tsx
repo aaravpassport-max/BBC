@@ -413,13 +413,19 @@ export function AdminDesignSystem() {
       )}
 
       {tab === 'Containers' && (
-        <TokenGroupEditor
-          title="Layout containers (legacy spacing — prefer Layout Studio)"
-          basePath={['spacing']}
-          tokens={spacing}
-          patch={patch}
-          keys={['container_max', 'content_max', 'page_margin', 'section_y', 'section_y_mobile', 'grid_gap', 'element', 'card']}
-        />
+        <>
+          <p style={{ color: '#64748B', fontSize: 13, margin: '0 0 12px', maxWidth: 720 }}>
+            Horizontal page inset is owned by <strong>Layout Studio → Horizontal gutter</strong> (Site Foundation).
+            Live CSS maps that to <code>page_margin</code> automatically; only override <code>page_margin</code> here for legacy edge cases.
+          </p>
+          <TokenGroupEditor
+            title="Layout containers (legacy spacing — prefer Layout Studio)"
+            basePath={['spacing']}
+            tokens={spacing}
+            patch={patch}
+            keys={['container_max', 'content_max', 'page_margin', 'section_y', 'section_y_mobile', 'grid_gap', 'element', 'card']}
+          />
+        </>
       )}
 
       {tab === 'Borders' && (

@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.33] — 2026-10-04 — Cloud Agent
+
+- **Services directory:** edge-to-edge card images, responsive grid (1 col mobile / multi-col desktop), badge and copy polish.
+- **Mock API + Playwright:** full `surface=directory` catalog; `services-directory.spec.ts` asserts card alignment and grid.
+- **Spacing:** `--s2-space-page_margin` mirrors Layout Studio horizontal gutter from width tokens.
+
+---
+
 ## [4.7.32] — 2026-10-04 — Cloud Agent
 
 - **Service cards:** edge-to-edge hero images (zero card padding on media; 16:10 aspect on mobile).

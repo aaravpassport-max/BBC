@@ -27,25 +27,81 @@ const MOCK_CATEGORIES = [
   { id: 4, slug: 'education', name: 'Education', icon: '🎓', color: '#00695c' },
 ]
 
+const ORIGIN = 'http://127.0.0.1:4173'
+
+function imgFor(slug) {
+  return `${ORIGIN}/?s2nri_img=${slug.includes('tax') ? 'tax' : slug.includes('property') ? 'property' : 'apostille'}`
+}
+
 function mockServicesForCategory(slug) {
   const base = MOCK_SERVICE.service
+  const cat = MOCK_CATEGORIES.find((c) => c.slug === slug)
   return [
-    { ...base, id: 1, slug: `complete-${slug}-management`, name: `${slug.charAt(0).toUpperCase() + slug.slice(1)} Management`, category_slug: slug },
-    { ...base, id: 2, slug: `${slug}-assistance`, name: `${slug.charAt(0).toUpperCase() + slug.slice(1)} Assistance`, category_slug: slug },
+    {
+      ...base,
+      id: 1,
+      slug: `complete-${slug}-management`,
+      name: `${cat?.name || slug} Management`,
+      category_slug: slug,
+      category_name: cat?.name || slug,
+      color: cat?.color,
+      image_url: imgFor(slug),
+    },
+    {
+      ...base,
+      id: 2,
+      slug: `${slug}-assistance`,
+      name: `${cat?.name || slug} Assistance`,
+      category_slug: slug,
+      category_name: cat?.name || slug,
+      color: cat?.color,
+      image_url: imgFor(slug),
+    },
   ]
+}
+
+function mockDirectoryCatalog() {
+  let id = 1
+  const out = []
+  for (const cat of MOCK_CATEGORIES) {
+    for (const svc of mockServicesForCategory(cat.slug)) {
+      out.push({ ...svc, id: id++ })
+    }
+  }
+  return out
+}
+
+function mockDirectoryCategories() {
+  return MOCK_CATEGORIES.map((c) => ({
+    ...c,
+    service_count: mockServicesForCategory(c.slug).length,
+  }))
 }
 
 export function handleMockApi(pathname, method) {
   const path = pathname.replace(/^\/mock-api\/?/, '').replace(/^\//, '').split('?')[0];
   const key = `${method} ${path}`;
 
+  const stripped = pathname.replace(/^\/mock-api\/?/, '').replace(/^\//, '')
+  const qmark = stripped.indexOf('?')
+  const q = new URLSearchParams(qmark >= 0 ? stripped.slice(qmark + 1) : '')
+  const surface = q.get('surface') || ''
+
   if (method === 'GET' && path === 'categories') {
+    if (surface === 'directory') {
+      return { categories: mockDirectoryCategories() }
+    }
     return { categories: MOCK_CATEGORIES }
   }
   if (method === 'GET' && path === 'services') {
-    const stripped = pathname.replace(/^\/mock-api\/?/, '').replace(/^\//, '')
-    const qmark = stripped.indexOf('?')
-    const q = new URLSearchParams(qmark >= 0 ? stripped.slice(qmark + 1) : '')
+    if (surface === 'directory' || surface === 'search') {
+      const all = mockDirectoryCatalog()
+      const term = (q.get('search') || '').toLowerCase()
+      const filtered = term
+        ? all.filter((s) => s.name.toLowerCase().includes(term) || s.slug.includes(term))
+        : all
+      return { services: filtered, categories: [] }
+    }
     const cat = q.get('category') || 'property'
     return { services: mockServicesForCategory(cat), categories: [] }
   }

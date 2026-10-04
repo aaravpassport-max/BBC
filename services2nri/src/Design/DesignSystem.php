@@ -637,11 +637,18 @@ class DesignSystem {
         }
         $pageMax = $widthVars['--s2-width-page-max'] ?? ( $config['spacing']['container_max'] ?? '1200px' );
         $lines[] = '  --s2-space-container_max:' . esc_attr( (string) $pageMax ) . ';';
+        $padFromWidth = $widthVars['--s2-width-padding-x'] ?? null;
         foreach ( ( $config['spacing'] ?? [] ) as $k => $v ) {
             if ( $k === 'container_max' ) {
                 continue;
             }
+            if ( $k === 'page_margin' && $padFromWidth ) {
+                continue;
+            }
             $lines[] = '  --s2-space-' . sanitize_key( $k ) . ':' . esc_attr( (string) $v ) . ';';
+        }
+        if ( $padFromWidth ) {
+            $lines[] = '  --s2-space-page_margin:' . esc_attr( (string) $padFromWidth ) . ';';
         }
         foreach ( ( $config['radius'] ?? [] ) as $k => $v ) {
             $lines[] = '  --s2-radius-' . sanitize_key( $k ) . ':' . esc_attr( (string) $v ) . ';';
