@@ -5,6 +5,13 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.36] — 2026-10-04 — Cloud Agent
+
+- **Contrast completion:** dark-band coverage for blog/city/privacy heroes, pricing card heads, stats bar, service hero scrim; `.s2-surface-dark` on remaining marketing heroes.
+- **Verification:** Playwright `contrast-audit.spec.ts` (all public dark heroes + app/stats/pricing) and `bottom-nav.spec.ts` (mobile public routes + Inquire tab).
+
+---
+
 ## [4.7.35] — 2026-10-04 — Cloud Agent
 
 - **Services page:** dedicated body band with responsive gap between hero, category sidebar, and card grid; hero uses contrast surface tokens for readable light typography.

@@ -399,7 +399,7 @@ export function HomePage() {
       </section>
 
       {/* ── 5. Stats bar ──────────────────────────────────────────────────── */}
-      <section className="s2-hero-stat-bar s2-stats-bar" data-s2-section="stats">
+      <section className="s2-hero-stat-bar s2-stats-bar s2-surface-dark" data-s2-section="stats">
         <div className="s2-stats-bar__grid">
           {stats.map(({ n, l }) => <StatCard key={l} number={n} label={l} />)}
         </div>

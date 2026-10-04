@@ -8,8 +8,17 @@
 .s2-page-hero,
 .s2-home-app,
 .s2-stats-bar,
+.s2-hero-stat-bar,
 .s2-public-band-dark,
-.s2-home-hero-overlay__inner {
+.s2-home-hero-overlay__inner,
+.s2-blog-hero,
+.s2-blog-article-hero,
+.s2-city-hero,
+.s2-privacy-hero,
+.s2-blog-inline-cta,
+.s2-public-pricing-card__head,
+.s2-blog-featured,
+.s2-svc-hero__content {
   --s2-on-dark-heading: #ffffff;
   --s2-on-dark-body: rgba(255, 255, 255, 0.92);
   --s2-on-dark-muted: rgba(255, 255, 255, 0.78);
@@ -30,12 +39,32 @@
 #s2nri-root.s2-ds .s2-public-band-dark h2,
 #s2nri-root.s2-ds .s2-public-band-dark h3,
 #s2nri-root.s2-ds .s2-home-hero-overlay__title,
+#s2nri-root.s2-ds .s2-blog-hero h1,
+#s2nri-root.s2-ds .s2-blog-article-hero h1,
+#s2nri-root.s2-ds .s2-city-hero h1,
+#s2nri-root.s2-ds .s2-privacy-hero h1,
+#s2nri-root.s2-ds .s2-svc-hero h1,
+#s2nri-root.s2-ds .s2-public-pricing-card__head .s2-t-h1,
+#s2nri-root.s2-ds .s2-public-pricing-card__head .s2-t-h2,
+#s2nri-root.s2-ds .s2-public-pricing-card__head .s2-t-h3,
+#s2nri-root.s2-ds .s2-public-pricing-card__head .s2-t-eyebrow,
+#s2nri-root.s2-ds .s2-public-pricing-card__head .s2-t-body,
+#s2nri-root.s2-ds .s2-blog-inline-cta h2,
+#s2nri-root.s2-ds .s2-blog-inline-cta h3,
 .s2-surface-dark .s2-t-h1,
 .s2-surface-dark .s2-t-h2,
 .s2-surface-dark .s2-t-h3,
 .s2-surface-dark .s2-t-page-title,
 .s2-dir-hero__title,
-.s2-page-hero__title {
+.s2-page-hero__title,
+.s2-blog-hero__title,
+.s2-blog-article-hero__title,
+.s2-city-hero__title,
+.s2-privacy-hero__title,
+.s2-svc-hero__title,
+.s2-public-band-dark__title,
+.s2-blog-inline-cta__title,
+.s2-blog-featured__title {
   color: var(--s2-on-dark-heading, #fff);
 }
 
@@ -47,8 +76,24 @@
 #s2nri-root.s2-ds .s2-home-hero-overlay__sub,
 .s2-dir-hero__sub,
 .s2-page-hero__subtitle,
-.s2-public-band-dark__sub {
+.s2-public-band-dark__sub,
+.s2-blog-hero__sub,
+.s2-blog-article-hero__excerpt,
+.s2-city-hero__sub,
+.s2-privacy-hero__sub,
+.s2-blog-inline-cta__sub,
+.s2-blog-featured__excerpt {
   color: var(--s2-on-dark-body, rgba(255, 255, 255, 0.92));
+}
+
+.s2-stats-bar__label {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+#s2nri-root.s2-ds .s2-stats-bar p,
+#s2nri-root.s2-ds .s2-stats-bar h2,
+#s2nri-root.s2-ds .s2-stats-bar h3 {
+  color: inherit;
 }
 
 .s2-surface-dark a:not(.s2-btn):not(.s2-home-app__store),

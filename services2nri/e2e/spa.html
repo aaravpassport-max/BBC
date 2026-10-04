@@ -11,8 +11,11 @@
     <link rel="stylesheet" href="/assets/public-site-chrome.css" />
     <link rel="stylesheet" href="/assets/public-mobile-experience.css" />
     <link rel="stylesheet" href="/assets/public-marketing-sections.css" />
+    <link rel="stylesheet" href="/assets/public-pages-layout.css" />
+    <link rel="stylesheet" href="/assets/public-marketing-pages.css" />
     <link rel="stylesheet" href="/assets/public-home-sections.css" />
     <link rel="stylesheet" href="/assets/public-services-directory.css" />
+    <link rel="stylesheet" href="/assets/public-service-detail.css" />
     <link rel="stylesheet" href="/assets/public-contrast-system.css" />
     <style>
       :root {
@@ -52,6 +55,9 @@
           colors: { primary: '#4A6FA5', secondary: '#1E2D40' },
         },
       };
+      if (window.__S2NRI_E2E_USER__) {
+        window.S2NRI_CONFIG.currentUser = window.__S2NRI_E2E_USER__;
+      }
     </script>
   </head>
   <body>

@@ -551,7 +551,7 @@ export function BlogListPage() {
 
   return (
     <Layout>
-      <div className="s2-marketing-page s2-blog-hero">
+      <div className="s2-marketing-page s2-blog-hero s2-surface-dark">
         <div className="s2-container">
           <p className="s2-blog-hero__eyebrow">NRI Knowledge Hub</p>
           <h1 className="s2-blog-hero__title">Expert Guides for NRIs Living Abroad</h1>
@@ -731,7 +731,7 @@ export function BlogDetailPage() {
 
   return (
     <Layout>
-      <div className="s2-marketing-page s2-blog-article-hero">
+      <div className="s2-marketing-page s2-blog-article-hero s2-surface-dark">
         <div className="s2-container s2-width-narrow">
           <Link to="/blog" className="s2-blog-article-hero__back">← Knowledge Hub</Link>
           <div className="s2-blog-article-hero__meta">
@@ -866,7 +866,7 @@ export function PrivacyPage() {
   return (
     <Layout>
       <div className="s2-privacy-page s2-marketing-page">
-        <div className="s2-privacy-hero">
+        <div className="s2-privacy-hero s2-surface-dark">
           <h1 className="s2-privacy-hero__title">Privacy Policy</h1>
           <p className="s2-privacy-hero__sub">Last updated: January 2025</p>
         </div>
@@ -935,7 +935,7 @@ export function CityPage() {
 
   return (
     <Layout>
-      <div className="s2-marketing-page s2-city-hero">
+      <div className="s2-marketing-page s2-city-hero s2-surface-dark">
         <div className="s2-container">
           <p className="s2-city-hero__crumb">
             <Link to="/">Home</Link>
