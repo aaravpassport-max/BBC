@@ -37,6 +37,7 @@ This document is the operator checklist for a **fresh WordPress install** with n
 2. Open `/service/complete-property-management` (or any seeded slug) — wizard renders.
 3. WP Admin → Services2NRI → Admin Portal — dashboard loads.
 4. Admin → **Design System** — change primary color → Publish → hard-refresh `/` — buttons update.
+5. **Design System → Width & Layout** (4.7.0+) — adjust global/page/section max widths → Publish → hard-refresh public routes.
 
 Automated equivalent (no WordPress): from `services2nri/`, run `npm run build && npm run test:e2e` (10 Playwright smokes, 4.6.8+).
 

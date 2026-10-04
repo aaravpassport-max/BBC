@@ -21,11 +21,12 @@ import {
   type RegistryCategory,
   type RegistryCity,
 } from './design-system-panels'
+import { WidthLayoutPanel } from './width-layout-panel'
 
 type DesignConfig = Record<string, unknown>
 
 const TABS = [
-  'Global', 'Typography', 'Fonts', 'Colors', 'Spacing', 'Buttons', 'Cards', 'Forms',
+  'Global', 'Typography', 'Fonts', 'Colors', 'Spacing', 'Width & Layout', 'Buttons', 'Cards', 'Forms',
   'Containers', 'Borders', 'Shadows', 'Motion', 'Responsive', 'Overrides',
   'Presets', 'Preview', 'Live Site', 'Navigation', 'Header & Footer', 'Page Types', 'Icons',
   'Service Registry', 'Categories', 'Cities',
@@ -321,9 +322,13 @@ export function AdminDesignSystem() {
         <ComponentsEditor components={components} patch={patch} />
       )}
 
+      {tab === 'Width & Layout' && config && (
+        <WidthLayoutPanel config={config} patch={patch} />
+      )}
+
       {tab === 'Containers' && (
         <TokenGroupEditor
-          title="Layout containers"
+          title="Layout containers (legacy spacing — prefer Width & Layout)"
           basePath={['spacing']}
           tokens={spacing}
           patch={patch}

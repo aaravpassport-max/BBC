@@ -721,8 +721,17 @@ export function ServiceDetailPage() {
         <div>
           {/* Hero */}
           <div
+            data-s2-section="hero"
             className={`s2-svc-hero${heroAlign === 'center' ? ' s2-svc-hero--align-center' : ''}`}
-            style={{ height: heroHeight, ...cssVars({ 's2-hero-overlay': heroOverlay }) }}
+            style={{
+              height: heroHeight,
+              ...cssVars({
+                's2-hero-overlay': heroOverlay,
+                ...(hero?.container_max || hero?.content_max
+                  ? { 's2-width-sec-hero-max': String(hero.container_max || hero.content_max) }
+                  : {}),
+              }),
+            }}
           >
             <img src={heroImg} alt={heroTitle} />
             <div className="s2-svc-hero__shade" />
@@ -790,7 +799,7 @@ export function ServiceDetailPage() {
         </div>
 
         {/* Right: sticky booking wizard */}
-        <div id="booking-form" className="s2-svc-wizard-sticky">
+        <div id="booking-form" className="s2-svc-wizard-sticky" data-s2-section="wizard">
 
           <div className="s2-svc-wizard-head">
             {/* Service name + meta */}

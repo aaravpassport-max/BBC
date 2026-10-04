@@ -5,6 +5,15 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.0] — 2026-10-04 — Cloud Agent
+
+- **Width & Layout Management** — centralized `widths` tokens with inheritance (global → page type → page → section + service-page sections).
+- New **`WidthLayout.php`**, **`public-width-layout.css`**, SPA **`PageWidthScope`**, admin **Design System → Width & Layout** tab.
+- Public containers, header/footer inner widths, and marketing/service sections consume **`--s2-width-*`** (legacy `s2-container--w*` aliases mapped to tokens).
+- Hero width integrates via section `hero` + optional per-service `hero_settings.container_max` / `content_max`.
+
+---
+
 ## [4.6.8] — 2026-10-04 — Cloud Agent
 
 - **Public surface complete**: `--s2-primary` set once on `Layout` (`s2-page-wrap`); marketing/home/service pages no longer duplicate brand overrides.

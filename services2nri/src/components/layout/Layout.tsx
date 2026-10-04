@@ -18,6 +18,7 @@ import { CURRENCIES, STAFF_ROLES } from '@/lib/constants'
 import type { NavItem, Service } from '@/types'
 import { BottomNav } from './BottomNav'
 import { resolvePrimary } from '@/lib/design-tokens'
+import { PageWidthScope } from '@/components/public/PageWidthScope'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -132,9 +133,8 @@ export function Layout({ children }: LayoutProps) {
       {/* ── Top bar ────────────────────────────────────────────────────────── */}
       <div style={{ background: primary, color: '#fff', padding: '6px 20px', fontSize: 13 }}>
         <div
+          className="s2-layout-header-inner"
           style={{
-            maxWidth: 1280,
-            margin: '0 auto',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -266,10 +266,8 @@ export function Layout({ children }: LayoutProps) {
         }}
       >
         <div
+          className="s2-layout-header-inner"
           style={{
-            maxWidth: 1280,
-            margin: '0 auto',
-            padding: '0 20px',
             display: 'flex',
             alignItems: 'center',
             height: 64,
@@ -600,11 +598,11 @@ export function Layout({ children }: LayoutProps) {
       )}
 
       {/* ── Main content ──────────────────────────────────────────────────── */}
-      <main style={{ flex: 1 }}>{children}</main>
+      <PageWidthScope>{children}</PageWidthScope>
 
       {/* ── Footer ────────────────────────────────────────────────────────── */}
       <footer style={{ background: '#1E2D40', color: '#9ca3af', padding: '56px 20px 0' }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
+        <div className="s2-layout-footer-inner">
           <div
             className="s2-mobile-stack"
             style={{

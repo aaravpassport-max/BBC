@@ -53,6 +53,7 @@ class DesignSystem {
                 'overlay'          => 'rgba(30, 45, 64, 0.55)',
                 'shadow'           => 'rgba(30, 45, 64, 0.12)',
             ],
+            'widths'      => WidthLayout::defaults(),
             'spacing'     => [
                 'container_max'    => '1200px',
                 'content_max'      => '720px',
@@ -181,6 +182,10 @@ class DesignSystem {
     /** @param array<string, mixed> $patch */
     public static function save( array $patch ): void {
         $merged = self::deepMerge( self::defaults(), self::loadStored(), $patch );
+        $desktopPage = $merged['widths']['global']['page_max']['desktop'] ?? null;
+        if ( is_string( $desktopPage ) && $desktopPage !== '' ) {
+            $merged['spacing']['container_max'] = $desktopPage;
+        }
         \S2NRI\Models\Setting::set( self::SETTING_KEY, wp_json_encode( $merged ), true );
         // Keep legacy primary_color in sync for existing components.
         if ( ! empty( $merged['colors']['primary'] ) ) {
@@ -236,6 +241,7 @@ class DesignSystem {
             'colors'      => $resolved['colors'] ?? [],
             'fonts'       => $resolved['fonts'] ?? [],
             'spacing'     => $resolved['spacing'] ?? [],
+            'widths'      => $resolved['widths'] ?? WidthLayout::defaults(),
             'typography'  => $resolved['typography'] ?? [],
             'radius'      => $resolved['radius'] ?? [],
             'shadow'      => $resolved['shadow'] ?? [],
@@ -255,6 +261,30 @@ class DesignSystem {
         }
         if ( str_starts_with( $path, '/blog' ) ) {
             return [ 'page_type' => 'blog', 'page_slug' => trim( $path, '/' ) ];
+        }
+        if ( str_starts_with( $path, '/cities/' ) ) {
+            return [ 'page_type' => 'city', 'page_slug' => trim( $path, '/' ) ];
+        }
+        if ( preg_match( '#^/services/([^/]+)#', $path, $m ) ) {
+            return [ 'page_type' => 'category', 'page_slug' => $m[1] ];
+        }
+        $static = [
+            '/about'         => 'about',
+            '/contact'       => 'contact',
+            '/how-it-works'  => 'how-it-works',
+            '/faq'           => 'faq',
+            '/pricing'       => 'pricing',
+            '/terms'         => 'terms',
+            '/privacy'       => 'privacy',
+        ];
+        if ( isset( $static[ $path ] ) ) {
+            return [ 'page_type' => 'page', 'page_slug' => $static[ $path ] ];
+        }
+        if ( str_starts_with( $path, '/visa' ) ) {
+            return [ 'page_type' => 'visa', 'page_slug' => trim( $path, '/' ) ];
+        }
+        if ( str_starts_with( $path, '/country' ) ) {
+            return [ 'page_type' => 'country', 'page_slug' => trim( $path, '/' ) ];
         }
         $slug = trim( $path, '/' );
         return [ 'page_type' => 'page', 'page_slug' => $slug ?: 'page' ];
@@ -307,6 +337,10 @@ class DesignSystem {
         $css .= file_exists( S2NRI_DIR . 'assets/public-services-directory.css' )
             ? file_get_contents( S2NRI_DIR . 'assets/public-services-directory.css' )
             : '';
+        $css .= file_exists( S2NRI_DIR . 'assets/public-width-layout.css' )
+            ? file_get_contents( S2NRI_DIR . 'assets/public-width-layout.css' )
+            : '';
+        $css .= WidthLayout::renderScopeCss( $config, $ctx );
         if ( ! empty( $config['motion']['reduce_motion'] ) ) {
             $css .= "@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;}}\n";
         }
@@ -330,7 +364,16 @@ class DesignSystem {
         $lines[] = '  --s2-font-button:' . FontLibrary::stackFor( (string) ( $fonts['button'] ?? 'montserrat' ), $fallback ) . ';';
         $lines[] = '  --s2-font-fallback:' . esc_attr( $fallback ) . ';';
 
+        $widthVars = WidthLayout::resolveVars( $config, $ctx ?? [] );
+        foreach ( $widthVars as $k => $v ) {
+            $lines[] = '  ' . $k . ':' . esc_attr( $v ) . ';';
+        }
+        $pageMax = $widthVars['--s2-width-page-max'] ?? ( $config['spacing']['container_max'] ?? '1200px' );
+        $lines[] = '  --s2-space-container_max:' . esc_attr( (string) $pageMax ) . ';';
         foreach ( ( $config['spacing'] ?? [] ) as $k => $v ) {
+            if ( $k === 'container_max' ) {
+                continue;
+            }
             $lines[] = '  --s2-space-' . sanitize_key( $k ) . ':' . esc_attr( (string) $v ) . ';';
         }
         foreach ( ( $config['radius'] ?? [] ) as $k => $v ) {

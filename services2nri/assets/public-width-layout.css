@@ -1,0 +1,123 @@
+/**
+ * Width & layout — all public containers consume --s2-width-* tokens.
+ * Set globally in Design System → Width & Layout; scoped via .s2-width-scope.
+ */
+
+.s2-page-wrap {
+  min-width: var(--s2-width-min, 320px);
+  max-width: var(--s2-width-max-cap, none);
+}
+
+.s2-container,
+.s2-ds .s2-container,
+.s2-page-wrap .s2-container {
+  max-width: var(--s2-width-page-max, var(--s2-space-container_max, 1200px));
+  margin-inline: auto;
+  padding-inline: var(--s2-width-padding-x, var(--s2-space-page_margin, 20px));
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.s2-width-content {
+  max-width: var(--s2-width-content-max, var(--s2-width-page-max));
+  margin-inline: auto;
+  width: 100%;
+}
+
+.s2-width-inner {
+  max-width: var(--s2-width-inner-max, var(--s2-width-content-max));
+  margin-inline: auto;
+  width: 100%;
+}
+
+.s2-width-standard {
+  max-width: var(--s2-width-section-standard, var(--s2-width-page-max));
+  margin-inline: auto;
+  width: 100%;
+}
+
+.s2-width-wide {
+  max-width: var(--s2-width-section-wide, var(--s2-width-page-max));
+  margin-inline: auto;
+  width: 100%;
+}
+
+.s2-width-narrow {
+  max-width: var(--s2-width-section-narrow, 860px);
+  margin-inline: auto;
+  width: 100%;
+}
+
+.s2-width-compact {
+  max-width: var(--s2-width-section-compact, 640px);
+  margin-inline: auto;
+  width: 100%;
+}
+
+.s2-width-full {
+  max-width: var(--s2-width-full-bleed, 100%);
+  width: 100%;
+}
+
+/* Legacy aliases → token utilities */
+.s2-container--w860,
+.s2-container--w900,
+.s2-container--w1000 {
+  max-width: var(--s2-width-section-narrow, 860px);
+  margin-inline: auto;
+  width: 100%;
+}
+
+.s2-container--w900 {
+  max-width: var(--s2-width-content-max, 900px);
+}
+
+.s2-container--w1000 {
+  max-width: var(--s2-width-section-wide, 1000px);
+}
+
+.s2-layout-header-inner,
+.s2-layout-footer-inner {
+  max-width: var(--s2-width-page-max, 1280px);
+  margin-inline: auto;
+  padding-inline: var(--s2-width-padding-x, 20px);
+  width: 100%;
+  box-sizing: border-box;
+}
+
+[data-s2-section] {
+  --s2-section-max: var(--s2-width-section-standard);
+}
+
+[data-s2-section='hero'] {
+  --s2-section-max: var(--s2-width-sec-hero-max, var(--s2-width-section-wide));
+  max-width: var(--s2-section-max);
+  margin-inline: auto;
+  width: 100%;
+}
+
+[data-s2-section='hero'] .s2-section-inner,
+[data-s2-section='hero'].s2-svc-hero-wrap {
+  max-width: var(--s2-section-max);
+  margin-inline: auto;
+  width: 100%;
+}
+
+[data-s2-section] .s2-section-inner.s2-width-inherit {
+  max-width: var(--s2-section-max);
+  margin-inline: auto;
+  width: 100%;
+}
+
+.s2-svc-hero {
+  max-width: var(--s2-width-sec-hero-max, var(--s2-width-full-bleed, 100%));
+}
+
+.s2-svc-breadcrumb__inner,
+.s2-svc-layout.svc-grid {
+  max-width: var(--s2-width-sec-wizard-max, var(--s2-width-page-max));
+}
+
+.s2-dir-search {
+  max-width: var(--s2-width-sec-directory-max, var(--s2-width-section-compact, 560px));
+}

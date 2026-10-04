@@ -18,6 +18,8 @@ bad() { echo "FAIL $1"; fail=1; }
 [[ -f assets/public-marketing-pages.css ]] && ok public-marketing-pages.css || bad public-marketing-pages.css
 [[ -f assets/public-service-detail.css ]] && ok public-service-detail.css || bad public-service-detail.css
 [[ -f assets/public-services-directory.css ]] && ok public-services-directory.css || bad public-services-directory.css
+[[ -f assets/public-width-layout.css ]] && ok public-width-layout.css || bad public-width-layout.css
+[[ -f src/Design/WidthLayout.php ]] && ok WidthLayout.php || bad WidthLayout.php
 [[ -f playwright.config.ts ]] && ok playwright.config || bad playwright.config
 [[ -f e2e/smoke.spec.ts ]] && ok e2e smoke spec || bad e2e smoke spec
 [[ -f README.md ]] && ok README.md || bad README.md
