@@ -1066,11 +1066,8 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
       </div>
       {/* Mobile overlay sidebar */}
       {open && (
-        <div
-          style={{ position: 'fixed', inset: 0, zIndex: 999, background: 'rgba(0,0,0,.5)', display: 'flex' }}
-          onClick={() => setOpen(false)}
-        >
-          <div style={{ width: 260, background: '#1E2D40', display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
+        <div className="s2-dash-overlay" onClick={() => setOpen(false)}>
+          <div className="s2-dash-overlay__panel" onClick={(e) => e.stopPropagation()}>
             {sidebar}
           </div>
         </div>
@@ -1078,23 +1075,18 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
       {/* Content */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
         {/* Mobile header bar */}
-        <div
-          style={{
-            background: '#fff', borderBottom: '1px solid #e5e7eb',
-            padding: '12px 20px', display: 'flex', alignItems: 'center',
-            gap: 12, position: 'sticky', top: 0, zIndex: 100,
-          }}
-          className="s2-mobile-hamburger"
-        >
+        <div className="s2-mobile-hamburger s2-dash-mobile-header">
           <button
+            type="button"
+            className="s2-dash-mobile-header__menu-btn"
             onClick={() => setOpen(true)}
-            style={{ background: 'none', border: 'none', fontSize: 22, cursor: 'pointer', color: '#374151' }}
+            aria-label="Open sidebar"
           >
             ☰
           </button>
-          <span style={{ fontWeight: 700, fontSize: 16, color: primary }}>{name}</span>
+          <span className="s2-dash-mobile-header__title">{name}</span>
         </div>
-        <div className="s2-dash-content-wrap" style={{ flex: 1, padding: '24px 20px', background: '#f9fafb' }}>
+        <div className="s2-dash-content-wrap" style={{ flex: 1, padding: '24px 20px' }}>
           {children}
         </div>
       </div>

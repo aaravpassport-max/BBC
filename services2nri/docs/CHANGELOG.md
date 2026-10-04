@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.39] — 2026-10-04 — Cloud Agent
+
+- **Portal mobile shell:** `portal-experience.css` — frosted dashboard header, menu button, sidebar overlay; `s2-dash-mobile-header` on customer/admin layout.
+- **Marketing completion:** scroll reveal on homepage about, press/partners, awards, newsletter, and app bands; About team + CTA, full How It Works timeline; About/Contact hero meta chips.
+- **Platform polish:** team card hover, press/partner chip lift, how-it-works step hover, awards motion.
+
+---
+
 ## [4.7.38] — 2026-10-04 — Cloud Agent
 
 - **Service journey:** trust tile depth, visual process timeline, fee breakdown component (`rows` / `line_items` on charges sections), hero meta chips, mobile sticky CTA above bottom nav.

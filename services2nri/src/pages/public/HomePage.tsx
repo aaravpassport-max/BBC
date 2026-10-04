@@ -416,7 +416,7 @@ export function HomePage() {
       <section className="s2-marketing-section s2-marketing-section--alt s2-experience-section" data-s2-section="features" data-s2-reveal="">
         <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead eyebrow="Why Choose Us" title="Why Our Customers Love Us" />
-          <div className="s2-feat-grid">
+          <div className="s2-feat-grid s2-stagger">
             {WHY_CHOOSE.map(({ icon, title, sub }) => (
               <div key={title} className="s2-home-feat-card">
                 <div className="s2-home-feat-card__icon">{icon}</div>
@@ -502,9 +502,9 @@ export function HomePage() {
       </section>
 
       {/* ── 10. As Featured In ────────────────────────────────────────────── */}
-      <div className="s2-home-logo-strip s2-marketing-section" data-s2-section="partners">
+      <div className="s2-home-logo-strip s2-marketing-section s2-experience-section" data-s2-section="partners" data-s2-reveal="">
         <p className="s2-home-logo-strip__label">As Featured In</p>
-        <div className="s2-home-logo-strip__row">
+        <div className="s2-home-logo-strip__row s2-stagger">
           {FEATURED_IN.map(({ name, brand }) => (
             <div key={name} className="s2-home-press-chip" data-brand={brand}>{name}</div>
           ))}
@@ -512,9 +512,9 @@ export function HomePage() {
       </div>
 
       {/* ── 11. Partners ──────────────────────────────────────────────────── */}
-      <div className="s2-home-logo-strip s2-home-logo-strip--alt">
+      <div className="s2-home-logo-strip s2-home-logo-strip--alt s2-experience-section" data-s2-reveal="">
         <p className="s2-home-logo-strip__label">Our Partners</p>
-        <div className="s2-home-logo-strip__row">
+        <div className="s2-home-logo-strip__row s2-stagger">
           {['ECE', 'NASBA', 'NACC', 'NACES', 'WES', 'CGFNS'].map((p) => (
             <div key={p} className="s2-home-partner-chip">{p}</div>
           ))}
@@ -522,7 +522,7 @@ export function HomePage() {
       </div>
 
       {/* ── 12. About section ─────────────────────────────────────────────── */}
-      <section className="s2-marketing-section" data-s2-section="about">
+      <section className="s2-marketing-section s2-experience-section" data-s2-section="about" data-s2-reveal="">
         <div className="s2-home-about-grid s2-mobile-stack s2-container s2-section-inner s2-width-wide">
           <div>
             <p className="s2-t-eyebrow">About Us</p>
@@ -571,7 +571,7 @@ export function HomePage() {
       </section>
 
       {/* ── 13. Awards ────────────────────────────────────────────────────── */}
-      <div className="s2-home-awards">
+      <div className="s2-home-awards s2-experience-section" data-s2-reveal="">
         <p className="s2-home-logo-strip__label">Awards We Have Received</p>
         <div className="s2-home-awards__row">
           <div className="s2-home-award s2-home-award--orange">
@@ -615,7 +615,7 @@ export function HomePage() {
       </section>
 
       {/* ── 15. Newsletter ────────────────────────────────────────────────── */}
-      <section className="s2-home-newsletter" data-s2-section="newsletter">
+      <section className="s2-home-newsletter s2-experience-section" data-s2-section="newsletter" data-s2-reveal="">
         <h3 className="s2-home-newsletter__title">Subscribe to Our Newsletter</h3>
         <p className="s2-home-newsletter__sub">Stay updated on the latest NRI news, service launches, and important updates.</p>
         <div className="s2-home-newsletter__form">
@@ -625,7 +625,7 @@ export function HomePage() {
       </section>
 
       {/* ── 16. App download ──────────────────────────────────────────────── */}
-      <section className="s2-home-app s2-surface-dark" data-s2-section="app">
+      <section className="s2-home-app s2-surface-dark s2-experience-section" data-s2-section="app" data-s2-reveal="">
         <div className="s2-home-app__grid s2-mobile-stack">
           <div>
             <p className="s2-home-app__eyebrow">Mobile App</p>

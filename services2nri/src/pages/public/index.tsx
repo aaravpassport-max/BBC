@@ -44,7 +44,15 @@ export function AboutPage() {
 
   return (
     <Layout>
-      <PageHero title="About Us" subtitle={`Trusted NRI service partner since 2015 — making India management effortless from anywhere in the world.`} />
+      <PageHero
+        title="About Us"
+        subtitle="Trusted NRI service partner since 2015 — making India management effortless from anywhere in the world."
+        meta={[
+          { icon: '🌍', label: '50+ countries' },
+          { icon: '👥', label: '10,000+ clients' },
+          { icon: '🔒', label: 'Encrypted docs' },
+        ]}
+      />
 
       <PublicSection sectionKey="intro" width="wide">
         <div className="s2-marketing-page s2-public-split-grid s2-mobile-stack">
@@ -93,10 +101,10 @@ export function AboutPage() {
         </PublicGrid>
       </PublicSection>
 
-      <section className="s2-public-team-section">
+      <section className="s2-public-team-section s2-experience-section" data-s2-reveal="">
         <div className="s2-container">
           <h2 className="s2-public-section-title s2-public-section-title--center">Meet Our Team</h2>
-          <div className="s2-public-team-grid">
+          <div className="s2-public-team-grid s2-stagger">
             {team.map(({ name: n, role, img, bio }) => (
               <div key={n} className="s2-public-team-card">
                 <img src={img} alt={n} />
@@ -111,7 +119,7 @@ export function AboutPage() {
         </div>
       </section>
 
-      <section className="s2-public-band-dark s2-surface-dark s2-marketing-page">
+      <section className="s2-public-band-dark s2-surface-dark s2-marketing-page s2-experience-section" data-s2-reveal="">
         <h2 className="s2-public-band-dark__title">Ready to Get Started?</h2>
         <p className="s2-public-band-dark__sub">Let us handle your India affairs while you focus on what matters.</p>
         <div className="s2-public-band-dark__actions">
@@ -166,7 +174,15 @@ export function ContactPage() {
 
   return (
     <Layout>
-      <PageHero title="Contact Us" subtitle="We're here to help. Reach us via WhatsApp, email, or the form below." primary={primary} />
+      <PageHero
+        title="Contact Us"
+        subtitle="We're here to help. Reach us via WhatsApp, email, or the form below."
+        primary={primary}
+        meta={[
+          { icon: '💬', label: 'WhatsApp 30 min' },
+          { icon: '📧', label: 'Reply in 24h' },
+        ]}
+      />
       <PublicSection sectionKey="contact" width="wide">
         <div className="s2-public-contact-grid s2-mobile-stack">
           <div>
@@ -258,8 +274,8 @@ export function HowItWorksPage() {
           { icon: '✅', label: 'Pay after approval' },
         ]}
       />
-      <section className="s2-public-how-section s2-marketing-page">
-        <div className="s2-container s2-width-wide">
+      <section className="s2-public-how-section s2-marketing-page s2-experience-section" data-s2-reveal="">
+        <div className="s2-container s2-width-wide s2-stagger">
           {steps.map(({ n, icon, t, d }, i) => (
             <div key={n} className="s2-public-how-step">
               <div className="s2-public-how-step__rail">

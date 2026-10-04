@@ -27,6 +27,8 @@ grep -q 'public-contrast-system.css' src/Design/DesignSystem.php && ok contrast 
 grep -q 'public-platform-experience.css' src/Design/DesignSystem.php && ok platform experience css inlined || bad platform experience css inlined
 [[ -f assets/public-service-experience.css ]] && ok public-service-experience.css || bad public-service-experience.css
 grep -q 'public-service-experience.css' src/Design/DesignSystem.php && ok service experience css inlined || bad service experience css inlined
+[[ -f assets/portal-experience.css ]] && ok portal-experience.css || bad portal-experience.css
+grep -q 'portal-experience.css' src/styles/global.css && ok portal experience css imported || bad portal experience css imported
 [[ -f src/Design/WidthLayout.php ]] && ok WidthLayout.php || bad WidthLayout.php
 [[ -f playwright.config.ts ]] && ok playwright.config || bad playwright.config
 [[ -f e2e/smoke.spec.ts ]] && ok e2e smoke spec || bad e2e smoke spec

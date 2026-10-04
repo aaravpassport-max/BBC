@@ -3,6 +3,7 @@
  * Also includes s2nri-theme.css contents
  */
 @import '../../shared/design-tokens.css';
+@import '../../assets/portal-experience.css';
 
 *, *::before, *::after { box-sizing: border-box; }
 img { max-width: 100%; height: auto; }

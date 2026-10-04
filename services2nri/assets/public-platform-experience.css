@@ -361,6 +361,67 @@ a.s2-city-service-card:focus-visible {
   background: color-mix(in srgb, var(--s2-color-surface) 94%, transparent);
 }
 
+/* ── Press / partner chips ───────────────────────────────────────────────── */
+.s2-home-press-chip,
+.s2-home-partner-chip {
+  transition:
+    transform var(--s2-experience-duration) var(--s2-experience-ease),
+    box-shadow var(--s2-experience-duration) ease;
+}
+
+.s2-home-press-chip:hover,
+.s2-home-partner-chip:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--s2-experience-shadow-rest);
+}
+
+/* ── Team cards ──────────────────────────────────────────────────────────── */
+.s2-public-team-card {
+  transition:
+    transform var(--s2-experience-duration) var(--s2-experience-ease),
+    box-shadow var(--s2-experience-duration) ease;
+  border: 1px solid color-mix(in srgb, var(--s2-color-primary) 10%, var(--s2-color-border));
+}
+
+.s2-public-team-card:hover {
+  transform: translateY(var(--s2-experience-lift));
+  box-shadow: var(--s2-experience-shadow-hover);
+}
+
+.s2-public-team-card img {
+  transition: transform var(--s2-experience-duration-slow) var(--s2-experience-ease);
+}
+
+.s2-public-team-card:hover img {
+  transform: scale(1.03);
+}
+
+/* ── Full-page how-it-works timeline ─────────────────────────────────────── */
+.s2-public-how-step {
+  transition: background var(--s2-experience-duration) ease;
+  border-radius: var(--s2-radius-lg, 12px);
+}
+
+.s2-public-how-step:hover {
+  background: color-mix(in srgb, var(--s2-color-primary) 4%, transparent);
+}
+
+.s2-public-how-callout {
+  border: 1px solid color-mix(in srgb, var(--s2-color-primary) 18%, var(--s2-color-border));
+  box-shadow: var(--s2-experience-shadow-rest);
+}
+
+.s2-home-award {
+  transition:
+    transform var(--s2-experience-duration) var(--s2-experience-ease),
+    box-shadow var(--s2-experience-duration) ease;
+}
+
+.s2-home-award:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--s2-experience-shadow-hover);
+}
+
 @media (max-width: 768px) {
   .s2-experience-section {
     padding-block: calc(var(--s2-space-section_y_mobile, 40px) * 1.05);
@@ -369,5 +430,10 @@ a.s2-city-service-card:focus-visible {
   .s2-dir-card:active,
   .s2-home-svc-card:active {
     transform: scale(0.985);
+  }
+
+  .s2-home-press-chip:active,
+  .s2-home-partner-chip:active {
+    transform: scale(0.98);
   }
 }
