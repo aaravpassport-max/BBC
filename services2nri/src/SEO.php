@@ -18,7 +18,27 @@ class SEO {
     public function render(): void {
         $path    = strtok( $_SERVER['REQUEST_URI'] ?? '/', '?' );
         $meta    = $this->buildMeta( $path );
-        $config  = Bootstrap::getJsConfig();
+        try {
+            $config = Bootstrap::getJsConfig();
+        } catch ( \Throwable $e ) {
+            if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                error_log( '[S2NRI] getJsConfig failed: ' . $e->getMessage() );
+            }
+            $settings_fallback = \S2NRI\Models\Setting::getPublic();
+            $config = [
+                'apiBase'     => rtrim( rest_url( 's2nri/v1' ), '/' ),
+                'spaBase'     => home_url( '' ),
+                'assetsUrl'   => S2NRI_ASSETS_URL,
+                'nonce'       => wp_create_nonce( 's2nri_api' ),
+                'portalToken' => $GLOBALS['s2nri_portal_session_token'] ?? '',
+                'version'     => S2NRI_VERSION,
+                'currentUser' => null,
+                'settings'    => $settings_fallback,
+                'design'      => [],
+                'builderUrl'  => home_url( '/' . \S2NRI\BuilderPage::SLUG ),
+                'bootError'   => $e->getMessage(),
+            ];
+        }
 
         $js_url     = S2NRI_ASSETS_URL . 'app.js';
         $css_url    = S2NRI_ASSETS_URL . 'app.css';
@@ -517,6 +537,19 @@ HEROFIXJS;
         }
         echo '  <script type="module" src="' . esc_url( $js_url ) . '?v=' . $js_ver . '"></script>' . "\n";
         echo '  <script>' . "\n";
+        echo '    (function(){' . "\n";
+        echo '      var t=setTimeout(function(){' . "\n";
+        echo '        var root=document.getElementById("s2nri-root");' . "\n";
+        echo '        if(!root||!root.querySelector(".s2nri-splash"))return;' . "\n";
+        echo '        var err=(window.S2NRI_CONFIG&&window.S2NRI_CONFIG.bootError)||"";' . "\n";
+        echo '        root.innerHTML=\'<div style="padding:48px 24px;text-align:center;font-family:system-ui,sans-serif;max-width:520px;margin:0 auto">\'+' . "\n";
+        echo '          \'<p style="font-weight:700;color:#1e293b">App did not start</p>\'+' . "\n";
+        echo '          \'<p style="color:#64748b;font-size:14px">The loading screen stayed visible. Usually this means <code>assets/app.js</code> failed to load, or the plugin needs an update (4.7.13+ fixes a common crash).</p>\'+' . "\n";
+        echo '          (err?\'<pre style="text-align:left;font-size:11px;background:#f1f5f9;padding:12px;border-radius:8px;overflow:auto">\'+err.replace(/</g,"&lt;")+"</pre>\':"")+' . "\n";
+        echo '          \'<p><button type="button" onclick="location.reload()" style="padding:10px 20px;border-radius:8px;border:none;background:#4A6FA5;color:#fff;font-weight:600;cursor:pointer">Reload</button></p></div>\';' . "\n";
+        echo '      },15000);' . "\n";
+        echo '      window.addEventListener("s2nri-app-mounted",function(){clearTimeout(t);},{once:true});' . "\n";
+        echo '    })();' . "\n";
         echo '    // Kills any stale service worker automatically, on every visit, for' . "\n";
         echo '    // every visitor — no manual FTP check or DevTools step required. This' . "\n";
         echo '    // site previously registered a service worker at /sw.js; on hosts where' . "\n";
