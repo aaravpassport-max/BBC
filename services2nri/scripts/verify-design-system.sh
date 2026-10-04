@@ -24,6 +24,7 @@ bad() { echo "FAIL $1"; fail=1; }
 [[ -f e2e/smoke.spec.ts ]] && ok e2e smoke spec || bad e2e smoke spec
 [[ -f README.md ]] && ok README.md || bad README.md
 [[ -f docs/PLUG_AND_PLAY.md ]] && ok PLUG_AND_PLAY.md || bad PLUG_AND_PLAY.md
+[[ -f docs/WIDTH_LAYOUT.md ]] && ok WIDTH_LAYOUT.md || bad WIDTH_LAYOUT.md
 grep -q "ensureSeeded" src/Design/DesignSystem.php && ok design ensureSeeded || bad design ensureSeeded
 
 php tests/unit/visibility-logic-test.php && ok visibility unit tests || bad visibility unit tests
