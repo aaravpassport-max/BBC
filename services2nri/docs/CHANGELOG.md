@@ -5,6 +5,15 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.6.8] — 2026-10-04 — Cloud Agent
+
+- **Public surface complete**: `--s2-primary` set once on `Layout` (`s2-page-wrap`); marketing/home/service pages no longer duplicate brand overrides.
+- **`cssVars()`** helper for CMS-driven custom properties (hero, marquee, grids, directory badges).
+- **Privacy** page uses site `Layout` (header/footer/nav) like Terms.
+- Verify script fails on duplicate `--s2-primary` in `src/pages/public`. Playwright: 10 public smokes (+ privacy, terms).
+
+---
+
 ## [4.6.7] — 2026-10-04 — Cloud Agent
 
 - **ServicesPage** — removed layout/skeleton/state inlines; sidebar, mobile filter, and card badge use `public-services-directory.css` (dynamic category color via `--s2-dir-badge-bg` only).

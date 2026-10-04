@@ -120,7 +120,15 @@ export function Layout({ children }: LayoutProps) {
   const dashUrl = isStaff ? '/admin' : '/dashboard'
 
   return (
-    <div className="s2-page-wrap" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div
+      className="s2-page-wrap"
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        ['--s2-primary' as string]: primary,
+      }}
+    >
       {/* ── Top bar ────────────────────────────────────────────────────────── */}
       <div style={{ background: primary, color: '#fff', padding: '6px 20px', fontSize: 13 }}>
         <div

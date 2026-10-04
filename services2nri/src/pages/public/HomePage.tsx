@@ -22,7 +22,7 @@
  */
 
 import React, { useState, useEffect } from 'react'
-import { resolvePrimary } from '@/lib/design-tokens'
+import { cssVars } from '@/lib/design-tokens'
 import { Link } from 'react-router-dom'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { Autoplay, Pagination, Navigation, EffectFade } from 'swiper/modules'
@@ -166,7 +166,6 @@ const FAQ_DATA = [
 
 export function HomePage() {
   const settings = useStore((s) => s.settings)
-  const primary  = resolvePrimary(settings)
   const whatsapp = settings.platform_whatsapp
 
   // Data state
@@ -251,7 +250,7 @@ export function HomePage() {
 
   return (
     <Layout>
-      <div className="s2-home-page" style={{ ['--s2-primary' as string]: primary }}>
+      <div className="s2-home-page">
       {/* ── 1. Hero Slider — banner/carousel only, no overlay content ───────── */}
       <div className="s2-hero-section">
         <Swiper
@@ -265,7 +264,7 @@ export function HomePage() {
         >
           {banners.map((src, i) => (
             <SwiperSlide key={i} className="s2-home-hero-slide">
-              <div className="s2-home-hero-slide-bg" style={{ backgroundImage: `url(${src})` }} />
+              <div className="s2-home-hero-slide-bg" style={cssVars({ 's2-home-slide-bg': `url(${src})` })} />
             </SwiperSlide>
           ))}
         </Swiper>

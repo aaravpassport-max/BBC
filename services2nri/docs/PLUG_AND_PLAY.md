@@ -38,6 +38,22 @@ This document is the operator checklist for a **fresh WordPress install** with n
 3. WP Admin → Services2NRI → Admin Portal — dashboard loads.
 4. Admin → **Design System** — change primary color → Publish → hard-refresh `/` — buttons update.
 
+Automated equivalent (no WordPress): from `services2nri/`, run `npm run build && npm run test:e2e` (10 Playwright smokes, 4.6.8+).
+
+## Live WordPress checklist (operator)
+
+Run on your host after uploading **`services2nri.zip`** (version **4.6.8+**):
+
+| Step | URL / action | Pass criteria |
+|------|----------------|---------------|
+| A | `/` | Hero, categories, footer; no broken JS in browser console |
+| B | `/services` | Directory search + category chips |
+| C | `/service/{slug}` | Hero + `#booking-form` wizard |
+| D | `/contact` | Form submits (row in admin or success message) |
+| E | `/pricing`, `/faq`, `/blog` | Marketing pages styled (no unstyled blocks) |
+| F | `/cities/property-management-in-pune` | City hero + service grid |
+| G | Design System → Publish | Primary color change visible on hard refresh |
+
 ## Registry (visibility)
 
 - **Design System → Service Registry** — global matrix for services, categories, cities.

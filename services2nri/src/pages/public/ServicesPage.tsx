@@ -3,6 +3,7 @@
  */
 
 import React, { useState, useEffect } from 'react'
+import { cssVars } from '@/lib/design-tokens'
 import { Link, useParams } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
 import { api } from '@/lib/api'
@@ -156,7 +157,7 @@ export function ServicesPage() {
                     />
                     <div
                       className="s2-dir-card__badge"
-                      style={svc.color ? { ['--s2-dir-badge-bg' as string]: svc.color } : undefined}
+                      style={svc.color ? cssVars({ 's2-dir-badge-bg': svc.color }) : undefined}
                     >
                       {svc.category_name}
                     </div>

@@ -3,6 +3,7 @@
  */
 import React from 'react'
 import { Link } from 'react-router-dom'
+import { cssVars } from '@/lib/design-tokens'
 
 export function PublicSection({
   children,
@@ -46,7 +47,7 @@ export function PublicGrid({
   min?: number
 }) {
   return (
-    <div className="s2-public-grid" style={{ ['--s2-grid-min' as string]: `${min}px` }}>
+    <div className="s2-public-grid" style={cssVars({ 's2-grid-min': `${min}px` })}>
       {children}
     </div>
   )

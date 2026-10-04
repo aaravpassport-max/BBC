@@ -37,6 +37,13 @@ grep -q "is_featured" src/Installer.php && ok is_featured migration || bad is_fe
 grep -q "CategoryRegistryVisibilityBlock" src/components/admin/RegistryVisibilityBlock.tsx && ok category admin visibility block || bad category admin visibility block
 grep -q "publicCities( 'sitemap' )" services2nri.php && ok sitemap city registry || bad sitemap city registry
 
+# Public SPA pages: brand primary comes from Layout; no per-section --s2-primary duplicates.
+if rg -q "style=\{\{ \['--s2-primary'" src/pages/public 2>/dev/null; then
+  bad "duplicate --s2-primary inline on public pages (use Layout root)"
+else
+  ok public primary scope
+fi
+
 if [[ $fail -ne 0 ]]; then
   echo "Verification failed."
   exit 1

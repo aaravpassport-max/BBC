@@ -25,7 +25,6 @@ import { PublicSection, PublicSectionHead, PublicGrid, PublicCard, PublicCtaLink
 // ── AboutPage (Bn) ────────────────────────────────────────────────────────────
 export function AboutPage() {
   const settings = useStore((s) => s.settings)
-  const primary  = resolvePrimary(settings)
   const name     = settings.platform_name || 'Services2NRI'
   const whatsapp = settings.platform_whatsapp
 
@@ -48,7 +47,7 @@ export function AboutPage() {
       <PageHero title="About Us" subtitle={`Trusted NRI service partner since 2015 — making India management effortless from anywhere in the world.`} />
 
       <PublicSection>
-        <div className="s2-marketing-page s2-public-split-grid s2-mobile-stack" style={{ ['--s2-primary' as string]: primary }}>
+        <div className="s2-marketing-page s2-public-split-grid s2-mobile-stack">
           <div>
             <PublicSectionHead eyebrow="Our Story" title={settings.about_heading || `${name} — Your Bridge to India`} />
             <p className="s2-t-body s2-public-body-tight">
@@ -112,7 +111,7 @@ export function AboutPage() {
         </div>
       </section>
 
-      <section className="s2-public-band-dark s2-marketing-page" style={{ ['--s2-primary' as string]: primary }}>
+      <section className="s2-public-band-dark s2-marketing-page">
         <h2 className="s2-public-band-dark__title">Ready to Get Started?</h2>
         <p className="s2-public-band-dark__sub">Let us handle your India affairs while you focus on what matters.</p>
         <div className="s2-public-band-dark__actions">
@@ -250,7 +249,7 @@ export function HowItWorksPage() {
   return (
     <Layout>
       <PageHero title="How It Works" subtitle="Get your NRI service done in 6 simple steps — from anywhere in the world." primary={primary} />
-      <section className="s2-public-how-section s2-marketing-page" style={{ ['--s2-primary' as string]: primary }}>
+      <section className="s2-public-how-section s2-marketing-page">
         <div className="s2-container s2-container--w1000">
           {steps.map(({ n, icon, t, d }, i) => (
             <div key={n} className="s2-public-how-step">
@@ -530,7 +529,6 @@ function estimateReadTime(content?: string): string {
 }
 
 export function BlogListPage() {
-  const primary  = resolvePrimary(useStore((s) => s.settings))
   const siteName = useStore((s) => s.settings).platform_name || 'Services2NRI'
   const [posts,      setPosts]      = useState<BlogPost[]>([])
   const [loading,    setLoading]    = useState(true)
@@ -553,7 +551,7 @@ export function BlogListPage() {
 
   return (
     <Layout>
-      <div className="s2-marketing-page s2-blog-hero" style={{ ['--s2-primary' as string]: primary }}>
+      <div className="s2-marketing-page s2-blog-hero">
         <div className="s2-container">
           <p className="s2-blog-hero__eyebrow">NRI Knowledge Hub</p>
           <h1 className="s2-blog-hero__title">Expert Guides for NRIs Living Abroad</h1>
@@ -652,7 +650,6 @@ const BLOG_DETAIL_FALLBACK: Record<string, BlogPost> = {
 
 export function BlogDetailPage() {
   const { slug }  = useParams<{ slug: string }>()
-  const primary   = resolvePrimary(useStore((s) => s.settings))
   const siteName  = useStore((s) => s.settings).platform_name || 'Services2NRI'
   const [post,    setPost]    = useState<BlogPost | null>(null)
   const [related, setRelated] = useState<BlogPost[]>([])
@@ -734,7 +731,7 @@ export function BlogDetailPage() {
 
   return (
     <Layout>
-      <div className="s2-marketing-page s2-blog-article-hero" style={{ ['--s2-primary' as string]: primary }}>
+      <div className="s2-marketing-page s2-blog-article-hero">
         <div className="s2-container s2-container--w860">
           <Link to="/blog" className="s2-blog-article-hero__back">← Knowledge Hub</Link>
           <div className="s2-blog-article-hero__meta">
@@ -853,7 +850,6 @@ export function TermsPage() {
 // ── PrivacyPage (Yn) ──────────────────────────────────────────────────────────
 export function PrivacyPage() {
   const settings = useStore((s) => s.settings)
-  const primary  = resolvePrimary(settings)
   const name     = settings.platform_name || 'Services2NRI'
 
   const sections = [
@@ -868,25 +864,27 @@ export function PrivacyPage() {
   ]
 
   return (
-    <div className="s2-privacy-page s2-marketing-page" style={{ ['--s2-primary' as string]: primary }}>
-      <div className="s2-privacy-hero">
-        <h1 className="s2-privacy-hero__title">Privacy Policy</h1>
-        <p className="s2-privacy-hero__sub">Last updated: January 2025</p>
-      </div>
-      <div className="s2-privacy-body">
-        <div className="s2-privacy-intro">
-          <p>
-            This Privacy Policy explains how <strong>{name}</strong> collects, uses, and protects your personal information when you use our platform. By using our services, you agree to the practices described in this policy.
-          </p>
+    <Layout>
+      <div className="s2-privacy-page s2-marketing-page">
+        <div className="s2-privacy-hero">
+          <h1 className="s2-privacy-hero__title">Privacy Policy</h1>
+          <p className="s2-privacy-hero__sub">Last updated: January 2025</p>
         </div>
-        {sections.map((s) => (
-          <div key={s.title} className="s2-privacy-card">
-            <h2 className="s2-privacy-card__title">{s.title}</h2>
-            <p className="s2-privacy-card__body">{s.body}</p>
+        <div className="s2-privacy-body">
+          <div className="s2-privacy-intro">
+            <p>
+              This Privacy Policy explains how <strong>{name}</strong> collects, uses, and protects your personal information when you use our platform. By using our services, you agree to the practices described in this policy.
+            </p>
           </div>
-        ))}
+          {sections.map((s) => (
+            <div key={s.title} className="s2-privacy-card">
+              <h2 className="s2-privacy-card__title">{s.title}</h2>
+              <p className="s2-privacy-card__body">{s.body}</p>
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </Layout>
   )
 }
 
@@ -913,7 +911,6 @@ const SERVICE_SLUG_MAP: Record<string, string> = {
 export function CityPage() {
   const { city }  = useParams<{ city: string }>()
   const settings  = useStore((s) => s.settings)
-  const primary   = resolvePrimary(settings)
   const name      = settings.platform_name || 'Services2NRI'
 
   // Extract city key from URL slug like "property-management-in-pune"
@@ -938,7 +935,7 @@ export function CityPage() {
 
   return (
     <Layout>
-      <div className="s2-marketing-page s2-city-hero" style={{ ['--s2-primary' as string]: primary }}>
+      <div className="s2-marketing-page s2-city-hero">
         <div className="s2-container">
           <p className="s2-city-hero__crumb">
             <Link to="/">Home</Link>
@@ -1019,7 +1016,7 @@ export function CityPage() {
         </div>
       </PublicSection>
 
-      <section className="s2-public-band-dark s2-marketing-page" style={{ ['--s2-primary' as string]: primary }}>
+      <section className="s2-public-band-dark s2-marketing-page">
         <h2 className="s2-public-band-dark__title">Start Managing Your {data.name} Property Today</h2>
         <p className="s2-city-cta__sub">Get a free property assessment and management quote within 24 hours.</p>
         <div className="s2-public-band-dark__actions">

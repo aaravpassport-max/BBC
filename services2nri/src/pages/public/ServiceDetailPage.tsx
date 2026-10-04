@@ -24,7 +24,7 @@
  */
 
 import React, { useState, useEffect, useRef, useCallback } from 'react'
-import { resolvePrimary } from '@/lib/design-tokens'
+import { cssVars, resolvePrimary } from '@/lib/design-tokens'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
 import { PublicGrid, PublicCard } from '@/components/public/PublicLayout'
@@ -280,7 +280,7 @@ function SectionRenderer({ sec }: { sec: ServiceSection; primary: string }) {
       return (
         <div
           className="s2-svc-trust-grid s2-svc-trust-grid--auto s2-mobile-stack"
-          style={{ ['--s2-trust-cols' as string]: badges.length || 3 }}
+          style={cssVars({ 's2-trust-cols': badges.length || 3 })}
         >
           {badges.map((b, i) => (
             <div key={i} className="s2-svc-trust-tile">
@@ -637,7 +637,7 @@ export function ServiceDetailPage() {
   // ── Success screen ────────────────────────────────────────────────────────────
   if (submitted) return (
     <Layout>
-      <div className="s2-svc-success" style={{ ['--s2-primary' as string]: primary }}>
+      <div className="s2-svc-success">
         <div className="s2-svc-success__icon">✅</div>
         <h1 className="s2-svc-success__title">Request Submitted!</h1>
         <p className="s2-svc-success__lead">Your <strong>{svc.name}</strong> request has been received.</p>
@@ -702,11 +702,11 @@ export function ServiceDetailPage() {
       {marquee && marquee.enabled && marquee.text ? (
         <div
           className="s2-svc-marquee"
-          style={{
-            ['--s2-marquee-bg' as string]: String(marquee.bg_color || 'var(--s2-color-primary)'),
-            ['--s2-marquee-fg' as string]: String(marquee.text_color || '#fff'),
-            ['--s2-marquee-duration' as string]: `${Number(marquee.speed) || 30}s`,
-          }}
+          style={cssVars({
+            's2-marquee-bg': String(marquee.bg_color || 'var(--s2-color-primary)'),
+            's2-marquee-fg': String(marquee.text_color || '#fff'),
+            's2-marquee-duration': `${Number(marquee.speed) || 30}s`,
+          })}
         >
           <div className="s2-svc-marquee__track">
             <span>{String(marquee.text)}</span>
@@ -722,7 +722,7 @@ export function ServiceDetailPage() {
           {/* Hero */}
           <div
             className={`s2-svc-hero${heroAlign === 'center' ? ' s2-svc-hero--align-center' : ''}`}
-            style={{ height: heroHeight, ['--s2-hero-overlay' as string]: heroOverlay }}
+            style={{ height: heroHeight, ...cssVars({ 's2-hero-overlay': heroOverlay }) }}
           >
             <img src={heroImg} alt={heroTitle} />
             <div className="s2-svc-hero__shade" />
@@ -790,7 +790,7 @@ export function ServiceDetailPage() {
         </div>
 
         {/* Right: sticky booking wizard */}
-        <div id="booking-form" className="s2-svc-wizard-sticky" style={{ ['--s2-primary' as string]: primary }}>
+        <div id="booking-form" className="s2-svc-wizard-sticky">
 
           <div className="s2-svc-wizard-head">
             {/* Service name + meta */}

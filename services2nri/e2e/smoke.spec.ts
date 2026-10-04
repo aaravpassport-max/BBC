@@ -40,6 +40,17 @@ test.describe('Public marketing smoke', () => {
     await expect(page.getByRole('heading', { name: /Property Management in Pune/i })).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('link', { name: /Get Free Quote for Pune/i })).toBeVisible();
   });
+
+  test('privacy policy in site chrome', async ({ page }) => {
+    await page.goto('/privacy');
+    await expect(page.getByRole('heading', { name: /Privacy Policy/i })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Services2NRI/i).first()).toBeVisible();
+  });
+
+  test('terms page loads', async ({ page }) => {
+    await page.goto('/terms');
+    await expect(page.getByRole('heading', { name: /Terms & Conditions/i })).toBeVisible({ timeout: 20_000 });
+  });
 });
 
 test.describe('Service detail smoke', () => {
