@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.15] — 2026-10-04 — Cloud Agent
+
+- **Infinite loader:** verify `assets/app.js` + core chunks exist before showing splash; 8s watchdog + JS error/rejection handlers; design CSS wrapped in try/catch so boot cannot fatal mid-page.
+
+---
+
 ## [4.7.14] — 2026-10-04 — Cloud Agent
 
 - **Spinner stuck:** design classes `require_once` in `DesignSystem.php`; `getJsConfig()` try/catch so PHP fatal does not blank the shell; 15s splash watchdog + `s2nri-app-mounted` when React boots.

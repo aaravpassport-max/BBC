@@ -28,7 +28,7 @@ if ( version_compare( PHP_VERSION, '8.0.0', '<' ) ) {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 define( 'S2NRI_CUSTOMER_ROLE', 's2nri_customer' );
-define( 'S2NRI_VERSION',    '4.7.14' );
+define( 'S2NRI_VERSION',    '4.7.15' );
 define( 'S2NRI_FILE',       __FILE__ );
 define( 'S2NRI_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'S2NRI_URL',        plugin_dir_url( __FILE__ ) );
@@ -592,6 +592,18 @@ add_action( 'admin_notices', function () {
         </a>
     </div>
     <?php
+} );
+
+add_action( 'admin_notices', function () {
+    if ( ! current_user_can( 'administrator' ) ) {
+        return;
+    }
+    if ( is_file( S2NRI_DIR . 'assets/app.js' ) ) {
+        return;
+    }
+    echo '<div class="notice notice-error"><p><strong>Services2NRI:</strong> '
+        . '<code>assets/app.js</code> is missing — the public site will show an infinite loader. '
+        . 'Re-upload the official plugin zip from GitHub (services2nri-full-source.zip, v' . esc_html( S2NRI_VERSION ) . '+).</p></div>';
 } );
 
 // ─── Activation health check notice ─────────────────────────────────────────

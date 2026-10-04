@@ -193,11 +193,17 @@ class SEO {
 
         // Central design system — tokens, typography utilities, component classes
         if ( class_exists( '\S2NRI\Design\DesignSystem' ) ) {
-            $design_config = \S2NRI\Design\DesignSystem::resolve( \S2NRI\Design\DesignSystem::pageContextFromPath( $path ) );
-            echo \S2NRI\Design\DesignSystem::renderFontLinks( $design_config );
-            echo '  <style id="s2nri-design-system">' . "\n";
-            echo \S2NRI\Design\DesignSystem::renderInlineCss( $path );
-            echo '  </style>' . "\n";
+            try {
+                $design_config = \S2NRI\Design\DesignSystem::resolve( \S2NRI\Design\DesignSystem::pageContextFromPath( $path ) );
+                echo \S2NRI\Design\DesignSystem::renderFontLinks( $design_config );
+                echo '  <style id="s2nri-design-system">' . "\n";
+                echo \S2NRI\Design\DesignSystem::renderInlineCss( $path );
+                echo '  </style>' . "\n";
+            } catch ( \Throwable $e ) {
+                if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
+                    error_log( '[S2NRI] design CSS skipped: ' . $e->getMessage() );
+                }
+            }
         }
 
         // Direct URL behavior for hidden services (before SPA boot)
@@ -517,6 +523,13 @@ HEROFIXJS;
             }
         }
 
+        $missing_assets = $this->missingBootAssets();
+        if ( $missing_assets !== [] ) {
+            $this->renderBootAssetFailure( $missing_assets, $site_name );
+            echo '</body>' . "\n" . '</html>' . "\n";
+            return;
+        }
+
         echo '  <div id="s2nri-root" class="s2-ds" translate="no" spellcheck="false">' . "\n";
         echo '    <div class="s2nri-splash" aria-label="Loading ' . esc_attr( $site_name ) . '">' . "\n";
         echo '      <div class="s2nri-splash__logo">' . esc_html( $site_name ) . '</div>' . "\n";
@@ -524,6 +537,8 @@ HEROFIXJS;
         echo '    </div>' . "\n";
         echo '  </div>' . "\n";
         echo '  <script>window.S2NRI_CONFIG=' . $config_json . ';</script>' . "\n";
+        echo '  <script>window.S2NRI_BOOT={pluginVersion:' . wp_json_encode( S2NRI_VERSION ) . ',assetsUrl:' . wp_json_encode( S2NRI_ASSETS_URL ) . '};</script>' . "\n";
+        $this->echoBootWatchdogScript();
 
         $diag_url = S2NRI_ASSETS_URL . 'diagnostic-collector.js';
         $diag_ver = file_exists( S2NRI_DIR . 'assets/diagnostic-collector.js' )
@@ -537,19 +552,6 @@ HEROFIXJS;
         }
         echo '  <script type="module" src="' . esc_url( $js_url ) . '?v=' . $js_ver . '"></script>' . "\n";
         echo '  <script>' . "\n";
-        echo '    (function(){' . "\n";
-        echo '      var t=setTimeout(function(){' . "\n";
-        echo '        var root=document.getElementById("s2nri-root");' . "\n";
-        echo '        if(!root||!root.querySelector(".s2nri-splash"))return;' . "\n";
-        echo '        var err=(window.S2NRI_CONFIG&&window.S2NRI_CONFIG.bootError)||"";' . "\n";
-        echo '        root.innerHTML=\'<div style="padding:48px 24px;text-align:center;font-family:system-ui,sans-serif;max-width:520px;margin:0 auto">\'+' . "\n";
-        echo '          \'<p style="font-weight:700;color:#1e293b">App did not start</p>\'+' . "\n";
-        echo '          \'<p style="color:#64748b;font-size:14px">The loading screen stayed visible. Usually this means <code>assets/app.js</code> failed to load, or the plugin needs an update (4.7.13+ fixes a common crash).</p>\'+' . "\n";
-        echo '          (err?\'<pre style="text-align:left;font-size:11px;background:#f1f5f9;padding:12px;border-radius:8px;overflow:auto">\'+err.replace(/</g,"&lt;")+"</pre>\':"")+' . "\n";
-        echo '          \'<p><button type="button" onclick="location.reload()" style="padding:10px 20px;border-radius:8px;border:none;background:#4A6FA5;color:#fff;font-weight:600;cursor:pointer">Reload</button></p></div>\';' . "\n";
-        echo '      },15000);' . "\n";
-        echo '      window.addEventListener("s2nri-app-mounted",function(){clearTimeout(t);},{once:true});' . "\n";
-        echo '    })();' . "\n";
         echo '    // Kills any stale service worker automatically, on every visit, for' . "\n";
         echo '    // every visitor — no manual FTP check or DevTools step required. This' . "\n";
         echo '    // site previously registered a service worker at /sw.js; on hosts where' . "\n";
@@ -570,6 +572,58 @@ HEROFIXJS;
         echo '  </script>' . "\n";
         echo '</body>' . "\n";
         echo '</html>' . "\n";
+    }
+
+    /** @return list<string> Relative paths under plugin root that are required for SPA boot. */
+    private function missingBootAssets(): array {
+        $required = [
+            'assets/app.js',
+            'assets/app.css',
+            'assets/chunks/booking.js',
+            'assets/chunks/router.js',
+            'assets/chunks/react.js',
+        ];
+        $missing = [];
+        foreach ( $required as $rel ) {
+            if ( ! is_file( S2NRI_DIR . $rel ) ) {
+                $missing[] = $rel;
+            }
+        }
+        return $missing;
+    }
+
+    /** @param list<string> $missing */
+    private function renderBootAssetFailure( array $missing, string $site_name ): void {
+        echo '  <div id="s2nri-root" style="padding:48px 24px;font-family:system-ui,sans-serif;max-width:640px;margin:0 auto">' . "\n";
+        echo '    <h1 style="font-size:22px;color:#1e293b">' . esc_html( $site_name ) . ' — setup incomplete</h1>' . "\n";
+        echo '    <p style="color:#64748b;font-size:15px">The public app cannot start because required built files are missing from the plugin folder. Re-upload the official <strong>services2nri-full-source.zip</strong> (v' . esc_html( S2NRI_VERSION ) . '+) and ensure <code>assets/app.js</code> exists.</p>' . "\n";
+        echo '    <ul style="font-size:13px;color:#334155">' . "\n";
+        foreach ( $missing as $path ) {
+            echo '      <li><code>' . esc_html( $path ) . '</code></li>' . "\n";
+        }
+        echo '    </ul></div>' . "\n";
+    }
+
+    private function echoBootWatchdogScript(): void {
+        echo '  <script>' . "\n";
+        echo '    (function(){' . "\n";
+        echo '      function showFail(msg){' . "\n";
+        echo '        var root=document.getElementById("s2nri-root");' . "\n";
+        echo '        if(!root||!root.querySelector(".s2nri-splash"))return;' . "\n";
+        echo '        var err=(window.S2NRI_CONFIG&&window.S2NRI_CONFIG.bootError)||"";' . "\n";
+        echo '        root.innerHTML=\'<div style="padding:48px 24px;text-align:center;font-family:system-ui,sans-serif;max-width:560px;margin:0 auto">\'+' . "\n";
+        echo '          \'<p style="font-weight:700;color:#1e293b">App did not start</p>\'+' . "\n";
+        echo '          \'<p style="color:#64748b;font-size:14px">\'+(msg||"JavaScript failed to load. Open DevTools → Console, or reinstall plugin v4.7.14+.")+\'</p>\'+' . "\n";
+        echo '          (err?\'<pre style="text-align:left;font-size:11px;background:#f1f5f9;padding:12px;border-radius:8px;overflow:auto">\'+String(err).replace(/</g,"&lt;")+"</pre>\':"")+' . "\n";
+        echo '          \'<p style="font-size:12px;color:#94a3b8">Plugin \'+(window.S2NRI_BOOT&&window.S2NRI_BOOT.pluginVersion||"?")+\'</p>\'+' . "\n";
+        echo '          \'<button type="button" onclick="location.reload()" style="padding:10px 20px;border-radius:8px;border:none;background:#4A6FA5;color:#fff;font-weight:600;cursor:pointer">Reload</button></div>\';' . "\n";
+        echo '      }' . "\n";
+        echo '      var t=setTimeout(function(){showFail("Loading timed out after 8 seconds.");},8000);' . "\n";
+        echo '      window.addEventListener("s2nri-app-mounted",function(){clearTimeout(t);},{once:true});' . "\n";
+        echo '      window.addEventListener("error",function(e){if(e.filename&&e.filename.indexOf("app.js")!==-1)showFail(e.message||"app.js error");},true);' . "\n";
+        echo '      window.addEventListener("unhandledrejection",function(e){showFail(String(e.reason||"Module load failed"));});' . "\n";
+        echo '    })();' . "\n";
+        echo '  </script>' . "\n";
     }
 
     // ── Meta builder ──────────────────────────────────────────────────────────
