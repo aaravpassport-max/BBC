@@ -209,7 +209,7 @@ export function App() {
   const basename = (window.S2NRI_CONFIG?.basePath || '').replace(/\/$/, '') || undefined
 
   useEffect(() => {
-    applyDesignConfig(window.S2NRI_CONFIG)
+    applyDesignConfig()
   }, [])
 
   return (

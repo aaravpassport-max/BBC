@@ -3,8 +3,21 @@
  */
 import type { S2NRIConfig } from '@/types'
 
+/** Public + portal runtimes may expose design on S2NRI_CONFIG and/or S2NRI_CFG. */
+export function getRuntimeDesignConfig(): S2NRIConfig | undefined {
+  if (typeof window === 'undefined') return undefined
+  const cfg = window.S2NRI_CONFIG
+  const alt = (window as Window & { S2NRI_CFG?: S2NRIConfig }).S2NRI_CFG
+  if (cfg?.design) return cfg
+  if (alt?.design) {
+    return { ...(cfg || alt), design: alt.design }
+  }
+  return cfg || alt
+}
+
 export function applyDesignConfig(cfg?: S2NRIConfig): void {
-  const design = cfg?.design as Record<string, unknown> | undefined
+  const merged = cfg || getRuntimeDesignConfig()
+  const design = merged?.design as Record<string, unknown> | undefined
   if (!design || typeof document === 'undefined') return
 
   const root = document.documentElement

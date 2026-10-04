@@ -837,34 +837,20 @@ interface PageHeroProps {
   bg?: string
   primary?: string
 }
-export function PageHero({ title, subtitle, bg, primary: p }: PageHeroProps) {
-  const settings = useStore((s) => s.settings)
-  const color = p || resolvePrimary(settings)
+export function PageHero({ title, subtitle, bg }: PageHeroProps) {
   return (
     <div
-      style={{
-        background: bg || `linear-gradient(135deg, #1E2D40 0%, ${color} 100%)`,
-        color: '#fff',
-        padding: '52px 20px',
-      }}
+      className="s2-page-hero"
+      style={bg ? { background: bg } : undefined}
     >
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-        <div
-          style={{
-            fontSize: 12,
-            fontWeight: 700,
-            textTransform: 'uppercase',
-            letterSpacing: 3,
-            opacity: 0.75,
-            marginBottom: 8,
-          }}
-        >
-          <Link to="/" style={{ color: 'rgba(255,255,255,.7)', textDecoration: 'none' }}>Home</Link>
+      <div className="s2-container">
+        <div className="s2-page-hero__crumb">
+          <Link to="/">Home</Link>
           {' › '}
           {title}
         </div>
-        <h1 style={{ fontSize: 'clamp(26px, 4vw, 42px)', fontWeight: 900, margin: '0 0 10px' }}>{title}</h1>
-        {subtitle && <p style={{ fontSize: 16, opacity: 0.85, margin: 0, maxWidth: 580 }}>{subtitle}</p>}
+        <h1 className="s2-page-hero__title">{title}</h1>
+        {subtitle && <p className="s2-page-hero__subtitle">{subtitle}</p>}
       </div>
     </div>
   )

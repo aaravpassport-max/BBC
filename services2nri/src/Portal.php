@@ -230,6 +230,7 @@ class Portal {
             'loginUrl'     => $config['loginUrl'],
             'platformName' => $config['platformName'],
             'primaryColor' => $color,
+            'design'       => $designPayload,
             'isAdmin'      => $is_admin,
             'version'      => S2NRI_VERSION,
             'builderUrl'   => home_url( '/' . \S2NRI\BuilderPage::SLUG ),

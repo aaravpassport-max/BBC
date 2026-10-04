@@ -3,6 +3,7 @@
  * Exact match of compiled admin-DC3AMdvm.js (182,322 chars)
  */
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import { resolvePrimary } from '@/lib/design-tokens'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
@@ -50,7 +51,7 @@ function PageHeader({ title, subtitle, action }: { title: string; subtitle?: str
 }
 type BtnVariant = 'primary' | 'secondary' | 'ghost' | 'danger'
 function Btn({ children, onClick, variant = 'primary', loading, disabled, style, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement> & { children: React.ReactNode; variant?: BtnVariant; loading?: boolean }) {
-  const primary = useStore(s => s.settings).primary_color || '#1E2D40'
+  const primary = resolvePrimary(useStore(s => s.settings))
   const bg: Record<BtnVariant, string> = { primary, secondary: 'transparent', ghost: '#f3f4f6', danger: '#dc2626' }
   const color: Record<BtnVariant, string> = { primary: '#fff', secondary: primary, ghost: '#374151', danger: '#fff' }
   const border: Record<BtnVariant, string> = { primary: 'none', secondary: `2px solid ${primary}`, ghost: 'none', danger: 'none' }
@@ -180,7 +181,7 @@ function BarChart({ data = [], color = '#4A6FA5' }: { data?: Array<{ label: stri
 }
 // ── AdminDashboard (We) ───────────────────────────────────────────────────────
 export function AdminDashboard() {
-  const primary = useStore(s => s.settings).primary_color || '#1E2D40'
+  const primary = resolvePrimary(useStore(s => s.settings))
   const nav = useNavigate()
   const [data, setData] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(true)
@@ -256,7 +257,7 @@ export function AdminDashboard() {
 }
 // ── AdminBookingList (Be) ─────────────────────────────────────────────────────
 export function AdminBookingList() {
-  const primary = useStore(s => s.settings).primary_color || '#1E2D40'
+  const primary = resolvePrimary(useStore(s => s.settings))
   const nav = useNavigate()
   const [data, setData] = useState<{ rows: Record<string, unknown>[]; total: number }>({ rows: [], total: 0 })
   const [loading, setLoading] = useState(true)
@@ -342,7 +343,7 @@ export function AdminBookingList() {
 }
 // ── AdminBookingDetail ($e) ───────────────────────────────────────────────────
 export function AdminBookingDetail() {
-  const { id } = useParams<{ id: string }>(), primary = useStore(s => s.settings).primary_color || '#1E2D40'
+  const { id } = useParams<{ id: string }>(), primary = resolvePrimary(useStore(s => s.settings))
   const [booking, setBooking] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(true), [status, setStatus] = useState('')
   const [msg, setMsg] = useState(''), [msgBusy, setMsgBusy] = useState(false)
@@ -466,7 +467,7 @@ export function AdminBookingDetail() {
 }
 // ── AdminPayments (Ne) ────────────────────────────────────────────────────────
 export function AdminPayments() {
-  const primary = useStore(s => s.settings).primary_color || '#1E2D40'
+  const primary = resolvePrimary(useStore(s => s.settings))
   const [data, setData] = useState<{ rows: Record<string, unknown>[] }>({ rows: [] })
   const [loading, setLoading] = useState(true), [search, setSearch] = useState(''), [status, setStatus] = useState('pending')
   const [verifying, setVerifying] = useState<number | null>(null), [err, setErr] = useState(''), [ok, setOk] = useState('')
@@ -634,7 +635,7 @@ export function AdminSettings() {
 }
 // ── AdminCustomers (Ae) ───────────────────────────────────────────────────────
 export function AdminCustomers() {
-  const primary = useStore(s => s.settings).primary_color || '#1E2D40', nav = useNavigate()
+  const primary = resolvePrimary(useStore(s => s.settings)), nav = useNavigate()
   const [data, setData] = useState<{ rows: Record<string, unknown>[]; total: number }>({ rows: [], total: 0 })
   const [loading, setLoading] = useState(true), [search, setSearch] = useState('')
   const load = useCallback(() => { const qs = new URLSearchParams({ per_page: '50', ...(search && { search }) }); api.get<{ rows: Record<string, unknown>[]; total: number }>(`admin/customers?${qs}`).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false)) }, [search])
@@ -670,7 +671,7 @@ export function AdminCustomers() {
 }
 // ── AdminCustomerDetail (Oe) ──────────────────────────────────────────────────
 export function AdminCustomerDetail() {
-  const { id } = useParams<{ id: string }>(), primary = useStore(s => s.settings).primary_color || '#1E2D40'
+  const { id } = useParams<{ id: string }>(), primary = resolvePrimary(useStore(s => s.settings))
   const [data, setData] = useState<Record<string, unknown> | null>(null), [loading, setLoading] = useState(true)
   const [err, setErr] = useState(''), [ok, setOk] = useState('')
   const [loadFailed, setLoadFailed] = useState(false)
@@ -744,7 +745,7 @@ export function AdminCustomerDetail() {
 }
 // ── AdminStaff (De) ───────────────────────────────────────────────────────────
 export function AdminStaff() {
-  const primary = useStore(s => s.settings).primary_color || '#1E2D40'
+  const primary = resolvePrimary(useStore(s => s.settings))
   const [staff, setStaff] = useState<Record<string, unknown>[]>([]), [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false), [form, setForm] = useState({ email: '', name: '', s2nri_role: 'agent', phone: '' })
   const [saving, setSaving] = useState(false), [err, setErr] = useState(''), [ok, setOk] = useState('')
@@ -798,7 +799,7 @@ export function AdminStaff() {
 }
 // ── AdminReviews (Fe) ─────────────────────────────────────────────────────────
 export function AdminReviews() {
-  const primary = useStore(s => s.settings).primary_color || '#1E2D40'
+  const primary = resolvePrimary(useStore(s => s.settings))
   const [data, setData] = useState<{ rows: Record<string, unknown>[]; total: number }>({ rows: [], total: 0 })
   const [loading, setLoading] = useState(true), [status, setStatus] = useState('pending'), [err, setErr] = useState(''), [ok, setOk] = useState('')
   const load = useCallback(() => { api.get<{ rows: Record<string, unknown>[]; total: number }>(`admin/reviews?status=${status}&per_page=50`).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false)) }, [status])
@@ -835,7 +836,7 @@ export function AdminReviews() {
 }
 // ── AdminTickets (Ee) ─────────────────────────────────────────────────────────
 export function AdminTickets() {
-  const primary = useStore(s => s.settings).primary_color || '#1E2D40'
+  const primary = resolvePrimary(useStore(s => s.settings))
   const [data, setData] = useState<{ rows: Record<string, unknown>[] }>({ rows: [] }), [loading, setLoading] = useState(true)
   const [openId, setOpenId] = useState<number | null>(null), [detail, setDetail] = useState<Record<string, unknown> | null>(null)
   const [reply, setReply] = useState(''), [replying, setReplying] = useState(false)
@@ -882,7 +883,7 @@ export function AdminTickets() {
 }
 // ── AdminAuditLog (qe) ────────────────────────────────────────────────────────
 export function AdminAuditLog() {
-  const primary = useStore(s => s.settings).primary_color || '#1E2D40'
+  const primary = resolvePrimary(useStore(s => s.settings))
   const [data, setData] = useState<{ rows: Record<string, unknown>[]; total: number }>({ rows: [], total: 0 }), [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({ page: 1, search: '', action: '' })
   // FIXED: 6 of the previous 13 values never matched any real logAudit()
@@ -934,7 +935,7 @@ export function AdminAuditLog() {
 }
 // ── AdminServices (Pe) — CRUD + schema editor + reseed ────────────────────────
 export function AdminServices() {
-  const primary = useStore(s => s.settings).primary_color || '#1E2D40', nav = useNavigate()
+  const primary = resolvePrimary(useStore(s => s.settings)), nav = useNavigate()
   const [services, setServices] = useState<Record<string, unknown>[]>([]), [categories, setCategories] = useState<Record<string, unknown>[]>([])
   const [loading, setLoading] = useState(true), [showForm, setShowForm] = useState(false), [editId, setEditId] = useState<number|null>(null)
   const [form, setForm] = useState({ name:'',name_hi:'',category_id:'',short_desc:'',description:'',pricing_model:'quote',base_price:'',price_min:'',price_max:'',turnaround_days:'7',icon:'📋',required_docs:'',is_active:1,image_url:'',form_schema:'',sort_order:0,seo_desc:'',using_form_builder:false })
@@ -1072,7 +1073,7 @@ export function AdminServices() {
 }
 // ── AdminCategories (Le) — with image upload ──────────────────────────────────
 export function AdminCategories() {
-  const primary = useStore(s => s.settings).primary_color || '#1E2D40'
+  const primary = resolvePrimary(useStore(s => s.settings))
   const [cats, setCats] = useState<Record<string, unknown>[]>([]), [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false), [editId, setEditId] = useState<number|null>(null)
   const [form, setForm] = useState({ name:'',name_hi:'',icon:'📋',color:primary,seo_desc:'',sort_order:0,image_url:'' })

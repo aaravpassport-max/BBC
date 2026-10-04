@@ -9,6 +9,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react'
+import { resolvePrimary } from '@/lib/design-tokens'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { SidebarLayout } from '@/components/layout/Layout'
 import { Card, PageHeader, Button, Alert, Modal, FormInput, Textarea, EmptyState, LoadingScreen, StatusBadge } from '@/components/ui'
@@ -80,7 +81,7 @@ export function CustomerDashboard() {
   const user       = useStore((s) => s.user)
   const settings   = useStore((s) => s.settings)
   const loadNotifs = useStore((s) => s.loadNotifications)
-  const primary    = settings.primary_color || '#1E2D40'
+  const primary    = resolvePrimary(settings)
 
   const [data,    setData]    = useState<{ rows: Booking[]; total: number } | null>(null)
   const [loading, setLoading] = useState(true)
@@ -195,7 +196,7 @@ export function CustomerDashboard() {
 
 // ── BookingListPage (ve component) ────────────────────────────────────────────
 export function BookingListPage() {
-  const primary  = useStore((s) => s.settings).primary_color || '#1E2D40'
+  const primary  = resolvePrimary(useStore((s) => s.settings))
   const [data,   setData]   = useState<{ rows: Booking[]; total: number }>({ rows: [], total: 0 })
   const [loading,setLoading]= useState(true)
   const [loadError, setLoadError] = useState(false)
@@ -282,7 +283,7 @@ export function BookingDetailPage() {
   const { id }   = useParams<{ id: string }>()
   const nav      = useNavigate()
   const settings = useStore((s) => s.settings)
-  const primary  = settings.primary_color || '#1E2D40'
+  const primary  = resolvePrimary(settings)
 
   const [booking,       setBooking]       = useState<Booking | null>(null)
   const [loading,       setLoading]       = useState(true)
@@ -580,7 +581,7 @@ export function NewBookingPage() {
   const [params]  = useSearchParams()
   const serviceId = params.get('service')
   const nav       = useNavigate()
-  const primary   = useStore((s) => s.settings).primary_color || '#1E2D40'
+  const primary   = resolvePrimary(useStore((s) => s.settings))
 
   const [svc,     setSvc]     = useState<import('@/types').Service | null>(null)
   const [loading, setLoading] = useState(true)
@@ -656,7 +657,7 @@ export function NewBookingPage() {
 // ── ProfilePage (we component) ────────────────────────────────────────────────
 export function ProfilePage() {
   useT()
-  const primary   = useStore((s) => s.settings).primary_color || '#1E2D40'
+  const primary   = resolvePrimary(useStore((s) => s.settings))
   const [profile, setProfile]  = useState<UserProfile | null>(null)
   const [loading, setLoading]  = useState(true)
   const [saving,  setSaving]   = useState(false)
@@ -786,7 +787,7 @@ function TwoFactorCard() {
 // ── TicketsPage (_e component) ────────────────────────────────────────────────
 export function TicketsPage() {
   useT()
-  const primary      = useStore((s) => s.settings).primary_color || '#1E2D40'
+  const primary      = resolvePrimary(useStore((s) => s.settings))
   const [tickets,    setTickets]    = useState<Ticket[]>([])
   const [loading,    setLoading]    = useState(true)
   const [showModal,  setShowModal]  = useState(false)

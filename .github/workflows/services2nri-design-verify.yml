@@ -1,0 +1,25 @@
+name: Services2NRI design verify
+
+on:
+  push:
+    paths:
+      - 'services2nri/**'
+  pull_request:
+    paths:
+      - 'services2nri/**'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: services2nri/package-lock.json
+      - name: Install and build
+        working-directory: services2nri
+        run: npm ci && npm run build
+      - name: Static design-system checks
+        run: bash services2nri/scripts/verify-design-system.sh
