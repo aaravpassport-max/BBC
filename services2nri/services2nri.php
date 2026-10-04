@@ -28,7 +28,7 @@ if ( version_compare( PHP_VERSION, '8.0.0', '<' ) ) {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 define( 'S2NRI_CUSTOMER_ROLE', 's2nri_customer' );
-define( 'S2NRI_VERSION',    '4.7.12' );
+define( 'S2NRI_VERSION',    '4.7.13' );
 define( 'S2NRI_FILE',       __FILE__ );
 define( 'S2NRI_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'S2NRI_URL',        plugin_dir_url( __FILE__ ) );
@@ -181,6 +181,7 @@ $s2nri_classmap = [
     'S2NRI\Services\NotificationService' => S2NRI_DIR . 'src/' . 'Services/Services.php',
     'S2NRI\Services\OtpService' => S2NRI_DIR . 'src/' . 'Services/Services.php',
     'S2NRI\Design\DesignSystem' => S2NRI_DIR . 'src/Design/DesignSystem.php',
+    'S2NRI\Design\WidthLayout'   => S2NRI_DIR . 'src/Design/WidthLayout.php',
     'S2NRI\Design\FontLibrary' => S2NRI_DIR . 'src/Design/FontLibrary.php',
     'S2NRI\Design\DesignPresets' => S2NRI_DIR . 'src/Design/DesignPresets.php',
     'S2NRI\Services\ServiceRegistry' => S2NRI_DIR . 'src/Services/ServiceRegistry.php',
