@@ -28,7 +28,7 @@ if ( version_compare( PHP_VERSION, '8.0.0', '<' ) ) {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 define( 'S2NRI_CUSTOMER_ROLE', 's2nri_customer' );
-define( 'S2NRI_VERSION',    '4.7.15' );
+define( 'S2NRI_VERSION',    '4.7.16' );
 define( 'S2NRI_FILE',       __FILE__ );
 define( 'S2NRI_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'S2NRI_URL',        plugin_dir_url( __FILE__ ) );
@@ -162,6 +162,7 @@ $s2nri_classmap = [
     'S2NRI\Api\Middleware\Auth' => S2NRI_DIR . 'src/' . 'Api/Middleware/Auth.php',
     'S2NRI\Api\Request' => S2NRI_DIR . 'src/' . 'Api/RequestResponse.php',
     'S2NRI\Api\Response' => S2NRI_DIR . 'src/' . 'Api/RequestResponse.php',
+    'S2NRI\AssetBuildStamp' => S2NRI_DIR . 'src/AssetBuildStamp.php',
     'S2NRI\Bootstrap' => S2NRI_DIR . 'src/' . 'Bootstrap.php',
     'S2NRI\Exceptions\AuthException' => S2NRI_DIR . 'src/' . 'Exceptions/Exceptions.php',
     'S2NRI\Exceptions\ForbiddenException' => S2NRI_DIR . 'src/' . 'Exceptions/Exceptions.php',
@@ -604,6 +605,24 @@ add_action( 'admin_notices', function () {
     echo '<div class="notice notice-error"><p><strong>Services2NRI:</strong> '
         . '<code>assets/app.js</code> is missing — the public site will show an infinite loader. '
         . 'Re-upload the official plugin zip from GitHub (services2nri-full-source.zip, v' . esc_html( S2NRI_VERSION ) . '+).</p></div>';
+} );
+
+add_action( 'admin_notices', function () {
+    if ( ! current_user_can( 'administrator' ) ) {
+        return;
+    }
+    if ( ! class_exists( '\S2NRI\AssetBuildStamp' ) || ! \S2NRI\AssetBuildStamp::isMismatch() ) {
+        return;
+    }
+    $recorded = \S2NRI\AssetBuildStamp::readRecorded();
+    $computed = \S2NRI\AssetBuildStamp::computeFromDisk();
+    echo '<div class="notice notice-error"><p><strong>Services2NRI:</strong> '
+        . 'JavaScript assets are from mixed builds (BUILD_STAMP <code>' . esc_html( $recorded ) . '</code> '
+        . '≠ on-disk <code>' . esc_html( $computed ) . '</code>). '
+        . 'Delete <code>wp-content/plugins/services2nri/</code> and upload a fresh '
+        . '<strong>services2nri-full-source.zip</strong> (v' . esc_html( S2NRI_VERSION ) . '+), then purge CDN cache. '
+        . 'Mixed <code>app.js</code> and <code>chunks/*.js</code> files cause console errors like '
+        . '<code>does not provide an export named</code>.</p></div>';
 } );
 
 // ─── Activation health check notice ─────────────────────────────────────────

@@ -44,10 +44,15 @@ class SEO {
         $css_url    = S2NRI_ASSETS_URL . 'app.css';
         $chunks_url = S2NRI_ASSETS_URL . 'chunks/';
 
-        // Versioning via content hash, not filemtime — see the long comment
-        // at the chunk-loop below for why filemtime alone was insufficient.
-        $js_ver  = file_exists( S2NRI_DIR . 'assets/app.js' )  ? substr( md5_file( S2NRI_DIR . 'assets/app.js' ), 0, 12 )  : S2NRI_VERSION;
-        $css_ver = file_exists( S2NRI_DIR . 'assets/app.css' ) ? substr( md5_file( S2NRI_DIR . 'assets/app.css' ), 0, 12 ) : S2NRI_VERSION;
+        // One BUILD_STAMP (written at Vite build) versions app.js, CSS, and every chunk
+        // together so browsers never cache a new app.js with old chunks/booking.js.
+        $asset_ver = class_exists( '\S2NRI\AssetBuildStamp' )
+            ? \S2NRI\AssetBuildStamp::publicVersion()
+            : ( file_exists( S2NRI_DIR . 'assets/app.js' )
+                ? substr( md5_file( S2NRI_DIR . 'assets/app.js' ), 0, 12 )
+                : S2NRI_VERSION );
+        $js_ver  = $asset_ver;
+        $css_ver = $asset_ver;
 
         // Build chunk modulepreload tags dynamically
         $chunk_preloads = '';
@@ -56,32 +61,7 @@ class SEO {
         if ( is_dir( $chunk_dir ) ) {
             foreach ( glob( $chunk_dir . '*.js' ) as $chunk_file ) {
                 $cname = basename( $chunk_file );
-                // BUG FOUND AND FIXED (traced deeply after a reported "Inquire
-                // button not showing on service pages" that survived a
-                // Cloudflare purge AND incognito testing — both of which
-                // should have ruled out every OTHER caching layer, which is
-                // exactly what pointed back to this file):
-                //
-                // This used $js_ver (app.js's OWN version) for every chunk
-                // file's cache-busting query string, not that chunk's own
-                // version. app.js and chunks/booking.js are DIFFERENT files
-                // that change independently — a change that only touches
-                // booking.js (like adding a tab to BottomNav.tsx, which
-                // bundles into that chunk) does not necessarily change
-                // app.js's content or timestamp. If it doesn't, every chunk
-                // file kept the EXACT SAME ?v= query string as the previous
-                // deploy, even though chunks/booking.js's actual content had
-                // changed — giving Cloudflare and every browser zero signal
-                // that anything needed re-fetching. This is a deploy-content
-                // bug, not a proxy/browser-cache bug, which is why purging
-                // Cloudflare and testing in incognito correctly changed
-                // nothing: both were faithfully serving whatever this exact
-                // URL pointed to, and the URL itself never changed.
-                //
-                // FIX: hash EACH chunk file's own content independently, so
-                // a change to booking.js changes booking.js's ?v=, regardless
-                // of whether app.js changed in the same deploy or not.
-                $chunk_ver = substr( md5_file( $chunk_file ), 0, 12 );
+                $chunk_ver = $asset_ver;
                 $abs_url = $chunks_url . $cname . '?v=' . $chunk_ver;
                 $chunk_preloads .= '  <link rel="modulepreload" href="' . esc_url( $abs_url ) . '">' . "\n";
                 // IMPORTANT: these two entries previously had NO ?v= query string,
@@ -107,7 +87,8 @@ class SEO {
         $canonical   = esc_url( home_url( $path ) );
         $og_image    = esc_url( $meta['og_image'] );
         $schema_json = wp_json_encode( $meta['schema'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
-        $config_json = wp_json_encode( $config,         JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
+        $config_json_flags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP;
+        $config_json = wp_json_encode( $config, $config_json_flags );
         $primary     = esc_attr( $meta['primary_color'] ?? '#4A6FA5' );
         $settings    = $meta['settings'] ?? [];
         $lang        = get_locale() === 'hi_IN' ? 'hi' : 'en';
@@ -253,8 +234,7 @@ class SEO {
 
         echo '  <link rel="stylesheet" href="' . esc_url( $css_url ) . '?v=' . $css_ver . '">' . "\n";
         $theme_css_url = S2NRI_ASSETS_URL . 's2nri-theme.css';
-        $theme_css_ver = file_exists( S2NRI_DIR . 'assets/s2nri-theme.css' )
-            ? substr( md5_file( S2NRI_DIR . 'assets/s2nri-theme.css' ), 0, 12 ) : S2NRI_VERSION;
+        $theme_css_ver = $asset_ver;
         echo '  <link rel="stylesheet" href="' . esc_url( $theme_css_url ) . '?v=' . $theme_css_ver . '">' . "\n";
 
         // FIXED: both GA and Meta Pixel were previously loaded
@@ -517,8 +497,8 @@ HEROFIXJS;
                     'name'             => $svc_row['name'] ?? '',
                     'hero_settings'    => $hero_data,
                     'marquee_settings' => $marquee_data,
-                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
-                echo '  <script>window.S2NRI_SERVICE_DATA=' . $svc_data_json . ';</script>' . "\n";
+                ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP );
+                $this->echoJsonBootstrap( 'S2NRI_SERVICE_DATA', 's2nri-service-data-json', $svc_data_json );
                 echo \HeroInjector::renderServiceEnhancement( $svc_slug, $settings_flat );
             }
         }
@@ -536,14 +516,12 @@ HEROFIXJS;
         echo '      <div class="s2nri-splash__spinner" role="status"></div>' . "\n";
         echo '    </div>' . "\n";
         echo '  </div>' . "\n";
-        echo '  <script>window.S2NRI_CONFIG=' . $config_json . ';</script>' . "\n";
+        $this->echoJsonBootstrap( 'S2NRI_CONFIG', 's2nri-config-json', $config_json );
         echo '  <script>window.S2NRI_BOOT={pluginVersion:' . wp_json_encode( S2NRI_VERSION ) . ',assetsUrl:' . wp_json_encode( S2NRI_ASSETS_URL ) . '};</script>' . "\n";
         $this->echoBootWatchdogScript();
 
         $diag_url = S2NRI_ASSETS_URL . 'diagnostic-collector.js';
-        $diag_ver = file_exists( S2NRI_DIR . 'assets/diagnostic-collector.js' )
-                      ? substr( md5_file( S2NRI_DIR . 'assets/diagnostic-collector.js' ), 0, 12 )
-                      : S2NRI_VERSION;
+        $diag_ver = $asset_ver;
         echo '  <script src="' . esc_url( $diag_url ) . '?v=' . $diag_ver . '"></script>' . "\n";
 
         $browser_probe = get_option( 's2nri_browser_probe_script', '' );
@@ -604,6 +582,12 @@ HEROFIXJS;
         echo '    </ul></div>' . "\n";
     }
 
+    /** Assign a global from JSON without embedding raw JSON inside a JS expression (avoids U+2028 / </script> breaks). */
+    private function echoJsonBootstrap( string $global, string $element_id, string $json ): void {
+        echo '  <script type="application/json" id="' . esc_attr( $element_id ) . '">' . esc_html( $json ) . '</script>' . "\n";
+        echo '  <script>window.' . esc_js( $global ) . '=JSON.parse(document.getElementById(' . wp_json_encode( $element_id ) . ').textContent);</script>' . "\n";
+    }
+
     private function echoBootWatchdogScript(): void {
         echo '  <script>' . "\n";
         echo '    (function(){' . "\n";
@@ -613,14 +597,18 @@ HEROFIXJS;
         echo '        var err=(window.S2NRI_CONFIG&&window.S2NRI_CONFIG.bootError)||"";' . "\n";
         echo '        root.innerHTML=\'<div style="padding:48px 24px;text-align:center;font-family:system-ui,sans-serif;max-width:560px;margin:0 auto">\'+' . "\n";
         echo '          \'<p style="font-weight:700;color:#1e293b">App did not start</p>\'+' . "\n";
-        echo '          \'<p style="color:#64748b;font-size:14px">\'+(msg||"JavaScript failed to load. Open DevTools → Console, or reinstall plugin v4.7.14+.")+\'</p>\'+' . "\n";
+        echo '          \'<p style="color:#64748b;font-size:14px">\'+(msg||"JavaScript failed to load. Open DevTools → Console, or reinstall plugin v4.7.16+.")+\'</p>\'+' . "\n";
         echo '          (err?\'<pre style="text-align:left;font-size:11px;background:#f1f5f9;padding:12px;border-radius:8px;overflow:auto">\'+String(err).replace(/</g,"&lt;")+"</pre>\':"")+' . "\n";
         echo '          \'<p style="font-size:12px;color:#94a3b8">Plugin \'+(window.S2NRI_BOOT&&window.S2NRI_BOOT.pluginVersion||"?")+\'</p>\'+' . "\n";
         echo '          \'<button type="button" onclick="location.reload()" style="padding:10px 20px;border-radius:8px;border:none;background:#4A6FA5;color:#fff;font-weight:600;cursor:pointer">Reload</button></div>\';' . "\n";
         echo '      }' . "\n";
         echo '      var t=setTimeout(function(){showFail("Loading timed out after 8 seconds.");},8000);' . "\n";
         echo '      window.addEventListener("s2nri-app-mounted",function(){clearTimeout(t);},{once:true});' . "\n";
-        echo '      window.addEventListener("error",function(e){if(e.filename&&e.filename.indexOf("app.js")!==-1)showFail(e.message||"app.js error");},true);' . "\n";
+        echo '      window.addEventListener("error",function(e){' . "\n";
+        echo '        var m=e.message||"";' . "\n";
+        echo '        if(m.indexOf("does not provide an export named")!==-1){showFail("Mixed JS files from different plugin builds. Delete wp-content/plugins/services2nri/ and upload one fresh services2nri-full-source.zip, then purge CDN cache.");return;}' . "\n";
+        echo '        if(e.filename&&(e.filename.indexOf("app.js")!==-1||e.filename.indexOf("booking.js")!==-1))showFail(m||"app.js error");' . "\n";
+        echo '      },true);' . "\n";
         echo '      window.addEventListener("unhandledrejection",function(e){showFail(String(e.reason||"Module load failed"));});' . "\n";
         echo '    })();' . "\n";
         echo '  </script>' . "\n";
