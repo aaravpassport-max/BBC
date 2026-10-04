@@ -5,6 +5,13 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.6.5] — 2026-10-04 — Cloud Agent
+
+- **ServiceDetailPage** wizard chrome migrated: step tracker, success screen, hero CTAs, confirm summary, login gate, upload UI, and CMS section typography (`public-service-detail.css`).
+- Inline styles reduced to dynamic CSS variables only (hero height/overlay, marquee, primary override).
+
+---
+
 ## [4.6.4] — 2026-10-04 — Cloud Agent
 
 - **HomePage** migrated to `public-home-sections.css` — hero, tabs, cities, testimonials, FAQ, newsletter, app strip, and location pills use token classes (dynamic hero images only).

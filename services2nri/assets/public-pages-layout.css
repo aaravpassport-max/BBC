@@ -122,6 +122,10 @@
   align-items: flex-start;
 }
 
+.s2-public-contact-row--flush {
+  margin-bottom: 0;
+}
+
 .s2-public-contact-icon {
   width: 44px;
   height: 44px;
