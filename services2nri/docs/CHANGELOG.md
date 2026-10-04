@@ -5,6 +5,13 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.8] — 2026-10-04 — Cloud Agent
+
+- **Presets audit:** each preset now sets its own secondary/surface/muted/border, spacing, radius (incl. pill buttons), shadows, and chrome accents so footers and layout—not only primary color—change per theme.
+- **CI:** `scripts/audit-preset-looks.php` fails if presets share the same look fingerprint or reuse default secondary (except Professional).
+
+---
+
 ## [4.7.7] — 2026-10-04 — Cloud Agent
 
 - **Presets:** applying a preset now rebuilds the **full public-site look** — colors, fonts, typography, spacing, radius, shadows, components (buttons/cards), site chrome (header/topbar/footer), global widths, and clears per-template overrides so every route matches the preset.

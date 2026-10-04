@@ -308,6 +308,33 @@ class DesignSystem {
         if ( ! empty( $colors['heading'] ) ) {
             $chromeGlobal['header_text'] = (string) $colors['heading'];
         }
+        $footerBg = (string) ( $chromeGlobal['footer_bg'] ?? '' );
+        if ( $footerBg !== '' && self::isLightHexColor( $footerBg ) ) {
+            $chromeGlobal['footer_text']         = (string) ( $colors['muted'] ?? '#64748B' );
+            $chromeGlobal['footer_heading_text'] = (string) ( $colors['heading'] ?? '#1E2D40' );
+        } elseif ( $footerBg !== '' ) {
+            if ( empty( $chromeGlobal['footer_text'] ) || $chromeGlobal['footer_text'] === '#94A3B8' ) {
+                $chromeGlobal['footer_text'] = '#94A3B8';
+            }
+            if ( empty( $chromeGlobal['footer_heading_text'] ) || $chromeGlobal['footer_heading_text'] === '#FFFFFF' ) {
+                $chromeGlobal['footer_heading_text'] = '#FFFFFF';
+            }
+        }
+    }
+
+    private static function isLightHexColor( string $hex ): bool {
+        $hex = ltrim( trim( $hex ), '#' );
+        if ( strlen( $hex ) === 3 ) {
+            $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+        }
+        if ( strlen( $hex ) !== 6 || ! ctype_xdigit( $hex ) ) {
+            return false;
+        }
+        $r = hexdec( substr( $hex, 0, 2 ) );
+        $g = hexdec( substr( $hex, 2, 2 ) );
+        $b = hexdec( substr( $hex, 4, 2 ) );
+        $luminance = ( 0.299 * $r + 0.587 * $g + 0.114 * $b ) / 255;
+        return $luminance > 0.62;
     }
 
     /**
