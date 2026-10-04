@@ -5,6 +5,18 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.5.4] — 2026-10-04 — Cloud Agent
+
+### Design system & service registry (complete)
+
+- Central design tokens, 100-font library, 10 presets, full admin UI (`/admin/design`).
+- Service registry with per-surface visibility, categories, featured/popular, navigation JSON editor.
+- Public, portal, and PHP blog shells share inline design CSS; marketing/home section utilities.
+- Release ZIP via `scripts/package-plugin.sh`; static verification via `scripts/verify-design-system.sh`.
+- Documentation: `DESIGN_SYSTEM_COMPLETE.md`, `DESIGN_SYSTEM_PAGE_MATRIX.md`, `VERIFICATION_STAGING.md`.
+
+---
+
 ## [4.4.0] — 2026-06-22 — Development Team
 
 ### 🐛 Bug Fixes (15 Issues Resolved)

@@ -13,6 +13,7 @@ bad() { echo "FAIL $1"; fail=1; }
 [[ -f assets/public-design-system.css ]] && ok public-design-system.css || bad public-design-system.css
 [[ -f assets/public-page-utilities.css ]] && ok public-page-utilities.css || bad public-page-utilities.css
 [[ -f assets/public-home-sections.css ]] && ok public-home-sections.css || bad public-home-sections.css
+[[ -f assets/public-marketing-sections.css ]] && ok public-marketing-sections.css || bad public-marketing-sections.css
 
 font_count=$(python3 -c "import json; print(len(json.load(open('data/font-library.json'))['fonts']))" 2>/dev/null || echo 0)
 if [[ "$font_count" -ge 100 ]]; then ok "font-library ($font_count fonts)"; else bad "font-library expected >=100 got $font_count"; fi

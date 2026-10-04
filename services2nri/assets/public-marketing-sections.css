@@ -1,0 +1,44 @@
+/* Shared marketing page patterns (About, Contact, FAQ, etc.) */
+
+.s2-page-hero {
+  color: #fff;
+  padding: 52px 20px;
+  background: linear-gradient(135deg, var(--s2-color-secondary) 0%, var(--s2-color-primary) 100%);
+}
+
+.s2-page-hero__crumb {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.75;
+  margin-bottom: 8px;
+}
+
+.s2-page-hero__crumb a {
+  color: rgba(255, 255, 255, 0.7);
+  text-decoration: none;
+}
+
+.s2-page-hero__title {
+  font-size: clamp(26px, 4vw, 42px);
+  font-weight: 900;
+  margin: 0 0 10px;
+  font-family: var(--s2-font-heading);
+}
+
+.s2-page-hero__subtitle {
+  font-size: 16px;
+  opacity: 0.85;
+  margin: 0;
+  max-width: 580px;
+}
+
+.s2-marketing-section {
+  background: var(--s2-color-surface, #fff);
+  padding: var(--s2-space-section_y, 64px) var(--s2-space-page_margin, 20px);
+}
+
+.s2-marketing-section--alt {
+  background: var(--s2-color-surface_alt, #ebf0f8);
+}
