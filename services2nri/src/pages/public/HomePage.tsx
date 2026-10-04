@@ -32,6 +32,7 @@ import 'swiper/css/navigation'
 import 'swiper/css/effect-fade'
 
 import { Layout } from '@/components/layout/Layout'
+import { PublicSectionHead } from '@/components/public/PublicLayout'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { parseHeroBanners, IMAGES, getAvatarImage } from '@/lib/images'
@@ -57,7 +58,7 @@ function useCounter(target: string, duration = 1800, started: boolean) {
   return value
 }
 
-function StatCard({ number, label, primary }: { number: string; label: string; primary: string }) {
+function StatCard({ number, label }: { number: string; label: string }) {
   const [ref, setRef] = useState<HTMLDivElement | null>(null)
   const [started, setStarted] = useState(false)
   const value = useCounter(number, 1800, started)
@@ -72,11 +73,9 @@ function StatCard({ number, label, primary }: { number: string; label: string; p
   }, [ref])
 
   return (
-    <div ref={setRef} style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: 'clamp(28px, 4vw, 42px)', fontWeight: 900, color: '#ffd54f', lineHeight: 1 }}>
-        {value}
-      </div>
-      <div style={{ fontSize: 13, color: 'rgba(255,255,255,.85)', marginTop: 4 }}>{label}</div>
+    <div ref={setRef} className="s2-stats-bar__item">
+      <div className="s2-stats-bar__value">{value}</div>
+      <div className="s2-stats-bar__label">{label}</div>
     </div>
   )
 }
@@ -148,6 +147,14 @@ const HOW_IT_WORKS = [
   { n: 5, icon: '💳', title: 'Pay & Track Progress',    desc: 'Approve the quote, pay securely, and track every step in real time from your dashboard.' },
   { n: 6, icon: '🚀', title: 'Service Delivered',       desc: 'We execute and deliver results with regular status updates and a comprehensive final delivery report.' },
 ]
+
+const FEATURED_IN = [
+  { name: 'Inc42 Business', brand: 'inc42' },
+  { name: 'Deccan Herald', brand: 'deccan' },
+  { name: 'Trackitt', brand: 'trackitt' },
+  { name: 'Economic Times', brand: 'et' },
+  { name: 'YourStory', brand: 'yourstory' },
+] as const
 
 const FAQ_DATA = [
   { q: '1. What kind of services do you provide?',          a: 'We provide 44+ services across 8 categories — documentation, education, OCI/passport/visa, USCIS, property management, financial services, legal services, and taxation. All designed specifically for NRIs worldwide.' },
@@ -244,74 +251,53 @@ export function HomePage() {
 
   return (
     <Layout>
+      <div className="s2-home-page" style={{ ['--s2-primary' as string]: primary }}>
       {/* ── 1. Hero Slider — banner/carousel only, no overlay content ───────── */}
-      <div className="s2-hero-section" style={{ position: 'relative', width: '100%', height: 'clamp(480px, 70vh, 700px)', overflow: 'hidden' }}>
+      <div className="s2-hero-section">
         <Swiper
+          className="s2-home-hero-swiper"
           modules={[Autoplay, Pagination, Navigation, EffectFade]}
           effect="fade"
           autoplay={{ delay: 4500, disableOnInteraction: false }}
           pagination={{ clickable: true }}
           navigation
           loop
-          style={{ height: '100%', width: '100%' }}
         >
           {banners.map((src, i) => (
-            <SwiperSlide key={i} style={{ position: 'relative' }}>
-              <div
-                style={{
-                  position: 'absolute', inset: 0,
-                  backgroundImage: `url(${src})`,
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                }}
-              />
+            <SwiperSlide key={i} className="s2-home-hero-slide">
+              <div className="s2-home-hero-slide-bg" style={{ backgroundImage: `url(${src})` }} />
             </SwiperSlide>
           ))}
         </Swiper>
       </div>
 
       {/* ── 2. Notice bar ─────────────────────────────────────────────────── */}
-      <div className="s2-notice-bar s2-home-notice" style={{ borderBottom: '2px solid #ffc107' }}>
+      <div className="s2-notice-bar s2-home-notice">
         🚨 <strong>Public Notice:</strong> Our only official website is <strong>{window.location.hostname}</strong>. Please verify all services only through our official channels.
         {whatsapp && (
-          <> · <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} style={{ color: '#2e7d32', fontWeight: 700 }}>WhatsApp Us</a></>
+          <> · <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} className="s2-home-notice__wa">WhatsApp Us</a></>
         )}
       </div>
 
       {/* ── 3. Services section ───────────────────────────────────────────── */}
-      <section className="s2-section" style={{ background: 'var(--s2-color-surface, #fff)' }}>
+      <section className="s2-section s2-marketing-section">
         <div className="s2-container">
-          <div className="s2-home-section-head">
-            <p className="s2-t-eyebrow">What We Offer</p>
-            <h2 className="s2-t-section-heading">Our Services</h2>
-            <p className="s2-t-body" style={{ margin: 0 }}>Expert NRI assistance across 8 service categories</p>
-          </div>
+          <PublicSectionHead
+            eyebrow="What We Offer"
+            title="Our Services"
+            subtitle="Expert NRI assistance across 8 service categories"
+          />
 
           {/* Category tabs */}
           <div className="s2-tabs">
             {categories.map((cat) => (
               <button
                 key={cat.slug}
+                type="button"
                 onClick={() => setActiveCategory(cat.slug)}
                 className={`s2-tab-btn${activeCategory === cat.slug ? ' active' : ''}`}
-                style={{
-                  '--s2-primary': primary,
-                  padding: '12px 28px',
-                  fontSize: 15,
-                  fontWeight: activeCategory === cat.slug ? 700 : 500,
-                  color: activeCategory === cat.slug ? primary : '#666',
-                  background: 'none',
-                  border: 'none',
-                  borderBottom: activeCategory === cat.slug ? `3px solid ${primary}` : '3px solid transparent',
-                  marginBottom: -2,
-                  cursor: 'pointer',
-                  transition: 'all .2s',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                } as React.CSSProperties}
               >
-                {cat.icon && <span style={{ fontSize: 18 }}>{cat.icon}</span>}
+                {cat.icon && <span className="s2-tab-btn__icon">{cat.icon}</span>}
                 {cat.name}
               </button>
             ))}
@@ -342,8 +328,8 @@ export function HomePage() {
             })}
           </div>
 
-          <div style={{ textAlign: 'center', marginTop: 28 }}>
-            <Link to="/services" style={{ display: 'inline-flex', alignItems: 'center', gap: 8, color: primary, fontWeight: 700, fontSize: 15, borderBottom: `2px solid ${primary}`, paddingBottom: 3, textDecoration: 'none' }}>
+          <div className="s2-home-section-cta">
+            <Link to="/services" className="s2-home-text-link">
               View All Services →
             </Link>
           </div>
@@ -351,24 +337,24 @@ export function HomePage() {
       </section>
 
       {/* ── 4. Cities grid ────────────────────────────────────────────────── */}
-      <section style={{ background: '#F5F7FA', padding: '56px 20px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <h2 style={{ textAlign: 'center', fontSize: 'clamp(20px, 3vw, 30px)', fontWeight: 800, color: '#1E2D40', margin: '0 0 6px' }}>Property Management Cities</h2>
-          <p style={{ textAlign: 'center', color: '#666', fontSize: 14, margin: '0 0 32px' }}>We manage NRI properties across all major Indian cities</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
+      <section className="s2-marketing-section s2-marketing-section--alt">
+        <div className="s2-container">
+          <PublicSectionHead
+            title="Property Management Cities"
+            subtitle="We manage NRI properties across all major Indian cities"
+          />
+          <div className="s2-city-grid">
             {displayCities.map(({ name, slug, img }) => (
               <Link
                 key={slug || name}
                 to={`/cities/property-management-in-${slug || name.toLowerCase()}`}
-                style={{ textDecoration: 'none', borderRadius: 12, overflow: 'hidden', display: 'block', position: 'relative', height: 150, boxShadow: '0 2px 12px rgba(0,0,0,.1)', transition: 'transform .2s, box-shadow .2s' }}
-                onMouseEnter={(e) => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,.2)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 2px 12px rgba(0,0,0,.1)' }}
+                className="s2-home-city-card"
               >
-                <img src={img} alt={name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 40%, rgba(0,0,0,.7) 100%)', display: 'flex', alignItems: 'flex-end', padding: 14 }}>
+                <img src={img} alt={name} loading="lazy" />
+                <div className="s2-home-city-card__overlay">
                   <div>
-                    <div style={{ fontSize: 11, color: 'rgba(255,255,255,.8)', fontWeight: 600, letterSpacing: 1, textTransform: 'uppercase' }}>Property Services in</div>
-                    <div style={{ fontSize: 16, fontWeight: 700, color: '#fff' }}>{name}</div>
+                    <div className="s2-home-city-card__eyebrow">Property Services in</div>
+                    <div className="s2-home-city-card__name">{name}</div>
                   </div>
                 </div>
               </Link>
@@ -380,34 +366,28 @@ export function HomePage() {
       {/* ── 5. Stats bar ──────────────────────────────────────────────────── */}
       <section className="s2-hero-stat-bar s2-stats-bar">
         <div className="s2-stats-bar__grid">
-          {stats.map(({ n, l }) => <StatCard key={l} number={n} label={l} primary={primary} />)}
+          {stats.map(({ n, l }) => <StatCard key={l} number={n} label={l} />)}
         </div>
       </section>
 
       {/* ── 6. Tagline ────────────────────────────────────────────────────── */}
-      <div style={{ background: '#fff', padding: '24px 20px', textAlign: 'center', borderBottom: '1px solid #f0f0f0' }}>
-        <p style={{ fontSize: 'clamp(16px, 2.5vw, 22px)', fontWeight: 700, color: primary, fontStyle: 'italic', margin: 0 }}>
+      <div className="s2-home-tagline s2-hero-quote-wrap">
+        <p>
           "{settings.home_tagline || 'Forming strong and trusted connections with our clients'}"
         </p>
       </div>
 
       {/* ── 7. Why Choose Us ──────────────────────────────────────────────── */}
-      <section style={{ background: '#F5F7FA', padding: '64px 20px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <p style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, color: primary, margin: '0 0 8px' }}>Why Choose Us</p>
-          <h2 style={{ textAlign: 'center', fontSize: 'clamp(22px, 3vw, 34px)', fontWeight: 800, color: '#1E2D40', margin: '0 0 32px' }}>Why Our Customers Love Us</h2>
+      <section className="s2-marketing-section s2-marketing-section--alt">
+        <div className="s2-container">
+          <PublicSectionHead eyebrow="Why Choose Us" title="Why Our Customers Love Us" />
           <div className="s2-feat-grid">
             {WHY_CHOOSE.map(({ icon, title, sub }) => (
-              <div
-                key={title}
-                style={{ background: '#fff', border: '1px solid #EBF0F8', borderRadius: 12, padding: '22px 20px', display: 'flex', gap: 16, transition: 'box-shadow .2s, transform .2s' }}
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,.1)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = ''; e.currentTarget.style.transform = '' }}
-              >
-                <div style={{ width: 52, height: 52, background: `${primary}15`, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>{icon}</div>
+              <div key={title} className="s2-home-feat-card">
+                <div className="s2-home-feat-card__icon">{icon}</div>
                 <div>
-                  <h4 style={{ fontSize: 14, fontWeight: 700, color: '#1E2D40', margin: '0 0 5px' }}>{title}</h4>
-                  <p style={{ fontSize: 13, color: '#666', lineHeight: 1.6, margin: 0 }}>{sub}</p>
+                  <h4 className="s2-home-feat-card__title">{title}</h4>
+                  <p className="s2-home-feat-card__sub">{sub}</p>
                 </div>
               </div>
             ))}
@@ -416,49 +396,47 @@ export function HomePage() {
       </section>
 
       {/* ── 8. Testimonials ───────────────────────────────────────────────── */}
-      <section style={{ background: '#fff', padding: '64px 20px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <p style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, color: primary, margin: '0 0 8px' }}>Client Testimonials</p>
-          <h2 style={{ textAlign: 'center', fontSize: 'clamp(22px, 3vw, 34px)', fontWeight: 800, color: '#1E2D40', margin: '0 0 32px' }}>What Our Customers Say</h2>
+      <section className="s2-marketing-section">
+        <div className="s2-container">
+          <PublicSectionHead eyebrow="Client Testimonials" title="What Our Customers Say" />
           <Swiper
+            className="s2-home-testimonials-swiper"
             modules={[Autoplay, Pagination]}
             autoplay={{ delay: 5000, disableOnInteraction: false }}
             pagination={{ clickable: true }}
             spaceBetween={24}
             slidesPerView={1}
             breakpoints={{ 768: { slidesPerView: 2 }, 1024: { slidesPerView: 3 } }}
-            style={{ paddingBottom: 40 }}
           >
             {displayTestimonials.map((t, i) => (
               <SwiperSlide key={t.id || i}>
-                <div style={{ border: '1px solid #EBF0F8', borderRadius: 14, padding: 24, height: '100%', display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    <div style={{ width: 52, height: 52, borderRadius: '50%', overflow: 'hidden', border: `3px solid ${primary}30`, flexShrink: 0, background: `${primary}20`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, color: primary, fontSize: 20 }}>
+                <div className="s2-home-testimonial-card">
+                  <div className="s2-home-testimonial-card__head">
+                    <div className="s2-home-testimonial-card__avatar">
                       {t.image_url
-                        ? <img src={t.image_url} alt={t.name} width={52} height={52} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        ? <img src={t.image_url} alt={t.name} width={52} height={52} />
                         : (t.name || '?')[0]
                       }
                     </div>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: 15, color: '#1E2D40' }}>{t.name}</div>
-                      <div style={{ fontSize: 12, color: '#888' }}>{t.location || t.loc}</div>
+                      <div className="s2-home-testimonial-card__name">{t.name}</div>
+                      <div className="s2-home-testimonial-card__loc">{t.location || t.loc}</div>
                     </div>
                   </div>
-                  <div style={{ color: '#f59e0b', fontSize: 18, letterSpacing: 2 }}>{'★'.repeat(t.rating || 5)}</div>
-                  <p style={{ fontSize: 14, color: '#444', lineHeight: 1.75, margin: 0, flex: 1 }}>{t.text || t.review}</p>
+                  <div className="s2-home-testimonial-card__stars">{'★'.repeat(t.rating || 5)}</div>
+                  <p className="s2-home-testimonial-card__text">{t.text || t.review}</p>
                 </div>
               </SwiperSlide>
             ))}
           </Swiper>
 
-          {/* Google review badge */}
-          <div style={{ textAlign: 'center', marginTop: 8 }}>
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, border: '1px solid #EBF0F8', borderRadius: 12, padding: '12px 24px', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,.06)' }}>
-              <div style={{ width: 36, height: 36, background: '#4285f4', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 900, fontSize: 20 }}>G</div>
+          <div className="s2-home-google-badge-wrap">
+            <div className="s2-home-google-badge">
+              <div className="s2-home-google-badge__icon">G</div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 14, color: '#1E2D40' }}>Google Reviews</div>
-                <div style={{ color: '#f59e0b', fontSize: 14 }}>
-                  ★★★★★ <span style={{ color: '#888', fontSize: 13 }}>{settings.google_rating || '4.9'} / 5 · {settings.google_review_count || '500+'} reviews</span>
+                <div className="s2-home-google-badge__title">Google Reviews</div>
+                <div className="s2-home-google-badge__meta">
+                  ★★★★★ <span>{settings.google_rating || '4.9'} / 5 · {settings.google_review_count || '500+'} reviews</span>
                 </div>
               </div>
             </div>
@@ -467,27 +445,21 @@ export function HomePage() {
       </section>
 
       {/* ── 9. How It Works ───────────────────────────────────────────────── */}
-      <section style={{ background: '#F5F7FA', padding: '64px 20px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <p style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, color: primary, margin: '0 0 8px' }}>Simple Process</p>
-          <h2 style={{ textAlign: 'center', fontSize: 'clamp(22px, 3vw, 34px)', fontWeight: 800, color: '#1E2D40', margin: '0 0 32px' }}>How It Works</h2>
+      <section className="s2-marketing-section s2-marketing-section--alt">
+        <div className="s2-container">
+          <PublicSectionHead eyebrow="Simple Process" title="How It Works" />
           <div className="s2-how-grid">
             {HOW_IT_WORKS.map(({ n, icon, title, desc }) => (
-              <div
-                key={n}
-                style={{ background: '#fff', border: '1px solid #EBF0F8', borderRadius: 12, padding: 28, textAlign: 'center', position: 'relative', transition: 'box-shadow .2s, transform .2s' }}
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,.1)'; e.currentTarget.style.transform = 'translateY(-3px)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = ''; e.currentTarget.style.transform = '' }}
-              >
-                <div style={{ position: 'absolute', top: 14, right: 16, width: 26, height: 26, background: `${primary}18`, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, color: primary }}>0{n}</div>
-                <div style={{ width: 60, height: 60, background: primary, color: '#fff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, margin: '0 auto 16px', boxShadow: `0 4px 14px ${primary}50` }}>{icon}</div>
-                <h3 style={{ fontSize: 16, fontWeight: 700, color: '#1E2D40', margin: '0 0 8px' }}>{title}</h3>
-                <p style={{ fontSize: 13, color: '#666', lineHeight: 1.7, margin: 0 }}>{desc}</p>
+              <div key={n} className="s2-home-how-card">
+                <div className="s2-home-how-card__num">0{n}</div>
+                <div className="s2-home-how-card__icon">{icon}</div>
+                <h3 className="s2-home-how-card__title">{title}</h3>
+                <p className="s2-home-how-card__desc">{desc}</p>
               </div>
             ))}
           </div>
-          <div style={{ textAlign: 'center', marginTop: 32 }}>
-            <Link to="/how-it-works" style={{ color: primary, fontWeight: 700, borderBottom: `2px solid ${primary}`, paddingBottom: 3, textDecoration: 'none', fontSize: 15 }}>
+          <div className="s2-home-how-cta">
+            <Link to="/how-it-works" className="s2-home-text-link">
               Learn more about the full process →
             </Link>
           </div>
@@ -495,68 +467,68 @@ export function HomePage() {
       </section>
 
       {/* ── 10. As Featured In ────────────────────────────────────────────── */}
-      <div style={{ background: '#fff', padding: '32px 20px', borderTop: '1px solid #f0f0f0', borderBottom: '1px solid #f0f0f0' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', textAlign: 'center' }}>
-          <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, color: '#aaa', margin: '0 0 20px' }}>As Featured In</p>
-          <div style={{ display: 'flex', gap: 20, justifyContent: 'center', flexWrap: 'wrap', alignItems: 'center' }}>
-            {[['Inc42 Business', '#e65100'], ['Deccan Herald', '#4A6FA5'], ['Trackitt', '#2e7d32'], ['Economic Times', '#c62828'], ['YourStory', '#7b1fa2']].map(([name, color]) => (
-              <div key={name} style={{ padding: '10px 24px', border: `1.5px solid ${color}30`, borderRadius: 8, fontWeight: 800, fontSize: 14, color, background: `${color}08` }}>{name}</div>
-            ))}
-          </div>
+      <div className="s2-home-logo-strip s2-marketing-section">
+        <p className="s2-home-logo-strip__label">As Featured In</p>
+        <div className="s2-home-logo-strip__row">
+          {FEATURED_IN.map(({ name, brand }) => (
+            <div key={name} className="s2-home-press-chip" data-brand={brand}>{name}</div>
+          ))}
         </div>
       </div>
 
       {/* ── 11. Partners ──────────────────────────────────────────────────── */}
-      <div style={{ background: '#F5F7FA', padding: '32px 20px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', textAlign: 'center' }}>
-          <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, color: '#aaa', margin: '0 0 18px' }}>Our Partners</p>
-          <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {['ECE', 'NASBA', 'NACC', 'NACES', 'WES', 'CGFNS'].map((p) => (
-              <div key={p} style={{ padding: '10px 22px', border: '1px solid #ddd', borderRadius: 8, fontWeight: 700, fontSize: 14, color: '#444', background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,.05)' }}>{p}</div>
-            ))}
-          </div>
+      <div className="s2-home-logo-strip s2-home-logo-strip--alt">
+        <p className="s2-home-logo-strip__label">Our Partners</p>
+        <div className="s2-home-logo-strip__row">
+          {['ECE', 'NASBA', 'NACC', 'NACES', 'WES', 'CGFNS'].map((p) => (
+            <div key={p} className="s2-home-partner-chip">{p}</div>
+          ))}
         </div>
       </div>
 
       {/* ── 12. About section ─────────────────────────────────────────────── */}
-      <section style={{ background: '#fff', padding: '64px 20px' }}>
-        <div className="s2-mobile-stack" style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'center' }}>
+      <section className="s2-marketing-section">
+        <div className="s2-home-about-grid s2-mobile-stack">
           <div>
-            <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, color: primary, margin: '0 0 10px' }}>About Us</p>
-            <h2 style={{ fontSize: 'clamp(22px, 3vw, 34px)', fontWeight: 800, color: '#1E2D40', margin: '0 0 16px', lineHeight: 1.3 }}>
+            <p className="s2-t-eyebrow">About Us</p>
+            <h2 className="s2-t-section-heading">
               {settings.about_heading || 'Your Trusted Partner for All NRI Services'}
             </h2>
-            <p style={{ color: '#555', fontSize: 15, lineHeight: 1.85, margin: '0 0 16px' }}>
+            <p className="s2-t-body">
               {settings.about_text || 'We are a team of dedicated experts who specialize in NRI documentation, immigration, financial services, and property management. Our mission is to create a permanent digital solution for all NRI needs.'}
             </p>
-            <p style={{ color: '#555', fontSize: 15, lineHeight: 1.85, margin: '0 0 28px' }}>
+            <p className="s2-t-body">
               Our expert team of lawyers, CAs, property managers, document specialists, and immigration consultants handles 44+ services across 8 domains — so you never need to worry about managing India from abroad.
             </p>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <Link to="/about" style={{ background: primary, color: '#fff', padding: '12px 26px', borderRadius: 8, fontWeight: 700, fontSize: 15, textDecoration: 'none' }}>Know More →</Link>
+            <div className="s2-home-about__actions">
+              <Link to="/about" className="s2-btn s2-btn--primary">Know More →</Link>
               {whatsapp && (
-                <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" style={{ background: '#25d366', color: '#fff', padding: '12px 22px', borderRadius: 8, fontWeight: 600, fontSize: 15, textDecoration: 'none' }}>💬 Chat with Us</a>
+                <a
+                  href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="s2-btn s2-btn--whatsapp"
+                >
+                  💬 Chat with Us
+                </a>
               )}
             </div>
           </div>
-          <div style={{ position: 'relative' }}>
+          <div className="s2-home-about__img-wrap">
             <img
               src={settings.about_image_url || IMAGES.about}
               alt="About Services2NRI"
-              style={{ width: '100%', height: 320, objectFit: 'cover', borderRadius: 16, boxShadow: '0 8px 40px rgba(0,0,0,.15)' }}
+              className="s2-home-about__img"
             />
             <a
               href={settings.about_video_url || 'https://www.youtube.com/embed/edoXk8dW7ik'}
               target="_blank"
               rel="noopener noreferrer"
-              style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none' }}
+              className="s2-home-about__video-link"
+              aria-label="Watch introduction video"
             >
-              <div
-                style={{ width: 72, height: 72, background: 'rgba(255,255,255,.9)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 20px rgba(0,0,0,.25)', transition: 'transform .2s, box-shadow .2s' }}
-                onMouseEnter={(e) => { e.currentTarget.style.transform = 'scale(1.1)'; e.currentTarget.style.boxShadow = '0 8px 32px rgba(0,0,0,.35)' }}
-                onMouseLeave={(e) => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,.25)' }}
-              >
-                <span style={{ fontSize: 28, marginLeft: 4, color: primary }}>▶</span>
+              <div className="s2-home-about__play">
+                <span aria-hidden>▶</span>
               </div>
             </a>
           </div>
@@ -564,45 +536,43 @@ export function HomePage() {
       </section>
 
       {/* ── 13. Awards ────────────────────────────────────────────────────── */}
-      <div style={{ background: 'linear-gradient(135deg, #fff8e1 0%, #fff3e0 100%)', padding: '32px 20px', borderTop: '1px solid #ffe0b2', borderBottom: '1px solid #ffe0b2', textAlign: 'center' }}>
-        <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, color: '#888', margin: '0 0 16px' }}>Awards We Have Received</p>
-        <div style={{ display: 'flex', gap: 20, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, background: '#fff', border: '2px solid #ff6f00', borderRadius: 14, padding: '14px 32px', boxShadow: '0 4px 16px rgba(255,111,0,.15)' }}>
-            <span style={{ fontSize: 34 }}>🏆</span>
-            <span style={{ fontSize: 28, fontWeight: 900, color: '#ff6f00', fontStyle: 'italic' }}>#startupindia</span>
+      <div className="s2-home-awards">
+        <p className="s2-home-logo-strip__label">Awards We Have Received</p>
+        <div className="s2-home-awards__row">
+          <div className="s2-home-award s2-home-award--orange">
+            <span className="s2-home-award__emoji">🏆</span>
+            <span className="s2-home-award__text-orange">#startupindia</span>
           </div>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, background: '#fff', border: `2px solid ${primary}`, borderRadius: 14, padding: '14px 32px', boxShadow: `0 4px 16px ${primary}25` }}>
-            <span style={{ fontSize: 34 }}>🎖️</span>
-            <span style={{ fontSize: 18, fontWeight: 800, color: primary }}>Top NRI Service Platform 2024</span>
+          <div className="s2-home-award s2-home-award--primary">
+            <span className="s2-home-award__emoji">🎖️</span>
+            <span className="s2-home-award__text-primary">Top NRI Service Platform 2024</span>
           </div>
         </div>
       </div>
 
       {/* ── 14. FAQ ───────────────────────────────────────────────────────── */}
-      <section style={{ background: '#fff', padding: '64px 20px' }}>
-        <div style={{ maxWidth: 860, margin: '0 auto' }}>
-          <p style={{ textAlign: 'center', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, color: primary, margin: '0 0 8px' }}>FAQ</p>
-          <h2 style={{ textAlign: 'center', fontSize: 'clamp(20px, 3vw, 32px)', fontWeight: 800, color: '#1E2D40', margin: '0 0 32px' }}>Let's Clear All The Doubts!</h2>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <section className="s2-marketing-section">
+        <div className="s2-home-faq">
+          <PublicSectionHead eyebrow="FAQ" title="Let's Clear All The Doubts!" />
+          <div className="s2-home-faq__list">
             {FAQ_DATA.map(({ q, a }, i) => (
-              <div key={i} style={{ border: '1px solid #EBF0F8', borderRadius: 12, overflow: 'hidden', transition: 'box-shadow .2s', boxShadow: openFaq === i ? '0 4px 16px rgba(0,0,0,.1)' : 'none' }}>
+              <div key={i} className={`s2-home-faq__item${openFaq === i ? ' is-open' : ''}`}>
                 <button
+                  type="button"
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                  style={{ width: '100%', padding: '17px 22px', fontSize: 15, fontWeight: 600, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center', textAlign: 'left', background: openFaq === i ? `${primary}08` : '#fff', border: 'none', color: '#1E2D40', gap: 12, transition: 'background .2s' }}
+                  className="s2-home-faq__trigger"
                 >
                   <span>{q}</span>
-                  <span style={{ width: 28, height: 28, borderRadius: '50%', background: openFaq === i ? primary : '#f0f0f0', color: openFaq === i ? '#fff' : '#666', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0, transition: 'all .2s' }}>
-                    {openFaq === i ? '−' : '+'}
-                  </span>
+                  <span className="s2-home-faq__toggle">{openFaq === i ? '−' : '+'}</span>
                 </button>
                 {openFaq === i && (
-                  <div style={{ padding: '0 22px 18px', fontSize: 14, color: '#555', lineHeight: 1.85 }}>{a}</div>
+                  <div className="s2-home-faq__answer">{a}</div>
                 )}
               </div>
             ))}
           </div>
-          <div style={{ textAlign: 'center', marginTop: 24 }}>
-            <Link to="/faq" style={{ color: primary, fontWeight: 700, borderBottom: `2px solid ${primary}`, paddingBottom: 3, textDecoration: 'none', fontSize: 15 }}>
+          <div className="s2-home-faq__footer">
+            <Link to="/faq" className="s2-home-text-link">
               View All FAQs →
             </Link>
           </div>
@@ -610,76 +580,54 @@ export function HomePage() {
       </section>
 
       {/* ── 15. Newsletter ────────────────────────────────────────────────── */}
-      <section style={{ background: `linear-gradient(135deg, ${primary}15 0%, ${primary}05 100%)`, padding: '48px 20px', borderTop: '1px solid #EBF0F8', textAlign: 'center' }}>
-        <h3 style={{ fontSize: 'clamp(18px, 2.5vw, 26px)', fontWeight: 800, color: '#1E2D40', margin: '0 0 8px' }}>Subscribe to Our Newsletter</h3>
-        <p style={{ color: '#666', fontSize: 14, margin: '0 0 22px' }}>Stay updated on the latest NRI news, service launches, and important updates.</p>
-        <div style={{ display: 'flex', gap: 8, maxWidth: 460, margin: '0 auto' }}>
-          <input
-            type="email"
-            placeholder="Your email address"
-            style={{ flex: 1, padding: '13px 18px', border: '1.5px solid #ddd', borderRadius: 9, fontSize: 14, outline: 'none', fontFamily: 'inherit', transition: 'border-color .2s' }}
-            onFocus={(e) => (e.currentTarget.style.borderColor = primary)}
-            onBlur={(e) => (e.currentTarget.style.borderColor = '#ddd')}
-          />
-          <button style={{ background: primary, color: '#fff', border: 'none', padding: '13px 22px', borderRadius: 9, fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}
-            onMouseEnter={(e) => (e.currentTarget.style.opacity = '0.85')}
-            onMouseLeave={(e) => (e.currentTarget.style.opacity = '1')}
-          >
-            Subscribe
-          </button>
+      <section className="s2-home-newsletter">
+        <h3 className="s2-home-newsletter__title">Subscribe to Our Newsletter</h3>
+        <p className="s2-home-newsletter__sub">Stay updated on the latest NRI news, service launches, and important updates.</p>
+        <div className="s2-home-newsletter__form">
+          <input type="email" placeholder="Your email address" className="s2-home-newsletter__input" aria-label="Email for newsletter" />
+          <button type="button" className="s2-home-newsletter__btn">Subscribe</button>
         </div>
       </section>
 
       {/* ── 16. App download ──────────────────────────────────────────────── */}
-      <section style={{ background: `linear-gradient(135deg, #1E2D40 0%, ${primary} 50%, #5E87BF 100%)`, color: '#fff', padding: '56px 20px' }}>
-        <div className="s2-mobile-stack" style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr auto', gap: 32, alignItems: 'center' }}>
+      <section className="s2-home-app">
+        <div className="s2-home-app__grid s2-mobile-stack">
           <div>
-            <p style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, opacity: 0.75, margin: '0 0 10px' }}>Mobile App</p>
-            <h3 style={{ fontSize: 'clamp(22px, 3vw, 36px)', fontWeight: 900, margin: '0 0 10px' }}>Download Our App</h3>
-            <p style={{ opacity: 0.85, fontSize: 15, margin: '0 0 28px', lineHeight: 1.7, maxWidth: 500 }}>
+            <p className="s2-home-app__eyebrow">Mobile App</p>
+            <h3 className="s2-home-app__title">Download Our App</h3>
+            <p className="s2-home-app__sub">
               Manage all your NRI services from your smartphone anytime, anywhere. Track progress, upload documents, and communicate with our team on the go.
             </p>
-            <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+            <div className="s2-home-app__stores">
               {[
                 { href: settings.app_playstore_url || '#', icon: '▶', line1: 'GET IT ON', line2: 'Google Play' },
                 { href: settings.app_appstore_url || '#', icon: '🍎', line1: 'DOWNLOAD ON THE', line2: 'App Store' },
               ].map(({ href, icon, line1, line2 }) => (
-                <a key={line2} href={href} target="_blank" rel="noopener noreferrer"
-                  style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#000', color: '#fff', padding: '13px 22px', borderRadius: 12, textDecoration: 'none', border: '1.5px solid rgba(255,255,255,.2)' }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = '#111')}
-                  onMouseLeave={(e) => (e.currentTarget.style.background = '#000')}
-                >
-                  <span style={{ fontSize: 28 }}>{icon}</span>
+                <a key={line2} href={href} target="_blank" rel="noopener noreferrer" className="s2-home-app__store">
+                  <span className="s2-home-app__store-icon">{icon}</span>
                   <div>
-                    <div style={{ fontSize: 10, opacity: 0.7, letterSpacing: 1 }}>{line1}</div>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{line2}</div>
+                    <div className="s2-home-app__store-line1">{line1}</div>
+                    <div className="s2-home-app__store-line2">{line2}</div>
                   </div>
                 </a>
               ))}
             </div>
           </div>
-          <div style={{ fontSize: 120, opacity: 0.15, lineHeight: 1 }}>📱</div>
+          <div className="s2-home-app__emoji" aria-hidden>📱</div>
         </div>
       </section>
 
       {/* ── 17. Location pills ────────────────────────────────────────────── */}
-      <div style={{ background: '#fff', padding: '20px', borderTop: '1px solid #f0f0f0' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', textAlign: 'center' }}>
-          <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 3, color: '#aaa', margin: '0 0 12px' }}>Locations</p>
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {displayCities.map(({ name }) => (
-              <Link
-                key={name}
-                to="/services/property"
-                style={{ padding: '6px 16px', border: '1px solid #EBF0F8', borderRadius: 99, fontSize: 13, color: '#444', fontWeight: 500, textDecoration: 'none', transition: 'all .2s', background: '#fff' }}
-                onMouseEnter={(e) => { e.currentTarget.style.background = primary; e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = primary }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; e.currentTarget.style.color = '#444'; e.currentTarget.style.borderColor = '#EBF0F8' }}
-              >
-                📍 {name}
-              </Link>
-            ))}
-          </div>
+      <div className="s2-home-locations">
+        <p className="s2-home-logo-strip__label">Locations</p>
+        <div className="s2-home-locations__pills">
+          {displayCities.map(({ name }) => (
+            <Link key={name} to="/services/property" className="s2-home-loc-pill">
+              📍 {name}
+            </Link>
+          ))}
         </div>
+      </div>
       </div>
     </Layout>
   )

@@ -5,6 +5,13 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.6.4] — 2026-10-04 — Cloud Agent
+
+- **HomePage** migrated to `public-home-sections.css` — hero, tabs, cities, testimonials, FAQ, newsletter, app strip, and location pills use token classes (dynamic hero images only).
+- Uses `PublicSectionHead` and `--s2-primary` wrapper for admin primary overrides.
+
+---
+
 ## [4.6.3] — 2026-10-04 — Cloud Agent
 
 - **Services directory** (`ServicesPage`) migrated to `public-services-directory.css` (chips, sidebar, cards, skeletons).
