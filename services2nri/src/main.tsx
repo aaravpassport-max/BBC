@@ -21,4 +21,5 @@ if (root) {
       <App />
     </React.StrictMode>
   )
+  window.dispatchEvent(new Event('s2nri-app-mounted'))
 }

@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.14] — 2026-10-04 — Cloud Agent
+
+- **Spinner stuck:** design classes `require_once` in `DesignSystem.php`; `getJsConfig()` try/catch so PHP fatal does not blank the shell; 15s splash watchdog + `s2nri-app-mounted` when React boots.
+
+---
+
 ## [4.7.13] — 2026-10-04 — Cloud Agent
 
 - **Fatal fix:** register `S2NRI\Design\WidthLayout` in `services2nri.php` classmap (fixes `Class WidthLayout not found` on public site boot).

@@ -3,6 +3,10 @@ namespace S2NRI\Design;
 
 defined( 'ABSPATH' ) || exit;
 
+require_once __DIR__ . '/WidthLayout.php';
+require_once __DIR__ . '/FontLibrary.php';
+require_once __DIR__ . '/DesignPresets.php';
+
 /**
  * Central public-site design tokens — single source for CSS variables,
  * typography, colors, spacing, components, and page/section overrides.
