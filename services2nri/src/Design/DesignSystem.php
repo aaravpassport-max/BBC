@@ -207,8 +207,17 @@ class DesignSystem {
 
     /** @param array<string, mixed> $patch */
     public static function save( array $patch ): void {
-        // Admin publishes the full config tree; merge only with defaults (not stored) so cleared overrides inherit correctly.
-        $merged = self::deepMerge( self::defaults(), $patch );
+        // Admin publishes the full config tree — merge defaults + stored + patch so nested width
+        // layers (e.g. page_types.home.sections.hero) are never dropped on partial client payloads.
+        $patch  = self::stripNullsDeep( $patch );
+        $stored = self::loadStored();
+        $merged = self::deepMerge( self::defaults(), $stored, $patch );
+        if ( isset( $patch['widths'] ) && is_array( $patch['widths'] ) ) {
+            $stored_widths = is_array( $stored['widths'] ?? null ) ? $stored['widths'] : [];
+            $merged['widths'] = self::normalizeWidthTree(
+                self::deepMerge( WidthLayout::defaults(), $stored_widths, $patch['widths'] )
+            );
+        }
         $merged = self::normalizeConfig( $merged );
         $desktopPage = $merged['widths']['global']['page_max']['desktop'] ?? null;
         if ( is_string( $desktopPage ) && $desktopPage !== '' ) {
@@ -780,6 +789,20 @@ class DesignSystem {
             }
         }
         return $map;
+    }
+
+    /** Remove null leaves so admin "clear override" deletes keys on save. */
+    private static function stripNullsDeep( array $data ): array {
+        foreach ( $data as $k => $v ) {
+            if ( $v === null ) {
+                unset( $data[ $k ] );
+                continue;
+            }
+            if ( is_array( $v ) ) {
+                $data[ $k ] = self::stripNullsDeep( $v );
+            }
+        }
+        return $data;
     }
 
     /** @param array<string, mixed> $widths */

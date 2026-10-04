@@ -291,6 +291,12 @@
   transform: translateY(-1px);
 }
 
+.s2-wls__preset.is-active {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+  background: linear-gradient(180deg, #eff6ff 0%, #fff 100%);
+}
+
 .s2-wls__preset-title {
   font-weight: 700;
   font-size: 14px;

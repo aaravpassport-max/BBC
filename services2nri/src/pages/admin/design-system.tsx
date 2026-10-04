@@ -1,7 +1,7 @@
 /**
  * Admin — centralized Design & Style System for all public-facing pages.
  */
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '@/lib/api'
 import {
   TypographyRolesEditor,
@@ -68,6 +68,7 @@ export function AdminDesignSystem() {
   const [svcPopular, setSvcPopular] = useState(false)
   const [widthFocus, setWidthFocus] = useState<WidthLayoutFocus | null>(null)
   const [previewPath, setPreviewPath] = useState('/')
+  const configRef = useRef<DesignConfig | null>(null)
 
   const load = useCallback(async () => {
     const data = await api.get<{
@@ -93,6 +94,10 @@ export function AdminDesignSystem() {
   }, [])
 
   useEffect(() => { load().catch(() => setMessage('Failed to load design system')) }, [load])
+
+  useEffect(() => {
+    configRef.current = config
+  }, [config])
 
   const colors = (config?.colors || {}) as Record<string, string>
   const spacing = (config?.spacing || {}) as Record<string, string>
@@ -127,18 +132,25 @@ export function AdminDesignSystem() {
         if (typeof cur[k] !== 'object' || cur[k] === null) cur[k] = {}
         cur = cur[k] as Record<string, unknown>
       }
-      cur[path[path.length - 1]] = value
+      const leaf = path[path.length - 1]
+      if (value === undefined) {
+        delete cur[leaf]
+      } else {
+        cur[leaf] = value
+      }
       return next
     })
   }
 
   const save = async () => {
-    if (!config) return
+    const payload = configRef.current
+    if (!payload) return
     setSaving(true)
     setMessage('')
     try {
-      const res = await api.put<{ config: DesignConfig }>('admin/design', config)
+      const res = await api.put<{ config: DesignConfig }>('admin/design', payload)
       if (res.config) setConfig(res.config)
+      await load()
       broadcastDesignSaved()
       setMessage('Design system published — public pages update automatically (no hard refresh needed).')
     } catch (e: unknown) {

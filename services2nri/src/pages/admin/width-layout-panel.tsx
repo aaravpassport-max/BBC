@@ -332,22 +332,40 @@ export function WidthLayoutPanel({
       }
       return out
     }
-    patch([...basePath, 'content_max'], responsive(isFull ? '100%' : `${preset.content}px`))
-    patch([...basePath, 'section_wide'], responsive(isFull ? '100%' : `${preset.wide}px`))
-    if (isFull) {
-      patch([...basePath, 'full_bleed'], responsive('100%'))
+    const layer: Record<string, unknown> = {
+      ...(typeof activeLayer === 'object' && activeLayer !== null ? activeLayer : {}),
+      content_max: responsive(isFull ? '100%' : `${preset.content}px`),
+      section_wide: responsive(isFull ? '100%' : `${preset.wide}px`),
     }
+    if (isFull) {
+      layer.full_bleed = responsive('100%')
+    }
+    patch(basePath, layer)
   }
 
   function applyDesktopPreset(preset: (typeof WIDTH_DESKTOP_PRESETS)[0]) {
+    const layer: Record<string, unknown> = {
+      ...(typeof activeLayer === 'object' && activeLayer !== null ? activeLayer : {}),
+    }
     for (const [key, num] of Object.entries(preset.values)) {
       const cur = activeLayer[key]
       const responsive = ensureResponsive(cur)
       for (const bp of BP) {
         responsive[bp] = `${num}px`
       }
-      patch([...basePath, key], responsive)
+      layer[key] = responsive
     }
+    patch(basePath, layer)
+  }
+
+  function homeHeroPresetMatches(preset: (typeof HOME_HERO_WIDTH_PRESETS)[number]): boolean {
+    const content = readRawAtBp(activeLayer.content_max, activeBp).replace(/\s/g, '')
+    const wide = readRawAtBp(activeLayer.section_wide, activeBp).replace(/\s/g, '')
+    if (preset.content === '100%') {
+      return content === '100%' && wide === '100%'
+    }
+    const want = `${preset.content}px`
+    return content === want && wide === want
   }
 
   function syncAllBreakpoints(key: GlobalKey) {
@@ -543,7 +561,12 @@ export function WidthLayoutPanel({
               </div>
               <div className="s2-wls__presets">
                 {HOME_HERO_WIDTH_PRESETS.map((p) => (
-                  <button key={p.label} type="button" className="s2-wls__preset" onClick={() => applyHomeHeroPreset(p)}>
+                  <button
+                    key={p.label}
+                    type="button"
+                    className={`s2-wls__preset${homeHeroPresetMatches(p) ? ' is-active' : ''}`}
+                    onClick={() => applyHomeHeroPreset(p)}
+                  >
                     <div className="s2-wls__preset-title">{p.label}</div>
                     <div className="s2-wls__preset-sub">Hero carousel max width</div>
                   </button>
