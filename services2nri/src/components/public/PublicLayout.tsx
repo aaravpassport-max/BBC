@@ -30,7 +30,8 @@ export function PublicSection({
   }[width]
   return (
     <section
-      className={`s2-section s2-marketing-section${alt ? ' s2-marketing-section--alt' : ''} ${className}`.trim()}
+      className={`s2-section s2-marketing-section s2-experience-section${alt ? ' s2-marketing-section--alt' : ''} ${className}`.trim()}
+      data-s2-reveal=""
       {...(sectionKey ? { 'data-s2-section': sectionKey } : {})}
     >
       <div className={`s2-container s2-section-inner ${widthClass}`}>{children}</div>

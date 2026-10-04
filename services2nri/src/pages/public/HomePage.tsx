@@ -315,7 +315,7 @@ export function HomePage() {
       </div>
 
       {/* ── 3. Services section ───────────────────────────────────────────── */}
-      <section className="s2-section s2-marketing-section" data-s2-section="home_services">
+      <section className="s2-section s2-marketing-section s2-experience-section" data-s2-section="home_services" data-s2-reveal="">
         <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead
             eyebrow="What We Offer"
@@ -339,7 +339,7 @@ export function HomePage() {
           </div>
 
           {/* Service cards */}
-          <div className="s2-svc-grid">
+          <div className="s2-svc-grid s2-stagger">
             {displayServices.map((svc, i) => {
               const fallbackImgs = [IMAGES.property, IMAGES.housekeeping, IMAGES.tenancy, IMAGES.rent]
               const img = svc.image_url || (svc as Service & { img?: string }).img || fallbackImgs[i % 4]
@@ -372,7 +372,7 @@ export function HomePage() {
       </section>
 
       {/* ── 4. Cities grid ────────────────────────────────────────────────── */}
-      <section className="s2-marketing-section s2-marketing-section--alt" data-s2-section="cities">
+      <section className="s2-marketing-section s2-marketing-section--alt s2-experience-section" data-s2-section="cities" data-s2-reveal="">
         <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead
             title="Property Management Cities"
@@ -413,7 +413,7 @@ export function HomePage() {
       </div>
 
       {/* ── 7. Why Choose Us ──────────────────────────────────────────────── */}
-      <section className="s2-marketing-section s2-marketing-section--alt" data-s2-section="features">
+      <section className="s2-marketing-section s2-marketing-section--alt s2-experience-section" data-s2-section="features" data-s2-reveal="">
         <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead eyebrow="Why Choose Us" title="Why Our Customers Love Us" />
           <div className="s2-feat-grid">
@@ -431,7 +431,7 @@ export function HomePage() {
       </section>
 
       {/* ── 8. Testimonials ───────────────────────────────────────────────── */}
-      <section className="s2-marketing-section" data-s2-section="testimonials">
+      <section className="s2-marketing-section s2-experience-section" data-s2-section="testimonials" data-s2-reveal="">
         <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead eyebrow="Client Testimonials" title="What Our Customers Say" />
           <Swiper
@@ -480,10 +480,10 @@ export function HomePage() {
       </section>
 
       {/* ── 9. How It Works ───────────────────────────────────────────────── */}
-      <section className="s2-marketing-section s2-marketing-section--alt" data-s2-section="process">
+      <section className="s2-marketing-section s2-marketing-section--alt s2-experience-section" data-s2-section="process" data-s2-reveal="">
         <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead eyebrow="Simple Process" title="How It Works" />
-          <div className="s2-how-grid">
+          <div className="s2-how-grid s2-stagger">
             {HOW_IT_WORKS.map(({ n, icon, title, desc }) => (
               <div key={n} className="s2-home-how-card">
                 <div className="s2-home-how-card__num">0{n}</div>
@@ -586,7 +586,7 @@ export function HomePage() {
       </div>
 
       {/* ── 14. FAQ ───────────────────────────────────────────────────────── */}
-      <section className="s2-marketing-section" data-s2-section="faq">
+      <section className="s2-marketing-section s2-experience-section" data-s2-section="faq" data-s2-reveal="">
         <div className="s2-home-faq s2-container s2-section-inner s2-width-narrow">
           <PublicSectionHead eyebrow="FAQ" title="Let's Clear All The Doubts!" />
           <div className="s2-home-faq__list">

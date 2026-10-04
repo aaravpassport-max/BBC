@@ -388,7 +388,7 @@ export function PricingPage() {
           subtitle="Compliance-driven · Simple & intuitive · Straightforward pricing"
         />
         <div className="s2-container">
-          <div className="s2-public-pricing-grid">
+          <div className="s2-public-pricing-grid s2-stagger">
             {display.map((plan) => (
               <div
                 key={plan.id}

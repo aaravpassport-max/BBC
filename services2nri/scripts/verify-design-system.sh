@@ -23,6 +23,8 @@ bad() { echo "FAIL $1"; fail=1; }
 [[ -f assets/public-mobile-experience.css ]] && ok public-mobile-experience.css || bad public-mobile-experience.css
 [[ -f assets/public-contrast-system.css ]] && ok public-contrast-system.css || bad public-contrast-system.css
 grep -q 'public-contrast-system.css' src/Design/DesignSystem.php && ok contrast css inlined || bad contrast css inlined
+[[ -f assets/public-platform-experience.css ]] && ok public-platform-experience.css || bad public-platform-experience.css
+grep -q 'public-platform-experience.css' src/Design/DesignSystem.php && ok platform experience css inlined || bad platform experience css inlined
 [[ -f src/Design/WidthLayout.php ]] && ok WidthLayout.php || bad WidthLayout.php
 [[ -f playwright.config.ts ]] && ok playwright.config || bad playwright.config
 [[ -f e2e/smoke.spec.ts ]] && ok e2e smoke spec || bad e2e smoke spec

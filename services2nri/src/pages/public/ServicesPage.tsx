@@ -66,7 +66,7 @@ export function ServicesPage() {
   return (
     <Layout>
       <div className="s2-services-page">
-        <section className="s2-services-hero s2-surface-dark" data-s2-section="hero">
+        <section className="s2-services-hero s2-surface-dark s2-hero--premium" data-s2-section="hero">
           <div className="s2-container">
             <h1 className="s2-dir-hero__title">All NRI Services</h1>
             <p className="s2-dir-hero__sub">
@@ -129,7 +129,7 @@ export function ServicesPage() {
 
         <div className="s2-dir-main">
           {loading ? (
-            <div className="s2-dir-grid">
+            <div className="s2-dir-grid s2-stagger">
               {[1, 2, 3, 4, 5, 6].map((n) => (
                 <div key={n} className="s2-dir-skeleton">
                   <div className="s2-dir-skeleton__img" />
@@ -155,7 +155,7 @@ export function ServicesPage() {
               </button>
             </div>
           ) : (
-            <div className="s2-dir-grid">
+            <div className="s2-dir-grid s2-stagger">
               {filtered.map((svc) => (
                 <Link key={svc.id} to={`/service/${svc.slug}`} className="s2-dir-card">
                   <div className="s2-dir-card__img-wrap">

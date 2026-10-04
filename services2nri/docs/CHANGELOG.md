@@ -5,6 +5,13 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.37] — 2026-10-04 — Cloud Agent
+
+- **Platform experience layer:** `public-platform-experience.css` — section bands, premium hero glow, unified card/button motion, pricing emphasis, process/testimonial depth, FAQ micro-motion (reduced-motion safe).
+- **ExperienceReveal:** intersection-observer scroll reveal for `[data-s2-reveal]` sections; wired on `PublicSection` + key homepage bands; staggered card grids via `.s2-stagger`.
+
+---
+
 ## [4.7.36] — 2026-10-04 — Cloud Agent
 
 - **Contrast completion:** dark-band coverage for blog/city/privacy heroes, pricing card heads, stats bar, service hero scrim; `.s2-surface-dark` on remaining marketing heroes.
