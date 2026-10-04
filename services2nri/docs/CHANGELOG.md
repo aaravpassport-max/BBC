@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.6.3] — 2026-10-04 — Cloud Agent
+
+- **Services directory** (`ServicesPage`) migrated to `public-services-directory.css` (chips, sidebar, cards, skeletons).
+- **ServiceDetailPage** CMS sections + wizard fields migrated to token CSS (`SectionRenderer`, uploads, options).
+- Playwright smoke: added `/services` route test.
+
+---
+
 ## [4.6.2] — 2026-10-04 — Cloud Agent
 
 ### Public pages + E2E

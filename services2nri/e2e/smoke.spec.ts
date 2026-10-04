@@ -13,6 +13,12 @@ test.describe('Public marketing smoke', () => {
     await expect(page.getByRole('button', { name: /Send Message/i })).toBeVisible();
   });
 
+  test('services directory loads', async ({ page }) => {
+    await page.goto('/services');
+    await expect(page.getByRole('heading', { name: /All NRI Services/i })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByPlaceholder(/Search services/i)).toBeVisible();
+  });
+
   test('pricing page shows plan cards', async ({ page }) => {
     await page.goto('/pricing');
     await expect(page.getByText(/Starter|Basic|Advanced|Pro/i).first()).toBeVisible({ timeout: 20_000 });
