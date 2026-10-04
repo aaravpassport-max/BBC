@@ -268,7 +268,7 @@ export function HomePage() {
     <Layout>
       <div className="s2-home-page">
       {/* ── 1. Hero slider + mobile-first headline & CTAs ─────────────────── */}
-      <div className="s2-hero-section" data-s2-section="hero" style={heroWidthStyle}>
+      <div className="s2-hero-section s2-surface-media" data-s2-section="hero" style={heroWidthStyle}>
         <Swiper
           className="s2-home-hero-swiper"
           modules={[Autoplay, Pagination, Navigation, EffectFade]}
@@ -625,7 +625,7 @@ export function HomePage() {
       </section>
 
       {/* ── 16. App download ──────────────────────────────────────────────── */}
-      <section className="s2-home-app" data-s2-section="app">
+      <section className="s2-home-app s2-surface-dark" data-s2-section="app">
         <div className="s2-home-app__grid s2-mobile-stack">
           <div>
             <p className="s2-home-app__eyebrow">Mobile App</p>

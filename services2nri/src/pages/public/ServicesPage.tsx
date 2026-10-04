@@ -65,23 +65,25 @@ export function ServicesPage() {
 
   return (
     <Layout>
-      <div className="s2-services-hero" data-s2-section="hero">
-        <div className="s2-container">
-          <h1 className="s2-dir-hero__title">All NRI Services</h1>
-          <p className="s2-dir-hero__sub">
-            Expert assistance across {categories.length || 8} categories — 44+ services for NRIs worldwide
-          </p>
-          <input
-            type="search"
-            className="s2-dir-search"
-            placeholder="Search services (e.g. OCI Card, Transcript, Power of Attorney)…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            aria-label="Search services"
-          />
-        </div>
-      </div>
+      <div className="s2-services-page">
+        <section className="s2-services-hero s2-surface-dark" data-s2-section="hero">
+          <div className="s2-container">
+            <h1 className="s2-dir-hero__title">All NRI Services</h1>
+            <p className="s2-dir-hero__sub">
+              Expert assistance across {categories.length || 8} categories — 44+ services for NRIs worldwide
+            </p>
+            <input
+              type="search"
+              className="s2-dir-search"
+              placeholder="Search services (e.g. OCI Card, Transcript, Power of Attorney)…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              aria-label="Search services"
+            />
+          </div>
+        </section>
 
+        <div className="s2-services-body s2-surface-light">
       <div className="mobile-filter s2-container s2-dir-mobile-filter">
         <div className="s2-dir-chips">
           <button type="button" className={`s2-dir-chip${activeSlug === '' ? ' s2-dir-chip--active' : ''}`} onClick={() => setActiveSlug('')}>
@@ -185,6 +187,8 @@ export function ServicesPage() {
               ))}
             </div>
           )}
+        </div>
+      </div>
         </div>
       </div>
     </Layout>

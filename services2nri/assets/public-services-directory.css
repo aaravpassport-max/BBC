@@ -1,16 +1,28 @@
 /* Services directory (/services) */
 
+.s2-services-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.s2-services-body {
+  background: var(--s2-color-surface_alt, #f1f5f9);
+  padding-top: clamp(32px, 4.5vw, 56px);
+  padding-bottom: clamp(36px, 5vw, 64px);
+}
+
 .s2-services-layout {
   display: flex;
-  gap: 32px;
+  gap: clamp(24px, 3vw, 40px);
   align-items: flex-start;
-  padding-top: 20px;
-  padding-bottom: 40px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 .s2-services-sidebar {
   width: 220px;
   flex-shrink: 0;
+  padding-top: 6px;
 }
 
 .s2-dir-mobile-filter {

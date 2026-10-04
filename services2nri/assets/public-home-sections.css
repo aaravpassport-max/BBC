@@ -931,7 +931,7 @@
 
 .s2-services-hero {
   color: #fff;
-  padding: 52px 20px;
+  padding: clamp(36px, 5vw, 52px) 20px clamp(40px, 5vw, 56px);
   background: linear-gradient(135deg, var(--s2-color-secondary) 0%, var(--s2-color-primary) 100%);
 }
 

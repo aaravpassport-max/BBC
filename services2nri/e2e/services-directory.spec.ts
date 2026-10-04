@@ -6,6 +6,10 @@ test.describe('Services directory visuals', () => {
     await page.goto('/services')
     await expect(page.getByRole('heading', { name: /All NRI Services/i })).toBeVisible({ timeout: 20_000 })
 
+    const heroTitle = page.locator('.s2-dir-hero__title')
+    const titleColor = await heroTitle.evaluate((el) => getComputedStyle(el).color)
+    expect(titleColor).toMatch(/rgb\(255,\s*255,\s*255\)|rgba\(255,\s*255,\s*255/)
+
     const cards = page.locator('.s2-dir-card')
     await expect(cards.first()).toBeVisible({ timeout: 15_000 })
     await expect(cards).toHaveCount(8)
@@ -28,6 +32,23 @@ test.describe('Services directory visuals', () => {
     }))
     expect(natural.w).toBeGreaterThan(0)
     expect(natural.h).toBeGreaterThan(0)
+  })
+
+  test('hero and card grid have intentional vertical gap', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 })
+    await page.goto('/services')
+    await expect(page.locator('.s2-dir-card').first()).toBeVisible({ timeout: 20_000 })
+
+    const gap = await page.evaluate(() => {
+      const hero = document.querySelector('.s2-services-hero')
+      const body = document.querySelector('.s2-services-body')
+      const card = document.querySelector('.s2-dir-card')
+      if (!hero || !body || !card) return 0
+      const heroBottom = hero.getBoundingClientRect().bottom
+      const cardTop = card.getBoundingClientRect().top
+      return cardTop - heroBottom
+    })
+    expect(gap).toBeGreaterThan(24)
   })
 
   test('desktop layout uses multi-column grid', async ({ page }) => {

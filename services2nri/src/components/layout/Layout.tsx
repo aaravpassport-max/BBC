@@ -849,7 +849,7 @@ interface PageHeroProps {
 export function PageHero({ title, subtitle, bg }: PageHeroProps) {
   return (
     <div
-      className="s2-page-hero"
+      className="s2-page-hero s2-surface-dark"
       data-s2-section="hero"
       style={bg ? { background: bg } : undefined}
     >
@@ -1083,12 +1083,16 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
           </button>
           <span style={{ fontWeight: 700, fontSize: 16, color: primary }}>{name}</span>
         </div>
-        <div className={isStaff ? undefined : 's2-dash-content-wrap'} style={{ flex: 1, padding: '24px 20px', background: '#f9fafb' }}>
+        <div className="s2-dash-content-wrap" style={{ flex: 1, padding: '24px 20px', background: '#f9fafb' }}>
           {children}
         </div>
       </div>
 
-      {!isStaff && <BottomNav primary={primary} />}
+      <BottomNav
+        primary={primary}
+        variant={isStaff ? 'admin' : 'customer'}
+        onMenuClick={() => setOpen(true)}
+      />
     </div>
   )
 }

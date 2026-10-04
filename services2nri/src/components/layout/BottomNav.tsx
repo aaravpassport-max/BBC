@@ -1,112 +1,188 @@
 /**
- * BottomNav — app-style fixed bottom tab bar, mobile only (see .s2-bottom-nav
- * in global.css, hidden above 768px). Rendered from both Layout (public +
- * auth pages) and SidebarLayout (customer dashboard pages), never for staff/
- * admin — they already have the desktop sidebar nav (ADMIN_NAV) and are not
- * expected to be running the mobile customer experience.
- *
- * Routes used below (/, /services, /dashboard, /dashboard/bookings, /login)
- * all already exist in App.tsx's <Routes> — no new routes introduced here.
- *
- * DYNAMIC "Inquire" TAB (added): on any /service/:slug page — every service,
- * automatically, since ServiceDetailPage.tsx is the one shared component
- * every service renders through, not a per-service special case — an extra
- * tab appears that scrolls to the existing `id="booking-form"` anchor
- * (ServiceDetailPage.tsx's sticky booking wizard wrapper) instead of
- * navigating anywhere. This directly addresses mobile users not scrolling
- * far enough to find the enquiry form. Every other page (including the
- * homepage) keeps exactly the same 4 tabs as before — unchanged.
+ * Global mobile bottom tab bar (≤768px). One component, three configs:
+ * public site, customer portal, and admin dashboard.
  */
 
 import React from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useStore } from '@/lib/store'
-import { STAFF_ROLES } from '@/lib/constants'
+import {
+  IconAccount,
+  IconBookings,
+  IconContact,
+  IconDashboard,
+  IconDesign,
+  IconHome,
+  IconInquire,
+  IconMenu,
+  IconRequests,
+  IconServices,
+  IconSupport,
+} from './bottom-nav-icons'
+
+export type BottomNavVariant = 'public' | 'customer' | 'admin'
 
 interface BottomNavProps {
   primary: string
+  variant?: BottomNavVariant
+  onMenuClick?: () => void
 }
 
 interface BottomNavTab {
-  icon: string
+  icon: React.ReactNode
   label: string
   active: boolean
-  to?: string       // navigate (rendered as <Link>)
-  onClick?: () => void // in-page action, no navigation (rendered as <button>)
+  to?: string
+  onClick?: () => void
 }
 
-export function BottomNav({ primary }: BottomNavProps) {
+export function BottomNav({ primary, variant = 'public', onMenuClick }: BottomNavProps) {
   const location = useLocation()
   const user = useStore((s) => s.user)
   const path = location.pathname
 
-  // Staff/admin use the desktop sidebar (ADMIN_NAV in Layout.tsx) — this bar
-  // is the customer/visitor mobile experience only.
-  const isStaff = !!(user && STAFF_ROLES.includes(user.s2nri_role))
-  if (isStaff) return null
+  const tabs: BottomNavTab[] = []
 
-  const accountHref  = user ? '/dashboard' : '/login'
-  const bookingsHref = user ? '/dashboard/bookings' : '/login'
-  const isServicePage = path.startsWith('/service/')
+  if (variant === 'admin') {
+    tabs.push(
+      {
+        to: '/admin',
+        icon: <IconDashboard />,
+        label: 'Home',
+        active: path === '/admin',
+      },
+      {
+        to: '/requests',
+        icon: <IconRequests />,
+        label: 'Requests',
+        active:
+          path.startsWith('/requests') ||
+          path.startsWith('/admin/requests') ||
+          path.startsWith('/admin/bookings'),
+      },
+      {
+        to: '/admin/services',
+        icon: <IconServices />,
+        label: 'Services',
+        active: path.startsWith('/admin/services') || path.startsWith('/admin/categories'),
+      },
+      {
+        to: '/admin/design',
+        icon: <IconDesign />,
+        label: 'Design',
+        active: path.startsWith('/admin/design'),
+      },
+      {
+        icon: <IconMenu />,
+        label: 'Menu',
+        active: false,
+        onClick: () => onMenuClick?.(),
+      },
+    )
+  } else if (variant === 'customer') {
+    tabs.push(
+      {
+        to: '/dashboard',
+        icon: <IconDashboard />,
+        label: 'Home',
+        active: path === '/dashboard',
+      },
+      {
+        to: '/dashboard/bookings',
+        icon: <IconBookings />,
+        label: 'Bookings',
+        active: path.startsWith('/dashboard/bookings'),
+      },
+      {
+        to: '/services',
+        icon: <IconServices />,
+        label: 'Services',
+        active: path.startsWith('/services') || path.startsWith('/service/'),
+      },
+      {
+        to: '/dashboard/tickets',
+        icon: <IconSupport />,
+        label: 'Support',
+        active: path.startsWith('/dashboard/tickets'),
+      },
+      {
+        to: '/dashboard/profile',
+        icon: <IconAccount />,
+        label: 'Profile',
+        active: path === '/dashboard/profile',
+      },
+    )
+  } else {
+    const accountHref = user ? '/dashboard' : '/login'
+    const bookingsHref = user ? '/dashboard/bookings' : '/login'
+    const isServicePage = path.startsWith('/service/')
 
-  const tabs: BottomNavTab[] = [
-    {
+    tabs.push({
       to: '/',
-      icon: '🏠',
+      icon: <IconHome />,
       label: 'Home',
       active: path === '/',
-    },
-  ]
+    })
 
-  if (isServicePage) {
+    if (isServicePage) {
+      tabs.push({
+        icon: <IconInquire />,
+        label: 'Inquire',
+        active: false,
+        onClick: () => {
+          const el = document.getElementById('booking-form')
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        },
+      })
+    }
+
     tabs.push({
-      icon: '📝',
-      label: 'Inquire',
-      active: false,
-      onClick: () => {
-        const el = document.getElementById('booking-form')
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      to: '/services',
+      icon: <IconServices />,
+      label: 'Services',
+      active: path.startsWith('/services') || path.startsWith('/service/'),
+    })
+
+    if (!isServicePage) {
+      tabs.push({
+        to: '/contact',
+        icon: <IconContact />,
+        label: 'Contact',
+        active: path === '/contact' || path.startsWith('/contact/'),
+      })
+    }
+
+    tabs.push(
+      {
+        to: bookingsHref,
+        icon: <IconBookings />,
+        label: 'Bookings',
+        active: path.startsWith('/dashboard/bookings'),
       },
-    })
+      {
+        to: accountHref,
+        icon: <IconAccount />,
+        label: user ? 'Account' : 'Sign In',
+        active:
+          path === '/dashboard' ||
+          path === '/dashboard/profile' ||
+          path === '/login' ||
+          path === '/register',
+      },
+    )
   }
-
-  tabs.push({
-    to: '/services',
-    icon: '🔧',
-    label: 'Services',
-    active: path.startsWith('/services') || path.startsWith('/service/'),
-  })
-
-  if (!isServicePage) {
-    tabs.push({
-      to: '/contact',
-      icon: '💬',
-      label: 'Contact',
-      active: path === '/contact' || path.startsWith('/contact/'),
-    })
-  }
-
-  tabs.push(
-    {
-      to: bookingsHref,
-      icon: '📋',
-      label: 'Bookings',
-      active: path.startsWith('/dashboard/bookings'),
-    },
-    {
-      to: accountHref,
-      icon: '👤',
-      label: user ? 'Account' : 'Sign In',
-      active:
-        path === '/dashboard' ||
-        path === '/dashboard/profile' ||
-        path === '/login' ||
-        path === '/register',
-    },
-  )
 
   return (
-    <nav className="s2-bottom-nav" aria-label="Primary mobile navigation">
+    <nav
+      className={`s2-bottom-nav s2-bottom-nav--${variant}`}
+      aria-label={
+        variant === 'admin'
+          ? 'Admin mobile navigation'
+          : variant === 'customer'
+            ? 'Portal mobile navigation'
+            : 'Primary mobile navigation'
+      }
+    >
       {tabs.map((t) =>
         t.to ? (
           <Link
@@ -116,7 +192,7 @@ export function BottomNav({ primary }: BottomNavProps) {
             style={t.active ? { color: primary } : undefined}
             aria-current={t.active ? 'page' : undefined}
           >
-            <span className="s2-bottom-nav-icon" aria-hidden="true">{t.icon}</span>
+            <span className="s2-bottom-nav-icon">{t.icon}</span>
             <span className="s2-bottom-nav-label">{t.label}</span>
           </Link>
         ) : (
@@ -125,12 +201,11 @@ export function BottomNav({ primary }: BottomNavProps) {
             type="button"
             onClick={t.onClick}
             className="s2-bottom-nav-item"
-            style={{ background: 'none', border: 'none', font: 'inherit' }}
           >
-            <span className="s2-bottom-nav-icon" aria-hidden="true">{t.icon}</span>
+            <span className="s2-bottom-nav-icon">{t.icon}</span>
             <span className="s2-bottom-nav-label">{t.label}</span>
           </button>
-        )
+        ),
       )}
     </nav>
   )

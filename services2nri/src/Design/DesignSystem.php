@@ -548,6 +548,9 @@ class DesignSystem {
         $css .= file_exists( S2NRI_DIR . 'assets/public-mobile-experience.css' )
             ? file_get_contents( S2NRI_DIR . 'assets/public-mobile-experience.css' )
             : '';
+        $css .= file_exists( S2NRI_DIR . 'assets/public-contrast-system.css' )
+            ? file_get_contents( S2NRI_DIR . 'assets/public-contrast-system.css' )
+            : '';
         $css .= WidthLayout::renderScopeCss( $config, $ctx );
         $css .= self::renderSectionOverrideCss( $config );
         if ( ! empty( $config['motion']['reduce_motion'] ) ) {

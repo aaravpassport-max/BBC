@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.35] — 2026-10-04 — Cloud Agent
+
+- **Services page:** dedicated body band with responsive gap between hero, category sidebar, and card grid; hero uses contrast surface tokens for readable light typography.
+- **Contrast system:** `public-contrast-system.css` overrides `.s2-ds` heading/body colors on dark bands (heroes, app download, marketing CTAs, image heroes).
+- **Bottom navigation:** single `BottomNav` with public, customer portal, and admin variants; SVG tab icons; admin mobile bar + menu tab for full sidebar.
+
+---
+
 ## [4.7.34] — 2026-10-04 — Cloud Agent
 
 - **Page Templates:** Inherited vs Custom badges, per-field **Clear override**, and **Reset template to Site Foundation** (colors, typography, chrome, page max width via `null` delete on save).

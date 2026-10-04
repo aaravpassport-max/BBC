@@ -111,7 +111,7 @@ export function AboutPage() {
         </div>
       </section>
 
-      <section className="s2-public-band-dark s2-marketing-page">
+      <section className="s2-public-band-dark s2-surface-dark s2-marketing-page">
         <h2 className="s2-public-band-dark__title">Ready to Get Started?</h2>
         <p className="s2-public-band-dark__sub">Let us handle your India affairs while you focus on what matters.</p>
         <div className="s2-public-band-dark__actions">
@@ -1016,7 +1016,7 @@ export function CityPage() {
         </div>
       </PublicSection>
 
-      <section className="s2-public-band-dark s2-marketing-page">
+      <section className="s2-public-band-dark s2-surface-dark s2-marketing-page">
         <h2 className="s2-public-band-dark__title">Start Managing Your {data.name} Property Today</h2>
         <p className="s2-city-cta__sub">Get a free property assessment and management quote within 24 hours.</p>
         <div className="s2-public-band-dark__actions">
