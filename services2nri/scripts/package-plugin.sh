@@ -7,12 +7,7 @@ REPO="$(cd "$ROOT/.." && pwd)"
 STAGE="$REPO/.pack-staging/services2nri"
 cd "$ROOT"
 npm run build
-if [[ ! -f "$ROOT/assets/BUILD_STAMP.txt" ]]; then
-  echo "FAIL: assets/BUILD_STAMP.txt missing after build" >&2
-  exit 1
-fi
-php scripts/verify-preg-paths.php
-bash scripts/verify-design-system.sh
+bash scripts/verify-all.sh
 
 VERSION="$(grep -oP "define\s*\(\s*'S2NRI_VERSION',\s*'\K[0-9.]+" "$ROOT/services2nri.php" | head -1)"
 COMMIT="$(git -C "$REPO" rev-parse --short HEAD 2>/dev/null || echo unknown)"

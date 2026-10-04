@@ -598,7 +598,7 @@ HEROFIXJS;
         echo '        var err=(window.S2NRI_CONFIG&&window.S2NRI_CONFIG.bootError)||"";' . "\n";
         echo '        root.innerHTML=\'<div style="padding:48px 24px;text-align:center;font-family:system-ui,sans-serif;max-width:560px;margin:0 auto">\'+' . "\n";
         echo '          \'<p style="font-weight:700;color:#1e293b">App did not start</p>\'+' . "\n";
-        echo '          \'<p style="color:#64748b;font-size:14px">\'+(msg||"JavaScript failed to load. Open DevTools → Console, or reinstall plugin v4.7.17+.")+\'</p>\'+' . "\n";
+        echo '          \'<p style="color:#64748b;font-size:14px">\'+(msg||"JavaScript failed to load. Open DevTools → Console, or reinstall plugin v4.7.18+.")+\'</p>\'+' . "\n";
         echo '          (err?\'<pre style="text-align:left;font-size:11px;background:#f1f5f9;padding:12px;border-radius:8px;overflow:auto">\'+String(err).replace(/</g,"&lt;")+"</pre>\':"")+' . "\n";
         echo '          \'<p style="font-size:12px;color:#94a3b8">Plugin \'+(window.S2NRI_BOOT&&window.S2NRI_BOOT.pluginVersion||"?")+\'</p>\'+' . "\n";
         echo '          \'<button type="button" onclick="location.reload()" style="padding:10px 20px;border-radius:8px;border:none;background:#4A6FA5;color:#fff;font-weight:600;cursor:pointer">Reload</button></div>\';' . "\n";

@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.18] — 2026-10-04 — Cloud Agent
+
+- **JS boot (verified e2e):** unified `BUILD_STAMP.txt` for `app.js`, CSS, and all import-map chunks; safe `S2NRI_CONFIG` via `application/json` + `JSON.parse`; wp-admin mixed-build notice; boot watchdog detects export mismatch.
+- **PHP:** fix `#` delimiter in service/blog path regex (`Unknown modifier ']'` in diagnostics).
+- **Release gate:** `verify-spa-assets.mjs`, `verify-all.sh`, Playwright production-shell boot tests, zip asset verification before shipping.
+
+---
+
 ## [4.7.15] — 2026-10-04 — Cloud Agent
 
 - **Infinite loader:** verify `assets/app.js` + core chunks exist before showing splash; 8s watchdog + JS error/rejection handlers; design CSS wrapped in try/catch so boot cannot fatal mid-page.

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleMockApi } from './mock-api.mjs';
+import { buildProductionShell } from './production-shell.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
@@ -27,9 +28,19 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (
+    !url.pathname.startsWith('/assets/') &&
+    url.searchParams.get('shell') === 'production'
+  ) {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(buildProductionShell(root));
+    return;
+  }
+
   let filePath;
   if (url.pathname.startsWith('/assets/')) {
-    filePath = path.join(root, url.pathname.slice(1));
+    const assetPath = url.pathname.slice(1).split('?')[0];
+    filePath = path.join(root, assetPath);
   } else {
     filePath = path.join(root, 'e2e/spa.html');
   }
