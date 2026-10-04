@@ -1,0 +1,110 @@
+<?php
+namespace S2NRI\Api\Controllers;
+
+defined( 'ABSPATH' ) || exit;
+
+use S2NRI\Api\Request;
+use S2NRI\Api\Response;
+use S2NRI\Design\DesignPresets;
+use S2NRI\Design\DesignSystem;
+use S2NRI\Design\FontLibrary;
+use S2NRI\Services\ServiceRegistry;
+
+class DesignSystemController extends BaseController {
+
+    public function getPublic( Request $req ): void {
+        Response::json( [
+            'design'  => DesignSystem::getPublicPayload(),
+            'presets' => array_keys( DesignPresets::list() ),
+        ] );
+    }
+
+    public function getAdmin( Request $req ): void {
+        $this->requireManager();
+        Response::json( [
+            'config'  => DesignSystem::resolve( [] ),
+            'presets' => DesignPresets::list(),
+            'fonts'   => [
+                'categories' => FontLibrary::categories(),
+                'library'    => FontLibrary::all(),
+            ],
+        ] );
+    }
+
+    public function update( Request $req ): void {
+        $this->requireManager();
+        $body = $req->body();
+        if ( ! is_array( $body ) ) {
+            Response::json( [ 'error' => 'Invalid payload.' ], 422 );
+            return;
+        }
+        DesignSystem::save( $body );
+        Response::json( [ 'ok' => true, 'config' => DesignSystem::resolve( [] ) ] );
+    }
+
+    public function applyPreset( Request $req ): void {
+        $this->requireManager();
+        $id = sanitize_key( (string) $req->input( 'preset', '' ) );
+        if ( ! $id || ! isset( DesignPresets::list()[ $id ] ) ) {
+            Response::json( [ 'error' => 'Unknown preset.' ], 422 );
+            return;
+        }
+        $config = DesignSystem::applyPreset( $id );
+        Response::json( [ 'ok' => true, 'config' => $config ] );
+    }
+
+    public function fonts( Request $req ): void {
+        $this->requireStaff();
+        $q    = sanitize_text_field( $req->query( 'q', '' ) );
+        $cat  = sanitize_text_field( $req->query( 'category', '' ) );
+        Response::json( [ 'fonts' => FontLibrary::search( $q, $cat ?: null ) ] );
+    }
+}
+
+class NavigationController extends BaseController {
+
+    public function getPublic( Request $req ): void {
+        ServiceRegistry::seedNavMenuStructureIfMissing();
+        Response::json( [
+            'menu'     => ServiceRegistry::buildNavigationMenu(),
+            'services' => ServiceRegistry::forSurface( 'nav_dropdown' ),
+        ] );
+    }
+}
+
+class ServiceRegistryAdminController extends BaseController {
+
+    public function registry( Request $req ): void {
+        $this->requireStaff();
+        Response::json( [
+            'services'  => ServiceRegistry::allServices( true ),
+            'surfaces'  => ServiceRegistry::SURFACES,
+            'statuses'  => ServiceRegistry::STATUSES,
+        ] );
+    }
+
+    public function impact( Request $req ): void {
+        $this->requireStaff();
+        $id = (int) $req->param( 'id' );
+        Response::json( ServiceRegistry::impactPreview( $id ) );
+    }
+
+    public function updateVisibility( Request $req ): void {
+        $this->requireManager();
+        $id = (int) $req->param( 'id' );
+        $body = $req->body();
+        if ( ! is_array( $body ) ) {
+            Response::json( [ 'error' => 'Invalid payload.' ], 422 );
+            return;
+        }
+        $ok = ServiceRegistry::updateServiceVisibility( $id, $body );
+        if ( ! $ok ) {
+            Response::json( [ 'error' => 'Nothing to update.' ], 422 );
+            return;
+        }
+        Response::json( [
+            'ok'     => true,
+            'impact' => ServiceRegistry::impactPreview( $id ),
+        ] );
+    }
+}

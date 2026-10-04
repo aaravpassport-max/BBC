@@ -1,0 +1,1373 @@
+{
+  "version": 1,
+  "fonts": [
+    {
+      "id": "inter",
+      "name": "Inter",
+      "category": "Modern UI",
+      "stack": "sans-serif",
+      "google_family": "Inter",
+      "pairing": "Highly readable UI font; pairs with Source Serif 4",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "roboto",
+      "name": "Roboto",
+      "category": "Modern UI",
+      "stack": "sans-serif",
+      "google_family": "Roboto",
+      "pairing": "Google workhorse; pairs with Roboto Slab",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "open-sans",
+      "name": "Open Sans",
+      "category": "Humanist",
+      "stack": "sans-serif",
+      "google_family": "Open+Sans",
+      "pairing": "Friendly corporate; pairs with Merriweather",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "lato",
+      "name": "Lato",
+      "category": "Humanist",
+      "stack": "sans-serif",
+      "google_family": "Lato",
+      "pairing": "Warm professional; pairs with Playfair Display",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "montserrat",
+      "name": "Montserrat",
+      "category": "Geometric",
+      "stack": "sans-serif",
+      "google_family": "Montserrat",
+      "pairing": "Modern headings; pairs with Merriweather",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "poppins",
+      "name": "Poppins",
+      "category": "Geometric",
+      "stack": "sans-serif",
+      "google_family": "Poppins",
+      "pairing": "Friendly startup; pairs with Lora",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "nunito",
+      "name": "Nunito",
+      "category": "Friendly",
+      "stack": "sans-serif",
+      "google_family": "Nunito",
+      "pairing": "Rounded approachable; pairs with Source Serif 4",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "raleway",
+      "name": "Raleway",
+      "category": "Elegant",
+      "stack": "sans-serif",
+      "google_family": "Raleway",
+      "pairing": "Thin elegant headings; pairs with Lora",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "work-sans",
+      "name": "Work Sans",
+      "category": "Modern UI",
+      "stack": "sans-serif",
+      "google_family": "Work+Sans",
+      "pairing": "Clean UI; pairs with Libre Baskerville",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "source-sans-3",
+      "name": "Source Sans 3",
+      "category": "Corporate",
+      "stack": "sans-serif",
+      "google_family": "Source+Sans+3",
+      "pairing": "Adobe corporate; pairs with Source Serif 4",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "dm-sans",
+      "name": "DM Sans",
+      "category": "Modern UI",
+      "stack": "sans-serif",
+      "google_family": "DM+Sans",
+      "pairing": "Geometric UI; pairs with DM Serif Display",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "manrope",
+      "name": "Manrope",
+      "category": "Modern UI",
+      "stack": "sans-serif",
+      "google_family": "Manrope",
+      "pairing": "Rounded geometric; pairs with Fraunces",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "plus-jakarta-sans",
+      "name": "Plus Jakarta Sans",
+      "category": "Premium",
+      "stack": "sans-serif",
+      "google_family": "Plus+Jakarta+Sans",
+      "pairing": "SaaS premium; pairs with Newsreader",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "outfit",
+      "name": "Outfit",
+      "category": "Geometric",
+      "stack": "sans-serif",
+      "google_family": "Outfit",
+      "pairing": "Display-friendly; pairs with Literata",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "figtree",
+      "name": "Figtree",
+      "category": "Friendly",
+      "stack": "sans-serif",
+      "google_family": "Figtree",
+      "pairing": "Contemporary; pairs with Fraunces",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "lexend",
+      "name": "Lexend",
+      "category": "Highly readable UI",
+      "stack": "sans-serif",
+      "google_family": "Lexend",
+      "pairing": "Accessibility-first; pairs with Source Serif 4",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "rubik",
+      "name": "Rubik",
+      "category": "Friendly",
+      "stack": "sans-serif",
+      "google_family": "Rubik",
+      "pairing": "Soft corners; pairs with Merriweather",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "karla",
+      "name": "Karla",
+      "category": "Humanist",
+      "stack": "sans-serif",
+      "google_family": "Karla",
+      "pairing": "Editorial sans; pairs with Lora",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "mulish",
+      "name": "Mulish",
+      "category": "Modern UI",
+      "stack": "sans-serif",
+      "google_family": "Mulish",
+      "pairing": "Minimal UI; pairs with Playfair Display",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "barlow",
+      "name": "Barlow",
+      "category": "Corporate",
+      "stack": "sans-serif",
+      "google_family": "Barlow",
+      "pairing": "Industrial clean; pairs with Barlow Condensed",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "ibm-plex-sans",
+      "name": "IBM Plex Sans",
+      "category": "Corporate",
+      "stack": "sans-serif",
+      "google_family": "IBM+Plex+Sans",
+      "pairing": "Enterprise; pairs with IBM Plex Serif",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "public-sans",
+      "name": "Public Sans",
+      "category": "Government/Documentation",
+      "stack": "sans-serif",
+      "google_family": "Public+Sans",
+      "pairing": "US Web Design System; pairs with Public Sans",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "noto-sans",
+      "name": "Noto Sans",
+      "category": "Highly readable UI",
+      "stack": "sans-serif",
+      "google_family": "Noto+Sans",
+      "pairing": "Global scripts; pairs with Noto Serif",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "ubuntu",
+      "name": "Ubuntu",
+      "category": "Friendly",
+      "stack": "sans-serif",
+      "google_family": "Ubuntu",
+      "pairing": "Humanist tech; pairs with Ubuntu Mono",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "fira-sans",
+      "name": "Fira Sans",
+      "category": "Modern UI",
+      "stack": "sans-serif",
+      "google_family": "Fira+Sans",
+      "pairing": "Mozilla UI; pairs with Fira Code",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "pt-sans",
+      "name": "PT Sans",
+      "category": "Corporate",
+      "stack": "sans-serif",
+      "google_family": "PT+Sans",
+      "pairing": "Cyrillic support; pairs with PT Serif",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "oswald",
+      "name": "Oswald",
+      "category": "Display",
+      "stack": "sans-serif",
+      "google_family": "Oswald",
+      "pairing": "Condensed headlines; pairs with Source Sans 3",
+      "roles": [
+        "heading",
+        "display"
+      ]
+    },
+    {
+      "id": "bebas-neue",
+      "name": "Bebas Neue",
+      "category": "Display",
+      "stack": "display",
+      "google_family": "Bebas+Neue",
+      "pairing": "Bold headlines; pairs with Montserrat",
+      "roles": [
+        "heading",
+        "display"
+      ]
+    },
+    {
+      "id": "anton",
+      "name": "Anton",
+      "category": "Display",
+      "stack": "display",
+      "google_family": "Anton",
+      "pairing": "Impact headlines; pairs with Roboto",
+      "roles": [
+        "heading",
+        "display"
+      ]
+    },
+    {
+      "id": "archivo",
+      "name": "Archivo",
+      "category": "Modern UI",
+      "stack": "sans-serif",
+      "google_family": "Archivo",
+      "pairing": "News style; pairs with Archivo Black",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "space-grotesk",
+      "name": "Space Grotesk",
+      "category": "Geometric",
+      "stack": "sans-serif",
+      "google_family": "Space+Grotesk",
+      "pairing": "Tech startup; pairs with Space Mono",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "sora",
+      "name": "Sora",
+      "category": "Premium",
+      "stack": "sans-serif",
+      "google_family": "Sora",
+      "pairing": "Futuristic clean; pairs with Newsreader",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "urbanist",
+      "name": "Urbanist",
+      "category": "Geometric",
+      "stack": "sans-serif",
+      "google_family": "Urbanist",
+      "pairing": "Modern product; pairs with Fraunces",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "red-hat-display",
+      "name": "Red Hat Display",
+      "category": "Corporate",
+      "stack": "sans-serif",
+      "google_family": "Red+Hat+Display",
+      "pairing": "Red Hat brand; pairs with Red Hat Text",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "red-hat-text",
+      "name": "Red Hat Text",
+      "category": "Corporate",
+      "stack": "sans-serif",
+      "google_family": "Red+Hat+Text",
+      "pairing": "Body corporate; pairs with Red Hat Display",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "libre-franklin",
+      "name": "Libre Franklin",
+      "category": "Editorial",
+      "stack": "sans-serif",
+      "google_family": "Libre+Franklin",
+      "pairing": "News sans; pairs with Libre Baskerville",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "heebo",
+      "name": "Heebo",
+      "category": "Modern UI",
+      "stack": "sans-serif",
+      "google_family": "Heebo",
+      "pairing": "Hebrew/Latin; pairs with Frank Ruhl Libre",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "titillium-web",
+      "name": "Titillium Web",
+      "category": "Geometric",
+      "stack": "sans-serif",
+      "google_family": "Titillium+Web",
+      "pairing": "Tech headings; pairs with Lato",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "josefin-sans",
+      "name": "Josefin Sans",
+      "category": "Elegant",
+      "stack": "sans-serif",
+      "google_family": "Josefin+Sans",
+      "pairing": "Vintage elegant; pairs with Playfair Display",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "quicksand",
+      "name": "Quicksand",
+      "category": "Friendly",
+      "stack": "sans-serif",
+      "google_family": "Quicksand",
+      "pairing": "Rounded friendly; pairs with Nunito",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "exo-2",
+      "name": "Exo 2",
+      "category": "Display",
+      "stack": "sans-serif",
+      "google_family": "Exo+2",
+      "pairing": "Futuristic; pairs with Roboto",
+      "roles": [
+        "heading",
+        "display"
+      ]
+    },
+    {
+      "id": "kanit",
+      "name": "Kanit",
+      "category": "Display",
+      "stack": "sans-serif",
+      "google_family": "Kanit",
+      "pairing": "Thai/Latin display; pairs with Prompt",
+      "roles": [
+        "heading",
+        "display"
+      ]
+    },
+    {
+      "id": "prompt",
+      "name": "Prompt",
+      "category": "Modern UI",
+      "stack": "sans-serif",
+      "google_family": "Prompt",
+      "pairing": "Thai/Latin UI; pairs with Kanit",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "signika",
+      "name": "Signika",
+      "category": "Friendly",
+      "stack": "sans-serif",
+      "google_family": "Signika",
+      "pairing": "Signage inspired; pairs with Signika Negative",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "signika-negative",
+      "name": "Signika Negative",
+      "category": "Friendly",
+      "stack": "sans-serif",
+      "google_family": "Signika+Negative",
+      "pairing": "Light friendly; pairs with Signika",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "catamaran",
+      "name": "Catamaran",
+      "category": "Modern UI",
+      "stack": "sans-serif",
+      "google_family": "Catamaran",
+      "pairing": "Tamil/Latin; pairs with Hind",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "hind",
+      "name": "Hind",
+      "category": "Modern UI",
+      "stack": "sans-serif",
+      "google_family": "Hind",
+      "pairing": "Indian languages; pairs with Poppins",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "mukta",
+      "name": "Mukta",
+      "category": "Humanist",
+      "stack": "sans-serif",
+      "google_family": "Mukta",
+      "pairing": "Devanagari/Latin; pairs with Hind",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "asap",
+      "name": "Asap",
+      "category": "Geometric",
+      "stack": "sans-serif",
+      "google_family": "Asap",
+      "pairing": "Rounded geometric; pairs with Vollkorn",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "cabin",
+      "name": "Cabin",
+      "category": "Humanist",
+      "stack": "sans-serif",
+      "google_family": "Cabin",
+      "pairing": "Humanist UI; pairs with Crimson Pro",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "merriweather",
+      "name": "Merriweather",
+      "category": "Editorial",
+      "stack": "serif",
+      "google_family": "Merriweather",
+      "pairing": "Readable serif body; pairs with Montserrat",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "lora",
+      "name": "Lora",
+      "category": "Elegant",
+      "stack": "serif",
+      "google_family": "Lora",
+      "pairing": "Contemporary serif; pairs with Montserrat",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "playfair-display",
+      "name": "Playfair Display",
+      "category": "Elegant",
+      "stack": "serif",
+      "google_family": "Playfair+Display",
+      "pairing": "High-contrast display; pairs with Source Sans 3",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "source-serif-4",
+      "name": "Source Serif 4",
+      "category": "Editorial",
+      "stack": "serif",
+      "google_family": "Source+Serif+4",
+      "pairing": "Adobe serif; pairs with Source Sans 3",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "libre-baskerville",
+      "name": "Libre Baskerville",
+      "category": "Classic",
+      "stack": "serif",
+      "google_family": "Libre+Baskerville",
+      "pairing": "Traditional web; pairs with Libre Franklin",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "crimson-pro",
+      "name": "Crimson Pro",
+      "category": "Editorial",
+      "stack": "serif",
+      "google_family": "Crimson+Pro",
+      "pairing": "Book typography; pairs with Work Sans",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "eb-garamond",
+      "name": "EB Garamond",
+      "category": "Classic",
+      "stack": "serif",
+      "google_family": "EB+Garamond",
+      "pairing": "Classic book; pairs with Lato",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "cormorant-garamond",
+      "name": "Cormorant Garamond",
+      "category": "Elegant",
+      "stack": "serif",
+      "google_family": "Cormorant+Garamond",
+      "pairing": "Fashion elegant; pairs with Montserrat",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "bitter",
+      "name": "Bitter",
+      "category": "Editorial",
+      "stack": "serif",
+      "google_family": "Bitter",
+      "pairing": "Slab serif body; pairs with Raleway",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "pt-serif",
+      "name": "PT Serif",
+      "category": "Corporate",
+      "stack": "serif",
+      "google_family": "PT+Serif",
+      "pairing": "Cyrillic serif; pairs with PT Sans",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "noto-serif",
+      "name": "Noto Serif",
+      "category": "Highly readable UI",
+      "stack": "serif",
+      "google_family": "Noto+Serif",
+      "pairing": "Global serif; pairs with Noto Sans",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "ibm-plex-serif",
+      "name": "IBM Plex Serif",
+      "category": "Corporate",
+      "stack": "serif",
+      "google_family": "IBM+Plex+Serif",
+      "pairing": "Enterprise serif; pairs with IBM Plex Sans",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "literata",
+      "name": "Literata",
+      "category": "Editorial",
+      "stack": "serif",
+      "google_family": "Literata",
+      "pairing": "Google Books; pairs with Outfit",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "newsreader",
+      "name": "Newsreader",
+      "category": "Editorial",
+      "stack": "serif",
+      "google_family": "Newsreader",
+      "pairing": "News serif; pairs with Plus Jakarta Sans",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "fraunces",
+      "name": "Fraunces",
+      "category": "Display",
+      "stack": "serif",
+      "google_family": "Fraunces",
+      "pairing": "Soft display serif; pairs with Manrope",
+      "roles": [
+        "heading",
+        "display"
+      ]
+    },
+    {
+      "id": "dm-serif-display",
+      "name": "DM Serif Display",
+      "category": "Display",
+      "stack": "serif",
+      "google_family": "DM+Serif+Display",
+      "pairing": "High contrast; pairs with DM Sans",
+      "roles": [
+        "heading",
+        "display"
+      ]
+    },
+    {
+      "id": "dm-serif-text",
+      "name": "DM Serif Text",
+      "category": "Editorial",
+      "stack": "serif",
+      "google_family": "DM+Serif+Text",
+      "pairing": "Body serif; pairs with DM Sans",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "spectral",
+      "name": "Spectral",
+      "category": "Editorial",
+      "stack": "serif",
+      "google_family": "Spectral",
+      "pairing": "Literary; pairs with Karla",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "vollkorn",
+      "name": "Vollkorn",
+      "category": "Classic",
+      "stack": "serif",
+      "google_family": "Vollkorn",
+      "pairing": "Book classic; pairs with Asap",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "cardo",
+      "name": "Cardo",
+      "category": "Classic",
+      "stack": "serif",
+      "google_family": "Cardo",
+      "pairing": "Scholarly; pairs with Lato",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "roboto-slab",
+      "name": "Roboto Slab",
+      "category": "Modern UI",
+      "stack": "serif",
+      "google_family": "Roboto+Slab",
+      "pairing": "Slab pairing; pairs with Roboto",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "zilla-slab",
+      "name": "Zilla Slab",
+      "category": "Editorial",
+      "stack": "serif",
+      "google_family": "Zilla+Slab",
+      "pairing": "Mozilla slab; pairs with Zilla Slab Highlight",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "arvo",
+      "name": "Arvo",
+      "category": "Modern UI",
+      "stack": "serif",
+      "google_family": "Arvo",
+      "pairing": "Geometric slab; pairs with Lato",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "roboto-serif",
+      "name": "Roboto Serif",
+      "category": "Modern UI",
+      "stack": "serif",
+      "google_family": "Roboto+Serif",
+      "pairing": "Variable serif; pairs with Roboto",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "inria-serif",
+      "name": "Inria Serif",
+      "category": "Editorial",
+      "stack": "serif",
+      "google_family": "Inria+Serif",
+      "pairing": "French design; pairs with Inria Sans",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "inria-sans",
+      "name": "Inria Sans",
+      "category": "Editorial",
+      "stack": "sans-serif",
+      "google_family": "Inria+Sans",
+      "pairing": "French sans; pairs with Inria Serif",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "frank-ruhl-libre",
+      "name": "Frank Ruhl Libre",
+      "category": "Classic",
+      "stack": "serif",
+      "google_family": "Frank+Ruhl+Libre",
+      "pairing": "Hebrew/Latin; pairs with Heebo",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "alegreya",
+      "name": "Alegreya",
+      "category": "Editorial",
+      "stack": "serif",
+      "google_family": "Alegreya",
+      "pairing": "Calligraphic; pairs with Alegreya Sans",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "alegreya-sans",
+      "name": "Alegreya Sans",
+      "category": "Humanist",
+      "stack": "sans-serif",
+      "google_family": "Alegreya+Sans",
+      "pairing": "Humanist; pairs with Alegreya",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "tenor-sans",
+      "name": "Tenor Sans",
+      "category": "Elegant",
+      "stack": "sans-serif",
+      "google_family": "Tenor+Sans",
+      "pairing": "Fashion; pairs with Cormorant Garamond",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "syne",
+      "name": "Syne",
+      "category": "Display",
+      "stack": "sans-serif",
+      "google_family": "Syne",
+      "pairing": "Artistic display; pairs with Inter",
+      "roles": [
+        "heading",
+        "display"
+      ]
+    },
+    {
+      "id": "bodoni-moda",
+      "name": "Bodoni Moda",
+      "category": "Elegant",
+      "stack": "serif",
+      "google_family": "Bodoni+Moda",
+      "pairing": "High fashion; pairs with Work Sans",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "marcellus",
+      "name": "Marcellus",
+      "category": "Elegant",
+      "stack": "serif",
+      "google_family": "Marcellus",
+      "pairing": "Roman inscription; pairs with Open Sans",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "cinzel",
+      "name": "Cinzel",
+      "category": "Elegant",
+      "stack": "serif",
+      "google_family": "Cinzel",
+      "pairing": "Roman caps; pairs with Fauna One",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "fauna-one",
+      "name": "Fauna One",
+      "category": "Friendly",
+      "stack": "serif",
+      "google_family": "Fauna+One",
+      "pairing": "Soft serif; pairs with Cinzel",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "petrona",
+      "name": "Petrona",
+      "category": "Friendly",
+      "stack": "serif",
+      "google_family": "Petrona",
+      "pairing": "Venezuelan; pairs with Mulish",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "nunito-sans",
+      "name": "Nunito Sans",
+      "category": "Friendly",
+      "stack": "sans-serif",
+      "google_family": "Nunito+Sans",
+      "pairing": "Nunito companion; pairs with Nunito",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "albert-sans",
+      "name": "Albert Sans",
+      "category": "Geometric",
+      "stack": "sans-serif",
+      "google_family": "Albert+Sans",
+      "pairing": "Geometric UI; pairs with Fraunces",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "commissioner",
+      "name": "Commissioner",
+      "category": "Government/Documentation",
+      "stack": "sans-serif",
+      "google_family": "Commissioner",
+      "pairing": "Variable gov; pairs with Literata",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "atkinson-hyperlegible",
+      "name": "Atkinson Hyperlegible",
+      "category": "Highly readable UI",
+      "stack": "sans-serif",
+      "google_family": "Atkinson+Hyperlegible",
+      "pairing": "Accessibility; pairs with Source Serif 4",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "recursive",
+      "name": "Recursive",
+      "category": "Modern UI",
+      "stack": "sans-serif",
+      "google_family": "Recursive",
+      "pairing": "Variable casual; pairs with Literata",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "chivo",
+      "name": "Chivo",
+      "category": "Corporate",
+      "stack": "sans-serif",
+      "google_family": "Chivo",
+      "pairing": "News corporate; pairs with Chivo Mono",
+      "roles": [
+        "heading",
+        "body",
+        "ui",
+        "button"
+      ]
+    },
+    {
+      "id": "chivo-mono",
+      "name": "Chivo Mono",
+      "category": "Modern UI",
+      "stack": "monospace",
+      "google_family": "Chivo+Mono",
+      "pairing": "Mono companion; pairs with Chivo",
+      "roles": [
+        "ui",
+        "code"
+      ]
+    },
+    {
+      "id": "jetbrains-mono",
+      "name": "JetBrains Mono",
+      "category": "Modern UI",
+      "stack": "monospace",
+      "google_family": "JetBrains+Mono",
+      "pairing": "Developer; pairs with Inter",
+      "roles": [
+        "ui",
+        "code"
+      ]
+    },
+    {
+      "id": "fira-code",
+      "name": "Fira Code",
+      "category": "Modern UI",
+      "stack": "monospace",
+      "google_family": "Fira+Code",
+      "pairing": "Ligatures; pairs with Fira Sans",
+      "roles": [
+        "ui",
+        "code"
+      ]
+    },
+    {
+      "id": "space-mono",
+      "name": "Space Mono",
+      "category": "Geometric",
+      "stack": "monospace",
+      "google_family": "Space+Mono",
+      "pairing": "Retro mono; pairs with Space Grotesk",
+      "roles": [
+        "ui",
+        "code"
+      ]
+    },
+    {
+      "id": "courier-prime",
+      "name": "Courier Prime",
+      "category": "Classic",
+      "stack": "monospace",
+      "google_family": "Courier+Prime",
+      "pairing": "Screenplay; pairs with Lora",
+      "roles": [
+        "ui",
+        "code"
+      ]
+    },
+    {
+      "id": "roboto-mono",
+      "name": "Roboto Mono",
+      "category": "Modern UI",
+      "stack": "monospace",
+      "google_family": "Roboto+Mono",
+      "pairing": "Google mono; pairs with Roboto",
+      "roles": [
+        "ui",
+        "code"
+      ]
+    },
+    {
+      "id": "source-code-pro",
+      "name": "Source Code Pro",
+      "category": "Corporate",
+      "stack": "monospace",
+      "google_family": "Source+Code+Pro",
+      "pairing": "Adobe code; pairs with Source Sans 3",
+      "roles": [
+        "ui",
+        "code"
+      ]
+    },
+    {
+      "id": "inconsolata",
+      "name": "Inconsolata",
+      "category": "Modern UI",
+      "stack": "monospace",
+      "google_family": "Inconsolata",
+      "pairing": "Humanist mono; pairs with Open Sans",
+      "roles": [
+        "ui",
+        "code"
+      ]
+    }
+  ]
+}

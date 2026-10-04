@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S2NRI Builder</title>
+  <script>
+    window.S2NRI_BUILDER = {
+      apiBase: 'http://localhost/wp-json/s2nri/v1',
+      nonce: 'dev_nonce',
+      portalToken: '',
+      version: '4.3.25',
+      siteUrl: 'http://localhost',
+      adminUrl: '/admin',
+    }
+  </script>
+  <script type="module" crossorigin src="./s2nri-builder.js"></script>
+  <link rel="stylesheet" crossorigin href="./s2nri-builder.css">
+</head>
+<body>
+  <div id="s2nri-builder-root"></div>
+</body>
+</html>
