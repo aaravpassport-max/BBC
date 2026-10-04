@@ -86,6 +86,7 @@ class HeroInjector {
         return ob_get_clean();
     }
 
+    /** Legacy section navigator — not injected on public service pages (see SEO.php). */
     public static function renderSectionNav( string $slug, array $global_settings ): string {
         global $wpdb;
         $p     = $wpdb->prefix;

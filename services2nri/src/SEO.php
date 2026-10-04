@@ -457,12 +457,9 @@ HEROFIXJS;
             global $wpdb;
             $svc_slug = sanitize_key( $m[1] );
 
-            // Always inject the section navigator — it queries sections internally.
-            // Do NOT gate on $svc_row because the DB query can fail silently
-            // (e.g. object cache returning stale null) even when React loads fine.
-            echo \HeroInjector::renderSectionNav( $svc_slug, $settings_flat );
+            // Section nav ("On this page" left sidebar) removed — service layout is SPA-only.
 
-            // Try to load hero/marquee settings — optional, doesn't block nav
+            // Try to load hero/marquee settings
             $svc_row = $wpdb->get_row( $wpdb->prepare(
                 "SELECT hero_settings, marquee_settings, image_url, name
                  FROM `{$wpdb->prefix}s2nri_services`
