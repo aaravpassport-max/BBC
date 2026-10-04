@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.13] — 2026-10-04 — Cloud Agent
+
+- **Fatal fix:** register `S2NRI\Design\WidthLayout` in `services2nri.php` classmap (fixes `Class WidthLayout not found` on public site boot).
+
+---
+
 ## [4.7.12] — 2026-10-04 — Cloud Agent
 
 - **Packaging:** rsync staging (never copies `node_modules`); zip self-check + 6 MB cap; `RELEASE-MANIFEST.json` inside plugin; duplicate **`services2nri-full-source.zip`** for cache-safe downloads.

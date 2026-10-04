@@ -65,6 +65,7 @@ grep -q 'sectionMaxFromLayer' src/Design/WidthLayout.php && grep -q 'sec-.*-max'
 grep -q 'applySectionOverrideCss' src/lib/design-resolve.ts && ok section override live sync || bad section override live sync
 grep -q 'renderSectionOverrideCss' src/Design/DesignSystem.php && ok section override css || bad section override css
 grep -q 'configFromPreset' src/Design/DesignSystem.php && ok preset full look builder || bad preset full look builder
+grep -q "Design\\\\WidthLayout" services2nri.php && grep -q 'Design/WidthLayout.php' services2nri.php && ok WidthLayout classmap || bad WidthLayout classmap
 grep -q 'publicRevision' src/Design/DesignSystem.php && ok design public revision || bad design public revision
 [[ -f src/lib/design-live-sync.ts ]] && grep -q 'syncDesignFromServer' src/lib/design-live-sync.ts && ok design live sync || bad design live sync
 php scripts/audit-preset-looks.php && ok preset look audit || bad preset look audit
