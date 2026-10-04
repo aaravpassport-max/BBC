@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.34] — 2026-10-04 — Cloud Agent
+
+- **Page Templates:** Inherited vs Custom badges, per-field **Clear override**, and **Reset template to Site Foundation** (colors, typography, chrome, page max width via `null` delete on save).
+- **Design admin copy:** Colors, Typography, Site Chrome tabs document Site Foundation inheritance.
+- Unit test: template color override clears with `null`.
+
+---
+
 ## [4.7.33] — 2026-10-04 — Cloud Agent
 
 - **Services directory:** edge-to-edge card images, responsive grid (1 col mobile / multi-col desktop), badge and copy polish.

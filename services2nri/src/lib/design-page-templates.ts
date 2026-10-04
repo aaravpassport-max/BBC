@@ -184,3 +184,34 @@ export function readNestedString(root: Record<string, unknown>, path: string[]):
   }
   return typeof cur === 'string' ? cur : ''
 }
+
+export function templatePageMaxPath(t: PageTemplateDef): string[] | null {
+  if (t.widthPageSlug) return ['widths', 'pages', t.widthPageSlug, 'page_max']
+  if (t.widthSlugAlias) return ['widths', 'page_types', t.widthSlugAlias, 'page_max']
+  if (t.widthPageType) return ['widths', 'page_types', t.widthPageType, 'page_max']
+  return null
+}
+
+export const TEMPLATE_COLOR_KEYS = ['primary', 'background', 'heading', 'accent'] as const
+
+export function templateColorOverridePath(t: PageTemplateDef, key: string): string[] {
+  if (t.overridePageSlug) return ['overrides', 'pages', t.overridePageSlug, 'colors', key]
+  const pt = t.overridePageType || t.widthPageType || t.id
+  return ['overrides', 'page_types', pt, 'colors', key]
+}
+
+/** Clear all page-template overrides (colors, typography samples, chrome, page_max width). */
+export function clearTemplateOverrides(
+  t: PageTemplateDef,
+  patch: (path: string[], value: unknown) => void,
+): void {
+  for (const key of TEMPLATE_COLOR_KEYS) {
+    patch(templateColorOverridePath(t, key), null)
+  }
+  patch(templateTypographyPath(t, 'page_title', 'size_desktop'), null)
+  patch(templateTypographyPath(t, 'body', 'size_desktop'), null)
+  patch(templateChromePath(t, 'footer_bg'), null)
+  patch(templateChromePath(t, 'footer_variant'), null)
+  const pm = templatePageMaxPath(t)
+  if (pm) patch(pm, null)
+}

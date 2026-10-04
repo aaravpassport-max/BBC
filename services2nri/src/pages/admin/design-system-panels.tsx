@@ -8,9 +8,14 @@ import {
   PAGE_TEMPLATES,
   readNestedString,
   templateChromePath,
+  templateColorOverridePath,
+  templatePageMaxPath,
   templateTypographyPath,
+  TEMPLATE_COLOR_KEYS,
+  clearTemplateOverrides,
   type PageTemplateDef,
 } from '@/lib/design-page-templates'
+import { hasOverrideAtPath, OverrideFieldShell } from './design-inherit-ui'
 import { WIDTH_PAGE_TYPES } from '@/lib/width-layout'
 import type { WidthLayoutFocus } from './width-layout-panel'
 
@@ -504,14 +509,6 @@ export function CityRegistryPanel({
   )
 }
 
-const TEMPLATE_COLOR_KEYS = ['primary', 'background', 'heading', 'accent'] as const
-
-function templateOverridePath(t: PageTemplateDef, key: string): string[] {
-  if (t.overridePageSlug) return ['overrides', 'pages', t.overridePageSlug, 'colors', key]
-  const pt = t.overridePageType || t.widthPageType || t.id
-  return ['overrides', 'page_types', pt, 'colors', key]
-}
-
 function readTemplateColor(overrides: Record<string, Record<string, unknown>>, t: PageTemplateDef, key: string): string {
   if (t.overridePageSlug) {
     const pages = (overrides.pages || {}) as Record<string, Record<string, unknown>>
@@ -533,7 +530,8 @@ export function SiteChromePanel({
   return (
     <div style={{ display: 'grid', gap: 20, maxWidth: 900 }}>
       <p style={{ margin: 0, fontSize: 13, color: '#64748B' }}>
-        Global header, top bar, and footer defaults. Override per template under <strong>Page Templates</strong>.
+        <strong>Site Foundation</strong> header, top bar, and footer defaults. Per-template chrome overrides live under{' '}
+        <strong>Page Templates</strong> (each field has <strong>Clear override</strong>).
       </p>
       <label style={{ fontSize: 13, display: 'flex', alignItems: 'center', gap: 8 }}>
         <input
@@ -583,6 +581,8 @@ export function PageTemplatesPanel({
   overrides,
   widths,
   chrome,
+  globalColors,
+  configRoot,
   patch,
   onOpenWidth,
   onPreviewPath,
@@ -590,6 +590,8 @@ export function PageTemplatesPanel({
   overrides: Record<string, Record<string, unknown>>
   widths: Record<string, unknown>
   chrome: Record<string, unknown>
+  globalColors: Record<string, string>
+  configRoot: Record<string, unknown>
   patch: PatchFn
   onOpenWidth: (focus: WidthLayoutFocus) => void
   onPreviewPath?: (path: string) => void
@@ -598,8 +600,9 @@ export function PageTemplatesPanel({
   return (
     <div style={{ display: 'grid', gap: 24 }}>
       <p style={{ margin: 0, color: '#64748B', maxWidth: 720, fontSize: 13 }}>
-        Control each public template individually: brand colors per template, quick page max width, then open{' '}
-        <strong>Width &amp; Layout</strong> for full responsive section control. Changes apply on publish; public SPA routes pick up updates automatically (live sync).
+        Each field inherits from <strong>Site Foundation</strong> (Global colors, typography, Site Chrome, Layout Studio)
+        until you customize it. Use <strong>Clear override</strong> to revert a single control, or reset the whole template below.
+        Open <strong>Width &amp; Layout</strong> for full responsive section control.
       </p>
       <div style={{ display: 'grid', gap: 16 }}>
         {PAGE_TEMPLATES.map((t) => {
@@ -617,65 +620,122 @@ export function PageTemplatesPanel({
             pageMax = typeof pm === 'object' && pm !== null ? String((pm as Record<string, string>).desktop || '') : String(pm || '')
           }
 
-          const setPageMax = (px: string) => {
-            const layer = { desktop: parsePx(px), laptop: parsePx(px), tablet: '94%', mobile: '100%' }
-            if (t.widthPageSlug) {
-              patch(['widths', 'pages', t.widthPageSlug, 'page_max'], layer)
-            } else if (t.widthSlugAlias) {
-              patch(['widths', 'page_types', t.widthSlugAlias, 'page_max'], layer)
-            } else if (t.widthPageType) {
-              patch(['widths', 'page_types', t.widthPageType, 'page_max'], layer)
-            }
-          }
-
           return (
             <fieldset key={t.id} style={{ border: '1px solid #E2E8F0', borderRadius: 14, padding: 18, margin: 0 }}>
               <legend style={{ fontWeight: 800, padding: '0 8px' }}>{t.label}</legend>
               <p style={{ margin: '0 0 12px', fontSize: 12, color: '#64748B' }}>{t.description}</p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12, marginBottom: 12 }}>
-                {TEMPLATE_COLOR_KEYS.map((key) => (
-                  <HexColorField
-                    key={key}
-                    label={key.replace(/_/g, ' ')}
-                    hint={readTemplateColor(overrides, t, key) ? '' : 'Empty = inherit global'}
-                    value={readTemplateColor(overrides, t, key)}
-                    onChange={(v) => patch(templateOverridePath(t, key), v || undefined)}
-                  />
-                ))}
-                <PxTokenField label="Page max (desktop)" value={pageMax} onChange={setPageMax} />
-                <PxTokenField
-                  label="Page title size"
-                  value={readNestedString({ overrides }, templateTypographyPath(t, 'page_title', 'size_desktop'))}
-                  onChange={(v) => patch(templateTypographyPath(t, 'page_title', 'size_desktop'), parsePx(v))}
-                />
-                <PxTokenField
-                  label="Body text size"
-                  value={readNestedString({ overrides }, templateTypographyPath(t, 'body', 'size_desktop'))}
-                  onChange={(v) => patch(templateTypographyPath(t, 'body', 'size_desktop'), parsePx(v))}
-                />
-                <HexColorField
-                  label="Footer background"
-                  hint="Template-only footer"
-                  value={readNestedString({ chrome: chromeRoot }, templateChromePath(t, 'footer_bg'))}
-                  onChange={(v) => patch(templateChromePath(t, 'footer_bg'), v || undefined)}
-                />
-                <label style={{ fontSize: 13 }}>
-                  Footer layout
-                  <select
-                    value={readNestedString({ chrome: chromeRoot }, templateChromePath(t, 'footer_variant')) || 'inherit'}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      patch(templateChromePath(t, 'footer_variant'), val === 'inherit' ? undefined : val)
-                    }}
-                    style={{ display: 'block', width: '100%', marginTop: 6, padding: 8, borderRadius: 8, border: '1px solid #E2E8F0' }}
-                  >
-                    <option value="inherit">Inherit global</option>
-                    <option value="full">Full</option>
-                    <option value="minimal">Minimal</option>
-                  </select>
-                </label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12, marginBottom: 12 }}>
+                {TEMPLATE_COLOR_KEYS.map((key) => {
+                  const path = templateColorOverridePath(t, key)
+                  const inherited = !hasOverrideAtPath(configRoot, path)
+                  const value = readTemplateColor(overrides, t, key)
+                  const foundation = globalColors[key] || ''
+                  return (
+                    <OverrideFieldShell
+                      key={key}
+                      label={key.replace(/_/g, ' ')}
+                      hint={inherited && foundation ? `Site Foundation: ${foundation}` : 'Inherits global color when empty'}
+                      inherited={inherited}
+                      onClear={() => patch(path, null)}
+                    >
+                      <HexColorField
+                        label=""
+                        value={value}
+                        onChange={(v) => patch(path, v.trim() ? v : null)}
+                      />
+                    </OverrideFieldShell>
+                  )
+                })}
+                {(() => {
+                  const pmPath = templatePageMaxPath(t)
+                  if (!pmPath) return null
+                  const inherited = !hasOverrideAtPath(configRoot, pmPath)
+                  return (
+                    <OverrideFieldShell
+                      label="Page max (desktop)"
+                      hint="Full responsive widths → Layout Studio"
+                      inherited={inherited}
+                      onClear={() => patch(pmPath, null)}
+                    >
+                      <PxTokenField label="" value={pageMax} onChange={(v) => patch(pmPath, v.trim() ? {
+                        desktop: parsePx(v),
+                        laptop: parsePx(v),
+                        tablet: '94%',
+                        mobile: '100%',
+                      } : null)} />
+                    </OverrideFieldShell>
+                  )
+                })()}
+                {(['page_title', 'body'] as const).map((role) => {
+                  const path = templateTypographyPath(t, role, 'size_desktop')
+                  const inherited = !hasOverrideAtPath(configRoot, path)
+                  const label = role === 'page_title' ? 'Page title size' : 'Body text size'
+                  return (
+                    <OverrideFieldShell
+                      key={role}
+                      label={label}
+                      inherited={inherited}
+                      onClear={() => patch(path, null)}
+                    >
+                      <PxTokenField
+                        label=""
+                        value={readNestedString(configRoot, path)}
+                        onChange={(v) => patch(path, v.trim() ? parsePx(v) : null)}
+                      />
+                    </OverrideFieldShell>
+                  )
+                })}
+                {(() => {
+                  const path = templateChromePath(t, 'footer_bg')
+                  const inherited = !hasOverrideAtPath(configRoot, path)
+                  return (
+                    <OverrideFieldShell
+                      label="Footer background"
+                      inherited={inherited}
+                      onClear={() => patch(path, null)}
+                    >
+                      <HexColorField
+                        label=""
+                        value={readNestedString({ chrome: chromeRoot }, path)}
+                        onChange={(v) => patch(path, v.trim() ? v : null)}
+                      />
+                    </OverrideFieldShell>
+                  )
+                })()}
+                {(() => {
+                  const path = templateChromePath(t, 'footer_variant')
+                  const inherited = !hasOverrideAtPath(configRoot, path)
+                  const val = readNestedString({ chrome: chromeRoot }, path) || 'inherit'
+                  return (
+                    <OverrideFieldShell
+                      label="Footer layout"
+                      inherited={inherited}
+                      onClear={() => patch(path, null)}
+                    >
+                      <select
+                        value={val}
+                        onChange={(e) => {
+                          const next = e.target.value
+                          patch(path, next === 'inherit' ? null : next)
+                        }}
+                        style={{ display: 'block', width: '100%', marginTop: 4, padding: 8, borderRadius: 8, border: '1px solid #E2E8F0' }}
+                      >
+                        <option value="inherit">Inherit Site Foundation</option>
+                        <option value="full">Full</option>
+                        <option value="minimal">Minimal</option>
+                      </select>
+                    </OverrideFieldShell>
+                  )
+                })()}
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                <button
+                  type="button"
+                  className="s2-btn s2-btn--sm s2-btn--ghost"
+                  onClick={() => clearTemplateOverrides(t, patch)}
+                >
+                  Reset template to Site Foundation
+                </button>
                 <button
                   type="button"
                   className="s2-btn s2-btn--sm s2-btn--outline"

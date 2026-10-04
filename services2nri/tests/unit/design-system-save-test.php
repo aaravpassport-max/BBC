@@ -151,4 +151,31 @@ assert_true(
     'null page_max clears page template override (inherit foundation)'
 );
 
+DesignSystem::save([
+    'overrides' => [
+        'page_types' => [
+            'services' => [
+                'colors' => ['primary' => '#ABCDEF'],
+            ],
+        ],
+    ],
+]);
+
+DesignSystem::save([
+    'overrides' => [
+        'page_types' => [
+            'services' => [
+                'colors' => ['primary' => null],
+            ],
+        ],
+    ],
+]);
+
+$r5 = DesignSystem::resolve([]);
+$svcColors = $r5['overrides']['page_types']['services']['colors'] ?? null;
+assert_true(
+    !is_array($svcColors) || !isset($svcColors['primary']),
+    'null template color clears override (inherit Site Foundation)'
+);
+
 echo "All design-system save tests passed.\n";

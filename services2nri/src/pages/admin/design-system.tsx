@@ -294,7 +294,9 @@ export function AdminDesignSystem() {
       {tab === 'Colors' && (
         <div style={{ display: 'grid', gap: 24 }}>
           <p style={{ margin: 0, fontSize: 13, color: '#64748B', maxWidth: 640 }}>
-            Brand and UI colors use <strong>#HEX</strong> codes. Overlay and shadow support hex + opacity (saved as 8-digit hex).
+            <strong>Site Foundation</strong> color tokens — every public page inherits these until a{' '}
+            <strong>Page Template</strong> override is set (clear overrides there to revert here).
+            Overlay and shadow support hex + opacity (8-digit hex).
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
             {COLOR_KEYS_HEX.map((key) => (
@@ -375,7 +377,15 @@ export function AdminDesignSystem() {
         </div>
       )}
 
-      {tab === 'Typography' && <TypographyRolesEditor typography={typography} patch={patch} />}
+      {tab === 'Typography' && (
+        <div style={{ display: 'grid', gap: 16 }}>
+          <p style={{ margin: 0, fontSize: 13, color: '#64748B', maxWidth: 720 }}>
+            Global typography roles (<strong>Site Foundation</strong>). Per-template title/body sizes live under{' '}
+            <strong>Page Templates</strong> with clear override back to these defaults.
+          </p>
+          <TypographyRolesEditor typography={typography} patch={patch} />
+        </div>
+      )}
 
       {tab === 'Components' && (
         <div style={{ display: 'grid', gap: 16 }}>
@@ -391,11 +401,13 @@ export function AdminDesignSystem() {
         <SiteChromePanel chrome={chrome} patch={patch} />
       )}
 
-      {tab === 'Page Templates' && (
+      {tab === 'Page Templates' && config && (
         <PageTemplatesPanel
           overrides={overrides}
           widths={(config.widths || {}) as Record<string, unknown>}
           chrome={chrome}
+          globalColors={colors}
+          configRoot={config}
           patch={patch}
           onOpenWidth={(focus) => {
             setWidthFocus(focus)
