@@ -463,7 +463,8 @@ HEROFIXJS;
         // but the compiled app.js does not read them (source unknown/inaccessible).
         // We inject them via window.S2NRI_SERVICE_DATA so a post-mount script
         // can apply them to the rendered DOM without modifying the React bundle.
-        if ( preg_match( '#^/service/([^/?#]+)#', $path, $m ) ) {
+        // Delimiter must not be # — [^/?#] contains # and breaks preg_match (Unknown modifier ']').
+        if ( preg_match( '~^/service/([^/?#]+)~', $path, $m ) ) {
             global $wpdb;
             $svc_slug = sanitize_key( $m[1] );
 
@@ -597,7 +598,7 @@ HEROFIXJS;
         echo '        var err=(window.S2NRI_CONFIG&&window.S2NRI_CONFIG.bootError)||"";' . "\n";
         echo '        root.innerHTML=\'<div style="padding:48px 24px;text-align:center;font-family:system-ui,sans-serif;max-width:560px;margin:0 auto">\'+' . "\n";
         echo '          \'<p style="font-weight:700;color:#1e293b">App did not start</p>\'+' . "\n";
-        echo '          \'<p style="color:#64748b;font-size:14px">\'+(msg||"JavaScript failed to load. Open DevTools → Console, or reinstall plugin v4.7.16+.")+\'</p>\'+' . "\n";
+        echo '          \'<p style="color:#64748b;font-size:14px">\'+(msg||"JavaScript failed to load. Open DevTools → Console, or reinstall plugin v4.7.17+.")+\'</p>\'+' . "\n";
         echo '          (err?\'<pre style="text-align:left;font-size:11px;background:#f1f5f9;padding:12px;border-radius:8px;overflow:auto">\'+String(err).replace(/</g,"&lt;")+"</pre>\':"")+' . "\n";
         echo '          \'<p style="font-size:12px;color:#94a3b8">Plugin \'+(window.S2NRI_BOOT&&window.S2NRI_BOOT.pluginVersion||"?")+\'</p>\'+' . "\n";
         echo '          \'<button type="button" onclick="location.reload()" style="padding:10px 20px;border-radius:8px;border:none;background:#4A6FA5;color:#fff;font-weight:600;cursor:pointer">Reload</button></div>\';' . "\n";

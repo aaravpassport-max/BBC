@@ -11,6 +11,7 @@ if [[ ! -f "$ROOT/assets/BUILD_STAMP.txt" ]]; then
   echo "FAIL: assets/BUILD_STAMP.txt missing after build" >&2
   exit 1
 fi
+php scripts/verify-preg-paths.php
 bash scripts/verify-design-system.sh
 
 VERSION="$(grep -oP "define\s*\(\s*'S2NRI_VERSION',\s*'\K[0-9.]+" "$ROOT/services2nri.php" | head -1)"

@@ -20,12 +20,12 @@ class Blog {
     /** Returns true when the current path is a blog page we should handle. */
     public static function isBlogPath( string $path ): bool {
         return $path === '/blog'
-            || preg_match( '#^/blog/[^/?#]+#', $path );
+            || preg_match( '~^/blog/[^/?#]+~', $path );
     }
 
     /** Main entry point from SEO.php::render() */
     public static function render( string $path, array $settings, array $config ): void {
-        if ( preg_match( '#^/blog/([^/?#]+)#', $path, $m ) ) {
+        if ( preg_match( '~^/blog/([^/?#]+)~', $path, $m ) ) {
             self::renderDetail( $m[1], $settings, $config );
         } else {
             self::renderListing( $settings, $config );
