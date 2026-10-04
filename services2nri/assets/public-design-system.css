@@ -79,6 +79,18 @@
 }
 .s2-btn--sm { padding: 8px 16px; font-size: 0.875rem; }
 .s2-btn--lg { padding: 14px 28px; font-size: 1rem; }
+.s2-btn--whatsapp {
+  background: #25d366;
+  color: #fff;
+  border-color: #25d366;
+  font-weight: 700;
+  padding: 10px 24px;
+  border-radius: var(--s2-radius-md, 10px);
+  text-decoration: none;
+}
+.s2-btn--whatsapp:hover { background: #1fb855; color: #fff; }
+
+.s2-text-success { color: var(--s2-color-success); }
 
 /* Cards */
 .s2-card {
@@ -125,6 +137,10 @@
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--s2-color-primary) 25%, transparent);
 }
 .s2-input:disabled { background: var(--s2-color-surface_alt); color: var(--s2-color-disabled); }
+.s2-input--error, .s2-select.s2-input--error, .s2-textarea.s2-input--error {
+  border-color: var(--s2-color-error);
+  background: color-mix(in srgb, var(--s2-color-error) 6%, var(--s2-color-surface));
+}
 
 /* Alerts */
 .s2-alert {

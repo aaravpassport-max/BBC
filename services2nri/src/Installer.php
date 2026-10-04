@@ -25,8 +25,10 @@ class Installer {
             self::importAllFormFields(); // Issue 12 FIX: ensure Dropdown Data Manager is populated
             self::scheduleJobs();
             self::writePwaFiles();
+            \S2NRI\Design\DesignSystem::ensureSeeded();
             update_option( 's2nri_db_version', S2NRI_VERSION );
             update_option( 's2nri_activated_at', current_time( 'mysql' ) );
+            update_option( 's2nri_show_plug_and_play_notice', '1' );
         } catch ( \Throwable $e ) {
             error_log( '[S2NRI Activation] ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine() );
         }

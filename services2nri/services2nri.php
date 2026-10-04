@@ -3,7 +3,7 @@
  * Plugin Name:       Services2NRI
  * Plugin URI:        https://services2nri.org.in
  * Description:       Complete NRI Service Marketplace — bookings, quotes, payments, CRM, documents.
- * Version:           4.6.0
+ * Version:           4.6.1
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            Services2NRI
@@ -28,7 +28,7 @@ if ( version_compare( PHP_VERSION, '8.0.0', '<' ) ) {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 define( 'S2NRI_CUSTOMER_ROLE', 's2nri_customer' );
-define( 'S2NRI_VERSION',    '4.6.0' );
+define( 'S2NRI_VERSION',    '4.6.1' );
 define( 'S2NRI_FILE',       __FILE__ );
 define( 'S2NRI_DIR',        plugin_dir_path( __FILE__ ) );
 define( 'S2NRI_URL',        plugin_dir_url( __FILE__ ) );
@@ -274,6 +274,7 @@ add_action( 'plugins_loaded', function () {
         \S2NRI\Installer::runMigrations();
         \S2NRI\Installer::seedData();
         \S2NRI\Installer::importAllFormFields(); // Issue 12 FIX
+        \S2NRI\Design\DesignSystem::ensureSeeded();
         \S2NRI\Portal::ensureHtaccess();
         // ensureRewriteRules runs on init (registered in Portal::boot())
         // flush_rewrite_rules deferred to init so $wp_rewrite is ready

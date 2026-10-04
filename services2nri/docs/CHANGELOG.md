@@ -5,6 +5,17 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.6.1] — 2026-10-04 — Cloud Agent
+
+### Plug & play
+
+- **`README.md`** and **`docs/PLUG_AND_PLAY.md`** — upload zip, activate, smoke-test URLs, troubleshooting.
+- **`DesignSystem::ensureSeeded()`** on activate/upgrade — default design saved so the public site needs no manual Publish.
+- One-time WP admin success notice with links to public site and Admin Portal.
+- Contact page + booking wizard fields use design-system input classes; error boundary uses token primary color.
+
+---
+
 ## [4.6.0] — 2026-10-04 — Cloud Agent
 
 ### Enterprise completion

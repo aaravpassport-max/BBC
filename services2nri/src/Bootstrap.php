@@ -109,6 +109,7 @@ class Bootstrap {
 
         // WP Admin menu link
         add_action( 'admin_menu', [ self::class, 'registerAdminMenu' ] );
+        add_action( 'admin_notices', [ self::class, 'renderPlugAndPlayNotice' ] );
 
         // Ensure .htaccess has the API passthrough rule on every admin load
         add_action( 'admin_init', [ self::class, 'ensureHtaccess' ] );
@@ -286,6 +287,23 @@ HTACCESS;
     }
 
     // ── WP Admin menu ─────────────────────────────────────────────────────────
+
+    public static function renderPlugAndPlayNotice(): void {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            return;
+        }
+        if ( ! get_option( 's2nri_show_plug_and_play_notice' ) ) {
+            return;
+        }
+        $portal = \S2NRI\Portal::adminUrl();
+        $home   = home_url( '/' );
+        $ver    = defined( 'S2NRI_VERSION' ) ? S2NRI_VERSION : '';
+        echo '<div class="notice notice-success"><p><strong>Services2NRI ' . esc_html( $ver ) . ' is ready.</strong> '
+            . 'Public site: <a href="' . esc_url( $home ) . '" target="_blank" rel="noopener">' . esc_html( $home ) . '</a> · '
+            . '<a href="' . esc_url( $portal ) . '" target="_blank" rel="noopener">Open Admin Portal</a> · '
+            . 'See <code>wp-content/plugins/services2nri/docs/PLUG_AND_PLAY.md</code> in the plugin folder.</p></div>';
+        delete_option( 's2nri_show_plug_and_play_notice' );
+    }
 
     public static function registerAdminMenu(): void {
         if ( ! current_user_can( 'administrator' ) ) return;

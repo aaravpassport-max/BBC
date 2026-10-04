@@ -162,6 +162,22 @@ class DesignSystem {
         return is_array( $decoded ) ? $decoded : [];
     }
 
+    /** Seed stored design config on first activate so public site matches defaults without manual Publish. */
+    public static function ensureSeeded(): void {
+        if ( self::loadStored() !== [] ) {
+            return;
+        }
+        $defaults = self::defaults();
+        $defaults['published_at'] = current_time( 'mysql' );
+        \S2NRI\Models\Setting::set( self::SETTING_KEY, wp_json_encode( $defaults ), true );
+        if ( ! empty( $defaults['colors']['primary'] ) ) {
+            \S2NRI\Models\Setting::set( 'primary_color', sanitize_hex_color( (string) $defaults['colors']['primary'] ) ?: '#4A6FA5', true );
+        }
+        if ( ! empty( $defaults['colors']['accent'] ) ) {
+            \S2NRI\Models\Setting::set( 'accent_color', sanitize_hex_color( (string) $defaults['colors']['accent'] ) ?: '#E8A838', true );
+        }
+    }
+
     /** @param array<string, mixed> $patch */
     public static function save( array $patch ): void {
         $merged = self::deepMerge( self::defaults(), self::loadStored(), $patch );

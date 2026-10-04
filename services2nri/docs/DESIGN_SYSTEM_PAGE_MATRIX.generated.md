@@ -1,5 +1,5 @@
 # Generated audit index
-Generated: 2026-10-04T04:07:08+00:00
+Generated: 2026-10-04T04:11:59+00:00
 
 ## Routes
 | `/` | `HomePage.tsx` | page_type `homepage` |
@@ -12,8 +12,8 @@ Generated: 2026-10-04T04:07:08+00:00
 | `/blog` | `Blog.php` | page_type `blog` |
 
 ## Design asset bundles
-- `public-design-system.css` (5906 bytes)
+- `public-design-system.css` (6421 bytes)
 - `public-home-sections.css` (2365 bytes)
 - `public-marketing-sections.css` (941 bytes)
 - `public-page-utilities.css` (1475 bytes)
-- `public-pages-layout.css` (3037 bytes)
+- `public-pages-layout.css` (4065 bytes)
