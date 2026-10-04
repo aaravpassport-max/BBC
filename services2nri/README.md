@@ -13,7 +13,7 @@ Production-ready NRI service marketplace: public site, booking wizards, customer
 
 ## Install (5 minutes)
 
-1. Download **`services2nri.zip`** from the repository root (or build with `bash scripts/package-plugin.sh` from this folder).
+1. Download **`services2nri.zip`** from the repository root — **full source** (PHP + TS/React + docs + prebuilt `assets/`). See `docs/SOURCE_PACKAGE.md`. Build with `bash scripts/package-plugin.sh` from this folder.
 2. WordPress → **Plugins → Add New → Upload Plugin** → choose the zip → **Install Now** → **Activate**.
 3. On activation the plugin creates tables, seeds categories/services, registers rewrite rules, and applies the default design system.
 4. Visit your site **home URL** — the public SPA loads at `/` (and `/services`, `/service/{slug}`, etc.).
@@ -52,7 +52,7 @@ npm run build
 bash scripts/package-plugin.sh
 ```
 
-Output: `../services2nri.zip`
+Output: `../services2nri.zip` (source included; `node_modules` excluded — run `npm ci` to develop)
 
 ## Support paths
 
