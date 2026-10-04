@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { handleMockApi } from './mock-api.mjs';
 import { buildProductionShell } from './production-shell.mjs';
+import { placeholderImageSvg } from './placeholder-image.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
@@ -21,6 +22,13 @@ const mime = {
 
 const server = http.createServer((req, res) => {
   const url = new URL(req.url || '/', `http://127.0.0.1:${port}`);
+  if (url.pathname === '/' && url.searchParams.has('s2nri_img')) {
+    const key = url.searchParams.get('s2nri_img') || 'img';
+    res.writeHead(200, { 'Content-Type': 'image/svg+xml', 'Cache-Control': 'public, max-age=3600' });
+    res.end(placeholderImageSvg(key));
+    return;
+  }
+
   if (url.pathname.startsWith('/mock-api')) {
     const body = handleMockApi(url.pathname + url.search, req.method || 'GET');
     res.writeHead(200, { 'Content-Type': 'application/json' });

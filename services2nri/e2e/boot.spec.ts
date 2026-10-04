@@ -16,6 +16,17 @@ test.describe('Production boot shell', () => {
     await expect(page.locator('.s2nri-splash')).toHaveCount(0, { timeout: 20_000 });
     await expect(page.getByText(/Services2NRI/i).first()).toBeVisible({ timeout: 20_000 });
 
+    const stylesheets = await page.locator('link[rel="stylesheet"]').count();
+    expect(stylesheets).toBeGreaterThanOrEqual(8);
+
+    const brokenImages = await page.evaluate(() => {
+      const imgs = Array.from(document.querySelectorAll('img'));
+      return imgs.filter((img) => !img.complete || img.naturalWidth === 0).length;
+    });
+    expect(brokenImages, `expected loaded images, ${brokenImages} broken`).toBe(0);
+
+    await expect(page.locator('.s2-tabs, .s2-svc-grid').first()).toBeVisible({ timeout: 15_000 });
+
     const pwned = await page.evaluate(() => (window as unknown as { __S2NRI_PWNED?: boolean }).__S2NRI_PWNED);
     expect(pwned).toBeUndefined();
 

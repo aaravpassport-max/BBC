@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.19] — 2026-10-04 — Cloud Agent
+
+- **E2E production shell:** load full public CSS stack + `s2nri-theme.css`; mock `/?s2nri_img=` placeholders; boot test asserts stylesheets, service grid, and zero broken images.
+
+---
+
 ## [4.7.18] — 2026-10-04 — Cloud Agent
 
 - **JS boot (verified e2e):** unified `BUILD_STAMP.txt` for `app.js`, CSS, and all import-map chunks; safe `S2NRI_CONFIG` via `application/json` + `JSON.parse`; wp-admin mixed-build notice; boot watchdog detects export mismatch.
