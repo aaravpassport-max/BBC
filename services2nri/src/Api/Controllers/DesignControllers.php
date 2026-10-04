@@ -13,9 +13,15 @@ use S2NRI\Services\ServiceRegistry;
 class DesignSystemController extends BaseController {
 
     public function getPublic( Request $req ): void {
+        $design = DesignSystem::getPublicPayload();
+        $fonts  = is_array( $design['fonts'] ?? null ) ? $design['fonts'] : [];
+        $assets = DesignSystem::publicFontAssets( $fonts );
         Response::json( [
-            'design'  => DesignSystem::getPublicPayload(),
-            'presets' => array_keys( DesignPresets::list() ),
+            'design'        => $design,
+            'revision'      => DesignSystem::publicRevision(),
+            'fonts_css_url' => $assets['css_url'],
+            'font_stacks'   => $assets['stacks'],
+            'presets'       => array_keys( DesignPresets::list() ),
         ] );
     }
 

@@ -24,6 +24,7 @@ import {
 } from './design-system-panels'
 import { WidthLayoutPanel, type WidthLayoutFocus } from './width-layout-panel'
 import { HexColorField, HexAlphaColorField } from './design-admin-fields'
+import { broadcastDesignSaved } from '@/lib/design-live-sync'
 
 type DesignConfig = Record<string, unknown>
 
@@ -138,7 +139,8 @@ export function AdminDesignSystem() {
     try {
       const res = await api.put<{ config: DesignConfig }>('admin/design', config)
       if (res.config) setConfig(res.config)
-      setMessage('Design system published. Hard-refresh the public site (Ctrl+Shift+R) to load new CSS.')
+      broadcastDesignSaved()
+      setMessage('Design system published — public pages update automatically (no hard refresh needed).')
     } catch (e: unknown) {
       setMessage(e instanceof Error ? e.message : 'Save failed')
     } finally {
@@ -156,9 +158,8 @@ export function AdminDesignSystem() {
     try {
       const res = await api.post<{ config: DesignConfig }>('admin/design/preset', { preset: id, mode })
       setConfig(res.config)
-      setMessage(
-        `Preset "${label}" applied site-wide (tokens + chrome + global layout). Hard-refresh the public site (Ctrl+Shift+R).`,
-      )
+      broadcastDesignSaved()
+      setMessage(`Preset "${label}" applied site-wide — open or switch to a public tab to see it live (no hard refresh).`)
     } catch (e: unknown) {
       setMessage(e instanceof Error ? e.message : 'Preset failed')
     } finally {

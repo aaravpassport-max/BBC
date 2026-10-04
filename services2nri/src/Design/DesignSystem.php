@@ -381,6 +381,41 @@ class DesignSystem {
         return $config;
     }
 
+    /** Stable hash for client polling — changes whenever stored design JSON changes. */
+    public static function publicRevision(): string {
+        $raw = \S2NRI\Models\Setting::get( self::SETTING_KEY, '' );
+        if ( ! is_string( $raw ) || $raw === '' ) {
+            return md5( 'default' );
+        }
+        return md5( $raw );
+    }
+
+    /**
+     * Google Fonts stylesheet URL + resolved font-family stacks for live SPA sync.
+     *
+     * @param array<string, mixed> $fonts
+     * @return array{css_url: string, stacks: array<string, string>}
+     */
+    public static function publicFontAssets( array $fonts ): array {
+        $ids = array_unique( array_filter( [
+            $fonts['heading'] ?? '',
+            $fonts['body'] ?? '',
+            $fonts['ui'] ?? '',
+            $fonts['button'] ?? '',
+        ] ) );
+        $fallback = (string) ( $fonts['fallback'] ?? 'system-ui, sans-serif' );
+        return [
+            'css_url' => FontLibrary::googleCssUrl( $ids ) ?: '',
+            'stacks'  => [
+                'heading' => FontLibrary::stackFor( (string) ( $fonts['heading'] ?? 'montserrat' ), $fallback ),
+                'body'    => FontLibrary::stackFor( (string) ( $fonts['body'] ?? 'open-sans' ), $fallback ),
+                'ui'      => FontLibrary::stackFor( (string) ( $fonts['ui'] ?? 'open-sans' ), $fallback ),
+                'button'  => FontLibrary::stackFor( (string) ( $fonts['button'] ?? 'montserrat' ), $fallback ),
+                'fallback'=> $fallback,
+            ],
+        ];
+    }
+
     /** Public payload for S2NRI_CONFIG (compact). */
     public static function getPublicPayload(): array {
         $resolved = self::resolve( [] );

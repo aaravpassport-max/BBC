@@ -21,6 +21,7 @@ import { resolvePrimary } from '@/lib/design-tokens'
 import { PageWidthScope } from '@/components/public/PageWidthScope'
 import { getRuntimeDesignConfig } from '@/lib/apply-design-config'
 import { resolveChromeLayer } from '@/lib/design-resolve'
+import { DESIGN_UPDATED_EVENT } from '@/lib/design-live-sync'
 import { pageContextFromPath } from '@/lib/width-layout'
 
 interface LayoutProps {
@@ -123,10 +124,17 @@ export function Layout({ children }: LayoutProps) {
   const isStaff = user && STAFF_ROLES.includes(user.s2nri_role)
   const dashUrl = isStaff ? '/admin' : '/dashboard'
 
+  const [designRevision, setDesignRevision] = useState(0)
+  useEffect(() => {
+    const bump = () => setDesignRevision((n) => n + 1)
+    window.addEventListener(DESIGN_UPDATED_EVENT, bump)
+    return () => window.removeEventListener(DESIGN_UPDATED_EVENT, bump)
+  }, [])
+
   const chrome = useMemo(() => {
     const design = getRuntimeDesignConfig()?.design as Record<string, unknown> | undefined
     return resolveChromeLayer(design, pageContextFromPath(location.pathname))
-  }, [location.pathname])
+  }, [location.pathname, designRevision])
 
   const pageCtx = pageContextFromPath(location.pathname)
   const wrapClass = [

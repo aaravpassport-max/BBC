@@ -787,7 +787,7 @@ export function LiveSitePreviewFrame({ path = '/' }: { path?: string }) {
   return (
     <div>
       <p style={{ color: '#64748B', fontSize: 13 }}>
-        Live public route <code>{route}</code> — publish design first, then refresh the frame.
+        Live public route <code>{route}</code> — updates within a few seconds after you publish or apply a preset (no manual refresh).
       </p>
       <iframe title="Public site preview" src={src} style={{ width: '100%', height: 640, border: '1px solid #E2E8F0', borderRadius: 12, background: '#fff' }} />
     </div>
