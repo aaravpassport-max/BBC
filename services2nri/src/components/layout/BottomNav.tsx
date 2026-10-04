@@ -70,13 +70,23 @@ export function BottomNav({ primary }: BottomNavProps) {
     })
   }
 
+  tabs.push({
+    to: '/services',
+    icon: '🔧',
+    label: 'Services',
+    active: path.startsWith('/services') || path.startsWith('/service/'),
+  })
+
+  if (!isServicePage) {
+    tabs.push({
+      to: '/contact',
+      icon: '💬',
+      label: 'Contact',
+      active: path === '/contact' || path.startsWith('/contact/'),
+    })
+  }
+
   tabs.push(
-    {
-      to: '/services',
-      icon: '🔧',
-      label: 'Services',
-      active: path.startsWith('/services') || path.startsWith('/service/'),
-    },
     {
       to: bookingsHref,
       icon: '📋',

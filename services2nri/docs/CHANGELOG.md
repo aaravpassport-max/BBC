@@ -5,6 +5,15 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.31] — 2026-10-04 — Cloud Agent
+
+- **Mobile app shell:** hide desktop top bar and header CTAs on phones; compact app bar with WhatsApp/contact icons and drawer utilities.
+- **Homepage:** hero headline + primary CTAs overlay; cities as horizontal scroll rail; larger touch targets for tabs and cards.
+- **Bottom nav:** Material-style active indicator and safe-area padding; Contact tab on non-service pages.
+- New stylesheet `public-mobile-experience.css` in `DesignSystem::renderInlineCss()`.
+
+---
+
 ## [4.7.22] — 2026-10-04 — Cloud Agent
 
 - **CDN mixed-chunk fix:** ship and load JS from `assets/release/{BUILD_STAMP}/` (unique URL path per build; fixes Cloudflare ignoring `?v=` on `/chunks/booking.js`).

@@ -203,10 +203,11 @@ img { max-width: 100%; height: auto; }
     right: 0;
     bottom: 0;
     z-index: 400;
-    background: #fff;
-    border-top: 1px solid #EBF0F8;
-    box-shadow: 0 -2px 12px rgba(0,0,0,.06);
+    background: var(--s2-color-surface, #fff);
+    border-top: 1px solid var(--s2-color-divider, #ebf0f8);
+    box-shadow: 0 -4px 24px rgba(15, 23, 42, 0.08);
     padding-bottom: env(safe-area-inset-bottom);
+    min-height: 56px;
   }
   .s2-bottom-nav-item {
     flex: 1;
@@ -214,22 +215,48 @@ img { max-width: 100%; height: auto; }
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    padding: 8px 4px 6px;
-    color: #6b7280;
+    gap: 3px;
+    padding: 6px 2px 8px;
+    color: #64748b;
     text-decoration: none;
-    min-height: 44px; /* touch target */
-    /* Reset browser default <button> styling so the Inquire tab (a
-       <button>, since it scrolls in-page rather than navigating) renders
-       identically to the other, <Link>-based tabs. */
+    min-height: 48px;
+    min-width: 0;
     width: 100%;
     cursor: pointer;
     text-align: center;
+    position: relative;
+    transition: color 0.15s ease, background 0.15s ease;
+    border-radius: 0;
   }
-  .s2-bottom-nav-icon { font-size: 20px; line-height: 1; }
-  .s2-bottom-nav-label { font-size: 10px; font-weight: 600; }
+  .s2-bottom-nav-item.active {
+    color: var(--s2-primary, var(--s2-color-primary));
+    font-weight: 700;
+  }
+  .s2-bottom-nav-item.active::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 20%;
+    right: 20%;
+    height: 3px;
+    border-radius: 0 0 3px 3px;
+    background: var(--s2-primary, var(--s2-color-primary));
+  }
+  .s2-bottom-nav-item:active {
+    background: color-mix(in srgb, var(--s2-primary, #4a6fa5) 8%, transparent);
+  }
+  .s2-bottom-nav-icon { font-size: 22px; line-height: 1; }
+  .s2-bottom-nav-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
 
   /* Reserve space so the fixed bar never covers footer/page content */
-  .s2-page-wrap { padding-bottom: calc(56px + env(safe-area-inset-bottom)); }
-  .s2-dash-content-wrap { padding-bottom: calc(56px + env(safe-area-inset-bottom)) !important; }
+  .s2-page-wrap { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+  .s2-dash-content-wrap { padding-bottom: calc(64px + env(safe-area-inset-bottom)) !important; }
 }

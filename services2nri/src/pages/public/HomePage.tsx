@@ -267,7 +267,7 @@ export function HomePage() {
   return (
     <Layout>
       <div className="s2-home-page">
-      {/* ── 1. Hero Slider — banner/carousel only, no overlay content ───────── */}
+      {/* ── 1. Hero slider + mobile-first headline & CTAs ─────────────────── */}
       <div className="s2-hero-section" data-s2-section="hero" style={heroWidthStyle}>
         <Swiper
           className="s2-home-hero-swiper"
@@ -284,6 +284,26 @@ export function HomePage() {
             </SwiperSlide>
           ))}
         </Swiper>
+        <div className="s2-home-hero-overlay" aria-hidden={false}>
+          <div className="s2-home-hero-overlay__inner">
+            <p className="s2-home-hero-overlay__eyebrow">Trusted NRI partner</p>
+            <h1 className="s2-home-hero-overlay__title">
+              {settings.home_hero_title || settings.platform_tagline || 'Your India services, managed from anywhere'}
+            </h1>
+            <p className="s2-home-hero-overlay__sub">
+              {settings.home_hero_subtitle ||
+                'Property, documents, tax & 44+ expert services — one secure platform with 24/7 support.'}
+            </p>
+            <div className="s2-home-hero-overlay__actions">
+              <Link to="/services" className="s2-btn s2-btn--primary s2-home-hero-overlay__cta">
+                Browse services
+              </Link>
+              <Link to="/contact" className="s2-btn s2-btn--outline s2-home-hero-overlay__cta s2-home-hero-overlay__cta--ghost">
+                Get a quote
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* ── 2. Notice bar ─────────────────────────────────────────────────── */}
@@ -358,7 +378,7 @@ export function HomePage() {
             title="Property Management Cities"
             subtitle="We manage NRI properties across all major Indian cities"
           />
-          <div className="s2-city-grid">
+          <div className="s2-city-grid s2-city-grid--mobile-rail">
             {displayCities.map(({ name, slug, img }) => (
               <Link
                 key={slug || name}

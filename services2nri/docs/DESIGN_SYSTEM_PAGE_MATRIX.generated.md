@@ -1,5 +1,5 @@
 # Generated audit index
-Generated: 2026-10-04T16:04:12+00:00
+Generated: 2026-10-04T16:18:18+00:00
 
 ## Routes
 | `/` | `HomePage.tsx` | page_type `homepage` |
@@ -13,9 +13,10 @@ Generated: 2026-10-04T16:04:12+00:00
 
 ## Design asset bundles
 - `public-design-system.css` (6538 bytes)
-- `public-home-sections.css` (18686 bytes)
+- `public-home-sections.css` (18728 bytes)
 - `public-marketing-pages.css` (24974 bytes)
 - `public-marketing-sections.css` (974 bytes)
+- `public-mobile-experience.css` (7204 bytes)
 - `public-page-utilities.css` (1475 bytes)
 - `public-pages-layout.css` (5952 bytes)
 - `public-service-detail.css` (22629 bytes)

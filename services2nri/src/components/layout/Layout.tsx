@@ -139,6 +139,7 @@ export function Layout({ children }: LayoutProps) {
   const pageCtx = pageContextFromPath(location.pathname)
   const wrapClass = [
     's2-page-wrap',
+    's2-page-wrap--mobile-shell',
     chrome.show_topbar === false ? 's2-page-wrap--no-topbar' : '',
     chrome.footer_variant === 'minimal' ? 's2-page-wrap--footer-minimal' : '',
     chrome.header_variant === 'compact' ? 's2-page-wrap--header-compact' : '',
@@ -159,7 +160,7 @@ export function Layout({ children }: LayoutProps) {
       }}
     >
       {/* ── Top bar ────────────────────────────────────────────────────────── */}
-      <div className="s2-site-topbar">
+      <div className="s2-site-topbar s2-desktop-only">
         <div
           className="s2-layout-header-inner"
           style={{
@@ -458,63 +459,54 @@ export function Layout({ children }: LayoutProps) {
             </span>
           </nav>
 
-          {/* Right buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          {/* Right: desktop CTAs + compact mobile actions */}
+          <div className="s2-site-header__end">
+            <div className="s2-site-header__desktop-actions s2-desktop-only">
+              {whatsapp && (
+                <a
+                  href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="s2-header-wa-btn"
+                >
+                  💬 WhatsApp
+                </a>
+              )}
+              <Link to="/contact" className="s2-header-outline-btn">
+                Service Request
+              </Link>
+              {user ? (
+                <Link to={dashUrl} className="s2-header-primary-btn">
+                  Dashboard
+                </Link>
+              ) : (
+                <Link to="/login" className="s2-header-primary-btn">
+                  Sign In
+                </Link>
+              )}
+            </div>
             {whatsapp && (
               <a
                 href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{
-                  background: '#25d366', color: '#fff', padding: '7px 14px', borderRadius: 7,
-                  fontSize: 13, fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6,
-                }}
+                className="s2-header-icon-btn s2-mobile-only"
+                aria-label="Chat on WhatsApp"
               >
-                💬 WhatsApp
+                💬
               </a>
             )}
-            <Link
-              to="/contact"
-              style={{
-                background: 'transparent', color: primary, padding: '7px 16px', borderRadius: 7,
-                textDecoration: 'none', fontWeight: 600, fontSize: 13, border: `1.5px solid ${primary}`, whiteSpace: 'nowrap',
-              }}
-            >
-              Service Request
+            <Link to="/contact" className="s2-header-icon-btn s2-mobile-only" aria-label="Contact us">
+              📞
             </Link>
-            {user ? (
-              <Link
-                to={dashUrl}
-                style={{
-                  background: primary, color: '#fff', padding: '8px 18px',
-                  borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 13,
-                }}
-              >
-                Dashboard
-              </Link>
-            ) : (
-              <Link
-                to="/login"
-                style={{
-                  background: primary, color: '#fff', padding: '8px 18px',
-                  borderRadius: 8, textDecoration: 'none', fontWeight: 600, fontSize: 13,
-                }}
-              >
-                Sign In
-              </Link>
-            )}
-            {/* Hamburger */}
             <button
+              type="button"
               onClick={() => setMobileOpen((o) => !o)}
               aria-label="Open navigation menu"
-              className="s2-mobile-hamburger"
-              style={{
-                display: 'flex', flexDirection: 'column', gap: 4,
-                background: 'none', border: 'none', cursor: 'pointer', padding: 6,
-              }}
+              className="s2-mobile-hamburger s2-header-menu-btn"
             >
               {[0, 1, 2].map((i) => (
-                <span key={i} style={{ width: 22, height: 2, background: '#374151', borderRadius: 2, display: 'block' }} />
+                <span key={i} className="s2-header-menu-btn__bar" />
               ))}
             </button>
           </div>
@@ -566,6 +558,30 @@ export function Layout({ children }: LayoutProps) {
                 {label}
               </Link>
             ))}
+            <div className="s2-mobile-drawer__utilities s2-mobile-only">
+              {whatsapp && (
+                <a
+                  href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="s2-mobile-drawer__utility-link"
+                >
+                  💬 WhatsApp
+                </a>
+              )}
+              {usPhone && (
+                <a href={`tel:${usPhone}`} className="s2-mobile-drawer__utility-link">
+                  📞 {usPhone}
+                </a>
+              )}
+              <button
+                type="button"
+                onClick={() => setLang(lang === 'en' ? 'hi' : 'en')}
+                className="s2-mobile-drawer__utility-btn"
+              >
+                {lang === 'en' ? '🇮🇳 हिंदी' : '🇺🇸 English'}
+              </button>
+            </div>
             <div style={{ marginTop: 20 }}>
               {user ? (
                 <Link
