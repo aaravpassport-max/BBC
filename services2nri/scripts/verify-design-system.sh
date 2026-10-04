@@ -64,6 +64,7 @@ grep -q 'sectionMaxFromLayer' src/Design/WidthLayout.php && grep -q 'sec-.*-max'
 [[ -f src/lib/design-resolve.ts ]] && grep -q 'resolveDesignConfig' src/lib/design-resolve.ts && ok design client resolver || bad design client resolver
 grep -q 'renderSectionOverrideCss' src/Design/DesignSystem.php && ok section override css || bad section override css
 grep -q 'configFromPreset' src/Design/DesignSystem.php && ok preset full look builder || bad preset full look builder
+php scripts/audit-preset-looks.php && ok preset look audit || bad preset look audit
 grep -q 's2-btn-primary-bg' assets/public-design-system.css && ok component css vars || bad component css vars
 
 if [[ $fail -ne 0 ]]; then
