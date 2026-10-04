@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.7] — 2026-10-04 — Cloud Agent
+
+- **Presets:** applying a preset now rebuilds the **full public-site look** — colors, fonts, typography, spacing, radius, shadows, components (buttons/cards), site chrome (header/topbar/footer), global widths, and clears per-template overrides so every route matches the preset.
+
+---
+
 ## [4.7.6] — 2026-10-04 — Cloud Agent
 
 - **Site chrome** — header, top bar, footer driven by `chrome` tokens (`--s2-chrome-*`) with global + per-template overrides.
