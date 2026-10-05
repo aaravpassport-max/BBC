@@ -25,7 +25,6 @@ import {
   ComponentsEditor,
   SiteChromePanel,
   FontAssignPanel,
-  LiveSitePreviewFrame,
 } from './design-system-panels'
 import { HexColorField, HexAlphaColorField, PxTokenField, parsePx } from './design-admin-fields'
 import { hasOverrideAtPath, OverrideFieldShell, readPathLeaf } from './design-inherit-ui'
@@ -1361,7 +1360,7 @@ export function DesignSystemBuilder({
             <PageTypeWidthStudio page={page} config={config} patch={patch} />
           </div>
         ) : (
-          <div className="s2-design-builder-workspace-scroll">
+          <div className="s2-design-builder-workspace-body">
             {page.sections.some((s) => s.isPageScope) && (
               <div className="s2-design-builder-panel" style={{ paddingBottom: 0 }}>
                 <PageSectionAccordion
@@ -1452,12 +1451,6 @@ export function DesignSystemBuilder({
             />
           )}
 
-        {navMode === 'page' && (
-          <div className="s2-design-builder-preview-block">
-            <h3>Live preview</h3>
-            <LiveSitePreviewFrame path={previewPath} />
-          </div>
-        )}
         </div>
       </div>
     </div>

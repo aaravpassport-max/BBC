@@ -278,12 +278,7 @@ function SortableSectionItem({
 
   useEffect(() => {
     if (!isActive || !itemRef.current) return
-    const workspace = itemRef.current.closest('.s2-design-builder-workspace-scroll')
-    if (workspace instanceof HTMLElement) {
-      workspace.scrollTo({ top: Math.max(0, itemRef.current.offsetTop - 12), behavior: 'smooth' })
-    } else {
-      itemRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }
+    itemRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [isActive, section.id])
 
   const style: React.CSSProperties = {
@@ -355,10 +350,7 @@ function StaticSectionItem({
   }
   useEffect(() => {
     if (!isActive || !itemRef.current) return
-    const workspace = itemRef.current.closest('.s2-design-builder-workspace-scroll')
-    if (workspace instanceof HTMLElement) {
-      workspace.scrollTo({ top: Math.max(0, itemRef.current.offsetTop - 12), behavior: 'smooth' })
-    }
+    itemRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [isActive, section.id])
 
   return (

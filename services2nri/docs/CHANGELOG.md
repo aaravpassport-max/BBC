@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.60] — 2026-10-05 — Cloud Agent
+
+- **Design builder layout:** Removed embedded live preview under sections. Section bands use **full admin page scroll** (no fixed-height inner scroll panel), matching reference homepage builder UX.
+
+---
+
 ## [4.7.59] — 2026-10-05 — Cloud Agent
 
 - **Design System Content tab:** List-style editors for Hero slides, Why Choose cards, stats grid, plus Service Registry and City Manager previews.

@@ -15,7 +15,7 @@
 }
 
 .s2-design-system-page .s2-design-system-body-inner {
-  max-width: 1440px;
+  max-width: min(1680px, 100%);
   margin: 0 auto;
   padding: 28px 24px 48px;
 }
@@ -176,9 +176,6 @@
 
 .s2-design-builder-main {
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
 }
 
 .s2-design-builder-workspace {
@@ -188,16 +185,13 @@
   box-shadow: var(--ds-shadow);
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 100px);
+  /* Full-page scroll (reference builder): bands grow with the admin page, no inner viewport trap */
 }
 
-.s2-design-builder-workspace-scroll {
+.s2-design-builder-workspace-body {
   flex: 1 1 auto;
-  min-height: 280px;
-  overflow-x: hidden;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
+  overflow: visible;
+  padding-bottom: 24px;
 }
 
 .s2-design-builder-workspace__head {
@@ -433,21 +427,6 @@
   border: 1px solid #fecaca;
 }
 
-.s2-design-builder-preview-block {
-  margin-top: 24px;
-  padding: 22px;
-  border-top: 1px solid var(--ds-border);
-  background: #f8fafc;
-}
-
-.s2-design-builder-preview-block h3 {
-  margin: 0 0 12px;
-  font-size: 14px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #64748b;
-}
 
 .s2-design-builder-tools {
   margin-top: 16px;
@@ -815,10 +794,6 @@
 
 .s2-ds-quick-tab--design {
   background: #f8fafc;
-}
-
-.s2-design-builder-preview-block {
-  flex-shrink: 0;
 }
 
 .s2-ds-width-studio__hero {
@@ -1574,17 +1549,18 @@
 .s2-ds-band-sticky-bar {
   position: sticky;
   bottom: 0;
-  z-index: 20;
+  z-index: 30;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 14px 22px;
-  margin: 0 -22px -8px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, #fff 40%);
+  margin: 16px 0 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, #fff 35%);
   border-top: 1px solid #e2e8f0;
-  box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.08);
+  border-radius: 0 0 var(--ds-radius, 14px) var(--ds-radius, 14px);
 }
 
 .s2-ds-band-sticky-bar__meta {
