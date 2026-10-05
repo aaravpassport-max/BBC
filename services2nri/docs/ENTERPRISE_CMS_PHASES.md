@@ -51,4 +51,9 @@
 ## Phase 11 — Live preview iframe (removed v4.7.80)
 - Was: embedded preview + draft postMessage (shipped v4.7.79). Removed per product choice; use **Preview page ↗** in the builder header.
 
-## Phase 12 — (next)
+## Phase 12 — Element styler (v4.7.81)
+- Per-element design tokens under `overrides.sections.{band}.elements.{elementId}`
+- Elements tab **Design** controls (color, type, spacing, borders) with inherit/clear UX
+- Public CSS via `data-s2-element` selectors (PHP + SPA live sync)
+
+## Phase 13 — (next)

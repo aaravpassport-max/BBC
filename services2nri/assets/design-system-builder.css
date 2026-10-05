@@ -1733,6 +1733,12 @@
   gap: 10px;
 }
 
+.s2-ds-element-detail__controls--style {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+
 @media (max-width: 720px) {
   .s2-ds-element-inspector__split {
     grid-template-columns: 1fr;

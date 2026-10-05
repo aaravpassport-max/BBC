@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.81] — 2026-10-05 — Cloud Agent
+
+- **Element styler:** Elements tab Design group — per-element color, typography, spacing, borders; saved via design config + publish on save.
+
+---
+
 ## [4.7.80] — 2026-10-05 — Cloud Agent
 
 - Removed in-admin **Live preview** iframe panel (Phase 11 UI); **Preview page ↗** external link remains.

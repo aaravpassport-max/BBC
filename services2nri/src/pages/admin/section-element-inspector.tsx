@@ -11,6 +11,10 @@ import {
 } from '@/lib/design-element-tree'
 import { readAdminSetting } from '@/lib/settings-admin'
 import { OverrideFieldShell, hasOverrideAtPath } from './design-inherit-ui'
+import { ElementStyleControlEditor } from './element-style-control'
+
+type DesignConfig = Record<string, unknown>
+type PatchFn = (path: string[], value: unknown) => void
 
 const GROUP_LABELS: Record<ElementControlGroup, string> = {
   content: 'Content',
@@ -20,19 +24,39 @@ const GROUP_LABELS: Record<ElementControlGroup, string> = {
   responsive: 'Responsive',
 }
 
-type DesignConfig = Record<string, unknown>
-
 function ControlEditor({
   control,
   settings,
   config,
+  patch,
   onSettingsChange,
 }: {
   control: CmsElementControl
   settings: Record<string, string>
   config: DesignConfig
+  patch: PatchFn
   onSettingsChange: (key: string, value: string) => void
 }) {
+  if (control.group === 'design' && control.elementStyleKey && control.designPath?.length) {
+    return (
+      <ElementStyleControlEditor
+        styleKey={control.elementStyleKey}
+        path={control.designPath}
+        config={config}
+        patch={patch}
+      />
+    )
+  }
+
+  if (control.group === 'design' && control.designPath?.length && !control.elementStyleKey) {
+    const inherited = !hasOverrideAtPath(config, control.designPath)
+    return (
+      <p className="s2-ds-premium-card__hint" style={{ margin: 0 }}>
+        {control.label} — edit in the section <strong>Design</strong> tab.
+        {inherited ? ' Currently inherited.' : ' Custom override active.'}
+      </p>
+    )
+  }
   if (control.group === 'visibility' && control.settingKey) {
     const hidden = readAdminSetting(settings, control.settingKey) === '1'
     return (
@@ -130,6 +154,7 @@ export function SectionElementInspector({
   section,
   settings,
   config,
+  patch,
   onSettingsChange,
   onSave,
   saving,
@@ -138,8 +163,9 @@ export function SectionElementInspector({
   section: SectionCatalogDef
   settings: Record<string, string>
   config: DesignConfig
+  patch: PatchFn
   onSettingsChange: (key: string, value: string) => void
-  onSave: () => void
+  onSave: () => void | Promise<void>
   saving: boolean
 }) {
   const tree = useMemo(() => buildSectionElementTree(page.id, section), [page.id, section])
@@ -162,8 +188,8 @@ export function SectionElementInspector({
       <div className="s2-ds-element-inspector__intro">
         <h4 className="s2-ds-element-inspector__title">Elements in this section</h4>
         <p className="s2-ds-premium-card__hint">
-          Select an element to edit its content, styling, layout, and visibility. Inherited values show a grey badge;
-          use <strong>Clear override</strong> to restore Site Foundation defaults.
+          Select an element to edit content, per-element styling (colors, type, spacing), layout, and visibility.
+          Style overrides apply to the selected element only. Saving publishes design tokens to the live site.
         </p>
       </div>
       <div className="s2-ds-element-inspector__split">
@@ -196,13 +222,18 @@ export function SectionElementInspector({
                 return (
                   <div key={group} className="s2-ds-element-detail__group">
                     <div className="s2-ds-element-detail__group-label">{GROUP_LABELS[group]}</div>
-                    <div className="s2-ds-element-detail__controls">
+                    <div
+                      className={`s2-ds-element-detail__controls${
+                        group === 'design' ? ' s2-ds-element-detail__controls--style' : ''
+                      }`}
+                    >
                       {controls.map((control) => (
                         <ControlEditor
                           key={control.id}
                           control={control}
                           settings={settings}
                           config={config}
+                          patch={patch}
                           onSettingsChange={onSettingsChange}
                         />
                       ))}
@@ -216,7 +247,7 @@ export function SectionElementInspector({
       </div>
       <div className="s2-design-builder-actions s2-band-design-actions">
         <button type="button" className="s2-btn s2-btn--accent" onClick={onSave} disabled={saving}>
-          {saving ? 'Saving…' : 'Save element changes'}
+          {saving ? 'Saving…' : 'Save content & element styles'}
         </button>
       </div>
     </div>

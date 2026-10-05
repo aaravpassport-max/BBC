@@ -6,6 +6,7 @@ import {
   buildWidthResponsiveRuntimeCss,
   resolveWidthCssVars,
 } from '@/lib/width-layout'
+import { elementStyleCssDeclarations } from '@/lib/element-style-fields'
 
 export type DesignPayload = Record<string, unknown>
 
@@ -217,6 +218,7 @@ export function applyResolvedDesignToDocument(resolved: DesignPayload, ctx: Page
   }
 
   applySectionOverrideCss(resolved)
+  applyElementOverrideCss(resolved)
   applyWidthResponsiveRuntimeCss(resolved, ctx)
 }
 
@@ -227,6 +229,33 @@ export function applyWidthResponsiveRuntimeCss(config: DesignPayload, ctx: PageW
   if (!el) {
     el = document.createElement('style')
     el.id = 's2nri-width-sections-runtime'
+    document.head.appendChild(el)
+  }
+  el.textContent = css
+}
+
+/** Per-element styling from overrides.sections.{sec}.elements.{el} */
+export function applyElementOverrideCss(config: DesignPayload): void {
+  if (typeof document === 'undefined') return
+  const overrides = isRecord(config.overrides) ? (config.overrides as DesignPayload) : {}
+  const sections = isRecord(overrides.sections) ? (overrides.sections as Record<string, DesignPayload>) : {}
+  let css = ''
+  for (const [sec, ov] of Object.entries(sections)) {
+    if (!isRecord(ov)) continue
+    const elements = isRecord(ov.elements) ? (ov.elements as Record<string, Record<string, unknown>>) : {}
+    const safeSec = sec.replace(/[^a-z0-9_-]/gi, '_').toLowerCase()
+    for (const [elId, styles] of Object.entries(elements)) {
+      if (!isRecord(styles)) continue
+      const safeEl = elId.replace(/[^a-z0-9_-]/gi, '_').toLowerCase()
+      const decls = elementStyleCssDeclarations(styles, (v) => resolveTokenRef(v, config))
+      if (!decls.length) continue
+      css += `[data-s2-section="${safeSec}"][data-s2-element="${safeEl}"]{${decls.join(';')}}\n`
+    }
+  }
+  let el = document.getElementById('s2nri-element-overrides-runtime') as HTMLStyleElement | null
+  if (!el) {
+    el = document.createElement('style')
+    el.id = 's2nri-element-overrides-runtime'
     document.head.appendChild(el)
   }
   el.textContent = css

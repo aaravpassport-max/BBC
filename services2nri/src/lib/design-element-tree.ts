@@ -5,6 +5,7 @@
 import type { ContentFieldDef, DesignSettingFieldDef, SectionCatalogDef } from '@/lib/design-system-catalog'
 import { sectionElementPresets } from '@/lib/section-element-presets'
 import { templateHideSettingKey } from '@/lib/section-visibility'
+import { elementStylePath, styleFieldsForElement } from '@/lib/element-style-fields'
 
 export type ElementControlGroup = 'content' | 'design' | 'layout' | 'visibility' | 'responsive'
 
@@ -19,6 +20,8 @@ export type CmsElementControl = {
   designPath?: string[]
   /** Per-element visibility (optional). */
   hideSettingKey?: string
+  /** Element styler field metadata (Design group). */
+  elementStyleKey?: string
 }
 
 export type CmsElementNode = {
@@ -133,6 +136,19 @@ export function buildSectionElementTree(
     group: 'responsive',
     designPath: ['overrides', 'sections', section.sectionKey, 'typography'],
   })
+
+  for (const node of buckets.values()) {
+    if (node.id.startsWith('_')) continue
+    for (const sf of styleFieldsForElement(node.id)) {
+      node.controls.push({
+        id: `${node.id}__style__${sf.key}`,
+        label: sf.label,
+        group: 'design',
+        designPath: elementStylePath(section.sectionKey, node.id, sf.key),
+        elementStyleKey: sf.key,
+      })
+    }
+  }
 
   for (const preset of sectionElementPresets(pageId, section.sectionKey)) {
     const existing = buckets.get(preset.id)

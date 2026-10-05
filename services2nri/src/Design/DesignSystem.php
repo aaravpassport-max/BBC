@@ -776,8 +776,64 @@ class DesignSystem {
                     }
                 }
             }
+
+            if ( ! empty( $ov['elements'] ) && is_array( $ov['elements'] ) ) {
+                foreach ( $ov['elements'] as $elId => $styles ) {
+                    if ( ! is_array( $styles ) ) {
+                        continue;
+                    }
+                    $elSafe = sanitize_key( (string) $elId );
+                    if ( $elSafe === '' ) {
+                        continue;
+                    }
+                    $elSel = '[data-s2-section="' . esc_attr( $sec ) . '"][data-s2-element="' . esc_attr( $elSafe ) . '"]';
+                    $block  = self::renderElementStyleDeclarations( $styles, $config );
+                    if ( $block !== '' ) {
+                        $css .= $elSel . '{' . $block . "}\n";
+                    }
+                }
+            }
         }
         return $css;
+    }
+
+    /** @param array<string, mixed> $styles */
+    private static function renderElementStyleDeclarations( array $styles, array $config ): string {
+        $map = [
+            'color'           => 'color',
+            'background'      => 'background-color',
+            'font_size'       => 'font-size',
+            'font_weight'     => 'font-weight',
+            'line_height'     => 'line-height',
+            'letter_spacing'  => 'letter-spacing',
+            'text_align'      => 'text-align',
+            'text_transform'  => 'text-transform',
+            'margin_top'      => 'margin-top',
+            'margin_bottom'   => 'margin-bottom',
+            'padding_x'       => 'padding-inline',
+            'padding_y'       => 'padding-block',
+            'border_radius'   => 'border-radius',
+            'border_width'    => 'border-width',
+            'border_color'    => 'border-color',
+            'max_width'       => 'max-width',
+            'opacity'         => 'opacity',
+        ];
+        $out = '';
+        foreach ( $map as $key => $prop ) {
+            if ( ! isset( $styles[ $key ] ) || ! is_string( $styles[ $key ] ) || $styles[ $key ] === '' ) {
+                continue;
+            }
+            $val = $styles[ $key ];
+            if ( in_array( $key, [ 'color', 'background', 'border_color' ], true ) ) {
+                $val = self::resolveTokenRef( $val, $config );
+            } elseif ( in_array( $key, [ 'font_size', 'margin_top', 'margin_bottom', 'padding_x', 'padding_y', 'border_radius', 'border_width', 'max_width' ], true ) ) {
+                if ( preg_match( '/^\d+(\.\d+)?$/', $val ) ) {
+                    $val = $val . 'px';
+                }
+            }
+            $out .= $prop . ':' . esc_attr( $val ) . ';';
+        }
+        return $out;
     }
 
     private static function typographyUtilityCss( array $config ): string {

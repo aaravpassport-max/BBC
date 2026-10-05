@@ -238,6 +238,7 @@ export function AdminDesignSystem() {
         saving={saving}
         previewPath={previewPath}
         setPreviewPath={setPreviewPath}
+        publishDesign={save}
         toolsSlot={
           <>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.06, color: '#94A3B8', marginBottom: 8 }}>

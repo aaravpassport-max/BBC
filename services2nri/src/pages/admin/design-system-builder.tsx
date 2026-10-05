@@ -576,6 +576,7 @@ export type SectionEditorBodyProps = {
   patch: PatchFn
   onSettingsChange: (key: string, value: string) => void
   onSaveContent: () => void
+  onSaveElements: () => void
   onSavePlatformDesign: () => void
   contentSaving: boolean
   platformDesignSaving: boolean
@@ -595,6 +596,7 @@ export function SectionEditorBody({
   patch,
   onSettingsChange,
   onSaveContent,
+  onSaveElements,
   onSavePlatformDesign,
   contentSaving,
   platformDesignSaving,
@@ -632,8 +634,9 @@ export function SectionEditorBody({
           section={section}
           settings={settings}
           config={config}
+          patch={patch}
           onSettingsChange={onSettingsChange}
-          onSave={onSaveContent}
+          onSave={onSaveElements}
           saving={contentSaving}
         />
       ) : section.isPageScope ? (
@@ -684,6 +687,7 @@ function PageSectionAccordion({
   patch,
   onSettingsChange,
   onSaveContent,
+  onSaveElements,
   onSavePlatformDesign,
   contentSaving,
   platformDesignSaving,
@@ -718,6 +722,7 @@ function PageSectionAccordion({
             patch={patch}
             onSettingsChange={onSettingsChange}
             onSaveContent={onSaveContent}
+            onSaveElements={onSaveElements}
             onSavePlatformDesign={onSavePlatformDesign}
             contentSaving={contentSaving}
             platformDesignSaving={platformDesignSaving}
@@ -934,6 +939,7 @@ export function DesignSystemBuilder({
   saving,
   previewPath,
   setPreviewPath,
+  publishDesign,
   toolsSlot,
 }: {
   config: DesignConfig
@@ -944,6 +950,7 @@ export function DesignSystemBuilder({
   saving: boolean
   previewPath: string
   setPreviewPath: (p: string) => void
+  publishDesign: () => Promise<void>
   toolsSlot?: React.ReactNode
 }) {
   const [navMode, setNavMode] = useState<'foundation' | 'page'>('page')
@@ -1092,6 +1099,28 @@ export function DesignSystemBuilder({
 
   const toggleFoundationExpanded = (panelId: FoundationPanelId) => {
     setExpandedFoundation((prev) => ({ ...prev, [panelId]: !prev[panelId] }))
+  }
+
+  const saveSectionElements = async (section: SectionCatalogDef) => {
+    await saveSectionContent(section)
+    try {
+      await publishDesign()
+      setContentSaveMessageById((prev) => ({
+        ...prev,
+        [section.id]: {
+          type: 'success',
+          text: 'Content saved and element styles published to the live site.',
+        },
+      }))
+    } catch {
+      setContentSaveMessageById((prev) => ({
+        ...prev,
+        [section.id]: {
+          type: 'error',
+          text: 'Content saved, but design publish failed — use Publish design in the header.',
+        },
+      }))
+    }
   }
 
   const saveSectionContent = async (section: SectionCatalogDef) => {
@@ -1389,6 +1418,7 @@ export function DesignSystemBuilder({
                   patch={patch}
                   onSettingsChange={(k, v) => setSettings((prev) => ({ ...prev, [k]: v }))}
                   onSaveContent={() => saveSectionContent(page.sections.find((s) => s.isPageScope)!)}
+                  onSaveElements={() => saveSectionElements(page.sections.find((s) => s.isPageScope)!)}
                   onSavePlatformDesign={() => saveSectionPlatformDesign(page.sections.find((s) => s.isPageScope)!)}
                   contentSaving={contentSavingId === '_page'}
                   platformDesignSaving={platformDesignSavingId === '_page'}
@@ -1428,6 +1458,7 @@ export function DesignSystemBuilder({
                   patch={patch}
                   onSettingsChange={(k, v) => setSettings((prev) => ({ ...prev, [k]: v }))}
                   onSaveContent={() => saveSectionContent(sec)}
+                  onSaveElements={() => saveSectionElements(sec)}
                   onSavePlatformDesign={() => saveSectionPlatformDesign(sec)}
                   contentSaving={contentSavingId === sec.id}
                   platformDesignSaving={platformDesignSavingId === sec.id}
@@ -1447,12 +1478,19 @@ export function DesignSystemBuilder({
             <BandStickySaveBar
               sectionLabel={activeSection.label}
               tab={sectionTabFor(activeSection.id)}
-              primaryLabel={sectionTabFor(activeSection.id) === 'design' ? 'Save section styling' : 'Save section content'}
-              onSavePrimary={() =>
+              primaryLabel={
                 sectionTabFor(activeSection.id) === 'design'
-                  ? saveSectionPlatformDesign(activeSection)
-                  : saveSectionContent(activeSection)
+                  ? 'Save section styling'
+                  : sectionTabFor(activeSection.id) === 'elements'
+                    ? 'Save content & element styles'
+                    : 'Save section content'
               }
+              onSavePrimary={() => {
+                const t = sectionTabFor(activeSection.id)
+                if (t === 'design') saveSectionPlatformDesign(activeSection)
+                else if (t === 'elements') saveSectionElements(activeSection)
+                else saveSectionContent(activeSection)
+              }}
               primarySaving={
                 sectionTabFor(activeSection.id) === 'design'
                   ? platformDesignSavingId === activeSection.id
