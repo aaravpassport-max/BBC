@@ -52,11 +52,10 @@ export function BottomNav({ primary, variant = 'public', onMenuClick }: BottomNa
         active: path === '/admin',
       },
       {
-        to: '/requests',
+        to: '/admin/requests',
         icon: <IconRequests />,
         label: 'Requests',
         active:
-          path.startsWith('/requests') ||
           path.startsWith('/admin/requests') ||
           path.startsWith('/admin/bookings'),
       },

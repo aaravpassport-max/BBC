@@ -14,11 +14,27 @@ test.describe('Admin mobile native shell', () => {
     })
   })
 
+  test('admin dashboard has sticky view requests bar', async ({ page }) => {
+    await page.goto('/admin')
+    await expect(page.locator('.s2-mobile-app-surface')).toBeVisible({ timeout: 25_000 })
+    await expect(page.locator('.s2-admin-sticky-action-bar')).toBeVisible()
+    await expect(page.locator('.s2-admin-sticky-action-bar').getByRole('button', { name: 'View All Requests' })).toBeVisible()
+  })
+
   test('bookings list uses card table class and sticky action bar', async ({ page }) => {
     await page.goto('/admin/bookings')
     await expect(page.locator('.s2-mobile-app-surface')).toBeVisible({ timeout: 25_000 })
     await expect(page.locator('.s2-admin-sticky-action-bar')).toBeVisible()
     await expect(page.locator('table.s2-dash-table')).toBeVisible()
+    await expect(page.locator('.s2-admin-sticky-action-bar').getByRole('button', { name: '⬇ Export CSV' })).toBeVisible()
+  })
+
+  test('admin bottom nav requests tab links to /admin/requests', async ({ page }) => {
+    await page.goto('/admin')
+    await expect(page.locator('.s2-bottom-nav--admin')).toBeVisible({ timeout: 25_000 })
+    await page.locator('.s2-bottom-nav--admin').getByRole('link', { name: 'Requests' }).click()
+    await expect(page).toHaveURL(/\/admin\/requests/)
+    await expect(page.locator('.s2-admin-sticky-action-bar')).toBeVisible()
   })
 
   test('design system studio has tab rail and publish sticky bar', async ({ page }) => {

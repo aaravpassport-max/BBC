@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.46] — 2026-10-05 — Cloud Agent
+
+- **Admin portal mobile polish:** dashboard sticky “View All Requests”; homepage builder sticky “Preview Homepage”; ticket detail sticky “Send Reply”; reviews/tickets status chips in `AdminToolbar`.
+- **Admin bottom nav:** Requests tab now routes to `/admin/requests` (was broken `/requests` on mobile).
+- **E2E:** admin dashboard sticky bar + requests tab navigation tests.
+
+---
+
 ## [4.7.45] — 2026-10-05 — Cloud Agent
 
 - **Customer portal mobile parity (TSX):** `AdminScreen`, sticky action bars, and `AdminToolbar` / `AdminFormStack` on dashboard, bookings list/detail, new request, profile, and support tickets.

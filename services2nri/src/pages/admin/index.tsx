@@ -228,9 +228,14 @@ export function AdminDashboard() {
   ]
   const trends = data?.trends as Record<string, unknown> | undefined
   const recent = (data?.recent || []) as Array<Record<string, unknown>>
+  const dashSticky = (
+    <Link to="/admin/requests" style={{ flex: 1, textDecoration: 'none' }}>
+      <Btn style={{ width: '100%', justifyContent: 'center' }}>View All Requests</Btn>
+    </Link>
+  )
   return (
-    <AdminScreen>
-      <PageHeader title="Admin Dashboard" subtitle="Services2NRI Overview" />
+    <AdminScreen sticky={dashSticky}>
+      <PageHeader title="Admin Dashboard" subtitle="Services2NRI Overview" action={dashSticky} />
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16, marginBottom: 32 }}>
         {stats.map(({ label, value, icon, color, link }) => (
           <div key={label} onClick={() => nav(link)} onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = `0 4px 16px ${color}30` }} onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '' }} style={{ background: '#fff', borderRadius: 12, border: '1px solid #EBF0F8', padding: 16, boxShadow: '0 2px 8px rgba(0,0,0,.04)', borderLeft: `4px solid ${color}`, cursor: 'pointer', transition: 'box-shadow .15s' }}>
@@ -849,11 +854,18 @@ export function AdminReviews() {
   useEffect(() => { load() }, [load])
   async function publish(id: number) { try { await api.patch(`admin/reviews/${id}/publish`, {}); setOk('Review published.'); load() } catch (e: unknown) { setErr((e as { message: string }).message) } }
   async function reject(id: number) { if (!confirm('Reject and hide this review?')) return; try { await api.patch(`admin/reviews/${id}/reject`, {}); setOk('Review rejected.'); load() } catch (e: unknown) { setErr((e as { message: string }).message) } }
+  const reviewFilters = ['pending', 'published', 'rejected'] as const
   return (
     <AdminScreen>
       <PageHeader title="Reviews" subtitle={`${data.total} total`} />
       <Alert type="error" message={err} onClose={() => setErr('')} /><Alert type="success" message={ok} onClose={() => setOk('')} />
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>{['pending','published','rejected'].map(s => <button key={s} onClick={() => setStatus(s)} style={{ padding: '7px 16px', border: `1px solid ${status===s?primary:'#e5e7eb'}`, borderRadius: 99, background: status===s?`${primary}15`:'#fff', color: status===s?primary:'#374151', fontWeight: status===s?700:500, cursor: 'pointer', fontSize: 13, textTransform: 'capitalize' }}>{s}</button>)}</div>
+      <AdminToolbar>
+        {reviewFilters.map((s) => (
+          <button key={s} onClick={() => setStatus(s)} style={{ padding: '7px 16px', border: `1px solid ${status === s ? primary : '#e5e7eb'}`, borderRadius: 99, background: status === s ? `${primary}15` : '#fff', color: status === s ? primary : '#374151', fontWeight: status === s ? 700 : 500, cursor: 'pointer', fontSize: 13, textTransform: 'capitalize' }}>
+            {s}
+          </button>
+        ))}
+      </AdminToolbar>
       {loading ? <Spinner /> : data.rows.length === 0 ? <Empty icon="⭐" title={`No ${status} reviews`} description="Reviews appear here after customers complete a booking." /> : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {data.rows.map(r => <Card key={String(r.id)}>
@@ -889,11 +901,23 @@ export function AdminTickets() {
   function openTicket(id: number) { if (openId === id) { setOpenId(null); setDetail(null); return }; setOpenId(id); api.get<{ ticket: Record<string, unknown> }>(`admin/tickets/${id}`).then(d => setDetail(d.ticket)).catch(() => {}) }
   async function sendReply() { if (!reply.trim()) return; setReplying(true); try { await api.post(`admin/tickets/${openId}/messages`, { message: reply }); setReply(''); api.get<{ ticket: Record<string, unknown> }>(`admin/tickets/${openId}`).then(d => setDetail(d.ticket)).catch(() => {}) } catch (e: unknown) { setErr((e as { message: string }).message) }; setReplying(false) }
   async function changeStatus(id: number, s: string) { try { await api.patch(`admin/tickets/${id}/status`, { status: s }); load(); if (openId === id) setOpenId(null) } catch (e: unknown) { setErr((e as { message: string }).message) } }
+  const ticketFilters = ['open', 'in_progress', 'resolved', 'closed'] as const
+  const ticketSticky = openId ? (
+    <Btn style={{ width: '100%', justifyContent: 'center' }} onClick={sendReply} loading={replying} disabled={!reply.trim()}>
+      Send Reply
+    </Btn>
+  ) : undefined
   return (
-    <AdminScreen>
-      <PageHeader title="Support Tickets" subtitle={`${data.rows.length} ${sFilter}`} />
+    <AdminScreen sticky={ticketSticky}>
+      <PageHeader title="Support Tickets" subtitle={`${data.rows.length} ${sFilter}`} action={ticketSticky} />
       <Alert type="error" message={err} onClose={() => setErr('')} />
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>{['open','in_progress','resolved','closed'].map(s => <button key={s} onClick={() => { setSFilter(s); setOpenId(null) }} style={{ padding: '7px 16px', border: `1px solid ${sFilter===s?primary:'#e5e7eb'}`, borderRadius: 99, background: sFilter===s?`${primary}15`:'#fff', color: sFilter===s?primary:'#374151', fontWeight: sFilter===s?700:500, cursor: 'pointer', fontSize: 13 }}>{s.replace('_',' ')}</button>)}</div>
+      <AdminToolbar>
+        {ticketFilters.map((s) => (
+          <button key={s} onClick={() => { setSFilter(s); setOpenId(null) }} style={{ padding: '7px 16px', border: `1px solid ${sFilter === s ? primary : '#e5e7eb'}`, borderRadius: 99, background: sFilter === s ? `${primary}15` : '#fff', color: sFilter === s ? primary : '#374151', fontWeight: sFilter === s ? 700 : 500, cursor: 'pointer', fontSize: 13 }}>
+            {s.replace('_', ' ')}
+          </button>
+        ))}
+      </AdminToolbar>
       {loading ? <Spinner /> : data.rows.length === 0 ? <Empty icon="🎫" title={`No ${sFilter} tickets`} description="Support tickets from customers appear here." /> : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {data.rows.map(t => <Card key={String(t.id)} style={{ padding: 0, overflow: 'hidden' }}>
@@ -1381,8 +1405,15 @@ export function AdminHomepage() {
       {children}
     </PageCard>
   }
+  const previewHome = (
+    <a href="/" target="_blank" rel="noopener noreferrer" style={{ flex: 1, textDecoration: 'none' }}>
+      <button type="button" style={{ width: '100%', background: s, color: '#fff', border: 'none', padding: '10px 20px', borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+        Preview Homepage ↗
+      </button>
+    </a>
+  )
   return (
-    <PageWrap title="Homepage Builder" subtitle="Customise every section of your homepage without touching code.">
+    <PageWrap title="Homepage Builder" subtitle="Customise every section of your homepage without touching code." action={previewHome} stickyAction={previewHome}>
       {feedback&&<div style={{background:'#d1fae5',border:'1px solid #6ee7b7',borderRadius:8,padding:'10px 16px',marginBottom:16,fontSize:14,color:'#065f46'}}>✓ {feedback}</div>}
       <Section title="Hero Section" icon="🎯" keys={['hero_heading_1','hero_heading_2','hero_subheading','hero_description','hero_banners']}>
         <F label="Heading Line 1" k="hero_heading_1" placeholder="Stay Connected to" />
