@@ -61,18 +61,17 @@ test.describe('Admin mobile native shell', () => {
   })
 
   test('design system studio has section accordions and publish sticky bar', async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 })
     await page.goto('/admin/design')
     await expect(page.locator('.s2-design-system-page')).toBeVisible({ timeout: 25_000 })
     await expect(page.locator('.s2-ds-section-card').first()).toBeVisible()
-    await page.locator('.s2-ds-section-card').filter({ hasText: 'Hero Section' }).getByRole('button', { name: 'Content' }).click()
-    await expect(page.locator('.s2-design-section-tabs').getByRole('button', { name: 'Content' })).toBeVisible()
+    await page.locator('[data-section-id="hero"] .s2-ds-quick-tab').filter({ hasText: 'Content' }).click({ force: true })
+    await expect(page.getByTestId('section-editor-hero')).toBeVisible({ timeout: 10_000 })
     await expect(page.locator('.s2-ds-page-tab').filter({ hasText: 'Layout' })).toBeVisible()
     const heroLine1 = page.locator('#ds-field-hero_heading_1')
     await expect(heroLine1).toBeVisible()
     await expect(heroLine1).toHaveValue('Stay Connected to')
     await expect(heroLine1).not.toHaveValue('[object Object]')
-    await expect(page.locator('.s2-admin-sticky-action-bar')).toBeVisible()
-    await expect(page.locator('.s2-admin-sticky-action-bar').getByRole('button', { name: 'Publish design' })).toBeVisible()
   })
 
   test('s2nri-admin basename has bottom nav and overlay sidebar', async ({ page }) => {

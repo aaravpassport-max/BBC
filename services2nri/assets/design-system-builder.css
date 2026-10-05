@@ -176,6 +176,9 @@
 
 .s2-design-builder-main {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 .s2-design-builder-workspace {
@@ -183,7 +186,18 @@
   border: 1px solid var(--ds-border);
   border-radius: var(--ds-radius);
   box-shadow: var(--ds-shadow);
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 100px);
+}
+
+.s2-design-builder-workspace-scroll {
+  flex: 1 1 auto;
+  min-height: 280px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .s2-design-builder-workspace__head {
@@ -635,29 +649,53 @@
   gap: 10px;
 }
 
-.s2-ds-section-row {
+.s2-ds-section-item {
   display: grid;
   gap: 0;
+  margin-bottom: 10px;
 }
 
-.s2-ds-section-row.is-editing .s2-ds-section-card {
+.s2-ds-section-item.is-editing .s2-ds-section-card {
   border-bottom-left-radius: 0;
   border-bottom-right-radius: 0;
-  border-bottom-color: transparent;
+  border-bottom-color: #e2e8f0;
 }
 
+.s2-ds-section-item__editor,
 .s2-ds-section-inline-editor {
   border: 1px solid var(--s2-primary, #4a6fa5);
   border-top: 1px solid #e2e8f0;
   border-radius: 0 0 14px 14px;
   background: #fafbfc;
   box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-  margin-bottom: 4px;
 }
 
-.s2-ds-section-row.is-editing .s2-ds-section-inline-editor {
-  border-color: var(--s2-primary, #4a6fa5);
-  border-top-color: #e2e8f0;
+.s2-ds-section-card__chevron {
+  width: 8px;
+  height: 8px;
+  margin-left: 8px;
+  border-right: 2px solid #64748b;
+  border-bottom: 2px solid #64748b;
+  transform: rotate(-45deg);
+  transition: transform 0.15s;
+  flex-shrink: 0;
+}
+
+.s2-ds-section-card__chevron.is-open {
+  transform: rotate(45deg);
+  margin-top: -4px;
+}
+
+.s2-ds-section-card__badge--editing {
+  color: #1d4ed8;
+  background: #dbeafe;
+}
+
+.s2-ds-section-card__main {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
 }
 
 .s2-ds-section-card {
@@ -779,8 +817,8 @@
   background: #f8fafc;
 }
 
-.s2-ds-section-editor {
-  border-top: 8px solid #f1f5f9;
+.s2-design-builder-preview-block {
+  flex-shrink: 0;
 }
 
 .s2-ds-width-studio__hero {

@@ -1254,7 +1254,7 @@ export function DesignSystemBuilder({
             <PageTypeWidthStudio page={page} config={config} patch={patch} />
           </div>
         ) : (
-          <>
+          <div className="s2-design-builder-workspace-scroll">
             {page.sections.some((s) => s.isPageScope) && (
               <div className="s2-design-builder-panel" style={{ paddingBottom: 0 }}>
                 <PageSectionAccordion
@@ -1317,13 +1317,15 @@ export function DesignSystemBuilder({
                 />
               )}
             />
-          </>
+          </div>
         )}
 
-        <div className="s2-design-builder-preview-block">
-          <h3>Live preview</h3>
-          <LiveSitePreviewFrame path={previewPath} />
-        </div>
+        {navMode === 'page' && (
+          <div className="s2-design-builder-preview-block">
+            <h3>Live preview</h3>
+            <LiveSitePreviewFrame path={previewPath} />
+          </div>
+        )}
         </div>
       </div>
     </div>
