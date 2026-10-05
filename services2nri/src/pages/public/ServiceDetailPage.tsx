@@ -39,7 +39,42 @@ import { hydrateEmptySection } from '@/lib/service-section-normalize'
 import { isTemplateSectionHidden } from '@/lib/section-visibility'
 import { refreshExperienceReveal } from '@/components/public/ExperienceReveal'
 import { ServiceDetailShellSkeleton } from '@/components/ui/LoadingPlaceholders'
-import { peekCached } from '@/lib/resource-cache'
+import { peekCached, subscribeResource } from '@/lib/resource-cache'
+
+function parseServiceRecord(s: Service): Service {
+  if (s?.form_schema && typeof s.form_schema === 'string') {
+    try {
+      s.form_schema = JSON.parse(s.form_schema)
+    } catch {
+      s.form_schema = []
+    }
+  }
+  if (s?.hero_settings && typeof s.hero_settings === 'string') {
+    try {
+      s.hero_settings = JSON.parse(s.hero_settings)
+    } catch {
+      s.hero_settings = null
+    }
+  }
+  if (s?.marquee_settings && typeof s.marquee_settings === 'string') {
+    try {
+      s.marquee_settings = JSON.parse(s.marquee_settings)
+    } catch {
+      s.marquee_settings = null
+    }
+  }
+  return s
+}
+
+function visibleSectionsFromApi(r: { sections?: ServiceSection[] }): ServiceSection[] {
+  return (r.sections || [])
+    .filter(
+      (sec) =>
+        sec.is_visible !== 0 && String(sec.is_visible) !== '0' && String(sec.is_visible) !== 'false',
+    )
+    .filter((sec) => sec.type !== 'hero' && sec.type !== 'marquee')
+    .map((sec) => hydrateEmptySection(sec))
+}
 
 // ── Field types ───────────────────────────────────────────────────────────────
 interface FormField {
@@ -774,11 +809,20 @@ export function ServiceDetailPage() {
 
   const loadService = useCallback(() => {
     if (!slug) return
-    const hadCache = !!peekCached('GET', `services/${slug}`)
-    if (!hadCache) setLoading(true)
+    const servicePath = `services/${slug}`
+    const sectionsPath = `services/${slug}/sections`
+    const cachedSvc = peekCached<{ service: Service }>('GET', servicePath)
+    const cachedSec = peekCached<{ sections: ServiceSection[] }>('GET', sectionsPath)
+    if (cachedSvc?.service) setSvc(parseServiceRecord({ ...cachedSvc.service }))
+    if (cachedSec) setSections(visibleSectionsFromApi(cachedSec))
+    if (!cachedSvc?.service) setLoading(true)
     setLoadFailed(false)
-    api.getCached<{ service: Service; redirect?: string; unavailable?: boolean; message?: string }>(`services/${slug}`)
-      .then(data => {
+
+    Promise.all([
+      api.getCached<{ service: Service; redirect?: string; unavailable?: boolean; message?: string }>(servicePath),
+      api.getCached<{ sections: ServiceSection[] }>(sectionsPath),
+    ])
+      .then(([data, secPayload]) => {
         if (data.redirect) {
           const dest = resolveInternalDestination(data.redirect)
           if (dest) navigate(dest, { replace: true })
@@ -790,30 +834,8 @@ export function ServiceDetailPage() {
           setApiError(data.message || 'This service is currently unavailable.')
           return
         }
-        const s = data.service
-        if (s?.form_schema && typeof s.form_schema === 'string') {
-          try { s.form_schema = JSON.parse(s.form_schema) } catch { s.form_schema = [] }
-        }
-        // Issue 5: parse hero_settings and marquee_settings JSON columns
-        if (s?.hero_settings && typeof s.hero_settings === 'string') {
-          try { s.hero_settings = JSON.parse(s.hero_settings) } catch { s.hero_settings = null }
-        }
-        if (s?.marquee_settings && typeof s.marquee_settings === 'string') {
-          try { s.marquee_settings = JSON.parse(s.marquee_settings) } catch { s.marquee_settings = null }
-        }
-        setSvc(s || null)
-        return api.getCached<{ sections: ServiceSection[] }>(`services/${slug}/sections`)
-          .then(r => {
-            // Issue 6: filter out is_visible=0 sections so toggle actually works
-            const visible = (r.sections || [])
-              .filter((sec) =>
-                sec.is_visible !== 0 && String(sec.is_visible) !== '0' && String(sec.is_visible) !== 'false',
-              )
-              .filter((sec) => sec.type !== 'hero' && sec.type !== 'marquee')
-              .map((sec) => hydrateEmptySection(sec))
-            setSections(visible)
-          })
-          .catch(() => {})
+        if (data.service) setSvc(parseServiceRecord(data.service))
+        setSections(visibleSectionsFromApi(secPayload))
       })
       // FIXED (was previously: .catch(() => setSvc(null)), rendering
       // identically to a genuine "Service not found" regardless of WHY
@@ -839,6 +861,23 @@ export function ServiceDetailPage() {
   }, [slug])
 
   useEffect(() => { loadService() }, [loadService])
+
+  useEffect(() => {
+    if (!slug) return
+    const servicePath = `services/${slug}`
+    const sectionsPath = `services/${slug}/sections`
+    const unsubSvc = subscribeResource('GET', servicePath, (raw) => {
+      const data = raw as { service?: Service; unavailable?: boolean }
+      if (data?.service) setSvc(parseServiceRecord(data.service))
+    })
+    const unsubSec = subscribeResource('GET', sectionsPath, (raw) => {
+      setSections(visibleSectionsFromApi(raw as { sections?: ServiceSection[] }))
+    })
+    return () => {
+      unsubSvc()
+      unsubSec()
+    }
+  }, [slug])
 
   useEffect(() => {
     if (!loading) refreshExperienceReveal()

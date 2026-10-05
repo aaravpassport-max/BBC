@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.67] — 2026-10-05 — Cloud Agent
+
+- **Faster data resolution:** GET cache now skips the network when fresh (45s); stale entries return immediately and revalidate in the background with subscriber updates (fixes 2–3s waits on every navigation).
+- **Service detail:** Service + sections fetched in parallel; cache subscription updates UI when background refresh completes.
+- **Portal boot:** Admin/customer shells prefetch likely next APIs on login.
+
+---
+
 ## [4.7.66] — 2026-10-05 — Cloud Agent
 
 - **Instant loading architecture:** Session-scoped GET cache with in-flight deduplication (`resource-cache`, `api.getCached`, `useResource`) — stale-while-revalidate for portal navigation.

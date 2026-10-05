@@ -4,14 +4,19 @@
 
 const MEMORY = new Map<string, { data: unknown; ts: number }>()
 const INFLIGHT = new Map<string, Promise<unknown>>()
+const SUBSCRIBERS = new Map<string, Set<(data: unknown) => void>>()
 
 const PERSIST_PREFIX = 's2nri_res:'
-const DEFAULT_TTL_MS = 120_000
+/** Within this window, GET returns cache only — no network round-trip. */
+export const DEFAULT_FRESH_TTL_MS = 45_000
+const DEFAULT_STALE_TTL_MS = 15 * 60_000
 const MAX_PERSIST_BYTES = 512_000
 
 export type FetchResourceOptions = {
+  /** Max age before a background revalidate is scheduled (default 45s). */
   ttl?: number
-  /** Persist GET payloads in sessionStorage for instant revisits this session */
+  /** Hard cap — after this, cache is ignored and fetch blocks (default 15m). */
+  staleTtl?: number
   persist?: boolean
   force?: boolean
 }
@@ -42,6 +47,33 @@ function writePersisted(key: string, data: unknown, ts: number): void {
   }
 }
 
+function entryAge(key: string): number | null {
+  const mem = MEMORY.get(key)
+  if (mem) return Date.now() - mem.ts
+  const persisted = readPersisted(key)
+  if (persisted) return Date.now() - persisted.ts
+  return null
+}
+
+function notifySubscribers(key: string, data: unknown): void {
+  SUBSCRIBERS.get(key)?.forEach((fn) => {
+    try {
+      fn(data)
+    } catch {
+      /* ignore listener errors */
+    }
+  })
+}
+
+export function subscribeResource(method: string, path: string, listener: (data: unknown) => void): () => void {
+  const key = cacheKey(method, path)
+  if (!SUBSCRIBERS.has(key)) SUBSCRIBERS.set(key, new Set())
+  SUBSCRIBERS.get(key)!.add(listener)
+  return () => {
+    SUBSCRIBERS.get(key)?.delete(listener)
+  }
+}
+
 export function peekCached<T>(method: string, path: string): T | undefined {
   const key = cacheKey(method, path)
   const mem = MEMORY.get(key)
@@ -59,6 +91,7 @@ export function writeCache(method: string, path: string, data: unknown, persist 
   const ts = Date.now()
   MEMORY.set(key, { data, ts })
   if (persist) writePersisted(key, data, ts)
+  notifySubscribers(key, data)
 }
 
 export function invalidateCache(prefix?: string): void {
@@ -69,25 +102,31 @@ export function invalidateCache(prefix?: string): void {
   for (const k of MEMORY.keys()) {
     if (k.includes(prefix)) MEMORY.delete(k)
   }
+  try {
+    for (let i = sessionStorage.length - 1; i >= 0; i--) {
+      const k = sessionStorage.key(i)
+      if (k?.startsWith(PERSIST_PREFIX) && k.includes(prefix)) {
+        sessionStorage.removeItem(k)
+      }
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
-export async function fetchResource<T>(
+function runNetworkFetch<T>(
+  key: string,
   method: string,
   path: string,
   fetcher: () => Promise<T>,
-  options: FetchResourceOptions = {},
+  persist: boolean,
 ): Promise<T> {
-  const key = cacheKey(method, path)
-  const ttl = options.ttl ?? DEFAULT_TTL_MS
-
-  if (!options.force) {
-    const existing = INFLIGHT.get(key)
-    if (existing) return existing as Promise<T>
-  }
+  const existing = INFLIGHT.get(key)
+  if (existing) return existing as Promise<T>
 
   const run = fetcher()
     .then((data) => {
-      writeCache(method, path, data, options.persist)
+      writeCache(method, path, data, persist)
       INFLIGHT.delete(key)
       return data
     })
@@ -100,12 +139,47 @@ export async function fetchResource<T>(
   return run
 }
 
-export function isCacheFresh(method: string, path: string, ttl = DEFAULT_TTL_MS): boolean {
+function scheduleBackgroundRevalidate<T>(
+  key: string,
+  method: string,
+  path: string,
+  fetcher: () => Promise<T>,
+  persist: boolean,
+): void {
+  if (INFLIGHT.has(key)) return
+  void runNetworkFetch(key, method, path, fetcher, persist).catch(() => {})
+}
+
+export async function fetchResource<T>(
+  method: string,
+  path: string,
+  fetcher: () => Promise<T>,
+  options: FetchResourceOptions = {},
+): Promise<T> {
   const key = cacheKey(method, path)
-  const mem = MEMORY.get(key)
-  if (mem && Date.now() - mem.ts < ttl) return true
-  const persisted = readPersisted(key)
-  return !!(persisted && Date.now() - persisted.ts < ttl)
+  const freshTtl = options.ttl ?? DEFAULT_FRESH_TTL_MS
+  const staleTtl = options.staleTtl ?? DEFAULT_STALE_TTL_MS
+  const persist = options.persist ?? true
+  const cached = peekCached<T>(method, path)
+  const age = entryAge(key)
+
+  if (!options.force && cached !== undefined && age !== null) {
+    if (age < freshTtl) {
+      return cached
+    }
+    if (age < staleTtl) {
+      scheduleBackgroundRevalidate(key, method, path, fetcher, persist)
+      return cached
+    }
+  }
+
+  return runNetworkFetch(key, method, path, fetcher, persist)
+}
+
+export function isCacheFresh(method: string, path: string, ttl = DEFAULT_FRESH_TTL_MS): boolean {
+  const key = cacheKey(method, path)
+  const age = entryAge(key)
+  return age !== null && age < ttl
 }
 
 export function apiCacheKey(path: string): string {

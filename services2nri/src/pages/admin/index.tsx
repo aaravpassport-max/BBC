@@ -4,6 +4,7 @@
  */
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useResource } from '@/lib/useResource'
+import { prefetchForRoute } from '@/lib/prefetch'
 import { TableSkeleton, StatCardsSkeleton, DetailPanelSkeleton } from '@/components/ui/LoadingPlaceholders'
 import { resolvePrimary } from '@/lib/design-tokens'
 import { Link, useParams, useNavigate } from 'react-router-dom'
@@ -179,6 +180,9 @@ export function AdminPortal({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (!user) { nav('/login?redirect=/admin', { replace: true }); return }
     if (!STAFF_ROLES.includes(user.s2nri_role)) { nav('/dashboard', { replace: true }); return }
+    prefetchForRoute('/admin')
+    prefetchForRoute('/admin/requests')
+    prefetchForRoute('/admin/services')
   }, [user])
   if (!user || !STAFF_ROLES.includes(user.s2nri_role)) return null
   return <SidebarLayout>{children}</SidebarLayout>

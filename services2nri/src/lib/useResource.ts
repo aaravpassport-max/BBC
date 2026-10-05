@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { fetchResource, peekCached, type FetchResourceOptions } from '@/lib/resource-cache'
+import {
+  fetchResource,
+  peekCached,
+  subscribeResource,
+  type FetchResourceOptions,
+} from '@/lib/resource-cache'
 
 export type UseResourceResult<T> = {
   data: T | undefined
   error: boolean
-  /** True only when there is no cached/previous data yet */
   isInitialLoad: boolean
   isRefreshing: boolean
   refresh: (force?: boolean) => void
@@ -15,7 +19,7 @@ export function useResource<T>(
   fetcher: () => Promise<T>,
   options: FetchResourceOptions & { enabled?: boolean } = {},
 ): UseResourceResult<T> {
-  const enabled = (options.enabled !== false) && !!path
+  const enabled = options.enabled !== false && !!path
   const cachePath = path || ''
 
   const [data, setData] = useState<T | undefined>(() =>
@@ -24,26 +28,47 @@ export function useResource<T>(
   const [error, setError] = useState(false)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const mounted = useRef(true)
+  const refreshTimer = useRef<number | null>(null)
+  const fetcherRef = useRef(fetcher)
+  const optionsRef = useRef(options)
+  fetcherRef.current = fetcher
+  optionsRef.current = options
 
-  const revalidate = useCallback(
-    async (background: boolean, force = false) => {
-      if (!enabled || !path) return
-      if (!background) setError(false)
-      if (background && data !== undefined) setIsRefreshing(true)
-      try {
-        const fresh = await fetchResource<T>('GET', path, fetcher, { ...options, force })
-        if (mounted.current) {
-          setData(fresh)
-          setError(false)
-        }
-      } catch {
-        if (mounted.current && data === undefined) setError(true)
-      } finally {
-        if (mounted.current) setIsRefreshing(false)
+  const setRefreshingDebounced = useCallback((on: boolean) => {
+    if (refreshTimer.current) {
+      window.clearTimeout(refreshTimer.current)
+      refreshTimer.current = null
+    }
+    if (on) {
+      refreshTimer.current = window.setTimeout(() => {
+        if (mounted.current) setIsRefreshing(true)
+      }, 350)
+    } else {
+      setIsRefreshing(false)
+    }
+  }, [])
+
+  const revalidate = useCallback(async (force = false) => {
+    const p = cachePath
+    if (!enabled || !p) return
+    const hadData = peekCached<T>('GET', p) !== undefined
+    if (!hadData) setError(false)
+    if (hadData && !force) setRefreshingDebounced(true)
+    try {
+      const fresh = await fetchResource<T>('GET', p, () => fetcherRef.current(), {
+        ...optionsRef.current,
+        force,
+      })
+      if (mounted.current) {
+        setData(fresh)
+        setError(false)
       }
-    },
-    [enabled, path, fetcher, data, options.ttl, options.persist],
-  )
+    } catch {
+      if (mounted.current && !hadData) setError(true)
+    } finally {
+      if (mounted.current) setRefreshingDebounced(false)
+    }
+  }, [enabled, cachePath, setRefreshingDebounced])
 
   useEffect(() => {
     mounted.current = true
@@ -54,23 +79,24 @@ export function useResource<T>(
       }
     }
 
-    const cached = peekCached<T>('GET', path)
-    setData(cached)
+    setData(peekCached<T>('GET', path))
     setError(false)
-    if (cached !== undefined) {
-      void revalidate(true, false)
-    } else {
-      void revalidate(false, false)
-    }
+    void revalidate(false)
+
+    const unsub = subscribeResource('GET', path, (fresh) => {
+      if (mounted.current) setData(fresh as T)
+    })
 
     return () => {
       mounted.current = false
+      unsub()
+      if (refreshTimer.current) window.clearTimeout(refreshTimer.current)
     }
-  }, [enabled, path])
+  }, [enabled, path, revalidate])
 
   const refresh = useCallback(
     (force = true) => {
-      void revalidate(false, force)
+      void revalidate(force)
     },
     [revalidate],
   )

@@ -18,6 +18,7 @@ import { useStore } from '@/lib/store'
 import { useT } from '@/lib/i18n'
 import { api } from '@/lib/api'
 import { useResource } from '@/lib/useResource'
+import { prefetchForRoute } from '@/lib/prefetch'
 import { StatCardsSkeleton, TableSkeleton } from '@/components/ui/LoadingPlaceholders'
 import { BOOKING_STEPS, STAFF_ROLES } from '@/lib/constants'
 import type { Booking, Ticket, UserProfile } from '@/types'
@@ -30,6 +31,10 @@ export function CustomerPortal({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user) nav('/login?redirect=' + window.location.pathname, { replace: true })
+    else {
+      prefetchForRoute('/dashboard')
+      prefetchForRoute('/dashboard/bookings')
+    }
   }, [user])
 
   if (!user) return null
