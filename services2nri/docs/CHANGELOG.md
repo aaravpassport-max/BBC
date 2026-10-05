@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.76] — 2026-10-05 — Cloud Agent
+
+- **Phase 8:** Full homepage band `CmsElement` coverage (tagline → locations); CMS matrix e2e suite.
+
+---
+
 ## [4.7.75] — 2026-10-05 — Cloud Agent
 
 - **Phase 7:** `nav_menu_json` + `resolvePublicNavMenu`; mega-menu/mobile nav CMS strings; admin nav JSON preview; home band element markers (stats, testimonials, process, FAQ, newsletter).

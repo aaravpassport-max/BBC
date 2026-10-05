@@ -35,7 +35,9 @@
 - Mega-menu hint + view-all copy; About/Contact labels; mobile drawer JSON
 - Home stats/testimonials/process/faq/newsletter element markers
 
-## Phase 8 — Remaining home bands + matrix e2e (next)
+## Phase 8 — Remaining home bands + matrix e2e (v4.7.76)
+- CmsElement on tagline, press, partners, about, awards, app, locations
+- `e2e/design-cms-matrix.spec.ts` (home bands + pricing/faq/services heroes + hide_el newsletter)
 
 ## Phase 9 — CI hardening (ongoing)
 - `audit-design-cms-sync.mjs --strict` in verify-design-system.sh

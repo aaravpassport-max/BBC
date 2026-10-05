@@ -634,9 +634,15 @@ export function HomePage() {
         data-home-section-id="tagline"
         style={{ ...bandOrder('tagline'), ...pickCssStyle(settings, { bg: 'css_tagline_bg', color: 'css_tagline_color' }) }}
       >
-        <p style={settings.css_tagline_size ? { fontSize: settings.css_tagline_size } : undefined}>
-          "{settings.home_tagline || 'Forming strong and trusted connections with our clients'}"
-        </p>
+        <CmsElement
+          pageId="home"
+          sectionKey="tagline"
+          elementId="body"
+          as="p"
+          style={settings.css_tagline_size ? { fontSize: settings.css_tagline_size } : undefined}
+        >
+          &ldquo;{settings.home_tagline || 'Forming strong and trusted connections with our clients'}&rdquo;
+        </CmsElement>
       </div>
       )}
 
@@ -788,12 +794,14 @@ export function HomePage() {
         data-s2-reveal=""
         style={{ ...bandOrder('press'), ...pickCssStyle(settings, { bg: 'css_press_bg' }) }}
       >
-        <p className="s2-home-logo-strip__label">{settings.home_press_label || 'As Featured In'}</p>
-        <div className="s2-home-logo-strip__row s2-stagger">
+        <CmsElement pageId="home" sectionKey="press" elementId="eyebrow" as="p" className="s2-home-logo-strip__label">
+          {settings.home_press_label || 'As Featured In'}
+        </CmsElement>
+        <CmsElement pageId="home" sectionKey="press" elementId="collection" className="s2-home-logo-strip__row s2-stagger">
           {pressLogos.map(({ name, brand }) => (
             <div key={name} className="s2-home-press-chip" data-brand={brand}>{name}</div>
           ))}
-        </div>
+        </CmsElement>
       </div>
       )}
 
@@ -805,12 +813,14 @@ export function HomePage() {
         data-s2-reveal=""
         style={{ ...bandOrder('partners'), ...pickCssStyle(settings, { bg: 'css_partners_bg' }) }}
       >
-        <p className="s2-home-logo-strip__label">{settings.home_partners_label || 'Our Partners'}</p>
-        <div className="s2-home-logo-strip__row s2-stagger">
+        <CmsElement pageId="home" sectionKey="partners" elementId="eyebrow" as="p" className="s2-home-logo-strip__label">
+          {settings.home_partners_label || 'Our Partners'}
+        </CmsElement>
+        <CmsElement pageId="home" sectionKey="partners" elementId="collection" className="s2-home-logo-strip__row s2-stagger">
           {partnerChips.map((p) => (
             <div key={p} className="s2-home-partner-chip">{p}</div>
           ))}
-        </div>
+        </CmsElement>
       </div>
       )}
 
@@ -824,28 +834,34 @@ export function HomePage() {
       >
         <div className="s2-home-about-grid s2-mobile-stack s2-container s2-section-inner s2-width-wide">
           <div>
-            <p className="s2-t-eyebrow">{settings.about_eyebrow || 'About Us'}</p>
-            <h2 className="s2-t-section-heading">
+            <CmsElement pageId="home" sectionKey="about" elementId="eyebrow" as="p" className="s2-t-eyebrow">
+              {settings.about_eyebrow || 'About Us'}
+            </CmsElement>
+            <CmsElement pageId="home" sectionKey="about" elementId="heading" as="h2" className="s2-t-section-heading">
               {settings.about_heading || 'Your Trusted Partner for All NRI Services'}
-            </h2>
-            <p className="s2-t-body">
+            </CmsElement>
+            <CmsElement pageId="home" sectionKey="about" elementId="body" as="p" className="s2-t-body">
               {settings.about_text || 'We are a team of dedicated experts who specialize in NRI documentation, immigration, financial services, and property management. Our mission is to create a permanent digital solution for all NRI needs.'}
-            </p>
-            <p className="s2-t-body">
+            </CmsElement>
+            <CmsElement pageId="home" sectionKey="about" elementId="body_secondary" as="p" className="s2-t-body">
               {settings.about_text_secondary ||
                 'Our expert team of lawyers, CAs, property managers, document specialists, and immigration consultants handles 44+ services across 8 domains — so you never need to worry about managing India from abroad.'}
-            </p>
+            </CmsElement>
             <div className="s2-home-about__actions">
-              <Link to="/about" className="s2-btn s2-btn--primary">{settings.about_cta_text || 'Know More →'}</Link>
+              <CmsElement pageId="home" sectionKey="about" elementId="primary_button">
+                <Link to="/about" className="s2-btn s2-btn--primary">{settings.about_cta_text || 'Know More →'}</Link>
+              </CmsElement>
               {whatsapp && (
-                <a
-                  href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="s2-btn s2-btn--whatsapp"
-                >
-                  {settings.about_whatsapp_cta || '💬 Chat with Us'}
-                </a>
+                <CmsElement pageId="home" sectionKey="about" elementId="secondary_button">
+                  <a
+                    href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="s2-btn s2-btn--whatsapp"
+                  >
+                    {settings.about_whatsapp_cta || '💬 Chat with Us'}
+                  </a>
+                </CmsElement>
               )}
             </div>
           </div>
@@ -879,8 +895,10 @@ export function HomePage() {
         data-s2-reveal=""
         style={{ ...bandOrder('awards'), ...pickCssStyle(settings, { bg: 'css_awards_bg' }) }}
       >
-        <p className="s2-home-logo-strip__label">{settings.home_awards_label || 'Awards We Have Received'}</p>
-        <div className="s2-home-awards__row">
+        <CmsElement pageId="home" sectionKey="awards" elementId="eyebrow" as="p" className="s2-home-logo-strip__label">
+          {settings.home_awards_label || 'Awards We Have Received'}
+        </CmsElement>
+        <CmsElement pageId="home" sectionKey="awards" elementId="collection" className="s2-home-awards__row">
           {awardBadges.map((a) => (
             <div
               key={a.text}
@@ -892,7 +910,7 @@ export function HomePage() {
               </span>
             </div>
           ))}
-        </div>
+        </CmsElement>
       </div>
       )}
 
@@ -981,13 +999,17 @@ export function HomePage() {
       >
         <div className="s2-home-app__grid s2-mobile-stack">
           <div>
-            <p className="s2-home-app__eyebrow">{settings.app_eyebrow || 'Mobile App'}</p>
-            <h3 className="s2-home-app__title">{settings.app_title || 'Download Our App'}</h3>
-            <p className="s2-home-app__sub">
+            <CmsElement pageId="home" sectionKey="app" elementId="eyebrow" as="p" className="s2-home-app__eyebrow">
+              {settings.app_eyebrow || 'Mobile App'}
+            </CmsElement>
+            <CmsElement pageId="home" sectionKey="app" elementId="heading" as="h3" className="s2-home-app__title">
+              {settings.app_title || 'Download Our App'}
+            </CmsElement>
+            <CmsElement pageId="home" sectionKey="app" elementId="body" as="p" className="s2-home-app__sub">
               {settings.app_subtitle ||
                 'Manage all your NRI services from your smartphone anytime, anywhere. Track progress, upload documents, and communicate with our team on the go.'}
-            </p>
-            <div className="s2-home-app__stores">
+            </CmsElement>
+            <CmsElement pageId="home" sectionKey="app" elementId="collection" className="s2-home-app__stores">
               {[
                 { href: settings.app_playstore_url || '#', icon: '▶', line1: 'GET IT ON', line2: 'Google Play' },
                 { href: settings.app_appstore_url || '#', icon: '🍎', line1: 'DOWNLOAD ON THE', line2: 'App Store' },
@@ -1000,7 +1022,7 @@ export function HomePage() {
                   </div>
                 </a>
               ))}
-            </div>
+            </CmsElement>
           </div>
           <div className="s2-home-app__emoji" aria-hidden>📱</div>
         </div>
@@ -1009,14 +1031,16 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_locations') && (
       <div className="s2-home-band s2-home-locations" data-s2-section="locations" data-home-section-id="locations" style={bandOrder('locations')}>
-        <p className="s2-home-logo-strip__label">{settings.home_locations_label || 'Locations'}</p>
-        <div className="s2-home-locations__pills">
+        <CmsElement pageId="home" sectionKey="locations" elementId="eyebrow" as="p" className="s2-home-logo-strip__label">
+          {settings.home_locations_label || 'Locations'}
+        </CmsElement>
+        <CmsElement pageId="home" sectionKey="locations" elementId="collection" className="s2-home-locations__pills">
           {displayCities.map(({ name }) => (
             <Link key={name} to="/services/property" className="s2-home-loc-pill">
               📍 {name}
             </Link>
           ))}
-        </div>
+        </CmsElement>
       </div>
       )}
       </div>

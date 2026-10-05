@@ -23,7 +23,9 @@ test.describe('Design System CMS content on public pages', () => {
     await page.goto('/');
     await expect(page.locator('#s2nri-root')).toBeVisible({ timeout: 20_000 });
     await expect(page.getByRole('link', { name: 'Browse CMS CTA' })).toHaveCount(0);
-    await expect(page.locator('[data-s2-element="secondary_button"]')).toBeVisible();
+    await expect(
+      page.locator('[data-s2-page="home"][data-s2-section="hero"][data-s2-element="secondary_button"]'),
+    ).toBeVisible();
   });
 
   test('service detail exposes CMS element markers', async ({ page }) => {
