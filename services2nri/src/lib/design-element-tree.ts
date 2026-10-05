@@ -135,10 +135,9 @@ export function buildSectionElementTree(
   })
 
   ;(section.designSettingFields || []).forEach((field, index) => {
-    const elementId = field.key.startsWith('css_')
-      ? 'section_surface'
-      : resolveCatalogElementId(pageId, section.sectionKey, field, index)
-    pushControl(buckets, elementId, 'Section styling', {
+    const elementId = resolveCatalogElementId(pageId, section.sectionKey, field, index)
+    const nodeLabel = elementNodeLabel(pageId, section.sectionKey, elementId, field.label)
+    pushControl(buckets, elementId, nodeLabel, {
       id: `design__${field.key}`,
       label: field.label,
       group: field.key.includes('padding') || field.key.includes('gap') || field.key.includes('cols') ? 'layout' : 'design',

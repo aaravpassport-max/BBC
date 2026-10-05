@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.84] — 2026-10-05 — Cloud Agent
+
+- **How It Works Elements:** Per-step card, title, description, and icon nodes in Elements tab; shared card/icon colors via platform styling; DOM `CmsElement` markers; field-resolution audit for catalog gaps.
+
+---
+
 ## [4.7.83] — 2026-10-05 — Cloud Agent
 
 - **Design publish loop fix:** Element/content saves no longer trigger full design PUT; admin design editor skips live-sync polling so drafts are not overwritten; explicit **Publish design** persists element styles; debounced text fields only.

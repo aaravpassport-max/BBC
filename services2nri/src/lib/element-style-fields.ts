@@ -29,7 +29,7 @@ export type ElementStyleFieldDef = {
 
 export const ELEMENT_STYLE_FIELDS: ElementStyleFieldDef[] = [
   { key: 'color', label: 'Text color', type: 'color', roles: ['*'], cssProperty: 'color' },
-  { key: 'background', label: 'Background', type: 'color', roles: ['primary_button', 'secondary_button', 'eyebrow', 'collection', 'generic'], cssProperty: 'background-color' },
+  { key: 'background', label: 'Background', type: 'color', roles: ['primary_button', 'secondary_button', 'eyebrow', 'collection', 'icon', 'generic'], cssProperty: 'background-color' },
   { key: 'font_size', label: 'Font size', type: 'px', roles: ['heading', 'body', 'eyebrow', 'subtitle', 'link', 'generic'], cssProperty: 'font-size' },
   { key: 'font_weight', label: 'Font weight', type: 'select', options: ['400', '500', '600', '700', '800'], roles: ['heading', 'body', 'eyebrow', 'subtitle', 'link', 'primary_button', 'secondary_button', 'generic'], cssProperty: 'font-weight' },
   { key: 'line_height', label: 'Line height', type: 'text', roles: ['heading', 'body', 'subtitle', 'generic'], cssProperty: 'line-height' },
@@ -70,6 +70,10 @@ export function elementStyleRoleFromId(elementId: string): ElementStyleRole {
   if (elementId.includes('link')) return 'link'
   if (elementId.includes('image') || elementId.includes('img')) return 'image'
   if (elementId.includes('collection') || elementId.includes('json')) return 'collection'
+  if (/_icon$/i.test(elementId) || elementId === 'icon') return 'icon'
+  if (/_desc$/i.test(elementId)) return 'body'
+  if (/_title$/i.test(elementId)) return 'heading'
+  if (/^step_\d+$/i.test(elementId)) return 'generic'
   return 'generic'
 }
 

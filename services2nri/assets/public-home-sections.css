@@ -439,8 +439,8 @@
 }
 
 .s2-home-how-card {
-  background: var(--s2-color-surface, #fff);
-  border: 1px solid var(--s2-color-divider, #ebf0f8);
+  background: var(--s2-hiw-card-bg, var(--s2-color-surface, #fff));
+  border: 1px solid var(--s2-hiw-card-border, var(--s2-color-divider, #ebf0f8));
   border-radius: 12px;
   padding: 28px;
   text-align: center;
@@ -472,8 +472,8 @@
 .s2-home-how-card__icon {
   width: 60px;
   height: 60px;
-  background: var(--s2-primary, var(--s2-color-primary));
-  color: #fff;
+  background: var(--s2-hiw-icon-bg, var(--s2-primary, var(--s2-color-primary)));
+  color: var(--s2-hiw-icon-color, #fff);
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -486,13 +486,19 @@
 .s2-home-how-card__title {
   font-size: 16px;
   font-weight: 700;
-  color: var(--s2-color-heading);
+  color: var(--s2-hiw-card-title-color, var(--s2-color-heading));
   margin: 0 0 8px;
+}
+
+.s2-home-how-card__title[data-s2-element],
+.s2-home-how-card__desc[data-s2-element],
+.s2-home-how-card__icon[data-s2-element] {
+  color: unset;
 }
 
 .s2-home-how-card__desc {
   font-size: 13px;
-  color: var(--s2-color-muted);
+  color: var(--s2-hiw-card-desc-color, var(--s2-color-muted));
   line-height: 1.7;
   margin: 0;
 }

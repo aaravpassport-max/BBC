@@ -52,7 +52,14 @@ export const CANONICAL_SECTION_ELEMENTS: Record<string, Record<string, Canonical
     process: [
       { id: 'eyebrow', label: 'Eyebrow' },
       { id: 'heading', label: 'Section heading' },
-      { id: 'collection', label: 'Steps grid' },
+      { id: 'step_card', label: 'Step cards (shared look)' },
+      ...([1, 2, 3, 4, 5, 6] as const).flatMap((n) => [
+        { id: `step_${n}`, label: `Step ${n} card` },
+        { id: `step_${n}_icon`, label: `Step ${n} icon` },
+        { id: `step_${n}_title`, label: `Step ${n} title` },
+        { id: `step_${n}_desc`, label: `Step ${n} description` },
+      ]),
+      { id: 'collection', label: 'Steps grid layout' },
       { id: 'link', label: 'Footer link' },
     ],
     press: [
@@ -155,6 +162,17 @@ const FIELD_ELEMENT_MAP: Record<string, string> = {
   app_subtitle: 'body',
   faq_footer_link_text: 'link',
   hiw_footer_link_text: 'link',
+  hiw_eyebrow: 'eyebrow',
+  hiw_title: 'heading',
+  css_how_bg: 'collection',
+  css_how_cols: 'collection',
+  css_how_gap: 'collection',
+  css_how_card_bg: 'step_card',
+  css_how_card_border: 'step_card',
+  css_how_icon_bg: 'step_card',
+  css_how_icon_color: 'step_card',
+  css_how_card_title_color: 'step_card',
+  css_how_card_desc_color: 'step_card',
   services_view_all_text: 'link',
   header_whatsapp_label: 'whatsapp_button',
   header_service_request_text: 'service_request_button',
@@ -178,6 +196,14 @@ export function resolveCatalogElementId(
   if (mapped) return mapped
 
   const key = field.key
+  const hiwStep = key.match(/^hiw_step(\d+)_(title|desc|icon)$/)
+  if (hiwStep) {
+    const n = hiwStep[1]
+    const part = hiwStep[2]
+    if (part === 'title') return `step_${n}_title`
+    if (part === 'desc') return `step_${n}_desc`
+    return `step_${n}_icon`
+  }
   if (key.includes('eyebrow')) return 'eyebrow'
   if (key.includes('subheading')) return 'eyebrow'
   if (key.endsWith('_label') && !key.includes('nav_')) return 'eyebrow'

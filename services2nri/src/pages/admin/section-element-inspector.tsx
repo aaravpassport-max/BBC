@@ -12,6 +12,7 @@ import {
 import { readAdminSetting } from '@/lib/settings-admin'
 import { OverrideFieldShell, hasOverrideAtPath } from './design-inherit-ui'
 import { ElementStyleControlEditor } from './element-style-control'
+import { HexColorField } from './design-admin-fields'
 
 type DesignConfig = Record<string, unknown>
 type PatchFn = (path: string[], value: unknown) => void
@@ -45,6 +46,39 @@ function ControlEditor({
         config={config}
         patch={patch}
       />
+    )
+  }
+
+  if (
+    (control.group === 'design' || control.group === 'layout') &&
+    control.settingKey &&
+    control.field
+  ) {
+    const field = control.field
+    const val = readAdminSetting(settings, control.settingKey)
+    const isColorKey =
+      control.settingKey.includes('color') ||
+      control.settingKey.includes('_bg') ||
+      control.settingKey.includes('border')
+    return (
+      <OverrideFieldShell
+        label={field.label}
+        hint={'hint' in field ? field.hint : undefined}
+        inherited={!val}
+        onClear={val ? () => onSettingsChange(control.settingKey!, '') : undefined}
+      >
+        {isColorKey ? (
+          <HexColorField label="" value={val} onChange={(v) => onSettingsChange(control.settingKey!, v)} />
+        ) : (
+          <input
+            type="text"
+            value={val}
+            onChange={(e) => onSettingsChange(control.settingKey!, e.target.value)}
+            placeholder={'placeholder' in field ? field.placeholder : undefined}
+            style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #E2E8F0' }}
+          />
+        )}
+      </OverrideFieldShell>
     )
   }
 

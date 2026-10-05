@@ -427,7 +427,11 @@ function CitiesRegistryPreview() {
   )
 }
 
-const HIW_STEP_KEYS = [1, 2, 3, 4, 5, 6].flatMap((n) => [`hiw_step${n}_title`, `hiw_step${n}_desc`])
+const HIW_STEP_KEYS = [1, 2, 3, 4, 5, 6].flatMap((n) => [
+  `hiw_step${n}_icon`,
+  `hiw_step${n}_title`,
+  `hiw_step${n}_desc`,
+])
 
 const RICH_FIELD_EXCLUDE: Record<string, string[]> = {
   hero_slides: ['hero_banners'],
@@ -873,6 +877,15 @@ function HiWStepsEditor({
       <div className="s2-band-list">
         {[1, 2, 3, 4, 5, 6].map((n, idx) => (
           <ListItemShell key={n} index={idx} title={readAdminSetting(settings, `hiw_step${n}_title`) || `Step ${n}`}>
+            <label className="s2-band-field">
+              <span className="s2-band-field__label">Icon (emoji)</span>
+              <input
+                className="s2-band-input"
+                value={readAdminSetting(settings, `hiw_step${n}_icon`)}
+                onChange={(e) => onChange(`hiw_step${n}_icon`, e.target.value)}
+                placeholder="📝"
+              />
+            </label>
             <label className="s2-band-field">
               <span className="s2-band-field__label">Title</span>
               <input

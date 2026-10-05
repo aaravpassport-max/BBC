@@ -337,8 +337,21 @@ export function HomePage() {
     const s = settings as Record<string, string>
     const title = s[`hiw_step${n}_title`] || fb?.title || ''
     const desc = s[`hiw_step${n}_desc`] || fb?.desc || ''
-    return { n, icon: fb?.icon || '✓', title, desc }
+    const icon = s[`hiw_step${n}_icon`] || fb?.icon || '✓'
+    return { n, icon, title, desc }
   })
+
+  const howGridVars = (): React.CSSProperties => {
+    const s = settings as Record<string, string>
+    const vars: Record<string, string> = {}
+    if (s.css_how_card_bg) vars['--s2-hiw-card-bg'] = s.css_how_card_bg
+    if (s.css_how_card_border) vars['--s2-hiw-card-border'] = s.css_how_card_border
+    if (s.css_how_icon_bg) vars['--s2-hiw-icon-bg'] = s.css_how_icon_bg
+    if (s.css_how_icon_color) vars['--s2-hiw-icon-color'] = s.css_how_icon_color
+    if (s.css_how_card_title_color) vars['--s2-hiw-card-title-color'] = s.css_how_card_title_color
+    if (s.css_how_card_desc_color) vars['--s2-hiw-card-desc-color'] = s.css_how_card_desc_color
+    return vars as React.CSSProperties
+  }
 
   const whyChoose = parseWhyChooseCards(settings.home_why_choose_json, WHY_CHOOSE)
   const homeFaqs = parseHomeFaqPairs(settings.home_faq_json, FAQ_DATA)
@@ -777,6 +790,7 @@ export function HomePage() {
           </div>
           <CmsElement pageId="home" sectionKey="process" elementId="collection" className="s2-how-grid s2-stagger"
             style={{
+              ...howGridVars(),
               ...(settings.css_how_cols
                 ? { gridTemplateColumns: `repeat(${Math.min(6, Math.max(1, parseInt(settings.css_how_cols, 10) || 3))}, 1fr)` }
                 : {}),
@@ -784,12 +798,24 @@ export function HomePage() {
             }}
           >
             {howSteps.map(({ n, icon, title, desc }) => (
-              <div key={n} className="s2-home-how-card">
+              <CmsElement
+                key={n}
+                pageId="home"
+                sectionKey="process"
+                elementId={`step_${n}`}
+                className="s2-home-how-card"
+              >
                 <div className="s2-home-how-card__num">0{n}</div>
-                <div className="s2-home-how-card__icon">{icon}</div>
-                <h3 className="s2-home-how-card__title">{title}</h3>
-                <p className="s2-home-how-card__desc">{desc}</p>
-              </div>
+                <CmsElement pageId="home" sectionKey="process" elementId={`step_${n}_icon`} className="s2-home-how-card__icon">
+                  {icon}
+                </CmsElement>
+                <CmsElement pageId="home" sectionKey="process" elementId={`step_${n}_title`} as="h3" className="s2-home-how-card__title">
+                  {title}
+                </CmsElement>
+                <CmsElement pageId="home" sectionKey="process" elementId={`step_${n}_desc`} as="p" className="s2-home-how-card__desc">
+                  {desc}
+                </CmsElement>
+              </CmsElement>
             ))}
           </CmsElement>
           <CmsElement pageId="home" sectionKey="process" elementId="link" className="s2-home-how-cta">
