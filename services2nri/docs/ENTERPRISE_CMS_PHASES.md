@@ -30,10 +30,13 @@
 - Site header CMS labels (WhatsApp, service request, sign in, top bar auth)
 - Home hero + features `CmsElement` markers
 
-## Phase 7 — Navigation registry sync (next)
-- Mega-menu column overrides when API menu empty
-- Admin preview of navigation/public
+## Phase 7 — Navigation CMS (v4.7.75)
+- `nav_menu_json` overrides API/static mega-menu
+- Mega-menu hint + view-all copy; About/Contact labels; mobile drawer JSON
+- Home stats/testimonials/process/faq/newsletter element markers
 
-## Phase 8 — CI hardening (ongoing)
+## Phase 8 — Remaining home bands + matrix e2e (next)
+
+## Phase 9 — CI hardening (ongoing)
 - `audit-design-cms-sync.mjs --strict` in verify-design-system.sh
 - E2E design-cms-content.spec.ts on mock settings

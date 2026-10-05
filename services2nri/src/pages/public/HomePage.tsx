@@ -621,9 +621,9 @@ export function HomePage() {
         data-home-section-id="stats"
         style={{ ...bandOrder('stats'), ...pickCssStyle(settings, { bg: 'css_stats_bg', padding: 'css_stats_padding', color: 'css_stats_color' }) }}
       >
-        <div className="s2-stats-bar__grid">
+        <CmsElement pageId="home" sectionKey="stats" elementId="collection" className="s2-stats-bar__grid">
           {stats.map(({ n, l }) => <StatCard key={l} number={n} label={l} />)}
-        </div>
+        </CmsElement>
       </section>
       )}
 
@@ -681,10 +681,15 @@ export function HomePage() {
         style={{ ...bandOrder('testimonials'), ...pickCssStyle(settings, { bg: 'css_testimonials_bg', padding: 'css_testimonials_padding' }) }}
       >
         <div className="s2-container s2-section-inner s2-width-standard">
-          <PublicSectionHead
-            eyebrow={settings.testimonials_eyebrow || 'Client Testimonials'}
-            title={settings.testimonials_title || 'What Our Customers Say'}
-          />
+          <div className="s2-home-section-head s2-public-section-head">
+            <CmsElement pageId="home" sectionKey="testimonials" elementId="eyebrow" as="p" className="s2-t-eyebrow">
+              {settings.testimonials_eyebrow || 'Client Testimonials'}
+            </CmsElement>
+            <CmsElement pageId="home" sectionKey="testimonials" elementId="heading" as="h2" className="s2-t-section-heading">
+              {settings.testimonials_title || 'What Our Customers Say'}
+            </CmsElement>
+          </div>
+          <CmsElement pageId="home" sectionKey="testimonials" elementId="collection">
           <Swiper
             className="s2-home-testimonials-swiper"
             modules={[Autoplay, Pagination]}
@@ -715,6 +720,7 @@ export function HomePage() {
               </SwiperSlide>
             ))}
           </Swiper>
+          </CmsElement>
 
           <div className="s2-home-google-badge-wrap">
             <div className="s2-home-google-badge">
@@ -740,9 +746,15 @@ export function HomePage() {
         style={{ ...bandOrder('how'), ...pickCssStyle(settings, { bg: 'css_how_bg', padding: undefined }) }}
       >
         <div className="s2-container s2-section-inner s2-width-standard">
-          <PublicSectionHead eyebrow={settings.hiw_eyebrow || 'Simple Process'} title={settings.hiw_title || 'How It Works'} />
-          <div
-            className="s2-how-grid s2-stagger"
+          <div className="s2-home-section-head s2-public-section-head">
+            <CmsElement pageId="home" sectionKey="process" elementId="eyebrow" as="p" className="s2-t-eyebrow">
+              {settings.hiw_eyebrow || 'Simple Process'}
+            </CmsElement>
+            <CmsElement pageId="home" sectionKey="process" elementId="heading" as="h2" className="s2-t-section-heading">
+              {settings.hiw_title || 'How It Works'}
+            </CmsElement>
+          </div>
+          <CmsElement pageId="home" sectionKey="process" elementId="collection" className="s2-how-grid s2-stagger"
             style={{
               ...(settings.css_how_cols
                 ? { gridTemplateColumns: `repeat(${Math.min(6, Math.max(1, parseInt(settings.css_how_cols, 10) || 3))}, 1fr)` }
@@ -758,12 +770,12 @@ export function HomePage() {
                 <p className="s2-home-how-card__desc">{desc}</p>
               </div>
             ))}
-          </div>
-          <div className="s2-home-how-cta">
+          </CmsElement>
+          <CmsElement pageId="home" sectionKey="process" elementId="link" className="s2-home-how-cta">
             <Link to="/how-it-works" className="s2-home-text-link">
               {settings.hiw_footer_link_text || 'Learn more about the full process →'}
             </Link>
-          </div>
+          </CmsElement>
         </div>
       </section>
       )}
@@ -893,11 +905,15 @@ export function HomePage() {
         style={{ ...bandOrder('faq'), ...pickCssStyle(settings, { bg: 'css_faq_bg' }) }}
       >
         <div className="s2-home-faq s2-container s2-section-inner s2-width-narrow">
-          <PublicSectionHead
-            eyebrow={settings.faq_section_eyebrow || 'FAQ'}
-            title={settings.faq_section_title || "Let's Clear All The Doubts!"}
-          />
-          <div className="s2-home-faq__list">
+          <div className="s2-home-section-head s2-public-section-head">
+            <CmsElement pageId="home" sectionKey="faq" elementId="eyebrow" as="p" className="s2-t-eyebrow">
+              {settings.faq_section_eyebrow || 'FAQ'}
+            </CmsElement>
+            <CmsElement pageId="home" sectionKey="faq" elementId="heading" as="h2" className="s2-t-section-heading">
+              {settings.faq_section_title || "Let's Clear All The Doubts!"}
+            </CmsElement>
+          </div>
+          <CmsElement pageId="home" sectionKey="faq" elementId="collection" className="s2-home-faq__list">
             {homeFaqs.map(({ q, a }, i) => (
               <div key={i} className={`s2-home-faq__item${openFaq === i ? ' is-open' : ''}`}>
                 <button
@@ -913,12 +929,12 @@ export function HomePage() {
                 )}
               </div>
             ))}
-          </div>
-          <div className="s2-home-faq__footer">
+          </CmsElement>
+          <CmsElement pageId="home" sectionKey="faq" elementId="link" className="s2-home-faq__footer">
             <Link to="/faq" className="s2-home-text-link">
               {settings.faq_footer_link_text || 'View All FAQs →'}
             </Link>
-          </div>
+          </CmsElement>
         </div>
       </section>
       )}
@@ -931,20 +947,26 @@ export function HomePage() {
         data-s2-reveal=""
         style={{ ...bandOrder('newsletter'), ...pickCssStyle(settings, { bg: 'css_newsletter_bg', padding: 'css_newsletter_padding' }) }}
       >
-        <h3 className="s2-home-newsletter__title">{settings.newsletter_title || 'Subscribe to Our Newsletter'}</h3>
-        <p className="s2-home-newsletter__sub">
+        <CmsElement pageId="home" sectionKey="newsletter" elementId="heading" as="h3" className="s2-home-newsletter__title">
+          {settings.newsletter_title || 'Subscribe to Our Newsletter'}
+        </CmsElement>
+        <CmsElement pageId="home" sectionKey="newsletter" elementId="body" as="p" className="s2-home-newsletter__sub">
           {settings.newsletter_subtitle || 'Stay updated on the latest NRI news, service launches, and important updates.'}
-        </p>
+        </CmsElement>
         <div className="s2-home-newsletter__form">
-          <input
-            type="email"
-            placeholder={settings.newsletter_placeholder || 'Your email address'}
-            className="s2-home-newsletter__input"
-            aria-label="Email for newsletter"
-          />
-          <button type="button" className="s2-home-newsletter__btn">
-            {settings.newsletter_button || 'Subscribe'}
-          </button>
+          <CmsElement pageId="home" sectionKey="newsletter" elementId="collection">
+            <input
+              type="email"
+              placeholder={settings.newsletter_placeholder || 'Your email address'}
+              className="s2-home-newsletter__input"
+              aria-label="Email for newsletter"
+            />
+          </CmsElement>
+          <CmsElement pageId="home" sectionKey="newsletter" elementId="primary_button">
+            <button type="button" className="s2-home-newsletter__btn">
+              {settings.newsletter_button || 'Subscribe'}
+            </button>
+          </CmsElement>
         </div>
       </section>
       )}

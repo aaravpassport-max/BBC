@@ -1564,6 +1564,18 @@ function ChromeHeaderPanel({
   settings: Record<string, string>
   onChange: (key: string, value: string) => void
 }) {
+  const navPreview = (() => {
+    try {
+      const raw = readAdminSetting(settings, 'nav_menu_json')
+      if (!raw.trim()) return 'Using live navigation from Service Registry (navigation/public) when saved empty.'
+      const parsed = JSON.parse(raw) as unknown
+      if (!Array.isArray(parsed)) return 'Invalid JSON — must be an array of menu items.'
+      return `${parsed.length} top-level item(s) in CMS override. Saves apply site-wide on the public header.`
+    } catch {
+      return 'Invalid JSON — fix syntax to preview.'
+    }
+  })()
+
   return (
     <section className="s2-band-design-group">
       <h4 className="s2-band-design-group__title">Header actions</h4>
@@ -1576,6 +1588,25 @@ function ChromeHeaderPanel({
         <BandTextInput label="Dashboard label" value={readAdminSetting(settings, 'header_dashboard_text')} onChange={(v) => onChange('header_dashboard_text', v)} />
         <BandTextInput label="Top bar sign in" value={readAdminSetting(settings, 'topbar_sign_in_text')} onChange={(v) => onChange('topbar_sign_in_text', v)} />
         <BandTextInput label="Top bar sign up" value={readAdminSetting(settings, 'topbar_sign_up_text')} onChange={(v) => onChange('topbar_sign_up_text', v)} />
+        <BandTextInput label="About nav label" value={readAdminSetting(settings, 'header_nav_about_label')} onChange={(v) => onChange('header_nav_about_label', v)} />
+        <BandTextInput label="Contact nav label" value={readAdminSetting(settings, 'header_nav_contact_label')} onChange={(v) => onChange('header_nav_contact_label', v)} />
+        <BandTextInput label="Mega menu hint" value={readAdminSetting(settings, 'header_nav_mega_hint')} onChange={(v) => onChange('header_nav_mega_hint', v)} />
+        <BandTextInput label="View all services" value={readAdminSetting(settings, 'header_nav_view_all_text')} onChange={(v) => onChange('header_nav_view_all_text', v)} />
+        <BandTextArea
+          label="Navigation menu JSON"
+          value={readAdminSetting(settings, 'nav_menu_json')}
+          rows={12}
+          onChange={(v) => onChange('nav_menu_json', v)}
+          hint='[{"label":"Link","key":"x","link":"/about"}] — overrides API when non-empty'
+        />
+        <BandTextArea
+          label="Mobile drawer links JSON"
+          value={readAdminSetting(settings, 'header_mobile_nav_json')}
+          rows={5}
+          onChange={(v) => onChange('header_mobile_nav_json', v)}
+          hint='[["/","🏠 Home"],["/pricing","💰 Pricing"]]'
+        />
+        <p className="s2-band-design-group__lead" style={{ marginTop: 0 }}>{navPreview}</p>
       </div>
     </section>
   )

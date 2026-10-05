@@ -5,6 +5,13 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.75] — 2026-10-05 — Cloud Agent
+
+- **Phase 7:** `nav_menu_json` + `resolvePublicNavMenu`; mega-menu/mobile nav CMS strings; admin nav JSON preview; home band element markers (stats, testimonials, process, FAQ, newsletter).
+- **E2E:** Nav override + newsletter title tests.
+
+---
+
 ## [4.7.74] — 2026-10-05 — Cloud Agent
 
 - **Phase 6:** Footer quick/location link JSON; global header button labels; `chrome_header` / enriched `chrome_footer` admin panels; home hero + features element markers.

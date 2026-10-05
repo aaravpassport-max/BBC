@@ -56,6 +56,28 @@ test.describe('Design System CMS content on public pages', () => {
     await expect(page.getByRole('link', { name: 'Request CMS Help' }).first()).toBeVisible({ timeout: 20_000 });
   });
 
+  test('navigation menu JSON overrides desktop nav', async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __E2E_SETTINGS_PATCH__: Record<string, string> }).__E2E_SETTINGS_PATCH__ = {
+        nav_menu_json: JSON.stringify([{ label: 'CMS Nav Item', key: 'cms', link: '/about' }]),
+      };
+    });
+    await page.goto('/');
+    await expect(page.getByRole('navigation', { name: 'Main navigation' }).getByRole('link', { name: 'CMS Nav Item' })).toBeVisible({
+      timeout: 20_000,
+    });
+  });
+
+  test('newsletter heading from settings', async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __E2E_SETTINGS_PATCH__: Record<string, string> }).__E2E_SETTINGS_PATCH__ = {
+        newsletter_title: 'CMS Newsletter Title',
+      };
+    });
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'CMS Newsletter Title' })).toBeVisible({ timeout: 20_000 });
+  });
+
   test('contact form submit label from settings', async ({ page }) => {
     await page.addInitScript(() => {
       (window as unknown as { __E2E_SETTINGS_PATCH__: Record<string, string> }).__E2E_SETTINGS_PATCH__ = {

@@ -27,6 +27,7 @@ import { pageContextFromPath } from '@/lib/width-layout'
 import { prefetchForRoute, prefetchPublicRoutesIdle } from '@/lib/prefetch'
 import { subscribeResource } from '@/lib/resource-cache'
 import { parseFooterNavLinks } from '@/lib/home-content-settings'
+import { resolvePublicNavMenu } from '@/lib/nav-menu-parse'
 import { CmsElement } from '@/components/public/CmsElement'
 
 interface LayoutProps {
@@ -180,6 +181,11 @@ export function Layout({ children }: LayoutProps) {
         { path: '/dashboard/bookings', label: 'Track Order' },
       ]),
     [settings.footer_quick_links_json],
+  )
+
+  const publicNavItems = useMemo(
+    () => resolvePublicNavMenu(navItems, settings.nav_menu_json),
+    [navItems, settings.nav_menu_json],
   )
 
   const footerLocationLinks = useMemo(
@@ -362,7 +368,7 @@ export function Layout({ children }: LayoutProps) {
             style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1 }}
             aria-label="Main navigation"
           >
-            {navItems.map((item) => (
+            {publicNavItems.map((item) => (
               <div key={item.key} style={{ position: 'relative' }}>
                 {item.link ? (
                   <NavLink
@@ -477,7 +483,9 @@ export function Layout({ children }: LayoutProps) {
                         alignItems: 'center',
                       }}
                     >
-                      <span style={{ fontSize: 13, color: '#888' }}>Browse all 44+ NRI services</span>
+                      <span style={{ fontSize: 13, color: '#888' }}>
+                        {settings.header_nav_mega_hint || 'Browse all 44+ NRI services'}
+                      </span>
                       <Link
                         to="/services"
                         onClick={() => setActiveMenu(null)}
@@ -491,7 +499,7 @@ export function Layout({ children }: LayoutProps) {
                           borderRadius: 6,
                         }}
                       >
-                        View All Services →
+                        {settings.header_nav_view_all_text || 'View All Services →'}
                       </Link>
                     </div>
                   </div>
@@ -507,7 +515,7 @@ export function Layout({ children }: LayoutProps) {
                   color: isActive ? primary : '#374151', textDecoration: 'none',
                   borderRadius: 6, background: isActive ? `${primary}10` : 'transparent',
                 })}
-              >About</NavLink>
+              >{settings.header_nav_about_label || 'About'}</NavLink>
               <NavLink
                 to="/contact"
                 style={({ isActive }) => ({
@@ -515,7 +523,7 @@ export function Layout({ children }: LayoutProps) {
                   color: isActive ? primary : '#374151', textDecoration: 'none',
                   borderRadius: 6, background: isActive ? `${primary}10` : 'transparent',
                 })}
-              >Contact</NavLink>
+              >{settings.header_nav_contact_label || 'Contact'}</NavLink>
             </span>
           </nav>
 
@@ -605,18 +613,18 @@ export function Layout({ children }: LayoutProps) {
                 ✕
               </button>
             </div>
-            {[
-              { to: '/',         label: '🏠 Home' },
-              { to: '/services', label: '📋 All Services' },
-              { to: '/about',    label: '👥 About Us' },
-              { to: '/contact',  label: '📞 Contact' },
-              { to: '/faq',      label: '❓ FAQ' },
-              { to: '/blog',     label: '✍️ Blog' },
-              { to: '/pricing',  label: '💰 Pricing' },
-            ].map(({ to, label }) => (
+            {parseFooterNavLinks(settings.header_mobile_nav_json, [
+              { path: '/', label: '🏠 Home' },
+              { path: '/services', label: '📋 All Services' },
+              { path: '/about', label: '👥 About Us' },
+              { path: '/contact', label: '📞 Contact' },
+              { path: '/faq', label: '❓ FAQ' },
+              { path: '/blog', label: '✍️ Blog' },
+              { path: '/pricing', label: '💰 Pricing' },
+            ]).map(({ path, label }) => (
               <Link
-                key={to}
-                to={to}
+                key={path}
+                to={path}
                 onClick={() => setMobileOpen(false)}
                 style={{
                   display: 'block', padding: '12px 0', fontSize: 15, color: '#374151',
