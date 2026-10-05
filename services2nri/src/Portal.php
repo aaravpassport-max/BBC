@@ -98,212 +98,221 @@ class Portal {
     // Uses findAsset() to locate the compiled JS — no dependency on dist/index.html
     // filename (which changes on every Vite build due to content hashing).
     private static function renderSPA(bool $is_admin): void {
-        $dist_dir = S2NRI_DIR . 'dist/assets/';
-        $dist_url = S2NRI_URL . 'dist/assets/';
+        if ( class_exists( '\S2NRI\AssetBuildStamp' ) ) {
+            \S2NRI\AssetBuildStamp::ensureReleaseStaged();
+        }
 
-        // Find the built JS and CSS files by scanning dist/assets/ directly.
-        // This avoids the dist/index.html hash-mismatch bug entirely.
-        $js_file  = self::findAsset($dist_dir, '.js');
-        $css_file = self::findAsset($dist_dir, '.css');
+        $asset_ver = class_exists( '\S2NRI\AssetBuildStamp' )
+            ? \S2NRI\AssetBuildStamp::publicVersion()
+            : ( file_exists( S2NRI_DIR . 'assets/app.js' )
+                ? substr( md5_file( S2NRI_DIR . 'assets/app.js' ), 0, 12 )
+                : S2NRI_VERSION );
 
-        if (!$js_file) {
-            status_header(500);
+        $release_base = class_exists( '\S2NRI\AssetBuildStamp' )
+            ? \S2NRI\AssetBuildStamp::releaseBaseUrl( $asset_ver )
+            : S2NRI_ASSETS_URL;
+        $js_url  = $release_base . 'app.js';
+        $css_url = ( class_exists( '\S2NRI\AssetBuildStamp' )
+            && is_file( \S2NRI\AssetBuildStamp::releaseAbsDir( $asset_ver ) . 'app.css' ) )
+            ? $release_base . 'app.css'
+            : S2NRI_ASSETS_URL . 'app.css';
+
+        $missing = self::missingBootAssets( $asset_ver );
+        if ( $missing !== [] ) {
+            status_header( 500 );
+            $name = class_exists( '\S2NRI\Models\Setting' )
+                ? \S2NRI\Models\Setting::get( 'platform_name', get_bloginfo( 'name' ) )
+                : get_bloginfo( 'name' );
             echo self::errorPage(
-                'S2NRI: dist/assets/ JS file not found.',
-                'The plugin ZIP was not uploaded completely. Re-upload and reactivate.'
+                $name . ' — setup incomplete',
+                'Required built files are missing: ' . implode( ', ', $missing )
+                    . '. Re-upload services2nri-full-source.zip (v' . S2NRI_VERSION . '+).'
             );
             return;
         }
 
-        // Safe to call all WP functions now (init has fired)
-        $name  = class_exists('\S2NRI\Models\Setting')
-            ? \S2NRI\Models\Setting::get('platform_name', get_bloginfo('name'))
-            : get_bloginfo('name');
+        try {
+            $config = Bootstrap::getJsConfig();
+        } catch ( \Throwable $e ) {
+            $settings_fallback = \S2NRI\Models\Setting::getPublic();
+            $config = [
+                'apiBase'     => rtrim( rest_url( 's2nri/v1' ), '/' ),
+                'spaBase'     => home_url( '' ),
+                'assetsUrl'   => S2NRI_ASSETS_URL,
+                'nonce'       => wp_create_nonce( 's2nri_api' ),
+                'portalToken' => '',
+                'version'     => S2NRI_VERSION,
+                'currentUser' => null,
+                'settings'    => $settings_fallback,
+                'design'      => [],
+                'builderUrl'  => home_url( '/' . BuilderPage::SLUG ),
+                'bootError'   => $e->getMessage(),
+            ];
+        }
+
+        $home = rtrim( parse_url( home_url( '/' ), PHP_URL_PATH ) ?: '/', '/' );
+        $slug = $is_admin ? self::ADMIN_SLUG : self::CUSTOMER_SLUG;
+        $name = $config['settings']['platform_name']['value']
+            ?? $config['settings']['platform_name']
+            ?? get_bloginfo( 'name' );
+        if ( is_array( $name ) ) {
+            $name = $name['value'] ?? get_bloginfo( 'name' );
+        }
+
+        $config['basePath']  = self::basePath( $is_admin );
+        $config['loginUrl']  = home_url( $home . '/' . $slug . '/login' );
+        $config['isAdmin']   = $is_admin;
+        $config['platformName'] = (string) $name;
 
         $designResolved = class_exists( '\S2NRI\Design\DesignSystem' )
             ? \S2NRI\Design\DesignSystem::resolve( [] )
             : [];
-        $color = (string) ( $designResolved['colors']['primary'] ?? '' );
-        if ( $color === '' ) {
-            $color = class_exists('\S2NRI\Models\Setting')
-                ? \S2NRI\Models\Setting::get('primary_color', '#4A6FA5')
-                : '#4A6FA5';
+        $primary = (string) ( $designResolved['colors']['primary'] ?? '' );
+        if ( $primary === '' ) {
+            $primary = (string) ( $config['settings']['primary_color']['value']
+                ?? $config['settings']['primary_color']
+                ?? '#4A6FA5' );
         }
-        $designPayload = class_exists( '\S2NRI\Design\DesignSystem' )
-            ? \S2NRI\Design\DesignSystem::getPublicPayload()
-            : [];
+        $config['primaryColor'] = $primary;
 
-        $home   = rtrim(parse_url(home_url('/'), PHP_URL_PATH) ?: '/', '/');
-        $slug   = $is_admin ? self::ADMIN_SLUG : self::CUSTOMER_SLUG;
-        $config = [
-            'base'         => rest_url('s2nri/v1'),
-            'nonce'        => wp_create_nonce('wp_rest'),
-            'basePath'     => self::basePath($is_admin),
-            'loginUrl'     => home_url($home . '/' . $slug . '/login'),
-            'platformName' => $name,
-            'primaryColor' => $color,
-            'design'       => $designPayload,
-            'isAdmin'      => $is_admin,
-        ];
-
-        if (is_user_logged_in()) {
-            global $wpdb;
-            $uid  = get_current_user_id();
-            $user = wp_get_current_user();
-
-            $row = $wpdb->get_row(
-                $wpdb->prepare(
-                    "SELECT s2nri_role FROM {$wpdb->prefix}s2nri_staff WHERE wp_user_id = %d LIMIT 1",
-                    $uid
-                ),
-                ARRAY_A
-            );
-
-            // WP administrators are always super_admin even without a staff row
-            $is_wp_admin = in_array('administrator', (array)$user->roles, true);
-            $s2nri_role  = $row['s2nri_role'] ?? ($is_wp_admin ? 'super_admin' : null);
-
-            $config['user'] = [
-                'id'         => $uid,
-                'name'       => $user->display_name,
-                'email'      => $user->user_email,
-                's2nri_role' => $s2nri_role,
-            ];
-            // Portal JS reads S2NRI_CFG?.user_id (top-level, not user.id).
-            $config['user_id'] = $uid;
-
-            // portalToken for X-S2NRI-Token header used by admin chunk JS
-            $existing_token = get_user_meta($uid, 's2nri_portal_token', true);
-            $token_exp      = (int)get_user_meta($uid, 's2nri_portal_token_exp', true);
-            if ($existing_token && $token_exp > time()) {
-                $config['portalToken'] = $existing_token;
-            } else {
-                $new_token = bin2hex(random_bytes(32));
-                update_user_meta($uid, 's2nri_portal_token', $new_token);
-                update_user_meta($uid, 's2nri_portal_token_exp', time() + (8 * HOUR_IN_SECONDS));
-                $config['portalToken'] = $new_token;
-            }
-        } else {
-            $config['portalToken'] = '';
-        }
-
-        $cfg_json = wp_json_encode(
+        $config_json = wp_json_encode(
             $config,
-            JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP
         );
 
-        // S2NRI_CONFIG compatibility shim.
-        // The admin lazy-loaded chunks (booking-ChxRsZYG.js, admin-DC3AMdvm.js)
-        // were compiled against window.S2NRI_CONFIG, not window.S2NRI_CFG.
-        //
-        // booking-ChxRsZYG.js (shared API layer) reads:
-        //   S2NRI_CONFIG.apiBase     → base URL for every API call (M() function)
-        //   S2NRI_CONFIG.nonce       → X-WP-Nonce header
-        //   S2NRI_CONFIG.portalToken → X-S2NRI-Token header
-        //   S2NRI_CONFIG.currentUser → initialise auth store (null = login page)
-        //   S2NRI_CONFIG.settings    → primary_color, accent_color branding
-        //
-        // admin-DC3AMdvm.js reads the same fields for export/download calls.
-        //
-        // Without this shim every lazy-loaded nav page (Staff, Reviews, Tickets,
-        // Audit Log, Cities, FAQs, Blog, Pricing Plans, Testimonials, Media,
-        // Diagnostics, Homepage) gets apiBase='' and nonce='' → 401 on every
-        // request → "Something went wrong" on every page.
-        $public_settings = \S2NRI\Models\Setting::getPublic();
-        $compat_config = [
-            'apiBase'      => $config['base'],
-            'nonce'        => $config['nonce'],
-            'portalToken'  => $config['portalToken'] ?? '',
-            'currentUser'  => isset($config['user']) ? [
-                'id'          => $config['user']['id'],
-                'wp_id'       => $config['user']['id'],
-                'name'        => $config['user']['name'],
-                'email'       => $config['user']['email'],
-                's2nri_role'  => $config['user']['s2nri_role'],
-                'is_staff'    => in_array($config['user']['s2nri_role'],
-                    ['super_admin', 'manager', 'agent', 'finance'], true),
-                'is_customer' => $config['user']['s2nri_role'] === 'customer',
-            ] : null,
-            'settings'     => $public_settings,
-            'base'         => $config['base'],
+        $cfg_legacy = [
+            'base'         => $config['apiBase'] ?? rest_url( 's2nri/v1' ),
+            'nonce'        => $config['nonce'] ?? '',
             'basePath'     => $config['basePath'],
             'loginUrl'     => $config['loginUrl'],
             'platformName' => $config['platformName'],
-            'primaryColor' => $color,
-            'design'       => $designPayload,
+            'primaryColor' => $primary,
+            'design'       => $config['design'] ?? [],
             'isAdmin'      => $is_admin,
-            'version'      => S2NRI_VERSION,
-            'builderUrl'   => home_url( '/' . \S2NRI\BuilderPage::SLUG ),
+            'portalToken'  => $config['portalToken'] ?? '',
+            'user_id'      => $config['currentUser']['wp_id'] ?? $config['currentUser']['id'] ?? null,
+            'user'         => isset( $config['currentUser'] ) ? [
+                'id'         => $config['currentUser']['wp_id'] ?? $config['currentUser']['id'],
+                'name'       => $config['currentUser']['display_name'] ?? $config['currentUser']['name'] ?? '',
+                'email'      => $config['currentUser']['email'] ?? '',
+                's2nri_role' => $config['currentUser']['s2nri_role'] ?? null,
+            ] : null,
         ];
-        $compat_json = wp_json_encode(
-            $compat_config,
-            JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP
+        $cfg_legacy_json = wp_json_encode(
+            $cfg_legacy,
+            JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP
         );
 
-        // Content hash, not a manually-maintained version number — same
-        // reasoning as SEO.php/BuilderPage.php (found and fixed there
-        // first): relying on S2NRI_VERSION means a change to this bundle
-        // only busts cache if someone remembers to also bump that constant.
-        // The CSS tag previously had NO cache-busting query string at all.
-        $dist_dir  = S2NRI_DIR . 'dist/assets/';
-        $js_ver_h  = $js_file && file_exists( $dist_dir . $js_file )  ? substr( md5_file( $dist_dir . $js_file ), 0, 12 )  : S2NRI_VERSION;
-        $css_ver_h = $css_file && file_exists( $dist_dir . $css_file ) ? substr( md5_file( $dist_dir . $css_file ), 0, 12 ) : S2NRI_VERSION;
+        $import_map_entries = class_exists( '\S2NRI\AssetBuildStamp' )
+            ? \S2NRI\AssetBuildStamp::importMapEntries()
+            : [];
+        $chunk_preloads = '';
+        foreach ( $import_map_entries as $specifier => $abs_url ) {
+            if ( strpos( $specifier, './chunks/' ) !== 0 ) {
+                continue;
+            }
+            $chunk_preloads .= '  <link rel="modulepreload" href="' . esc_url( $abs_url ) . '">' . "\n";
+        }
+        $import_map_url = home_url( '/?s2nri_import_map=1&v=' . rawurlencode( $asset_ver ) );
 
-        $css_tag = $css_file
-            ? '<link rel="stylesheet" href="' . esc_url($dist_url . $css_file) . '?v=' . $css_ver_h . '">'
-            : '';
         $design_fonts = class_exists( '\S2NRI\Design\DesignSystem' )
             ? \S2NRI\Design\DesignSystem::renderFontLinks( $designResolved )
             : '';
         $design_css = class_exists( '\S2NRI\Design\DesignSystem' )
-            ? '<style id="s2-design-system">' . \S2NRI\Design\DesignSystem::renderInlineCss( self::requestPath() ) . '</style>'
+            ? '<style id="s2nri-design-system">' . \S2NRI\Design\DesignSystem::renderInlineCss( self::requestPath() ) . '</style>'
             : '';
-        $js_src  = esc_url($dist_url . $js_file) . '?v=' . $js_ver_h;
-        $favicon = esc_url(S2NRI_URL . 'dist/favicon.svg');
-        $title   = esc_html($name);
+        $theme_css_url = S2NRI_ASSETS_URL . 's2nri-theme.css';
+        $icon_url      = esc_url( home_url( '/?s2nri_icon=1&size=192' ) );
+        $title         = esc_html( (string) $name );
+        $p_primary     = esc_attr( $primary ?: '#4A6FA5' );
+        $stamp_attr    = $asset_ver;
 
-        if (!headers_sent()) {
-            header('Content-Type: text/html; charset=UTF-8');
-            header('X-Frame-Options: SAMEORIGIN');
-            header('X-Content-Type-Options: nosniff');
-            // Prevent Cloudflare and any CDN from caching portal SPA pages.
-            // Without this, a transient 503/error response gets cached and served
-            // on all subsequent requests until the CDN cache is manually purged.
-            header('Cache-Control: no-store, no-cache, must-revalidate, max-age=0');
-            header('Pragma: no-cache');
-            header('Surrogate-Control: no-store');           // Cloudflare/Varnish
-            header('CDN-Cache-Control: no-store');           // Cloudflare specific
-            header('Cloudflare-CDN-Cache-Control: no-store'); // Cloudflare specific
+        if ( ! headers_sent() ) {
+            header( 'Content-Type: text/html; charset=UTF-8' );
+            header( 'X-Frame-Options: SAMEORIGIN' );
+            header( 'X-Content-Type-Options: nosniff' );
+            header( 'Cache-Control: no-store, no-cache, must-revalidate, max-age=0' );
+            header( 'Pragma: no-cache' );
+            header( 'Surrogate-Control: no-store' );
+            header( 'CDN-Cache-Control: no-store' );
+            header( 'Cloudflare-CDN-Cache-Control: no-store' );
         }
 
         // phpcs:disable WordPress.Security.EscapeOutput.OutputNotEscaped
-        echo <<<HTML
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="robots" content="noindex, nofollow">
-  <title>{$title}</title>
-  <link rel="icon" type="image/svg+xml" href="{$favicon}">
-  {$design_fonts}
-  {$css_tag}
-  {$design_css}
-  <style>
-    *, *::before, *::after { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; min-height: 100%; }
-    #s2nri-root.s2-ds { min-height: 100vh; font-family: var(--s2-font-body, system-ui, sans-serif); }
-  </style>
-</head>
-<body>
-  <div id="s2nri-root" class="s2-ds"></div>
-  <script>window.S2NRI_CFG = {$cfg_json};</script>
-  <script>window.S2NRI_CONFIG = {$compat_json};</script>
-  <script type="module" src="{$js_src}"></script>
-</body>
-</html>
-HTML;
+        echo '<!DOCTYPE html>' . "\n";
+        echo '<html lang="en">' . "\n";
+        echo '<head>' . "\n";
+        echo '  <meta charset="UTF-8">' . "\n";
+        echo '  <meta name="viewport" content="width=device-width, initial-scale=1">' . "\n";
+        echo '  <meta name="robots" content="noindex, nofollow">' . "\n";
+        echo '  <title>' . $title . '</title>' . "\n";
+        echo '  <link rel="icon" type="image/png" href="' . $icon_url . '">' . "\n";
+        echo '  <meta name="theme-color" content="#' . ltrim( $p_primary, '#' ) . '">' . "\n";
+        echo '  <style>' . "\n";
+        echo '    *,*::before,*::after{box-sizing:border-box}' . "\n";
+        echo '    html,body{margin:0;padding:0;min-height:100%;overflow-x:hidden;max-width:100vw}' . "\n";
+        echo '    #s2nri-root{min-height:100vh;font-family:var(--s2-font-body,system-ui,sans-serif)}' . "\n";
+        echo '    .s2nri-splash{display:flex;align-items:center;justify-content:center;min-height:100vh;flex-direction:column;gap:12px}' . "\n";
+        echo '    .s2nri-splash__logo{font-size:28px;font-weight:700;color:' . $p_primary . '}' . "\n";
+        echo '    .s2nri-splash__spinner{width:40px;height:40px;border:3px solid #e2e8f0;border-top-color:' . $p_primary . ';border-radius:50%;animation:spin .7s linear infinite}' . "\n";
+        echo '    @keyframes spin{to{transform:rotate(360deg)}}' . "\n";
+        echo '  </style>' . "\n";
+        echo $design_fonts;
+        echo '  <link rel="stylesheet" href="' . esc_url( $css_url ) . '?v=' . esc_attr( $asset_ver ) . '">' . "\n";
+        echo '  <link rel="stylesheet" href="' . esc_url( $theme_css_url ) . '?v=' . esc_attr( $asset_ver ) . '">' . "\n";
+        echo $design_css;
+        echo $chunk_preloads;
+        if ( $import_map_entries !== [] ) {
+            echo '  <script type="importmap" src="' . esc_url( $import_map_url ) . '"></script>' . "\n";
+        }
+        echo '</head>' . "\n";
+        echo '<body>' . "\n";
+        echo '  <div id="s2nri-root" class="s2-ds s2-mobile-app-root" translate="no" spellcheck="false"'
+            . ' data-s2nri-version="' . esc_attr( S2NRI_VERSION ) . '"'
+            . ' data-s2nri-build="' . esc_attr( $stamp_attr ) . '"'
+            . ' data-s2nri-assets="' . esc_attr( S2NRI_ASSETS_URL ) . '">' . "\n";
+        echo '    <div class="s2nri-splash" aria-label="Loading">' . "\n";
+        echo '      <div class="s2nri-splash__logo">' . $title . '</div>' . "\n";
+        echo '      <div class="s2nri-splash__spinner" role="status"></div>' . "\n";
+        echo '    </div>' . "\n";
+        echo '  </div>' . "\n";
+        self::echoJsonBootstrap( 'S2NRI_CONFIG', 's2nri-config-json', $config_json );
+        echo '  <script type="application/json" id="s2nri-cfg-json">' . str_ireplace( '</script', '<\\/script', $cfg_legacy_json ) . '</script>' . "\n";
+        echo '  <script>try{window.S2NRI_CFG=JSON.parse(document.getElementById("s2nri-cfg-json").textContent||"null")}catch(e){window.S2NRI_CFG={}}</script>' . "\n";
+        echo '  <script src="' . esc_url( $release_base . 'boot-config.js' ) . '"></script>' . "\n";
+        echo '  <script src="' . esc_url( $release_base . 'boot-watchdog.js' ) . '"></script>' . "\n";
+        echo '  <script type="module" src="' . esc_url( $js_url ) . '?v=' . esc_attr( $asset_ver ) . '"></script>' . "\n";
+        echo '  <script src="' . esc_url( $release_base . 'boot-sw-cleanup.js' ) . '"></script>' . "\n";
+        echo '</body>' . "\n";
+        echo '</html>' . "\n";
         // phpcs:enable
+    }
+
+    /** @return list<string> Relative paths under plugin root required for SPA boot. */
+    private static function missingBootAssets( string $stamp ): array {
+        $release_prefix = $stamp !== '' ? 'assets/release/' . $stamp . '/' : 'assets/';
+        $required = [
+            'assets/BUILD_STAMP.txt',
+            $release_prefix . 'app.js',
+            $release_prefix . 'boot-config.js',
+            $release_prefix . 'boot-watchdog.js',
+            $release_prefix . 'chunks/booking.js',
+            $release_prefix . 'chunks/router.js',
+            $release_prefix . 'chunks/react.js',
+            $release_prefix . 'chunks/design-system.js',
+        ];
+        $missing = [];
+        foreach ( $required as $rel ) {
+            if ( ! is_file( S2NRI_DIR . $rel ) ) {
+                $missing[] = $rel;
+            }
+        }
+        return $missing;
+    }
+
+    private static function echoJsonBootstrap( string $global, string $element_id, string $json ): void {
+        $safe_json = str_ireplace( '</script', '<\\/script', $json );
+        echo '  <script type="application/json" id="' . esc_attr( $element_id ) . '">' . $safe_json . '</script>' . "\n";
     }
 
     // ── BrowserRouter basename for React ──────────────────────────────────────
@@ -311,21 +320,6 @@ HTML;
         $home = rtrim(parse_url(home_url('/'), PHP_URL_PATH) ?: '/', '/');
         $slug = $is_admin ? self::ADMIN_SLUG : self::CUSTOMER_SLUG;
         return $home . '/' . $slug;
-    }
-
-    // ── Find hashed asset filename dynamically ────────────────────────────────
-    // Scans dist/assets/ for the JS/CSS file — no hardcoded filename.
-    // This is why beauty never had the index.html hash-mismatch problem.
-    private static function findAsset(string $dir, string $ext): ?string {
-        if (!is_dir($dir)) return null;
-        foreach ((array)scandir($dir) as $f) {
-            if (str_starts_with($f, 's2nri-portal.')
-                && str_ends_with($f, $ext)
-                && strpos($f, '-xlsx') === false) {
-                return $f;
-            }
-        }
-        return null;
     }
 
     // ── WordPress rewrite rules (Nginx + Apache) ──────────────────────────────

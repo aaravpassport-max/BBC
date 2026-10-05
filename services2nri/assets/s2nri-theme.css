@@ -210,7 +210,7 @@ a:not([style]):hover { color: #E8735A; }
 }
 @media (min-width: 901px) {
   .s2-mobile-hamburger { display: none !important; }
-  .s2-dash-sidebar { display: flex !important; }
+  .s2-dash-shell > .s2-dash-sidebar { display: flex !important; }
 }
 
 /* ── Hero overlay complete removal ─────────────────────────────────────────

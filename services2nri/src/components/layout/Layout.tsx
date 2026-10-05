@@ -978,6 +978,18 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
 
   useEffect(() => { setOpen(false) }, [location.pathname])
 
+  useEffect(() => {
+    if (!open) return
+    const prevOverflow = document.body.style.overflow
+    const prevTouch = document.body.style.touchAction
+    document.body.style.overflow = 'hidden'
+    document.body.style.touchAction = 'none'
+    return () => {
+      document.body.style.overflow = prevOverflow
+      document.body.style.touchAction = prevTouch
+    }
+  }, [open])
+
   const isStaff = user && STAFF_ROLES.includes(user.s2nri_role)
   const nav = isStaff ? ADMIN_NAV : CUSTOMER_NAV
 
@@ -1060,11 +1072,9 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
   )
 
   return (
-    <div className="s2-dash-shell s2-mobile-app-shell" style={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Desktop sidebar */}
-      <div className="s2-dash-sidebar" style={{ display: 'flex', flexDirection: 'column' }}>
-        {sidebar}
-      </div>
+    <div className="s2-dash-shell s2-mobile-app-shell">
+      {/* Desktop in-flow sidebar (hidden ≤900px — mobile uses overlay below) */}
+      <div className="s2-dash-sidebar">{sidebar}</div>
       {/* Mobile overlay sidebar */}
       {open && (
         <div className="s2-dash-overlay" onClick={() => setOpen(false)}>
@@ -1074,7 +1084,7 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
         </div>
       )}
       {/* Content */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <div className="s2-dash-main">
         {/* Mobile header bar */}
         <div className="s2-mobile-hamburger s2-dash-mobile-header">
           <button

@@ -1,8 +1,9 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-/** HTML shell mirroring SEO.php: release/{stamp}/ path-versioned assets. */
-export function buildProductionShell(rootDir) {
+/** HTML shell mirroring SEO.php / Portal.php: release/{stamp}/ path-versioned assets. */
+export function buildProductionShell(rootDir, opts = {}) {
+  const basePath = opts.basePath || ''
   const assetsDir = path.join(rootDir, 'assets')
   const stamp = fs.readFileSync(path.join(assetsDir, 'BUILD_STAMP.txt'), 'utf8').trim()
   const releaseBase = `/assets/release/${stamp}/`
@@ -35,6 +36,7 @@ export function buildProductionShell(rootDir) {
     portalToken: null,
     spaBase: '',
     assetsUrl: releaseBase,
+    basePath,
     version: 'e2e',
     settings: {
       platform_name: 'Services2NRI',
@@ -73,6 +75,7 @@ ${preloads}
   </div>
   <script type="application/json" id="s2nri-config-json">${configJson}</script>
   <script src="${releaseBase}boot-config.js"></script>
+  <script src="/e2e/boot-e2e-user.js"></script>
   <script src="${releaseBase}boot-watchdog.js"></script>
   <script type="module" src="${releaseBase}app.js"></script>
 </body>

@@ -54,6 +54,18 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (url.pathname === '/s2nri-admin' || url.pathname.startsWith('/s2nri-admin/')) {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(buildProductionShell(root, { basePath: '/s2nri-admin' }));
+    return;
+  }
+
+  if (url.pathname === '/portal' || url.pathname.startsWith('/portal/')) {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(buildProductionShell(root, { basePath: '/portal' }));
+    return;
+  }
+
   if (url.pathname === '/s2nri-builder' || url.pathname.startsWith('/s2nri-builder/')) {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     fs.readFile(path.join(root, 'e2e/builder-shell.html'), (err, data) => {
@@ -62,6 +74,21 @@ const server = http.createServer((req, res) => {
         res.end('Builder shell missing');
         return;
       }
+      res.end(data);
+    });
+    return;
+  }
+
+  if (url.pathname.startsWith('/e2e/')) {
+    const e2ePath = path.join(root, url.pathname.slice(1).split('?')[0]);
+    fs.readFile(e2ePath, (err, data) => {
+      if (err) {
+        res.writeHead(404);
+        res.end('Not found');
+        return;
+      }
+      const ext = path.extname(e2ePath);
+      res.writeHead(200, { 'Content-Type': mime[ext] || 'application/octet-stream' });
       res.end(data);
     });
     return;

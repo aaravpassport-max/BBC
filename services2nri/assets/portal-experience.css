@@ -3,6 +3,41 @@
  * Public marketing experience lives in public-platform-experience.css.
  */
 
+.s2-dash-shell {
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.s2-dash-shell > .s2-dash-sidebar {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+@media (max-width: 900px) {
+  .s2-dash-shell > .s2-dash-sidebar {
+    display: none !important;
+  }
+}
+
+@media (min-width: 901px) {
+  .s2-dash-mobile-header {
+    display: none !important;
+  }
+}
+
+.s2-dash-shell > .s2-dash-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 100%;
+}
+
 .s2-dash-mobile-header {
   background: color-mix(in srgb, var(--s2-color-surface, #fff) 92%, transparent);
   backdrop-filter: blur(10px);
@@ -56,14 +91,46 @@
   background: rgba(15, 23, 42, 0.55);
   display: flex;
   backdrop-filter: blur(2px);
+  animation: s2-dash-overlay-in 0.22s var(--s2-app-ease, cubic-bezier(0.2, 0, 0, 1));
 }
 
 .s2-dash-overlay__panel {
-  width: 260px;
+  width: min(280px, 86vw);
+  max-width: 100%;
   background: #1e2d40;
   display: flex;
   flex-direction: column;
   box-shadow: 8px 0 32px rgba(0, 0, 0, 0.25);
+  animation: s2-dash-panel-in 0.26s var(--s2-app-ease, cubic-bezier(0.2, 0, 0, 1));
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@keyframes s2-dash-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes s2-dash-panel-in {
+  from {
+    transform: translateX(-12px);
+    opacity: 0.92;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .s2-dash-overlay,
+  .s2-dash-overlay__panel {
+    animation: none;
+  }
 }
 
 .s2-dash-content-wrap {

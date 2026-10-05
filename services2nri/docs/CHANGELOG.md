@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.48] — 2026-10-05 — Cloud Agent
+
+- **Dashboard nav parity:** mobile sidebar is overlay-only (no in-flow push); tablet/mobile hide in-flow sidebar ≤900px; scroll lock when menu open; shell overflow hardened in `portal-experience.css`.
+- **Unified portal boot:** `/portal` and `/s2nri-admin` now load the same release `app.js` / CSS stack as `/admin` (via `Portal.php` + `AssetBuildStamp`), including bottom nav and mobile shell.
+- **E2E:** admin overlay sidebar geometry test; `/s2nri-admin` production-shell route on E2E server.
+
+---
+
 ## [4.7.47] — 2026-10-05 — Cloud Agent
 
 - **S2NRI Builder mobile parity:** bottom tab nav (Home / Service / Forms / Status / Menu), sticky action bar (View Site, Save Homepage, Add Field, Preview Service), mobile app surface + touch targets, stacked builder grids, bottom-sheet modals.

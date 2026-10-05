@@ -29,6 +29,29 @@ test.describe('Admin mobile native shell', () => {
     await expect(page.locator('.s2-admin-sticky-action-bar').getByRole('button', { name: '⬇ Export CSV' })).toBeVisible()
   })
 
+  test('mobile sidebar overlays content without horizontal shift', async ({ page }) => {
+    await page.goto('/admin')
+    await expect(page.locator('.s2-mobile-app-surface')).toBeVisible({ timeout: 25_000 })
+    const content = page.locator('.s2-dash-main')
+    const boxBefore = await content.boundingBox()
+    await page.locator('.s2-dash-mobile-header__menu-btn').click()
+    await expect(page.locator('.s2-dash-overlay')).toBeVisible()
+    const boxAfter = await content.boundingBox()
+    expect(boxBefore).not.toBeNull()
+    expect(boxAfter).not.toBeNull()
+    if (boxBefore && boxAfter) {
+      expect(Math.abs(boxAfter.x - boxBefore.x)).toBeLessThan(2)
+      expect(Math.abs(boxAfter.width - boxBefore.width)).toBeLessThan(2)
+    }
+    const overflow = await page.evaluate(() => {
+      const el = document.documentElement
+      return el.scrollWidth - el.clientWidth
+    })
+    expect(overflow).toBeLessThanOrEqual(1)
+    await page.locator('.s2-dash-overlay').click({ position: { x: 320, y: 200 } })
+    await expect(page.locator('.s2-dash-overlay')).toHaveCount(0)
+  })
+
   test('admin bottom nav requests tab links to /admin/requests', async ({ page }) => {
     await page.goto('/admin')
     await expect(page.locator('.s2-bottom-nav--admin')).toBeVisible({ timeout: 25_000 })
@@ -43,6 +66,14 @@ test.describe('Admin mobile native shell', () => {
     await expect(page.locator('.s2-design-system-tabs')).toBeVisible()
     await expect(page.locator('.s2-admin-sticky-action-bar')).toBeVisible()
     await expect(page.locator('.s2-admin-sticky-action-bar').getByRole('button', { name: 'Publish design' })).toBeVisible()
+  })
+
+  test('s2nri-admin basename has bottom nav and overlay sidebar', async ({ page }) => {
+    await page.goto('/s2nri-admin/admin')
+    await expect(page.locator('.s2-mobile-app-surface')).toBeVisible({ timeout: 25_000 })
+    await expect(page.locator('.s2-bottom-nav--admin')).toBeVisible()
+    await page.locator('.s2-bottom-nav--admin').getByRole('button', { name: 'Menu' }).click()
+    await expect(page.locator('.s2-dash-overlay')).toBeVisible()
   })
 
   test('settings form shows sticky save bar', async ({ page }) => {

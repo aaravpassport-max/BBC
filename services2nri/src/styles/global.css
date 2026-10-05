@@ -93,20 +93,9 @@ img { max-width: 100%; height: auto; }
   .mobile-filter { display: block; }
 }
 
-/* ── Dashboard sidebar ── */
+/* ── Dashboard sidebar (in-flow desktop + overlay mobile — portal-experience.css) ── */
 .s2-dash-body { display: flex; min-height: 100vh; }
 .s2-dash-sidebar { width: 240px; flex-shrink: 0; background: #1E2D40; }
-@media (max-width: 768px) {
-  .s2-dash-sidebar { display: none; }
-  .s2-dash-sidebar.open {
-    display: flex;
-    position: fixed;
-    inset: 0;
-    z-index: 999;
-    flex-direction: column;
-    width: 260px;
-  }
-}
 
 /* ── Modal mobile ── */
 @media (max-width: 600px) {
