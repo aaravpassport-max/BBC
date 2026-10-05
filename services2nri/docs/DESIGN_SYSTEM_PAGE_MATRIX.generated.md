@@ -1,5 +1,5 @@
 # Generated audit index
-Generated: 2026-10-05T12:18:21+00:00
+Generated: 2026-10-05T12:34:56+00:00
 
 ## Routes
 | `/` | `HomePage.tsx` | page_type `homepage` |
