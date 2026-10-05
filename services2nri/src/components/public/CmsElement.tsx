@@ -17,6 +17,7 @@ export function CmsElement({
   as: Tag = 'div',
   className,
   style,
+  'data-brand': dataBrand,
   children,
 }: {
   pageId: string
@@ -26,6 +27,7 @@ export function CmsElement({
   as?: keyof JSX.IntrinsicElements
   className?: string
   style?: React.CSSProperties
+  'data-brand'?: string
   children: React.ReactNode
 }) {
   const settings = useStore((s) => s.settings)
@@ -55,6 +57,7 @@ export function CmsElement({
       data-s2-element={elementId}
       data-s2-section={sectionKey}
       data-s2-page={pageId}
+      {...(dataBrand ? { 'data-brand': dataBrand } : {})}
     >
       {children}
     </Tag>

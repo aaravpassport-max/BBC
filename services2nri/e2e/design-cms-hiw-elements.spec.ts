@@ -36,6 +36,17 @@ test.describe('How It Works — Elements tab coverage', () => {
     await expect(editor.getByText('Step icon circle background')).toBeVisible();
   });
 
+  test('features section lists Feature 1 card in Elements', async ({ page }) => {
+    await page.goto('/admin/design');
+    await page.locator('.s2-design-builder-nav__page-btn:not(.s2-design-builder-nav__page-btn--sub)').filter({ hasText: 'Homepage' }).click();
+    await page.locator('[data-section-id="features"] .s2-band-card__main').click();
+    const editor = page.getByTestId('section-editor-features');
+    await editor.getByRole('tab', { name: 'Elements' }).click();
+    await editor.getByRole('option', { name: 'Feature 1 title' }).click();
+    await expect(editor.getByRole('heading', { name: 'Feature 1 title' })).toBeVisible();
+    await expect(editor.locator('.s2-ds-element-detail__group').filter({ hasText: 'Design' }).getByText('Text color')).toBeVisible();
+  });
+
   test('homepage exposes per-step CMS element markers', async ({ page }) => {
     await page.goto('/');
     await expect(

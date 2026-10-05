@@ -4,6 +4,13 @@
  */
 import { PAGE_TEMPLATES, type PageTemplateDef } from '@/lib/design-page-templates'
 import { templateHideSettingKey } from '@/lib/section-visibility'
+import {
+  awardContentFields,
+  faqContentFields,
+  featureContentFields,
+  partnerContentFields,
+  pressContentFields,
+} from '@/lib/cms-home-list-fields'
 
 function applyTemplateHide(pageId: string, sections: SectionCatalogDef[]): SectionCatalogDef[] {
   return sections.map((s) => {
@@ -185,11 +192,12 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
       { key: 'features_title', label: 'Section heading', placeholder: 'Why Our Customers Love Us' },
       {
         key: 'home_why_choose_json',
-        label: 'Feature cards',
+        label: 'Feature cards (bulk JSON)',
         type: 'textarea',
-        rows: 14,
+        rows: 8,
         hint: WHY_JSON_HINT,
       },
+      ...featureContentFields(),
     ],
     designSettingFields: [
       { key: 'css_features_bg', label: 'Background', placeholder: '#ffffff' },
@@ -336,11 +344,12 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
       { key: 'home_press_label', label: 'Section label', placeholder: 'As Featured In' },
       {
         key: 'home_press_json',
-        label: 'Press logos / names',
+        label: 'Press logos (bulk JSON)',
         type: 'textarea',
-        rows: 6,
+        rows: 4,
         hint: '[{"name":"Inc42","brand":"inc42"}] or comma-separated names',
       },
+      ...pressContentFields(),
     ],
     designSettingFields: [{ key: 'css_press_bg', label: 'Background' }],
   },
@@ -354,11 +363,12 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
       { key: 'home_partners_label', label: 'Section label', placeholder: 'Our Partners' },
       {
         key: 'home_partners_json',
-        label: 'Partner names',
+        label: 'Partner names (bulk JSON)',
         type: 'textarea',
         rows: 4,
         hint: 'JSON array of strings or comma-separated names',
       },
+      ...partnerContentFields(),
     ],
     designSettingFields: [{ key: 'css_partners_bg', label: 'Background' }],
   },
@@ -392,11 +402,12 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
       { key: 'home_awards_label', label: 'Section label', placeholder: 'Awards We Have Received' },
       {
         key: 'home_awards_json',
-        label: 'Award badges',
+        label: 'Award badges (bulk JSON)',
         type: 'textarea',
-        rows: 6,
+        rows: 4,
         hint: '[{"emoji":"🏆","text":"#startupindia","variant":"orange"}]',
       },
+      ...awardContentFields(),
     ],
     designSettingFields: [{ key: 'css_awards_bg', label: 'Background' }],
   },
@@ -411,11 +422,12 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
       { key: 'faq_section_title', label: 'Section heading', placeholder: "Let's Clear All The Doubts!" },
       {
         key: 'home_faq_json',
-        label: 'FAQ items (homepage)',
+        label: 'FAQ items (bulk JSON)',
         type: 'textarea',
-        rows: 12,
+        rows: 6,
         hint: '[{"q":"Question?","a":"Answer."}] — used when API FAQs empty',
       },
+      ...faqContentFields(),
       { key: 'faq_footer_link_text', label: 'Footer link', placeholder: 'View All FAQs →' },
     ],
     adminLink: { label: 'Manage FAQ database', path: '/admin/faqs' },

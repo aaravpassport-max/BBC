@@ -23,6 +23,14 @@ import {
   type ValueCard,
   type WhyChooseCard,
 } from '@/lib/home-content-settings'
+import { allHomeListFlatSettingKeys } from '@/lib/cms-home-list-fields'
+import {
+  flatKeysFromAwards,
+  flatKeysFromFaq,
+  flatKeysFromPartners,
+  flatKeysFromPress,
+  flatKeysFromWhyChoose,
+} from '@/lib/home-list-merge'
 import type { SectionContentPanelId } from '@/lib/design-system-catalog'
 import { readAdminSetting } from '@/lib/settings-admin'
 
@@ -186,6 +194,7 @@ function WhyChooseEditor({
   const sync = (next: WhyChooseCard[]) => {
     setCards(next)
     onChange('home_why_choose_json', JSON.stringify(next, null, 2))
+    Object.entries(flatKeysFromWhyChoose(next)).forEach(([k, v]) => onChange(k, v))
   }
 
   const list = cards.length ? cards : [{ icon: '✓', title: '', sub: '' }]
@@ -435,12 +444,12 @@ const HIW_STEP_KEYS = [1, 2, 3, 4, 5, 6].flatMap((n) => [
 
 const RICH_FIELD_EXCLUDE: Record<string, string[]> = {
   hero_slides: ['hero_banners'],
-  why_choose: ['home_why_choose_json'],
+  why_choose: ['home_why_choose_json', ...allHomeListFlatSettingKeys().filter((k) => k.startsWith('feature_'))],
   stats_cards: ['stat_1_number', 'stat_1_label', 'stat_2_number', 'stat_2_label', 'stat_3_number', 'stat_3_label', 'stat_4_number', 'stat_4_label'],
-  press_logos: ['home_press_json'],
-  partners_list: ['home_partners_json'],
-  awards_list: ['home_awards_json'],
-  faq_items: ['home_faq_json'],
+  press_logos: ['home_press_json', ...allHomeListFlatSettingKeys().filter((k) => k.startsWith('press_'))],
+  partners_list: ['home_partners_json', ...allHomeListFlatSettingKeys().filter((k) => k.startsWith('partner_'))],
+  awards_list: ['home_awards_json', ...allHomeListFlatSettingKeys().filter((k) => k.startsWith('award_'))],
+  faq_items: ['home_faq_json', ...allHomeListFlatSettingKeys().filter((k) => k.startsWith('faq_'))],
   hiw_steps: ['hiw_page_steps_json', ...HIW_STEP_KEYS],
   marquee_band: ['marquee_show', 'marquee_text', 'marquee_speed', 'marquee_bg', 'marquee_color', 'marquee_pause_hover'],
   about_story: [
@@ -540,6 +549,7 @@ function FaqItemsEditor({
   const sync = (next: FaqPair[]) => {
     setItems(next)
     onChange('home_faq_json', JSON.stringify(next, null, 2))
+    Object.entries(flatKeysFromFaq(next)).forEach(([k, v]) => onChange(k, v))
   }
   const list = items.length ? items : [{ q: '', a: '' }]
 
@@ -625,6 +635,13 @@ function LogoChipsEditor({
   const sync = (next: LogoChip[]) => {
     setChips(next)
     onChange(jsonKey, JSON.stringify(next, null, 2))
+    if (jsonKey === 'home_press_json') {
+      Object.entries(flatKeysFromPress(next)).forEach(([k, v]) => onChange(k, v))
+    }
+    if (jsonKey === 'home_partners_json') {
+      const names = next.map((c) => c.name).filter(Boolean)
+      Object.entries(flatKeysFromPartners(names)).forEach(([k, v]) => onChange(k, v))
+    }
   }
   const list = chips.length ? chips : [{ name: '' }]
 
@@ -687,6 +704,7 @@ function AwardsEditor({ settings, onChange }: { settings: Record<string, string>
   const sync = (next: AwardBadge[]) => {
     setBadges(next)
     onChange('home_awards_json', JSON.stringify(next, null, 2))
+    Object.entries(flatKeysFromAwards(next)).forEach(([k, v]) => onChange(k, v))
   }
   const list = badges.length ? badges : [{ emoji: '🏆', text: '', variant: 'orange' as const }]
 

@@ -3,6 +3,17 @@
  * Single source of truth for Elements tab grouping, hide_el_* keys, and design paths.
  */
 import type { ContentFieldDef } from '@/lib/design-system-catalog'
+import {
+  AWARD_ITEM_PARTS,
+  FAQ_ITEM_PARTS,
+  FEATURE_ITEM_PARTS,
+  HOME_LIST_LIMITS,
+  PARTNER_ITEM_PARTS,
+  PRESS_ITEM_PARTS,
+  STAT_ITEM_PARTS,
+  TESTIMONIAL_ITEM_PARTS,
+  listItemCanonical,
+} from '@/lib/cms-home-list-fields'
 
 export type CanonicalElement = { id: string; label: string }
 
@@ -37,17 +48,25 @@ export const CANONICAL_SECTION_ELEMENTS: Record<string, Record<string, Canonical
       { id: 'subtitle', label: 'Subtitle' },
       { id: 'collection', label: 'City cards' },
     ],
-    stats: [{ id: 'collection', label: 'Stat cards' }],
+    stats: [
+      { id: 'stat_item', label: 'Stat items (shared look)' },
+      ...listItemCanonical('stat', HOME_LIST_LIMITS.stats, 'Stat', STAT_ITEM_PARTS),
+      { id: 'collection', label: 'Stats grid layout' },
+    ],
     tagline: [{ id: 'body', label: 'Quote text' }],
     features: [
       { id: 'eyebrow', label: 'Eyebrow' },
       { id: 'heading', label: 'Section heading' },
-      { id: 'collection', label: 'Feature cards' },
+      { id: 'feature_card', label: 'Feature cards (shared look)' },
+      ...listItemCanonical('feature', HOME_LIST_LIMITS.features, 'Feature', FEATURE_ITEM_PARTS),
+      { id: 'collection', label: 'Feature grid layout' },
     ],
     testimonials: [
       { id: 'eyebrow', label: 'Eyebrow' },
       { id: 'heading', label: 'Section heading' },
-      { id: 'collection', label: 'Testimonial cards' },
+      { id: 'testimonial_card', label: 'Testimonial cards (shared look)' },
+      ...listItemCanonical('testimonial', HOME_LIST_LIMITS.testimonials, 'Testimonial', TESTIMONIAL_ITEM_PARTS),
+      { id: 'collection', label: 'Testimonials carousel' },
     ],
     process: [
       { id: 'eyebrow', label: 'Eyebrow' },
@@ -64,11 +83,15 @@ export const CANONICAL_SECTION_ELEMENTS: Record<string, Record<string, Canonical
     ],
     press: [
       { id: 'eyebrow', label: 'Strip label' },
-      { id: 'collection', label: 'Logo row' },
+      { id: 'press_chip', label: 'Press chips (shared look)' },
+      ...listItemCanonical('press', HOME_LIST_LIMITS.press, 'Press logo', PRESS_ITEM_PARTS),
+      { id: 'collection', label: 'Logo row layout' },
     ],
     partners: [
       { id: 'eyebrow', label: 'Strip label' },
-      { id: 'collection', label: 'Partner logos' },
+      { id: 'partner_chip', label: 'Partner chips (shared look)' },
+      ...listItemCanonical('partner', HOME_LIST_LIMITS.partners, 'Partner', PARTNER_ITEM_PARTS),
+      { id: 'collection', label: 'Partner row layout' },
     ],
     about: [
       { id: 'eyebrow', label: 'Eyebrow' },
@@ -80,12 +103,16 @@ export const CANONICAL_SECTION_ELEMENTS: Record<string, Record<string, Canonical
     ],
     awards: [
       { id: 'eyebrow', label: 'Strip label' },
-      { id: 'collection', label: 'Award badges' },
+      { id: 'award_badge', label: 'Award badges (shared look)' },
+      ...listItemCanonical('award', HOME_LIST_LIMITS.awards, 'Award', AWARD_ITEM_PARTS),
+      { id: 'collection', label: 'Awards row layout' },
     ],
     faq: [
       { id: 'eyebrow', label: 'Eyebrow' },
       { id: 'heading', label: 'Section heading' },
-      { id: 'collection', label: 'FAQ list' },
+      { id: 'faq_item', label: 'FAQ items (shared look)' },
+      ...listItemCanonical('faq', HOME_LIST_LIMITS.faq, 'FAQ', FAQ_ITEM_PARTS),
+      { id: 'collection', label: 'FAQ list layout' },
       { id: 'link', label: 'Footer link' },
     ],
     newsletter: [
@@ -173,6 +200,20 @@ const FIELD_ELEMENT_MAP: Record<string, string> = {
   css_how_icon_color: 'step_card',
   css_how_card_title_color: 'step_card',
   css_how_card_desc_color: 'step_card',
+  home_why_choose_json: 'collection',
+  home_faq_json: 'collection',
+  home_press_json: 'collection',
+  home_partners_json: 'collection',
+  home_awards_json: 'collection',
+  css_stats_bg: 'collection',
+  css_stats_color: 'stat_item',
+  css_stats_padding: 'collection',
+  css_features_bg: 'collection',
+  css_features_padding: 'collection',
+  css_press_bg: 'collection',
+  css_partners_bg: 'collection',
+  css_awards_bg: 'collection',
+  css_faq_bg: 'collection',
   services_view_all_text: 'link',
   header_whatsapp_label: 'whatsapp_button',
   header_service_request_text: 'service_request_button',
@@ -204,6 +245,35 @@ export function resolveCatalogElementId(
     if (part === 'desc') return `step_${n}_desc`
     return `step_${n}_icon`
   }
+
+  const statN = key.match(/^stat_(\d+)_(number|label)$/)
+  if (statN) return statN[2] === 'number' ? `stat_${statN[1]}_value` : `stat_${statN[1]}_label`
+
+  const featureN = key.match(/^feature_(\d+)_(icon|title|sub)$/)
+  if (featureN) {
+    const n = featureN[1]
+    if (featureN[2] === 'icon') return `feature_${n}_icon`
+    if (featureN[2] === 'title') return `feature_${n}_title`
+    return `feature_${n}_desc`
+  }
+
+  const faqN = key.match(/^faq_(\d+)_(q|a)$/)
+  if (faqN) return faqN[2] === 'q' ? `faq_${faqN[1]}_question` : `faq_${faqN[1]}_answer`
+
+  const pressN = key.match(/^press_(\d+)_(name|brand)$/)
+  if (pressN) return pressN[2] === 'name' ? `press_${pressN[1]}_title` : `press_${pressN[1]}_brand`
+
+  const partnerN = key.match(/^partner_(\d+)_name$/)
+  if (partnerN) return `partner_${partnerN[1]}_title`
+
+  const awardN = key.match(/^award_(\d+)_(emoji|text|variant)$/)
+  if (awardN) {
+    const n = awardN[1]
+    if (awardN[2] === 'emoji') return `award_${n}_icon`
+    if (awardN[2] === 'text') return `award_${n}_title`
+    return `award_${n}_variant`
+  }
+
   if (key.includes('eyebrow')) return 'eyebrow'
   if (key.includes('subheading')) return 'eyebrow'
   if (key.endsWith('_label') && !key.includes('nav_')) return 'eyebrow'
@@ -213,7 +283,7 @@ export function resolveCatalogElementId(
   }
   if (key.includes('cta2') || key.includes('_secondary')) return 'secondary_button'
   if (key.includes('footer_link') || key.includes('view_all_text')) return 'link'
-  if (key.includes('subtitle') || key.endsWith('_sub')) {
+  if (key.includes('subtitle') || (key.endsWith('_sub') && !/^feature_\d+_sub$/.test(key))) {
     if (key.includes('newsletter') || key.startsWith('app_')) return 'body'
     return 'subtitle'
   }

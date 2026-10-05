@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.85] — 2026-10-05 — Cloud Agent
+
+- **Per-item Elements (homepage lists):** Feature, stat, FAQ, press, partner, and award bands expose each list item in Elements (content + design); flat settings sync with JSON list editors; testimonial carousel slots for styling.
+
+---
+
 ## [4.7.84] — 2026-10-05 — Cloud Agent
 
 - **How It Works Elements:** Per-step card, title, description, and icon nodes in Elements tab; shared card/icon colors via platform styling; DOM `CmsElement` markers; field-resolution audit for catalog gaps.

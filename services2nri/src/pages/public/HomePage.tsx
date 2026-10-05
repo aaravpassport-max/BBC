@@ -43,12 +43,12 @@ import { subscribeResource } from '@/lib/resource-cache'
 import { parseHeroBanners, IMAGES, getAvatarImage } from '@/lib/images'
 import type { Category, Service, City, Testimonial } from '@/types'
 import {
-  parseAwardBadges,
-  parseHomeFaqPairs,
-  parseLogoChips,
-  parseStringList,
-  parseWhyChooseCards,
-} from '@/lib/home-content-settings'
+  mergeAwardBadges,
+  mergeHomeFaqPairs,
+  mergePartnerNames,
+  mergePressLogos,
+  mergeWhyChooseCards,
+} from '@/lib/home-list-merge'
 import { DEFAULT_HOME_SECTION_ORDER } from '@/lib/home-section-order'
 import { sectionHidden } from '@/lib/section-visibility'
 import { bandPadClass, pickCssStyle } from '@/lib/responsive-band-padding'
@@ -79,10 +79,11 @@ function useCounter(target: string, duration = 1800, started: boolean) {
   return value
 }
 
-function StatCard({ number, label }: { number: string; label: string }) {
+function StatCard({ index, number, label }: { index: number; number: string; label: string }) {
   const [ref, setRef] = useState<HTMLDivElement | null>(null)
   const [started, setStarted] = useState(false)
   const value = useCounter(number, 1800, started)
+  const n = index + 1
 
   useEffect(() => {
     if (!ref) return
@@ -94,10 +95,21 @@ function StatCard({ number, label }: { number: string; label: string }) {
   }, [ref])
 
   return (
-    <div ref={setRef} className="s2-stats-bar__item">
-      <div className="s2-stats-bar__value">{value}</div>
-      <div className="s2-stats-bar__label">{label}</div>
-    </div>
+    <CmsElement
+      pageId="home"
+      sectionKey="stats"
+      elementId={`stat_${n}`}
+      className="s2-stats-bar__item"
+    >
+      <div ref={setRef}>
+        <CmsElement pageId="home" sectionKey="stats" elementId={`stat_${n}_value`} className="s2-stats-bar__value">
+          {value}
+        </CmsElement>
+        <CmsElement pageId="home" sectionKey="stats" elementId={`stat_${n}_label`} className="s2-stats-bar__label">
+          {label}
+        </CmsElement>
+      </div>
+    </CmsElement>
   )
 }
 
@@ -353,17 +365,17 @@ export function HomePage() {
     return vars as React.CSSProperties
   }
 
-  const whyChoose = parseWhyChooseCards(settings.home_why_choose_json, WHY_CHOOSE)
-  const homeFaqs = parseHomeFaqPairs(settings.home_faq_json, FAQ_DATA)
-  const pressLogos = parseLogoChips(
-    settings.home_press_json,
+  const sFlat = settings as Record<string, string>
+  const whyChoose = mergeWhyChooseCards(sFlat, WHY_CHOOSE)
+  const homeFaqs = mergeHomeFaqPairs(sFlat, FAQ_DATA)
+  const pressLogos = mergePressLogos(
+    sFlat,
     FEATURED_IN.map((x) => ({ name: x.name, brand: x.brand })),
   )
-  const partnerChips = parseStringList(
-    settings.home_partners_json,
-    ['ECE', 'NASBA', 'NACC', 'NACES', 'WES', 'CGFNS'],
-  )
-  const awardBadges = parseAwardBadges(settings.home_awards_json, [
+  const partnerChips = mergePartnerNames(sFlat, [
+    'ECE', 'NASBA', 'NACC', 'NACES', 'WES', 'CGFNS',
+  ])
+  const awardBadges = mergeAwardBadges(sFlat, [
     { emoji: '🏆', text: '#startupindia', variant: 'orange' },
     { emoji: '🎖️', text: 'Top NRI Service Platform 2024', variant: 'primary' },
   ])
@@ -650,7 +662,9 @@ export function HomePage() {
         style={{ ...bandOrder('stats'), ...pickCssStyle(settings, { bg: 'css_stats_bg', padding: 'css_stats_padding', color: 'css_stats_color' }) }}
       >
         <CmsElement pageId="home" sectionKey="stats" elementId="collection" className="s2-stats-bar__grid">
-          {stats.map(({ n, l }) => <StatCard key={l} number={n} label={l} />)}
+          {stats.map(({ n, l }, i) => (
+            <StatCard key={`${i}-${l}`} index={i} number={n} label={l} />
+          ))}
         </CmsElement>
       </section>
       )}
@@ -692,15 +706,30 @@ export function HomePage() {
             </CmsElement>
           </div>
           <CmsElement pageId="home" sectionKey="features" elementId="collection" className="s2-feat-grid s2-stagger">
-            {whyChoose.map(({ icon, title, sub }) => (
-              <div key={title} className="s2-home-feat-card">
-                <div className="s2-home-feat-card__icon">{icon}</div>
-                <div>
-                  <h4 className="s2-home-feat-card__title">{title}</h4>
-                  <p className="s2-home-feat-card__sub">{sub}</p>
-                </div>
-              </div>
-            ))}
+            {whyChoose.map(({ icon, title, sub }, i) => {
+              const n = i + 1
+              return (
+                <CmsElement
+                  key={`${n}-${title}`}
+                  pageId="home"
+                  sectionKey="features"
+                  elementId={`feature_${n}`}
+                  className="s2-home-feat-card"
+                >
+                  <CmsElement pageId="home" sectionKey="features" elementId={`feature_${n}_icon`} className="s2-home-feat-card__icon">
+                    {icon}
+                  </CmsElement>
+                  <div>
+                    <CmsElement pageId="home" sectionKey="features" elementId={`feature_${n}_title`} as="h4" className="s2-home-feat-card__title">
+                      {title}
+                    </CmsElement>
+                    <CmsElement pageId="home" sectionKey="features" elementId={`feature_${n}_desc`} as="p" className="s2-home-feat-card__sub">
+                      {sub}
+                    </CmsElement>
+                  </div>
+                </CmsElement>
+              )
+            })}
           </CmsElement>
         </div>
       </section>
@@ -733,9 +762,11 @@ export function HomePage() {
             slidesPerView={1}
             breakpoints={{ 768: { slidesPerView: 2 }, 1024: { slidesPerView: 3 } }}
           >
-            {displayTestimonials.map((t, i) => (
+            {displayTestimonials.map((t, i) => {
+              const n = i + 1
+              return (
               <SwiperSlide key={t.id || i}>
-                <div className="s2-home-testimonial-card">
+                <CmsElement pageId="home" sectionKey="testimonials" elementId={`testimonial_${n}`} className="s2-home-testimonial-card">
                   <div className="s2-home-testimonial-card__head">
                     <div className="s2-home-testimonial-card__avatar">
                       {t.image_url
@@ -744,15 +775,22 @@ export function HomePage() {
                       }
                     </div>
                     <div>
-                      <div className="s2-home-testimonial-card__name">{t.name}</div>
-                      <div className="s2-home-testimonial-card__loc">{t.location || t.loc}</div>
+                      <CmsElement pageId="home" sectionKey="testimonials" elementId={`testimonial_${n}_author`} className="s2-home-testimonial-card__name">
+                        {t.name}
+                      </CmsElement>
+                      <CmsElement pageId="home" sectionKey="testimonials" elementId={`testimonial_${n}_meta`} className="s2-home-testimonial-card__loc">
+                        {t.location || t.loc}
+                      </CmsElement>
                     </div>
                   </div>
                   <div className="s2-home-testimonial-card__stars">{'★'.repeat(t.rating || 5)}</div>
-                  <p className="s2-home-testimonial-card__text">{t.text || t.review}</p>
-                </div>
+                  <CmsElement pageId="home" sectionKey="testimonials" elementId={`testimonial_${n}_quote`} as="p" className="s2-home-testimonial-card__text">
+                    {t.text || t.review}
+                  </CmsElement>
+                </CmsElement>
               </SwiperSlide>
-            ))}
+              )
+            })}
           </Swiper>
           </CmsElement>
 
@@ -839,9 +877,23 @@ export function HomePage() {
           {settings.home_press_label || 'As Featured In'}
         </CmsElement>
         <CmsElement pageId="home" sectionKey="press" elementId="collection" className="s2-home-logo-strip__row s2-stagger">
-          {pressLogos.map(({ name, brand }) => (
-            <div key={name} className="s2-home-press-chip" data-brand={brand}>{name}</div>
-          ))}
+          {pressLogos.map(({ name, brand }, i) => {
+            const n = i + 1
+            return (
+              <CmsElement
+                key={`${n}-${name}`}
+                pageId="home"
+                sectionKey="press"
+                elementId={`press_${n}`}
+                className="s2-home-press-chip"
+                data-brand={brand}
+              >
+                <CmsElement pageId="home" sectionKey="press" elementId={`press_${n}_title`} as="span">
+                  {name}
+                </CmsElement>
+              </CmsElement>
+            )
+          })}
         </CmsElement>
       </div>
       )}
@@ -858,9 +910,22 @@ export function HomePage() {
           {settings.home_partners_label || 'Our Partners'}
         </CmsElement>
         <CmsElement pageId="home" sectionKey="partners" elementId="collection" className="s2-home-logo-strip__row s2-stagger">
-          {partnerChips.map((p) => (
-            <div key={p} className="s2-home-partner-chip">{p}</div>
-          ))}
+          {partnerChips.map((p, i) => {
+            const n = i + 1
+            return (
+              <CmsElement
+                key={`${n}-${p}`}
+                pageId="home"
+                sectionKey="partners"
+                elementId={`partner_${n}`}
+                className="s2-home-partner-chip"
+              >
+                <CmsElement pageId="home" sectionKey="partners" elementId={`partner_${n}_title`} as="span">
+                  {p}
+                </CmsElement>
+              </CmsElement>
+            )
+          })}
         </CmsElement>
       </div>
       )}
@@ -940,17 +1005,31 @@ export function HomePage() {
           {settings.home_awards_label || 'Awards We Have Received'}
         </CmsElement>
         <CmsElement pageId="home" sectionKey="awards" elementId="collection" className="s2-home-awards__row">
-          {awardBadges.map((a) => (
-            <div
-              key={a.text}
-              className={`s2-home-award s2-home-award--${a.variant === 'primary' ? 'primary' : 'orange'}`}
-            >
-              <span className="s2-home-award__emoji">{a.emoji}</span>
-              <span className={a.variant === 'primary' ? 's2-home-award__text-primary' : 's2-home-award__text-orange'}>
-                {a.text}
-              </span>
-            </div>
-          ))}
+          {awardBadges.map((a, i) => {
+            const n = i + 1
+            return (
+              <CmsElement
+                key={`${n}-${a.text}`}
+                pageId="home"
+                sectionKey="awards"
+                elementId={`award_${n}`}
+                className={`s2-home-award s2-home-award--${a.variant === 'primary' ? 'primary' : 'orange'}`}
+              >
+                <CmsElement pageId="home" sectionKey="awards" elementId={`award_${n}_icon`} as="span" className="s2-home-award__emoji">
+                  {a.emoji}
+                </CmsElement>
+                <CmsElement
+                  pageId="home"
+                  sectionKey="awards"
+                  elementId={`award_${n}_title`}
+                  as="span"
+                  className={a.variant === 'primary' ? 's2-home-award__text-primary' : 's2-home-award__text-orange'}
+                >
+                  {a.text}
+                </CmsElement>
+              </CmsElement>
+            )
+          })}
         </CmsElement>
       </div>
       )}
@@ -973,21 +1052,34 @@ export function HomePage() {
             </CmsElement>
           </div>
           <CmsElement pageId="home" sectionKey="faq" elementId="collection" className="s2-home-faq__list">
-            {homeFaqs.map(({ q, a }, i) => (
-              <div key={i} className={`s2-home-faq__item${openFaq === i ? ' is-open' : ''}`}>
+            {homeFaqs.map(({ q, a }, i) => {
+              const n = i + 1
+              return (
+              <CmsElement
+                key={i}
+                pageId="home"
+                sectionKey="faq"
+                elementId={`faq_${n}`}
+                className={`s2-home-faq__item${openFaq === i ? ' is-open' : ''}`}
+              >
                 <button
                   type="button"
                   onClick={() => setOpenFaq(openFaq === i ? null : i)}
                   className="s2-home-faq__trigger"
                 >
-                  <span>{q}</span>
+                  <CmsElement pageId="home" sectionKey="faq" elementId={`faq_${n}_question`} as="span">
+                    {q}
+                  </CmsElement>
                   <span className="s2-home-faq__toggle">{openFaq === i ? '−' : '+'}</span>
                 </button>
                 {openFaq === i && (
-                  <div className="s2-home-faq__answer">{a}</div>
+                  <CmsElement pageId="home" sectionKey="faq" elementId={`faq_${n}_answer`} className="s2-home-faq__answer">
+                    {a}
+                  </CmsElement>
                 )}
-              </div>
-            ))}
+              </CmsElement>
+              )
+            })}
           </CmsElement>
           <CmsElement pageId="home" sectionKey="faq" elementId="link" className="s2-home-faq__footer">
             <Link to="/faq" className="s2-home-text-link">
