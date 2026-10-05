@@ -7,6 +7,7 @@ import { resolvePrimary } from '@/lib/design-tokens'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
+import { normalizeSettingsApiResponse } from '@/lib/settings-admin'
 import { STAFF_ROLES } from '@/lib/constants'
 import { SidebarLayout } from '@/components/layout/Layout'
 import { ServiceRegistryVisibilityBlock, CategoryRegistryVisibilityBlock } from '@/components/admin/RegistryVisibilityBlock'
@@ -595,7 +596,14 @@ export function AdminPayments() {
 export function AdminSettings() {
   const [settings, setSettings] = useState<Record<string, string>>({}), [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false), [err, setErr] = useState(''), [ok, setOk] = useState('')
-  useEffect(() => { api.get<{ settings: Record<string, unknown> }>('admin/settings').then(d => { const flat: Record<string, string> = {}; for (const [k, v] of Object.entries(d.settings || {})) flat[k] = String((v as Record<string, unknown>)?.value ?? v); setSettings(flat); setLoading(false) }).catch(() => setLoading(false)) }, [])
+  useEffect(() => {
+    api.get<{ settings: Record<string, unknown>; settings_flat?: Record<string, string> }>('admin/settings')
+      .then((d) => {
+        setSettings(normalizeSettingsApiResponse(d))
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [])
   async function save() { setSaving(true); setErr(''); setOk(''); try { await api.put('admin/settings', settings); setOk('Settings saved.') } catch (e: unknown) { setErr((e as { message: string }).message) }; setSaving(false) }
   const sections = [
     { title: '🏷️ Brand', fields: [['platform_name','Platform Name'],['platform_tagline','Tagline'],['platform_email','Email'],['platform_phone','Phone'],['platform_whatsapp','WhatsApp Number'],['platform_logo_url','Logo URL'],['platform_address','Address']] },

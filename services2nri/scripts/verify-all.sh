@@ -16,6 +16,9 @@ php scripts/verify-json-bootstrap.php
 echo "== verify-design-system =="
 bash scripts/verify-design-system.sh
 
+echo "== verify-settings-admin =="
+node scripts/verify-settings-admin.mjs
+
 echo "== playwright boot (production shell) =="
 CI=1 npx playwright test e2e/boot.spec.ts --reporter=list
 

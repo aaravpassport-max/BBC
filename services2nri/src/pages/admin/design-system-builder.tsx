@@ -30,6 +30,11 @@ import {
 import { HexColorField, HexAlphaColorField, PxTokenField, parsePx } from './design-admin-fields'
 import { hasOverrideAtPath, OverrideFieldShell, readPathLeaf } from './design-inherit-ui'
 import { WidthLayoutPanel, type WidthLayoutFocus } from './width-layout-panel'
+import {
+  normalizeSettingsApiResponse,
+  prepareSettingsPayload,
+  readAdminSetting,
+} from '@/lib/settings-admin'
 
 type DesignConfig = Record<string, unknown>
 type PatchFn = (path: string[], value: unknown) => void
@@ -140,6 +145,7 @@ function SectionContentPanel({
   onChange,
   onSave,
   saving,
+  saveMessage,
 }: {
   section: SectionCatalogDef
   page: PageCatalogDef
@@ -147,6 +153,7 @@ function SectionContentPanel({
   onChange: (key: string, value: string) => void
   onSave: () => void
   saving: boolean
+  saveMessage: { type: 'success' | 'error'; text: string } | null
 }) {
   const fields = section.isPageScope
     ? page.pageContentFields || []
@@ -180,34 +187,48 @@ function SectionContentPanel({
       {section.contentNote && (
         <p style={{ color: '#64748B', fontSize: 13, marginTop: 0 }}>{section.contentNote}</p>
       )}
-      <div style={{ display: 'grid', gap: 14, maxWidth: 640 }}>
-        {fields.map((f) => (
-          <label key={f.key} style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>
-            {f.label}
-            {f.type === 'textarea' ? (
-              <textarea
-                rows={f.rows ?? 3}
-                value={settings[f.key] || ''}
-                onChange={(e) => onChange(f.key, e.target.value)}
-                placeholder={f.placeholder}
-                style={{ display: 'block', width: '100%', marginTop: 6, padding: 10, borderRadius: 8, border: '1px solid #E2E8F0', fontFamily: 'inherit' }}
-              />
-            ) : (
-              <input
-                type="text"
-                value={settings[f.key] || ''}
-                onChange={(e) => onChange(f.key, e.target.value)}
-                placeholder={f.placeholder}
-                style={{ display: 'block', width: '100%', marginTop: 6, padding: 10, borderRadius: 8, border: '1px solid #E2E8F0' }}
-              />
-            )}
-            {f.hint && <span style={{ display: 'block', fontWeight: 400, fontSize: 12, color: '#94A3B8', marginTop: 4 }}>{f.hint}</span>}
-          </label>
-        ))}
+      <div className="s2-design-builder-panel__card">
+        <div style={{ display: 'grid', gap: 4, maxWidth: 720 }}>
+          {fields.map((f) => {
+            const isJson = f.key.endsWith('_json')
+            const val = readAdminSetting(settings, f.key)
+            return (
+              <div key={f.key} className="s2-design-builder-field">
+                <label htmlFor={`ds-field-${f.key}`}>{f.label}</label>
+                {f.type === 'textarea' ? (
+                  <textarea
+                    id={`ds-field-${f.key}`}
+                    rows={f.rows ?? 3}
+                    className={isJson ? 's2-design-builder-field__json' : undefined}
+                    value={val}
+                    onChange={(e) => onChange(f.key, e.target.value)}
+                    placeholder={f.placeholder}
+                  />
+                ) : (
+                  <input
+                    id={`ds-field-${f.key}`}
+                    type="text"
+                    value={val}
+                    onChange={(e) => onChange(f.key, e.target.value)}
+                    placeholder={f.placeholder}
+                  />
+                )}
+                {f.hint && <span className="s2-design-builder-field__hint">{f.hint}</span>}
+              </div>
+            )
+          })}
+        </div>
+        <div className="s2-design-builder-actions">
+          <button type="button" className="s2-btn s2-btn--primary" onClick={onSave} disabled={saving}>
+            {saving ? 'Saving content…' : 'Save section content'}
+          </button>
+          {saveMessage && (
+            <span className={`s2-design-builder-toast s2-design-builder-toast--${saveMessage.type}`} role="status">
+              {saveMessage.text}
+            </span>
+          )}
+        </div>
       </div>
-      <button type="button" className="s2-btn s2-btn--primary" style={{ marginTop: 20 }} onClick={onSave} disabled={saving}>
-        {saving ? 'Saving content…' : 'Save section content'}
-      </button>
     </div>
   )
 }
@@ -222,12 +243,14 @@ function SectionPlatformDesignFields({
   onChange,
   onSave,
   saving,
+  saveMessage,
 }: {
   section: SectionCatalogDef
   settings: Record<string, string>
   onChange: (key: string, value: string) => void
   onSave: () => void
   saving: boolean
+  saveMessage: { type: 'success' | 'error'; text: string } | null
 }) {
   const fields = section.designSettingFields || []
   if (fields.length === 0) return null
@@ -239,7 +262,7 @@ function SectionPlatformDesignFields({
       </p>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
         {fields.map((f) => {
-          const val = settings[f.key] || ''
+          const val = readAdminSetting(settings, f.key)
           const inherited = val === ''
           return (
             <OverrideFieldShell
@@ -264,9 +287,16 @@ function SectionPlatformDesignFields({
           )
         })}
       </div>
-      <button type="button" className="s2-btn s2-btn--outline" style={{ marginTop: 16 }} onClick={onSave} disabled={saving}>
-        {saving ? 'Saving styling…' : 'Save section styling'}
-      </button>
+      <div className="s2-design-builder-actions">
+        <button type="button" className="s2-btn s2-btn--outline" onClick={onSave} disabled={saving}>
+          {saving ? 'Saving styling…' : 'Save section styling'}
+        </button>
+        {saveMessage && (
+          <span className={`s2-design-builder-toast s2-design-builder-toast--${saveMessage.type}`} role="status">
+            {saveMessage.text}
+          </span>
+        )}
+      </div>
     </div>
   )
 }
@@ -366,6 +396,7 @@ function SectionDesignPanel({
   onSettingsChange,
   onSavePlatformDesign,
   platformDesignSaving,
+  designSaveMessage,
   onOpenLayout,
 }: {
   section: SectionCatalogDef
@@ -376,6 +407,7 @@ function SectionDesignPanel({
   onSettingsChange: (key: string, value: string) => void
   onSavePlatformDesign: () => void
   platformDesignSaving: boolean
+  designSaveMessage: { type: 'success' | 'error'; text: string } | null
   onOpenLayout: (focus: WidthLayoutFocus) => void
 }) {
   if (section.isPageScope) {
@@ -387,8 +419,9 @@ function SectionDesignPanel({
   const [hideVal, setHideVal] = useState('0')
   useEffect(() => {
     if (!hideKey) return
-    api.get<{ settings: Record<string, string> }>('admin/settings').then((d) => {
-      setHideVal(String(d.settings?.[hideKey] ?? '0'))
+    api.get<{ settings: Record<string, unknown>; settings_flat?: Record<string, string> }>('admin/settings').then((d) => {
+      const flat = normalizeSettingsApiResponse(d)
+      setHideVal(flat[hideKey] ?? '0')
     }).catch(() => {})
   }, [hideKey, section.id])
 
@@ -465,6 +498,7 @@ function SectionDesignPanel({
         onChange={onSettingsChange}
         onSave={onSavePlatformDesign}
         saving={platformDesignSaving}
+        saveMessage={designSaveMessage}
       />
 
       <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
@@ -647,6 +681,9 @@ export function DesignSystemBuilder({
   const [settings, setSettings] = useState<Record<string, string>>({})
   const [contentSaving, setContentSaving] = useState(false)
   const [platformDesignSaving, setPlatformDesignSaving] = useState(false)
+  const [contentSaveMessage, setContentSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [designSaveMessage, setDesignSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [settingsLoading, setSettingsLoading] = useState(true)
   const [fontQuery, setFontQuery] = useState('')
 
   const page = useMemo(() => DESIGN_PAGE_CATALOG.find((p) => p.id === pageId) || DESIGN_PAGE_CATALOG[0], [pageId])
@@ -656,17 +693,25 @@ export function DesignSystemBuilder({
   )
 
   const loadSettings = useCallback(async () => {
+    setSettingsLoading(true)
     try {
-      const d = await api.get<{ settings: Record<string, string> }>('admin/settings')
-      setSettings(d.settings || {})
+      const d = await api.get<{ settings: Record<string, unknown>; settings_flat?: Record<string, string> }>('admin/settings')
+      setSettings(normalizeSettingsApiResponse(d))
     } catch {
       setSettings({})
+    } finally {
+      setSettingsLoading(false)
     }
   }, [])
 
   useEffect(() => {
     loadSettings()
   }, [loadSettings])
+
+  useEffect(() => {
+    setContentSaveMessage(null)
+    setDesignSaveMessage(null)
+  }, [pageId, sectionId, sectionTab])
 
   useEffect(() => {
     setPreviewPath(page.previewPath)
@@ -700,13 +745,14 @@ export function DesignSystemBuilder({
     const fields = section?.isPageScope ? page.pageContentFields : section?.contentFields
     if (!fields?.length) return
     setContentSaving(true)
+    setContentSaveMessage(null)
     try {
-      const payload: Record<string, string> = {}
-      fields.forEach((f) => {
-        payload[f.key] = settings[f.key] || ''
-      })
+      const payload = prepareSettingsPayload(settings, fields.map((f) => f.key))
       await api.put('admin/settings', payload)
       await loadSettings()
+      setContentSaveMessage({ type: 'success', text: 'Content saved — values reloaded for editing.' })
+    } catch {
+      setContentSaveMessage({ type: 'error', text: 'Could not save content. Try again.' })
     } finally {
       setContentSaving(false)
     }
@@ -715,62 +761,48 @@ export function DesignSystemBuilder({
   const saveSectionPlatformDesign = async () => {
     if (!section?.designSettingFields?.length) return
     setPlatformDesignSaving(true)
+    setDesignSaveMessage(null)
     try {
-      const payload: Record<string, string> = {}
-      section.designSettingFields.forEach((f) => {
-        payload[f.key] = settings[f.key] || ''
-      })
+      const payload = prepareSettingsPayload(
+        settings,
+        section.designSettingFields.map((f) => f.key),
+      )
       await api.put('admin/settings', payload)
       await loadSettings()
+      setDesignSaveMessage({ type: 'success', text: 'Section styling saved.' })
+    } catch {
+      setDesignSaveMessage({ type: 'error', text: 'Could not save styling.' })
     } finally {
       setPlatformDesignSaving(false)
     }
   }
 
-  const breadcrumb =
+  const foundationHint = FOUNDATION_NAV.find((f) => f.id === foundationPanel)?.hint
+  const workspaceDesc =
     navMode === 'foundation'
-      ? `Site Foundation → ${FOUNDATION_NAV.find((f) => f.id === foundationPanel)?.label || ''}`
-      : `${page.label} → ${section?.label || ''}`
+      ? foundationHint
+      : sectionTab === 'content'
+        ? section?.contentNote || 'Edit copy and links for this section. Changes apply to the live public page after save.'
+        : 'Override colors, typography, visibility, and layout for this section. Clear fields to inherit from Site Foundation or page defaults.'
 
   return (
-    <div className="s2-design-system-builder" style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 280px) 1fr', gap: 24, alignItems: 'start' }}>
-      <nav className="s2-design-builder-nav" aria-label="Design pages" style={{ position: 'sticky', top: 12 }}>
+    <div className="s2-design-system-builder">
+      <nav className="s2-design-builder-nav" aria-label="Design pages">
         <button
           type="button"
           className={`s2-design-builder-nav__foundation${navMode === 'foundation' ? ' is-active' : ''}`}
           onClick={() => setNavMode('foundation')}
-          style={{
-            width: '100%',
-            textAlign: 'left',
-            padding: '12px 14px',
-            marginBottom: 12,
-            borderRadius: 12,
-            border: navMode === 'foundation' ? '2px solid var(--s2-primary, #4A6FA5)' : '1px solid #E2E8F0',
-            background: navMode === 'foundation' ? '#EBF0F8' : '#fff',
-            fontWeight: 700,
-            cursor: 'pointer',
-          }}
         >
           Site Foundation
         </button>
         {navMode === 'foundation' && (
-          <ul style={{ listStyle: 'none', margin: '0 0 16px', padding: 0, display: 'grid', gap: 4 }}>
+          <ul className="s2-design-builder-nav__list">
             {FOUNDATION_NAV.map((f) => (
               <li key={f.id}>
                 <button
                   type="button"
+                  className={`s2-design-builder-nav__foundation-item${foundationPanel === f.id ? ' is-active' : ''}`}
                   onClick={() => setFoundationPanel(f.id)}
-                  style={{
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '8px 12px',
-                    borderRadius: 8,
-                    border: 'none',
-                    background: foundationPanel === f.id ? '#F1F5F9' : 'transparent',
-                    fontWeight: foundationPanel === f.id ? 700 : 500,
-                    fontSize: 13,
-                    cursor: 'pointer',
-                  }}
                 >
                   {f.label}
                 </button>
@@ -779,52 +811,29 @@ export function DesignSystemBuilder({
           </ul>
         )}
 
-        <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.06, color: '#94A3B8', marginBottom: 8 }}>
-          Public pages
-        </div>
-        <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'grid', gap: 4 }}>
+        <div className="s2-design-builder-nav__group-label">Public pages</div>
+        <ul className="s2-design-builder-nav__list">
           {DESIGN_PAGE_CATALOG.map((p) => (
             <li key={p.id}>
               <button
                 type="button"
+                className={`s2-design-builder-nav__page-btn${navMode === 'page' && pageId === p.id ? ' is-active' : ''}`}
                 onClick={() => {
                   if (expandedPages[p.id]) selectPage(p.id)
                   else setExpandedPages((prev) => ({ ...prev, [p.id]: true }))
                   selectPage(p.id)
                 }}
-                style={{
-                  width: '100%',
-                  textAlign: 'left',
-                  padding: '8px 12px',
-                  borderRadius: 8,
-                  border: 'none',
-                  background: navMode === 'page' && pageId === p.id ? '#EBF0F8' : 'transparent',
-                  fontWeight: navMode === 'page' && pageId === p.id ? 700 : 600,
-                  fontSize: 14,
-                  cursor: 'pointer',
-                }}
               >
                 {p.label}
               </button>
               {(expandedPages[p.id] || (navMode === 'page' && pageId === p.id)) && (
-                <ul style={{ listStyle: 'none', margin: '4px 0 8px', padding: '0 0 0 12px', borderLeft: '2px solid #E2E8F0' }}>
+                <ul className="s2-design-builder-nav__sections">
                   {p.sections.map((s) => (
                     <li key={s.id}>
                       <button
                         type="button"
+                        className={`s2-design-builder-nav__section-btn${navMode === 'page' && pageId === p.id && sectionId === s.id ? ' is-active' : ''}`}
                         onClick={() => selectSection(p.id, s.id)}
-                        style={{
-                          width: '100%',
-                          textAlign: 'left',
-                          padding: '6px 10px',
-                          borderRadius: 6,
-                          border: 'none',
-                          background: navMode === 'page' && pageId === p.id && sectionId === s.id ? '#DBEAFE' : 'transparent',
-                          fontSize: 13,
-                          fontWeight: navMode === 'page' && pageId === p.id && sectionId === s.id ? 700 : 400,
-                          cursor: 'pointer',
-                          color: '#334155',
-                        }}
                       >
                         {s.label}
                       </button>
@@ -835,21 +844,47 @@ export function DesignSystemBuilder({
             </li>
           ))}
         </ul>
-        {toolsSlot && <div style={{ marginTop: 20, borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>{toolsSlot}</div>}
+        {toolsSlot && <div className="s2-design-builder-tools">{toolsSlot}</div>}
       </nav>
 
-      <div className="s2-design-builder-main" style={{ minWidth: 0 }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
-          <div>
-            <div style={{ fontSize: 12, color: '#64748B', marginBottom: 4 }}>{breadcrumb}</div>
-            <h2 style={{ margin: 0, fontSize: 20 }}>{navMode === 'foundation' ? 'Site Foundation' : section?.label}</h2>
+      <div className="s2-design-builder-main">
+        <div className="s2-design-builder-workspace">
+          <div className="s2-design-builder-workspace__head">
+            <div className="s2-design-builder-breadcrumb">
+              {navMode === 'foundation' ? (
+                <>
+                  <span className="s2-design-builder-breadcrumb__chip s2-design-builder-breadcrumb__chip--foundation">Foundation</span>
+                  <span>{FOUNDATION_NAV.find((f) => f.id === foundationPanel)?.label}</span>
+                </>
+              ) : (
+                <>
+                  <span className="s2-design-builder-breadcrumb__chip">Page</span>
+                  <span>{page.label}</span>
+                  <span aria-hidden>→</span>
+                  <span className="s2-design-builder-breadcrumb__chip">Section</span>
+                  <span>{section?.label}</span>
+                </>
+              )}
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
+              <div>
+                <h2 className="s2-design-builder-workspace__title">
+                  {navMode === 'foundation' ? 'Site Foundation' : section?.label}
+                </h2>
+                {workspaceDesc && <p className="s2-design-builder-workspace__desc">{workspaceDesc}</p>}
+              </div>
+              <a href={previewPath} target="_blank" rel="noopener noreferrer" className="s2-btn s2-btn--outline s2-btn--sm">
+                Preview page ↗
+              </a>
+            </div>
           </div>
-          <a href={previewPath} target="_blank" rel="noopener noreferrer" className="s2-btn s2-btn--outline s2-btn--sm">
-            Preview page ↗
-          </a>
-        </div>
 
-        {navMode === 'foundation' ? (
+        {settingsLoading && navMode === 'page' && sectionTab === 'content' ? (
+          <div className="s2-design-builder-panel">
+            <p className="s2-design-builder-workspace__desc">Loading saved content…</p>
+          </div>
+        ) : navMode === 'foundation' ? (
+          <div className="s2-design-builder-panel">
           <SiteFoundationPanel
             panel={foundationPanel}
             config={config}
@@ -863,23 +898,16 @@ export function DesignSystemBuilder({
             saving={saving}
             onLayoutGlobal={() => setLayoutFocus({ scope: 'global' })}
           />
+          </div>
         ) : (
           <>
-            <div className="s2-design-system-tabs s2-design-builder-subtabs" style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+            <div className="s2-design-system-tabs s2-design-builder-subtabs">
               {(['content', 'design'] as const).map((t) => (
                 <button
                   key={t}
                   type="button"
+                  className={sectionTab === t ? 'is-active' : ''}
                   onClick={() => setSectionTab(t)}
-                  style={{
-                    padding: '10px 20px',
-                    borderRadius: 999,
-                    border: sectionTab === t ? '2px solid var(--s2-primary, #4A6FA5)' : '1px solid #E2E8F0',
-                    background: sectionTab === t ? '#EBF0F8' : '#fff',
-                    fontWeight: sectionTab === t ? 700 : 500,
-                    cursor: 'pointer',
-                    textTransform: 'capitalize',
-                  }}
                 >
                   {t}
                 </button>
@@ -893,8 +921,10 @@ export function DesignSystemBuilder({
                 onChange={(k, v) => setSettings((prev) => ({ ...prev, [k]: v }))}
                 onSave={saveSectionContent}
                 saving={contentSaving}
+                saveMessage={contentSaveMessage}
               />
             ) : (
+              <div className="s2-design-builder-panel">
               <SectionDesignPanel
                 section={section}
                 page={page}
@@ -904,14 +934,16 @@ export function DesignSystemBuilder({
                 onSettingsChange={(k, v) => setSettings((prev) => ({ ...prev, [k]: v }))}
                 onSavePlatformDesign={saveSectionPlatformDesign}
                 platformDesignSaving={platformDesignSaving}
+                designSaveMessage={designSaveMessage}
                 onOpenLayout={(focus) => setLayoutFocus(focus)}
               />
+              </div>
             )}
           </>
         )}
 
         {layoutFocus && (
-          <div style={{ marginTop: 32, borderTop: '1px solid #E2E8F0', paddingTop: 24 }}>
+          <div className="s2-design-builder-panel" style={{ borderTop: '1px solid #e2e8f0' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <h3 style={{ margin: 0 }}>Layout & width</h3>
               <button type="button" className="s2-btn s2-btn--ghost s2-btn--sm" onClick={() => setLayoutFocus(null)}>
@@ -922,9 +954,10 @@ export function DesignSystemBuilder({
           </div>
         )}
 
-        <div style={{ marginTop: 32 }}>
-          <h3 style={{ fontSize: 15, marginBottom: 8 }}>Live preview</h3>
+        <div className="s2-design-builder-preview-block">
+          <h3>Live preview</h3>
           <LiveSitePreviewFrame path={previewPath} />
+        </div>
         </div>
       </div>
     </div>

@@ -211,17 +211,18 @@ export function AdminDesignSystem() {
   )
   return (
     <AdminScreen sticky={publishBtn}>
-    <div className="s2-design-system-page s2-design-system-body" style={{ padding: '24px 28px', maxWidth: 1200 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, flexWrap: 'wrap' }}>
+    <div className="s2-design-system-page s2-design-system-body">
+      <div className="s2-design-system-body-inner">
+      <header className="s2-ds-page-header">
         <div>
-          <h1 style={{ margin: 0, fontSize: 26 }}>Design &amp; Style System</h1>
-          <p style={{ color: '#64748B', marginTop: 8, maxWidth: 640 }}>
-            Pick a <strong>page</strong>, then a <strong>section</strong>, then edit <strong>Content</strong> or <strong>Design</strong>.
-            Global defaults live under <strong>Site Foundation</strong> — section overrides inherit until you change them.
+          <h1>Design &amp; Style System</h1>
+          <p className="s2-ds-page-header__lead">
+            Enterprise page builder: choose a page and section, then edit <strong>Content</strong> or <strong>Design</strong>.
+            Global tokens live under <strong>Site Foundation</strong>; section overrides inherit until you change them.
           </p>
         </div>
         <div className="s2-design-system-header-actions--desktop">{publishBtn}</div>
-      </div>
+      </header>
       {message && (
         <div className="s2-alert s2-alert--info" style={{ marginTop: 16, padding: 12 }}>
           {message}
@@ -369,6 +370,7 @@ export function AdminDesignSystem() {
           <CityRegistryPanel cities={cities} surfaces={citySurfaces} onSave={saveCity} />
         </div>
       )}
+      </div>
     </div>
     </AdminScreen>
   )

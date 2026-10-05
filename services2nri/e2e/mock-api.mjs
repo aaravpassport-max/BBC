@@ -275,18 +275,17 @@ export function handleMockApi(pathname, method) {
     }
   }
   if (method === 'GET' && path === 'admin/settings') {
-    return { settings: { platform_name: { value: 'Services2NRI E2E' }, primary_color: { value: '#4A6FA5' } } }
-  }
-  if (method === 'GET' && path === 'admin/settings') {
-    return {
-      settings: {
-        platform_name: { value: 'Services2NRI E2E' },
-        primary_color: { value: '#4A6FA5' },
-        hero_heading_1: { value: 'Stay Connected to' },
-        hero_heading_2: { value: 'INDIA' },
-        custom_css_homepage: { value: '' },
-      },
+    const settings = {
+      platform_name: { value: 'Services2NRI E2E' },
+      primary_color: { value: '#4A6FA5' },
+      hero_heading_1: { value: 'Stay Connected to' },
+      hero_heading_2: { value: 'INDIA' },
+      custom_css_homepage: { value: '' },
     }
+    const settings_flat = Object.fromEntries(
+      Object.entries(settings).map(([k, v]) => [k, v.value]),
+    )
+    return { settings, settings_flat }
   }
   if (method === 'PUT' && path === 'admin/settings') {
     return { ok: true }

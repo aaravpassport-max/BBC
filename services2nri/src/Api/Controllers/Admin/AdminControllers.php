@@ -2099,9 +2099,36 @@ class AnalyticsController extends \S2NRI\Api\Controllers\BaseController {
 
 class SettingsAdminController extends \S2NRI\Api\Controllers\BaseController {
 
+    /** Preserve JSON and multiline content; single-line fields stay sanitized. */
+    private static function sanitizeSettingValue( string $key, string $value ): string {
+        if ( str_ends_with( $key, '_json' ) || str_contains( $key, 'custom_css' ) ) {
+            return sanitize_textarea_field( $value );
+        }
+        $multiline_keys = [
+            'hero_description', 'about_text', 'about_text_secondary', 'home_notice_text',
+            'newsletter_subtitle', 'app_subtitle', 'contact_address',
+        ];
+        if ( in_array( $key, $multiline_keys, true ) ) {
+            return sanitize_textarea_field( $value );
+        }
+        return sanitize_text_field( $value );
+    }
+
     public function get( Request $req ): void {
         $this->requireManager();
-        Response::json( [ 'settings' => \S2NRI\Models\Setting::getAll() ] );
+        $all  = \S2NRI\Models\Setting::getAll();
+        $flat = [];
+        foreach ( $all as $key => $entry ) {
+            if ( is_array( $entry ) && array_key_exists( 'value', $entry ) ) {
+                $flat[ $key ] = (string) $entry['value'];
+            } else {
+                $flat[ $key ] = is_scalar( $entry ) ? (string) $entry : '';
+            }
+        }
+        Response::json( [
+            'settings'      => $all,
+            'settings_flat' => $flat,
+        ] );
     }
 
     // TRACE: PUT admin/settings → validates keys → batch REPLACE INTO → bust cache.
@@ -2206,7 +2233,17 @@ class SettingsAdminController extends \S2NRI\Api\Controllers\BaseController {
             $key = sanitize_key( (string) $key );
             if ( ! $key ) continue;
 
+            if ( is_array( $value ) || is_object( $value ) ) {
+                $value = wp_json_encode( $value );
+            }
+            $value = wp_unslash( (string) $value );
+            if ( $value === '[object Object]' ) {
+                continue;
+            }
+
             $is_public = in_array( $key, $public_keys, true ) ? 1 : 0;
+
+            $stored = self::sanitizeSettingValue( $key, $value );
 
             // Use INSERT ... ON DUPLICATE KEY UPDATE — atomic, no SELECT needed
             $wpdb->query( $wpdb->prepare(
@@ -2214,7 +2251,7 @@ class SettingsAdminController extends \S2NRI\Api\Controllers\BaseController {
                  VALUES (%s, %s, %d)
                  ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value), is_public = VALUES(is_public)",
                 $key,
-                sanitize_text_field( (string) $value ),
+                $stored,
                 $is_public
             ) );
             $updated++;
