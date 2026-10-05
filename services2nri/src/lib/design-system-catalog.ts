@@ -456,6 +456,10 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
       { key: 'footer_copyright', label: 'Copyright line' },
       { key: 'platform_name', label: 'Brand name (footer)' },
       { key: 'platform_tagline', label: 'Tagline (footer)' },
+      { key: 'footer_col_services_title', label: 'Column: Services heading', placeholder: 'Services' },
+      { key: 'footer_col_quick_title', label: 'Column: Quick links heading', placeholder: 'Quick Links' },
+      { key: 'footer_col_locations_title', label: 'Column: Locations heading', placeholder: 'Locations' },
+      { key: 'footer_col_contact_title', label: 'Column: Contact heading', placeholder: 'Contact' },
     ],
     contentNote: 'Header/footer chrome defaults: Site Foundation → Header & footer.',
   },
@@ -556,6 +560,19 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           label: 'Service hero',
           sectionKey: 'hero',
           contentPanel: 'service_page_band',
+          contentFields: [
+            {
+              key: 'service_hero_meta_secure',
+              label: 'Default secure chip (when service has no custom meta)',
+              placeholder: '🔒 Secure & encrypted',
+            },
+            {
+              key: 'service_hero_price_prefix',
+              label: 'Price chip prefix',
+              placeholder: '💰 From ',
+            },
+          ],
+          contentNote: 'Hero image, title, and CTAs are per-service in the Service Registry page builder.',
           adminLink: { label: 'Edit in Service Registry', path: '/admin/services' },
         },
         {

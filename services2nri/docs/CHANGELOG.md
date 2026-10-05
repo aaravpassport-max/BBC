@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.73] — 2026-10-05 — Cloud Agent
+
+- **Phase 5:** Service section element presets in Elements tab; hero/wizard/marquee `CmsElement` DOM markers; platform `service_hero_meta_secure` / price prefix.
+- **Phase 6 (partial):** Footer column heading CMS keys.
+- **E2E:** Home `hide_el_*` + service detail element marker tests.
+
+---
+
 ## [4.7.72] — 2026-10-05 — Cloud Agent
 
 - **Phase 4:** `services_search_placeholder`; pricing brand compare rows JSON; home notice/search `CmsElement` hooks.

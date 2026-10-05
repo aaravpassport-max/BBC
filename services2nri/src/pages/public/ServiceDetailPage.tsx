@@ -28,6 +28,7 @@ import { cssVars, resolvePrimary } from '@/lib/design-tokens'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
 import { ServiceMobileStickyCta } from '@/components/public/ServiceMobileStickyCta'
+import { CmsElement } from '@/components/public/CmsElement'
 import { PublicGrid, PublicCard } from '@/components/public/PublicLayout'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
@@ -1107,8 +1108,10 @@ export function ServiceDetailPage() {
           })}
         >
           <div className="s2-svc-marquee__track">
-            <span>{String(marquee.text)}</span>
-            <span>{String(marquee.text)}</span>
+            <CmsElement pageId="service" sectionKey="marquee" elementId="body" as="span">
+              {String(marquee.text)}
+            </CmsElement>
+            <span aria-hidden>{String(marquee.text)}</span>
           </div>
         </div>
       ) : null}
@@ -1136,23 +1139,47 @@ export function ServiceDetailPage() {
             <img src={heroImg} alt={heroTitle} />
             <div className="s2-svc-hero__shade" />
             <div className="s2-svc-hero__content">
-              {svc.category_name && <div className="s2-svc-hero__badge">{svc.category_name}</div>}
-              <h1 className="s2-svc-hero__title">{heroTitle}</h1>
-              {hero && hero.subtitle ? <p className="s2-svc-hero__sub">{String(hero.subtitle)}</p> : null}
-              {/* Issue 5: CTA buttons from hero_settings */}
+              {svc.category_name && (
+                <CmsElement pageId="service" sectionKey="hero" elementId="badge">
+                  <div className="s2-svc-hero__badge">{svc.category_name}</div>
+                </CmsElement>
+              )}
+              <CmsElement pageId="service" sectionKey="hero" elementId="heading" as="h1" className="s2-svc-hero__title">
+                {heroTitle}
+              </CmsElement>
+              {hero && hero.subtitle ? (
+                <CmsElement pageId="service" sectionKey="hero" elementId="subtitle" as="p" className="s2-svc-hero__sub">
+                  {String(hero.subtitle)}
+                </CmsElement>
+              ) : null}
               {hero && (hero.cta_text || hero.cta2_text) ? (
                 <div className="s2-svc-hero__ctas">
-                  {hero.cta_text ? <a href={String(hero.cta_url || '#booking-form')} className="s2-svc-hero__cta">{String(hero.cta_text)}</a> : null}
-                  {hero.cta2_text ? <a href={String(hero.cta2_url || '#booking-form')} className="s2-svc-hero__cta s2-svc-hero__cta--ghost">{String(hero.cta2_text)}</a> : null}
+                  {hero.cta_text ? (
+                    <CmsElement pageId="service" sectionKey="hero" elementId="primary_button">
+                      <a href={String(hero.cta_url || '#booking-form')} className="s2-svc-hero__cta">{String(hero.cta_text)}</a>
+                    </CmsElement>
+                  ) : null}
+                  {hero.cta2_text ? (
+                    <CmsElement pageId="service" sectionKey="hero" elementId="secondary_button">
+                      <a href={String(hero.cta2_url || '#booking-form')} className="s2-svc-hero__cta s2-svc-hero__cta--ghost">{String(hero.cta2_text)}</a>
+                    </CmsElement>
+                  ) : null}
                 </div>
               ) : null}
-              <div className="s2-svc-hero__meta">
+              <CmsElement pageId="service" sectionKey="hero" elementId="meta_chips" className="s2-svc-hero__meta">
                 {(svc.turnaround_days || svc.turnaround) && (
                   <span className="s2-svc-hero__meta-chip">⏱ {svc.turnaround_days || svc.turnaround} day turnaround</span>
                 )}
-                {svc.price_range && <span className="s2-svc-hero__meta-chip">💰 From {svc.price_range}</span>}
-                <span className="s2-svc-hero__meta-chip">🔒 Secure & encrypted</span>
-              </div>
+                {svc.price_range && (
+                  <span className="s2-svc-hero__meta-chip">
+                    {settings.service_hero_price_prefix || '💰 From '}
+                    {svc.price_range}
+                  </span>
+                )}
+                <span className="s2-svc-hero__meta-chip">
+                  {settings.service_hero_meta_secure || '🔒 Secure & encrypted'}
+                </span>
+              </CmsElement>
             </div>
           </div>
           )}
@@ -1172,7 +1199,7 @@ export function ServiceDetailPage() {
 
           <div className="s2-svc-wizard-head">
             {/* Service name + meta */}
-            <div className="s2-svc-wizard-service">
+            <CmsElement pageId="service" sectionKey="wizard" elementId="service_summary" className="s2-svc-wizard-service">
               <div className="s2-svc-wizard-service__icon">
                 {svc.icon || '📋'}
               </div>
@@ -1184,7 +1211,7 @@ export function ServiceDetailPage() {
                   ))}
                 </div>
               </div>
-            </div>
+            </CmsElement>
 
             {/* Step tracker circles.
                 overflow-x: auto contains this row's own scroll instead of
@@ -1194,7 +1221,7 @@ export function ServiceDetailPage() {
                 several steps can have a natural row width wider than a
                 mobile viewport. Without this, that width bled out past the
                 edge of the screen instead of scrolling within its own box. */}
-            <div className="s2-svc-step-track">
+            <CmsElement pageId="service" sectionKey="wizard" elementId="step_tracker" className="s2-svc-step-track">
               {orderedStepNums.map((stepNum, idx) => {
                 const done = idx < stepIdx
                 const curr = idx === stepIdx
@@ -1215,7 +1242,7 @@ export function ServiceDetailPage() {
                   </div>
                 )
               })}
-            </div>
+            </CmsElement>
           </div>
 
           <div className="s2-svc-wizard-card">
@@ -1223,7 +1250,9 @@ export function ServiceDetailPage() {
               <div className="s2-svc-wizard-step-label">
                 Step {stepIdx + 1} of {totalSteps}
               </div>
-              <h2 className="s2-svc-wizard-step-title">{stepLabel}</h2>
+              <CmsElement pageId="service" sectionKey="wizard" elementId="step_heading" as="h2" className="s2-svc-wizard-step-title">
+                {stepLabel}
+              </CmsElement>
             </div>
 
             <div className="s2-svc-wizard-body">

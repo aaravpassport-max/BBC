@@ -3,6 +3,7 @@
  * Maps catalog fields to inspectable elements (content, design, layout, visibility).
  */
 import type { ContentFieldDef, DesignSettingFieldDef, SectionCatalogDef } from '@/lib/design-system-catalog'
+import { sectionElementPresets } from '@/lib/section-element-presets'
 import { templateHideSettingKey } from '@/lib/section-visibility'
 
 export type ElementControlGroup = 'content' | 'design' | 'layout' | 'visibility' | 'responsive'
@@ -45,6 +46,7 @@ function inferElementId(field: ContentFieldDef | DesignSettingFieldDef, index: n
   if (field.key.includes('subtitle') || field.key.endsWith('_sub')) return 'subtitle'
   if (field.key.includes('heading') || field.key.endsWith('_title') && !field.key.includes('page')) return 'heading'
   if (field.key.includes('description') || field.key.includes('_text') && !field.key.includes('button')) return 'body'
+  if (field.key.includes('cta2') || field.key.includes('_secondary')) return 'secondary_button'
   if (field.key.includes('button') || field.key.includes('_cta')) return 'primary_button'
   if (field.key.includes('_url') || field.key.includes('_link')) return 'link'
   if (field.key.includes('image') || field.key.includes('_img')) return 'image'
@@ -131,6 +133,20 @@ export function buildSectionElementTree(
     group: 'responsive',
     designPath: ['overrides', 'sections', section.sectionKey, 'typography'],
   })
+
+  for (const preset of sectionElementPresets(pageId, section.sectionKey)) {
+    const existing = buckets.get(preset.id)
+    if (existing) {
+      if (preset.description && !existing.description) existing.description = preset.description
+      continue
+    }
+    buckets.set(preset.id, {
+      id: preset.id,
+      label: preset.label,
+      description: preset.description,
+      controls: preset.controls,
+    })
+  }
 
   return Array.from(buckets.values())
 }

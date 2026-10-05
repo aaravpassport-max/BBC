@@ -65,7 +65,13 @@ function ControlEditor({
   }
 
   if (!control.settingKey || !control.field) {
-    return <p className="s2-ds-premium-card__hint">No editable control mapped.</p>
+    return (
+      <p className="s2-ds-premium-card__hint" style={{ margin: 0 }}>
+        {control.label === 'Content source'
+          ? 'This element is managed in the Service Registry (per-service page builder) or linked admin tool — not platform-wide settings.'
+          : 'No editable control mapped.'}
+      </p>
+    )
   }
 
   const field = control.field
@@ -181,6 +187,9 @@ export function SectionElementInspector({
           {activeElement && (
             <>
               <h5 className="s2-ds-element-detail__heading">{activeElement.label}</h5>
+              {activeElement.description && (
+                <p className="s2-ds-premium-card__hint" style={{ marginTop: 0 }}>{activeElement.description}</p>
+              )}
               {(['content', 'design', 'layout', 'visibility', 'responsive'] as const).map((group) => {
                 const controls = grouped.get(group)
                 if (!controls?.length) return null

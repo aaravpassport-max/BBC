@@ -20,15 +20,15 @@
 - Pricing brand comparison rows JSON
 - Home notice / search `CmsElement` markers
 
-## Phase 5 — Service detail element packs (next)
-- Catalog element defs per service section band
-- Platform defaults when CMS section rows empty
-- Playwright: change setting → assert DOM
+## Phase 5 — Service detail element packs (v4.7.73)
+- `section-element-presets.ts` + registry hints in Elements tab
+- Service hero / wizard / marquee `CmsElement` markers; platform hero chip defaults
+- E2E: `hide_el_*` + service `data-s2-element` assertions
 
-## Phase 5 — Chrome & layout CMS (next)
-- Footer column titles/links JSON
-- Header mega-menu structure editor sync
+## Phase 6 — Chrome & layout CMS (v4.7.73 partial)
+- Footer column heading keys in Layout
+- **Next:** footer quick-link JSON, header mega-menu sync
 
-## Phase 6 — CI hardening (ongoing)
+## Phase 7 — CI hardening (ongoing)
 - `audit-design-cms-sync.mjs --strict` in verify-design-system.sh
 - E2E design-cms-content.spec.ts on mock settings

@@ -701,7 +701,7 @@ export function Layout({ children }: LayoutProps) {
 
             {/* Services */}
             <div>
-              <h4 className="s2-site-footer__heading">Services</h4>
+              <h4 className="s2-site-footer__heading">{settings.footer_col_services_title || 'Services'}</h4>
               {(footerServices.length ? footerServices : [{ name: 'All Services', slug: '' }]).map((s) => (
                 <Link
                   key={s.slug || s.name}
@@ -715,7 +715,7 @@ export function Layout({ children }: LayoutProps) {
 
             {/* Quick Links */}
             <div>
-              <h4 className="s2-site-footer__heading">Quick Links</h4>
+              <h4 className="s2-site-footer__heading">{settings.footer_col_quick_title || 'Quick Links'}</h4>
               {[
                 ['/about', 'About Us'],
                 ['/contact', 'Contact Us'],
@@ -733,7 +733,7 @@ export function Layout({ children }: LayoutProps) {
 
             {/* Locations */}
             <div>
-              <h4 className="s2-site-footer__heading">Locations</h4>
+              <h4 className="s2-site-footer__heading">{settings.footer_col_locations_title || 'Locations'}</h4>
               {['Mumbai', 'Delhi', 'Bangalore', 'Pune', 'Hyderabad', 'Chennai', 'Ahmedabad', 'Nagpur'].map((city) => (
                 <Link
                   key={city}
@@ -747,7 +747,7 @@ export function Layout({ children }: LayoutProps) {
 
             {/* Contact */}
             <div>
-              <h4 className="s2-site-footer__heading">Contact</h4>
+              <h4 className="s2-site-footer__heading">{settings.footer_col_contact_title || 'Contact'}</h4>
               {settings.platform_email && (
                 <p style={{ fontSize: 13, margin: '0 0 10px', color: '#6b7280' }}>
                   ✉ {settings.platform_email}
