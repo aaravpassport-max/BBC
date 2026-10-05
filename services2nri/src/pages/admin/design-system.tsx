@@ -45,7 +45,9 @@ export function AdminDesignSystem() {
   const [svcPopular, setSvcPopular] = useState(false)
   const [previewPath, setPreviewPath] = useState('/')
   const [designRevision, setDesignRevision] = useState('')
+  const [designDirty, setDesignDirty] = useState(false)
   const configRef = useRef<DesignConfig | null>(null)
+  const publishInFlight = useRef(false)
 
   const load = useCallback(async (opts?: { registry?: boolean }) => {
     const data = await api.get<{
@@ -81,7 +83,8 @@ export function AdminDesignSystem() {
 
   const overrides = (config?.overrides || {}) as Record<string, Record<string, unknown>>
 
-  const patch = (path: string[], value: unknown) => {
+  const patch = useCallback((path: string[], value: unknown) => {
+    setDesignDirty(true)
     setConfig((prev) => {
       if (!prev) return prev
       const next = normalizeAdminDesignConfig(JSON.parse(JSON.stringify(prev)) as DesignConfig)
@@ -97,11 +100,12 @@ export function AdminDesignSystem() {
       configRef.current = next
       return next
     })
-  }
+  }, [])
 
-  const save = async () => {
+  const save = useCallback(async () => {
     const payload = configRef.current
-    if (!payload) return
+    if (!payload || publishInFlight.current) return
+    publishInFlight.current = true
     const revisionBefore = designRevision
     setSaving(true)
     setMessage('')
@@ -117,14 +121,15 @@ export function AdminDesignSystem() {
         configRef.current = normalized
         setConfig(normalized)
       }
-      const reloaded = await load({ registry: false })
-      const storedRevision = reloaded.revision || res.revision || ''
+      const storedRevision = res.revision || designRevision
+      if (storedRevision) setDesignRevision(storedRevision)
       if (revisionBefore && storedRevision && revisionBefore === storedRevision) {
         setMessage(
           'Publish finished, but the stored revision did not change — no new data was written. Change a value and publish again, or reinstall the latest plugin build if this persists.',
         )
       } else {
         broadcastDesignSaved()
+        setDesignDirty(false)
         setMessage(
           storedRevision
             ? `Design saved successfully (revision ${storedRevision.slice(0, 8)}). Values are stored — safe to reload this page.`
@@ -134,9 +139,10 @@ export function AdminDesignSystem() {
     } catch (e: unknown) {
       setMessage(e instanceof Error ? e.message : 'Save failed')
     } finally {
+      publishInFlight.current = false
       setSaving(false)
     }
-  }
+  }, [designRevision])
 
   const applyPreset = async (id: string, mode: 'theme' | 'factory' = 'theme') => {
     const label = presets[id]?.label || id
@@ -223,6 +229,12 @@ export function AdminDesignSystem() {
         </div>
         <div className="s2-design-system-header-actions--desktop">{publishBtn}</div>
       </header>
+      {designDirty && !saving && (
+        <div className="s2-alert s2-alert--info" style={{ marginTop: 16, padding: 12 }}>
+          Unpublished design changes (tokens, section styling, element styles). Click <strong>Publish design</strong> when
+          you are ready — edits are kept locally until then.
+        </div>
+      )}
       {message && (
         <div className="s2-alert s2-alert--info" style={{ marginTop: 16, padding: 12 }}>
           {message}
@@ -238,7 +250,6 @@ export function AdminDesignSystem() {
         saving={saving}
         previewPath={previewPath}
         setPreviewPath={setPreviewPath}
-        publishDesign={save}
         toolsSlot={
           <>
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.06, color: '#94A3B8', marginBottom: 8 }}>

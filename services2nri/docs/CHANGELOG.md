@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.83] — 2026-10-05 — Cloud Agent
+
+- **Design publish loop fix:** Element/content saves no longer trigger full design PUT; admin design editor skips live-sync polling so drafts are not overwritten; explicit **Publish design** persists element styles; debounced text fields only.
+
+---
+
 ## [4.7.82] — 2026-10-05 — Cloud Agent
 
 - **Element styler wiring:** Canonical DOM↔catalog registry, inline styles on `CmsElement`, stronger CSS, mock `design/public` + e2e.

@@ -189,7 +189,8 @@ export function SectionElementInspector({
         <h4 className="s2-ds-element-inspector__title">Elements in this section</h4>
         <p className="s2-ds-premium-card__hint">
           Select an element to edit content, per-element styling (colors, type, spacing), layout, and visibility.
-          Style overrides apply to the selected element only. Saving publishes design tokens to the live site.
+          Style overrides apply to the selected element only. They stay in this browser session until you click{' '}
+          <strong>Publish design</strong> in the page header (same as Site Foundation tokens).
         </p>
       </div>
       <div className="s2-ds-element-inspector__split">
@@ -247,7 +248,7 @@ export function SectionElementInspector({
       </div>
       <div className="s2-design-builder-actions s2-band-design-actions">
         <button type="button" className="s2-btn s2-btn--accent" onClick={onSave} disabled={saving}>
-          {saving ? 'Saving…' : 'Save content & element styles'}
+          {saving ? 'Saving…' : 'Save section content'}
         </button>
       </div>
     </div>

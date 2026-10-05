@@ -17,6 +17,12 @@ let lastRevision: string | null = null
 let inFlight = false
 let broadcastChannel: BroadcastChannel | null = null
 
+/** Admin design editor keeps its own draft config — avoid polling public design over it. */
+export function isAdminDesignEditorPath(pathname?: string): boolean {
+  const path = pathname ?? (typeof window !== 'undefined' ? window.location.pathname : '')
+  return path.includes('/admin/design')
+}
+
 function getBroadcastChannel(): BroadcastChannel | null {
   if (typeof window === 'undefined' || typeof BroadcastChannel === 'undefined') return null
   if (!broadcastChannel) broadcastChannel = new BroadcastChannel('s2nri-design')
@@ -81,6 +87,7 @@ export function broadcastDesignSaved(): void {
  */
 export async function syncDesignFromServer(options?: { force?: boolean }): Promise<boolean> {
   if (typeof window === 'undefined' || inFlight) return false
+  if (isAdminDesignEditorPath()) return false
   inFlight = true
   try {
     const data = await api.get<PublicDesignResponse>('design/public')
@@ -106,21 +113,23 @@ export async function syncDesignFromServer(options?: { force?: boolean }): Promi
 export function installDesignLiveSync(): () => void {
   if (typeof window === 'undefined') return () => {}
 
-  void syncDesignFromServer({ force: true })
+  if (!isAdminDesignEditorPath()) {
+    void syncDesignFromServer({ force: true })
+  }
 
   const onVisible = () => {
-    if (document.visibilityState === 'visible') void syncDesignFromServer()
+    if (document.visibilityState === 'visible' && !isAdminDesignEditorPath()) void syncDesignFromServer()
   }
   document.addEventListener('visibilitychange', onVisible)
 
   const bc = getBroadcastChannel()
   const onMessage = () => {
-    void syncDesignFromServer({ force: true })
+    if (!isAdminDesignEditorPath()) void syncDesignFromServer({ force: true })
   }
   bc?.addEventListener('message', onMessage)
 
   const interval = window.setInterval(() => {
-    if (document.visibilityState === 'visible') void syncDesignFromServer()
+    if (document.visibilityState === 'visible' && !isAdminDesignEditorPath()) void syncDesignFromServer()
   }, 45_000)
 
   return () => {

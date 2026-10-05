@@ -939,7 +939,6 @@ export function DesignSystemBuilder({
   saving,
   previewPath,
   setPreviewPath,
-  publishDesign,
   toolsSlot,
 }: {
   config: DesignConfig
@@ -950,7 +949,6 @@ export function DesignSystemBuilder({
   saving: boolean
   previewPath: string
   setPreviewPath: (p: string) => void
-  publishDesign: () => Promise<void>
   toolsSlot?: React.ReactNode
 }) {
   const [navMode, setNavMode] = useState<'foundation' | 'page'>('page')
@@ -1103,24 +1101,6 @@ export function DesignSystemBuilder({
 
   const saveSectionElements = async (section: SectionCatalogDef) => {
     await saveSectionContent(section)
-    try {
-      await publishDesign()
-      setContentSaveMessageById((prev) => ({
-        ...prev,
-        [section.id]: {
-          type: 'success',
-          text: 'Content saved and element styles published to the live site.',
-        },
-      }))
-    } catch {
-      setContentSaveMessageById((prev) => ({
-        ...prev,
-        [section.id]: {
-          type: 'error',
-          text: 'Content saved, but design publish failed — use Publish design in the header.',
-        },
-      }))
-    }
   }
 
   const saveSectionContent = async (section: SectionCatalogDef) => {
@@ -1482,7 +1462,7 @@ export function DesignSystemBuilder({
                 sectionTabFor(activeSection.id) === 'design'
                   ? 'Save section styling'
                   : sectionTabFor(activeSection.id) === 'elements'
-                    ? 'Save content & element styles'
+                    ? 'Save section content'
                     : 'Save section content'
               }
               onSavePrimary={() => {

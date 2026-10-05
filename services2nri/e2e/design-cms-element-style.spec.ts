@@ -37,12 +37,12 @@ test.describe('Design System element styling → public DOM', () => {
       input.dispatchEvent(new Event('change', { bubbles: true }));
     });
 
-    const savePromise = page.waitForResponse(
+    const publishPromise = page.waitForResponse(
       (r) => r.url().includes('/mock-api/admin/design') && r.request().method() === 'PUT',
       { timeout: 25_000 },
     );
-    await page.getByRole('region', { name: 'Save section' }).getByRole('button', { name: /Save content & element styles/i }).click();
-    await savePromise;
+    await page.getByRole('button', { name: 'Publish design' }).click();
+    await publishPromise;
 
     await page.goto('/');
     const heroHeading = page.locator('[data-s2-page="home"][data-s2-section="hero"][data-s2-element="heading"]');

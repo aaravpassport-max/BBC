@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useLocation } from 'react-router-dom'
-import { installDesignLiveSync, syncDesignFromServer } from '@/lib/design-live-sync'
+import { installDesignLiveSync, isAdminDesignEditorPath, syncDesignFromServer } from '@/lib/design-live-sync'
 
 /** Keeps public (and portal) design tokens in sync with server after admin publish/preset. */
 export function DesignLiveSync() {
@@ -9,7 +9,7 @@ export function DesignLiveSync() {
   useEffect(() => installDesignLiveSync(), [])
 
   useEffect(() => {
-    void syncDesignFromServer()
+    if (!isAdminDesignEditorPath(pathname)) void syncDesignFromServer()
   }, [pathname])
 
   return null
