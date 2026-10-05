@@ -5,6 +5,8 @@ import React from 'react'
 import type { SectionCatalogDef } from '@/lib/design-system-catalog'
 import { hasOverrideAtPath, readPathLeaf } from './design-inherit-ui'
 import { SECTION_DESIGN_COLOR_KEYS } from '@/lib/design-system-catalog'
+import { paddingKeys } from '@/lib/responsive-band-padding'
+import { readAdminSetting } from '@/lib/settings-admin'
 
 export type DeviceId = 'desktop' | 'tablet' | 'mobile'
 
@@ -96,6 +98,48 @@ export function BandFieldGrid({
   )
 }
 
+export function BandPaddingTriple({
+  baseKey,
+  label,
+  settings,
+  onChange,
+}: {
+  baseKey: string
+  label?: string
+  settings: Record<string, string>
+  onChange: (key: string, value: string) => void
+}) {
+  const k = paddingKeys(baseKey)
+  const legacy = readAdminSetting(settings, k.legacy)
+  const cols: { id: DeviceId; key: string; title: string }[] = [
+    { id: 'desktop', key: k.desktop, title: 'Desktop' },
+    { id: 'tablet', key: k.tablet, title: 'Tablet' },
+    { id: 'mobile', key: k.mobile, title: 'Mobile' },
+  ]
+  return (
+    <div className="s2-band-padding-triple">
+      <span className="s2-band-field__label">{label || 'Top / bottom padding (px or CSS)'}</span>
+      <div className="s2-band-responsive-row">
+        {cols.map((col) => {
+          const val = readAdminSetting(settings, col.key)
+          const inherited = val === '' && legacy === ''
+          return (
+            <BandTextField
+              key={col.id}
+              label={col.title}
+              placeholder={legacy || 'Built-in'}
+              value={val}
+              inherited={inherited}
+              onChange={(v) => onChange(col.key, v)}
+              onClear={val !== '' ? () => onChange(col.key, '') : undefined}
+            />
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export function BandTextField({
   label,
   hint,
@@ -142,7 +186,18 @@ export function sectionHasCustomDesign(
   config: Record<string, unknown>,
 ): boolean {
   if (section.hideSettingKey && settings[section.hideSettingKey] === '1') return true
-  if (section.designSettingFields?.some((f) => (settings[f.key] ?? '').trim() !== '')) return true
+  if (
+    section.designSettingFields?.some((f) => {
+      if ((settings[f.key] ?? '').trim() !== '') return true
+      if (f.key.includes('_padding')) {
+        const k = paddingKeys(f.key)
+        return [k.desktop, k.tablet, k.mobile].some((pk) => (settings[pk] ?? '').trim() !== '')
+      }
+      return false
+    })
+  ) {
+    return true
+  }
   if (!section.isPageScope && section.sectionKey) {
     for (const colorKey of SECTION_DESIGN_COLOR_KEYS) {
       const path = ['overrides', 'sections', section.sectionKey, 'colors', colorKey]

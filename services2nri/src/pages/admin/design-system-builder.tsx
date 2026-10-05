@@ -33,6 +33,7 @@ import { WidthLayoutPanel, type WidthLayoutFocus } from './width-layout-panel'
 import { PageTypeWidthStudio } from './page-type-width-studio'
 import { DesignSectionManager } from './design-section-manager'
 import { SectionDesignVisualPanel } from './section-design-visual-panel'
+import { SectionContentRichPanel, richPanelExcludes, richPanelSaveKeys } from './section-content-rich-panel'
 import {
   DesignColorSwatchGrid,
   DesignPremiumGroup,
@@ -176,7 +177,10 @@ function SectionContentPanel({
   const fields = section.isPageScope
     ? page.pageContentFields || []
     : section.contentFields || []
-  if (fields.length === 0) {
+  const showRichPanel = Boolean(bandLayout && section.contentPanel)
+  const visibleFields = fields.filter((f) => !richPanelExcludes(section.contentPanel).has(f.key))
+
+  if (!showRichPanel && visibleFields.length === 0) {
     return (
       <div className={`s2-design-builder-panel s2-ds-content-studio${bandLayout ? ' s2-band-content-studio' : ''}`}>
         {section.adminLink && (
@@ -202,14 +206,15 @@ function SectionContentPanel({
           </a>
         </p>
       )}
-      {section.contentNote && (
+      {section.contentNote && !showRichPanel && (
         <p className="s2-ds-premium-card__hint" style={{ marginTop: 0 }}>
           {section.contentNote}
         </p>
       )}
+      {showRichPanel && <SectionContentRichPanel section={section} settings={settings} onChange={onChange} />}
       <div className="s2-ds-content-fields">
         <div className={bandLayout ? 's2-band-content-fields' : undefined} style={bandLayout ? undefined : { display: 'grid', gap: 4, maxWidth: 720 }}>
-          {fields.map((f) => {
+          {visibleFields.map((f) => {
             const isJson = f.key.endsWith('_json')
             const val = readAdminSetting(settings, f.key)
             return (
@@ -869,6 +874,45 @@ function SiteFoundationPanel({
   }
 }
 
+function BandStickySaveBar({
+  sectionLabel,
+  tab,
+  onSavePrimary,
+  primarySaving,
+  primaryLabel,
+  structureDirty,
+  onSaveStructure,
+  structureSaving,
+}: {
+  sectionLabel: string
+  tab: SectionEditorTab
+  onSavePrimary: () => void
+  primarySaving: boolean
+  primaryLabel: string
+  structureDirty: boolean
+  onSaveStructure: () => void
+  structureSaving: boolean
+}) {
+  return (
+    <div className="s2-ds-band-sticky-bar" role="region" aria-label="Save section">
+      <div className="s2-ds-band-sticky-bar__meta">
+        Editing <strong>{sectionLabel}</strong> · {tab === 'content' ? 'Content' : 'Design'} tab
+        {structureDirty && <span> · Unsaved section order</span>}
+      </div>
+      <div className="s2-ds-band-sticky-bar__actions">
+        {structureDirty && (
+          <button type="button" className="s2-btn s2-btn--outline s2-btn--sm" disabled={structureSaving} onClick={onSaveStructure}>
+            {structureSaving ? 'Saving order…' : 'Save page structure'}
+          </button>
+        )}
+        <button type="button" className="s2-btn s2-btn--accent" disabled={primarySaving} onClick={onSavePrimary}>
+          {primarySaving ? 'Saving…' : primaryLabel}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 export function DesignSystemBuilder({
   config,
   patch,
@@ -1041,7 +1085,12 @@ export function DesignSystemBuilder({
 
   const saveSectionContent = async (section: SectionCatalogDef) => {
     const fields = section.isPageScope ? page.pageContentFields : section.contentFields
-    if (!fields?.length) return
+    const exclude = richPanelExcludes(section.contentPanel)
+    const keys = [
+      ...(fields || []).map((f) => f.key).filter((k) => !exclude.has(k)),
+      ...richPanelSaveKeys(section.contentPanel),
+    ]
+    if (keys.length === 0) return
     setContentSavingId(section.id)
     setContentSaveMessageById((prev) => {
       const next = { ...prev }
@@ -1049,7 +1098,7 @@ export function DesignSystemBuilder({
       return next
     })
     try {
-      const payload = prepareSettingsPayload(settings, fields.map((f) => f.key))
+      const payload = prepareSettingsPayload(settings, keys)
       await api.put('admin/settings', payload)
       await loadSettings()
       setContentSaveMessageById((prev) => ({
@@ -1066,8 +1115,20 @@ export function DesignSystemBuilder({
     }
   }
 
+  const designSaveKeysForSection = (section: SectionCatalogDef): string[] => {
+    const keys: string[] = []
+    section.designSettingFields?.forEach((f) => {
+      keys.push(f.key)
+      if (f.key.includes('_padding')) {
+        keys.push(`${f.key}_desktop`, `${f.key}_tablet`, `${f.key}_mobile`)
+      }
+    })
+    return keys
+  }
+
   const saveSectionPlatformDesign = async (section: SectionCatalogDef) => {
-    if (!section.designSettingFields?.length) return
+    const designKeys = designSaveKeysForSection(section)
+    if (designKeys.length === 0) return
     setPlatformDesignSavingId(section.id)
     setDesignSaveMessageById((prev) => {
       const next = { ...prev }
@@ -1075,10 +1136,7 @@ export function DesignSystemBuilder({
       return next
     })
     try {
-      const payload = prepareSettingsPayload(
-        settings,
-        section.designSettingFields.map((f) => f.key),
-      )
+      const payload = prepareSettingsPayload(settings, designKeys)
       await api.put('admin/settings', payload)
       await loadSettings()
       setDesignSaveMessageById((prev) => ({
@@ -1369,6 +1427,30 @@ export function DesignSystemBuilder({
             />
           </div>
         )}
+
+        {navMode === 'page' &&
+          pageWorkspaceTab === 'sections' &&
+          activeSection &&
+          !activeSection.isPageScope && (
+            <BandStickySaveBar
+              sectionLabel={activeSection.label}
+              tab={sectionTabFor(activeSection.id)}
+              primaryLabel={sectionTabFor(activeSection.id) === 'design' ? 'Save section styling' : 'Save section content'}
+              onSavePrimary={() =>
+                sectionTabFor(activeSection.id) === 'design'
+                  ? saveSectionPlatformDesign(activeSection)
+                  : saveSectionContent(activeSection)
+              }
+              primarySaving={
+                sectionTabFor(activeSection.id) === 'design'
+                  ? platformDesignSavingId === activeSection.id
+                  : contentSavingId === activeSection.id
+              }
+              structureDirty={structureDirty}
+              onSaveStructure={savePageStructure}
+              structureSaving={structureSaving}
+            />
+          )}
 
         {navMode === 'page' && (
           <div className="s2-design-builder-preview-block">

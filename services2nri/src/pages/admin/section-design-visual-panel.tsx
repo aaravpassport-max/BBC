@@ -12,6 +12,7 @@ import {
   BandFieldGrid,
   BandSegment,
   BandTextField,
+  BandPaddingTriple,
   type DeviceId,
 } from './design-visual-section-ui'
 import { DesignVisibilityToggle } from './design-premium-design-panel'
@@ -92,8 +93,13 @@ export function SectionDesignVisualPanel({
   const bgField = platformFields.find((f) => f.key.includes('_bg') && f.type !== 'color')
   const colorPlatform = platformFields.filter((f) => f.type === 'color')
   const spacingPlatform = platformFields.filter(
-    (f) => f.type !== 'color' && f.key !== bgField?.key && !f.key.includes('opacity'),
+    (f) =>
+      f.type !== 'color' &&
+      f.key !== bgField?.key &&
+      !f.key.includes('opacity') &&
+      !f.key.includes('_padding'),
   )
+  const paddingFields = platformFields.filter((f) => f.key.includes('_padding'))
   const opacityField = platformFields.find((f) => f.key.includes('opacity'))
 
   const bgVal = bgField ? readAdminSetting(settings, bgField.key) : ''
@@ -239,9 +245,18 @@ export function SectionDesignVisualPanel({
         </div>
       </BandDesignGroup>
 
-      {spacingPlatform.length > 0 && (
+      {(paddingFields.length > 0 || spacingPlatform.length > 0) && (
         <BandDesignGroup title="Spacing & layout">
-          <BandDeviceTabs device={device} onDevice={setDevice} />
+          {paddingFields.map((f) => (
+            <BandPaddingTriple
+              key={f.key}
+              baseKey={f.key}
+              label={f.label}
+              settings={settings}
+              onChange={onSettingsChange}
+            />
+          ))}
+          {spacingPlatform.length > 0 && <BandDeviceTabs device={device} onDevice={setDevice} />}
           <BandFieldGrid>
             {spacingPlatform.map((f) => (
               <BandTextField

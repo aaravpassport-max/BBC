@@ -31,6 +31,22 @@
   width: 100%;
 }
 
+.s2-home-band--responsive-pad {
+  padding: var(--s2-pad-mobile, var(--s2-pad-tablet, var(--s2-pad-desktop)));
+}
+
+@media (min-width: 600px) {
+  .s2-home-band--responsive-pad {
+    padding: var(--s2-pad-tablet, var(--s2-pad-mobile, var(--s2-pad-desktop)));
+  }
+}
+
+@media (min-width: 1024px) {
+  .s2-home-band--responsive-pad {
+    padding: var(--s2-pad-desktop, var(--s2-pad-tablet, var(--s2-pad-mobile)));
+  }
+}
+
 .s2-home-page .s2-hero-section {
   height: clamp(480px, 70vh, 700px);
   max-width: var(--s2-width-sec-hero-max, var(--s2-section-max, 100%));

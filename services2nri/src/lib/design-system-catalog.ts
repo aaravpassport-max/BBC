@@ -31,6 +31,13 @@ export type DesignSettingFieldDef = {
   hint?: string
 }
 
+export type SectionContentPanelId =
+  | 'hero_slides'
+  | 'why_choose'
+  | 'stats_cards'
+  | 'services_registry'
+  | 'cities_registry'
+
 export type SectionCatalogDef = {
   id: string
   label: string
@@ -38,6 +45,8 @@ export type SectionCatalogDef = {
   sectionKey: string
   /** Page-level defaults row (no section band on site) */
   isPageScope?: boolean
+  /** Visual list/registry editor in Design System Content tab */
+  contentPanel?: SectionContentPanelId
   contentFields?: ContentFieldDef[]
   designSettingFields?: DesignSettingFieldDef[]
   /** Platform setting: hide_section_* (0 = visible) */
@@ -76,6 +85,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     label: 'Hero Section',
     sectionKey: 'hero',
     hideSettingKey: 'hide_section_hero',
+    contentPanel: 'hero_slides',
     contentFields: [
       { key: 'hero_heading_1', label: 'Heading line 1', placeholder: 'Stay Connected to' },
       { key: 'hero_heading_2', label: 'Heading line 2 (accent)', placeholder: 'INDIA' },
@@ -93,7 +103,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
       { key: 'css_hero_minheight', label: 'Min height', placeholder: '520px' },
       { key: 'css_hero_textcolor', label: 'Text color', type: 'color' },
       { key: 'css_hero_bg', label: 'Background (CSS)' },
-      { key: 'css_hero_padding', label: 'Padding', placeholder: '48px 0' },
+      { key: 'css_hero_padding', label: 'Padding (legacy)', placeholder: '48px 0', hint: 'Use Spacing below for Desktop / Tablet / Mobile.' },
     ],
   },
   {
@@ -132,6 +142,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     label: 'Why Choose Us',
     sectionKey: 'features',
     hideSettingKey: 'hide_section_features',
+    contentPanel: 'why_choose',
     contentFields: [
       { key: 'features_eyebrow', label: 'Eyebrow label', placeholder: 'Why Choose Us' },
       { key: 'features_title', label: 'Section heading', placeholder: 'Why Our Customers Love Us' },
@@ -153,6 +164,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     label: 'Services Section',
     sectionKey: 'home_services',
     hideSettingKey: 'hide_section_services',
+    contentPanel: 'services_registry',
     contentFields: [
       { key: 'services_eyebrow', label: 'Eyebrow label', placeholder: 'What We Offer' },
       { key: 'services_title', label: 'Section heading', placeholder: 'Our Services' },
@@ -173,6 +185,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     label: 'Cities Grid',
     sectionKey: 'cities',
     hideSettingKey: 'hide_section_cities',
+    contentPanel: 'cities_registry',
     contentFields: [
       { key: 'cities_section_title', label: 'Section heading', placeholder: 'Property Management Cities' },
       { key: 'cities_section_subtitle', label: 'Subtitle', placeholder: 'We manage NRI properties across major cities' },
@@ -189,6 +202,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     label: 'Stats Counter',
     sectionKey: 'stats',
     hideSettingKey: 'hide_section_stats',
+    contentPanel: 'stats_cards',
     contentFields: [
       { key: 'stat_1_number', label: 'Stat 1 number' },
       { key: 'stat_1_label', label: 'Stat 1 label' },

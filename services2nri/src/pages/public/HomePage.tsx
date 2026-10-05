@@ -48,6 +48,7 @@ import {
   parseWhyChooseCards,
 } from '@/lib/home-content-settings'
 import { DEFAULT_HOME_SECTION_ORDER } from '@/lib/home-section-order'
+import { bandPadClass, pickCssStyle } from '@/lib/responsive-band-padding'
 import {
   mergeLegacyHomeOrder,
   orderIdsForPage,
@@ -172,17 +173,6 @@ const FEATURED_IN = [
   { name: 'Economic Times', brand: 'et' },
   { name: 'YourStory', brand: 'yourstory' },
 ] as const
-
-function pickCssStyle(
-  settings: Record<string, string>,
-  keys: { bg?: string; padding?: string; color?: string },
-): React.CSSProperties | undefined {
-  const style: React.CSSProperties = {}
-  if (keys.bg && settings[keys.bg]) style.background = settings[keys.bg]
-  if (keys.padding && settings[keys.padding]) style.padding = settings[keys.padding]
-  if (keys.color && settings[keys.color]) style.color = settings[keys.color]
-  return Object.keys(style).length ? style : undefined
-}
 
 function sectionHidden(settings: Record<string, string>, key?: string): boolean {
   if (!key) return false
@@ -350,7 +340,12 @@ export function HomePage() {
       <div className="s2-home-page">
       {/* ── 1. Hero slider + mobile-first headline & CTAs ─────────────────── */}
       {!sectionHidden(settings, 'hide_section_hero') && (
-      <div className="s2-home-band s2-hero-section s2-surface-media" data-s2-section="hero" data-home-section-id="hero" style={{ ...bandOrder('hero'), ...heroWidthStyle, ...heroBandStyle }}>
+      <div
+        className={`s2-home-band s2-hero-section s2-surface-media ${bandPadClass(settings, 'css_hero_padding')}`}
+        data-s2-section="hero"
+        data-home-section-id="hero"
+        style={{ ...bandOrder('hero'), ...heroWidthStyle, ...heroBandStyle }}
+      >
         <Swiper
           className="s2-home-hero-swiper"
           modules={[Autoplay, Pagination, Navigation, EffectFade]}
@@ -401,7 +396,7 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_notice') && (
       <div
-        className="s2-home-band s2-notice-bar s2-home-notice"
+        className={`s2-home-band s2-notice-bar s2-home-notice ${bandPadClass(settings, 'css_notice_padding')}`}
         data-s2-section="notice"
         data-home-section-id="notice"
         style={{ ...bandOrder('notice'), ...pickCssStyle(settings, { bg: 'css_notice_bg', padding: 'css_notice_padding', color: 'css_notice_color' }) }}
@@ -422,7 +417,7 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_search') && (
       <section
-        className="s2-home-band s2-home-search s2-experience-section"
+        className={`s2-home-band s2-home-search s2-experience-section ${bandPadClass(settings, 'css_search_padding')}`}
         data-s2-section="search"
         data-home-section-id="search"
         data-s2-reveal=""
@@ -525,7 +520,7 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_cities') && (
       <section
-        className="s2-home-band s2-marketing-section s2-marketing-section--alt s2-experience-section"
+        className={`s2-home-band s2-marketing-section s2-marketing-section--alt s2-experience-section ${bandPadClass(settings, 'css_cities_padding')}`}
         data-s2-section="cities"
         data-home-section-id="cities"
         data-s2-reveal=""
@@ -559,7 +554,7 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_stats') && (
       <section
-        className="s2-home-band s2-hero-stat-bar s2-stats-bar s2-surface-dark"
+        className={`s2-home-band s2-hero-stat-bar s2-stats-bar s2-surface-dark ${bandPadClass(settings, 'css_stats_padding')}`}
         data-s2-section="stats"
         data-home-section-id="stats"
         style={{ ...bandOrder('stats'), ...pickCssStyle(settings, { bg: 'css_stats_bg', padding: 'css_stats_padding', color: 'css_stats_color' }) }}
@@ -585,7 +580,7 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_features') && (
       <section
-        className="s2-home-band s2-marketing-section s2-marketing-section--alt s2-experience-section"
+        className={`s2-home-band s2-marketing-section s2-marketing-section--alt s2-experience-section ${bandPadClass(settings, 'css_features_padding')}`}
         data-s2-section="features"
         data-home-section-id="features"
         data-s2-reveal=""
@@ -613,7 +608,7 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_testimonials') && (
       <section
-        className="s2-home-band s2-marketing-section s2-experience-section"
+        className={`s2-home-band s2-marketing-section s2-experience-section ${bandPadClass(settings, 'css_testimonials_padding')}`}
         data-s2-section="testimonials"
         data-home-section-id="testimonials"
         data-s2-reveal=""
@@ -735,7 +730,7 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_about') && (
       <section
-        className="s2-home-band s2-marketing-section s2-experience-section"
+        className={`s2-home-band s2-marketing-section s2-experience-section ${bandPadClass(settings, 'css_about_padding')}`}
         data-s2-section="about"
         data-home-section-id="about"
         data-s2-reveal=""
@@ -856,7 +851,7 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_newsletter') && (
       <section
-        className="s2-home-band s2-home-newsletter s2-experience-section"
+        className={`s2-home-band s2-home-newsletter s2-experience-section ${bandPadClass(settings, 'css_newsletter_padding')}`}
         data-s2-section="newsletter"
         data-home-section-id="newsletter"
         data-s2-reveal=""

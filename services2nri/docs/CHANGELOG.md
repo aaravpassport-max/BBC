@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.59] — 2026-10-05 — Cloud Agent
+
+- **Design System Content tab:** List-style editors for Hero slides, Why Choose cards, stats grid, plus Service Registry and City Manager previews.
+- **Design tab:** Desktop / Tablet / Mobile padding triples for section CSS; live homepage reads responsive padding variables.
+- **Sticky save bar** when a band is expanded (content or styling + structure).
+
+---
+
 ## [4.7.58] — 2026-10-05 — Cloud Agent
 
 - **Design System builder:** Reference-style **band cards** (title, subtitle, Custom design pill, in-place expand). **Content | Design** underline tabs inside each band; grouped Design panel (background, colours, typography D/T/M, spacing) with orange accent save actions.

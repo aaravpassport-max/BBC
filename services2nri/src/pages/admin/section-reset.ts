@@ -21,7 +21,12 @@ export function contentAndDesignKeysForSection(section: SectionCatalogDef, pageC
   } else {
     section.contentFields?.forEach((f) => keys.push(f.key))
   }
-  section.designSettingFields?.forEach((f) => keys.push(f.key))
+  section.designSettingFields?.forEach((f) => {
+    keys.push(f.key)
+    if (f.key.includes('_padding')) {
+      keys.push(`${f.key}_desktop`, `${f.key}_tablet`, `${f.key}_mobile`)
+    }
+  })
   if (section.hideSettingKey) keys.push(section.hideSettingKey)
   return keys
 }
