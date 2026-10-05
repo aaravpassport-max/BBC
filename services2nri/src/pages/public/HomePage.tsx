@@ -513,14 +513,22 @@ export function HomePage() {
         style={{ ...bandOrder('services'), ...pickCssStyle(settings, { bg: 'css_svc_bg', padding: undefined }) }}
       >
         <div className="s2-container s2-section-inner s2-width-standard">
-          <PublicSectionHead
-            eyebrow={settings.services_eyebrow || 'What We Offer'}
-            title={settings.services_title || 'Our Services'}
-            subtitle={settings.services_subtitle || 'Expert NRI assistance across 8 service categories'}
-          />
+          <div className="s2-home-section-head s2-public-section-head">
+            <CmsElement pageId="home" sectionKey="home_services" elementId="eyebrow" as="p" className="s2-t-eyebrow">
+              {settings.services_eyebrow || 'What We Offer'}
+            </CmsElement>
+            <CmsElement pageId="home" sectionKey="home_services" elementId="heading" as="h2" className="s2-t-section-heading">
+              {settings.services_title || 'Our Services'}
+            </CmsElement>
+            {(settings.services_subtitle || 'Expert NRI assistance across 8 service categories') && (
+              <CmsElement pageId="home" sectionKey="home_services" elementId="subtitle" as="p" className="s2-t-body s2-public-section-head__sub">
+                {settings.services_subtitle || 'Expert NRI assistance across 8 service categories'}
+              </CmsElement>
+            )}
+          </div>
 
           {/* Category tabs */}
-          <div className="s2-tabs">
+          <CmsElement pageId="home" sectionKey="home_services" elementId="collection" className="s2-tabs">
             {categories.map((cat) => (
               <button
                 key={cat.slug}
@@ -532,10 +540,13 @@ export function HomePage() {
                 {cat.name}
               </button>
             ))}
-          </div>
+          </CmsElement>
 
           {/* Service cards */}
-          <div
+          <CmsElement
+            pageId="home"
+            sectionKey="home_services"
+            elementId="grid"
             className="s2-svc-grid s2-stagger"
             style={{
               ...(settings.css_svc_cols
@@ -569,13 +580,13 @@ export function HomePage() {
                 </div>
               )
             })}
-          </div>
+          </CmsElement>
 
-          <div className="s2-home-section-cta">
+          <CmsElement pageId="home" sectionKey="home_services" elementId="link" className="s2-home-section-cta">
             <Link to="/services" className="s2-home-text-link">
               {settings.services_view_all_text || 'View All Services →'}
             </Link>
-          </div>
+          </CmsElement>
         </div>
       </section>
       )}
@@ -589,11 +600,15 @@ export function HomePage() {
         style={{ ...bandOrder('cities'), ...pickCssStyle(settings, { bg: 'css_cities_bg', padding: 'css_cities_padding' }) }}
       >
         <div className="s2-container s2-section-inner s2-width-standard">
-          <PublicSectionHead
-            title={settings.cities_section_title || 'Property Management Cities'}
-            subtitle={settings.cities_section_subtitle || 'We manage NRI properties across all major Indian cities'}
-          />
-          <div className="s2-city-grid s2-city-grid--mobile-rail">
+          <div className="s2-home-section-head s2-public-section-head">
+            <CmsElement pageId="home" sectionKey="cities" elementId="heading" as="h2" className="s2-t-section-heading">
+              {settings.cities_section_title || 'Property Management Cities'}
+            </CmsElement>
+            <CmsElement pageId="home" sectionKey="cities" elementId="subtitle" as="p" className="s2-t-body s2-public-section-head__sub">
+              {settings.cities_section_subtitle || 'We manage NRI properties across all major Indian cities'}
+            </CmsElement>
+          </div>
+          <CmsElement pageId="home" sectionKey="cities" elementId="collection" className="s2-city-grid s2-city-grid--mobile-rail">
             {displayCities.map(({ name, slug, img }) => (
               <Link
                 key={slug || name}
@@ -609,7 +624,7 @@ export function HomePage() {
                 </div>
               </Link>
             ))}
-          </div>
+          </CmsElement>
         </div>
       </section>
       )}

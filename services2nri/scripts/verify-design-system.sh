@@ -35,6 +35,9 @@ grep -q 'platform-mobile-app.css' src/styles/global.css && ok platform mobile ap
 [[ -f src/Design/WidthLayout.php ]] && ok WidthLayout.php || bad WidthLayout.php
 [[ -f playwright.config.ts ]] && ok playwright.config || bad playwright.config
 [[ -f e2e/smoke.spec.ts ]] && ok e2e smoke spec || bad e2e smoke spec
+[[ -f e2e/design-cms-content.spec.ts ]] && ok design cms content e2e || bad design cms content e2e
+[[ -f e2e/design-cms-matrix.spec.ts ]] && ok design cms matrix e2e || bad design cms matrix e2e
+[[ -f src/lib/nav-menu-parse.ts ]] && ok nav menu cms parser || bad nav menu cms parser
 [[ -f README.md ]] && ok README.md || bad README.md
 [[ -f docs/PLUG_AND_PLAY.md ]] && ok PLUG_AND_PLAY.md || bad PLUG_AND_PLAY.md
 [[ -f docs/WIDTH_LAYOUT.md ]] && ok WIDTH_LAYOUT.md || bad WIDTH_LAYOUT.md
@@ -95,6 +98,16 @@ grep -q 's2-btn-primary-bg' assets/public-design-system.css && ok component css 
 [[ -f src/pages/admin/section-element-inspector.tsx ]] && ok element inspector ui || bad element inspector ui
 grep -q "tab === 'elements'" src/pages/admin/design-system-builder.tsx && ok elements editor tab || bad elements editor tab
 node scripts/audit-design-cms-sync.mjs --strict && ok cms sync audit strict || bad cms sync audit strict
+
+if [[ "${SKIP_CMS_E2E:-0}" != "1" ]]; then
+  if npm run test:e2e -- e2e/design-cms-content.spec.ts e2e/design-cms-matrix.spec.ts; then
+    ok cms design e2e suites
+  else
+    bad cms design e2e suites
+  fi
+else
+  ok "cms design e2e (skipped via SKIP_CMS_E2E=1)"
+fi
 
 if [[ $fail -ne 0 ]]; then
   echo "Verification failed."

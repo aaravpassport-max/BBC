@@ -58,6 +58,20 @@ const HOME_BAND_MATRIX: HomeBandCase[] = [
     element: 'eyebrow',
     text: 'Matrix Awards Label',
   },
+  {
+    title: 'services grid heading',
+    patch: { services_title: 'Matrix Services Grid' },
+    section: 'home_services',
+    element: 'heading',
+    text: 'Matrix Services Grid',
+  },
+  {
+    title: 'cities grid heading',
+    patch: { cities_section_title: 'Matrix Cities Grid' },
+    section: 'cities',
+    element: 'heading',
+    text: 'Matrix Cities Grid',
+  },
 ];
 
 function patchSettings(patch: Record<string, string>) {

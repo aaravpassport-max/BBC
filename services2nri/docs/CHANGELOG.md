@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.77] — 2026-10-05 — Cloud Agent
+
+- **Phase 9:** Home services/cities `CmsElement` markers; CMS e2e in `verify-design-system.sh` (`SKIP_CMS_E2E=1` to skip).
+
+---
+
 ## [4.7.76] — 2026-10-05 — Cloud Agent
 
 - **Phase 8:** Full homepage band `CmsElement` coverage (tagline → locations); CMS matrix e2e suite.

@@ -39,6 +39,9 @@
 - CmsElement on tagline, press, partners, about, awards, app, locations
 - `e2e/design-cms-matrix.spec.ts` (home bands + pricing/faq/services heroes + hide_el newsletter)
 
-## Phase 9 — CI hardening (ongoing)
-- `audit-design-cms-sync.mjs --strict` in verify-design-system.sh
-- E2E design-cms-content.spec.ts on mock settings
+## Phase 9 — CI hardening (v4.7.77)
+- CMS e2e suites wired into `scripts/verify-design-system.sh` (skip with `SKIP_CMS_E2E=1`)
+- Home services + cities grid `CmsElement` markers; matrix cases for both bands
+
+## Phase 10 — Admin live preview e2e (next)
+- Design System save → public DOM regression in Playwright
