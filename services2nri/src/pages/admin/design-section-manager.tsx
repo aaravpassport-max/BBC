@@ -1,5 +1,5 @@
 /**
- * Premium section list — reorder, visibility, inline expand under each row.
+ * Premium section list — reference-style band cards, inline expand, drag reorder.
  */
 import React, { useEffect, useRef } from 'react'
 import {
@@ -21,6 +21,7 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import type { PageCatalogDef, SectionCatalogDef } from '@/lib/design-system-catalog'
 import { readAdminSetting } from '@/lib/settings-admin'
+import { SECTION_BAND_COPY, sectionHasCustomDesign } from './design-visual-section-ui'
 
 export const SECTION_ICONS: Record<string, string> = {
   _page: '◆',
@@ -48,11 +49,15 @@ export const SECTION_ICONS: Record<string, string> = {
   content: '¶',
 }
 
-type SectionEditorTab = 'content' | 'design'
+export type SectionEditorTab = 'content' | 'design'
 
 function isVisible(settings: Record<string, string>, section: SectionCatalogDef): boolean {
   if (!section.hideSettingKey) return true
   return readAdminSetting(settings, section.hideSettingKey) !== '1'
+}
+
+function sectionSubtitle(section: SectionCatalogDef): string {
+  return SECTION_BAND_COPY[section.id]?.subtitle || SECTION_BAND_COPY[section.sectionKey]?.subtitle || ''
 }
 
 function SectionMoreMenu({
@@ -70,7 +75,7 @@ function SectionMoreMenu({
     <div className="s2-ds-more-menu">
       <button
         type="button"
-        className="s2-ds-icon-btn"
+        className="s2-ds-icon-btn s2-ds-icon-btn--ghost"
         aria-expanded={open}
         aria-haspopup="menu"
         title="More actions"
@@ -105,24 +110,157 @@ function SectionMoreMenu({
   )
 }
 
-function SortableSectionItem({
+function BandCardHeader({
   section,
+  index,
+  isActive,
+  isHidden,
+  customDesign,
+  dragHandle,
+  onToggle,
+  onToggleVisibility,
+  onReset,
+  resetting,
+}: {
+  section: SectionCatalogDef
+  index: number
+  isActive: boolean
+  isHidden: boolean
+  customDesign: boolean
+  dragHandle?: React.ReactNode
+  onToggle: () => void
+  onToggleVisibility: () => void
+  onReset?: (section: SectionCatalogDef) => void
+  resetting: boolean
+}) {
+  const subtitle = sectionSubtitle(section)
+  const icon = SECTION_ICONS[section.id] || SECTION_ICONS[section.sectionKey] || '☰'
+
+  return (
+    <div className={`s2-band-card${isActive ? ' is-active' : ''}${isHidden ? ' is-hidden' : ''}`}>
+      <div className="s2-band-card__lead">
+        {dragHandle ?? <span className="s2-band-card__index" aria-hidden>{index + 1}</span>}
+        <span className="s2-band-card__icon" aria-hidden>
+          {icon}
+        </span>
+      </div>
+      <button type="button" className="s2-band-card__main" onClick={onToggle} aria-expanded={isActive}>
+        <span className="s2-band-card__titles">
+          <span className="s2-band-card__title">{section.label}</span>
+          {subtitle && <span className="s2-band-card__subtitle">{subtitle}</span>}
+        </span>
+        <span className="s2-band-card__meta">
+          {customDesign && <span className="s2-band-card__pill">Custom design</span>}
+          {isHidden && <span className="s2-band-card__pill s2-band-card__pill--muted">Hidden</span>}
+        </span>
+      </button>
+      <div className="s2-band-card__actions">
+        {section.hideSettingKey && (
+          <button
+            type="button"
+            className={`s2-ds-icon-btn s2-ds-icon-btn--ghost${!isHidden ? ' is-on' : ''}`}
+            title={isHidden ? 'Show on public page' : 'Hide on public page'}
+            aria-pressed={!isHidden}
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleVisibility()
+            }}
+          >
+            <span aria-hidden>👁</span>
+          </button>
+        )}
+        <SectionMoreMenu section={section} onReset={onReset} resetting={resetting} />
+        <button type="button" className="s2-band-card__chevron-btn" onClick={onToggle} aria-label={isActive ? 'Collapse section' : 'Expand section'}>
+          <span className={`s2-band-card__chevron${isActive ? ' is-open' : ''}`} aria-hidden />
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function SectionBandItem({
+  section,
+  index,
   settings,
+  config,
   isActive,
   isHidden,
   onToggleVisibility,
-  onOpenTab,
+  onSelect,
+  onReset,
+  resetting,
+  inlineEditor,
+  dragHandle,
+  itemRef,
+  style,
+  isDragging,
+}: {
+  section: SectionCatalogDef
+  index: number
+  settings: Record<string, string>
+  config: Record<string, unknown>
+  isActive: boolean
+  isHidden: boolean
+  onToggleVisibility: () => void
+  onSelect: () => void
+  onReset?: (section: SectionCatalogDef) => void
+  resetting: boolean
+  inlineEditor: React.ReactNode | null
+  dragHandle?: React.ReactNode
+  itemRef: (node: HTMLDivElement | null) => void
+  style?: React.CSSProperties
+  isDragging?: boolean
+}) {
+  const customDesign = sectionHasCustomDesign(section, settings, config)
+
+  return (
+    <div
+      ref={itemRef}
+      style={style}
+      className={`s2-band-item${isActive ? ' is-editing' : ''}${isHidden ? ' is-section-hidden' : ''}${isDragging ? ' is-dragging' : ''}`}
+      data-section-id={section.id}
+    >
+      <BandCardHeader
+        section={section}
+        index={index}
+        isActive={isActive}
+        isHidden={isHidden}
+        customDesign={customDesign}
+        dragHandle={dragHandle}
+        onToggle={onSelect}
+        onToggleVisibility={onToggleVisibility}
+        onReset={onReset}
+        resetting={resetting}
+      />
+      {isActive && inlineEditor && (
+        <div className="s2-band-item__editor" data-testid={`section-editor-${section.id}`}>
+          {inlineEditor}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SortableSectionItem({
+  section,
+  index,
+  settings,
+  config,
+  isActive,
+  isHidden,
+  onToggleVisibility,
   onSelect,
   onReset,
   resetting,
   inlineEditor,
 }: {
   section: SectionCatalogDef
+  index: number
   settings: Record<string, string>
+  config: Record<string, unknown>
   isActive: boolean
   isHidden: boolean
   onToggleVisibility: () => void
-  onOpenTab: (tab: SectionEditorTab) => void
   onSelect: () => void
   onReset?: (section: SectionCatalogDef) => void
   resetting: boolean
@@ -142,8 +280,7 @@ function SortableSectionItem({
     if (!isActive || !itemRef.current) return
     const workspace = itemRef.current.closest('.s2-design-builder-workspace-scroll')
     if (workspace instanceof HTMLElement) {
-      const rowTop = itemRef.current.offsetTop
-      workspace.scrollTo({ top: Math.max(0, rowTop - 12), behavior: 'smooth' })
+      workspace.scrollTo({ top: Math.max(0, itemRef.current.offsetTop - 12), behavior: 'smooth' })
     } else {
       itemRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
     }
@@ -154,107 +291,68 @@ function SortableSectionItem({
     transition,
   }
 
-  const icon = SECTION_ICONS[section.id] || SECTION_ICONS[section.sectionKey] || '☰'
+  const dragHandle = (
+    <button
+      type="button"
+      className="s2-band-card__drag"
+      aria-label={`Reorder ${section.label}`}
+      {...attributes}
+      {...listeners}
+    >
+      ⠿
+    </button>
+  )
 
   return (
-    <div
-      ref={setRefs}
+    <SectionBandItem
+      section={section}
+      index={index}
+      settings={settings}
+      config={config}
+      isActive={isActive}
+      isHidden={isHidden}
+      onToggleVisibility={onToggleVisibility}
+      onSelect={onSelect}
+      onReset={onReset}
+      resetting={resetting}
+      inlineEditor={inlineEditor}
+      dragHandle={dragHandle}
+      itemRef={setRefs}
       style={style}
-      className={`s2-ds-section-item${isActive ? ' is-editing' : ''}${isHidden ? ' is-section-hidden' : ''}${isDragging ? ' is-dragging' : ''}`}
-      data-section-id={section.id}
-    >
-      <div className={`s2-ds-section-card${isActive ? ' is-active' : ''}`}>
-        <button
-          type="button"
-          className="s2-ds-section-card__drag"
-          aria-label={`Reorder ${section.label}`}
-          {...attributes}
-          {...listeners}
-        >
-          ☰
-        </button>
-        <button type="button" className="s2-ds-section-card__main" onClick={onSelect}>
-          <span className="s2-ds-section-card__icon" aria-hidden>
-            {icon}
-          </span>
-          <span className="s2-ds-section-card__text">
-            <span className="s2-ds-section-card__title">{section.label}</span>
-            {isHidden && <span className="s2-ds-section-card__badge">Hidden on site</span>}
-            {isActive && <span className="s2-ds-section-card__badge s2-ds-section-card__badge--editing">Editing</span>}
-          </span>
-          <span className={`s2-ds-section-card__chevron${isActive ? ' is-open' : ''}`} aria-hidden />
-        </button>
-        <div className="s2-ds-section-card__actions">
-          {section.hideSettingKey && (
-            <button
-              type="button"
-              className={`s2-ds-icon-btn${!isHidden ? ' is-on' : ''}`}
-              title={isHidden ? 'Show section on public page' : 'Hide section on public page'}
-              aria-pressed={!isHidden}
-              onClick={(e) => {
-                e.stopPropagation()
-                onToggleVisibility()
-              }}
-            >
-              👁
-            </button>
-          )}
-          <button
-            type="button"
-            className="s2-ds-quick-tab"
-            onClick={(e) => {
-              e.stopPropagation()
-              onOpenTab('content')
-            }}
-          >
-            Content
-          </button>
-          <button
-            type="button"
-            className="s2-ds-quick-tab s2-ds-quick-tab--design"
-            onClick={(e) => {
-              e.stopPropagation()
-              onOpenTab('design')
-            }}
-          >
-            Design
-          </button>
-          <SectionMoreMenu section={section} onReset={onReset} resetting={resetting} />
-        </div>
-      </div>
-      {isActive && inlineEditor && (
-        <div className="s2-ds-section-item__editor" data-testid={`section-editor-${section.id}`}>
-          {inlineEditor}
-        </div>
-      )}
-    </div>
+      isDragging={isDragging}
+    />
   )
 }
 
 function StaticSectionItem({
   section,
+  index,
   settings,
+  config,
   isActive,
   isHidden,
   onToggleVisibility,
-  onOpenSectionTab,
   onSelectSection,
   onResetSection,
   resettingSectionId,
   inlineEditor,
 }: {
   section: SectionCatalogDef
+  index: number
   settings: Record<string, string>
+  config: Record<string, unknown>
   isActive: boolean
   isHidden: boolean
   onToggleVisibility: () => void
-  onOpenSectionTab: (id: string, tab: SectionEditorTab) => void
   onSelectSection: (id: string) => void
   onResetSection?: (section: SectionCatalogDef) => void
   resettingSectionId?: string | null
   inlineEditor: React.ReactNode | null
 }) {
-  const itemRef = useRef<HTMLDivElement>(null)
+  const itemRef = useRef<HTMLDivElement | null>(null)
+  const setItemRef = (node: HTMLDivElement | null) => {
+    itemRef.current = node
+  }
   useEffect(() => {
     if (!isActive || !itemRef.current) return
     const workspace = itemRef.current.closest('.s2-design-builder-workspace-scroll')
@@ -264,44 +362,20 @@ function StaticSectionItem({
   }, [isActive, section.id])
 
   return (
-    <div
-      ref={itemRef}
-      className={`s2-ds-section-item${isActive ? ' is-editing' : ''}${isHidden ? ' is-section-hidden' : ''}`}
-      data-section-id={section.id}
-    >
-      <div className={`s2-ds-section-card s2-ds-section-card--static${isActive ? ' is-active' : ''}`}>
-        <span className="s2-ds-section-card__icon" aria-hidden>
-          {SECTION_ICONS[section.id] || '☰'}
-        </span>
-        <button type="button" className="s2-ds-section-card__main" onClick={() => onSelectSection(section.id)}>
-          <span className="s2-ds-section-card__title">{section.label}</span>
-          {isHidden && <span className="s2-ds-section-card__badge">Hidden</span>}
-        </button>
-        <div className="s2-ds-section-card__actions">
-          {section.hideSettingKey && (
-            <button
-              type="button"
-              className={`s2-ds-icon-btn${isVisible(settings, section) ? ' is-on' : ''}`}
-              onClick={() => onToggleVisibility()}
-            >
-              👁
-            </button>
-          )}
-          <button type="button" className="s2-ds-quick-tab" onClick={() => onOpenSectionTab(section.id, 'content')}>
-            Content
-          </button>
-          <button type="button" className="s2-ds-quick-tab s2-ds-quick-tab--design" onClick={() => onOpenSectionTab(section.id, 'design')}>
-            Design
-          </button>
-          <SectionMoreMenu section={section} onReset={onResetSection} resetting={resettingSectionId === section.id} />
-        </div>
-      </div>
-      {isActive && inlineEditor && (
-        <div className="s2-ds-section-item__editor" data-testid={`section-editor-${section.id}`}>
-          {inlineEditor}
-        </div>
-      )}
-    </div>
+    <SectionBandItem
+      section={section}
+      index={index}
+      settings={settings}
+      config={config}
+      isActive={isActive}
+      isHidden={isHidden}
+      onToggleVisibility={onToggleVisibility}
+      onSelect={() => onSelectSection(section.id)}
+      onReset={onResetSection}
+      resetting={resettingSectionId === section.id}
+      inlineEditor={inlineEditor}
+      itemRef={setItemRef}
+    />
   )
 }
 
@@ -311,6 +385,7 @@ export function DesignSectionManager({
   orderedIds,
   onReorder,
   settings,
+  config,
   onVisibilityChange,
   activeSectionId,
   onSelectSection,
@@ -330,9 +405,11 @@ export function DesignSectionManager({
   orderedIds: string[]
   onReorder: (ids: string[]) => void
   settings: Record<string, string>
+  config: Record<string, unknown>
   onVisibilityChange: (section: SectionCatalogDef, visible: boolean) => void
   activeSectionId: string | null
   onSelectSection: (id: string) => void
+  /** @deprecated Header quick-tabs removed; kept for API compatibility */
   onOpenSectionTab: (id: string, tab: SectionEditorTab) => void
   onSaveStructure: () => void
   structureSaving: boolean
@@ -344,6 +421,8 @@ export function DesignSectionManager({
   orderAppliesOnLiveSite?: boolean
   renderInlineEditor?: (section: SectionCatalogDef) => React.ReactNode
 }) {
+  void onOpenSectionTab
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
@@ -367,18 +446,18 @@ export function DesignSectionManager({
   }
 
   const lead = orderAppliesOnLiveSite
-    ? 'Tap a section to expand it here — Content and Design open directly under that row.'
-    : 'Tap a section to expand it in place. Drag to reorder; save when done.'
+    ? 'Expand a band to edit Content or Design in place. Drag the grip to reorder; save structure when finished.'
+    : 'Expand a band to edit in place. Drag to reorder sections, then save structure.'
 
   return (
-    <div className="s2-ds-section-manager">
+    <div className="s2-ds-section-manager s2-band-section-manager">
       <div className="s2-ds-section-manager__toolbar">
         <div>
           <h3 className="s2-ds-section-manager__title">{page.label} sections</h3>
           <p className="s2-ds-section-manager__lead">{lead}</p>
         </div>
         <div className="s2-ds-section-manager__toolbar-actions">
-          {structureDirty && <span className="s2-ds-status-chip s2-ds-status-chip--warn">Unsaved changes</span>}
+          {structureDirty && <span className="s2-ds-status-chip s2-ds-status-chip--warn">Unsaved order</span>}
           <button
             type="button"
             className="s2-btn s2-btn--primary s2-btn--sm"
@@ -398,18 +477,19 @@ export function DesignSectionManager({
       {reorderEnabled ? (
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={orderedIds} strategy={verticalListSortingStrategy}>
-            <div className="s2-ds-section-manager__list">
-              {orderedSections.map((sec) => {
+            <div className="s2-band-section-list">
+              {orderedSections.map((sec, idx) => {
                 const isActive = activeSectionId === sec.id
                 return (
                   <SortableSectionItem
                     key={sec.id}
                     section={sec}
+                    index={idx}
                     settings={settings}
+                    config={config}
                     isActive={isActive}
                     isHidden={!isVisible(settings, sec)}
                     onToggleVisibility={() => onVisibilityChange(sec, !isVisible(settings, sec))}
-                    onOpenTab={(tab) => onOpenSectionTab(sec.id, tab)}
                     onSelect={() => onSelectSection(sec.id)}
                     onReset={onResetSection}
                     resetting={resettingSectionId === sec.id}
@@ -421,18 +501,19 @@ export function DesignSectionManager({
           </SortableContext>
         </DndContext>
       ) : (
-        <div className="s2-ds-section-manager__list">
-          {sections.map((sec) => {
+        <div className="s2-band-section-list">
+          {sections.map((sec, idx) => {
             const isActive = activeSectionId === sec.id
             return (
               <StaticSectionItem
                 key={sec.id}
                 section={sec}
+                index={idx}
                 settings={settings}
+                config={config}
                 isActive={isActive}
                 isHidden={!isVisible(settings, sec)}
                 onToggleVisibility={() => onVisibilityChange(sec, !isVisible(settings, sec))}
-                onOpenSectionTab={onOpenSectionTab}
                 onSelectSection={onSelectSection}
                 onResetSection={onResetSection}
                 resettingSectionId={resettingSectionId}

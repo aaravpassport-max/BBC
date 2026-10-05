@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.58] — 2026-10-05 — Cloud Agent
+
+- **Design System builder:** Reference-style **band cards** (title, subtitle, Custom design pill, in-place expand). **Content | Design** underline tabs inside each band; grouped Design panel (background, colours, typography D/T/M, spacing) with orange accent save actions.
+
+---
+
 ## [4.7.49] — 2026-10-05 — Cloud Agent
 
 - **Design System UX:** Replaced 22 flat tabs with a **Page → Section → Content | Design** builder. **Site Foundation** holds global colors, typography, fonts, components, spacing, layout, chrome, and presets. Homepage and all public page templates list sections in the left nav with per-section content fields (platform settings) and design overrides (colors, visibility, layout).

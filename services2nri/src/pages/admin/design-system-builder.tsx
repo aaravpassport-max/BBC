@@ -32,6 +32,7 @@ import { hasOverrideAtPath, OverrideFieldShell, readPathLeaf } from './design-in
 import { WidthLayoutPanel, type WidthLayoutFocus } from './width-layout-panel'
 import { PageTypeWidthStudio } from './page-type-width-studio'
 import { DesignSectionManager } from './design-section-manager'
+import { SectionDesignVisualPanel } from './section-design-visual-panel'
 import {
   DesignColorSwatchGrid,
   DesignPremiumGroup,
@@ -161,6 +162,7 @@ function SectionContentPanel({
   onSave,
   saving,
   saveMessage,
+  bandLayout,
 }: {
   section: SectionCatalogDef
   page: PageCatalogDef
@@ -169,13 +171,14 @@ function SectionContentPanel({
   onSave: () => void
   saving: boolean
   saveMessage: { type: 'success' | 'error'; text: string } | null
+  bandLayout?: boolean
 }) {
   const fields = section.isPageScope
     ? page.pageContentFields || []
     : section.contentFields || []
   if (fields.length === 0) {
     return (
-      <div className="s2-design-builder-panel s2-ds-content-studio">
+      <div className={`s2-design-builder-panel s2-ds-content-studio${bandLayout ? ' s2-band-content-studio' : ''}`}>
         {section.adminLink && (
           <p style={{ margin: '0 0 12px' }}>
             <a href={section.adminLink.path} className="s2-btn s2-btn--outline s2-btn--sm">
@@ -190,9 +193,8 @@ function SectionContentPanel({
       </div>
     )
   }
-  return (
-    <div className="s2-design-builder-panel s2-ds-content-studio">
-      <DesignPremiumGroup title={`${section.label} content`} description="Copy and links for this band only." badge="Content">
+  const fieldsBody = (
+    <>
       {section.adminLink && (
         <p style={{ margin: '0 0 12px' }}>
           <a href={section.adminLink.path} className="s2-btn s2-btn--outline s2-btn--sm">
@@ -201,15 +203,17 @@ function SectionContentPanel({
         </p>
       )}
       {section.contentNote && (
-        <p className="s2-ds-premium-card__hint" style={{ marginTop: 0 }}>{section.contentNote}</p>
+        <p className="s2-ds-premium-card__hint" style={{ marginTop: 0 }}>
+          {section.contentNote}
+        </p>
       )}
       <div className="s2-ds-content-fields">
-        <div style={{ display: 'grid', gap: 4, maxWidth: 720 }}>
+        <div className={bandLayout ? 's2-band-content-fields' : undefined} style={bandLayout ? undefined : { display: 'grid', gap: 4, maxWidth: 720 }}>
           {fields.map((f) => {
             const isJson = f.key.endsWith('_json')
             const val = readAdminSetting(settings, f.key)
             return (
-              <div key={f.key} className="s2-design-builder-field">
+              <div key={f.key} className={`s2-design-builder-field${bandLayout ? ' s2-band-content-field' : ''}`}>
                 <label htmlFor={`ds-field-${f.key}`}>{f.label}</label>
                 {f.type === 'textarea' ? (
                   <textarea
@@ -234,8 +238,13 @@ function SectionContentPanel({
             )
           })}
         </div>
-        <div className="s2-design-builder-actions">
-          <button type="button" className="s2-btn s2-btn--primary" onClick={onSave} disabled={saving}>
+        <div className={`s2-design-builder-actions${bandLayout ? ' s2-band-design-actions' : ''}`}>
+          <button
+            type="button"
+            className={bandLayout ? 's2-btn s2-btn--accent' : 's2-btn s2-btn--primary'}
+            onClick={onSave}
+            disabled={saving}
+          >
             {saving ? 'Saving content…' : 'Save section content'}
           </button>
           {saveMessage && (
@@ -245,7 +254,24 @@ function SectionContentPanel({
           )}
         </div>
       </div>
-      </DesignPremiumGroup>
+    </>
+  )
+
+  return (
+    <div className={`s2-design-builder-panel s2-ds-content-studio${bandLayout ? ' s2-band-content-studio' : ''}`}>
+      {bandLayout ? (
+        <>
+          <section className="s2-band-design-group s2-band-design-group--flush">
+            <h4 className="s2-band-design-group__title">Content</h4>
+            <p className="s2-band-design-group__lead">Copy, links, and media for this band on the live page.</p>
+          </section>
+          {fieldsBody}
+        </>
+      ) : (
+        <DesignPremiumGroup title={`${section.label} content`} description="Copy and links for this band only." badge="Content">
+          {fieldsBody}
+        </DesignPremiumGroup>
+      )}
     </div>
   )
 }
@@ -504,18 +530,24 @@ const SECTION_TAB_LABELS: Record<SectionEditorTab, string> = {
 function SectionEditorTabs({
   tab,
   onTab,
-  compact,
+  bandStyle,
 }: {
   tab: SectionEditorTab
   onTab: (t: SectionEditorTab) => void
-  compact?: boolean
+  bandStyle?: boolean
 }) {
   return (
-    <div className={`s2-design-builder-subtabs s2-design-section-tabs${compact ? ' s2-design-section-tabs--compact' : ''}`}>
+    <div
+      className={bandStyle ? 's2-band-editor-tabs' : 's2-design-builder-subtabs s2-design-section-tabs'}
+      role="tablist"
+      aria-label="Section editor"
+    >
       {(['content', 'design'] as const).map((t) => (
         <button
           key={t}
           type="button"
+          role="tab"
+          aria-selected={tab === t}
           className={tab === t ? 'is-active' : ''}
           onClick={() => onTab(t)}
         >
@@ -563,9 +595,15 @@ export function SectionEditorBody({
   designSaveMessage,
   onVisibilityChange,
 }: SectionEditorBodyProps) {
+  const visibilityHandler =
+    onVisibilityChange ||
+    (section.hideSettingKey ? (vis: boolean) => onSettingsChange(section.hideSettingKey!, vis ? '0' : '1') : undefined)
+
+  const useBandChrome = !section.isPageScope
+
   return (
-    <div className="s2-ds-section-inline-editor">
-      <SectionEditorTabs tab={tab} onTab={onTab} compact />
+    <div className={`s2-ds-section-inline-editor${useBandChrome ? ' s2-band-inline-editor' : ''}`}>
+      <SectionEditorTabs tab={tab} onTab={onTab} bandStyle={useBandChrome} />
       {tab === 'content' && settingsLoading ? (
         <div className="s2-design-builder-panel">
           <p className="s2-design-builder-workspace__desc">Loading saved content…</p>
@@ -579,8 +617,9 @@ export function SectionEditorBody({
           onSave={onSaveContent}
           saving={contentSaving}
           saveMessage={contentSaveMessage}
+          bandLayout={useBandChrome}
         />
-      ) : (
+      ) : section.isPageScope ? (
         <div className="s2-design-builder-panel s2-ds-design-studio">
           <SectionDesignPanel
             section={section}
@@ -592,12 +631,22 @@ export function SectionEditorBody({
             onSavePlatformDesign={onSavePlatformDesign}
             platformDesignSaving={platformDesignSaving}
             designSaveMessage={designSaveMessage}
-            onVisibilityChange={
-              onVisibilityChange ||
-              (section.hideSettingKey
-                ? (vis) => onSettingsChange(section.hideSettingKey!, vis ? '0' : '1')
-                : undefined)
-            }
+            onVisibilityChange={visibilityHandler}
+          />
+        </div>
+      ) : (
+        <div className="s2-band-editor-panel">
+          <SectionDesignVisualPanel
+            section={section}
+            page={page}
+            config={config}
+            patch={patch}
+            settings={settings}
+            onSettingsChange={onSettingsChange}
+            onSavePlatformDesign={onSavePlatformDesign}
+            platformDesignSaving={platformDesignSaving}
+            designSaveMessage={designSaveMessage}
+            onVisibilityChange={visibilityHandler}
           />
         </div>
       )}
@@ -1284,6 +1333,7 @@ export function DesignSystemBuilder({
               orderedIds={orderedSectionIds}
               onReorder={handleSectionReorder}
               settings={settings}
+              config={config}
               onVisibilityChange={setSectionVisibility}
               activeSectionId={activeSectionId}
               onSelectSection={(id) => setActiveSectionId((prev) => (prev === id ? null : id))}
