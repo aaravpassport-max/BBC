@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.45] — 2026-10-05 — Cloud Agent
+
+- **Customer portal mobile parity (TSX):** `AdminScreen`, sticky action bars, and `AdminToolbar` / `AdminFormStack` on dashboard, bookings list/detail, new request, profile, and support tickets.
+- **Shared `PageHeader`:** uses admin mobile header classes so primary actions hide in the header on phones and appear in the sticky bar.
+- **E2E:** `customer-mobile.spec.ts` + customer mock API routes (`bookings`, `profile`, `tickets`, `notifications`).
+
+---
+
 ## [4.7.44] — 2026-10-04 — Cloud Agent
 
 - **Admin mobile parity (TSX):** `AdminMobileUi` — `AdminScreen`, sticky action bars, `AdminTableWrap`, toolbars, form stacks; applied across all admin list/form screens (bookings, payments, customers, services, categories, FAQs, blog, pricing, cities, diagnostics, builder).

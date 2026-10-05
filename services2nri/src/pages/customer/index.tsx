@@ -18,6 +18,7 @@ import { useT } from '@/lib/i18n'
 import { api } from '@/lib/api'
 import { BOOKING_STEPS, STAFF_ROLES } from '@/lib/constants'
 import type { Booking, Ticket, UserProfile } from '@/types'
+import { AdminScreen, AdminToolbar, AdminFormStack } from '@/components/admin/AdminMobileUi'
 
 // ── Auth guard for customer portal (pe wrapper) ───────────────────────────────
 export function CustomerPortal({ children }: { children: React.ReactNode }) {
@@ -105,12 +106,12 @@ export function CustomerDashboard() {
 
   if (loadError) {
     return (
-      <div>
+      <AdminScreen>
         <div style={{ marginBottom: 24 }}>
           <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 700, color: '#111827' }}>Hello! 👋</h1>
         </div>
         <Alert type="error" message="Couldn't load your bookings right now. Please refresh the page or try again shortly." />
-      </div>
+      </AdminScreen>
     )
   }
 
@@ -119,9 +120,14 @@ export function CustomerDashboard() {
   const completed = (data?.rows || []).filter((b) => b.status === 'completed').length
 
   const firstName = user?.first_name || user?.display_name?.split(' ')[0] || 'there'
+  const dashSticky = (
+    <Link to="/services" style={{ flex: 1, textDecoration: 'none' }}>
+      <Button style={{ width: '100%', justifyContent: 'center' }}>+ New Service Request</Button>
+    </Link>
+  )
 
   return (
-    <div>
+    <AdminScreen sticky={dashSticky}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ margin: '0 0 4px', fontSize: 22, fontWeight: 700, color: '#111827' }}>Hello, {firstName}! 👋</h1>
         <p style={{ margin: 0, color: '#6b7280', fontSize: 14 }}>Track your service requests and manage your India affairs.</p>
@@ -190,7 +196,7 @@ export function CustomerDashboard() {
           )}
         </div>
       </div>
-    </div>
+    </AdminScreen>
   )
 }
 
@@ -222,19 +228,24 @@ export function BookingListPage() {
 
   const filters = [{ label: 'All', value: '' }, { label: 'Active', value: 'active' }, { label: 'Completed', value: 'completed' }, { label: 'Cancelled', value: 'cancelled' }]
   const totalPages = Math.ceil(data.total / 10)
+  const newRequestBtn = (
+    <Link to="/services">
+      <Button>+ New Request</Button>
+    </Link>
+  )
 
   return (
-    <div>
-      <PageHeader title="My Bookings" subtitle={`${data.total} total`} action={<Link to="/services"><Button>+ New Request</Button></Link>} />
+    <AdminScreen sticky={newRequestBtn}>
+      <PageHeader title="My Bookings" subtitle={`${data.total} total`} action={newRequestBtn} />
 
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 20 }}>
+      <AdminToolbar>
         {filters.map((f) => (
           <button key={f.value} onClick={() => { setStatus(f.value); setPage(1) }}
             style={{ padding: '6px 14px', border: `1px solid ${status === f.value ? primary : '#e5e7eb'}`, borderRadius: 99, background: status === f.value ? `${primary}15` : '#fff', color: status === f.value ? primary : '#374151', fontWeight: status === f.value ? 700 : 500, cursor: 'pointer', fontSize: 13 }}>
             {f.label}
           </button>
         ))}
-      </div>
+      </AdminToolbar>
 
       {loading ? <LoadingScreen /> : loadError ? (
         <div>
@@ -273,7 +284,7 @@ export function BookingListPage() {
           )}
         </div>
       )}
-    </div>
+    </AdminScreen>
   )
 }
 
@@ -389,8 +400,33 @@ export function BookingDetailPage() {
   const bankInfo     = { bank_name: settings.bank_name, account_number: settings.bank_account_number, ifsc: settings.bank_ifsc, upi: settings.bank_upi }
   const hasBankInfo  = bankInfo.account_number || bankInfo.upi
 
+  const detailSticky = (
+    <>
+      {booking.status === 'quote_sent' && pendingQuote && (
+        <>
+          <Button onClick={approveQuote} loading={quoteLoading}>✓ Approve Quote</Button>
+          <Button variant="ghost" onClick={rejectQuote}>✕ Reject</Button>
+        </>
+      )}
+      {needsPayment && (
+        <>
+          {settings.razorpay_enabled === '1' && (
+            <Button onClick={payRazorpay} style={{ background: '#3395ff', color: '#fff', border: 'none' }}>Pay Online</Button>
+          )}
+          <Button variant={settings.razorpay_enabled === '1' ? 'secondary' : 'primary'} onClick={() => setShowPayModal(true)}>Bank Transfer</Button>
+        </>
+      )}
+      {!['cancelled', 'completed'].includes(booking.status) && (
+        <Button onClick={sendMessage} loading={sending} disabled={!msg.trim()}>{t('send')}</Button>
+      )}
+      {canCancel && (
+        <Button variant="danger" onClick={cancelBooking}>Cancel Booking</Button>
+      )}
+    </>
+  )
+
   return (
-    <div>
+    <AdminScreen sticky={detailSticky}>
       <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
         <Link to="/dashboard/bookings" style={{ color: primary, textDecoration: 'none', fontSize: 14 }}>← Bookings</Link>
         <span style={{ color: '#d1d5db' }}>/</span>
@@ -571,7 +607,7 @@ export function BookingDetailPage() {
           <Button onClick={submitPayment} loading={payLoading}>Submit Payment</Button>
         </div>
       </Modal>
-    </div>
+    </AdminScreen>
   )
 }
 
@@ -608,9 +644,15 @@ export function NewBookingPage() {
 
   if (loading) return <LoadingScreen />
 
+  const submitBtn = svc ? (
+    <Button onClick={submit} loading={submitting} style={{ width: '100%', justifyContent: 'center' }}>
+      Submit Request →
+    </Button>
+  ) : null
+
   return (
-    <div>
-      <PageHeader title="New Service Request" subtitle="Fill in the details and we'll send you a quote within 24 hours." />
+    <AdminScreen sticky={submitBtn || undefined}>
+      <PageHeader title="New Service Request" subtitle="Fill in the details and we'll send you a quote within 24 hours." action={submitBtn || undefined} />
       <Alert type="error" message={errorMsg} onClose={() => setErrorMsg('')} />
       <div style={{ maxWidth: 680, margin: '0 auto' }}>
         {!svc ? (
@@ -619,7 +661,7 @@ export function NewBookingPage() {
             <Link to="/services"><Button>Browse Services →</Button></Link>
           </Card>
         ) : (
-          <>
+          <AdminFormStack>
             <Card style={{ marginBottom: 16 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                 <div style={{ width: 44, height: 44, background: `${primary}20`, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>{svc.icon || '📋'}</div>
@@ -644,13 +686,13 @@ export function NewBookingPage() {
               </div>
               <Textarea label="Describe your requirements" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Please provide as much detail as possible." rows={5} hint="The more detail you provide, the more accurate your quote will be." />
             </Card>
-            <Button onClick={submit} loading={submitting} style={{ width: '100%', justifyContent: 'center', padding: 14 }}>
+            <Button className="s2-admin-page-header__actions--desktop-only" onClick={submit} loading={submitting} style={{ width: '100%', justifyContent: 'center', padding: 14 }}>
               Submit Request →
             </Button>
-          </>
+          </AdminFormStack>
         )}
       </div>
-    </div>
+    </AdminScreen>
   )
 }
 
@@ -704,12 +746,14 @@ export function ProfilePage() {
 
   if (loading) return <LoadingScreen />
 
+  const saveBtn = <Button onClick={saveProfile} loading={saving} style={{ width: '100%', justifyContent: 'center' }}>Save Profile</Button>
+
   return (
-    <div>
-      <PageHeader title="My Profile" />
+    <AdminScreen sticky={saveBtn}>
+      <PageHeader title="My Profile" action={saveBtn} />
       <Alert type="error"   message={errorMsg}   onClose={() => setErrorMsg('')} />
       <Alert type="success" message={successMsg} onClose={() => setSuccessMsg('')} />
-      <div style={{ maxWidth: 560 }}>
+      <AdminFormStack style={{ maxWidth: 560 }}>
         <Card>
           <FormInput label="Full Name"    value={profile?.name || ''}                         onChange={(e) => setField('name', e.target.value)} required />
           <FormInput label="Email"        value={profile?.email || ''}                        disabled hint="Email cannot be changed." />
@@ -719,7 +763,7 @@ export function ProfilePage() {
           <FormInput label="City Abroad"  value={profile?.profile?.city_abroad || ''}        onChange={(e) => setField('city_abroad', e.target.value)} />
           <FormInput label="City in India" value={profile?.profile?.city_india || ''}        onChange={(e) => setField('city_india', e.target.value)} />
           <Textarea  label="India Address" value={profile?.profile?.address_india || ''}     onChange={(e) => setField('address_india', e.target.value)} rows={3} />
-          <Button onClick={saveProfile} loading={saving}>Save Profile</Button>
+          <Button className="s2-admin-page-header__actions--desktop-only" onClick={saveProfile} loading={saving}>Save Profile</Button>
         </Card>
 
         <Card style={{ marginTop: 20 }}>
@@ -732,8 +776,8 @@ export function ProfilePage() {
         </Card>
 
         <TwoFactorCard />
-      </div>
-    </div>
+      </AdminFormStack>
+    </AdminScreen>
   )
 }
 
@@ -815,9 +859,11 @@ export function TicketsPage() {
     setSubmitting(false)
   }
 
+  const newTicketBtn = <Button onClick={() => setShowModal(true)} style={{ width: '100%', justifyContent: 'center' }}>+ New Ticket</Button>
+
   return (
-    <div>
-      <PageHeader title="Support Tickets" action={<Button onClick={() => setShowModal(true)}>+ New Ticket</Button>} />
+    <AdminScreen sticky={newTicketBtn}>
+      <PageHeader title="Support Tickets" action={newTicketBtn} />
 
       {loading ? <LoadingScreen /> : tickets.length === 0 ? (
         <EmptyState icon="🎫" title="No tickets" description="Open a support ticket if you need help with any booking or issue." action={<Button onClick={() => setShowModal(true)}>Open Ticket</Button>} />
@@ -844,6 +890,6 @@ export function TicketsPage() {
           <Button onClick={submit} loading={submitting}>Submit Ticket</Button>
         </div>
       </Modal>
-    </div>
+    </AdminScreen>
   )
 }

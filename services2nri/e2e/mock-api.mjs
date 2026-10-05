@@ -203,6 +203,61 @@ export function handleMockApi(pathname, method) {
     }
   }
 
+  if (method === 'GET' && path.startsWith('bookings')) {
+    const idMatch = path.match(/^bookings\/(\d+)/)
+    if (idMatch) {
+      const id = Number(idMatch[1])
+      return {
+        booking: {
+          id,
+          booking_ref: `BK-E2E-${String(id).padStart(3, '0')}`,
+          service_name: 'Property Management',
+          status: 'submitted',
+          created_at: '2026-01-15 10:00:00',
+          field_data: {},
+          messages: [],
+          documents: [],
+          quote: null,
+        },
+      }
+    }
+    return {
+      rows: [
+        {
+          id: 1,
+          booking_ref: 'BK-E2E-001',
+          service_name: 'Property Management',
+          status: 'submitted',
+          created_at: '2026-01-15 10:00:00',
+        },
+      ],
+      total: 1,
+    }
+  }
+  if (method === 'GET' && path === 'profile') {
+    return {
+      id: 1,
+      email: 'customer@e2e.test',
+      name: 'E2E Customer',
+      profile: { phone: '', whatsapp: '', country: 'USA' },
+    }
+  }
+  if (method === 'GET' && path.startsWith('notifications')) {
+    return { rows: [], total: 0 }
+  }
+  if (method === 'GET' && path === 'tickets') {
+    return {
+      tickets: [
+        {
+          id: 1,
+          subject: 'E2E support ticket',
+          status: 'open',
+          created_at: '2026-01-10 12:00:00',
+        },
+      ],
+    }
+  }
+
   if (method === 'GET' && path.startsWith('admin/bookings')) {
     return {
       rows: [

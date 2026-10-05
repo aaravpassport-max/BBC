@@ -476,7 +476,7 @@ interface PageHeaderProps {
 export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
   return (
     <div
-      className="s2-dash-page-header"
+      className="s2-dash-page-header s2-admin-page-header"
       style={{
         display: 'flex',
         alignItems: 'flex-start',
@@ -490,7 +490,7 @@ export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
         <h1 style={{ margin: 0, fontSize: '22px', fontWeight: 700, color: '#111827' }}>{title}</h1>
         {subtitle && <p style={{ margin: '4px 0 0', color: '#6b7280', fontSize: '14px' }}>{subtitle}</p>}
       </div>
-      {action && <div>{action}</div>}
+      {action && <div className="s2-admin-page-header__actions--desktop-only">{action}</div>}
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import React from 'react'
 
-/** Root wrapper for admin screens — adds bottom padding when a sticky action bar is present. */
+/** Dashboard screen wrapper (admin + customer portal) — bottom padding when sticky actions are present. */
 export function AdminScreen({
   children,
   sticky,
