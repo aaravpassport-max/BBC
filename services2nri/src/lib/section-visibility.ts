@@ -45,6 +45,7 @@ export const SERVICE_CMS_TYPE_TO_SECTION_KEY: Record<string, string> = {
   related: 'related',
 }
 
+/** Design-system hide for a CMS section type (fallback bands only — not saved builder rows). */
 export function serviceCmsSectionHidden(
   settings: Record<string, string>,
   sectionType: string,

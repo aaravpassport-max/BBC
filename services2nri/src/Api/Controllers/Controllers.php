@@ -1698,17 +1698,24 @@ class ServiceSectionController extends BaseController {
             $service_id
         ), ARRAY_A );
 
+        if ( empty( $rows ) ) {
+            $rows = \S2NRI\Services\ServiceRegistry::defaultServiceSections( $svc );
+        }
+
         foreach ( $rows as &$row ) {
-            if ( $row['content'] ) {
-                $decoded = json_decode( $row['content'], true );
-                if ( json_last_error() === JSON_ERROR_NONE && is_array( $decoded ) ) {
-                    $row['content'] = \S2NRI\Services\ServiceRegistry::sanitizeSectionContent(
-                        $decoded,
-                        (string) ( $row['type'] ?? '' )
-                    );
-                } else {
-                    $row['content'] = $decoded;
-                }
+            if ( empty( $row['content'] ) ) {
+                continue;
+            }
+            if ( is_array( $row['content'] ) ) {
+                $decoded = $row['content'];
+            } else {
+                $decoded = json_decode( (string) $row['content'], true );
+            }
+            if ( is_array( $decoded ) ) {
+                $row['content'] = \S2NRI\Services\ServiceRegistry::sanitizeSectionContent(
+                    $decoded,
+                    (string) ( $row['type'] ?? '' )
+                );
             }
         }
         unset( $row );

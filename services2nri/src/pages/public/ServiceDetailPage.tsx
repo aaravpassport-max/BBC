@@ -36,7 +36,8 @@ import { getServiceImage } from '@/lib/images'
 import type { Service, ServiceSection, SectionType } from '@/types'
 import { installServiceSectionNavStrip } from '@/lib/service-section-nav-strip'
 import { hydrateEmptySection } from '@/lib/service-section-normalize'
-import { isTemplateSectionHidden, serviceCmsSectionHidden } from '@/lib/section-visibility'
+import { isTemplateSectionHidden } from '@/lib/section-visibility'
+import { refreshExperienceReveal } from '@/components/public/ExperienceReveal'
 
 // ── Field types ───────────────────────────────────────────────────────────────
 interface FormField {
@@ -319,7 +320,8 @@ function SectionRenderer({
   primary: string
   settings: Record<string, string>
 }) {
-  if (serviceCmsSectionHidden(settings, String(sec.type))) return null
+  // Per-service CMS rows honor DB is_visible only — not Design System template hide flags
+  // (template hide applies to layout chrome + synthetic fallbacks, see ServiceDetailLeftSections).
   const r = (sec.content || {}) as Record<string, unknown>
   const sectionKey = SVC_SECTION_WIDTH_KEY[sec.type as string]
   const wrap = (children: React.ReactNode, extraClass = '', section = sectionKey) => (
@@ -642,13 +644,92 @@ function ServiceDetailFillIns({
   )
 }
 
-// ── Fallback content ──────────────────────────────────────────────────────────
-function FallbackContent({ svc, siteName }: { svc: Service; primary: string; siteName: string }) {
+function ServiceTrustBadgesFallback({ settings }: { settings: Record<string, string> }) {
+  return (
+    <div className="s2-svc-trust-grid s2-mobile-stack">
+      {[
+        { icon: '⭐', val: settings.google_rating || '4.9', label: 'Google Rating' },
+        { icon: '👥', val: settings.google_review_count || '10,000+', label: 'Happy Customers' },
+        { icon: '🌏', val: '750+', label: 'Pan India Coverage' },
+      ].map(({ icon, val, label }) => (
+        <div key={label} className="s2-svc-trust-tile">
+          <div className="s2-svc-trust-tile__icon">{icon}</div>
+          <div className="s2-svc-trust-tile__value">{val}</div>
+          <div className="s2-svc-trust-tile__label">{label}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** CMS sections + entity fallbacks + fill-ins — single path for seeded and default pages. */
+function ServiceDetailLeftSections({
+  sections,
+  svc,
+  settings,
+  primary,
+  siteName,
+}: {
+  sections: ServiceSection[]
+  svc: Service
+  settings: Record<string, string>
+  primary: string
+  siteName: string
+}) {
+  const cmsTypes = new Set(sections.map((s) => String(s.type)))
+  const bandHidden = (key: string) => isTemplateSectionHidden(settings, 'service', key)
+
   return (
     <>
-      <ServiceProcessBlock />
-      <ServiceSecurityBlock siteName={siteName} />
-      <ServiceChargesBlock svc={svc} />
+      {sections.map((sec) => {
+        const dv = (sec.content as Record<string, unknown>)?.device_visibility as Record<string, boolean> | undefined
+        const dvClass = dv
+          ? [
+              dv.desktop === false ? 's2-hide-desktop' : '',
+              dv.tablet === false ? 's2-hide-tablet' : '',
+              dv.mobile === false ? 's2-hide-mobile' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')
+          : ''
+        return (
+          <div key={sec.id} className={`s2-svc-section-wrap${dvClass ? ` ${dvClass}` : ''}`}>
+            <SectionRenderer sec={sec} primary={primary} settings={settings} />
+          </div>
+        )
+      })}
+
+      {!cmsTypes.has('trust_badges') && !bandHidden('trust_badges') && (
+        <ServiceTrustBadgesFallback settings={settings} />
+      )}
+
+      {!cmsTypes.has('description') &&
+        !bandHidden('description') &&
+        (svc.description || svc.short_desc) && (
+          <div className="s2-svc-block">
+            <h2 className="s2-svc-block__title s2-svc-block__title--lg">{svc.name} — Complete Guide for NRIs</h2>
+            <p className="s2-svc-prose">{svc.description || svc.short_desc}</p>
+          </div>
+        )}
+
+      {!cmsTypes.has('documents') &&
+        !bandHidden('documents') &&
+        Array.isArray(svc.required_docs) &&
+        svc.required_docs.length > 0 && (
+          <div className="s2-svc-block">
+            <h3 className="s2-svc-block__title">📎 Documents Required</h3>
+            <div className="s2-mobile-stack s2-public-form-grid s2-public-form-grid--2col">
+              {svc.required_docs.map((doc, i) => (
+                <div key={i} className="s2-svc-doc-row">
+                  <mark>✓</mark>
+                  {doc}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+      <ServiceDetailFillIns sections={sections} settings={settings} svc={svc} siteName={siteName} />
     </>
   )
 }
@@ -745,7 +826,10 @@ export function ServiceDetailPage() {
 
   useEffect(() => { loadService() }, [loadService])
 
-  
+  useEffect(() => {
+    if (!loading) refreshExperienceReveal()
+  }, [loading, sections, slug])
+
 
   // ── Compute step structure ──────────────────────────────────────────────────
   const schema = (svc?.form_schema || []) as FormField[]
@@ -1001,61 +1085,13 @@ export function ServiceDetailPage() {
           </div>
           )}
 
-          {/* Issue 6/9: sections filtered by is_visible, with device-visibility data attrs */}
-          {sections.length > 0
-            ? sections.map(sec => {
-                const dv = (sec.content as Record<string, unknown>)?.device_visibility as Record<string, boolean> | undefined
-                const dvClass = dv ? [
-                  dv.desktop === false ? 's2-hide-desktop' : '',
-                  dv.tablet  === false ? 's2-hide-tablet'  : '',
-                  dv.mobile  === false ? 's2-hide-mobile'  : '',
-                ].filter(Boolean).join(' ') : ''
-                return (
-                  <div key={sec.id} className={`s2-svc-section-wrap${dvClass ? ` ${dvClass}` : ''}`}>
-                    <SectionRenderer sec={sec} primary={primary} settings={settings} />
-                  </div>
-                )
-              })
-            : null}
-          {sections.length > 0 && (
-            <ServiceDetailFillIns sections={sections} settings={settings} svc={svc} siteName={siteName} />
-          )}
-          {sections.length === 0 ? (
-            <>
-                {/* Trust badges */}
-                {!isTemplateSectionHidden(settings, 'service', 'trust_badges') && (
-                <div className="s2-svc-trust-grid s2-mobile-stack">
-                  {[{ icon: '⭐', val: settings.google_rating || '4.9', label: 'Google Rating' }, { icon: '👥', val: settings.google_review_count || '10,000+', label: 'Happy Customers' }, { icon: '🌏', val: '750+', label: 'Pan India Coverage' }].map(({ icon, val, label }) => (
-                    <div key={label} className="s2-svc-trust-tile">
-                      <div className="s2-svc-trust-tile__icon">{icon}</div>
-                      <div className="s2-svc-trust-tile__value">{val}</div>
-                      <div className="s2-svc-trust-tile__label">{label}</div>
-                    </div>
-                  ))}
-                </div>
-                )}
-                {/* Description */}
-                {!isTemplateSectionHidden(settings, 'service', 'description') && (svc.description || svc.short_desc) && (
-                  <div className="s2-svc-block">
-                    <h2 className="s2-svc-block__title s2-svc-block__title--lg">{svc.name} — Complete Guide for NRIs</h2>
-                    <p className="s2-svc-prose">{svc.description || svc.short_desc}</p>
-                  </div>
-                )}
-                {/* Required docs */}
-                {Array.isArray(svc.required_docs) && svc.required_docs.length > 0 && (
-                  <div className="s2-svc-block">
-                    <h3 className="s2-svc-block__title">📎 Documents Required</h3>
-                    <div className="s2-mobile-stack s2-public-form-grid s2-public-form-grid--2col">
-                      {svc.required_docs.map((doc, i) => (
-                        <div key={i} className="s2-svc-doc-row"><mark>✓</mark>{doc}</div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                <FallbackContent svc={svc} primary={primary} siteName={siteName} />
-                <ServiceDetailFillIns sections={[]} settings={settings} svc={svc} siteName={siteName} />
-              </>
-          ) : null}
+          <ServiceDetailLeftSections
+            sections={sections}
+            svc={svc}
+            settings={settings}
+            primary={primary}
+            siteName={siteName}
+          />
         </div>
 
         {/* Right: sticky booking wizard */}

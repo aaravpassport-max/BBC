@@ -548,6 +548,159 @@ class ServiceRegistry {
         return $ok;
     }
 
+    /**
+     * Virtual default CMS sections when a service has no saved rows (never customized / not seeded).
+     * Matches AdminServicePageBuilder seedDefaults() shape — not persisted until user saves in builder.
+     *
+     * @param array<string, mixed> $service Row from s2nri_services.
+     * @return array<int, array<string, mixed>>
+     */
+    public static function defaultServiceSections( array $service ): array {
+        $name = (string) ( $service['name'] ?? 'Service' );
+        $desc = (string) ( $service['description'] ?? $service['short_desc'] ?? '' );
+        $docs = $service['required_docs'] ?? [];
+        if ( is_string( $docs ) ) {
+            $decoded = json_decode( $docs, true );
+            $docs    = ( json_last_error() === JSON_ERROR_NONE && is_array( $decoded ) ) ? $decoded : [];
+        }
+        if ( ! is_array( $docs ) ) {
+            $docs = [];
+        }
+
+        global $wpdb;
+        $st = $wpdb->prefix . 's2nri_settings';
+        $setting_val = static function ( string $key, string $fallback ) use ( $wpdb, $st ): string {
+            $v = $wpdb->get_var( $wpdb->prepare(
+                "SELECT setting_value FROM `{$st}` WHERE setting_key = %s LIMIT 1",
+                $key
+            ) );
+            return ( $v !== null && $v !== '' ) ? (string) $v : $fallback;
+        };
+        $rating  = $setting_val( 'google_rating', '4.9' );
+        $reviews = $setting_val( 'google_review_count', '10,000+' );
+        $brand   = $setting_val( 'platform_name', 'Services2NRI' );
+
+        $price_note = '';
+        if ( ! empty( $service['base_price'] ) ) {
+            $price_note = 'Starting from ₹' . number_format( (float) $service['base_price'], 0, '.', ',' );
+        } elseif ( ! empty( $service['price_min'] ) ) {
+            $min = number_format( (float) $service['price_min'], 0, '.', ',' );
+            $max = number_format( (float) ( $service['price_max'] ?? $service['price_min'] ), 0, '.', ',' );
+            $price_note = "₹{$min} – ₹{$max}";
+        }
+
+        $sections = [
+            [
+                'id'         => 0,
+                'type'       => 'trust_badges',
+                'title'      => 'Trust Badges',
+                'sort_order' => 10,
+                'content'    => [
+                    'badges' => [
+                        [ 'icon' => '⭐', 'value' => (string) $rating, 'label' => 'Google Rating' ],
+                        [ 'icon' => '👥', 'value' => (string) $reviews, 'label' => 'Happy Customers' ],
+                        [ 'icon' => '🌏', 'value' => '750+', 'label' => 'Pan India Coverage' ],
+                    ],
+                ],
+            ],
+            [
+                'id'         => 0,
+                'type'       => 'description',
+                'title'      => "{$name} — Complete Guide for NRIs",
+                'sort_order' => 20,
+                'content'    => [
+                    'heading' => "{$name} — Complete Guide for NRIs",
+                    'html'    => $desc ? '<p>' . esc_html( $desc ) . '</p>' : '<p></p>',
+                ],
+            ],
+        ];
+
+        if ( ! empty( $docs ) ) {
+            $sections[] = [
+                'id'         => 0,
+                'type'       => 'documents',
+                'title'      => '📎 Documents Required',
+                'sort_order' => 30,
+                'content'    => [ 'items' => array_values( array_map( 'strval', $docs ) ) ],
+            ];
+        }
+
+        $process_faq = [
+            [
+                'id'         => 0,
+                'type'       => 'process',
+                'title'      => 'How the Process Works',
+                'sort_order' => 40,
+                'content'    => [
+                    'steps' => [
+                        [ 'title' => 'Submit Request', 'desc' => 'Fill the form on this page. No login needed.' ],
+                        [ 'title' => 'Document Review', 'desc' => 'Our expert team reviews your submission within 24 hours.' ],
+                        [ 'title' => 'Get Quote', 'desc' => 'Receive a detailed, itemised quote. No payment until you approve.' ],
+                        [ 'title' => 'Processing', 'desc' => 'We handle everything on the ground in India with regular updates.' ],
+                        [ 'title' => 'Delivery', 'desc' => 'Documents delivered to your overseas address by tracked courier.' ],
+                    ],
+                ],
+            ],
+            [
+                'id'         => 0,
+                'type'       => 'security',
+                'title'      => 'Is My Data Secure?',
+                'sort_order' => 50,
+                'content'    => [
+                    'html' => '<p>Your data is protected using AES-256 encryption. Documents are never shared via email or WhatsApp, and all copies are deleted after processing.</p>',
+                ],
+            ],
+            [
+                'id'         => 0,
+                'type'       => 'charges',
+                'title'      => 'Charges & Payment',
+                'sort_order' => 60,
+                'content'    => [
+                    'html' => '<p>Get a personalised quote after submitting your request. Payment in two parts — initial deposit then balance on completion.</p>',
+                    'note' => $price_note,
+                ],
+            ],
+            [
+                'id'         => 0,
+                'type'       => 'faq',
+                'title'      => 'Frequently Asked Questions',
+                'sort_order' => 70,
+                'content'    => [
+                    'items' => [
+                        [ 'q' => 'How long does it take?', 'a' => 'Typically 7–15 business days depending on document completeness.' ],
+                    ],
+                ],
+            ],
+            [
+                'id'         => 0,
+                'type'       => 'why_choose',
+                'title'      => "Why Choose {$brand}?",
+                'sort_order' => 80,
+                'content'    => [
+                    'cards' => [
+                        [ 'icon' => '🔐', 'title' => 'Secure Platform', 'desc' => 'AES-256 encrypted.' ],
+                        [ 'icon' => '📊', 'title' => 'Real-Time Tracking', 'desc' => 'Track every step.' ],
+                        [ 'icon' => '💰', 'title' => 'Money-Back Guarantee', 'desc' => 'Full refund if we fail.' ],
+                    ],
+                ],
+            ],
+            [
+                'id'         => 0,
+                'type'       => 'cta',
+                'title'      => 'Get Started',
+                'sort_order' => 90,
+                'content'    => [
+                    'headline' => 'Ready to get started?',
+                    'sub'      => 'Expert assistance. Transparent pricing. Tracked at every step.',
+                    'btn'      => 'Get Free Quote',
+                    'url'      => '#booking-form',
+                ],
+            ],
+        ];
+
+        return array_merge( $sections, $process_faq );
+    }
+
     /** Sanitize section JSON — filter related service slugs. */
     public static function sanitizeSectionContent( array $content, string $section_type ): array {
         if ( $section_type === 'related' && ! empty( $content['slugs'] ) && is_array( $content['slugs'] ) ) {

@@ -5,6 +5,16 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.65] — 2026-10-05 — Cloud Agent
+
+- **Service section lifecycle (root fix):** Unified left-column rendering so seeded CMS rows and entity fallbacks always run on one path — no more empty left column when `sections.length > 0` but Design System `hide_tmpl_service_*` suppressed every block.
+- **CMS vs template hide:** Saved Page Builder sections honor DB `is_visible` only; Design System template hide applies to layout chrome (hero/wizard/marquee) and synthetic fallbacks, not persisted CMS content.
+- **Scroll reveal:** Re-bind `[data-s2-reveal]` after async section fetch so CMS blocks are not stuck at `opacity: 0`.
+- **Public API defaults:** `GET services/{slug}/sections` returns virtual default sections when the DB has no rows (matches Seed Defaults shape).
+- **Seed Defaults:** PUT updates preserve `is_visible` and send only intended fields.
+
+---
+
 ## [4.7.64] — 2026-10-05 — Cloud Agent
 
 - **Service detail contrast:** Fixed trust tiles inheriting white text on light cards; enforced readable heading/body/muted tokens across blocks, charges, breadcrumbs, and wizard trust bar. Stronger hero scrim for title/meta readability.

@@ -8,6 +8,8 @@ function prefersReducedMotion(): boolean {
   return typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
 }
 
+let activeRevealCleanup: (() => void) | null = null
+
 function bindReveal(root: ParentNode = document) {
   const nodes = root.querySelectorAll<HTMLElement>('[data-s2-reveal]:not(.s2-revealed)')
   if (!nodes.length) return () => {}
@@ -32,15 +34,24 @@ function bindReveal(root: ParentNode = document) {
   return () => io.disconnect()
 }
 
+/** Re-scan DOM after async content (e.g. service CMS sections) mounts. */
+export function refreshExperienceReveal(): void {
+  activeRevealCleanup?.()
+  activeRevealCleanup = bindReveal()
+}
+
 export function ExperienceReveal() {
   const location = useLocation()
 
   useEffect(() => {
-    const cleanup = bindReveal()
-    const t = window.setTimeout(() => bindReveal(), 80)
+    refreshExperienceReveal()
+    const t = window.setTimeout(() => refreshExperienceReveal(), 80)
+    const t2 = window.setTimeout(() => refreshExperienceReveal(), 400)
     return () => {
-      cleanup()
+      activeRevealCleanup?.()
+      activeRevealCleanup = null
       window.clearTimeout(t)
+      window.clearTimeout(t2)
     }
   }, [location.pathname])
 

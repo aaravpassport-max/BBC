@@ -2042,7 +2042,18 @@ export function AdminServicePageBuilder() {
     ]
     let sortOrder=(nuke?0:sections.length)*10
     for(const seed of seeds){
-      if(!nuke&&existing[seed.type]){try{await api.put(`admin/services/${id}/sections/${existing[seed.type].id}`,{...seed,sort_order:Number(existing[seed.type].sort_order)})}catch{}}
+      if(!nuke&&existing[seed.type]){
+        const prev=existing[seed.type]
+        try{
+          await api.put(`admin/services/${id}/sections/${prev.id}`,{
+            type:seed.type,
+            title:seed.title,
+            content:seed.content,
+            sort_order:Number(prev.sort_order),
+            is_visible:prev.is_visible==null||prev.is_visible===undefined?1:Number(prev.is_visible),
+          })
+        }catch{}
+      }
       else{try{await api.post(`admin/services/${id}/sections`,{...seed,sort_order:sortOrder,is_visible:1});sortOrder+=10}catch{}}
     }
     await load();setMsg('success',`${nuke?'Rebuilt':'Seeded'} ${seeds.length} sections.`)
