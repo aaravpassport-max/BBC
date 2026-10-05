@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.79] — 2026-10-05 — Cloud Agent
+
+- **Phase 11:** In-admin live preview iframe (draft postMessage + reload on save); `PlatformSettingsPreviewBridge` on public SPA.
+
+---
+
 ## [4.7.78] — 2026-10-05 — Cloud Agent
 
 - **Phase 10:** E2E mock persists platform settings; SPA loads `settings/public` before boot; admin Design System save → public DOM tests.

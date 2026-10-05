@@ -57,6 +57,7 @@ import {
   prepareSettingsPayload,
   readAdminSetting,
 } from '@/lib/settings-admin'
+import { DesignLivePreview } from './design-live-preview'
 
 type DesignConfig = Record<string, unknown>
 type PatchFn = (path: string[], value: unknown) => void
@@ -970,6 +971,12 @@ export function DesignSystemBuilder({
   >({})
   const [settingsLoading, setSettingsLoading] = useState(true)
   const [fontQuery, setFontQuery] = useState('')
+  const [previewReloadToken, setPreviewReloadToken] = useState(0)
+  const [previewDraftSettings, setPreviewDraftSettings] = useState<Record<string, string>>({})
+
+  const bumpLivePreview = useCallback(() => {
+    setPreviewReloadToken((n) => n + 1)
+  }, [])
 
   const page = useMemo(() => DESIGN_PAGE_CATALOG.find((p) => p.id === pageId) || DESIGN_PAGE_CATALOG[0], [pageId])
 
@@ -1064,7 +1071,14 @@ export function DesignSystemBuilder({
 
   useEffect(() => {
     setPreviewPath(page.previewPath)
-  }, [page.previewPath, setPreviewPath])
+    bumpLivePreview()
+  }, [page.previewPath, setPreviewPath, bumpLivePreview])
+
+  useEffect(() => {
+    if (navMode !== 'page') return
+    const handle = window.setTimeout(() => setPreviewDraftSettings(settings), 220)
+    return () => window.clearTimeout(handle)
+  }, [navMode, settings])
 
   const filteredFonts = useMemo(() => {
     const q = fontQuery.toLowerCase().trim()
@@ -1119,6 +1133,7 @@ export function DesignSystemBuilder({
         ...prev,
         [section.id]: { type: 'success', text: 'Content saved — values reloaded for editing.' },
       }))
+      bumpLivePreview()
     } catch {
       setContentSaveMessageById((prev) => ({
         ...prev,
@@ -1157,6 +1172,7 @@ export function DesignSystemBuilder({
         ...prev,
         [section.id]: { type: 'success', text: 'Section styling saved.' },
       }))
+      bumpLivePreview()
     } catch {
       setDesignSaveMessageById((prev) => ({
         ...prev,
@@ -1184,6 +1200,7 @@ export function DesignSystemBuilder({
       setPageSectionOrders(nextOrders)
       await loadSettings()
       setStructureMessage({ type: 'success', text: 'Page structure saved — order and visibility updated on the live site.' })
+      bumpLivePreview()
     } catch {
       setStructureMessage({ type: 'error', text: 'Could not save page structure.' })
     } finally {
@@ -1231,6 +1248,7 @@ export function DesignSystemBuilder({
       })
       await loadSettings()
       setStructureMessage({ type: 'success', text: `${section.label} reset to defaults.` })
+      bumpLivePreview()
     } catch {
       setStructureMessage({ type: 'error', text: `Could not reset ${section.label}.` })
     } finally {
@@ -1293,6 +1311,7 @@ export function DesignSystemBuilder({
       </nav>
 
       <div className="s2-design-builder-main">
+        <div className={`s2-design-builder-main__split${navMode === 'page' ? ' has-live-preview' : ''}`}>
         <div className="s2-design-builder-workspace">
           <div className="s2-design-builder-workspace__head">
             <div className="s2-design-builder-breadcrumb">
@@ -1466,6 +1485,15 @@ export function DesignSystemBuilder({
             />
           )}
 
+        </div>
+        {navMode === 'page' && (
+          <DesignLivePreview
+            path={previewPath}
+            reloadToken={previewReloadToken}
+            draftSettings={previewDraftSettings}
+            pageLabel={page.label}
+          />
+        )}
         </div>
       </div>
     </div>

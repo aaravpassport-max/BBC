@@ -93,6 +93,8 @@ grep -q 'configFromPreset' src/Design/DesignSystem.php && ok preset full look bu
 grep -q "Design\\\\WidthLayout" services2nri.php && grep -q 'Design/WidthLayout.php' services2nri.php && ok WidthLayout classmap || bad WidthLayout classmap
 grep -q 'publicRevision' src/Design/DesignSystem.php && ok design public revision || bad design public revision
 [[ -f src/lib/design-live-sync.ts ]] && grep -q 'syncDesignFromServer' src/lib/design-live-sync.ts && ok design live sync || bad design live sync
+[[ -f src/lib/platform-settings-preview.ts ]] && grep -q 'PLATFORM_SETTINGS_PREVIEW_MSG' src/lib/platform-settings-preview.ts && ok cms live preview bridge || bad cms live preview bridge
+grep -q 'DesignLivePreview' src/pages/admin/design-system-builder.tsx && ok design live preview panel || bad design live preview panel
 php scripts/audit-preset-looks.php && ok preset look audit || bad preset look audit
 grep -q 's2-btn-primary-bg' assets/public-design-system.css && ok component css vars || bad component css vars
 [[ -f src/lib/design-element-tree.ts ]] && ok design element tree || bad design element tree
