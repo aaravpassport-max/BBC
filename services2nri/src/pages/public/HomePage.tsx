@@ -36,6 +36,7 @@ import 'swiper/css/effect-fade'
 
 import { Layout } from '@/components/layout/Layout'
 import { PublicSectionHead } from '@/components/public/PublicLayout'
+import { CmsElement } from '@/components/public/CmsElement'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { subscribeResource } from '@/lib/resource-cache'
@@ -417,12 +418,16 @@ export function HomePage() {
                 'Property, documents, tax & 44+ expert services — one secure platform with 24/7 support.'}
             </p>
             <div className="s2-home-hero-overlay__actions">
-              <Link to={heroPrimaryUrl} className="s2-btn s2-btn--primary s2-home-hero-overlay__cta">
-                {heroPrimaryCta}
-              </Link>
-              <Link to={heroSecondaryUrl} className="s2-btn s2-btn--outline s2-home-hero-overlay__cta s2-home-hero-overlay__cta--ghost">
-                {heroSecondaryCta}
-              </Link>
+              <CmsElement pageId="home" sectionKey="hero" elementId="primary_button">
+                <Link to={heroPrimaryUrl} className="s2-btn s2-btn--primary s2-home-hero-overlay__cta">
+                  {heroPrimaryCta}
+                </Link>
+              </CmsElement>
+              <CmsElement pageId="home" sectionKey="hero" elementId="secondary_button">
+                <Link to={heroSecondaryUrl} className="s2-btn s2-btn--outline s2-home-hero-overlay__cta s2-home-hero-overlay__cta--ghost">
+                  {heroSecondaryCta}
+                </Link>
+              </CmsElement>
             </div>
           </div>
         </div>

@@ -65,6 +65,31 @@ export function parseLogoChips(raw: string | undefined, fallback: LogoChip[]): L
 
 export type AwardBadge = { emoji: string; text: string; variant?: 'orange' | 'primary' }
 
+export type HoursRow = { day: string; hours: string }
+
+export function parseHoursRows(raw: string | undefined, fallback: HoursRow[]): HoursRow[] {
+  if (!raw || !String(raw).trim()) return fallback
+  try {
+    const parsed = JSON.parse(String(raw)) as unknown
+    if (!Array.isArray(parsed) || parsed.length === 0) return fallback
+    return parsed
+      .map((item) => {
+        if (Array.isArray(item) && item.length >= 2) {
+          return { day: String(item[0]).trim(), hours: String(item[1]).trim() }
+        }
+        if (!item || typeof item !== 'object') return null
+        const o = item as Record<string, unknown>
+        const day = String(o.day || o.d || '').trim()
+        const hours = String(o.hours || o.h || o.time || '').trim()
+        if (!day) return null
+        return { day, hours }
+      })
+      .filter(Boolean) as HoursRow[]
+  } catch {
+    return fallback
+  }
+}
+
 export function parseStringListJson(raw: string | undefined, fallback: string[]): string[] {
   if (!raw || !String(raw).trim()) return fallback
   try {

@@ -40,6 +40,7 @@ import { isTemplateSectionHidden } from '@/lib/section-visibility'
 import { refreshExperienceReveal } from '@/components/public/ExperienceReveal'
 import { ServiceDetailShellSkeleton } from '@/components/ui/LoadingPlaceholders'
 import { peekCached, subscribeResource } from '@/lib/resource-cache'
+import { parseWhyChooseCards } from '@/lib/home-content-settings'
 
 function parseServiceRecord(s: Service): Service {
   if (s?.form_schema && typeof s.form_schema === 'string') {
@@ -174,6 +175,7 @@ function SearchableSelect({ field, value, onChange, error }: { field: FormField;
 
 // ── FileUpload ────────────────────────────────────────────────────────────────
 function FileUpload({ field, value, onChange, error }: { field: FormField; value: File[]; onChange: (f: File[]) => void; error?: string }) {
+  const uploadHint = useStore((s) => s.settings.service_wizard_upload_hint)
   const inputRef = useRef<HTMLInputElement>(null)
   const add = (list: FileList | null) => { if (!list) return; onChange([...value, ...Array.from(list)]) }
   const remove = (i: number) => onChange(value.filter((_, j) => j !== i))
@@ -193,7 +195,9 @@ function FileUpload({ field, value, onChange, error }: { field: FormField; value
         <div className="s2-t-body s2-wizard-upload__title">
           Drop files here or <span className="s2-text-primary s2-wizard-upload__browse">browse</span>
         </div>
-        <div className="s2-text-muted s2-wizard-upload__hint">PDF, JPG, PNG · Max 10 MB each</div>
+        <div className="s2-wizard-upload__hint s2-text-muted">
+          {uploadHint || 'PDF, JPG, PNG · Max 10 MB each'}
+        </div>
         <input ref={inputRef} type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="s2-sr-file-input" onChange={e => add(e.target.files)} />
       </div>
       {value.length > 0 && (
@@ -1175,7 +1179,7 @@ export function ServiceDetailPage() {
               <div>
                 <div className="s2-svc-wizard-service__name">{svc.name}</div>
                 <div className="s2-svc-wizard-service__tags">
-                  {[svc.turnaround && `⏱ ${svc.turnaround}`, '🔒 SSL', '📧 Quote 24h'].filter(Boolean).map(t => (
+                  {[svc.turnaround && `⏱ ${svc.turnaround}`, settings.service_wizard_tag_ssl || '🔒 SSL', settings.service_wizard_tag_quote || '📧 Quote 24h'].filter(Boolean).map(t => (
                     <span key={t as string} className="s2-svc-wizard-tag">{t}</span>
                   ))}
                 </div>
@@ -1230,7 +1234,7 @@ export function ServiceDetailPage() {
               {/* Show service overview on step 1 if no fields */}
               {!isConfirm && currentFields.length === 0 && stepIdx === 0 && (
                 <div className="s2-wizard-intro">
-                  <p>You're booking: <strong>{svc.name}</strong></p>
+                  <p>{settings.service_wizard_intro_prefix || "You're booking:"} <strong>{svc.name}</strong></p>
                   {svc.short_desc && <p className="s2-wizard-intro__muted">{svc.short_desc}</p>}
                   {Array.isArray(svc.required_docs) && svc.required_docs.length > 0 && (
                     <div className="s2-wizard-docs-box">
@@ -1357,7 +1361,7 @@ export function ServiceDetailPage() {
 
       {!isTemplateSectionHidden(settings, 'service', 'wizard') && (
       <ServiceMobileStickyCta
-        label="Start Request"
+        label={settings.service_mobile_cta_label || 'Start Request'}
         secondaryLabel={waNum ? 'WhatsApp' : undefined}
         secondaryHref={waNum ? `https://wa.me/${String(waNum).replace(/\D/g, '')}` : undefined}
       />
@@ -1366,16 +1370,18 @@ export function ServiceDetailPage() {
       {!hasWhyChooseSection && !isTemplateSectionHidden(settings, 'service', 'features') && (
       <section className="s2-svc-why s2-experience-section" data-s2-reveal="">
         <div className="s2-svc-why__inner">
-          <h2 className="s2-svc-why__title">Why Choose {siteName}?</h2>
+          <h2 className="s2-svc-why__title">
+            {(settings.service_why_title || 'Why Choose {siteName}?').replace('{siteName}', siteName)}
+          </h2>
           <PublicGrid min={250}>
-            {[
-              { icon: '🔐', t: 'Secure Platform', d: 'AES-256 encrypted document storage. Never shared or emailed.' },
-              { icon: '📊', t: 'Real-Time Tracking', d: 'Track every step in your dashboard. No black boxes.' },
-              { icon: '💰', t: 'Money-Back Guarantee', d: 'If we cannot deliver, you receive a full refund.' },
-              { icon: '🌍', t: 'Global NRI Coverage', d: 'Serving NRIs in 50+ countries with India-based execution.' },
-              { icon: '⚡', t: 'Fast Turnaround', d: 'Most services delivered in 7–30 days from submission.' },
-              { icon: '🏆', t: 'Startup India Recognised', d: 'Government recognised. Professionally managed.' },
-            ].map(({ icon, t, d }) => (
+            {parseWhyChooseCards(settings.service_why_fallback_json, [
+              { icon: '🔐', title: 'Secure Platform', sub: 'AES-256 encrypted document storage. Never shared or emailed.' },
+              { icon: '📊', title: 'Real-Time Tracking', sub: 'Track every step in your dashboard. No black boxes.' },
+              { icon: '💰', title: 'Money-Back Guarantee', sub: 'If we cannot deliver, you receive a full refund.' },
+              { icon: '🌍', title: 'Global NRI Coverage', sub: 'Serving NRIs in 50+ countries with India-based execution.' },
+              { icon: '⚡', title: 'Fast Turnaround', sub: 'Most services delivered in 7–30 days from submission.' },
+              { icon: '🏆', title: 'Startup India Recognised', sub: 'Government recognised. Professionally managed.' },
+            ]).map(({ icon, title, sub }) => ({ icon, t: title, d: sub })).map(({ icon, t, d }) => (
               <PublicCard key={t}>
                 <div className="s2-public-contact-row s2-public-contact-row--flush">
                   <div className="s2-public-contact-icon">{icon}</div>

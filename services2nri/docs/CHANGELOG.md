@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.71] — 2026-10-05 — Cloud Agent
+
+- **Phase 2 CMS:** Full contact form copy, hours JSON, success/error states; pricing consultation band + brand compare headers; HIW hero meta; service wizard tags, upload hint, mobile CTA, why-choose fallback JSON.
+- **Phase 3:** Per-element visibility toggles in Elements tab (`hide_el_*`); home hero CTA `CmsElement` wrappers.
+- **Docs/tests:** `ENTERPRISE_CMS_PHASES.md`; Playwright `design-cms-content.spec.ts`.
+
+---
+
 ## [4.7.70] — 2026-10-05 — Cloud Agent
 
 - **CMS sync:** Footer copyright, services hero meta chips, directory intro, `services_per_page`, home grid cols/gap/card bg, platform marquee fallback on service pages, blog/legal document meta via SPA hook.

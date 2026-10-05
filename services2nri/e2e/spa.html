@@ -62,6 +62,9 @@
       if (window.__S2NRI_E2E_USER__) {
         window.S2NRI_CONFIG.currentUser = window.__S2NRI_E2E_USER__;
       }
+      if (window.__E2E_SETTINGS_PATCH__) {
+        Object.assign(window.S2NRI_CONFIG.settings, window.__E2E_SETTINGS_PATCH__);
+      }
     </script>
   </head>
   <body>

@@ -23,7 +23,15 @@ import { BlogArticleShellSkeleton } from '@/components/ui/LoadingPlaceholders'
 import { getAvatarImage, IMAGES } from '@/lib/images'
 import type { FAQ, BlogPost, PricingPlan } from '@/types'
 import { PublicSection, PublicSectionHead, PublicGrid, PublicCard, PublicCtaLink } from '@/components/public/PublicLayout'
-import { parseAboutHighlights, parseHiwSteps, parseStringListJson, parseTeamMembers, parseValueCards } from '@/lib/home-content-settings'
+import {
+  parseAboutHighlights,
+  parseHiwSteps,
+  parseHoursRows,
+  parseStringListJson,
+  parseTeamMembers,
+  parseValueCards,
+  parseWhyChooseCards,
+} from '@/lib/home-content-settings'
 import { parseHeroMetaJson } from '@/lib/page-hero-meta'
 import { usePageDocumentMeta } from '@/lib/page-document-meta'
 import { isTemplateSectionHidden } from '@/lib/section-visibility'
@@ -194,6 +202,13 @@ export function ContactPage() {
     setLoading(false)
   }
 
+  const hoursFallback = [
+    { day: 'Mon – Fri', hours: '9:00 AM – 8:00 PM IST' },
+    { day: 'Saturday', hours: '10:00 AM – 6:00 PM IST' },
+    { day: 'Sunday', hours: 'Emergency Support Only' },
+  ]
+  const hoursRows = parseHoursRows(settings.contact_hours_json, hoursFallback)
+
   const contacts = [
     { icon: '💬', t: 'WhatsApp (Fastest)', v: whatsapp ? `https://wa.me/${String(whatsapp).replace(/\D/g, '')}` : null, label: whatsapp ? `+${String(whatsapp).replace(/\D/g, '')}` : null },
     { icon: '✉️', t: 'Email', v: displayEmail ? `mailto:${displayEmail}` : null, label: displayEmail },
@@ -229,11 +244,11 @@ export function ContactPage() {
               </div>
             ))}
             <PublicCard className="s2-public-card--hours">
-              <h3 className="s2-t-h3 s2-public-card__title--sm">Business Hours</h3>
-              {[['Mon – Fri', '9:00 AM – 8:00 PM IST'], ['Saturday', '10:00 AM – 6:00 PM IST'], ['Sunday', 'Emergency Support Only']].map(([day, hrs]) => (
+              <h3 className="s2-t-h3 s2-public-card__title--sm">{settings.contact_hours_title || 'Business Hours'}</h3>
+              {hoursRows.map(({ day, hours }) => (
                 <div key={day} className="s2-t-body s2-public-hours-row">
                   <span>{day}</span>
-                  <span>{hrs}</span>
+                  <span>{hours}</span>
                 </div>
               ))}
             </PublicCard>
@@ -243,15 +258,23 @@ export function ContactPage() {
             {success ? (
               <div className="s2-public-form-msg">
                 <div className="s2-public-form-msg__icon">✅</div>
-                <h3 className="s2-text-success s2-public-form-msg__title">Message Sent!</h3>
-                <p className="s2-t-body">We'll get back to you within 24 hours. You can also WhatsApp us for faster response.</p>
+                <h3 className="s2-text-success s2-public-form-msg__title">{settings.contact_success_title || 'Message Sent!'}</h3>
+                <p className="s2-t-body">
+                  {settings.contact_success_body ||
+                    "We'll get back to you within 24 hours. You can also WhatsApp us for faster response."}
+                </p>
                 {whatsapp && <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="s2-btn s2-btn--whatsapp s2-public-form-msg__wa">💬 WhatsApp Us</a>}
               </div>
             ) : failed ? (
               <div className="s2-public-form-msg">
                 <div className="s2-public-form-msg__icon">⚠️</div>
-                <h3 className="s2-public-form-msg__title s2-public-form-msg__title--error">Couldn't send your message</h3>
-                <p className="s2-t-body">Something went wrong on our end. Please try again, or reach us directly on WhatsApp for a faster response.</p>
+                <h3 className="s2-public-form-msg__title s2-public-form-msg__title--error">
+                  {settings.contact_failed_title || "Couldn't send your message"}
+                </h3>
+                <p className="s2-t-body">
+                  {settings.contact_failed_body ||
+                    'Something went wrong on our end. Please try again, or reach us directly on WhatsApp for a faster response.'}
+                </p>
                 {whatsapp && <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="s2-btn s2-btn--whatsapp s2-public-form-msg__wa">💬 WhatsApp Us</a>}
                 <div className="s2-public-form-msg__retry">
                   <button type="button" onClick={() => setFailed(false)} className="s2-btn s2-btn--ghost s2-btn--sm">← Try again</button>
@@ -261,15 +284,27 @@ export function ContactPage() {
               <div className="s2-public-contact-form">
                 <h3 className="s2-t-h3">{settings.contact_form_title || 'Send Us a Message'}</h3>
                 <div className="s2-public-form-grid">
-                  {[['name', 'Full Name', 'text'], ['email', 'Email Address', 'email'], ['phone', 'Phone / WhatsApp', 'tel'], ['subject', 'Subject', 'text']].map(([field, ph, type]) => (
+                  {(
+                    [
+                      ['name', settings.contact_field_name_placeholder || 'Full Name', 'text'],
+                      ['email', settings.contact_field_email_placeholder || 'Email Address', 'email'],
+                      ['phone', settings.contact_field_phone_placeholder || 'Phone / WhatsApp', 'tel'],
+                      ['subject', settings.contact_field_subject_placeholder || 'Subject', 'text'],
+                    ] as const
+                  ).map(([field, ph, type]) => (
                     <input key={field} type={type} placeholder={ph} value={form[field as keyof typeof form]} onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
                       className="s2-input" />
                   ))}
                 </div>
-                <textarea rows={5} placeholder="Your message — describe what you need..." value={form.message} onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
-                  className="s2-textarea s2-wizard-textarea" />
+                <textarea
+                  rows={5}
+                  placeholder={settings.contact_field_message_placeholder || 'Your message — describe what you need...'}
+                  value={form.message}
+                  onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))}
+                  className="s2-textarea s2-wizard-textarea"
+                />
                 <button type="button" onClick={handleSubmit} disabled={loading} className="s2-btn s2-btn--primary s2-btn--block">
-                  {loading ? 'Sending…' : 'Send Message →'}
+                  {loading ? 'Sending…' : settings.contact_form_submit_text || 'Send Message →'}
                 </button>
               </div>
             )}
@@ -303,11 +338,11 @@ export function HowItWorksPage() {
         title={settings.hiw_page_title || settings.hiw_title || 'How It Works'}
         subtitle={settings.hiw_page_subtitle || 'Get your NRI service done in 6 simple steps — from anywhere in the world.'}
         primary={primary}
-        meta={[
+        meta={parseHeroMetaJson(settings.hiw_hero_meta_json, [
           { icon: '📝', label: 'Submit online' },
           { icon: '💬', label: 'Quote in 24h' },
           { icon: '✅', label: 'Pay after approval' },
-        ]}
+        ])}
       />
       {!isTemplateSectionHidden(settings, 'how-it-works', 'process') && (
       <section className="s2-public-how-section s2-marketing-page s2-experience-section" data-s2-section="process" data-s2-reveal="">
@@ -545,15 +580,32 @@ export function PricingPage() {
         </PublicSection>
       )}
 
-      <PublicSection>
-        <PublicSectionHead title="NRIWAY vs. Traditional Agents" subtitle="See why NRIs across 50+ countries trust NRIWAY" />
+      {!isTemplateSectionHidden(settings, 'pricing', 'consultation') && (
+      <PublicSection pageTemplateId="pricing" sectionKey="consultation" alt className="s2-public-cta-band">
+        <div className="s2-public-center-copy">
+          <h2 className="s2-t-h2">{settings.pricing_consultation_title || 'Book a Free Consultation'}</h2>
+          <p className="s2-t-body">
+            {settings.pricing_consultation_subtitle || 'Not sure which plan is right for you? Talk to our team for free.'}
+          </p>
+          <PublicCtaLink to={settings.pricing_consultation_url || '/contact'}>
+            {settings.pricing_consultation_button || 'Book Free Consultation →'}
+          </PublicCtaLink>
+        </div>
+      </PublicSection>
+      )}
+
+      <PublicSection pageTemplateId="pricing" sectionKey="compare">
+        <PublicSectionHead
+          title={settings.pricing_compare_brand_title || 'NRIWAY vs. Traditional Agents'}
+          subtitle={settings.pricing_compare_brand_subtitle || 'See why NRIs across 50+ countries trust NRIWAY'}
+        />
         <div className="s2-public-compare-wrap s2-container s2-width-narrow">
           <table className="s2-public-compare-table">
             <thead>
               <tr>
                 <th className="s2-public-compare-table__feature">Feature</th>
-                <th className="s2-public-compare-table__brand">NRIWAY</th>
-                <th>Traditional Agents</th>
+                <th className="s2-public-compare-table__brand">{settings.pricing_compare_brand_name || settings.platform_name || 'NRIWAY'}</th>
+                <th>{settings.pricing_compare_other_name || 'Traditional Agents'}</th>
               </tr>
             </thead>
             <tbody>
@@ -577,13 +629,6 @@ export function PricingPage() {
         </div>
       </PublicSection>
 
-      <PublicSection alt className="s2-public-cta-band">
-        <div className="s2-public-center-copy">
-          <h2 className="s2-t-h2">Book a Free Consultation</h2>
-          <p className="s2-t-body">Not sure which plan is right for you? Talk to our team for free.</p>
-          <PublicCtaLink to="/contact">Book Free Consultation →</PublicCtaLink>
-        </div>
-      </PublicSection>
     </Layout>
   )
 }
@@ -753,7 +798,13 @@ const BLOG_DETAIL_FALLBACK: Record<string, BlogPost> = {
 
 export function BlogDetailPage() {
   const { slug }  = useParams<{ slug: string }>()
-  const siteName  = useStore((s) => s.settings).platform_name || 'Services2NRI'
+  const settings  = useStore((s) => s.settings)
+  const siteName  = settings.platform_name || 'Services2NRI'
+  usePageDocumentMeta(settings, {
+    titleKey: 'seo_title',
+    descriptionKey: 'seo_description',
+    titleFallback: siteName,
+  })
   const postPath = slug ? `blog/${slug}` : null
   const [notFound, setNotFound] = useState(false)
 

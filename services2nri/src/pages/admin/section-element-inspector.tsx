@@ -72,36 +72,50 @@ function ControlEditor({
   const val = readAdminSetting(settings, control.settingKey)
   const isJson = control.settingKey.endsWith('_json')
 
+  const elementHideKey = control.hideSettingKey?.startsWith('hide_el_') ? control.hideSettingKey : undefined
+
   return (
-    <OverrideFieldShell
-      label={field.label}
-      hint={'hint' in field ? field.hint : undefined}
-      inherited={val === '' || val === undefined}
-      onClear={
-        val
-          ? () => onSettingsChange(control.settingKey!, '')
-          : undefined
-      }
-    >
-      {field.type === 'textarea' ? (
-        <textarea
-          rows={'rows' in field ? field.rows ?? 3 : 3}
-          className={isJson ? 's2-design-builder-field__json' : undefined}
-          value={val}
-          onChange={(e) => onSettingsChange(control.settingKey!, e.target.value)}
-          placeholder={'placeholder' in field ? field.placeholder : undefined}
-          style={{ width: '100%' }}
-        />
-      ) : (
-        <input
-          type="text"
-          value={val}
-          onChange={(e) => onSettingsChange(control.settingKey!, e.target.value)}
-          placeholder={'placeholder' in field ? field.placeholder : undefined}
-          style={{ width: '100%' }}
-        />
+    <>
+      <OverrideFieldShell
+        label={field.label}
+        hint={'hint' in field ? field.hint : undefined}
+        inherited={val === '' || val === undefined}
+        onClear={
+          val
+            ? () => onSettingsChange(control.settingKey!, '')
+            : undefined
+        }
+      >
+        {field.type === 'textarea' ? (
+          <textarea
+            rows={'rows' in field ? field.rows ?? 3 : 3}
+            className={isJson ? 's2-design-builder-field__json' : undefined}
+            value={val}
+            onChange={(e) => onSettingsChange(control.settingKey!, e.target.value)}
+            placeholder={'placeholder' in field ? field.placeholder : undefined}
+            style={{ width: '100%' }}
+          />
+        ) : (
+          <input
+            type="text"
+            value={val}
+            onChange={(e) => onSettingsChange(control.settingKey!, e.target.value)}
+            placeholder={'placeholder' in field ? field.placeholder : undefined}
+            style={{ width: '100%' }}
+          />
+        )}
+      </OverrideFieldShell>
+      {elementHideKey && (
+        <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, marginTop: 6 }}>
+          <input
+            type="checkbox"
+            checked={readAdminSetting(settings, elementHideKey) !== '1'}
+            onChange={(e) => onSettingsChange(elementHideKey, e.target.checked ? '0' : '1')}
+          />
+          Show this element on the public site
+        </label>
       )}
-    </OverrideFieldShell>
+    </>
   )
 }
 
