@@ -96,8 +96,10 @@ test.describe('Design System admin save → public site', () => {
     await expect(page.getByText('Content saved')).toBeVisible({ timeout: 15_000 });
 
     await page.goto('/');
-    await expect(page.getByRole('heading', { name: 'Admin Saved Newsletter' })).toBeVisible({
-      timeout: 20_000,
-    });
+    const heading = page.locator(
+      '[data-s2-page="home"][data-s2-section="newsletter"][data-s2-element="heading"]',
+    );
+    await heading.scrollIntoViewIfNeeded();
+    await expect(heading).toContainText('Admin Saved Newsletter', { timeout: 20_000 });
   });
 });

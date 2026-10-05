@@ -82,7 +82,12 @@ export function AboutPage() {
       <PublicSection pageTemplateId="about" sectionKey="about" width="wide">
         <div className="s2-marketing-page s2-public-split-grid s2-mobile-stack">
           <div>
-            <PublicSectionHead eyebrow={settings.about_eyebrow || 'Our Story'} title={settings.about_heading || `${name} — Your Bridge to India`} />
+            <CmsElement pageId="about" sectionKey="about" elementId="eyebrow" as="p" className="s2-t-eyebrow">
+              {settings.about_eyebrow || 'Our Story'}
+            </CmsElement>
+            <CmsElement pageId="about" sectionKey="about" elementId="heading" as="h2" className="s2-t-section-heading">
+              {settings.about_heading || `${name} — Your Bridge to India`}
+            </CmsElement>
             <CmsElement pageId="about" sectionKey="about" elementId="body" as="p" className="s2-t-body s2-public-body-tight">
               {settings.about_text || `${name} was founded with a single mission: to eliminate the paperwork stress that NRIs face when managing affairs back home.`}
             </CmsElement>
@@ -90,7 +95,8 @@ export function AboutPage() {
               {settings.about_text_secondary ||
                 'Our team of lawyers, CAs, property managers, and immigration specialists has helped over 10,000 NRIs across 50+ countries resolve their India-related needs without a single trip back home.'}
             </CmsElement>
-            <PublicGrid min={120}>
+            <CmsElement pageId="about" sectionKey="about" elementId="highlight_tile">
+              <PublicGrid min={120}>
               {highlights.map(({ value, label }, idx) => {
                 const n = idx + 1
                 return (
@@ -106,10 +112,29 @@ export function AboutPage() {
                   </CmsElement>
                 )
               })}
-            </PublicGrid>
+              </PublicGrid>
+            </CmsElement>
             <div className="s2-public-actions">
-              <PublicCtaLink to="/services">Our Services →</PublicCtaLink>
-              {whatsapp && <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="s2-btn s2-btn--secondary s2-btn--sm">💬 Chat with Us</a>}
+              <CmsElement pageId="about" sectionKey="about" elementId="primary_button">
+                <PublicCtaLink to="/services">Our Services →</PublicCtaLink>
+              </CmsElement>
+              <CmsElement
+                pageId="about"
+                sectionKey="about"
+                elementId="secondary_button"
+                style={whatsapp ? undefined : { display: 'none' }}
+              >
+                <a
+                  href={whatsapp ? `https://wa.me/${String(whatsapp).replace(/\D/g, '')}` : '#'}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="s2-btn s2-btn--secondary s2-btn--sm"
+                  tabIndex={whatsapp ? 0 : -1}
+                  aria-hidden={!whatsapp}
+                >
+                  💬 Chat with Us
+                </a>
+              </CmsElement>
             </div>
           </div>
           <div className="s2-home-about__img-wrap">
@@ -127,7 +152,9 @@ export function AboutPage() {
         <CmsElement pageId="about" sectionKey="values" elementId="heading">
           <PublicSectionHead title={settings.about_values_title || 'Our Core Values'} />
         </CmsElement>
-        <PublicGrid min={220}>
+        <CmsElement pageId="about" sectionKey="values" elementId="value_card">
+          <CmsElement pageId="about" sectionKey="values" elementId="collection">
+            <PublicGrid min={220}>
           {values.map(({ icon, t, d }, idx) => {
             const n = idx + 1
             return (
@@ -146,7 +173,9 @@ export function AboutPage() {
               </CmsElement>
             )
           })}
-        </PublicGrid>
+            </PublicGrid>
+          </CmsElement>
+        </CmsElement>
       </PublicSection>
 
       {!isTemplateSectionHidden(settings, 'about', 'team') && (
@@ -155,7 +184,8 @@ export function AboutPage() {
           <CmsElement pageId="about" sectionKey="team" elementId="heading" as="h2" className="s2-public-section-title s2-public-section-title--center">
             {settings.about_team_title || 'Meet Our Team'}
           </CmsElement>
-          <div className="s2-public-team-grid s2-stagger">
+          <CmsElement pageId="about" sectionKey="team" elementId="team_card">
+            <CmsElement pageId="about" sectionKey="team" elementId="collection" className="s2-public-team-grid s2-stagger">
             {teamDisplay.map(({ name: n, role, img, bio }, idx) => {
               const memberN = idx + 1
               return (
@@ -177,22 +207,31 @@ export function AboutPage() {
                 </CmsElement>
               )
             })}
-          </div>
+            </CmsElement>
+          </CmsElement>
         </div>
       </section>
       )}
 
       {!isTemplateSectionHidden(settings, 'about', 'cta') && (
       <section className="s2-public-band-dark s2-surface-dark s2-marketing-page s2-experience-section" data-s2-section="cta" data-s2-reveal="">
-        <h2 className="s2-public-band-dark__title">{settings.about_cta_title || 'Ready to Get Started?'}</h2>
-        <p className="s2-public-band-dark__sub">{settings.about_cta_subtitle || 'Let us handle your India affairs while you focus on what matters.'}</p>
+        <CmsElement pageId="about" sectionKey="cta" elementId="heading" as="h2" className="s2-public-band-dark__title">
+          {settings.about_cta_title || 'Ready to Get Started?'}
+        </CmsElement>
+        <CmsElement pageId="about" sectionKey="cta" elementId="body" as="p" className="s2-public-band-dark__sub">
+          {settings.about_cta_subtitle || 'Let us handle your India affairs while you focus on what matters.'}
+        </CmsElement>
         <div className="s2-public-band-dark__actions">
-          <Link to={settings.about_cta_primary_url || '/services'} className="s2-public-band-dark__btn-primary">
-            {settings.about_cta_primary_text || 'Explore Services'}
-          </Link>
-          <Link to={settings.about_cta_secondary_url || '/register'} className="s2-public-band-dark__btn-ghost">
-            {settings.about_cta_secondary_text || 'Create Free Account'}
-          </Link>
+          <CmsElement pageId="about" sectionKey="cta" elementId="primary_button">
+            <Link to={settings.about_cta_primary_url || '/services'} className="s2-public-band-dark__btn-primary">
+              {settings.about_cta_primary_text || 'Explore Services'}
+            </Link>
+          </CmsElement>
+          <CmsElement pageId="about" sectionKey="cta" elementId="secondary_button">
+            <Link to={settings.about_cta_secondary_url || '/register'} className="s2-public-band-dark__btn-ghost">
+              {settings.about_cta_secondary_text || 'Create Free Account'}
+            </Link>
+          </CmsElement>
         </div>
       </section>
       )}
@@ -271,6 +310,7 @@ export function ContactPage() {
             <CmsElement pageId="contact" sectionKey="contact" elementId="heading">
               <PublicSectionHead title={settings.contact_title || 'Get in Touch'} />
             </CmsElement>
+            <CmsElement pageId="contact" sectionKey="contact" elementId="collection">
             {contacts.map(({ icon, t, v, label }) => (
               <div key={t} className="s2-public-contact-row">
                 <div className="s2-public-contact-icon">{icon}</div>
@@ -281,6 +321,7 @@ export function ContactPage() {
                 </div>
               </div>
             ))}
+            </CmsElement>
             <CmsElement pageId="contact" sectionKey="contact" elementId="hours_card">
               <PublicCard className="s2-public-card--hours">
                 <h3 className="s2-t-h3 s2-public-card__title--sm">{settings.contact_hours_title || 'Business Hours'}</h3>
@@ -329,7 +370,9 @@ export function ContactPage() {
               </div>
             ) : (
               <div className="s2-public-contact-form">
-                <h3 className="s2-t-h3">{settings.contact_form_title || 'Send Us a Message'}</h3>
+                <CmsElement pageId="contact" sectionKey="contact" elementId="form_heading" as="h3" className="s2-t-h3">
+                  {settings.contact_form_title || 'Send Us a Message'}
+                </CmsElement>
                 <div className="s2-public-form-grid">
                   {(
                     [
@@ -394,6 +437,8 @@ export function HowItWorksPage() {
       {!isTemplateSectionHidden(settings, 'how-it-works', 'process') && (
       <section className="s2-public-how-section s2-marketing-page s2-experience-section" data-s2-section="process" data-s2-reveal="">
         <div className="s2-container s2-width-wide s2-stagger">
+          <CmsElement pageId="how-it-works" sectionKey="process" elementId="step_card">
+            <CmsElement pageId="how-it-works" sectionKey="process" elementId="collection">
           {steps.map(({ n, icon, t, d }, i) => {
             const stepIdx = i + 1
             return (
@@ -416,14 +461,24 @@ export function HowItWorksPage() {
               </CmsElement>
             )
           })}
+            </CmsElement>
+          </CmsElement>
 
           {!isTemplateSectionHidden(settings, 'how-it-works', 'hiw_cta') && (
           <div className="s2-public-how-callout">
-            <h3 className="s2-public-how-callout__title">{settings.hiw_page_cta_title || 'Have Questions? Talk to Us First.'}</h3>
-            <p className="s2-public-how-callout__sub">{settings.hiw_page_cta_subtitle || 'Our team is available 24/7 on WhatsApp for a free consultation before you place a request.'}</p>
+            <CmsElement pageId="how-it-works" sectionKey="hiw_cta" elementId="heading" as="h3" className="s2-public-how-callout__title">
+              {settings.hiw_page_cta_title || 'Have Questions? Talk to Us First.'}
+            </CmsElement>
+            <CmsElement pageId="how-it-works" sectionKey="hiw_cta" elementId="body" as="p" className="s2-public-how-callout__sub">
+              {settings.hiw_page_cta_subtitle || 'Our team is available 24/7 on WhatsApp for a free consultation before you place a request.'}
+            </CmsElement>
             <div className="s2-public-how-callout__actions">
-              <Link to="/services" className="s2-btn s2-btn--primary">Browse Services →</Link>
-              <Link to="/contact" className="s2-home-text-link">Contact Us</Link>
+              <CmsElement pageId="how-it-works" sectionKey="hiw_cta" elementId="primary_button">
+                <Link to="/services" className="s2-btn s2-btn--primary">Browse Services →</Link>
+              </CmsElement>
+              <CmsElement pageId="how-it-works" sectionKey="hiw_cta" elementId="link">
+                <Link to="/contact" className="s2-home-text-link">Contact Us</Link>
+              </CmsElement>
             </div>
           </div>
           )}
@@ -474,6 +529,8 @@ export function FAQPage() {
       />
       <PublicSection pageTemplateId="faq" className="s2-public-faq" sectionKey="faq" width="narrow">
         <div className="s2-container s2-width-narrow">
+          <CmsElement pageId="faq" sectionKey="faq" elementId="faq_item">
+            <CmsElement pageId="faq" sectionKey="faq" elementId="collection">
           {display.map((faq, i) => (
             <div key={faq.id || i} className={`s2-public-faq-item${openIdx === i ? ' s2-public-faq-item--open' : ''}`}>
               <button
@@ -490,14 +547,20 @@ export function FAQPage() {
               )}
             </div>
           ))}
+            </CmsElement>
+          </CmsElement>
 
           {!isTemplateSectionHidden(settings, 'faq', 'faq_cta') && (
           <PublicCard className="s2-public-cta-band s2-public-cta-band--spaced">
-            <h3 className="s2-t-h3">{settings.faq_cta_title || 'Still have questions?'}</h3>
-            <p className="s2-t-body">
+            <CmsElement pageId="faq" sectionKey="faq_cta" elementId="heading" as="h3" className="s2-t-h3">
+              {settings.faq_cta_title || 'Still have questions?'}
+            </CmsElement>
+            <CmsElement pageId="faq" sectionKey="faq_cta" elementId="body" as="p" className="s2-t-body">
               {settings.faq_cta_body || 'Our team responds within 30 minutes on WhatsApp during business hours.'}
-            </p>
-            <PublicCtaLink to="/contact">{settings.faq_cta_button || 'Contact Us →'}</PublicCtaLink>
+            </CmsElement>
+            <CmsElement pageId="faq" sectionKey="faq_cta" elementId="primary_button">
+              <PublicCtaLink to="/contact">{settings.faq_cta_button || 'Contact Us →'}</PublicCtaLink>
+            </CmsElement>
           </PublicCard>
           )}
         </div>
@@ -559,12 +622,18 @@ export function PricingPage() {
         bg={heroBg}
       />
       <PublicSection pageTemplateId="pricing" alt sectionKey="pricing" width="standard">
-        <PublicSectionHead
-          eyebrow={settings.pricing_grid_eyebrow || 'Pricing plans'}
-          title={settings.pricing_grid_title || 'Choose the right level of support'}
-          subtitle={settings.pricing_grid_subtitle || 'Compliance-driven · Simple & intuitive · Straightforward pricing'}
-        />
+        <CmsElement pageId="pricing" sectionKey="pricing" elementId="eyebrow" as="p" className="s2-t-eyebrow">
+          {settings.pricing_grid_eyebrow || 'Pricing plans'}
+        </CmsElement>
+        <CmsElement pageId="pricing" sectionKey="pricing" elementId="heading" as="h2" className="s2-t-section-heading">
+          {settings.pricing_grid_title || 'Choose the right level of support'}
+        </CmsElement>
+        <CmsElement pageId="pricing" sectionKey="pricing" elementId="subtitle" as="p" className="s2-t-body s2-public-section-head__sub">
+          {settings.pricing_grid_subtitle || 'Compliance-driven · Simple & intuitive · Straightforward pricing'}
+        </CmsElement>
         <div className="s2-container">
+          <CmsElement pageId="pricing" sectionKey="pricing" elementId="plan_card">
+            <CmsElement pageId="pricing" sectionKey="pricing" elementId="collection">
           <div className="s2-public-pricing-grid s2-stagger">
             {display.map((plan, planIdx) => {
               const planN = planIdx + 1
@@ -609,6 +678,8 @@ export function PricingPage() {
               </CmsElement>
             )})}
           </div>
+            </CmsElement>
+          </CmsElement>
         </div>
       </PublicSection>
 
@@ -661,22 +732,29 @@ export function PricingPage() {
       {!isTemplateSectionHidden(settings, 'pricing', 'consultation') && (
       <PublicSection pageTemplateId="pricing" sectionKey="consultation" alt className="s2-public-cta-band">
         <div className="s2-public-center-copy">
-          <h2 className="s2-t-h2">{settings.pricing_consultation_title || 'Book a Free Consultation'}</h2>
-          <p className="s2-t-body">
+          <CmsElement pageId="pricing" sectionKey="consultation" elementId="heading" as="h2" className="s2-t-h2">
+            {settings.pricing_consultation_title || 'Book a Free Consultation'}
+          </CmsElement>
+          <CmsElement pageId="pricing" sectionKey="consultation" elementId="body" as="p" className="s2-t-body">
             {settings.pricing_consultation_subtitle || 'Not sure which plan is right for you? Talk to our team for free.'}
-          </p>
-          <PublicCtaLink to={settings.pricing_consultation_url || '/contact'}>
-            {settings.pricing_consultation_button || 'Book Free Consultation →'}
-          </PublicCtaLink>
+          </CmsElement>
+          <CmsElement pageId="pricing" sectionKey="consultation" elementId="primary_button">
+            <PublicCtaLink to={settings.pricing_consultation_url || '/contact'}>
+              {settings.pricing_consultation_button || 'Book Free Consultation →'}
+            </PublicCtaLink>
+          </CmsElement>
         </div>
       </PublicSection>
       )}
 
       <PublicSection pageTemplateId="pricing" sectionKey="compare">
-        <PublicSectionHead
-          title={settings.pricing_compare_brand_title || 'NRIWAY vs. Traditional Agents'}
-          subtitle={settings.pricing_compare_brand_subtitle || 'See why NRIs across 50+ countries trust NRIWAY'}
-        />
+        <CmsElement pageId="pricing" sectionKey="compare" elementId="heading" as="h2" className="s2-t-section-heading">
+          {settings.pricing_compare_brand_title || 'NRIWAY vs. Traditional Agents'}
+        </CmsElement>
+        <CmsElement pageId="pricing" sectionKey="compare" elementId="subtitle" as="p" className="s2-t-body s2-public-section-head__sub">
+          {settings.pricing_compare_brand_subtitle || 'See why NRIs across 50+ countries trust NRIWAY'}
+        </CmsElement>
+        <CmsElement pageId="pricing" sectionKey="compare" elementId="collection">
         <div className="s2-public-compare-wrap s2-container s2-width-narrow">
           <table className="s2-public-compare-table">
             <thead>
@@ -686,7 +764,7 @@ export function PricingPage() {
                 <th>{settings.pricing_compare_other_name || 'Traditional Agents'}</th>
               </tr>
             </thead>
-            <tbody>
+            <CmsElement pageId="pricing" sectionKey="compare" elementId="brand_compare_row" as="tbody">
               {brandCompareRows.map(({ feature, us, them }, idx) => {
                 const rowN = idx + 1
                 return (
@@ -703,9 +781,10 @@ export function PricingPage() {
                   </tr>
                 )
               })}
-            </tbody>
+            </CmsElement>
           </table>
         </div>
+        </CmsElement>
       </PublicSection>
 
     </Layout>

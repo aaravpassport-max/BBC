@@ -1139,33 +1139,49 @@ export function ServiceDetailPage() {
             <img src={heroImg} alt={heroTitle} />
             <div className="s2-svc-hero__shade" />
             <div className="s2-svc-hero__content">
-              {svc.category_name && (
-                <CmsElement pageId="service" sectionKey="hero" elementId="badge">
-                  <div className="s2-svc-hero__badge">{svc.category_name}</div>
-                </CmsElement>
-              )}
+              <CmsElement
+                pageId="service"
+                sectionKey="hero"
+                elementId="badge"
+                style={svc.category_name ? undefined : { display: 'none' }}
+              >
+                <div className="s2-svc-hero__badge">{svc.category_name || ''}</div>
+              </CmsElement>
               <CmsElement pageId="service" sectionKey="hero" elementId="heading" as="h1" className="s2-svc-hero__title">
                 {heroTitle}
               </CmsElement>
-              {hero && hero.subtitle ? (
-                <CmsElement pageId="service" sectionKey="hero" elementId="subtitle" as="p" className="s2-svc-hero__sub">
-                  {String(hero.subtitle)}
+              <CmsElement
+                pageId="service"
+                sectionKey="hero"
+                elementId="subtitle"
+                as="p"
+                className="s2-svc-hero__sub"
+                style={hero?.subtitle ? undefined : { display: 'none' }}
+              >
+                {hero?.subtitle ? String(hero.subtitle) : ''}
+              </CmsElement>
+              <div className="s2-svc-hero__ctas">
+                <CmsElement
+                  pageId="service"
+                  sectionKey="hero"
+                  elementId="primary_button"
+                  style={hero?.cta_text ? undefined : { display: 'none' }}
+                >
+                  <a href={String(hero?.cta_url || '#booking-form')} className="s2-svc-hero__cta">
+                    {hero?.cta_text ? String(hero.cta_text) : 'Book'}
+                  </a>
                 </CmsElement>
-              ) : null}
-              {hero && (hero.cta_text || hero.cta2_text) ? (
-                <div className="s2-svc-hero__ctas">
-                  {hero.cta_text ? (
-                    <CmsElement pageId="service" sectionKey="hero" elementId="primary_button">
-                      <a href={String(hero.cta_url || '#booking-form')} className="s2-svc-hero__cta">{String(hero.cta_text)}</a>
-                    </CmsElement>
-                  ) : null}
-                  {hero.cta2_text ? (
-                    <CmsElement pageId="service" sectionKey="hero" elementId="secondary_button">
-                      <a href={String(hero.cta2_url || '#booking-form')} className="s2-svc-hero__cta s2-svc-hero__cta--ghost">{String(hero.cta2_text)}</a>
-                    </CmsElement>
-                  ) : null}
-                </div>
-              ) : null}
+                <CmsElement
+                  pageId="service"
+                  sectionKey="hero"
+                  elementId="secondary_button"
+                  style={hero?.cta2_text ? undefined : { display: 'none' }}
+                >
+                  <a href={String(hero?.cta2_url || '#booking-form')} className="s2-svc-hero__cta s2-svc-hero__cta--ghost">
+                    {hero?.cta2_text ? String(hero.cta2_text) : 'Learn more'}
+                  </a>
+                </CmsElement>
+              </div>
               <CmsElement pageId="service" sectionKey="hero" elementId="meta_chips" className="s2-svc-hero__meta">
                 {(svc.turnaround_days || svc.turnaround) && (
                   <span className="s2-svc-hero__meta-chip">⏱ {svc.turnaround_days || svc.turnaround} day turnaround</span>

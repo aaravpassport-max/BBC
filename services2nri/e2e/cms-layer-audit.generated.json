@@ -1,0 +1,870 @@
+{
+  "generatedAt": "2026-10-05T12:18:22.127Z",
+  "markerCount": 135,
+  "markers": [
+    {
+      "page": "home",
+      "section": "hero",
+      "element": "eyebrow",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "hero",
+      "element": "heading",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "hero",
+      "element": "body",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "hero",
+      "element": "primary_button",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "hero",
+      "element": "secondary_button",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "notice",
+      "element": "body",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "notice",
+      "element": "link",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "search",
+      "element": "heading",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "search",
+      "element": "subtitle",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "search",
+      "element": "collection",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "search",
+      "element": "primary_button",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "home_services",
+      "element": "eyebrow",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "home_services",
+      "element": "heading",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "home_services",
+      "element": "subtitle",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "home_services",
+      "element": "collection",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "home_services",
+      "element": "grid",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "home_services",
+      "element": "service_card",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "home_services",
+      "element": "link",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "cities",
+      "element": "heading",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "cities",
+      "element": "subtitle",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "cities",
+      "element": "collection",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "cities",
+      "element": "city_card",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "stats",
+      "element": "stat_item",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "stats",
+      "element": "collection",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "features",
+      "element": "eyebrow",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "features",
+      "element": "heading",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "features",
+      "element": "feature_card",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "features",
+      "element": "collection",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "testimonials",
+      "element": "eyebrow",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "testimonials",
+      "element": "heading",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "testimonials",
+      "element": "testimonial_card",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "testimonials",
+      "element": "collection",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "process",
+      "element": "eyebrow",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "process",
+      "element": "heading",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "process",
+      "element": "step_card",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "process",
+      "element": "collection",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "process",
+      "element": "link",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "press",
+      "element": "eyebrow",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "press",
+      "element": "press_chip",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "press",
+      "element": "collection",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "partners",
+      "element": "eyebrow",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "partners",
+      "element": "partner_chip",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "partners",
+      "element": "collection",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "about",
+      "element": "eyebrow",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "about",
+      "element": "heading",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "about",
+      "element": "body",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "about",
+      "element": "body_secondary",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "about",
+      "element": "primary_button",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "about",
+      "element": "secondary_button",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "awards",
+      "element": "eyebrow",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "awards",
+      "element": "award_badge",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "awards",
+      "element": "collection",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "faq",
+      "element": "eyebrow",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "faq",
+      "element": "heading",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "faq",
+      "element": "faq_item",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "faq",
+      "element": "collection",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "faq",
+      "element": "link",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "newsletter",
+      "element": "heading",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "newsletter",
+      "element": "body",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "newsletter",
+      "element": "collection",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "newsletter",
+      "element": "primary_button",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "app",
+      "element": "eyebrow",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "app",
+      "element": "heading",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "app",
+      "element": "body",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "app",
+      "element": "collection",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "locations",
+      "element": "eyebrow",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "locations",
+      "element": "collection",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "header",
+      "element": "whatsapp_button",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "header",
+      "element": "service_request_button",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "header",
+      "element": "dashboard_button",
+      "route": "/"
+    },
+    {
+      "page": "home",
+      "section": "header",
+      "element": "sign_in_button",
+      "route": "/"
+    },
+    {
+      "page": "blog",
+      "section": "hero",
+      "element": "eyebrow",
+      "route": "/blog"
+    },
+    {
+      "page": "blog",
+      "section": "hero",
+      "element": "heading",
+      "route": "/blog"
+    },
+    {
+      "page": "blog",
+      "section": "hero",
+      "element": "subtitle",
+      "route": "/blog"
+    },
+    {
+      "page": "about",
+      "section": "about",
+      "element": "eyebrow",
+      "route": "/about"
+    },
+    {
+      "page": "about",
+      "section": "about",
+      "element": "heading",
+      "route": "/about"
+    },
+    {
+      "page": "about",
+      "section": "about",
+      "element": "body",
+      "route": "/about"
+    },
+    {
+      "page": "about",
+      "section": "about",
+      "element": "body_secondary",
+      "route": "/about"
+    },
+    {
+      "page": "about",
+      "section": "about",
+      "element": "highlight_tile",
+      "route": "/about"
+    },
+    {
+      "page": "about",
+      "section": "about",
+      "element": "primary_button",
+      "route": "/about"
+    },
+    {
+      "page": "about",
+      "section": "about",
+      "element": "secondary_button",
+      "route": "/about"
+    },
+    {
+      "page": "about",
+      "section": "values",
+      "element": "heading",
+      "route": "/about"
+    },
+    {
+      "page": "about",
+      "section": "values",
+      "element": "value_card",
+      "route": "/about"
+    },
+    {
+      "page": "about",
+      "section": "values",
+      "element": "collection",
+      "route": "/about"
+    },
+    {
+      "page": "about",
+      "section": "team",
+      "element": "heading",
+      "route": "/about"
+    },
+    {
+      "page": "about",
+      "section": "team",
+      "element": "team_card",
+      "route": "/about"
+    },
+    {
+      "page": "about",
+      "section": "team",
+      "element": "collection",
+      "route": "/about"
+    },
+    {
+      "page": "about",
+      "section": "cta",
+      "element": "heading",
+      "route": "/about"
+    },
+    {
+      "page": "about",
+      "section": "cta",
+      "element": "body",
+      "route": "/about"
+    },
+    {
+      "page": "about",
+      "section": "cta",
+      "element": "primary_button",
+      "route": "/about"
+    },
+    {
+      "page": "about",
+      "section": "cta",
+      "element": "secondary_button",
+      "route": "/about"
+    },
+    {
+      "page": "pricing",
+      "section": "pricing",
+      "element": "eyebrow",
+      "route": "/pricing"
+    },
+    {
+      "page": "pricing",
+      "section": "pricing",
+      "element": "heading",
+      "route": "/pricing"
+    },
+    {
+      "page": "pricing",
+      "section": "pricing",
+      "element": "subtitle",
+      "route": "/pricing"
+    },
+    {
+      "page": "pricing",
+      "section": "pricing",
+      "element": "plan_card",
+      "route": "/pricing"
+    },
+    {
+      "page": "pricing",
+      "section": "pricing",
+      "element": "collection",
+      "route": "/pricing"
+    },
+    {
+      "page": "pricing",
+      "section": "compare",
+      "element": "heading",
+      "route": "/pricing"
+    },
+    {
+      "page": "pricing",
+      "section": "compare",
+      "element": "subtitle",
+      "route": "/pricing"
+    },
+    {
+      "page": "pricing",
+      "section": "compare",
+      "element": "brand_compare_row",
+      "route": "/pricing"
+    },
+    {
+      "page": "pricing",
+      "section": "compare",
+      "element": "collection",
+      "route": "/pricing"
+    },
+    {
+      "page": "pricing",
+      "section": "consultation",
+      "element": "heading",
+      "route": "/pricing"
+    },
+    {
+      "page": "pricing",
+      "section": "consultation",
+      "element": "body",
+      "route": "/pricing"
+    },
+    {
+      "page": "pricing",
+      "section": "consultation",
+      "element": "primary_button",
+      "route": "/pricing"
+    },
+    {
+      "page": "how-it-works",
+      "section": "process",
+      "element": "step_card",
+      "route": "/how-it-works"
+    },
+    {
+      "page": "how-it-works",
+      "section": "process",
+      "element": "collection",
+      "route": "/how-it-works"
+    },
+    {
+      "page": "how-it-works",
+      "section": "hiw_cta",
+      "element": "heading",
+      "route": "/how-it-works"
+    },
+    {
+      "page": "how-it-works",
+      "section": "hiw_cta",
+      "element": "body",
+      "route": "/how-it-works"
+    },
+    {
+      "page": "how-it-works",
+      "section": "hiw_cta",
+      "element": "primary_button",
+      "route": "/how-it-works"
+    },
+    {
+      "page": "how-it-works",
+      "section": "hiw_cta",
+      "element": "link",
+      "route": "/how-it-works"
+    },
+    {
+      "page": "contact",
+      "section": "contact",
+      "element": "heading",
+      "route": "/contact"
+    },
+    {
+      "page": "contact",
+      "section": "contact",
+      "element": "hours_card",
+      "route": "/contact"
+    },
+    {
+      "page": "contact",
+      "section": "contact",
+      "element": "form_heading",
+      "route": "/contact"
+    },
+    {
+      "page": "contact",
+      "section": "contact",
+      "element": "collection",
+      "route": "/contact"
+    },
+    {
+      "page": "faq",
+      "section": "faq",
+      "element": "faq_item",
+      "route": "/faq"
+    },
+    {
+      "page": "faq",
+      "section": "faq",
+      "element": "collection",
+      "route": "/faq"
+    },
+    {
+      "page": "faq",
+      "section": "faq_cta",
+      "element": "heading",
+      "route": "/faq"
+    },
+    {
+      "page": "faq",
+      "section": "faq_cta",
+      "element": "body",
+      "route": "/faq"
+    },
+    {
+      "page": "faq",
+      "section": "faq_cta",
+      "element": "primary_button",
+      "route": "/faq"
+    },
+    {
+      "page": "services",
+      "section": "hero",
+      "element": "heading",
+      "route": "/services"
+    },
+    {
+      "page": "services",
+      "section": "hero",
+      "element": "subtitle",
+      "route": "/services"
+    },
+    {
+      "page": "services",
+      "section": "hero",
+      "element": "search",
+      "route": "/services"
+    },
+    {
+      "page": "services",
+      "section": "hero",
+      "element": "meta_chips",
+      "route": "/services"
+    },
+    {
+      "page": "services",
+      "section": "directory",
+      "element": "intro",
+      "route": "/services"
+    },
+    {
+      "page": "services",
+      "section": "directory",
+      "element": "sidebar",
+      "route": "/services"
+    },
+    {
+      "page": "services",
+      "section": "directory",
+      "element": "grid",
+      "route": "/services"
+    },
+    {
+      "page": "services",
+      "section": "directory",
+      "element": "service_card",
+      "route": "/services"
+    },
+    {
+      "page": "service",
+      "section": "hero",
+      "element": "badge",
+      "route": "/service/complete-property-management"
+    },
+    {
+      "page": "service",
+      "section": "hero",
+      "element": "heading",
+      "route": "/service/complete-property-management"
+    },
+    {
+      "page": "service",
+      "section": "hero",
+      "element": "subtitle",
+      "route": "/service/complete-property-management"
+    },
+    {
+      "page": "service",
+      "section": "hero",
+      "element": "primary_button",
+      "route": "/service/complete-property-management"
+    },
+    {
+      "page": "service",
+      "section": "hero",
+      "element": "secondary_button",
+      "route": "/service/complete-property-management"
+    },
+    {
+      "page": "service",
+      "section": "hero",
+      "element": "meta_chips",
+      "route": "/service/complete-property-management"
+    },
+    {
+      "page": "service",
+      "section": "wizard",
+      "element": "service_summary",
+      "route": "/service/complete-property-management"
+    },
+    {
+      "page": "service",
+      "section": "wizard",
+      "element": "step_tracker",
+      "route": "/service/complete-property-management"
+    },
+    {
+      "page": "service",
+      "section": "wizard",
+      "element": "step_heading",
+      "route": "/service/complete-property-management"
+    }
+  ],
+  "fieldMapKeyCount": 65,
+  "saveProbes": [
+    {
+      "key": "hiw_step2_title",
+      "value": "Layer Audit Step 2",
+      "page": "home",
+      "section": "process",
+      "element": "step_2_title"
+    },
+    {
+      "key": "feature_2_title",
+      "value": "Layer Audit Feature 2",
+      "page": "home",
+      "section": "features",
+      "element": "feature_2_title"
+    },
+    {
+      "key": "stat_2_label",
+      "value": "Layer Audit Stat",
+      "page": "home",
+      "section": "stats",
+      "element": "stat_2_label"
+    },
+    {
+      "key": "faq_1_q",
+      "value": "Layer Audit FAQ One?",
+      "page": "home",
+      "section": "faq",
+      "element": "faq_1_question"
+    },
+    {
+      "key": "hiw_page_step1_title",
+      "value": "Layer Page Step",
+      "page": "how-it-works",
+      "section": "process",
+      "element": "page_step_1_title",
+      "route": "/how-it-works"
+    },
+    {
+      "key": "value_1_title",
+      "value": "Layer Value One",
+      "page": "about",
+      "section": "values",
+      "element": "value_1_title",
+      "route": "/about"
+    },
+    {
+      "key": "header_whatsapp_label",
+      "value": "Layer WhatsApp",
+      "page": "home",
+      "section": "header",
+      "element": "whatsapp_button"
+    }
+  ]
+}

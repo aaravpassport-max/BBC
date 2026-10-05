@@ -547,19 +547,26 @@ export function Layout({ children }: LayoutProps) {
                   {settings.header_service_request_text || 'Service Request'}
                 </Link>
               </CmsElement>
-              {user ? (
-                <CmsElement pageId="home" sectionKey="header" elementId="dashboard_button">
-                  <Link to={dashUrl} className="s2-header-primary-btn">
-                    {settings.header_dashboard_text || 'Dashboard'}
-                  </Link>
-                </CmsElement>
-              ) : (
-                <CmsElement pageId="home" sectionKey="header" elementId="sign_in_button">
-                  <Link to="/login" className="s2-header-primary-btn">
-                    {settings.header_sign_in_text || 'Sign In'}
-                  </Link>
-                </CmsElement>
-              )}
+              <CmsElement
+                pageId="home"
+                sectionKey="header"
+                elementId="dashboard_button"
+                style={user ? undefined : { display: 'none' }}
+              >
+                <Link to={dashUrl} className="s2-header-primary-btn" tabIndex={user ? 0 : -1} aria-hidden={!user}>
+                  {settings.header_dashboard_text || 'Dashboard'}
+                </Link>
+              </CmsElement>
+              <CmsElement
+                pageId="home"
+                sectionKey="header"
+                elementId="sign_in_button"
+                style={!user ? undefined : { display: 'none' }}
+              >
+                <Link to="/login" className="s2-header-primary-btn" tabIndex={!user ? 0 : -1} aria-hidden={!!user}>
+                  {settings.header_sign_in_text || 'Sign In'}
+                </Link>
+              </CmsElement>
             </div>
             {whatsapp && (
               <a

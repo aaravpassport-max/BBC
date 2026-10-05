@@ -495,10 +495,14 @@ export function HomePage() {
         style={{ ...bandOrder('search'), ...pickCssStyle(settings, { bg: 'css_search_bg', padding: 'css_search_padding' }) }}
       >
         <div className="s2-container s2-section-inner s2-width-standard">
-          <PublicSectionHead
-            title={settings.home_search_title || 'Find your service'}
-            subtitle={settings.home_search_subtitle || 'Search 44+ NRI services across every category'}
-          />
+          <div className="s2-home-section-head s2-public-section-head">
+            <CmsElement pageId="home" sectionKey="search" elementId="heading" as="h2" className="s2-t-section-heading">
+              {settings.home_search_title || 'Find your service'}
+            </CmsElement>
+            <CmsElement pageId="home" sectionKey="search" elementId="subtitle" as="p" className="s2-t-body s2-public-section-head__sub">
+              {settings.home_search_subtitle || 'Search 44+ NRI services across every category'}
+            </CmsElement>
+          </div>
           <form
             className="s2-home-search__form"
             action="/services"
@@ -568,18 +572,19 @@ export function HomePage() {
           </CmsElement>
 
           {/* Service cards */}
-          <CmsElement
-            pageId="home"
-            sectionKey="home_services"
-            elementId="grid"
-            className="s2-svc-grid s2-stagger"
-            style={{
-              ...(settings.css_svc_cols
-                ? { gridTemplateColumns: `repeat(${Math.min(6, Math.max(1, parseInt(settings.css_svc_cols, 10) || 4))}, 1fr)` }
-                : {}),
-              ...(settings.css_svc_gap ? { gap: settings.css_svc_gap } : {}),
-            }}
-          >
+          <CmsElement pageId="home" sectionKey="home_services" elementId="service_card">
+            <CmsElement
+              pageId="home"
+              sectionKey="home_services"
+              elementId="grid"
+              className="s2-svc-grid s2-stagger"
+              style={{
+                ...(settings.css_svc_cols
+                  ? { gridTemplateColumns: `repeat(${Math.min(6, Math.max(1, parseInt(settings.css_svc_cols, 10) || 4))}, 1fr)` }
+                  : {}),
+                ...(settings.css_svc_gap ? { gap: settings.css_svc_gap } : {}),
+              }}
+            >
             {displayServices.map((svc, i) => {
               const n = i + 1
               const fallbackImgs = [IMAGES.property, IMAGES.housekeeping, IMAGES.tenancy, IMAGES.rent]
@@ -614,6 +619,7 @@ export function HomePage() {
                 </CmsElement>
               )
             })}
+            </CmsElement>
           </CmsElement>
 
           <CmsElement pageId="home" sectionKey="home_services" elementId="link" className="s2-home-section-cta">
@@ -642,7 +648,8 @@ export function HomePage() {
               {settings.cities_section_subtitle || 'We manage NRI properties across all major Indian cities'}
             </CmsElement>
           </div>
-          <CmsElement pageId="home" sectionKey="cities" elementId="collection" className="s2-city-grid s2-city-grid--mobile-rail">
+          <CmsElement pageId="home" sectionKey="cities" elementId="city_card">
+            <CmsElement pageId="home" sectionKey="cities" elementId="collection" className="s2-city-grid s2-city-grid--mobile-rail">
             {displayCities.map(({ name, slug, img }, idx) => {
               const n = idx + 1
               const cardEyebrow = settings.cities_card_eyebrow || 'Property Services in'
@@ -674,6 +681,7 @@ export function HomePage() {
                 </CmsElement>
               )
             })}
+            </CmsElement>
           </CmsElement>
         </div>
       </section>
@@ -686,10 +694,12 @@ export function HomePage() {
         data-home-section-id="stats"
         style={{ ...bandOrder('stats'), ...pickCssStyle(settings, { bg: 'css_stats_bg', padding: 'css_stats_padding', color: 'css_stats_color' }) }}
       >
-        <CmsElement pageId="home" sectionKey="stats" elementId="collection" className="s2-stats-bar__grid">
-          {stats.map(({ n, l }, i) => (
-            <StatCard key={`${i}-${l}`} index={i} number={n} label={l} />
-          ))}
+        <CmsElement pageId="home" sectionKey="stats" elementId="stat_item">
+          <CmsElement pageId="home" sectionKey="stats" elementId="collection" className="s2-stats-bar__grid">
+            {stats.map(({ n, l }, i) => (
+              <StatCard key={`${i}-${l}`} index={i} number={n} label={l} />
+            ))}
+          </CmsElement>
         </CmsElement>
       </section>
       )}
@@ -730,7 +740,8 @@ export function HomePage() {
               {settings.features_title || 'Why Our Customers Love Us'}
             </CmsElement>
           </div>
-          <CmsElement pageId="home" sectionKey="features" elementId="collection" className="s2-feat-grid s2-stagger">
+          <CmsElement pageId="home" sectionKey="features" elementId="feature_card">
+            <CmsElement pageId="home" sectionKey="features" elementId="collection" className="s2-feat-grid s2-stagger">
             {whyChoose.map(({ icon, title, sub }, i) => {
               const n = i + 1
               return (
@@ -755,6 +766,7 @@ export function HomePage() {
                 </CmsElement>
               )
             })}
+            </CmsElement>
           </CmsElement>
         </div>
       </section>
@@ -777,7 +789,8 @@ export function HomePage() {
               {settings.testimonials_title || 'What Our Customers Say'}
             </CmsElement>
           </div>
-          <CmsElement pageId="home" sectionKey="testimonials" elementId="collection">
+          <CmsElement pageId="home" sectionKey="testimonials" elementId="testimonial_card">
+            <CmsElement pageId="home" sectionKey="testimonials" elementId="collection">
           <Swiper
             className="s2-home-testimonials-swiper"
             modules={[Autoplay, Pagination]}
@@ -817,6 +830,7 @@ export function HomePage() {
               )
             })}
           </Swiper>
+            </CmsElement>
           </CmsElement>
 
           <div className="s2-home-google-badge-wrap">
@@ -851,7 +865,8 @@ export function HomePage() {
               {settings.hiw_title || 'How It Works'}
             </CmsElement>
           </div>
-          <CmsElement pageId="home" sectionKey="process" elementId="collection" className="s2-how-grid s2-stagger"
+          <CmsElement pageId="home" sectionKey="process" elementId="step_card">
+            <CmsElement pageId="home" sectionKey="process" elementId="collection" className="s2-how-grid s2-stagger"
             style={{
               ...howGridVars(),
               ...(settings.css_how_cols
@@ -880,6 +895,7 @@ export function HomePage() {
                 </CmsElement>
               </CmsElement>
             ))}
+            </CmsElement>
           </CmsElement>
           <CmsElement pageId="home" sectionKey="process" elementId="link" className="s2-home-how-cta">
             <Link to="/how-it-works" className="s2-home-text-link">
@@ -901,7 +917,8 @@ export function HomePage() {
         <CmsElement pageId="home" sectionKey="press" elementId="eyebrow" as="p" className="s2-home-logo-strip__label">
           {settings.home_press_label || 'As Featured In'}
         </CmsElement>
-        <CmsElement pageId="home" sectionKey="press" elementId="collection" className="s2-home-logo-strip__row s2-stagger">
+        <CmsElement pageId="home" sectionKey="press" elementId="press_chip">
+          <CmsElement pageId="home" sectionKey="press" elementId="collection" className="s2-home-logo-strip__row s2-stagger">
           {pressLogos.map(({ name, brand }, i) => {
             const n = i + 1
             return (
@@ -919,6 +936,7 @@ export function HomePage() {
               </CmsElement>
             )
           })}
+          </CmsElement>
         </CmsElement>
       </div>
       )}
@@ -934,7 +952,8 @@ export function HomePage() {
         <CmsElement pageId="home" sectionKey="partners" elementId="eyebrow" as="p" className="s2-home-logo-strip__label">
           {settings.home_partners_label || 'Our Partners'}
         </CmsElement>
-        <CmsElement pageId="home" sectionKey="partners" elementId="collection" className="s2-home-logo-strip__row s2-stagger">
+        <CmsElement pageId="home" sectionKey="partners" elementId="partner_chip">
+          <CmsElement pageId="home" sectionKey="partners" elementId="collection" className="s2-home-logo-strip__row s2-stagger">
           {partnerChips.map((p, i) => {
             const n = i + 1
             return (
@@ -951,6 +970,7 @@ export function HomePage() {
               </CmsElement>
             )
           })}
+          </CmsElement>
         </CmsElement>
       </div>
       )}
@@ -1029,7 +1049,8 @@ export function HomePage() {
         <CmsElement pageId="home" sectionKey="awards" elementId="eyebrow" as="p" className="s2-home-logo-strip__label">
           {settings.home_awards_label || 'Awards We Have Received'}
         </CmsElement>
-        <CmsElement pageId="home" sectionKey="awards" elementId="collection" className="s2-home-awards__row">
+        <CmsElement pageId="home" sectionKey="awards" elementId="award_badge">
+          <CmsElement pageId="home" sectionKey="awards" elementId="collection" className="s2-home-awards__row">
           {awardBadges.map((a, i) => {
             const n = i + 1
             return (
@@ -1055,6 +1076,7 @@ export function HomePage() {
               </CmsElement>
             )
           })}
+          </CmsElement>
         </CmsElement>
       </div>
       )}
@@ -1076,7 +1098,8 @@ export function HomePage() {
               {settings.faq_section_title || "Let's Clear All The Doubts!"}
             </CmsElement>
           </div>
-          <CmsElement pageId="home" sectionKey="faq" elementId="collection" className="s2-home-faq__list">
+          <CmsElement pageId="home" sectionKey="faq" elementId="faq_item">
+            <CmsElement pageId="home" sectionKey="faq" elementId="collection" className="s2-home-faq__list">
             {homeFaqs.map(({ q, a }, i) => {
               const n = i + 1
               return (
@@ -1105,6 +1128,7 @@ export function HomePage() {
               </CmsElement>
               )
             })}
+            </CmsElement>
           </CmsElement>
           <CmsElement pageId="home" sectionKey="faq" elementId="link" className="s2-home-faq__footer">
             <Link to="/faq" className="s2-home-text-link">

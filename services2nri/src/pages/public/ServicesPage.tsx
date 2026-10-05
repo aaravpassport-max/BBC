@@ -163,8 +163,16 @@ export function ServicesPage() {
       </div>
 
       <div className="s2-services-layout s2-container" data-s2-section="directory">
+        <CmsElement
+          pageId="services"
+          sectionKey="directory"
+          elementId="sidebar"
+          as="aside"
+          className="s2-services-sidebar"
+          style={showCategoryFilter ? undefined : { display: 'none' }}
+        >
         {showCategoryFilter && (
-        <CmsElement pageId="services" sectionKey="directory" elementId="sidebar" as="aside" className="s2-services-sidebar">
+          <>
           <h3 className="s2-dir-sidebar__label">Categories</h3>
           <button
             type="button"
@@ -185,15 +193,15 @@ export function ServicesPage() {
               <span className="s2-dir-sidebar-btn__count">{cat.service_count || 0}</span>
             </button>
           ))}
-        </CmsElement>
+          </>
         )}
+        </CmsElement>
 
         <div className="s2-dir-main">
-          {settings.services_subtitle && (
-            <CmsElement pageId="services" sectionKey="directory" elementId="intro" as="p" className="s2-t-body s2-dir-intro" style={{ marginBottom: 16 }}>
-              {settings.services_subtitle}
-            </CmsElement>
-          )}
+          <CmsElement pageId="services" sectionKey="directory" elementId="intro" as="p" className="s2-t-body s2-dir-intro" style={{ marginBottom: 16 }}>
+            {settings.services_subtitle ||
+              'Browse our full catalog — filter by category or search for a specific NRI service.'}
+          </CmsElement>
           {showSkeleton ? (
             <div className="s2-dir-grid s2-stagger">
               {[1, 2, 3, 4, 5, 6].map((n) => (
@@ -221,7 +229,8 @@ export function ServicesPage() {
               </button>
             </div>
           ) : (
-            <CmsElement pageId="services" sectionKey="directory" elementId="grid" className="s2-dir-grid s2-stagger">
+            <CmsElement pageId="services" sectionKey="directory" elementId="service_card">
+              <CmsElement pageId="services" sectionKey="directory" elementId="grid" className="s2-dir-grid s2-stagger">
               {filtered.map((svc, i) => {
                 const n = i + 1
                 const withinSlot = n <= HOME_LIST_LIMITS.serviceDirectory
@@ -308,6 +317,7 @@ export function ServicesPage() {
                   </CmsElement>
                 )
               })}
+              </CmsElement>
             </CmsElement>
           )}
         </div>

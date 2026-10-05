@@ -46,6 +46,8 @@ export const CANONICAL_SECTION_ELEMENTS: Record<string, Record<string, Canonical
       { id: 'link', label: 'WhatsApp link' },
     ],
     search: [
+      { id: 'heading', label: 'Section heading' },
+      { id: 'subtitle', label: 'Supporting text' },
       { id: 'collection', label: 'Search field' },
       { id: 'primary_button', label: 'Search button' },
     ],

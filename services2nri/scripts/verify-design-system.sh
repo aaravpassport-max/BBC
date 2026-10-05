@@ -107,7 +107,9 @@ node scripts/audit-rich-panel-save.mjs && ok rich panel save audit || bad rich p
 node scripts/audit-public-cms-keys.mjs && ok public cms key audit || bad public cms key audit
 
 if [[ "${SKIP_CMS_E2E:-0}" != "1" ]]; then
-  if npm run test:e2e -- e2e/design-cms-content.spec.ts e2e/design-cms-matrix.spec.ts e2e/design-cms-admin-save.spec.ts e2e/design-cms-element-style.spec.ts e2e/design-cms-hiw-elements.spec.ts; then
+  node scripts/generate-cms-layer-audit.mjs >/dev/null
+  node scripts/audit-canonical-dom-markers.mjs >/dev/null
+  if npm run test:e2e -- --workers=1 e2e/design-cms-content.spec.ts e2e/design-cms-matrix.spec.ts e2e/design-cms-admin-save.spec.ts e2e/design-cms-admin-home-sections.spec.ts e2e/design-cms-layer-audit.spec.ts e2e/design-cms-element-style.spec.ts e2e/design-cms-hiw-elements.spec.ts e2e/design-cms-marketing-elements.spec.ts; then
     ok cms design e2e suites
   else
     bad cms design e2e suites

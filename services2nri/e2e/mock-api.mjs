@@ -1,4 +1,5 @@
 /** Minimal REST mocks for Playwright smoke tests. */
+import { isPublicSettingKey } from './lib/public-settings-policy.mjs'
 
 const MOCK_SECTIONS = [
   {
@@ -388,7 +389,11 @@ export function handleMockApi(pathname, method, requestBody) {
   }
 
   const routes = {
-    'GET settings/public': { settings: { ...e2ePlatformSettings } },
+    'GET settings/public': {
+      settings: Object.fromEntries(
+        Object.entries(e2ePlatformSettings).filter(([k]) => isPublicSettingKey(k)),
+      ),
+    },
     'GET navigation/public': { menu: { cols: [] }, flat: [] },
     'GET services': { services: mockServicesForCategory('property'), categories: [] },
     'GET categories': { categories: MOCK_CATEGORIES },
