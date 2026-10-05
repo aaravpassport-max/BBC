@@ -18,6 +18,8 @@ import { Link, useParams } from 'react-router-dom'
 import { Layout, PageHero } from '@/components/layout/Layout'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
+import { useResource } from '@/lib/useResource'
+import { BlogArticleShellSkeleton } from '@/components/ui/LoadingPlaceholders'
 import { getAvatarImage, IMAGES } from '@/lib/images'
 import type { FAQ, BlogPost, PricingPlan } from '@/types'
 import { PublicSection, PublicSectionHead, PublicGrid, PublicCard, PublicCtaLink } from '@/components/public/PublicLayout'
@@ -350,16 +352,14 @@ export function FAQPage() {
   const settings = useStore((s) => s.settings)
   const primary = resolvePrimary(settings)
   const [openIdx, setOpenIdx] = useState<number | null>(null)
-  const [faqs,    setFaqs]    = useState<FAQ[]>([])
-  const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    api.get<{ faqs: FAQ[] }>('faqs')
-      .then((d) => { setFaqs(d.faqs || []); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [])
+  const { data } = useResource(
+    'faqs',
+    () => api.get<{ faqs: FAQ[] }>('faqs'),
+    { persist: true, ttl: 120_000 },
+  )
 
-  const display = faqs.length > 0 ? faqs : FAQ_FALLBACK
+  const display = (data?.faqs?.length ? data.faqs : FAQ_FALLBACK)
 
   return (
     <Layout>
@@ -376,26 +376,22 @@ export function FAQPage() {
       />
       <PublicSection pageTemplateId="faq" className="s2-public-faq" sectionKey="faq" width="narrow">
         <div className="s2-container s2-width-narrow">
-          {loading ? (
-            <div className="s2-text-muted s2-public-faq-loading">Loading FAQs…</div>
-          ) : (
-            display.map((faq, i) => (
-              <div key={faq.id || i} className={`s2-public-faq-item${openIdx === i ? ' s2-public-faq-item--open' : ''}`}>
-                <button
-                  type="button"
-                  className="s2-public-faq-q s2-t-body"
-                  onClick={() => setOpenIdx(openIdx === i ? null : i)}
-                  aria-expanded={openIdx === i}
-                >
-                  <span>{faq.q || faq.question}</span>
-                  <span className="s2-public-faq-toggle" aria-hidden>{openIdx === i ? '−' : '+'}</span>
-                </button>
-                {openIdx === i && (
-                  <div className="s2-public-faq-a">{faq.a || faq.answer}</div>
-                )}
-              </div>
-            ))
-          )}
+          {display.map((faq, i) => (
+            <div key={faq.id || i} className={`s2-public-faq-item${openIdx === i ? ' s2-public-faq-item--open' : ''}`}>
+              <button
+                type="button"
+                className="s2-public-faq-q s2-t-body"
+                onClick={() => setOpenIdx(openIdx === i ? null : i)}
+                aria-expanded={openIdx === i}
+              >
+                <span>{faq.q || faq.question}</span>
+                <span className="s2-public-faq-toggle" aria-hidden>{openIdx === i ? '−' : '+'}</span>
+              </button>
+              {openIdx === i && (
+                <div className="s2-public-faq-a">{faq.a || faq.answer}</div>
+              )}
+            </div>
+          ))}
 
           {!isTemplateSectionHidden(settings, 'faq', 'faq_cta') && (
           <PublicCard className="s2-public-cta-band s2-public-cta-band--spaced">
@@ -433,15 +429,14 @@ const COMPARE_FEATURES = [
 
 export function PricingPage() {
   const settings = useStore((s) => s.settings)
-  const [plans, setPlans] = useState<PricingPlan[]>([])
 
-  useEffect(() => {
-    api.get<{ plans: PricingPlan[] }>('pricing-plans')
-      .then((d) => setPlans(d.plans || []))
-      .catch(() => {})
-  }, [])
+  const { data } = useResource(
+    'pricing-plans',
+    () => api.get<{ plans: PricingPlan[] }>('pricing-plans'),
+    { persist: true, ttl: 120_000 },
+  )
 
-  const display = plans.length > 0 ? plans : PRICING_FALLBACK
+  const display = (data?.plans?.length ? data.plans : PRICING_FALLBACK)
 
   const heroBg = 'linear-gradient(135deg, var(--s2-color-secondary) 0%, var(--s2-color-primary) 100%)'
 
@@ -510,7 +505,7 @@ export function PricingPage() {
           feature availability — a real, customer-facing accuracy
           problem, not just a cosmetic one. Only shown when displaying
           the fallback content it was actually authored for. */}
-      {plans.length === 0 && (
+      {(data?.plans?.length ?? 0) === 0 && (
         <PublicSection pageTemplateId="pricing" sectionKey="compare" width="wide">
           <PublicSectionHead
             title={settings.pricing_compare_title || 'Services2NRI vs Others'}
@@ -606,17 +601,16 @@ function estimateReadTime(content?: string): string {
 
 export function BlogListPage() {
   const siteName = useStore((s) => s.settings).platform_name || 'Services2NRI'
-  const [posts,      setPosts]      = useState<BlogPost[]>([])
-  const [loading,    setLoading]    = useState(true)
   const [search,     setSearch]     = useState('')
   const [activeCategory, setActiveCategory] = useState('All')
 
-  useEffect(() => {
-    api.get<{ posts: BlogPost[] }>('blog?per_page=20')
-      .then((d) => { setPosts(d.posts || []); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [])
+  const { data } = useResource(
+    'blog?per_page=20',
+    () => api.get<{ posts: BlogPost[] }>('blog?per_page=20'),
+    { persist: true, ttl: 120_000 },
+  )
 
+  const posts = data?.posts ?? []
   const allPosts = posts.length > 0 ? posts : BLOG_FALLBACK
   const featured = allPosts[0]
   const rest = allPosts.slice(1).filter(p => {
@@ -655,10 +649,7 @@ export function BlogListPage() {
       </div>
 
       <div className="s2-container s2-blog-main">
-        {loading ? (
-          <div className="s2-blog-loading"><div className="s2-blog-loading__icon">📖</div>Loading articles…</div>
-        ) : (
-          <>
+        <>
             {featured && activeCategory === 'All' && !search && (
               <Link to={`/blog/${featured.slug}`} className="s2-blog-featured s2-mobile-stack">
                 <img src={featured.img || featured.image_url || IMAGES.about} alt={featured.title} />
@@ -708,8 +699,7 @@ export function BlogListPage() {
                 <button type="button" onClick={() => { setSearch(''); setActiveCategory('All') }} className="s2-btn s2-btn--primary s2-blog-empty__btn">Clear Filters</button>
               </div>
             )}
-          </>
-        )}
+        </>
       </div>
     </Layout>
   )
@@ -727,46 +717,65 @@ const BLOG_DETAIL_FALLBACK: Record<string, BlogPost> = {
 export function BlogDetailPage() {
   const { slug }  = useParams<{ slug: string }>()
   const siteName  = useStore((s) => s.settings).platform_name || 'Services2NRI'
-  const [post,    setPost]    = useState<BlogPost | null>(null)
-  const [related, setRelated] = useState<BlogPost[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadFailed, setLoadFailed] = useState(false)
+  const postPath = slug ? `blog/${slug}` : null
+  const [notFound, setNotFound] = useState(false)
 
-  const loadPost = useCallback(() => {
-    if (!slug) return
-    setLoading(true)
-    setLoadFailed(false)
-    api.get<{ post: BlogPost }>(`blog/${slug}`)
-      .then((d) => { setPost(d.post || null); setLoading(false) })
-      // FIXED: same "not found vs load failed" conflation fixed
-      // repeatedly this session elsewhere — BLOG_DETAIL_FALLBACK only
-      // covers one hardcoded slug ('oci-card-renewal-guide'), so any
-      // OTHER real blog post hitting a transient server error previously
-      // showed "Article not found" (a false claim) instead of a retry
-      // option. Uses the same status-field distinction already
-      // established and verified with api.ts's thrown error shape.
-      .catch((e: unknown) => {
-        setLoading(false)
-        const status = (e as { status?: number })?.status
-        if (status !== 404) setLoadFailed(true)
-      })
-    // Load related posts
-    api.get<{ posts: BlogPost[] }>('blog?per_page=4')
-      .then(d => setRelated((d.posts || []).filter(p => p.slug !== slug).slice(0, 3)))
-      .catch(() => {})
+  useEffect(() => {
+    setNotFound(false)
   }, [slug])
 
-  useEffect(() => { loadPost() }, [loadPost])
+  const fetchPost = useCallback(async () => {
+    try {
+      return await api.get<{ post: BlogPost }>(`blog/${slug!}`)
+    } catch (e: unknown) {
+      if ((e as { status?: number }).status === 404) setNotFound(true)
+      throw e
+    }
+  }, [slug])
 
+  const {
+    data: postData,
+    error: postError,
+    isInitialLoad: postInitial,
+    refresh: refreshPost,
+  } = useResource(
+    postPath,
+    fetchPost,
+    { persist: true, ttl: 120_000, enabled: !!slug },
+  )
+
+  const { data: relatedData } = useResource(
+    'blog?per_page=4',
+    () => api.get<{ posts: BlogPost[] }>('blog?per_page=4'),
+    { persist: true, ttl: 120_000 },
+  )
+
+  const post = postData?.post ?? null
+  const related = (relatedData?.posts || []).filter((p) => p.slug !== slug).slice(0, 3)
   const display = post || (slug ? BLOG_DETAIL_FALLBACK[slug] : null)
   const readTime = display?.read_time || estimateReadTime(display?.content)
+  const loadFailed = postError && !display && !notFound
 
-  if (loading) {
+  const loadPost = useCallback(() => {
+    setNotFound(false)
+    refreshPost(true)
+  }, [refreshPost])
+
+  if (postInitial && !display) {
     return (
       <Layout>
-        <div className="s2-blog-state s2-text-muted">
-          <div className="s2-svc-spinner" aria-label="Loading" />
-          Loading article…
+        <BlogArticleShellSkeleton />
+      </Layout>
+    )
+  }
+
+  if (notFound && !display) {
+    return (
+      <Layout>
+        <div className="s2-blog-state">
+          <div className="s2-blog-state__icon">📄</div>
+          <h2 className="s2-t-h2">Article not found</h2>
+          <Link to="/blog" className="s2-home-text-link">← Back to Knowledge Hub</Link>
         </div>
       </Layout>
     )

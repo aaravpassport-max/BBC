@@ -3,6 +3,20 @@ import { fetchResource, isCacheFresh } from '@/lib/resource-cache'
 
 /** Prefetch GET endpoints for likely next navigation (non-blocking). */
 const ROUTE_API_MAP: Record<string, string[]> = {
+  '/': [
+    'categories?surface=homepage',
+    'cities?surface=homepage',
+    'testimonials',
+  ],
+  '/about': [],
+  '/contact': [],
+  '/how-it-works': [],
+  '/faq': ['faqs'],
+  '/pricing': ['pricing-plans'],
+  '/blog': ['blog?per_page=20'],
+  '/terms': [],
+  '/privacy': [],
+  '/services': ['categories?surface=directory', 'services?surface=directory'],
   '/dashboard': ['bookings?per_page=5', 'notifications?per_page=20'],
   '/dashboard/bookings': ['bookings?per_page=20&page=1'],
   '/dashboard/tickets': ['tickets?per_page=20'],
@@ -19,9 +33,13 @@ const ROUTE_API_MAP: Record<string, string[]> = {
   '/admin/tickets': ['admin/tickets?status=open&per_page=50'],
   '/admin/settings': ['admin/settings'],
   '/admin/audit-log': ['admin/audit-log?per_page=50&page=1'],
-  '/services': ['services', 'categories'],
   '/service/birth-certificate': ['services/birth-certificate', 'services/birth-certificate/sections'],
 }
+
+/** Warm common marketing routes after first paint (does not block UI). */
+const IDLE_PUBLIC_ROUTES = ['/services', '/blog', '/faq', '/pricing'] as const
+
+let idlePrefetchStarted = false
 
 export function prefetchApiGet(path: string): void {
   if (isCacheFresh('GET', path, 90_000)) return
@@ -41,12 +59,44 @@ export function prefetchForRoute(internalPath: string): void {
       prefetchApiGet(`services/${slug}`)
       prefetchApiGet(`services/${slug}/sections`)
     }
+    return
+  }
+  if (clean.startsWith('/blog/') && clean.length > '/blog/'.length) {
+    const slug = clean.slice('/blog/'.length)
+    if (slug) {
+      prefetchApiGet(`blog/${slug}`)
+      prefetchApiGet('blog?per_page=4')
+    }
+    return
+  }
+  if (clean.startsWith('/cities/')) {
+    prefetchApiGet('cities?surface=homepage')
+    return
+  }
+  if (clean.startsWith('/services/') && clean.length > '/services/'.length) {
+    prefetchApiGet('categories?surface=directory')
+    prefetchApiGet('services?surface=directory')
+    return
   }
   if (clean.startsWith('/admin/customers/')) {
     prefetchApiGet(`admin/customers/${clean.split('/').pop()}`)
+    return
   }
   if (clean.match(/\/admin\/(requests|bookings)\/\d+/)) {
     const id = clean.split('/').pop()
     prefetchApiGet(`admin/bookings/${id}`)
+  }
+}
+
+export function prefetchPublicRoutesIdle(): void {
+  if (idlePrefetchStarted) return
+  idlePrefetchStarted = true
+  const run = () => {
+    IDLE_PUBLIC_ROUTES.forEach(prefetchForRoute)
+  }
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(run, { timeout: 4000 })
+  } else {
+    window.setTimeout(run, 1200)
   }
 }

@@ -5,6 +5,15 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.68] — 2026-10-05 — Cloud Agent
+
+- **Public pages:** FAQ, blog list/detail, pricing, and services directory use `useResource` + session cache — no full-page spinners or “Loading…” blocks; marketing fallbacks render instantly while API data revalidates in the background.
+- **Home + chrome:** Homepage categories, cities, and testimonials use cached GET + subscriptions; layout nav/footer prefetch from cache; idle prefetch warms `/services`, `/blog`, `/faq`, and `/pricing`.
+- **Prefetch map:** Route prefetch covers `/`, blog slugs, city pages, and category service URLs.
+- **Customer:** Bookings list uses the same SWR pattern as the dashboard (cached revisits, subtle refresh dim).
+
+---
+
 ## [4.7.67] — 2026-10-05 — Cloud Agent
 
 - **Faster data resolution:** GET cache now skips the network when fresh (45s); stale entries return immediately and revalidate in the background with subscriber updates (fixes 2–3s waits on every navigation).

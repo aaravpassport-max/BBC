@@ -38,6 +38,7 @@ import { Layout } from '@/components/layout/Layout'
 import { PublicSectionHead } from '@/components/public/PublicLayout'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
+import { subscribeResource } from '@/lib/resource-cache'
 import { parseHeroBanners, IMAGES, getAvatarImage } from '@/lib/images'
 import type { Category, Service, City, Testimonial } from '@/types'
 import {
@@ -218,55 +219,93 @@ export function HomePage() {
   ]
 
   useEffect(() => {
-    // Load categories + services
-    api.get<{ categories: Category[] }>('categories?surface=homepage')
-      .then((data) => {
-        const cats = data.categories || []
-        setCategories(cats)
-        if (cats.length > 0) setActiveCategory(cats[0].slug)
-        cats.forEach((cat) => {
-          api.get<{ services: Service[] }>(`services?surface=homepage&category=${cat.slug}&per_page=4`)
-            .then((r) => setServiceMap((prev) => ({ ...prev, [cat.slug]: r.services || [] })))
-            .catch(() => {})
-        })
-      })
-      .catch(() => {
-        // Fallback categories
-        setCategories([
-          { id: 1, slug: 'property',   name: 'Property',   icon: '🏠', color: '#4A6FA5' },
-          { id: 2, slug: 'financial',  name: 'Financial',  icon: '💰', color: '#7b1fa2' },
-          { id: 3, slug: 'immigration',name: 'Immigration',icon: '✈️', color: '#c62828' },
-          { id: 4, slug: 'education',  name: 'Education',  icon: '🎓', color: '#00695c' },
-        ])
-        setActiveCategory('property')
-        ;['property', 'financial', 'immigration', 'education'].forEach((slug) => {
-          api.get<{ services: Service[] }>(`services?surface=homepage&category=${slug}&per_page=4`)
-            .then((r) => setServiceMap((prev) => ({ ...prev, [slug]: r.services || [] })))
-            .catch(() => {})
-        })
-      })
+    const unsubs: Array<() => void> = []
 
-    // Load cities
-    api.get<{ cities: City[] }>('cities?surface=homepage')
-      .then((data) => {
-        const c = data.cities || []
-        if (c.length > 0) {
-          setCities(c.map((city) => ({
-            name: city.name,
-            slug: city.slug,
-            img: city.image_url || IMAGES[city.slug] || IMAGES.pune,
-          })))
+    const loadCategoryServices = (cats: Category[]) => {
+      cats.forEach((cat) => {
+        const path = `services?surface=homepage&category=${cat.slug}&per_page=4`
+        const cached = api.peekGet<{ services: Service[] }>(path)
+        if (cached?.services?.length) {
+          setServiceMap((prev) => ({ ...prev, [cat.slug]: cached.services || [] }))
         }
+        void api.getCached<{ services: Service[] }>(path)
+          .then((r) => setServiceMap((prev) => ({ ...prev, [cat.slug]: r.services || [] })))
+          .catch(() => {})
+        unsubs.push(
+          subscribeResource('GET', path, (fresh) => {
+            const row = fresh as { services?: Service[] }
+            if (row.services?.length) {
+              setServiceMap((prev) => ({ ...prev, [cat.slug]: row.services || [] }))
+            }
+          }),
+        )
       })
-      .catch(() => {})
+    }
 
-    // Load testimonials
-    api.get<{ testimonials: Testimonial[] }>('testimonials')
-      .then((data) => {
-        const t = (data.testimonials || []).filter((x) => x.is_active !== false)
-        if (t.length > 0) setTestimonials(t)
+    const applyCategories = (data: { categories?: Category[] }) => {
+      const cats = data.categories || []
+      if (!cats.length) return
+      setCategories(cats)
+      setActiveCategory((prev) => prev || cats[0].slug)
+      loadCategoryServices(cats)
+    }
+
+    const fallbackCategories: Category[] = [
+      { id: 1, slug: 'property', name: 'Property', icon: '🏠', color: '#4A6FA5' },
+      { id: 2, slug: 'financial', name: 'Financial', icon: '💰', color: '#7b1fa2' },
+      { id: 3, slug: 'immigration', name: 'Immigration', icon: '✈️', color: '#c62828' },
+      { id: 4, slug: 'education', name: 'Education', icon: '🎓', color: '#00695c' },
+    ]
+
+    const catsPath = 'categories?surface=homepage'
+    const cachedCats = api.peekGet<{ categories: Category[] }>(catsPath)
+    if (cachedCats?.categories?.length) applyCategories(cachedCats)
+
+    void api.getCached<{ categories: Category[] }>(catsPath)
+      .then(applyCategories)
+      .catch(() => {
+        setCategories(fallbackCategories)
+        setActiveCategory('property')
+        loadCategoryServices(fallbackCategories)
       })
-      .catch(() => {})
+    unsubs.push(
+      subscribeResource('GET', catsPath, (fresh) => applyCategories(fresh as { categories?: Category[] })),
+    )
+
+    const citiesPath = 'cities?surface=homepage'
+    const applyCities = (data: { cities?: City[] }) => {
+      const c = data.cities || []
+      if (!c.length) return
+      setCities(
+        c.map((city) => ({
+          name: city.name,
+          slug: city.slug,
+          img: city.image_url || IMAGES[city.slug] || IMAGES.pune,
+        })),
+      )
+    }
+    const cachedCities = api.peekGet<{ cities: City[] }>(citiesPath)
+    if (cachedCities) applyCities(cachedCities)
+    void api.getCached<{ cities: City[] }>(citiesPath).then(applyCities).catch(() => {})
+    unsubs.push(subscribeResource('GET', citiesPath, (fresh) => applyCities(fresh as { cities?: City[] })))
+
+    const testimonialsPath = 'testimonials'
+    const applyTestimonials = (data: { testimonials?: Testimonial[] }) => {
+      const t = (data.testimonials || []).filter((x) => x.is_active !== false)
+      if (t.length) setTestimonials(t)
+    }
+    const cachedTestimonials = api.peekGet<{ testimonials: Testimonial[] }>(testimonialsPath)
+    if (cachedTestimonials) applyTestimonials(cachedTestimonials)
+    void api.getCached<{ testimonials: Testimonial[] }>(testimonialsPath).then(applyTestimonials).catch(() => {})
+    unsubs.push(
+      subscribeResource('GET', testimonialsPath, (fresh) =>
+        applyTestimonials(fresh as { testimonials?: Testimonial[] }),
+      ),
+    )
+
+    return () => {
+      unsubs.forEach((off) => off())
+    }
   }, [])
 
   const displayServices =

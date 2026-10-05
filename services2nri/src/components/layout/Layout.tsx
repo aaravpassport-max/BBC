@@ -24,7 +24,8 @@ import { getRuntimeDesignConfig } from '@/lib/apply-design-config'
 import { resolveChromeLayer } from '@/lib/design-resolve'
 import { DESIGN_UPDATED_EVENT } from '@/lib/design-live-sync'
 import { pageContextFromPath } from '@/lib/width-layout'
-import { prefetchForRoute } from '@/lib/prefetch'
+import { prefetchForRoute, prefetchPublicRoutesIdle } from '@/lib/prefetch'
+import { subscribeResource } from '@/lib/resource-cache'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -73,54 +74,79 @@ export function Layout({ children }: LayoutProps) {
 
   const [footerServices, setFooterServices] = useState<Array<{ name: string; slug: string }>>([])
 
+  useEffect(() => {
+    prefetchPublicRoutesIdle()
+  }, [])
+
+  const applyNavFromServices = (services: Service[]) => {
+    if (!services.length) return
+    const slugSet = new Set(services.map((s) => s.slug))
+    const nameMap: Record<string, string> = {}
+    services.forEach((s) => { nameMap[s.name.toLowerCase().trim()] = s.slug })
+    const updated = NAV_MENU.map((item) =>
+      item.cols
+        ? {
+            ...item,
+            cols: item.cols
+              .map((col) => ({
+                ...col,
+                items: col.items
+                  .map((link) => {
+                    if (slugSet.has(link.slug)) return link
+                    const found = nameMap[link.label.toLowerCase().trim()]
+                    return found ? { ...link, slug: found } : link
+                  })
+                  .filter((link) => slugSet.has(link.slug)),
+              }))
+              .filter((col) => col.items.length > 0),
+          }
+        : item,
+    ).filter((item) => !item.cols || item.cols.length > 0)
+    setNavItems(updated)
+  }
+
   // Central navigation from service registry (falls back to static NAV_MENU).
   useEffect(() => {
-    api.get<{ menu: NavItem[] }>('navigation/public')
+    const navPath = 'navigation/public'
+    const cachedNav = api.peekGet<{ menu: NavItem[] }>(navPath)
+    if (cachedNav?.menu?.length) setNavItems(cachedNav.menu as NavItem[])
+
+    const navDropdownPath = 'services?surface=nav_dropdown'
+    const cachedDropdown = api.peekGet<{ services: Service[] }>(navDropdownPath)
+    if (cachedDropdown?.services?.length) applyNavFromServices(cachedDropdown.services)
+
+    void api.getCached<{ menu: NavItem[] }>(navPath)
       .then((data) => {
-        if (data.menu?.length) {
-          setNavItems(data.menu as NavItem[])
-        }
+        if (data.menu?.length) setNavItems(data.menu as NavItem[])
       })
       .catch(() => {
-        api.get<{ services: Service[] }>('services?surface=nav_dropdown')
-          .catch(() => ({ services: [] }))
-          .then((data) => {
-            const services = data.services || []
-            if (!services.length) return
-            const slugSet = new Set(services.map((s) => s.slug))
-            const nameMap: Record<string, string> = {}
-            services.forEach((s) => { nameMap[s.name.toLowerCase().trim()] = s.slug })
-            const updated = NAV_MENU.map((item) =>
-              item.cols
-                ? {
-                    ...item,
-                    cols: item.cols
-                      .map((col) => ({
-                        ...col,
-                        items: col.items
-                          .map((link) => {
-                            if (slugSet.has(link.slug)) return link
-                            const found = nameMap[link.label.toLowerCase().trim()]
-                            return found ? { ...link, slug: found } : link
-                          })
-                          .filter((link) => slugSet.has(link.slug)),
-                      }))
-                      .filter((col) => col.items.length > 0),
-                  }
-                : item
-            ).filter((item) => !item.cols || item.cols.length > 0)
-            setNavItems(updated)
-          })
+        void api.getCached<{ services: Service[] }>(navDropdownPath)
+          .then((data) => applyNavFromServices(data.services || []))
+          .catch(() => {})
       })
+
+    const unsubs = [
+      subscribeResource('GET', navPath, (fresh) => {
+        const row = fresh as { menu?: NavItem[] }
+        if (row.menu?.length) setNavItems(row.menu as NavItem[])
+      }),
+      subscribeResource('GET', navDropdownPath, (fresh) => {
+        applyNavFromServices((fresh as { services?: Service[] }).services || [])
+      }),
+    ]
+    return () => unsubs.forEach((off) => off())
   }, [])
 
   useEffect(() => {
-    api.get<{ services: Service[] }>('services?surface=footer')
-      .then((d) => {
-        const list = (d.services || []).slice(0, 8).map((s) => ({ name: s.name, slug: s.slug }))
-        if (list.length) setFooterServices(list)
-      })
-      .catch(() => {})
+    const footerPath = 'services?surface=footer'
+    const applyFooter = (d: { services?: Service[] }) => {
+      const list = (d.services || []).slice(0, 8).map((s) => ({ name: s.name, slug: s.slug }))
+      if (list.length) setFooterServices(list)
+    }
+    const cached = api.peekGet<{ services: Service[] }>(footerPath)
+    if (cached) applyFooter(cached)
+    void api.getCached<{ services: Service[] }>(footerPath).then(applyFooter).catch(() => {})
+    return subscribeResource('GET', footerPath, (fresh) => applyFooter(fresh as { services?: Service[] }))
   }, [])
 
   const isStaff = user && STAFF_ROLES.includes(user.s2nri_role)

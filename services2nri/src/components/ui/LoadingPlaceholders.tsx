@@ -78,3 +78,35 @@ export function ServiceDetailShellSkeleton() {
     </div>
   )
 }
+
+export function BlogArticleShellSkeleton() {
+  return (
+    <div className="s2-skeleton-region s2-container" style={{ padding: '32px 0', minHeight: 420 }} aria-busy="true">
+      <SkeletonBlock height={14} width="28%" style={{ marginBottom: 16 }} />
+      <SkeletonBlock height={36} width="85%" style={{ marginBottom: 12 }} />
+      <SkeletonBlock height={16} width="45%" style={{ marginBottom: 28 }} />
+      <SkeletonBlock height={220} style={{ borderRadius: 12, marginBottom: 24 }} />
+      <SkeletonBlock height={14} style={{ marginBottom: 10 }} />
+      <SkeletonBlock height={14} style={{ marginBottom: 10 }} />
+      <SkeletonBlock height={14} width="92%" style={{ marginBottom: 10 }} />
+      <SkeletonBlock height={14} width="78%" />
+    </div>
+  )
+}
+
+export function BlogGridSkeleton() {
+  return (
+    <div className="s2-skeleton-region s2-blog-grid" aria-busy="true">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="s2-blog-card" style={{ pointerEvents: 'none' }}>
+          <SkeletonBlock height={180} style={{ borderRadius: '12px 12px 0 0' }} />
+          <div style={{ padding: 16 }}>
+            <SkeletonBlock height={18} style={{ marginBottom: 10 }} />
+            <SkeletonBlock height={12} style={{ marginBottom: 8 }} />
+            <SkeletonBlock height={12} width="70%" />
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}

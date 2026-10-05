@@ -8,6 +8,7 @@ import { Link, useParams } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
+import { useResource } from '@/lib/useResource'
 import { getServiceImage } from '@/lib/images'
 import type { Category, Service } from '@/types'
 import { isTemplateSectionHidden } from '@/lib/section-visibility'
@@ -21,33 +22,47 @@ export function ServicesPage() {
   const settings = useStore((s) => s.settings)
   const showSearch = settingFlag(settings.services_show_search, true)
   const showCategoryFilter = settingFlag(settings.services_show_category_filter, true)
-  const [categories, setCategories] = useState<Category[]>([])
-  const [services,   setServices]   = useState<Service[]>([])
   const [search,     setSearch]     = useState('')
   const [activeSlug, setActiveSlug] = useState('')
-  const [loading,    setLoading]    = useState(true)
-  const [loadError,  setLoadError]  = useState(false)
   const [searchResults, setSearchResults] = useState<Service[] | null>(null)
 
   const { categorySlug } = useParams<{ categorySlug?: string }>()
 
-  const load = () => {
-    setLoading(true)
-    setLoadError(false)
-    Promise.all([
-      api.get<{ categories: Category[] }>('categories?surface=directory'),
-      api.get<{ services: Service[] }>('services?surface=directory'),
-    ])
-      .then(([catsData, svcsData]) => {
-        setCategories(catsData.categories || [])
-        setServices(svcsData.services || [])
-        if (categorySlug) setActiveSlug(categorySlug)
-        setLoading(false)
-      })
-      .catch(() => { setLoading(false); setLoadError(true) })
-  }
+  const {
+    data: catsData,
+    error: catsError,
+    isInitialLoad: catsInitial,
+    refresh: refreshCats,
+  } = useResource(
+    'categories?surface=directory',
+    () => api.get<{ categories: Category[] }>('categories?surface=directory'),
+    { persist: true, ttl: 120_000 },
+  )
+  const {
+    data: svcsData,
+    error: svcsError,
+    isInitialLoad: svcsInitial,
+    refresh: refreshSvcs,
+  } = useResource(
+    'services?surface=directory',
+    () => api.get<{ services: Service[] }>('services?surface=directory'),
+    { persist: true, ttl: 120_000 },
+  )
 
-  useEffect(() => { load() }, [categorySlug])
+  const categories = catsData?.categories ?? []
+  const services = svcsData?.services ?? []
+  const loadError = catsError || svcsError
+  const showSkeleton =
+    categories.length === 0 && services.length === 0 && (catsInitial || svcsInitial)
+
+  useEffect(() => {
+    if (categorySlug) setActiveSlug(categorySlug)
+  }, [categorySlug])
+
+  const load = () => {
+    refreshCats(true)
+    refreshSvcs(true)
+  }
 
   useEffect(() => {
     const q = search.trim()
@@ -154,7 +169,7 @@ export function ServicesPage() {
         )}
 
         <div className="s2-dir-main">
-          {loading ? (
+          {showSkeleton ? (
             <div className="s2-dir-grid s2-stagger">
               {[1, 2, 3, 4, 5, 6].map((n) => (
                 <div key={n} className="s2-dir-skeleton">

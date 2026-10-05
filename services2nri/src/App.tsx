@@ -78,7 +78,7 @@ const AdminCities            = lazy(() => import('./pages/admin/index').then((m)
 
 import { useStore } from './lib/store'
 import { STAFF_ROLES } from './lib/constants'
-import { prefetchForRoute } from '@/lib/prefetch'
+import { prefetchForRoute, prefetchPublicRoutesIdle } from '@/lib/prefetch'
 
 // ── Scroll to top on route change (wr component) ──────────────────────────────
 function PrefetchCurrentRoute() {
@@ -86,6 +86,9 @@ function PrefetchCurrentRoute() {
   useEffect(() => {
     prefetchForRoute(pathname)
   }, [pathname])
+  useEffect(() => {
+    prefetchPublicRoutesIdle()
+  }, [])
   return null
 }
 

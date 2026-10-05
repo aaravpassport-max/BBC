@@ -209,31 +209,33 @@ export function CustomerDashboard() {
 // ── BookingListPage (ve component) ────────────────────────────────────────────
 export function BookingListPage() {
   const primary  = resolvePrimary(useStore((s) => s.settings))
-  const [data,   setData]   = useState<{ rows: Booking[]; total: number }>({ rows: [], total: 0 })
-  const [loading,setLoading]= useState(true)
-  const [loadError, setLoadError] = useState(false)
   const [status, setStatus] = useState('')
   const [page,   setPage]   = useState(1)
 
-  const load = useCallback(() => {
-    setLoading(true)
-    setLoadError(false)
+  const listPath = (() => {
     const qs = new URLSearchParams({ page: String(page), per_page: '10', ...(status && { status }) })
-    api.get<{ rows: Booking[]; total: number }>(`bookings?${qs}`)
-      .then((d) => { setData(d); setLoading(false) })
-      // FIXED (was previously silent): same bug as the dashboard home
-      // widget above — a failed fetch here rendered identically to
-      // EmptyState ("No bookings found... Browse Services"), which is
-      // especially misleading when a status filter is active, since it
-      // looks like a legitimate "no results for this filter" outcome
-      // rather than a failed request.
-      .catch(() => { setLoading(false); setLoadError(true) })
-  }, [page, status])
+    return `bookings?${qs}`
+  })()
 
-  useEffect(() => { load() }, [load])
+  const {
+    data,
+    error: loadError,
+    isInitialLoad,
+    isRefreshing,
+    refresh,
+  } = useResource(
+    listPath,
+    () => api.get<{ rows: Booking[]; total: number }>(listPath),
+    { persist: true, ttl: 60_000 },
+  )
+
+  const rows = data?.rows ?? []
+  const total = data?.total ?? 0
+  const loading = isInitialLoad && !data
+  const load = () => refresh(true)
 
   const filters = [{ label: 'All', value: '' }, { label: 'Active', value: 'active' }, { label: 'Completed', value: 'completed' }, { label: 'Cancelled', value: 'cancelled' }]
-  const totalPages = Math.ceil(data.total / 10)
+  const totalPages = Math.ceil(total / 10)
   const newRequestBtn = (
     <Link to="/services">
       <Button>+ New Request</Button>
@@ -242,7 +244,7 @@ export function BookingListPage() {
 
   return (
     <AdminScreen sticky={newRequestBtn}>
-      <PageHeader title="My Bookings" subtitle={`${data.total} total`} action={newRequestBtn} />
+      <PageHeader title="My Bookings" subtitle={`${total} total`} action={newRequestBtn} />
 
       <AdminToolbar>
         {filters.map((f) => (
@@ -258,11 +260,11 @@ export function BookingListPage() {
           <Alert type="error" message="Couldn't load your bookings right now." />
           <Button onClick={load} style={{ marginTop: 12 }}>Retry</Button>
         </div>
-      ) : data.rows.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState icon="📭" title="No bookings found" description="Submit a service request to get started." action={<Link to="/services"><Button>Browse Services</Button></Link>} />
       ) : (
-        <div>
-          {data.rows.map((b) => (
+        <div style={isRefreshing ? { opacity: 0.72, pointerEvents: 'none' as const } : undefined}>
+          {rows.map((b) => (
             <Link key={b.id} to={`/dashboard/bookings/${b.id}`} style={{ textDecoration: 'none', display: 'block', marginBottom: 12 }}>
               <Card style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', padding: '16px 20px', transition: 'box-shadow .15s' }}>
                 <div style={{ fontSize: 24 }}>{b.category_icon || '📋'}</div>
@@ -281,7 +283,7 @@ export function BookingListPage() {
             </Link>
           ))}
 
-          {data.total > 10 && (
+          {total > 10 && (
             <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 20 }}>
               <Button variant="ghost" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1}>← Prev</Button>
               <span style={{ padding: '10px 16px', color: '#6b7280', fontSize: 14 }}>Page {page} of {totalPages}</span>
