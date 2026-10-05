@@ -1,7 +1,7 @@
 /**
- * Premium homepage section list — reorder, visibility, quick edit entry.
+ * Premium section list — reorder, visibility, quick edit entry.
  */
-import React from 'react'
+import React, { useState } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -55,22 +55,74 @@ function isVisible(settings: Record<string, string>, section: SectionCatalogDef)
   return readAdminSetting(settings, section.hideSettingKey) !== '1'
 }
 
+function SectionMoreMenu({
+  section,
+  onReset,
+  resetting,
+}: {
+  section: SectionCatalogDef
+  onReset?: (section: SectionCatalogDef) => void
+  resetting: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  if (section.isPageScope || !onReset) return null
+  return (
+    <div className="s2-ds-more-menu">
+      <button
+        type="button"
+        className="s2-ds-icon-btn"
+        aria-expanded={open}
+        aria-haspopup="menu"
+        title="More actions"
+        onClick={(e) => {
+          e.stopPropagation()
+          setOpen((v) => !v)
+        }}
+      >
+        ⋮
+      </button>
+      {open && (
+        <>
+          <button type="button" className="s2-ds-more-menu__backdrop" aria-label="Close menu" onClick={() => setOpen(false)} />
+          <div className="s2-ds-more-menu__panel" role="menu">
+            <button
+              type="button"
+              role="menuitem"
+              className="s2-ds-more-menu__item"
+              disabled={resetting}
+              onClick={() => {
+                setOpen(false)
+                onReset(section)
+              }}
+            >
+              ↺ Reset section
+            </button>
+            <p className="s2-ds-more-menu__hint">Clears copy, styling overrides, and shows the section again.</p>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function SortableSectionCard({
   section,
-  settings,
   isActive,
   isHidden,
   onToggleVisibility,
   onOpenTab,
   onSelect,
+  onReset,
+  resetting,
 }: {
   section: SectionCatalogDef
-  settings: Record<string, string>
   isActive: boolean
   isHidden: boolean
   onToggleVisibility: () => void
   onOpenTab: (tab: SectionEditorTab) => void
   onSelect: () => void
+  onReset?: (section: SectionCatalogDef) => void
+  resetting: boolean
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: section.id,
@@ -101,24 +153,27 @@ function SortableSectionCard({
         </span>
       </button>
       <div className="s2-ds-section-card__actions">
-        <button
-          type="button"
-          className={`s2-ds-icon-btn${!isHidden ? ' is-on' : ''}`}
-          title={isHidden ? 'Show section on public page' : 'Hide section on public page'}
-          aria-pressed={!isHidden}
-          onClick={(e) => {
-            e.stopPropagation()
-            onToggleVisibility()
-          }}
-        >
-          👁
-        </button>
+        {section.hideSettingKey && (
+          <button
+            type="button"
+            className={`s2-ds-icon-btn${!isHidden ? ' is-on' : ''}`}
+            title={isHidden ? 'Show section on public page' : 'Hide section on public page'}
+            aria-pressed={!isHidden}
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleVisibility()
+            }}
+          >
+            👁
+          </button>
+        )}
         <button type="button" className="s2-ds-quick-tab" onClick={() => onOpenTab('content')}>
           Content
         </button>
         <button type="button" className="s2-ds-quick-tab s2-ds-quick-tab--design" onClick={() => onOpenTab('design')}>
           Design
         </button>
+        <SectionMoreMenu section={section} onReset={onReset} resetting={resetting} />
       </div>
     </div>
   )
@@ -139,6 +194,9 @@ export function DesignSectionManager({
   structureDirty,
   structureMessage,
   reorderEnabled,
+  onResetSection,
+  resettingSectionId,
+  orderAppliesOnLiveSite,
 }: {
   page: PageCatalogDef
   sections: SectionCatalogDef[]
@@ -154,6 +212,9 @@ export function DesignSectionManager({
   structureDirty: boolean
   structureMessage: { type: 'success' | 'error'; text: string } | null
   reorderEnabled: boolean
+  onResetSection?: (section: SectionCatalogDef) => void
+  resettingSectionId?: string | null
+  orderAppliesOnLiveSite?: boolean
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -177,14 +238,16 @@ export function DesignSectionManager({
     onReorder(arrayMove(orderedIds, oldIndex, newIndex))
   }
 
+  const lead = orderAppliesOnLiveSite
+    ? 'Drag to reorder homepage bands. Toggle visibility without losing content.'
+    : 'Drag to set your preferred section order (saved for this page). Visibility applies on the live site where supported.'
+
   return (
     <div className="s2-ds-section-manager">
       <div className="s2-ds-section-manager__toolbar">
         <div>
           <h3 className="s2-ds-section-manager__title">{page.label} sections</h3>
-          <p className="s2-ds-section-manager__lead">
-            Drag to reorder{reorderEnabled ? '' : ' (order applies on Homepage)'}. Toggle visibility without losing content.
-          </p>
+          <p className="s2-ds-section-manager__lead">{lead}</p>
         </div>
         <div className="s2-ds-section-manager__toolbar-actions">
           {structureDirty && <span className="s2-ds-status-chip s2-ds-status-chip--warn">Unsaved changes</span>}
@@ -212,12 +275,13 @@ export function DesignSectionManager({
                 <SortableSectionCard
                   key={sec.id}
                   section={sec}
-                  settings={settings}
                   isActive={activeSectionId === sec.id}
                   isHidden={!isVisible(settings, sec)}
                   onToggleVisibility={() => onVisibilityChange(sec, !isVisible(settings, sec))}
                   onOpenTab={(tab) => onOpenSectionTab(sec.id, tab)}
                   onSelect={() => onSelectSection(sec.id)}
+                  onReset={onResetSection}
+                  resetting={resettingSectionId === sec.id}
                 />
               ))}
             </div>
@@ -253,6 +317,11 @@ export function DesignSectionManager({
                 <button type="button" className="s2-ds-quick-tab s2-ds-quick-tab--design" onClick={() => onOpenSectionTab(sec.id, 'design')}>
                   Design
                 </button>
+                <SectionMoreMenu
+                  section={sec}
+                  onReset={onResetSection}
+                  resetting={resettingSectionId === sec.id}
+                />
               </div>
             </div>
           ))}

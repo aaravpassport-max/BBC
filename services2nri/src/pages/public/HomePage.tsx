@@ -47,7 +47,13 @@ import {
   parseStringList,
   parseWhyChooseCards,
 } from '@/lib/home-content-settings'
-import { homeSectionOrderStyle, parseHomeSectionOrder } from '@/lib/home-section-order'
+import { DEFAULT_HOME_SECTION_ORDER } from '@/lib/home-section-order'
+import {
+  mergeLegacyHomeOrder,
+  orderIdsForPage,
+  parsePageSectionOrders,
+  sectionOrderStyle,
+} from '@/lib/page-section-order'
 
 // ── Animated counter ──────────────────────────────────────────────────────────
 function useCounter(target: string, duration = 1800, started: boolean) {
@@ -330,11 +336,14 @@ export function HomePage() {
   const heroSecondaryCta = settings.hero_cta2_text || 'Get a quote'
   const heroSecondaryUrl = settings.hero_cta2_url || '/contact'
 
-  const homeSectionOrder = useMemo(
-    () => parseHomeSectionOrder(settings.home_section_order_json),
-    [settings.home_section_order_json],
-  )
-  const bandOrder = (id: string) => homeSectionOrderStyle(id, homeSectionOrder)
+  const homeSectionOrder = useMemo(() => {
+    const orders = mergeLegacyHomeOrder(
+      parsePageSectionOrders(settings.public_page_section_orders_json),
+      settings.home_section_order_json,
+    )
+    return orderIdsForPage(orders, 'home', DEFAULT_HOME_SECTION_ORDER, settings.home_section_order_json)
+  }, [settings.home_section_order_json, settings.public_page_section_orders_json])
+  const bandOrder = (id: string) => sectionOrderStyle(id, homeSectionOrder)
 
   return (
     <Layout>

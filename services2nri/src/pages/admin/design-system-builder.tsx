@@ -38,7 +38,13 @@ import {
   DesignTypographyGrid,
   DesignVisibilityToggle,
 } from './design-premium-design-panel'
-import { DEFAULT_HOME_SECTION_ORDER, parseHomeSectionOrder } from '@/lib/home-section-order'
+import {
+  mergeLegacyHomeOrder,
+  orderIdsForPage,
+  PAGE_SECTION_ORDERS_KEY,
+  parsePageSectionOrders,
+} from '@/lib/page-section-order'
+import { clearSectionDesignConfig, contentAndDesignKeysForSection } from './section-reset'
 import {
   normalizeSettingsApiResponse,
   prepareSettingsPayload,
@@ -169,7 +175,7 @@ function SectionContentPanel({
     : section.contentFields || []
   if (fields.length === 0) {
     return (
-      <div className="s2-design-builder-panel">
+      <div className="s2-design-builder-panel s2-ds-content-studio">
         {section.adminLink && (
           <p style={{ margin: '0 0 12px' }}>
             <a href={section.adminLink.path} className="s2-btn s2-btn--outline s2-btn--sm">
@@ -185,7 +191,8 @@ function SectionContentPanel({
     )
   }
   return (
-    <div className="s2-design-builder-panel">
+    <div className="s2-design-builder-panel s2-ds-content-studio">
+      <DesignPremiumGroup title={`${section.label} content`} description="Copy and links for this band only." badge="Content">
       {section.adminLink && (
         <p style={{ margin: '0 0 12px' }}>
           <a href={section.adminLink.path} className="s2-btn s2-btn--outline s2-btn--sm">
@@ -194,9 +201,9 @@ function SectionContentPanel({
         </p>
       )}
       {section.contentNote && (
-        <p style={{ color: '#64748B', fontSize: 13, marginTop: 0 }}>{section.contentNote}</p>
+        <p className="s2-ds-premium-card__hint" style={{ marginTop: 0 }}>{section.contentNote}</p>
       )}
-      <div className="s2-design-builder-panel__card">
+      <div className="s2-ds-content-fields">
         <div style={{ display: 'grid', gap: 4, maxWidth: 720 }}>
           {fields.map((f) => {
             const isJson = f.key.endsWith('_json')
@@ -238,6 +245,7 @@ function SectionContentPanel({
           )}
         </div>
       </div>
+      </DesignPremiumGroup>
     </div>
   )
 }
@@ -793,6 +801,8 @@ export function DesignSystemBuilder({
   const [pageWorkspaceTab, setPageWorkspaceTab] = useState<PageWorkspaceTab>('sections')
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null)
   const [sectionOrder, setSectionOrder] = useState<string[]>([])
+  const [pageSectionOrders, setPageSectionOrders] = useState<Record<string, string[]>>({})
+  const [resettingSectionId, setResettingSectionId] = useState<string | null>(null)
   const [structureBaseline, setStructureBaseline] = useState('')
   const [structureSaving, setStructureSaving] = useState(false)
   const [structureMessage, setStructureMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
@@ -828,18 +838,31 @@ export function DesignSystemBuilder({
     [manageableSections],
   )
 
-  const structureDirty =
-    structureBaseline !== structureSnapshot(settings, page.id === 'home' ? sectionOrder : [])
+  const structureDirty = structureBaseline !== structureSnapshot(settings, sectionOrder)
 
-  const orderedSectionIds = useMemo(() => {
-    if (page.id !== 'home') return manageableSections.map((s) => s.id)
-    const known = new Set(manageableSections.map((s) => s.id))
-    const ids = sectionOrder.filter((id) => known.has(id))
-    manageableSections.forEach((s) => {
-      if (!ids.includes(s.id)) ids.push(s.id)
-    })
-    return ids
-  }, [manageableSections, page.id, sectionOrder])
+  const catalogSectionIds = useMemo(() => manageableSections.map((s) => s.id), [manageableSections])
+
+  const orderedSectionIds = useMemo(
+    () =>
+      orderIdsForPage(
+        { ...pageSectionOrders, [page.id]: sectionOrder },
+        page.id,
+        catalogSectionIds,
+        settings.home_section_order_json,
+      ),
+    [pageSectionOrders, page.id, sectionOrder, catalogSectionIds, settings.home_section_order_json],
+  )
+
+  const syncOrderForPage = useCallback(
+    (pid: string, flat: Record<string, string>, orders: Record<string, string[]>) => {
+      const p = DESIGN_PAGE_CATALOG.find((x) => x.id === pid) || DESIGN_PAGE_CATALOG[0]
+      const ids = p.sections.filter((s) => !s.isPageScope).map((s) => s.id)
+      const order = orderIdsForPage(orders, pid, ids, flat.home_section_order_json)
+      setSectionOrder(order)
+      return order
+    },
+    [],
+  )
 
   const activeSection = useMemo(
     () => page.sections.find((s) => s.id === activeSectionId) || null,
@@ -856,8 +879,8 @@ export function DesignSystemBuilder({
   }, [])
 
   const applyStructureBaseline = useCallback(
-    (flat: Record<string, string>, order: string[], pid: string) => {
-      setStructureBaseline(structureSnapshot(flat, pid === 'home' ? order : []))
+    (flat: Record<string, string>, order: string[]) => {
+      setStructureBaseline(structureSnapshot(flat, order))
     },
     [structureSnapshot],
   )
@@ -868,16 +891,21 @@ export function DesignSystemBuilder({
       const d = await api.get<{ settings: Record<string, unknown>; settings_flat?: Record<string, string> }>('admin/settings')
       const flat = normalizeSettingsApiResponse(d)
       setSettings(flat)
-      const order = parseHomeSectionOrder(flat.home_section_order_json)
-      setSectionOrder(order)
-      applyStructureBaseline(flat, order, pageId)
+      const orders = mergeLegacyHomeOrder(
+        parsePageSectionOrders(flat[PAGE_SECTION_ORDERS_KEY]),
+        flat.home_section_order_json,
+      )
+      setPageSectionOrders(orders)
+      const order = syncOrderForPage(pageId, flat, orders)
+      applyStructureBaseline(flat, order)
     } catch {
       setSettings({})
-      setSectionOrder([...DEFAULT_HOME_SECTION_ORDER])
+      setPageSectionOrders({})
+      setSectionOrder([])
     } finally {
       setSettingsLoading(false)
     }
-  }, [applyStructureBaseline, pageId])
+  }, [applyStructureBaseline, pageId, syncOrderForPage])
 
   useEffect(() => {
     loadSettings()
@@ -895,15 +923,16 @@ export function DesignSystemBuilder({
     )
   }, [fonts, fontQuery])
 
-  const selectPage = (id: string) => {
+  const selectPage = (id: string, tab: PageWorkspaceTab = 'sections') => {
     setNavMode('page')
     setPageId(id)
-    setPageWorkspaceTab('sections')
+    setPageWorkspaceTab(tab)
     setActiveSectionId(null)
   }
 
   useEffect(() => {
-    applyStructureBaseline(settings, sectionOrder, pageId)
+    const order = syncOrderForPage(pageId, settings, pageSectionOrders)
+    applyStructureBaseline(settings, order)
     // Re-anchor dirty tracking when switching pages only (not on every settings keystroke).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageId])
@@ -980,10 +1009,13 @@ export function DesignSystemBuilder({
       manageableSections.forEach((s) => {
         if (s.hideSettingKey) payload[s.hideSettingKey] = readAdminSetting(settings, s.hideSettingKey) || '0'
       })
+      const nextOrders = { ...pageSectionOrders, [page.id]: orderedSectionIds }
+      payload[PAGE_SECTION_ORDERS_KEY] = JSON.stringify(nextOrders)
       if (page.id === 'home') {
         payload.home_section_order_json = JSON.stringify(orderedSectionIds)
       }
       await api.put('admin/settings', payload)
+      setPageSectionOrders(nextOrders)
       await loadSettings()
       setStructureMessage({ type: 'success', text: 'Page structure saved — order and visibility updated on the live site.' })
     } catch {
@@ -1002,6 +1034,42 @@ export function DesignSystemBuilder({
     setActiveSectionId(sectionId)
     setSectionTabFor(sectionId, tab)
     setPageWorkspaceTab('sections')
+  }
+
+  const handleSectionReorder = (ids: string[]) => {
+    setSectionOrder(ids)
+    setPageSectionOrders((prev) => ({ ...prev, [page.id]: ids }))
+  }
+
+  const resetSection = async (section: SectionCatalogDef) => {
+    if (section.isPageScope) return
+    const ok = window.confirm(
+      `Reset “${section.label}”?\n\nThis clears content fields, platform styling, visibility (shows section), and design overrides for this band.`,
+    )
+    if (!ok) return
+    setResettingSectionId(section.id)
+    try {
+      const keys = contentAndDesignKeysForSection(section, page.pageContentFields)
+      const payload: Record<string, string> = {}
+      keys.forEach((k) => {
+        payload[k] = section.hideSettingKey === k ? '0' : ''
+      })
+      await api.put('admin/settings', payload)
+      clearSectionDesignConfig(section.sectionKey, patch)
+      setSettings((prev) => {
+        const next = { ...prev }
+        keys.forEach((k) => {
+          next[k] = section.hideSettingKey === k ? '0' : ''
+        })
+        return next
+      })
+      await loadSettings()
+      setStructureMessage({ type: 'success', text: `${section.label} reset to defaults.` })
+    } catch {
+      setStructureMessage({ type: 'error', text: `Could not reset ${section.label}.` })
+    } finally {
+      setResettingSectionId(null)
+    }
   }
 
   const workspaceDesc =
@@ -1031,6 +1099,24 @@ export function DesignSystemBuilder({
                 type="button"
                 className={`s2-design-builder-nav__page-btn${navMode === 'page' && pageId === p.id ? ' is-active' : ''}`}
                 onClick={() => selectPage(p.id)}
+              >
+                {p.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+
+        <div className="s2-design-builder-nav__group-label">Layout &amp; width</div>
+        <p className="s2-design-builder-nav__intro">Jump to page-type width controls.</p>
+        <ul className="s2-design-builder-nav__list s2-design-builder-nav__list--compact">
+          {DESIGN_PAGE_CATALOG.map((p) => (
+            <li key={`w-${p.id}`}>
+              <button
+                type="button"
+                className={`s2-design-builder-nav__page-btn s2-design-builder-nav__page-btn--sub${
+                  navMode === 'page' && pageId === p.id && pageWorkspaceTab === 'width' ? ' is-active' : ''
+                }`}
+                onClick={() => selectPage(p.id, 'width')}
               >
                 {p.label}
               </button>
@@ -1151,7 +1237,7 @@ export function DesignSystemBuilder({
               page={page}
               sections={manageableSections}
               orderedIds={orderedSectionIds}
-              onReorder={setSectionOrder}
+              onReorder={handleSectionReorder}
               settings={settings}
               onVisibilityChange={setSectionVisibility}
               activeSectionId={activeSectionId}
@@ -1161,7 +1247,10 @@ export function DesignSystemBuilder({
               structureSaving={structureSaving}
               structureDirty={structureDirty}
               structureMessage={structureMessage}
-              reorderEnabled={page.id === 'home'}
+              reorderEnabled={catalogSectionIds.length > 1}
+              onResetSection={resetSection}
+              resettingSectionId={resettingSectionId}
+              orderAppliesOnLiveSite={page.id === 'home'}
             />
             {activeSection && !activeSection.isPageScope && (
               <div className="s2-ds-section-editor">
