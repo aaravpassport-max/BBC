@@ -5,6 +5,13 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.91] — 2026-10-05 — Cloud Agent
+
+- **CMS save audit:** CI checks that rich-panel save keys stay aligned with `RICH_FIELD_EXCLUDE`, and that public SPA catalog keys are marked public on save.
+- **Site chrome:** Header/nav and footer JSON keys save as public settings; header/footer rich panels registered in exclude list (no duplicate fields).
+
+---
+
 ## [4.7.90] — 2026-10-05 — Cloud Agent
 
 - **Rich panel save fix:** Section saves now persist all fields owned by rich CMS editors (homepage **How It Works** steps, Why Choose flat keys, services directory toggles, etc.) by aligning save keys with the rich-panel exclude list.

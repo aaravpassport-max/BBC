@@ -2107,6 +2107,49 @@ class SettingsAdminController extends \S2NRI\Api\Controllers\BaseController {
         );
     }
 
+    /** Site chrome + nav keys edited in Design System (header/footer panels). */
+    private static function isPublicChromeSettingKey( string $key ): bool {
+        if ( str_starts_with( $key, 'header_' ) || str_starts_with( $key, 'topbar_' ) ) {
+            return true;
+        }
+        if ( str_starts_with( $key, 'footer_col_' ) ) {
+            return true;
+        }
+        return in_array( $key, [ 'nav_menu_json', 'footer_quick_links_json', 'footer_locations_json', 'hiw_hero_meta_json' ], true );
+    }
+
+    /** Marketing / service template keys from the Design catalog consumed by the public SPA. */
+    private static function isPublicDesignCatalogKey( string $key ): bool {
+        if ( str_ends_with( $key, '_hero_meta_json' ) ) {
+            return true;
+        }
+        $prefixes = [
+            'contact_field_',
+            'contact_success_',
+            'contact_failed_',
+            'contact_form_submit_',
+            'blog_hero_',
+            'blog_search_',
+            'blog_categories_',
+            'pricing_consultation_',
+            'about_cta_primary_',
+            'about_cta_secondary_',
+            'service_hero_meta_',
+            'service_hero_price_',
+            'service_mobile_cta_',
+            'service_why_',
+            'service_wizard_',
+            'services_hero_meta_',
+            'services_search_',
+        ];
+        foreach ( $prefixes as $prefix ) {
+            if ( str_starts_with( $key, $prefix ) ) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Preserve JSON and multiline content; single-line fields stay sanitized. */
     private static function sanitizeSettingValue( string $key, string $value ): string {
         if ( str_ends_with( $key, '_json' ) || str_contains( $key, 'custom_css' ) ) {
@@ -2292,6 +2335,8 @@ class SettingsAdminController extends \S2NRI\Api\Controllers\BaseController {
                 || str_starts_with( $key, 'hide_tmpl_' )
                 || str_starts_with( $key, 'hide_el_' )
                 || self::isPublicMarketingFlatKey( $key )
+                || self::isPublicChromeSettingKey( $key )
+                || self::isPublicDesignCatalogKey( $key )
             ) ? 1 : 0;
 
             $stored = self::sanitizeSettingValue( $key, $value );

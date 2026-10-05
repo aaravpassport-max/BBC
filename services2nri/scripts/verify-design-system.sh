@@ -103,6 +103,8 @@ npx --yes tsx scripts/audit-element-field-resolution.mjs && ok element field res
 [[ -f src/pages/admin/section-element-inspector.tsx ]] && ok element inspector ui || bad element inspector ui
 grep -q "tab === 'elements'" src/pages/admin/design-system-builder.tsx && ok elements editor tab || bad elements editor tab
 node scripts/audit-design-cms-sync.mjs --strict && ok cms sync audit strict || bad cms sync audit strict
+node scripts/audit-rich-panel-save.mjs && ok rich panel save audit || bad rich panel save audit
+node scripts/audit-public-cms-keys.mjs && ok public cms key audit || bad public cms key audit
 
 if [[ "${SKIP_CMS_E2E:-0}" != "1" ]]; then
   if npm run test:e2e -- e2e/design-cms-content.spec.ts e2e/design-cms-matrix.spec.ts e2e/design-cms-admin-save.spec.ts e2e/design-cms-element-style.spec.ts e2e/design-cms-hiw-elements.spec.ts; then

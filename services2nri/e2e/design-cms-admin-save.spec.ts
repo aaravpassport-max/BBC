@@ -61,6 +61,28 @@ test.describe('Design System admin save → public site', () => {
     ).toContainText('E2E HIW Step One Title', { timeout: 20_000 });
   });
 
+  test('homepage Why Choose feature title saves from Content tab', async ({ page }) => {
+    await page.goto('/admin/design');
+    await expect(page.locator('.s2-design-system-page')).toBeVisible({ timeout: 30_000 });
+
+    await page.locator('.s2-design-builder-nav__page-btn:not(.s2-design-builder-nav__page-btn--sub)').filter({ hasText: 'Homepage' }).click();
+    await page.locator('[data-section-id="features"] .s2-band-card__main').click();
+    await expect(page.getByTestId('section-editor-features')).toBeVisible({ timeout: 15_000 });
+
+    const editor = page.getByTestId('section-editor-features');
+    await editor.getByRole('tab', { name: 'Content' }).click();
+    const firstTitle = editor.locator('.s2-band-list').first().locator('input').nth(1);
+    await firstTitle.fill('E2E Why Choose Card Title');
+
+    await editor.getByRole('button', { name: 'Save section content' }).click();
+    await expect(editor.getByText('Content saved')).toBeVisible({ timeout: 15_000 });
+
+    await page.goto('/');
+    await expect(
+      page.locator('[data-s2-page="home"][data-s2-section="features"][data-s2-element="feature_1_title"]'),
+    ).toContainText('E2E Why Choose Card Title', { timeout: 20_000 });
+  });
+
   test('newsletter title saved in Design System appears on homepage', async ({ page }) => {
     await page.goto('/admin/design');
     await expect(page.locator('.s2-design-system-page')).toBeVisible({ timeout: 30_000 });

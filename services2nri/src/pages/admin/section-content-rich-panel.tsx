@@ -510,6 +510,22 @@ const RICH_FIELD_EXCLUDE: Record<string, string[]> = {
   ],
   hiw_page_callout: ['hiw_page_cta_title', 'hiw_page_cta_subtitle'],
   services_directory: ['services_show_search', 'services_show_category_filter', 'services_per_page'],
+  chrome_header: [
+    'header_whatsapp_label',
+    'header_service_request_text',
+    'header_service_request_url',
+    'header_sign_in_text',
+    'header_dashboard_text',
+    'topbar_sign_in_text',
+    'topbar_sign_up_text',
+    'header_nav_about_label',
+    'header_nav_contact_label',
+    'header_nav_mega_hint',
+    'header_nav_view_all_text',
+    'nav_menu_json',
+    'header_mobile_nav_json',
+  ],
+  chrome_footer: ['footer_quick_links_json', 'footer_locations_json'],
 }
 
 export function resolveContentPanel(section: SectionCatalogDef): SectionContentPanelId | undefined {
