@@ -25,10 +25,15 @@
 - Service hero / wizard / marquee `CmsElement` markers; platform hero chip defaults
 - E2E: `hide_el_*` + service `data-s2-element` assertions
 
-## Phase 6 — Chrome & layout CMS (v4.7.73 partial)
-- Footer column heading keys in Layout
-- **Next:** footer quick-link JSON, header mega-menu sync
+## Phase 6 — Chrome & layout CMS (v4.7.74)
+- Footer quick links + location links JSON
+- Site header CMS labels (WhatsApp, service request, sign in, top bar auth)
+- Home hero + features `CmsElement` markers
 
-## Phase 7 — CI hardening (ongoing)
+## Phase 7 — Navigation registry sync (next)
+- Mega-menu column overrides when API menu empty
+- Admin preview of navigation/public
+
+## Phase 8 — CI hardening (ongoing)
 - `audit-design-cms-sync.mjs --strict` in verify-design-system.sh
 - E2E design-cms-content.spec.ts on mock settings

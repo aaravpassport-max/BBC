@@ -34,6 +34,28 @@ test.describe('Design System CMS content on public pages', () => {
     await expect(page.locator('[data-s2-section="wizard"][data-s2-element="step_heading"]')).toBeVisible();
   });
 
+  test('footer quick link from JSON settings', async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __E2E_SETTINGS_PATCH__: Record<string, string> }).__E2E_SETTINGS_PATCH__ = {
+        footer_quick_links_json: '[["/about","About CMS Link"]]',
+        footer_col_quick_title: 'Quick CMS',
+      };
+    });
+    await page.goto('/');
+    await expect(page.getByRole('heading', { name: 'Quick CMS' })).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByRole('link', { name: 'About CMS Link' })).toBeVisible();
+  });
+
+  test('header service request label from settings', async ({ page }) => {
+    await page.addInitScript(() => {
+      (window as unknown as { __E2E_SETTINGS_PATCH__: Record<string, string> }).__E2E_SETTINGS_PATCH__ = {
+        header_service_request_text: 'Request CMS Help',
+      };
+    });
+    await page.goto('/');
+    await expect(page.getByRole('link', { name: 'Request CMS Help' }).first()).toBeVisible({ timeout: 20_000 });
+  });
+
   test('contact form submit label from settings', async ({ page }) => {
     await page.addInitScript(() => {
       (window as unknown as { __E2E_SETTINGS_PATCH__: Record<string, string> }).__E2E_SETTINGS_PATCH__ = {

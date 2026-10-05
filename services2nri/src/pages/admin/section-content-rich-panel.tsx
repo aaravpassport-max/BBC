@@ -1524,11 +1524,59 @@ function HiWPageCalloutPanel({
   )
 }
 
-function ChromeFooterPanel() {
+function ChromeFooterPanel({
+  settings,
+  onChange,
+}: {
+  settings: Record<string, string>
+  onChange: (key: string, value: string) => void
+}) {
   return (
     <section className="s2-band-design-group">
-      <h4 className="s2-band-design-group__title">Site footer</h4>
-      <p className="s2-band-design-group__lead">Copyright and brand lines below. Navigation columns inherit from Site Foundation → Header &amp; footer.</p>
+      <h4 className="s2-band-design-group__title">Site footer columns</h4>
+      <p className="s2-band-design-group__lead">
+        Column headings and link lists below. Services column still pulls featured services from the registry when configured.
+      </p>
+      <div className="s2-band-content-fields">
+        <BandTextArea
+          label="Quick links JSON"
+          value={readAdminSetting(settings, 'footer_quick_links_json')}
+          rows={8}
+          onChange={(v) => onChange('footer_quick_links_json', v)}
+          hint='[["/about","About Us"],["/blog","Blog"]]'
+        />
+        <BandTextArea
+          label="Location links JSON"
+          value={readAdminSetting(settings, 'footer_locations_json')}
+          rows={8}
+          onChange={(v) => onChange('footer_locations_json', v)}
+          hint='[["Mumbai","/cities/property-management-in-mumbai"]]'
+        />
+      </div>
+    </section>
+  )
+}
+
+function ChromeHeaderPanel({
+  settings,
+  onChange,
+}: {
+  settings: Record<string, string>
+  onChange: (key: string, value: string) => void
+}) {
+  return (
+    <section className="s2-band-design-group">
+      <h4 className="s2-band-design-group__title">Header actions</h4>
+      <p className="s2-band-design-group__lead">Primary header buttons and top-bar auth labels (site-wide).</p>
+      <div className="s2-band-content-fields">
+        <BandTextInput label="WhatsApp button" value={readAdminSetting(settings, 'header_whatsapp_label')} onChange={(v) => onChange('header_whatsapp_label', v)} />
+        <BandTextInput label="Service request label" value={readAdminSetting(settings, 'header_service_request_text')} onChange={(v) => onChange('header_service_request_text', v)} />
+        <BandTextInput label="Service request URL" value={readAdminSetting(settings, 'header_service_request_url')} onChange={(v) => onChange('header_service_request_url', v)} />
+        <BandTextInput label="Sign in label" value={readAdminSetting(settings, 'header_sign_in_text')} onChange={(v) => onChange('header_sign_in_text', v)} />
+        <BandTextInput label="Dashboard label" value={readAdminSetting(settings, 'header_dashboard_text')} onChange={(v) => onChange('header_dashboard_text', v)} />
+        <BandTextInput label="Top bar sign in" value={readAdminSetting(settings, 'topbar_sign_in_text')} onChange={(v) => onChange('topbar_sign_in_text', v)} />
+        <BandTextInput label="Top bar sign up" value={readAdminSetting(settings, 'topbar_sign_up_text')} onChange={(v) => onChange('topbar_sign_up_text', v)} />
+      </div>
     </section>
   )
 }
@@ -1626,7 +1674,9 @@ export function SectionContentRichPanel({
     case 'category_catalog':
       return <CategoriesRegistryPreview />
     case 'chrome_footer':
-      return <ChromeFooterPanel />
+      return <ChromeFooterPanel settings={settings} onChange={onChange} />
+    case 'chrome_header':
+      return <ChromeHeaderPanel settings={settings} onChange={onChange} />
     case 'legal_document':
       return <LegalDocumentPanel />
     case 'registry_hub':

@@ -59,6 +59,7 @@ export type SectionContentPanelId =
   | 'service_page_band'
   | 'locations_cities'
   | 'chrome_footer'
+  | 'chrome_header'
   | 'legal_document'
   | 'registry_hub'
   | 'about_story'
@@ -448,6 +449,22 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     adminLink: { label: 'Manage cities', path: '/admin/cities' },
   },
   {
+    id: 'header',
+    label: 'Site header (global)',
+    sectionKey: 'header',
+    contentPanel: 'chrome_header',
+    contentFields: [
+      { key: 'header_whatsapp_label', label: 'WhatsApp button label', placeholder: '💬 WhatsApp' },
+      { key: 'header_service_request_text', label: 'Service request button', placeholder: 'Service Request' },
+      { key: 'header_service_request_url', label: 'Service request URL', type: 'url', placeholder: '/contact' },
+      { key: 'header_sign_in_text', label: 'Sign in (logged out)', placeholder: 'Sign In' },
+      { key: 'header_dashboard_text', label: 'Dashboard (logged in)', placeholder: 'Dashboard' },
+      { key: 'topbar_sign_in_text', label: 'Top bar sign in', placeholder: 'Sign In' },
+      { key: 'topbar_sign_up_text', label: 'Top bar sign up', placeholder: 'Sign Up' },
+    ],
+    contentNote: 'Applies on every public page. Colours/variants: Site Foundation → Header & footer.',
+  },
+  {
     id: 'footer',
     label: 'Footer',
     sectionKey: 'footer',
@@ -460,6 +477,20 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
       { key: 'footer_col_quick_title', label: 'Column: Quick links heading', placeholder: 'Quick Links' },
       { key: 'footer_col_locations_title', label: 'Column: Locations heading', placeholder: 'Locations' },
       { key: 'footer_col_contact_title', label: 'Column: Contact heading', placeholder: 'Contact' },
+      {
+        key: 'footer_quick_links_json',
+        label: 'Quick links JSON',
+        type: 'textarea',
+        rows: 8,
+        hint: '[["/about","About Us"],["/contact","Contact Us"]]',
+      },
+      {
+        key: 'footer_locations_json',
+        label: 'Location links JSON',
+        type: 'textarea',
+        rows: 8,
+        hint: '[["Mumbai","/cities/property-management-in-mumbai"]]',
+      },
     ],
     contentNote: 'Header/footer chrome defaults: Site Foundation → Header & footer.',
   },

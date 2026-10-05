@@ -5,6 +5,13 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.74] — 2026-10-05 — Cloud Agent
+
+- **Phase 6:** Footer quick/location link JSON; global header button labels; `chrome_header` / enriched `chrome_footer` admin panels; home hero + features element markers.
+- **E2E:** Footer column + header service request CMS tests.
+
+---
+
 ## [4.7.73] — 2026-10-05 — Cloud Agent
 
 - **Phase 5:** Service section element presets in Elements tab; hero/wizard/marquee `CmsElement` DOM markers; platform `service_hero_meta_secure` / price prefix.

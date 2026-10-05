@@ -26,6 +26,8 @@ import { DESIGN_UPDATED_EVENT } from '@/lib/design-live-sync'
 import { pageContextFromPath } from '@/lib/width-layout'
 import { prefetchForRoute, prefetchPublicRoutesIdle } from '@/lib/prefetch'
 import { subscribeResource } from '@/lib/resource-cache'
+import { parseFooterNavLinks } from '@/lib/home-content-settings'
+import { CmsElement } from '@/components/public/CmsElement'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -165,6 +167,36 @@ export function Layout({ children }: LayoutProps) {
   }, [location.pathname, designRevision])
 
   const pageCtx = pageContextFromPath(location.pathname)
+
+  const footerQuickLinks = useMemo(
+    () =>
+      parseFooterNavLinks(settings.footer_quick_links_json, [
+        { path: '/about', label: 'About Us' },
+        { path: '/contact', label: 'Contact Us' },
+        { path: '/how-it-works', label: 'How It Works' },
+        { path: '/faq', label: 'FAQ' },
+        { path: '/blog', label: 'Blog' },
+        { path: '/pricing', label: 'Pricing' },
+        { path: '/dashboard/bookings', label: 'Track Order' },
+      ]),
+    [settings.footer_quick_links_json],
+  )
+
+  const footerLocationLinks = useMemo(
+    () =>
+      parseFooterNavLinks(settings.footer_locations_json, [
+        { path: '/cities/property-management-in-mumbai', label: 'Mumbai' },
+        { path: '/cities/property-management-in-delhi', label: 'Delhi' },
+        { path: '/cities/property-management-in-bangalore', label: 'Bangalore' },
+        { path: '/cities/property-management-in-pune', label: 'Pune' },
+        { path: '/cities/property-management-in-hyderabad', label: 'Hyderabad' },
+        { path: '/cities/property-management-in-chennai', label: 'Chennai' },
+        { path: '/cities/property-management-in-ahmedabad', label: 'Ahmedabad' },
+        { path: '/cities/property-management-in-nagpur', label: 'Nagpur' },
+      ]),
+    [settings.footer_locations_json],
+  )
+
   const wrapClass = [
     's2-page-wrap',
     's2-page-wrap--mobile-shell',
@@ -188,7 +220,7 @@ export function Layout({ children }: LayoutProps) {
       }}
     >
       {/* ── Top bar ────────────────────────────────────────────────────────── */}
-      <div className="s2-site-topbar s2-desktop-only">
+      <div className="s2-site-topbar s2-desktop-only" data-s2-section="topbar">
         <div
           className="s2-layout-header-inner"
           style={{
@@ -291,7 +323,7 @@ export function Layout({ children }: LayoutProps) {
               {lang === 'en' ? '🇮🇳 हिंदी' : '🇺🇸 EN'}
             </button>
             <Link to="/login" style={{ color: '#fff', textDecoration: 'none', fontSize: 12, opacity: 0.9 }}>
-              Sign In
+              {settings.topbar_sign_in_text || 'Sign In'}
             </Link>
             <Link
               to="/register"
@@ -305,14 +337,14 @@ export function Layout({ children }: LayoutProps) {
                 textDecoration: 'none',
               }}
             >
-              Sign Up
+              {settings.topbar_sign_up_text || 'Sign Up'}
             </Link>
           </div>
         </div>
       </div>
 
       {/* ── Sticky header ─────────────────────────────────────────────────── */}
-      <header className={`s2-site-header${scrolled ? ' s2-site-header--scrolled' : ''}`}>
+      <header className={`s2-site-header${scrolled ? ' s2-site-header--scrolled' : ''}`} data-s2-section="header">
         <div className="s2-layout-header-inner s2-site-header__inner">
           {/* Logo */}
           <Link to="/" style={{ textDecoration: 'none', flexShrink: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -491,26 +523,34 @@ export function Layout({ children }: LayoutProps) {
           <div className="s2-site-header__end">
             <div className="s2-site-header__desktop-actions s2-desktop-only">
               {whatsapp && (
-                <a
-                  href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="s2-header-wa-btn"
-                >
-                  💬 WhatsApp
-                </a>
+                <CmsElement pageId="home" sectionKey="header" elementId="whatsapp_button">
+                  <a
+                    href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="s2-header-wa-btn"
+                  >
+                    {settings.header_whatsapp_label || '💬 WhatsApp'}
+                  </a>
+                </CmsElement>
               )}
-              <Link to="/contact" className="s2-header-outline-btn">
-                Service Request
-              </Link>
+              <CmsElement pageId="home" sectionKey="header" elementId="service_request_button">
+                <Link to={settings.header_service_request_url || '/contact'} className="s2-header-outline-btn">
+                  {settings.header_service_request_text || 'Service Request'}
+                </Link>
+              </CmsElement>
               {user ? (
-                <Link to={dashUrl} className="s2-header-primary-btn">
-                  Dashboard
-                </Link>
+                <CmsElement pageId="home" sectionKey="header" elementId="dashboard_button">
+                  <Link to={dashUrl} className="s2-header-primary-btn">
+                    {settings.header_dashboard_text || 'Dashboard'}
+                  </Link>
+                </CmsElement>
               ) : (
-                <Link to="/login" className="s2-header-primary-btn">
-                  Sign In
-                </Link>
+                <CmsElement pageId="home" sectionKey="header" elementId="sign_in_button">
+                  <Link to="/login" className="s2-header-primary-btn">
+                    {settings.header_sign_in_text || 'Sign In'}
+                  </Link>
+                </CmsElement>
               )}
             </div>
             {whatsapp && (
@@ -716,16 +756,8 @@ export function Layout({ children }: LayoutProps) {
             {/* Quick Links */}
             <div>
               <h4 className="s2-site-footer__heading">{settings.footer_col_quick_title || 'Quick Links'}</h4>
-              {[
-                ['/about', 'About Us'],
-                ['/contact', 'Contact Us'],
-                ['/how-it-works', 'How It Works'],
-                ['/faq', 'FAQ'],
-                ['/blog', 'Blog'],
-                ['/pricing', 'Pricing'],
-                ['/dashboard/bookings', 'Track Order'],
-              ].map(([to, label]) => (
-                <Link key={to} to={to} className="s2-site-footer__link">
+              {footerQuickLinks.map(({ path, label }) => (
+                <Link key={path} to={path} className="s2-site-footer__link">
                   {label}
                 </Link>
               ))}
@@ -734,13 +766,9 @@ export function Layout({ children }: LayoutProps) {
             {/* Locations */}
             <div>
               <h4 className="s2-site-footer__heading">{settings.footer_col_locations_title || 'Locations'}</h4>
-              {['Mumbai', 'Delhi', 'Bangalore', 'Pune', 'Hyderabad', 'Chennai', 'Ahmedabad', 'Nagpur'].map((city) => (
-                <Link
-                  key={city}
-                  to={`/cities/property-management-in-${city.toLowerCase()}`}
-                  className="s2-site-footer__link"
-                >
-                  {city}
+              {footerLocationLinks.map(({ path, label }) => (
+                <Link key={path} to={path} className="s2-site-footer__link">
+                  {label}
                 </Link>
               ))}
             </div>

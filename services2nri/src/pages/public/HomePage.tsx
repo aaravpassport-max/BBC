@@ -399,8 +399,10 @@ export function HomePage() {
         </Swiper>
         <div className="s2-home-hero-overlay" aria-hidden={false} style={Object.keys(heroOverlayStyle).length ? heroOverlayStyle : undefined}>
           <div className="s2-home-hero-overlay__inner">
-            <p className="s2-home-hero-overlay__eyebrow">{settings.hero_subheading || 'Trusted NRI partner'}</p>
-            <h1 className="s2-home-hero-overlay__title">
+            <CmsElement pageId="home" sectionKey="hero" elementId="eyebrow" as="p" className="s2-home-hero-overlay__eyebrow">
+              {settings.hero_subheading || 'Trusted NRI partner'}
+            </CmsElement>
+            <CmsElement pageId="home" sectionKey="hero" elementId="heading" as="h1" className="s2-home-hero-overlay__title">
               {settings.hero_heading_1 ? (
                 <>
                   {settings.hero_heading_1}
@@ -411,12 +413,12 @@ export function HomePage() {
               ) : (
                 settings.home_hero_title || settings.platform_tagline || 'Your India services, managed from anywhere'
               )}
-            </h1>
-            <p className="s2-home-hero-overlay__sub">
+            </CmsElement>
+            <CmsElement pageId="home" sectionKey="hero" elementId="body" as="p" className="s2-home-hero-overlay__sub">
               {settings.hero_description ||
                 settings.home_hero_subtitle ||
                 'Property, documents, tax & 44+ expert services — one secure platform with 24/7 support.'}
-            </p>
+            </CmsElement>
             <div className="s2-home-hero-overlay__actions">
               <CmsElement pageId="home" sectionKey="hero" elementId="primary_button">
                 <Link to={heroPrimaryUrl} className="s2-btn s2-btn--primary s2-home-hero-overlay__cta">
@@ -647,11 +649,15 @@ export function HomePage() {
         style={{ ...bandOrder('features'), ...pickCssStyle(settings, { bg: 'css_features_bg', padding: 'css_features_padding' }) }}
       >
         <div className="s2-container s2-section-inner s2-width-standard">
-          <PublicSectionHead
-            eyebrow={settings.features_eyebrow || 'Why Choose Us'}
-            title={settings.features_title || 'Why Our Customers Love Us'}
-          />
-          <div className="s2-feat-grid s2-stagger">
+          <div className="s2-home-section-head s2-public-section-head">
+            <CmsElement pageId="home" sectionKey="features" elementId="eyebrow" as="p" className="s2-t-eyebrow">
+              {settings.features_eyebrow || 'Why Choose Us'}
+            </CmsElement>
+            <CmsElement pageId="home" sectionKey="features" elementId="heading" as="h2" className="s2-t-section-heading">
+              {settings.features_title || 'Why Our Customers Love Us'}
+            </CmsElement>
+          </div>
+          <CmsElement pageId="home" sectionKey="features" elementId="collection" className="s2-feat-grid s2-stagger">
             {whyChoose.map(({ icon, title, sub }) => (
               <div key={title} className="s2-home-feat-card">
                 <div className="s2-home-feat-card__icon">{icon}</div>
@@ -661,7 +667,7 @@ export function HomePage() {
                 </div>
               </div>
             ))}
-          </div>
+          </CmsElement>
         </div>
       </section>
       )}

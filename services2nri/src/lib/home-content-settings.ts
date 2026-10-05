@@ -67,6 +67,33 @@ export type AwardBadge = { emoji: string; text: string; variant?: 'orange' | 'pr
 
 export type HoursRow = { day: string; hours: string }
 export type CompareBrandRow = { feature: string; us: string; them: string }
+export type FooterNavLink = { path: string; label: string }
+
+export function parseFooterNavLinks(raw: string | undefined, fallback: FooterNavLink[]): FooterNavLink[] {
+  if (!raw || !String(raw).trim()) return fallback
+  try {
+    const parsed = JSON.parse(String(raw)) as unknown
+    if (!Array.isArray(parsed) || parsed.length === 0) return fallback
+    return parsed
+      .map((item) => {
+        if (Array.isArray(item) && item.length >= 2) {
+          const path = String(item[0]).trim()
+          const label = String(item[1]).trim()
+          if (!path || !label) return null
+          return { path, label }
+        }
+        if (!item || typeof item !== 'object') return null
+        const o = item as Record<string, unknown>
+        const path = String(o.path || o.to || o.url || '').trim()
+        const label = String(o.label || o.name || '').trim()
+        if (!path || !label) return null
+        return { path, label }
+      })
+      .filter(Boolean) as FooterNavLink[]
+  } catch {
+    return fallback
+  }
+}
 
 export function parseCompareBrandRows(raw: string | undefined, fallback: CompareBrandRow[]): CompareBrandRow[] {
   if (!raw || !String(raw).trim()) return fallback
