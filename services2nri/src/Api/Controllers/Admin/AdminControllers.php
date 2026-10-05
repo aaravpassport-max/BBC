@@ -2099,6 +2099,14 @@ class AnalyticsController extends \S2NRI\Api\Controllers\BaseController {
 
 class SettingsAdminController extends \S2NRI\Api\Controllers\BaseController {
 
+    /** Per-item marketing page flat keys (Elements tab ↔ public render). */
+    private static function isPublicMarketingFlatKey( string $key ): bool {
+        return (bool) preg_match(
+            '/^(value_\d+_(icon|title|desc)|team_\d+_(name|role|bio|img)|about_highlight_\d+_(value|label)|hiw_page_step\d+_(icon|title|desc)|pricing_brand_row_\d+_(feature|us|them)|contact_hours_\d+_(day|hours))$/',
+            $key
+        );
+    }
+
     /** Preserve JSON and multiline content; single-line fields stay sanitized. */
     private static function sanitizeSettingValue( string $key, string $value ): string {
         if ( str_ends_with( $key, '_json' ) || str_contains( $key, 'custom_css' ) ) {
@@ -2226,6 +2234,10 @@ class SettingsAdminController extends \S2NRI\Api\Controllers\BaseController {
             'pricing_page_title', 'pricing_page_subtitle',
             'pricing_grid_eyebrow', 'pricing_grid_title', 'pricing_grid_subtitle',
             'pricing_compare_title', 'pricing_compare_subtitle',
+            'pricing_compare_brand_title', 'pricing_compare_brand_subtitle',
+            'pricing_compare_brand_name', 'pricing_compare_other_name',
+            'pricing_compare_brand_rows_json',
+            'contact_hours_title', 'contact_hours_json',
             'about_highlights_json',
             // CSS injection keys — read by SEO.php to inject <style> into every page
             'custom_css_homepage', 'custom_css_global',
@@ -2275,7 +2287,11 @@ class SettingsAdminController extends \S2NRI\Api\Controllers\BaseController {
                 continue;
             }
 
-            $is_public = ( in_array( $key, $public_keys, true ) || str_starts_with( $key, 'hide_tmpl_' ) ) ? 1 : 0;
+            $is_public = (
+                in_array( $key, $public_keys, true )
+                || str_starts_with( $key, 'hide_tmpl_' )
+                || self::isPublicMarketingFlatKey( $key )
+            ) ? 1 : 0;
 
             $stored = self::sanitizeSettingValue( $key, $value );
 

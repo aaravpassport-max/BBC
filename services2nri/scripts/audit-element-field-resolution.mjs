@@ -37,7 +37,16 @@ for (const [, pageId, sectionsBlob] of pageBlocks) {
       const elementId = resolveCatalogElementId(pageId, sectionKey, { key }, index)
       if (elementId.startsWith('field_') || (!canonical.has(elementId) && elementId.includes('_'))) {
         // allow mapped sub-elements like step_1_title
-        if (!/^step_\d+_(title|desc|icon)$/.test(elementId) && elementId.startsWith('field_')) {
+        const knownItem =
+          /^step_\d+_(title|desc|icon)$/.test(elementId) ||
+          /^page_step_\d+_(title|desc|icon)$/.test(elementId) ||
+          /^value_\d+_(icon|title|desc)$/.test(elementId) ||
+          /^team_member_\d+_(name|role|bio|photo)$/.test(elementId) ||
+          /^highlight_\d+_(value|label)$/.test(elementId) ||
+          /^brand_row_\d+_(feature|us|them)$/.test(elementId) ||
+          /^hours_\d+_(day|hours)$/.test(elementId) ||
+          /^plan_\d+_(name|subtitle|price)$/.test(elementId)
+        if (!knownItem && elementId.startsWith('field_')) {
           orphans.push({ pageId, sectionKey, key, elementId })
         }
       }

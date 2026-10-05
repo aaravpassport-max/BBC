@@ -8,22 +8,27 @@ import type { SectionCatalogDef } from '@/lib/design-system-catalog'
 import {
   parseAboutHighlights,
   parseAwardBadges,
+  parseCompareBrandRows,
   parseHiwSteps,
   parseHomeFaqPairs,
+  parseHoursRows,
   parseLogoChips,
   parseTeamMembers,
   parseValueCards,
   parseWhyChooseCards,
   type AwardBadge,
+  type CompareBrandRow,
   type FaqPair,
   type HighlightPair,
   type HiwStepPage,
+  type HoursRow,
   type LogoChip,
   type TeamMember,
   type ValueCard,
   type WhyChooseCard,
 } from '@/lib/home-content-settings'
 import { allHomeListFlatSettingKeys } from '@/lib/cms-home-list-fields'
+import { allMarketingListFlatSettingKeys, HIW_PAGE_STEP_KEYS } from '@/lib/cms-marketing-list-fields'
 import {
   flatKeysFromAwards,
   flatKeysFromFaq,
@@ -31,6 +36,14 @@ import {
   flatKeysFromPress,
   flatKeysFromWhyChoose,
 } from '@/lib/home-list-merge'
+import {
+  flatKeysFromAboutHighlights,
+  flatKeysFromBrandCompareRows,
+  flatKeysFromContactHours,
+  flatKeysFromHiwPageSteps,
+  flatKeysFromTeamMembers,
+  flatKeysFromValueCards,
+} from '@/lib/marketing-list-merge'
 import type { SectionContentPanelId } from '@/lib/design-system-catalog'
 import { readAdminSetting } from '@/lib/settings-admin'
 
@@ -450,7 +463,7 @@ const RICH_FIELD_EXCLUDE: Record<string, string[]> = {
   partners_list: ['home_partners_json', ...allHomeListFlatSettingKeys().filter((k) => k.startsWith('partner_'))],
   awards_list: ['home_awards_json', ...allHomeListFlatSettingKeys().filter((k) => k.startsWith('award_'))],
   faq_items: ['home_faq_json', ...allHomeListFlatSettingKeys().filter((k) => k.startsWith('faq_'))],
-  hiw_steps: ['hiw_page_steps_json', ...HIW_STEP_KEYS],
+  hiw_steps: ['hiw_page_steps_json', ...HIW_STEP_KEYS, ...HIW_PAGE_STEP_KEYS],
   marquee_band: ['marquee_show', 'marquee_text', 'marquee_speed', 'marquee_bg', 'marquee_color', 'marquee_pause_hover'],
   about_story: [
     'about_eyebrow',
@@ -460,14 +473,41 @@ const RICH_FIELD_EXCLUDE: Record<string, string[]> = {
     'about_image_url',
     'about_video_url',
     'about_highlights_json',
+    ...allMarketingListFlatSettingKeys().filter((k) => k.startsWith('about_highlight_')),
   ],
-  value_cards: ['about_values_title', 'about_values_json'],
-  team_members: ['about_team_title', 'about_team_json'],
+  value_cards: [
+    'about_values_title',
+    'about_values_json',
+    ...allMarketingListFlatSettingKeys().filter((k) => k.startsWith('value_')),
+  ],
+  team_members: [
+    'about_team_title',
+    'about_team_json',
+    ...allMarketingListFlatSettingKeys().filter((k) => k.startsWith('team_')),
+  ],
   marketing_cta: ['about_cta_title', 'about_cta_subtitle'],
-  contact_channels: ['contact_title', 'contact_form_title', 'contact_email', 'contact_phone', 'contact_address'],
+  contact_channels: [
+    'contact_title',
+    'contact_form_title',
+    'contact_email',
+    'contact_phone',
+    'contact_address',
+    'contact_hours_title',
+    'contact_hours_json',
+    ...allMarketingListFlatSettingKeys().filter((k) => k.startsWith('contact_hours_')),
+  ],
   faq_page_cta: ['faq_cta_title', 'faq_cta_body', 'faq_cta_button'],
   pricing_plans: ['pricing_grid_eyebrow', 'pricing_grid_title', 'pricing_grid_subtitle'],
-  pricing_compare: ['pricing_compare_title', 'pricing_compare_subtitle'],
+  pricing_compare: [
+    'pricing_compare_title',
+    'pricing_compare_subtitle',
+    'pricing_compare_brand_title',
+    'pricing_compare_brand_subtitle',
+    'pricing_compare_brand_name',
+    'pricing_compare_other_name',
+    'pricing_compare_brand_rows_json',
+    ...allMarketingListFlatSettingKeys().filter((k) => k.startsWith('pricing_brand_row_')),
+  ],
   hiw_page_callout: ['hiw_page_cta_title', 'hiw_page_cta_subtitle'],
   services_directory: ['services_show_search', 'services_show_category_filter', 'services_per_page'],
 }
@@ -500,7 +540,7 @@ export function richPanelSaveKeys(contentPanel?: SectionContentPanelId): string[
     case 'faq_items':
       return ['home_faq_json']
     case 'hiw_steps':
-      return ['hiw_page_steps_json', ...HIW_STEP_KEYS]
+      return ['hiw_page_steps_json', ...HIW_PAGE_STEP_KEYS]
     case 'marquee_band':
       return ['marquee_show', 'marquee_text', 'marquee_speed', 'marquee_bg', 'marquee_color', 'marquee_pause_hover']
     case 'about_story':
@@ -512,11 +552,20 @@ export function richPanelSaveKeys(contentPanel?: SectionContentPanelId): string[
         'about_image_url',
         'about_video_url',
         'about_highlights_json',
+        ...allMarketingListFlatSettingKeys().filter((k) => k.startsWith('about_highlight_')),
       ]
     case 'value_cards':
-      return ['about_values_title', 'about_values_json']
+      return [
+        'about_values_title',
+        'about_values_json',
+        ...allMarketingListFlatSettingKeys().filter((k) => k.startsWith('value_')),
+      ]
     case 'team_members':
-      return ['about_team_title', 'about_team_json']
+      return [
+        'about_team_title',
+        'about_team_json',
+        ...allMarketingListFlatSettingKeys().filter((k) => k.startsWith('team_')),
+      ]
     case 'hiw_page_callout':
       return ['hiw_page_cta_title', 'hiw_page_cta_subtitle']
     case 'faq_page_cta':
@@ -524,9 +573,27 @@ export function richPanelSaveKeys(contentPanel?: SectionContentPanelId): string[
     case 'pricing_plans':
       return ['pricing_grid_eyebrow', 'pricing_grid_title', 'pricing_grid_subtitle']
     case 'pricing_compare':
-      return ['pricing_compare_title', 'pricing_compare_subtitle']
+      return [
+        'pricing_compare_title',
+        'pricing_compare_subtitle',
+        'pricing_compare_brand_title',
+        'pricing_compare_brand_subtitle',
+        'pricing_compare_brand_name',
+        'pricing_compare_other_name',
+        'pricing_compare_brand_rows_json',
+        ...allMarketingListFlatSettingKeys().filter((k) => k.startsWith('pricing_brand_row_')),
+      ]
     case 'contact_channels':
-      return ['contact_title', 'contact_form_title', 'contact_email', 'contact_phone', 'contact_address']
+      return [
+        'contact_title',
+        'contact_form_title',
+        'contact_email',
+        'contact_phone',
+        'contact_address',
+        'contact_hours_title',
+        'contact_hours_json',
+        ...allMarketingListFlatSettingKeys().filter((k) => k.startsWith('contact_hours_')),
+      ]
     case 'marketing_cta':
       return ['about_cta_title', 'about_cta_subtitle']
     default:
@@ -774,6 +841,7 @@ function HiWPageStepsListEditor({
   const syncSteps = (next: HiwStepPage[]) => {
     setSteps(next)
     onChange('hiw_page_steps_json', JSON.stringify(next, null, 2))
+    Object.entries(flatKeysFromHiwPageSteps(next)).forEach(([k, v]) => onChange(k, v))
   }
   const list = steps.length ? steps : [{ n: 1, icon: '✓', t: '', d: '' }]
 
@@ -1208,6 +1276,7 @@ function AboutStoryPanel({
         2,
       ),
     )
+    Object.entries(flatKeysFromAboutHighlights(next)).forEach(([k, v]) => onChange(k, v))
   }
 
   return (
@@ -1268,6 +1337,7 @@ function ValueCardsEditor({
   const sync = (next: ValueCard[]) => {
     setCards(next)
     onChange('about_values_json', JSON.stringify(next, null, 2))
+    Object.entries(flatKeysFromValueCards(next)).forEach(([k, v]) => onChange(k, v))
   }
   const list = cards.length ? cards : [{ icon: '✓', t: '', d: '' }]
 
@@ -1330,6 +1400,7 @@ function TeamMembersEditor({
   const sync = (next: TeamMember[]) => {
     setMembers(next)
     onChange('about_team_json', JSON.stringify(next, null, 2))
+    Object.entries(flatKeysFromTeamMembers(next)).forEach(([k, v]) => onChange(k, v))
   }
   const list = members.length ? members : [{ name: '', role: '', bio: '' }]
 
@@ -1417,6 +1488,32 @@ function ContactChannelsPanel({
     readAdminSetting(settings, 'platform_address') ||
     readAdminSetting(settings, 'platform_city')
 
+  const hoursFallback = [
+    { day: 'Mon – Fri', hours: '9:00 AM – 8:00 PM IST' },
+    { day: 'Saturday', hours: '10:00 AM – 6:00 PM IST' },
+    { day: 'Sunday', hours: 'Emergency Support Only' },
+  ]
+  const [hoursRows, setHoursRows] = useState<HoursRow[]>(() =>
+    parseHoursRows(readAdminSetting(settings, 'contact_hours_json'), hoursFallback),
+  )
+  useEffect(() => {
+    setHoursRows(parseHoursRows(readAdminSetting(settings, 'contact_hours_json'), hoursFallback))
+  }, [settings.contact_hours_json])
+
+  const syncHours = (next: HoursRow[]) => {
+    setHoursRows(next)
+    onChange(
+      'contact_hours_json',
+      JSON.stringify(
+        next.map((r) => [r.day, r.hours]),
+        null,
+        2,
+      ),
+    )
+    Object.entries(flatKeysFromContactHours(next)).forEach(([k, v]) => onChange(k, v))
+  }
+  const hoursList = hoursRows.length ? hoursRows : [{ day: '', hours: '' }]
+
   return (
     <section className="s2-band-design-group">
       <h4 className="s2-band-design-group__title">Contact channels &amp; form</h4>
@@ -1429,7 +1526,49 @@ function ContactChannelsPanel({
         <BandTextInput label="Display email" hint={!readAdminSetting(settings, 'contact_email') && email ? `Live: ${email} (from platform)` : undefined} value={readAdminSetting(settings, 'contact_email')} onChange={(v) => onChange('contact_email', v)} />
         <BandTextInput label="Display phone" value={readAdminSetting(settings, 'contact_phone')} onChange={(v) => onChange('contact_phone', v)} />
         <BandTextArea label="Display address" value={readAdminSetting(settings, 'contact_address')} rows={2} onChange={(v) => onChange('contact_address', v)} />
+        <BandTextInput
+          label="Business hours card title"
+          value={readAdminSetting(settings, 'contact_hours_title')}
+          placeholder="Business Hours"
+          onChange={(v) => onChange('contact_hours_title', v)}
+        />
       </div>
+      <h5 className="s2-band-design-group__subtitle">Business hours rows</h5>
+      <div className="s2-band-list">
+        {hoursList.map((row, i) => (
+          <ListItemShell
+            key={i}
+            index={i}
+            title={row.day || `Hours row ${i + 1}`}
+            canRemove={hoursList.length > 1}
+            onRemove={() => syncHours(hoursList.filter((_, j) => j !== i))}
+          >
+            <BandTextInput
+              label="Day label"
+              value={row.day}
+              onChange={(v) => {
+                const n = [...hoursList]
+                n[i] = { ...n[i], day: v }
+                syncHours(n)
+              }}
+            />
+            <BandTextInput
+              label="Hours"
+              value={row.hours}
+              onChange={(v) => {
+                const n = [...hoursList]
+                n[i] = { ...n[i], hours: v }
+                syncHours(n)
+              }}
+            />
+          </ListItemShell>
+        ))}
+      </div>
+      {hoursList.length < 5 && (
+        <button type="button" className="s2-band-add-btn" onClick={() => syncHours([...hoursList, { day: '', hours: '' }])}>
+          + Add hours row
+        </button>
+      )}
       <p className="s2-band-field__hint s2-band-field__hint--block">
         Preview — WhatsApp uses <code>platform_whatsapp</code> from Site Foundation.
         {address ? ` Address shown: ${address.slice(0, 80)}${address.length > 80 ? '…' : ''}` : ''}
@@ -1512,6 +1651,108 @@ function PricingSectionPanel({
   )
 }
 
+function BrandCompareRowsEditor({
+  settings,
+  onChange,
+}: {
+  settings: Record<string, string>
+  onChange: (key: string, value: string) => void
+}) {
+  const fallback: CompareBrandRow[] = [
+    { feature: 'Real-time booking tracking', us: '✅ Dashboard + email updates', them: '❌ Phone calls only' },
+  ]
+  const [rows, setRows] = useState<CompareBrandRow[]>(() =>
+    parseCompareBrandRows(readAdminSetting(settings, 'pricing_compare_brand_rows_json'), fallback),
+  )
+  useEffect(() => {
+    setRows(parseCompareBrandRows(readAdminSetting(settings, 'pricing_compare_brand_rows_json'), fallback))
+  }, [settings.pricing_compare_brand_rows_json])
+
+  const sync = (next: CompareBrandRow[]) => {
+    setRows(next)
+    onChange('pricing_compare_brand_rows_json', JSON.stringify(next, null, 2))
+    Object.entries(flatKeysFromBrandCompareRows(next)).forEach(([k, v]) => onChange(k, v))
+  }
+  const list = rows.length ? rows : [{ feature: '', us: '', them: '' }]
+
+  return (
+    <section className="s2-band-design-group">
+      <h4 className="s2-band-design-group__title">Brand vs. competitor rows</h4>
+      <p className="s2-band-design-group__lead">Shown in the second comparison table on /pricing.</p>
+      <div className="s2-band-content-fields">
+        <BandTextInput
+          label="Section heading"
+          value={readAdminSetting(settings, 'pricing_compare_brand_title')}
+          placeholder="NRIWAY vs. Traditional Agents"
+          onChange={(v) => onChange('pricing_compare_brand_title', v)}
+        />
+        <BandTextArea
+          label="Intro"
+          value={readAdminSetting(settings, 'pricing_compare_brand_subtitle')}
+          rows={2}
+          onChange={(v) => onChange('pricing_compare_brand_subtitle', v)}
+        />
+        <BandTextInput
+          label="Your brand column header"
+          value={readAdminSetting(settings, 'pricing_compare_brand_name')}
+          placeholder="NRIWAY"
+          onChange={(v) => onChange('pricing_compare_brand_name', v)}
+        />
+        <BandTextInput
+          label="Competitor column header"
+          value={readAdminSetting(settings, 'pricing_compare_other_name')}
+          placeholder="Traditional Agents"
+          onChange={(v) => onChange('pricing_compare_other_name', v)}
+        />
+      </div>
+      <div className="s2-band-list">
+        {list.map((row, i) => (
+          <ListItemShell
+            key={i}
+            index={i}
+            title={row.feature || `Compare row ${i + 1}`}
+            canRemove={list.length > 1}
+            onRemove={() => sync(list.filter((_, j) => j !== i))}
+          >
+            <BandTextInput
+              label="Feature"
+              value={row.feature}
+              onChange={(v) => {
+                const n = [...list]
+                n[i] = { ...n[i], feature: v }
+                sync(n)
+              }}
+            />
+            <BandTextInput
+              label="Your brand"
+              value={row.us}
+              onChange={(v) => {
+                const n = [...list]
+                n[i] = { ...n[i], us: v }
+                sync(n)
+              }}
+            />
+            <BandTextInput
+              label="Competitor"
+              value={row.them}
+              onChange={(v) => {
+                const n = [...list]
+                n[i] = { ...n[i], them: v }
+                sync(n)
+              }}
+            />
+          </ListItemShell>
+        ))}
+      </div>
+      {list.length < 10 && (
+        <button type="button" className="s2-band-add-btn" onClick={() => sync([...list, { feature: '', us: '', them: '' }])}>
+          + Add compare row
+        </button>
+      )}
+    </section>
+  )
+}
+
 function PricingComparePanel({
   settings,
   onChange,
@@ -1522,7 +1763,7 @@ function PricingComparePanel({
   return (
     <>
       <section className="s2-band-design-group">
-        <h4 className="s2-band-design-group__title">Comparison table</h4>
+        <h4 className="s2-band-design-group__title">Plan feature matrix</h4>
         <p className="s2-band-design-group__lead">
           Row labels use the built-in feature matrix; plan columns follow active Pricing plans. Edit plan features in Pricing admin.
         </p>
@@ -1532,6 +1773,7 @@ function PricingComparePanel({
         </div>
       </section>
       <PricingPlansPreview />
+      <BrandCompareRowsEditor settings={settings} onChange={onChange} />
     </>
   )
 }

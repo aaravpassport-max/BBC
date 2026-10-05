@@ -11,6 +11,14 @@ import {
   partnerContentFields,
   pressContentFields,
 } from '@/lib/cms-home-list-fields'
+import {
+  aboutHighlightContentFields,
+  brandCompareRowContentFields,
+  contactHoursContentFields,
+  hiwPageStepContentFields,
+  teamContentFields,
+  valueContentFields,
+} from '@/lib/cms-marketing-list-fields'
 
 function applyTemplateHide(pageId: string, sections: SectionCatalogDef[]): SectionCatalogDef[] {
   return sections.map((s) => {
@@ -795,6 +803,7 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
               rows: 4,
               hint: '[["Mon – Fri","9:00 AM – 8:00 PM IST"],["Sunday","Emergency Support Only"]]',
             },
+            ...contactHoursContentFields(),
             { key: 'contact_field_name_placeholder', label: 'Name field placeholder', placeholder: 'Full Name' },
             { key: 'contact_field_email_placeholder', label: 'Email placeholder', placeholder: 'Email Address' },
             { key: 'contact_field_phone_placeholder', label: 'Phone placeholder', placeholder: 'Phone / WhatsApp' },
@@ -893,6 +902,7 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
               rows: 10,
               hint: '[["Feature","Us","Them"],["Transparent pricing","✅","❌"]]',
             },
+            ...brandCompareRowContentFields(),
           ],
           adminLink: { label: 'Manage plans', path: '/admin/pricing' },
         },
@@ -940,6 +950,7 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
             { key: 'about_image_url', label: 'Image URL', type: 'url' },
             { key: 'about_video_url', label: 'Video URL', type: 'url' },
             { key: 'about_highlights_json', label: 'Highlight stats JSON', type: 'textarea', rows: 4, hint: '[["10,000+","Clients Served"],["44+","Services"]]' },
+            ...aboutHighlightContentFields(),
           ],
         },
         {
@@ -949,7 +960,14 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           contentPanel: 'value_cards',
           contentFields: [
             { key: 'about_values_title', label: 'Section heading', placeholder: 'Our Core Values' },
-            { key: 'about_values_json', label: 'Value cards JSON', type: 'textarea', rows: 10, hint: '[{"icon":"🔒","t":"Trust","d":"…"}]' },
+            {
+              key: 'about_values_json',
+              label: 'Value cards JSON',
+              type: 'textarea',
+              rows: 10,
+              hint: '[{"icon":"🔒","t":"Trust","d":"…"}]',
+            },
+            ...valueContentFields(),
           ],
         },
         {
@@ -960,6 +978,7 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           contentFields: [
             { key: 'about_team_title', label: 'Section heading', placeholder: 'Meet Our Team' },
             { key: 'about_team_json', label: 'Team members JSON', type: 'textarea', rows: 10 },
+            ...teamContentFields(),
           ],
         },
         {
@@ -1002,7 +1021,14 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           sectionKey: 'process',
           contentPanel: 'hiw_steps',
           contentFields: [
-            { key: 'hiw_page_steps_json', label: 'Steps JSON', type: 'textarea', rows: 14, hint: '[{"n":1,"icon":"🔍","t":"Title","d":"Desc"}]' },
+            {
+              key: 'hiw_page_steps_json',
+              label: 'Steps JSON',
+              type: 'textarea',
+              rows: 14,
+              hint: '[{"n":1,"icon":"🔍","t":"Title","d":"Desc"}]',
+            },
+            ...hiwPageStepContentFields(),
           ],
         },
         {

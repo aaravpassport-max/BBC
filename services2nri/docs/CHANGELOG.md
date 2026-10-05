@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.86] — 2026-10-05 — Cloud Agent
+
+- **Per-item Elements (marketing pages):** About value cards, team members, and story highlights; How It Works timeline steps; Pricing plan cards and brand compare rows; Contact business hours — each item appears in Elements with flat settings synced from list editors.
+
+---
+
 ## [4.7.85] — 2026-10-05 — Cloud Agent
 
 - **Per-item Elements (homepage lists):** Feature, stat, FAQ, press, partner, and award bands expose each list item in Elements (content + design); flat settings sync with JSON list editors; testimonial carousel slots for styling.

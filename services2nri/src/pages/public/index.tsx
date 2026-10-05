@@ -23,16 +23,15 @@ import { BlogArticleShellSkeleton } from '@/components/ui/LoadingPlaceholders'
 import { getAvatarImage, IMAGES } from '@/lib/images'
 import type { FAQ, BlogPost, PricingPlan } from '@/types'
 import { PublicSection, PublicSectionHead, PublicGrid, PublicCard, PublicCtaLink } from '@/components/public/PublicLayout'
+import { parseStringListJson, parseWhyChooseCards } from '@/lib/home-content-settings'
 import {
-  parseAboutHighlights,
-  parseHiwSteps,
-  parseCompareBrandRows,
-  parseHoursRows,
-  parseStringListJson,
-  parseTeamMembers,
-  parseValueCards,
-  parseWhyChooseCards,
-} from '@/lib/home-content-settings'
+  mergeAboutHighlights,
+  mergeBrandCompareRows,
+  mergeContactHoursRows,
+  mergeHiwPageSteps,
+  mergeTeamMembers,
+  mergeValueCards,
+} from '@/lib/marketing-list-merge'
 import { parseHeroMetaJson } from '@/lib/page-hero-meta'
 import { usePageDocumentMeta } from '@/lib/page-document-meta'
 import { isTemplateSectionHidden } from '@/lib/section-visibility'
@@ -57,9 +56,10 @@ export function AboutPage() {
     { icon: '🌍', t: 'Global Reach',          d: 'Serving NRIs in 50+ countries with round-the-clock support.' },
     { icon: '💎', t: 'Premium Quality',       d: 'Verified professionals, legal compliance, quality guarantees.' },
   ]
-  const values = parseValueCards(settings.about_values_json, valuesFallback)
-  const teamDisplay = parseTeamMembers(settings.about_team_json, team)
-  const highlights = parseAboutHighlights(settings.about_highlights_json, [
+  const sFlat = settings as Record<string, string>
+  const values = mergeValueCards(sFlat, valuesFallback)
+  const teamDisplay = mergeTeamMembers(sFlat, team)
+  const highlights = mergeAboutHighlights(sFlat, [
     { value: '10,000+', label: 'Clients Served' },
     { value: '44+', label: 'Services' },
     { value: '50+', label: 'Cities' },
@@ -83,20 +83,29 @@ export function AboutPage() {
         <div className="s2-marketing-page s2-public-split-grid s2-mobile-stack">
           <div>
             <PublicSectionHead eyebrow={settings.about_eyebrow || 'Our Story'} title={settings.about_heading || `${name} — Your Bridge to India`} />
-            <p className="s2-t-body s2-public-body-tight">
+            <CmsElement pageId="about" sectionKey="about" elementId="body" as="p" className="s2-t-body s2-public-body-tight">
               {settings.about_text || `${name} was founded with a single mission: to eliminate the paperwork stress that NRIs face when managing affairs back home.`}
-            </p>
-            <p className="s2-t-body s2-public-body-tight s2-public-body-tight--lg">
+            </CmsElement>
+            <CmsElement pageId="about" sectionKey="about" elementId="body_secondary" as="p" className="s2-t-body s2-public-body-tight s2-public-body-tight--lg">
               {settings.about_text_secondary ||
                 'Our team of lawyers, CAs, property managers, and immigration specialists has helped over 10,000 NRIs across 50+ countries resolve their India-related needs without a single trip back home.'}
-            </p>
+            </CmsElement>
             <PublicGrid min={120}>
-              {highlights.map(({ value, label }) => (
-                <PublicCard key={label} className="s2-public-icon-tile">
-                  <div className="s2-text-primary s2-public-stat-val">{value}</div>
-                  <div className="s2-text-muted s2-public-stat-lbl">{label}</div>
-                </PublicCard>
-              ))}
+              {highlights.map(({ value, label }, idx) => {
+                const n = idx + 1
+                return (
+                  <CmsElement key={`${label}-${n}`} pageId="about" sectionKey="about" elementId={`highlight_${n}`}>
+                    <PublicCard className="s2-public-icon-tile">
+                      <CmsElement pageId="about" sectionKey="about" elementId={`highlight_${n}_value`} className="s2-text-primary s2-public-stat-val">
+                        {value}
+                      </CmsElement>
+                      <CmsElement pageId="about" sectionKey="about" elementId={`highlight_${n}_label`} className="s2-text-muted s2-public-stat-lbl">
+                        {label}
+                      </CmsElement>
+                    </PublicCard>
+                  </CmsElement>
+                )
+              })}
             </PublicGrid>
             <div className="s2-public-actions">
               <PublicCtaLink to="/services">Our Services →</PublicCtaLink>
@@ -115,33 +124,59 @@ export function AboutPage() {
       </PublicSection>
 
       <PublicSection pageTemplateId="about" alt sectionKey="values">
-        <PublicSectionHead title={settings.about_values_title || 'Our Core Values'} />
+        <CmsElement pageId="about" sectionKey="values" elementId="heading">
+          <PublicSectionHead title={settings.about_values_title || 'Our Core Values'} />
+        </CmsElement>
         <PublicGrid min={220}>
-          {values.map(({ icon, t, d }) => (
-            <PublicCard key={t} className="s2-public-icon-tile">
-              <div className="s2-public-icon-tile__icon">{icon}</div>
-              <h3 className="s2-public-card__title">{t}</h3>
-              <p className="s2-public-card__body">{d}</p>
-            </PublicCard>
-          ))}
+          {values.map(({ icon, t, d }, idx) => {
+            const n = idx + 1
+            return (
+              <CmsElement key={`${t}-${n}`} pageId="about" sectionKey="values" elementId={`value_${n}`}>
+                <PublicCard className="s2-public-icon-tile">
+                  <CmsElement pageId="about" sectionKey="values" elementId={`value_${n}_icon`} className="s2-public-icon-tile__icon">
+                    {icon}
+                  </CmsElement>
+                  <CmsElement pageId="about" sectionKey="values" elementId={`value_${n}_title`} as="h3" className="s2-public-card__title">
+                    {t}
+                  </CmsElement>
+                  <CmsElement pageId="about" sectionKey="values" elementId={`value_${n}_desc`} as="p" className="s2-public-card__body">
+                    {d}
+                  </CmsElement>
+                </PublicCard>
+              </CmsElement>
+            )
+          })}
         </PublicGrid>
       </PublicSection>
 
       {!isTemplateSectionHidden(settings, 'about', 'team') && (
       <section className="s2-public-team-section s2-experience-section" data-s2-section="team" data-s2-reveal="">
         <div className="s2-container">
-          <h2 className="s2-public-section-title s2-public-section-title--center">{settings.about_team_title || 'Meet Our Team'}</h2>
+          <CmsElement pageId="about" sectionKey="team" elementId="heading" as="h2" className="s2-public-section-title s2-public-section-title--center">
+            {settings.about_team_title || 'Meet Our Team'}
+          </CmsElement>
           <div className="s2-public-team-grid s2-stagger">
-            {teamDisplay.map(({ name: n, role, img, bio }) => (
-              <div key={n} className="s2-public-team-card">
-                <img src={img} alt={n} />
-                <div className="s2-public-team-card__body">
-                  <h3 className="s2-public-team-card__name">{n}</h3>
-                  <div className="s2-public-team-card__role">{role}</div>
-                  <p className="s2-public-team-card__bio">{bio}</p>
-                </div>
-              </div>
-            ))}
+            {teamDisplay.map(({ name: n, role, img, bio }, idx) => {
+              const memberN = idx + 1
+              return (
+                <CmsElement key={`${n}-${memberN}`} pageId="about" sectionKey="team" elementId={`team_member_${memberN}`} className="s2-public-team-card">
+                  <CmsElement pageId="about" sectionKey="team" elementId={`team_member_${memberN}_photo`}>
+                    <img src={img} alt={n} />
+                  </CmsElement>
+                  <div className="s2-public-team-card__body">
+                    <CmsElement pageId="about" sectionKey="team" elementId={`team_member_${memberN}_name`} as="h3" className="s2-public-team-card__name">
+                      {n}
+                    </CmsElement>
+                    <CmsElement pageId="about" sectionKey="team" elementId={`team_member_${memberN}_role`} className="s2-public-team-card__role">
+                      {role}
+                    </CmsElement>
+                    <CmsElement pageId="about" sectionKey="team" elementId={`team_member_${memberN}_bio`} as="p" className="s2-public-team-card__bio">
+                      {bio}
+                    </CmsElement>
+                  </div>
+                </CmsElement>
+              )
+            })}
           </div>
         </div>
       </section>
@@ -208,7 +243,7 @@ export function ContactPage() {
     { day: 'Saturday', hours: '10:00 AM – 6:00 PM IST' },
     { day: 'Sunday', hours: 'Emergency Support Only' },
   ]
-  const hoursRows = parseHoursRows(settings.contact_hours_json, hoursFallback)
+  const hoursRows = mergeContactHoursRows(settings as Record<string, string>, hoursFallback)
 
   const contacts = [
     { icon: '💬', t: 'WhatsApp (Fastest)', v: whatsapp ? `https://wa.me/${String(whatsapp).replace(/\D/g, '')}` : null, label: whatsapp ? `+${String(whatsapp).replace(/\D/g, '')}` : null },
@@ -233,7 +268,9 @@ export function ContactPage() {
       <PublicSection pageTemplateId="contact" sectionKey="contact" width="wide">
         <div className="s2-public-contact-grid s2-mobile-stack">
           <div>
-            <PublicSectionHead title={settings.contact_title || 'Get in Touch'} />
+            <CmsElement pageId="contact" sectionKey="contact" elementId="heading">
+              <PublicSectionHead title={settings.contact_title || 'Get in Touch'} />
+            </CmsElement>
             {contacts.map(({ icon, t, v, label }) => (
               <div key={t} className="s2-public-contact-row">
                 <div className="s2-public-contact-icon">{icon}</div>
@@ -244,15 +281,24 @@ export function ContactPage() {
                 </div>
               </div>
             ))}
-            <PublicCard className="s2-public-card--hours">
-              <h3 className="s2-t-h3 s2-public-card__title--sm">{settings.contact_hours_title || 'Business Hours'}</h3>
-              {hoursRows.map(({ day, hours }) => (
-                <div key={day} className="s2-t-body s2-public-hours-row">
-                  <span>{day}</span>
-                  <span>{hours}</span>
-                </div>
-              ))}
-            </PublicCard>
+            <CmsElement pageId="contact" sectionKey="contact" elementId="hours_card">
+              <PublicCard className="s2-public-card--hours">
+                <h3 className="s2-t-h3 s2-public-card__title--sm">{settings.contact_hours_title || 'Business Hours'}</h3>
+                {hoursRows.map(({ day, hours }, idx) => {
+                  const n = idx + 1
+                  return (
+                    <CmsElement key={`${day}-${n}`} pageId="contact" sectionKey="contact" elementId={`hours_${n}`} className="s2-t-body s2-public-hours-row">
+                      <CmsElement pageId="contact" sectionKey="contact" elementId={`hours_${n}_day`} as="span">
+                        {day}
+                      </CmsElement>
+                      <CmsElement pageId="contact" sectionKey="contact" elementId={`hours_${n}_hours`} as="span">
+                        {hours}
+                      </CmsElement>
+                    </CmsElement>
+                  )
+                })}
+              </PublicCard>
+            </CmsElement>
           </div>
 
           <div>
@@ -329,7 +375,7 @@ export function HowItWorksPage() {
     { n: 5, icon: '💳', t: 'Approve & Pay Securely',     d: 'Review the quote in your dashboard. Approve it and make payment via bank transfer, UPI, or Razorpay. For international clients, we accept SWIFT wire transfers.' },
     { n: 6, icon: '🚀', t: 'Receive Your Documents',     d: 'Our team handles the complete process with regular status updates. You track everything live in your dashboard. Documents are delivered to your overseas address or digitally as required.' },
   ]
-  const steps = parseHiwSteps(settings.hiw_page_steps_json, stepsFallback)
+  const steps = mergeHiwPageSteps(settings as Record<string, string>, stepsFallback)
 
   return (
     <Layout>
@@ -348,19 +394,28 @@ export function HowItWorksPage() {
       {!isTemplateSectionHidden(settings, 'how-it-works', 'process') && (
       <section className="s2-public-how-section s2-marketing-page s2-experience-section" data-s2-section="process" data-s2-reveal="">
         <div className="s2-container s2-width-wide s2-stagger">
-          {steps.map(({ n, icon, t, d }, i) => (
-            <div key={n} className="s2-public-how-step">
-              <div className="s2-public-how-step__rail">
-                <div className="s2-public-how-step__icon">{icon}</div>
-                {i < steps.length - 1 && <div className="s2-public-how-step__line" />}
-              </div>
-              <div className="s2-public-how-step__body">
-                <div className="s2-public-how-step__eyebrow">Step {n}</div>
-                <h3 className="s2-public-how-step__title">{t}</h3>
-                <p className="s2-public-how-step__desc">{d}</p>
-              </div>
-            </div>
-          ))}
+          {steps.map(({ n, icon, t, d }, i) => {
+            const stepIdx = i + 1
+            return (
+              <CmsElement key={`${n}-${stepIdx}`} pageId="how-it-works" sectionKey="process" elementId={`page_step_${stepIdx}`} className="s2-public-how-step">
+                <div className="s2-public-how-step__rail">
+                  <CmsElement pageId="how-it-works" sectionKey="process" elementId={`page_step_${stepIdx}_icon`} className="s2-public-how-step__icon">
+                    {icon}
+                  </CmsElement>
+                  {i < steps.length - 1 && <div className="s2-public-how-step__line" />}
+                </div>
+                <div className="s2-public-how-step__body">
+                  <div className="s2-public-how-step__eyebrow">Step {n}</div>
+                  <CmsElement pageId="how-it-works" sectionKey="process" elementId={`page_step_${stepIdx}_title`} as="h3" className="s2-public-how-step__title">
+                    {t}
+                  </CmsElement>
+                  <CmsElement pageId="how-it-works" sectionKey="process" elementId={`page_step_${stepIdx}_desc`} as="p" className="s2-public-how-step__desc">
+                    {d}
+                  </CmsElement>
+                </div>
+              </CmsElement>
+            )
+          })}
 
           {!isTemplateSectionHidden(settings, 'how-it-works', 'hiw_cta') && (
           <div className="s2-public-how-callout">
@@ -492,7 +547,7 @@ export function PricingPage() {
     { feature: '24/7 WhatsApp support', us: '✅ Instant response team', them: '⚠️ Office hours only' },
     { feature: 'No upfront fee for quote', us: '✅ Free consultation always', them: '❌ Retainer required' },
   ]
-  const brandCompareRows = parseCompareBrandRows(settings.pricing_compare_brand_rows_json, brandCompareFallback)
+  const brandCompareRows = mergeBrandCompareRows(settings as Record<string, string>, brandCompareFallback)
 
   return (
     <Layout>
@@ -511,9 +566,14 @@ export function PricingPage() {
         />
         <div className="s2-container">
           <div className="s2-public-pricing-grid s2-stagger">
-            {display.map((plan) => (
-              <div
+            {display.map((plan, planIdx) => {
+              const planN = planIdx + 1
+              return (
+              <CmsElement
                 key={plan.id}
+                pageId="pricing"
+                sectionKey="pricing"
+                elementId={`plan_${planN}`}
                 className={`s2-public-pricing-card${plan.popular ? ' s2-public-pricing-card--popular' : ''}`}
               >
                 {plan.popular && <div className="s2-public-pricing-card__ribbon">⭐ MOST POPULAR</div>}
@@ -521,9 +581,15 @@ export function PricingPage() {
                   className={`s2-public-pricing-card__head${plan.popular ? ' s2-public-pricing-card__head--popular' : ''}`}
                   style={plan.popular ? undefined : { background: plan.color || 'var(--s2-color-secondary)' }}
                 >
-                  <div className="s2-t-eyebrow s2-public-pricing-head-eyebrow">{plan.subtitle}</div>
-                  <h3 className="s2-t-h2 s2-public-pricing-head-title">{plan.name}</h3>
-                  <div className="s2-t-h1 s2-public-pricing-head-price">{plan.price}</div>
+                  <CmsElement pageId="pricing" sectionKey="pricing" elementId={`plan_${planN}_subtitle`} className="s2-t-eyebrow s2-public-pricing-head-eyebrow">
+                    {plan.subtitle}
+                  </CmsElement>
+                  <CmsElement pageId="pricing" sectionKey="pricing" elementId={`plan_${planN}_name`} as="h3" className="s2-t-h2 s2-public-pricing-head-title">
+                    {plan.name}
+                  </CmsElement>
+                  <CmsElement pageId="pricing" sectionKey="pricing" elementId={`plan_${planN}_price`} className="s2-t-h1 s2-public-pricing-head-price">
+                    {plan.price}
+                  </CmsElement>
                   {plan.price_note && <div className="s2-t-body s2-public-pricing-head-note">{plan.price_note}</div>}
                 </div>
                 <div className="s2-public-pricing-card__features">
@@ -540,8 +606,8 @@ export function PricingPage() {
                     {plan.price === 'Free' ? 'Get Started Free' : 'Choose Plan →'}
                   </Link>
                 </div>
-              </div>
-            ))}
+              </CmsElement>
+            )})}
           </div>
         </div>
       </PublicSection>
@@ -621,13 +687,22 @@ export function PricingPage() {
               </tr>
             </thead>
             <tbody>
-              {brandCompareRows.map(({ feature, us, them }) => (
-                <tr key={feature}>
-                  <td className="s2-public-compare-feat">{feature}</td>
-                  <td className="s2-public-compare-td-success">{us}</td>
-                  <td className="s2-public-compare-td-muted">{them}</td>
-                </tr>
-              ))}
+              {brandCompareRows.map(({ feature, us, them }, idx) => {
+                const rowN = idx + 1
+                return (
+                  <tr key={`${feature}-${rowN}`}>
+                    <CmsElement pageId="pricing" sectionKey="compare" elementId={`brand_row_${rowN}_feature`} as="td" className="s2-public-compare-feat">
+                      {feature}
+                    </CmsElement>
+                    <CmsElement pageId="pricing" sectionKey="compare" elementId={`brand_row_${rowN}_us`} as="td" className="s2-public-compare-td-success">
+                      {us}
+                    </CmsElement>
+                    <CmsElement pageId="pricing" sectionKey="compare" elementId={`brand_row_${rowN}_them`} as="td" className="s2-public-compare-td-muted">
+                      {them}
+                    </CmsElement>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>

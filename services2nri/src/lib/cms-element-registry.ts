@@ -14,6 +14,17 @@ import {
   TESTIMONIAL_ITEM_PARTS,
   listItemCanonical,
 } from '@/lib/cms-home-list-fields'
+import {
+  BRAND_ROW_ITEM_PARTS,
+  HIGHLIGHT_ITEM_PARTS,
+  HOURS_ITEM_PARTS,
+  MARKETING_LIST_LIMITS,
+  PAGE_STEP_ITEM_PARTS,
+  PLAN_ITEM_PARTS,
+  TEAM_ITEM_PARTS,
+  VALUE_ITEM_PARTS,
+  marketingListItemCanonical,
+} from '@/lib/cms-marketing-list-fields'
 
 export type CanonicalElement = { id: string; label: string }
 
@@ -145,6 +156,96 @@ export const CANONICAL_SECTION_ELEMENTS: Record<string, Record<string, Canonical
       { id: 'subtitle', label: 'Subtitle' },
     ],
   },
+  about: {
+    about: [
+      { id: 'eyebrow', label: 'Eyebrow' },
+      { id: 'heading', label: 'Section heading' },
+      { id: 'body', label: 'Primary body' },
+      { id: 'body_secondary', label: 'Secondary body' },
+      { id: 'highlight_tile', label: 'Highlight tiles (shared look)' },
+      ...marketingListItemCanonical('highlight', MARKETING_LIST_LIMITS.highlights, 'Highlight', HIGHLIGHT_ITEM_PARTS),
+      { id: 'primary_button', label: 'Services CTA' },
+      { id: 'secondary_button', label: 'WhatsApp CTA' },
+    ],
+    values: [
+      { id: 'heading', label: 'Section heading' },
+      { id: 'value_card', label: 'Value cards (shared look)' },
+      ...marketingListItemCanonical('value', MARKETING_LIST_LIMITS.values, 'Value', VALUE_ITEM_PARTS),
+      { id: 'collection', label: 'Values grid layout' },
+    ],
+    team: [
+      { id: 'heading', label: 'Section heading' },
+      { id: 'team_card', label: 'Team cards (shared look)' },
+      ...marketingListItemCanonical('team_member', MARKETING_LIST_LIMITS.team, 'Team member', TEAM_ITEM_PARTS),
+      { id: 'collection', label: 'Team grid layout' },
+    ],
+    cta: [
+      { id: 'heading', label: 'CTA heading' },
+      { id: 'body', label: 'CTA subtitle' },
+      { id: 'primary_button', label: 'Primary button' },
+      { id: 'secondary_button', label: 'Secondary button' },
+    ],
+  },
+  pricing: {
+    pricing: [
+      { id: 'eyebrow', label: 'Section eyebrow' },
+      { id: 'heading', label: 'Section heading' },
+      { id: 'subtitle', label: 'Section subtitle' },
+      { id: 'plan_card', label: 'Plan cards (shared look)' },
+      ...marketingListItemCanonical('plan', MARKETING_LIST_LIMITS.pricingPlans, 'Plan', PLAN_ITEM_PARTS),
+      { id: 'collection', label: 'Plans grid layout' },
+    ],
+    compare: [
+      { id: 'heading', label: 'Comparison heading' },
+      { id: 'subtitle', label: 'Comparison intro' },
+      { id: 'brand_compare_row', label: 'Brand compare rows (shared look)' },
+      ...marketingListItemCanonical(
+        'brand_row',
+        MARKETING_LIST_LIMITS.brandCompare,
+        'Compare row',
+        BRAND_ROW_ITEM_PARTS,
+      ),
+      { id: 'collection', label: 'Compare table layout' },
+    ],
+    consultation: [
+      { id: 'heading', label: 'CTA heading' },
+      { id: 'body', label: 'CTA body' },
+      { id: 'primary_button', label: 'CTA button' },
+    ],
+  },
+  'how-it-works': {
+    process: [
+      { id: 'step_card', label: 'Step cards (shared look)' },
+      ...marketingListItemCanonical('page_step', MARKETING_LIST_LIMITS.hiwPageSteps, 'Step', PAGE_STEP_ITEM_PARTS),
+      { id: 'collection', label: 'Timeline layout' },
+    ],
+    hiw_cta: [
+      { id: 'heading', label: 'Callout heading' },
+      { id: 'body', label: 'Callout subtitle' },
+      { id: 'primary_button', label: 'Browse services button' },
+      { id: 'link', label: 'Contact link' },
+    ],
+  },
+  contact: {
+    contact: [
+      { id: 'heading', label: 'Left column heading' },
+      { id: 'hours_card', label: 'Business hours card' },
+      ...marketingListItemCanonical('hours', MARKETING_LIST_LIMITS.contactHours, 'Hours row', HOURS_ITEM_PARTS),
+      { id: 'form_heading', label: 'Form title' },
+      { id: 'collection', label: 'Contact form fields' },
+    ],
+  },
+  faq: {
+    faq: [
+      { id: 'faq_item', label: 'FAQ accordion items (shared look)' },
+      { id: 'collection', label: 'FAQ list layout' },
+    ],
+    faq_cta: [
+      { id: 'heading', label: 'Support callout heading' },
+      { id: 'body', label: 'Support callout body' },
+      { id: 'primary_button', label: 'Contact button' },
+    ],
+  },
   service: {
     marquee: [{ id: 'body', label: 'Marquee text' }],
     hero: [
@@ -205,6 +306,12 @@ const FIELD_ELEMENT_MAP: Record<string, string> = {
   home_press_json: 'collection',
   home_partners_json: 'collection',
   home_awards_json: 'collection',
+  about_values_json: 'collection',
+  about_team_json: 'collection',
+  about_highlights_json: 'collection',
+  hiw_page_steps_json: 'collection',
+  pricing_compare_brand_rows_json: 'collection',
+  contact_hours_json: 'collection',
   css_stats_bg: 'collection',
   css_stats_color: 'stat_item',
   css_stats_padding: 'collection',
@@ -245,6 +352,34 @@ export function resolveCatalogElementId(
     if (part === 'desc') return `step_${n}_desc`
     return `step_${n}_icon`
   }
+
+  const hiwPageStep = key.match(/^hiw_page_step(\d+)_(title|desc|icon)$/)
+  if (hiwPageStep) {
+    const n = hiwPageStep[1]
+    const part = hiwPageStep[2]
+    if (part === 'title') return `page_step_${n}_title`
+    if (part === 'desc') return `page_step_${n}_desc`
+    return `page_step_${n}_icon`
+  }
+
+  const valueN = key.match(/^value_(\d+)_(icon|title|desc)$/)
+  if (valueN) return `value_${valueN[1]}_${valueN[2]}`
+
+  const teamN = key.match(/^team_(\d+)_(name|role|bio|img)$/)
+  if (teamN) {
+    const n = teamN[1]
+    if (teamN[2] === 'img') return `team_member_${n}_photo`
+    return `team_member_${n}_${teamN[2]}`
+  }
+
+  const highlightN = key.match(/^about_highlight_(\d+)_(value|label)$/)
+  if (highlightN) return `highlight_${highlightN[1]}_${highlightN[2]}`
+
+  const brandRowN = key.match(/^pricing_brand_row_(\d+)_(feature|us|them)$/)
+  if (brandRowN) return `brand_row_${brandRowN[1]}_${brandRowN[2]}`
+
+  const hoursN = key.match(/^contact_hours_(\d+)_(day|hours)$/)
+  if (hoursN) return `hours_${hoursN[1]}_${hoursN[2]}`
 
   const statN = key.match(/^stat_(\d+)_(number|label)$/)
   if (statN) return statN[2] === 'number' ? `stat_${statN[1]}_value` : `stat_${statN[1]}_label`
