@@ -237,6 +237,28 @@ function PageTemplateForPage(page: PageCatalogDef): PageTemplateDef | undefined 
   return PAGE_TEMPLATES.find((t) => t.id === page.id)
 }
 
+type SectionEditorTab = 'content' | 'design' | 'width'
+
+function widthFocusForSection(page: PageCatalogDef, section: SectionCatalogDef): WidthLayoutFocus {
+  if (section.isPageScope) {
+    return page.widthPageSlug
+      ? { scope: 'page', selectedPage: page.widthPageSlug }
+      : page.widthPageType
+        ? { scope: 'page_type', selectedType: page.widthPageType }
+        : { scope: 'global' }
+  }
+  if (page.widthPageType === 'home' && section.sectionKey === 'hero') {
+    return { scope: 'page_type_section', selectedType: 'home', selectedSection: 'hero' }
+  }
+  if (page.widthPageSlug) {
+    return { scope: 'page', selectedPage: page.widthPageSlug, selectedSection: section.sectionKey }
+  }
+  if (page.widthPageType) {
+    return { scope: 'page_type', selectedType: page.widthPageType, selectedSection: section.sectionKey }
+  }
+  return { scope: 'section', selectedSection: section.sectionKey }
+}
+
 function SectionPlatformDesignFields({
   section,
   settings,
@@ -305,22 +327,15 @@ function PageDefaultsDesignPanel({
   page,
   config,
   patch,
-  onOpenLayout,
 }: {
   page: PageCatalogDef
   config: DesignConfig
   patch: PatchFn
-  onOpenLayout: (focus: WidthLayoutFocus) => void
 }) {
   const template = PageTemplateForPage(page)
   if (!template) {
     return <p style={{ color: '#64748B' }}>No page template metadata for this route.</p>
   }
-  const widthFocus: WidthLayoutFocus = page.widthPageSlug
-    ? { scope: 'page', selectedPage: page.widthPageSlug }
-    : page.widthPageType
-      ? { scope: 'page_type', selectedType: page.widthPageType }
-      : { scope: 'global' }
 
   return (
     <div className="s2-design-builder-panel" style={{ display: 'grid', gap: 20 }}>
@@ -377,12 +392,57 @@ function PageDefaultsDesignPanel({
           })}
         </div>
       </div>
-      <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
-        <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>Page layout & width</h3>
-        <button type="button" className="s2-btn s2-btn--outline" onClick={() => onOpenLayout(widthFocus)}>
-          Open page width defaults
-        </button>
-      </div>
+    </div>
+  )
+}
+
+function PageDefaultsWidthPanel({
+  page,
+  config,
+  patch,
+}: {
+  page: PageCatalogDef
+  config: DesignConfig
+  patch: PatchFn
+}) {
+  const widthFocus = widthFocusForSection(page, {
+    id: '_page',
+    label: 'Page defaults',
+    sectionKey: '_page',
+    isPageScope: true,
+  })
+  return (
+    <div style={{ display: 'grid', gap: 12 }}>
+      <p style={{ margin: 0, fontSize: 13, color: '#64748B', maxWidth: 720 }}>
+        Page-level width and gutters apply to this public route unless a section sets its own layout override.
+        Clear values to inherit from Site Foundation.
+      </p>
+      <WidthLayoutPanel config={config} patch={patch} focus={widthFocus} />
+    </div>
+  )
+}
+
+function SectionWidthPanel({
+  section,
+  page,
+  config,
+  patch,
+}: {
+  section: SectionCatalogDef
+  page: PageCatalogDef
+  config: DesignConfig
+  patch: PatchFn
+}) {
+  if (section.isPageScope) {
+    return <PageDefaultsWidthPanel page={page} config={config} patch={patch} />
+  }
+  const widthFocus = widthFocusForSection(page, section)
+  return (
+    <div style={{ display: 'grid', gap: 12 }}>
+      <p style={{ margin: 0, fontSize: 13, color: '#64748B', maxWidth: 720 }}>
+        Padding, max width, and gutters for the <strong>{section.label}</strong> band. Overrides inherit Foundation → page → section.
+      </p>
+      <WidthLayoutPanel config={config} patch={patch} focus={widthFocus} />
     </div>
   )
 }
@@ -397,7 +457,6 @@ function SectionDesignPanel({
   onSavePlatformDesign,
   platformDesignSaving,
   designSaveMessage,
-  onOpenLayout,
 }: {
   section: SectionCatalogDef
   page: PageCatalogDef
@@ -408,12 +467,9 @@ function SectionDesignPanel({
   onSavePlatformDesign: () => void
   platformDesignSaving: boolean
   designSaveMessage: { type: 'success' | 'error'; text: string } | null
-  onOpenLayout: (focus: WidthLayoutFocus) => void
 }) {
   if (section.isPageScope) {
-    return (
-      <PageDefaultsDesignPanel page={page} config={config} patch={patch} onOpenLayout={onOpenLayout} />
-    )
+    return <PageDefaultsDesignPanel page={page} config={config} patch={patch} />
   }
   const hideKey = section.hideSettingKey
   const [hideVal, setHideVal] = useState('0')
@@ -431,14 +487,6 @@ function SectionDesignPanel({
     setHideVal(v)
     await api.put('admin/settings', { [hideKey]: v })
   }
-
-  const widthFocus: WidthLayoutFocus = page.widthPageType === 'home' && section.sectionKey === 'hero'
-    ? { scope: 'page_type_section', selectedType: 'home', selectedSection: 'hero' }
-    : page.widthPageSlug
-      ? { scope: 'page', selectedPage: page.widthPageSlug, selectedSection: section.sectionKey }
-      : page.widthPageType
-        ? { scope: 'page_type', selectedType: page.widthPageType, selectedSection: section.sectionKey }
-        : { scope: 'section', selectedSection: section.sectionKey }
 
   return (
     <div className="s2-design-builder-panel" style={{ display: 'grid', gap: 20 }}>
@@ -500,17 +548,150 @@ function SectionDesignPanel({
         saving={platformDesignSaving}
         saveMessage={designSaveMessage}
       />
-
-      <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
-        <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>Layout & width</h3>
-        <p style={{ margin: '0 0 12px', fontSize: 13, color: '#64748B' }}>
-          Padding, max width, and gutters for this section band.
-        </p>
-        <button type="button" className="s2-btn s2-btn--outline" onClick={() => onOpenLayout(widthFocus)}>
-          Open layout controls for this section
-        </button>
-      </div>
     </div>
+  )
+}
+
+const SECTION_TAB_LABELS: Record<SectionEditorTab, string> = {
+  content: 'Content',
+  design: 'Design',
+  width: 'Width Control',
+}
+
+function SectionEditorTabs({
+  tab,
+  onTab,
+  compact,
+}: {
+  tab: SectionEditorTab
+  onTab: (t: SectionEditorTab) => void
+  compact?: boolean
+}) {
+  return (
+    <div className={`s2-design-builder-subtabs s2-design-section-tabs${compact ? ' s2-design-section-tabs--compact' : ''}`}>
+      {(['content', 'design', 'width'] as const).map((t) => (
+        <button
+          key={t}
+          type="button"
+          className={tab === t ? 'is-active' : ''}
+          onClick={() => onTab(t)}
+        >
+          {SECTION_TAB_LABELS[t]}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function PageSectionAccordion({
+  section,
+  page,
+  expanded,
+  onToggle,
+  tab,
+  onTab,
+  settings,
+  settingsLoading,
+  config,
+  patch,
+  onSettingsChange,
+  onSaveContent,
+  onSavePlatformDesign,
+  contentSaving,
+  platformDesignSaving,
+  contentSaveMessage,
+  designSaveMessage,
+}: {
+  section: SectionCatalogDef
+  page: PageCatalogDef
+  expanded: boolean
+  onToggle: () => void
+  tab: SectionEditorTab
+  onTab: (t: SectionEditorTab) => void
+  settings: Record<string, string>
+  settingsLoading: boolean
+  config: DesignConfig
+  patch: PatchFn
+  onSettingsChange: (key: string, value: string) => void
+  onSaveContent: () => void
+  onSavePlatformDesign: () => void
+  contentSaving: boolean
+  platformDesignSaving: boolean
+  contentSaveMessage: { type: 'success' | 'error'; text: string } | null
+  designSaveMessage: { type: 'success' | 'error'; text: string } | null
+}) {
+  return (
+    <section className={`s2-design-section-accordion${expanded ? ' is-expanded' : ''}`}>
+      <button
+        type="button"
+        className="s2-design-section-accordion__head"
+        aria-expanded={expanded}
+        onClick={onToggle}
+      >
+        <span className="s2-design-section-accordion__title">{section.label}</span>
+        <span className="s2-design-section-accordion__chevron" aria-hidden />
+      </button>
+      {expanded && (
+        <div className="s2-design-section-accordion__body">
+          <SectionEditorTabs tab={tab} onTab={onTab} compact />
+          {tab === 'content' && settingsLoading ? (
+            <div className="s2-design-builder-panel">
+              <p className="s2-design-builder-workspace__desc">Loading saved content…</p>
+            </div>
+          ) : tab === 'content' ? (
+            <SectionContentPanel
+              section={section}
+              page={page}
+              settings={settings}
+              onChange={onSettingsChange}
+              onSave={onSaveContent}
+              saving={contentSaving}
+              saveMessage={contentSaveMessage}
+            />
+          ) : tab === 'design' ? (
+            <div className="s2-design-builder-panel">
+              <SectionDesignPanel
+                section={section}
+                page={page}
+                config={config}
+                patch={patch}
+                settings={settings}
+                onSettingsChange={onSettingsChange}
+                onSavePlatformDesign={onSavePlatformDesign}
+                platformDesignSaving={platformDesignSaving}
+                designSaveMessage={designSaveMessage}
+              />
+            </div>
+          ) : (
+            <div className="s2-design-builder-panel">
+              <SectionWidthPanel section={section} page={page} config={config} patch={patch} />
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  )
+}
+
+function FoundationAreaAccordion({
+  item,
+  expanded,
+  onToggle,
+  children,
+}: {
+  item: (typeof FOUNDATION_NAV)[number]
+  expanded: boolean
+  onToggle: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <section className={`s2-design-section-accordion s2-design-section-accordion--foundation${expanded ? ' is-expanded' : ''}`}>
+      <button type="button" className="s2-design-section-accordion__head" aria-expanded={expanded} onClick={onToggle}>
+        <span className="s2-design-section-accordion__title">{item.label}</span>
+        <span className="s2-design-section-accordion__chevron" aria-hidden />
+      </button>
+      {expanded && <div className="s2-design-section-accordion__body s2-design-builder-panel">{children}</div>}
+    </section>
   )
 }
 
@@ -525,7 +706,6 @@ function SiteFoundationPanel({
   presets,
   applyPreset,
   saving,
-  onLayoutGlobal,
 }: {
   panel: FoundationPanelId
   config: DesignConfig
@@ -537,7 +717,6 @@ function SiteFoundationPanel({
   presets: Record<string, { label: string; description: string }>
   applyPreset: (id: string) => void
   saving: boolean
-  onLayoutGlobal: () => void
 }) {
   const colors = (config.colors || {}) as Record<string, string>
   const spacing = (config.spacing || {}) as Record<string, string>
@@ -591,10 +770,9 @@ function SiteFoundationPanel({
     case 'layout':
       return (
         <div>
-          <p style={{ color: '#64748B', fontSize: 13 }}>Global container widths and gutters — the default for all pages.</p>
-          <button type="button" className="s2-btn s2-btn--outline" style={{ marginBottom: 16 }} onClick={onLayoutGlobal}>
-            Edit site foundation widths
-          </button>
+          <p style={{ color: '#64748B', fontSize: 13, marginTop: 0 }}>
+            Global container widths and gutters — the default for all public pages until page or section overrides apply.
+          </p>
           <WidthLayoutPanel config={config} patch={patch} focus={{ scope: 'global' }} />
         </div>
       )
@@ -672,25 +850,32 @@ export function DesignSystemBuilder({
   toolsSlot?: React.ReactNode
 }) {
   const [navMode, setNavMode] = useState<'foundation' | 'page'>('page')
-  const [foundationPanel, setFoundationPanel] = useState<FoundationPanelId>('colors')
   const [pageId, setPageId] = useState('home')
-  const [sectionId, setSectionId] = useState('hero')
-  const [sectionTab, setSectionTab] = useState<'content' | 'design'>('content')
-  const [expandedPages, setExpandedPages] = useState<Record<string, boolean>>({ home: true })
-  const [layoutFocus, setLayoutFocus] = useState<WidthLayoutFocus | null>(null)
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
+  const [expandedFoundation, setExpandedFoundation] = useState<Record<string, boolean>>({ colors: true })
+  const [sectionTabById, setSectionTabById] = useState<Record<string, SectionEditorTab>>({})
   const [settings, setSettings] = useState<Record<string, string>>({})
-  const [contentSaving, setContentSaving] = useState(false)
-  const [platformDesignSaving, setPlatformDesignSaving] = useState(false)
-  const [contentSaveMessage, setContentSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const [designSaveMessage, setDesignSaveMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [contentSavingId, setContentSavingId] = useState<string | null>(null)
+  const [platformDesignSavingId, setPlatformDesignSavingId] = useState<string | null>(null)
+  const [contentSaveMessageById, setContentSaveMessageById] = useState<
+    Record<string, { type: 'success' | 'error'; text: string }>
+  >({})
+  const [designSaveMessageById, setDesignSaveMessageById] = useState<
+    Record<string, { type: 'success' | 'error'; text: string }>
+  >({})
   const [settingsLoading, setSettingsLoading] = useState(true)
   const [fontQuery, setFontQuery] = useState('')
 
   const page = useMemo(() => DESIGN_PAGE_CATALOG.find((p) => p.id === pageId) || DESIGN_PAGE_CATALOG[0], [pageId])
-  const section = useMemo(
-    () => page.sections.find((s) => s.id === sectionId) || page.sections[0],
-    [page, sectionId],
+
+  const sectionTabFor = useCallback(
+    (sectionKey: string): SectionEditorTab => sectionTabById[sectionKey] || 'content',
+    [sectionTabById],
   )
+
+  const setSectionTabFor = useCallback((sectionKey: string, tab: SectionEditorTab) => {
+    setSectionTabById((prev) => ({ ...prev, [sectionKey]: tab }))
+  }, [])
 
   const loadSettings = useCallback(async () => {
     setSettingsLoading(true)
@@ -709,11 +894,6 @@ export function DesignSystemBuilder({
   }, [loadSettings])
 
   useEffect(() => {
-    setContentSaveMessage(null)
-    setDesignSaveMessage(null)
-  }, [pageId, sectionId, sectionTab])
-
-  useEffect(() => {
     setPreviewPath(page.previewPath)
   }, [page.previewPath, setPreviewPath])
 
@@ -728,40 +908,55 @@ export function DesignSystemBuilder({
   const selectPage = (id: string) => {
     setNavMode('page')
     setPageId(id)
-    const p = DESIGN_PAGE_CATALOG.find((x) => x.id === id)
-    const firstSec = p?.sections.find((s) => !s.isPageScope)?.id || p?.sections[0]?.id || 'hero'
-    setSectionId(firstSec)
-    setExpandedPages((prev) => ({ ...prev, [id]: true }))
   }
 
-  const selectSection = (pid: string, sid: string) => {
-    setNavMode('page')
-    setPageId(pid)
-    setSectionId(sid)
-    setExpandedPages((prev) => ({ ...prev, [pid]: true }))
+  const selectFoundation = () => {
+    setNavMode('foundation')
   }
 
-  const saveSectionContent = async () => {
-    const fields = section?.isPageScope ? page.pageContentFields : section?.contentFields
+  const toggleSectionExpanded = (sectionKey: string) => {
+    setExpandedSections((prev) => ({ ...prev, [sectionKey]: !prev[sectionKey] }))
+  }
+
+  const toggleFoundationExpanded = (panelId: FoundationPanelId) => {
+    setExpandedFoundation((prev) => ({ ...prev, [panelId]: !prev[panelId] }))
+  }
+
+  const saveSectionContent = async (section: SectionCatalogDef) => {
+    const fields = section.isPageScope ? page.pageContentFields : section.contentFields
     if (!fields?.length) return
-    setContentSaving(true)
-    setContentSaveMessage(null)
+    setContentSavingId(section.id)
+    setContentSaveMessageById((prev) => {
+      const next = { ...prev }
+      delete next[section.id]
+      return next
+    })
     try {
       const payload = prepareSettingsPayload(settings, fields.map((f) => f.key))
       await api.put('admin/settings', payload)
       await loadSettings()
-      setContentSaveMessage({ type: 'success', text: 'Content saved — values reloaded for editing.' })
+      setContentSaveMessageById((prev) => ({
+        ...prev,
+        [section.id]: { type: 'success', text: 'Content saved — values reloaded for editing.' },
+      }))
     } catch {
-      setContentSaveMessage({ type: 'error', text: 'Could not save content. Try again.' })
+      setContentSaveMessageById((prev) => ({
+        ...prev,
+        [section.id]: { type: 'error', text: 'Could not save content. Try again.' },
+      }))
     } finally {
-      setContentSaving(false)
+      setContentSavingId(null)
     }
   }
 
-  const saveSectionPlatformDesign = async () => {
-    if (!section?.designSettingFields?.length) return
-    setPlatformDesignSaving(true)
-    setDesignSaveMessage(null)
+  const saveSectionPlatformDesign = async (section: SectionCatalogDef) => {
+    if (!section.designSettingFields?.length) return
+    setPlatformDesignSavingId(section.id)
+    setDesignSaveMessageById((prev) => {
+      const next = { ...prev }
+      delete next[section.id]
+      return next
+    })
     try {
       const payload = prepareSettingsPayload(
         settings,
@@ -769,78 +964,48 @@ export function DesignSystemBuilder({
       )
       await api.put('admin/settings', payload)
       await loadSettings()
-      setDesignSaveMessage({ type: 'success', text: 'Section styling saved.' })
+      setDesignSaveMessageById((prev) => ({
+        ...prev,
+        [section.id]: { type: 'success', text: 'Section styling saved.' },
+      }))
     } catch {
-      setDesignSaveMessage({ type: 'error', text: 'Could not save styling.' })
+      setDesignSaveMessageById((prev) => ({
+        ...prev,
+        [section.id]: { type: 'error', text: 'Could not save styling.' },
+      }))
     } finally {
-      setPlatformDesignSaving(false)
+      setPlatformDesignSavingId(null)
     }
   }
 
-  const foundationHint = FOUNDATION_NAV.find((f) => f.id === foundationPanel)?.hint
   const workspaceDesc =
     navMode === 'foundation'
-      ? foundationHint
-      : sectionTab === 'content'
-        ? section?.contentNote || 'Edit copy and links for this section. Changes apply to the live public page after save.'
-        : 'Override colors, typography, visibility, and layout for this section. Clear fields to inherit from Site Foundation or page defaults.'
+      ? 'Global tokens and chrome for the entire public site. Pages and sections inherit these until they define an override.'
+      : 'Select a section to expand it, then use Content, Design, or Width Control — only settings for that block are shown.'
 
   return (
     <div className="s2-design-system-builder">
-      <nav className="s2-design-builder-nav" aria-label="Design pages">
+      <nav className="s2-design-builder-nav" aria-label="Public pages">
+        <p className="s2-design-builder-nav__intro">Which public page are you managing?</p>
         <button
           type="button"
           className={`s2-design-builder-nav__foundation${navMode === 'foundation' ? ' is-active' : ''}`}
-          onClick={() => setNavMode('foundation')}
+          onClick={selectFoundation}
         >
           Site Foundation
         </button>
-        {navMode === 'foundation' && (
-          <ul className="s2-design-builder-nav__list">
-            {FOUNDATION_NAV.map((f) => (
-              <li key={f.id}>
-                <button
-                  type="button"
-                  className={`s2-design-builder-nav__foundation-item${foundationPanel === f.id ? ' is-active' : ''}`}
-                  onClick={() => setFoundationPanel(f.id)}
-                >
-                  {f.label}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
 
-        <div className="s2-design-builder-nav__group-label">Public pages</div>
+        <div className="s2-design-builder-nav__group-label">Public site pages</div>
         <ul className="s2-design-builder-nav__list">
           {DESIGN_PAGE_CATALOG.map((p) => (
             <li key={p.id}>
               <button
                 type="button"
                 className={`s2-design-builder-nav__page-btn${navMode === 'page' && pageId === p.id ? ' is-active' : ''}`}
-                onClick={() => {
-                  if (expandedPages[p.id]) selectPage(p.id)
-                  else setExpandedPages((prev) => ({ ...prev, [p.id]: true }))
-                  selectPage(p.id)
-                }}
+                onClick={() => selectPage(p.id)}
               >
                 {p.label}
               </button>
-              {(expandedPages[p.id] || (navMode === 'page' && pageId === p.id)) && (
-                <ul className="s2-design-builder-nav__sections">
-                  {p.sections.map((s) => (
-                    <li key={s.id}>
-                      <button
-                        type="button"
-                        className={`s2-design-builder-nav__section-btn${navMode === 'page' && pageId === p.id && sectionId === s.id ? ' is-active' : ''}`}
-                        onClick={() => selectSection(p.id, s.id)}
-                      >
-                        {s.label}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
             </li>
           ))}
         </ul>
@@ -854,103 +1019,81 @@ export function DesignSystemBuilder({
               {navMode === 'foundation' ? (
                 <>
                   <span className="s2-design-builder-breadcrumb__chip s2-design-builder-breadcrumb__chip--foundation">Foundation</span>
-                  <span>{FOUNDATION_NAV.find((f) => f.id === foundationPanel)?.label}</span>
+                  <span>Site-wide defaults</span>
                 </>
               ) : (
                 <>
                   <span className="s2-design-builder-breadcrumb__chip">Page</span>
                   <span>{page.label}</span>
                   <span aria-hidden>→</span>
-                  <span className="s2-design-builder-breadcrumb__chip">Section</span>
-                  <span>{section?.label}</span>
+                  <span>Sections</span>
                 </>
               )}
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start' }}>
               <div>
                 <h2 className="s2-design-builder-workspace__title">
-                  {navMode === 'foundation' ? 'Site Foundation' : section?.label}
+                  {navMode === 'foundation' ? 'Site Foundation' : page.label}
                 </h2>
                 {workspaceDesc && <p className="s2-design-builder-workspace__desc">{workspaceDesc}</p>}
               </div>
-              <a href={previewPath} target="_blank" rel="noopener noreferrer" className="s2-btn s2-btn--outline s2-btn--sm">
-                Preview page ↗
-              </a>
+              {navMode === 'page' && (
+                <a href={previewPath} target="_blank" rel="noopener noreferrer" className="s2-btn s2-btn--outline s2-btn--sm">
+                  Preview page ↗
+                </a>
+              )}
             </div>
           </div>
 
-        {settingsLoading && navMode === 'page' && sectionTab === 'content' ? (
-          <div className="s2-design-builder-panel">
-            <p className="s2-design-builder-workspace__desc">Loading saved content…</p>
-          </div>
-        ) : navMode === 'foundation' ? (
-          <div className="s2-design-builder-panel">
-          <SiteFoundationPanel
-            panel={foundationPanel}
-            config={config}
-            patch={patch}
-            fonts={fonts}
-            fontQuery={fontQuery}
-            setFontQuery={setFontQuery}
-            filteredFonts={filteredFonts}
-            presets={presets}
-            applyPreset={applyPreset}
-            saving={saving}
-            onLayoutGlobal={() => setLayoutFocus({ scope: 'global' })}
-          />
+        {navMode === 'foundation' ? (
+          <div className="s2-design-builder-section-stack">
+            {FOUNDATION_NAV.map((f) => (
+              <FoundationAreaAccordion
+                key={f.id}
+                item={f}
+                expanded={Boolean(expandedFoundation[f.id])}
+                onToggle={() => toggleFoundationExpanded(f.id)}
+              >
+                {f.hint && <p className="s2-design-builder-workspace__desc" style={{ marginTop: 0 }}>{f.hint}</p>}
+                <SiteFoundationPanel
+                  panel={f.id}
+                  config={config}
+                  patch={patch}
+                  fonts={fonts}
+                  fontQuery={fontQuery}
+                  setFontQuery={setFontQuery}
+                  filteredFonts={filteredFonts}
+                  presets={presets}
+                  applyPreset={applyPreset}
+                  saving={saving}
+                />
+              </FoundationAreaAccordion>
+            ))}
           </div>
         ) : (
-          <>
-            <div className="s2-design-system-tabs s2-design-builder-subtabs">
-              {(['content', 'design'] as const).map((t) => (
-                <button
-                  key={t}
-                  type="button"
-                  className={sectionTab === t ? 'is-active' : ''}
-                  onClick={() => setSectionTab(t)}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
-            {sectionTab === 'content' ? (
-              <SectionContentPanel
-                section={section}
+          <div className="s2-design-builder-section-stack">
+            {page.sections.map((sec) => (
+              <PageSectionAccordion
+                key={sec.id}
+                section={sec}
                 page={page}
+                expanded={Boolean(expandedSections[sec.id])}
+                onToggle={() => toggleSectionExpanded(sec.id)}
+                tab={sectionTabFor(sec.id)}
+                onTab={(t) => setSectionTabFor(sec.id, t)}
                 settings={settings}
-                onChange={(k, v) => setSettings((prev) => ({ ...prev, [k]: v }))}
-                onSave={saveSectionContent}
-                saving={contentSaving}
-                saveMessage={contentSaveMessage}
-              />
-            ) : (
-              <div className="s2-design-builder-panel">
-              <SectionDesignPanel
-                section={section}
-                page={page}
+                settingsLoading={settingsLoading}
                 config={config}
                 patch={patch}
-                settings={settings}
                 onSettingsChange={(k, v) => setSettings((prev) => ({ ...prev, [k]: v }))}
-                onSavePlatformDesign={saveSectionPlatformDesign}
-                platformDesignSaving={platformDesignSaving}
-                designSaveMessage={designSaveMessage}
-                onOpenLayout={(focus) => setLayoutFocus(focus)}
+                onSaveContent={() => saveSectionContent(sec)}
+                onSavePlatformDesign={() => saveSectionPlatformDesign(sec)}
+                contentSaving={contentSavingId === sec.id}
+                platformDesignSaving={platformDesignSavingId === sec.id}
+                contentSaveMessage={contentSaveMessageById[sec.id] ?? null}
+                designSaveMessage={designSaveMessageById[sec.id] ?? null}
               />
-              </div>
-            )}
-          </>
-        )}
-
-        {layoutFocus && (
-          <div className="s2-design-builder-panel" style={{ borderTop: '1px solid #e2e8f0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <h3 style={{ margin: 0 }}>Layout & width</h3>
-              <button type="button" className="s2-btn s2-btn--ghost s2-btn--sm" onClick={() => setLayoutFocus(null)}>
-                Close
-              </button>
-            </div>
-            <WidthLayoutPanel config={config} patch={patch} focus={layoutFocus} />
+            ))}
           </div>
         )}
 
