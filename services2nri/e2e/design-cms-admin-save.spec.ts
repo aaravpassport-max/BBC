@@ -39,6 +39,28 @@ test.describe('Design System admin save → public site', () => {
     ).toContainText('Admin CMS Hero Line One', { timeout: 20_000 });
   });
 
+  test('homepage How It Works step title saves from Content tab', async ({ page }) => {
+    await page.goto('/admin/design');
+    await expect(page.locator('.s2-design-system-page')).toBeVisible({ timeout: 30_000 });
+
+    await page.locator('.s2-design-builder-nav__page-btn:not(.s2-design-builder-nav__page-btn--sub)').filter({ hasText: 'Homepage' }).click();
+    await page.locator('[data-section-id="process"] .s2-band-card__main').click();
+    await expect(page.getByTestId('section-editor-process')).toBeVisible({ timeout: 15_000 });
+
+    const editor = page.getByTestId('section-editor-process');
+    await editor.getByRole('tab', { name: 'Content' }).click();
+    const step1Title = editor.locator('.s2-band-list').locator('input').nth(1);
+    await step1Title.fill('E2E HIW Step One Title');
+
+    await editor.getByRole('button', { name: 'Save section content' }).click();
+    await expect(editor.getByText('Content saved')).toBeVisible({ timeout: 15_000 });
+
+    await page.goto('/');
+    await expect(
+      page.locator('[data-s2-page="home"][data-s2-section="process"][data-s2-element="step_1_title"]'),
+    ).toContainText('E2E HIW Step One Title', { timeout: 20_000 });
+  });
+
   test('newsletter title saved in Design System appears on homepage', async ({ page }) => {
     await page.goto('/admin/design');
     await expect(page.locator('.s2-design-system-page')).toBeVisible({ timeout: 30_000 });

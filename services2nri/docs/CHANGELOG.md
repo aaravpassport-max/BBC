@@ -5,6 +5,13 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.90] — 2026-10-05 — Cloud Agent
+
+- **Rich panel save fix:** Section saves now persist all fields owned by rich CMS editors (homepage **How It Works** steps, Why Choose flat keys, services directory toggles, etc.) by aligning save keys with the rich-panel exclude list.
+- **Sticky save bar:** Elements tab shows **Save elements** (not “Save section content”).
+
+---
+
 ## [4.7.89] — 2026-10-05 — Cloud Agent
 
 - **Elements save fix:** **Save elements** now writes platform settings (content/visibility) and publishes the design JSON (per-element colors, type, spacing) in one step; `hide_el_*` visibility keys are public on the storefront. Success/error feedback appears on the Elements tab; failed design publish no longer reports success.

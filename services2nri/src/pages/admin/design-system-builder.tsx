@@ -1503,7 +1503,7 @@ export function DesignSystemBuilder({
                 sectionTabFor(activeSection.id) === 'design'
                   ? 'Save section styling'
                   : sectionTabFor(activeSection.id) === 'elements'
-                    ? 'Save section content'
+                    ? 'Save elements'
                     : 'Save section content'
               }
               onSavePrimary={() => {

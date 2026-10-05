@@ -523,82 +523,10 @@ export function richPanelExcludes(contentPanel?: SectionContentPanelId): Set<str
   return new Set(RICH_FIELD_EXCLUDE[contentPanel] || [])
 }
 
+/** Keys persisted for rich CMS panels — must match {@link RICH_FIELD_EXCLUDE} (editor-owned fields). */
 export function richPanelSaveKeys(contentPanel?: SectionContentPanelId): string[] {
-  switch (contentPanel) {
-    case 'hero_slides':
-      return ['hero_banners']
-    case 'why_choose':
-      return ['home_why_choose_json']
-    case 'stats_cards':
-      return [1, 2, 3, 4].flatMap((n) => [`stat_${n}_number`, `stat_${n}_label`])
-    case 'press_logos':
-      return ['home_press_json']
-    case 'partners_list':
-      return ['home_partners_json']
-    case 'awards_list':
-      return ['home_awards_json']
-    case 'faq_items':
-      return ['home_faq_json']
-    case 'hiw_steps':
-      return ['hiw_page_steps_json', ...HIW_PAGE_STEP_KEYS]
-    case 'marquee_band':
-      return ['marquee_show', 'marquee_text', 'marquee_speed', 'marquee_bg', 'marquee_color', 'marquee_pause_hover']
-    case 'about_story':
-      return [
-        'about_eyebrow',
-        'about_heading',
-        'about_text',
-        'about_text_secondary',
-        'about_image_url',
-        'about_video_url',
-        'about_highlights_json',
-        ...allMarketingListFlatSettingKeys().filter((k) => k.startsWith('about_highlight_')),
-      ]
-    case 'value_cards':
-      return [
-        'about_values_title',
-        'about_values_json',
-        ...allMarketingListFlatSettingKeys().filter((k) => k.startsWith('value_')),
-      ]
-    case 'team_members':
-      return [
-        'about_team_title',
-        'about_team_json',
-        ...allMarketingListFlatSettingKeys().filter((k) => k.startsWith('team_')),
-      ]
-    case 'hiw_page_callout':
-      return ['hiw_page_cta_title', 'hiw_page_cta_subtitle']
-    case 'faq_page_cta':
-      return ['faq_cta_title', 'faq_cta_body', 'faq_cta_button']
-    case 'pricing_plans':
-      return ['pricing_grid_eyebrow', 'pricing_grid_title', 'pricing_grid_subtitle']
-    case 'pricing_compare':
-      return [
-        'pricing_compare_title',
-        'pricing_compare_subtitle',
-        'pricing_compare_brand_title',
-        'pricing_compare_brand_subtitle',
-        'pricing_compare_brand_name',
-        'pricing_compare_other_name',
-        'pricing_compare_brand_rows_json',
-        ...allMarketingListFlatSettingKeys().filter((k) => k.startsWith('pricing_brand_row_')),
-      ]
-    case 'contact_channels':
-      return [
-        'contact_title',
-        'contact_form_title',
-        'contact_email',
-        'contact_phone',
-        'contact_address',
-        'contact_hours_title',
-        'contact_hours_json',
-        ...allMarketingListFlatSettingKeys().filter((k) => k.startsWith('contact_hours_')),
-      ]
-    case 'marketing_cta':
-      return ['about_cta_title', 'about_cta_subtitle']
-    default:
-      return []
-  }
+  if (!contentPanel) return []
+  return [...(RICH_FIELD_EXCLUDE[contentPanel] ?? [])]
 }
 
 function FaqItemsEditor({
