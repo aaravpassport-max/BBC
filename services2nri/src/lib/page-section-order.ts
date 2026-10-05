@@ -1,5 +1,9 @@
 import type { CSSProperties } from 'react'
-import { DEFAULT_HOME_SECTION_ORDER, parseHomeSectionOrder } from '@/lib/home-section-order'
+import {
+  DEFAULT_HOME_SECTION_ORDER,
+  normalizeHomeSectionOrderId,
+  parseHomeSectionOrder,
+} from '@/lib/home-section-order'
 
 export const PAGE_SECTION_ORDERS_KEY = 'public_page_section_orders_json'
 
@@ -49,6 +53,8 @@ export function orderIdsForPage(
 }
 
 export function sectionOrderStyle(sectionId: string, order: string[]): CSSProperties {
-  const idx = order.indexOf(sectionId)
+  const id = normalizeHomeSectionOrderId(sectionId)
+  const normalizedOrder = order.map(normalizeHomeSectionOrderId)
+  const idx = normalizedOrder.indexOf(id)
   return { order: idx === -1 ? 999 : idx }
 }

@@ -489,9 +489,9 @@ export function HomePage() {
       <section
         className="s2-home-band s2-section s2-marketing-section s2-experience-section"
         data-s2-section="home_services"
-        data-home-section-id="services"
+        data-home-section-id="home_services"
         data-s2-reveal=""
-        style={{ ...bandOrder('services'), ...pickCssStyle(settings, { bg: 'css_svc_bg', padding: undefined }) }}
+        style={{ ...bandOrder('home_services'), ...pickCssStyle(settings, { bg: 'css_svc_bg', padding: undefined }) }}
       >
         <div className="s2-container s2-section-inner s2-width-standard">
           <HomeServicesShowcase
@@ -727,9 +727,9 @@ export function HomePage() {
       <section
         className="s2-home-band s2-marketing-section s2-marketing-section--alt s2-experience-section"
         data-s2-section="process"
-        data-home-section-id="how"
+        data-home-section-id="process"
         data-s2-reveal=""
-        style={{ ...bandOrder('how'), ...pickCssStyle(settings, { bg: 'css_how_bg', padding: undefined }) }}
+        style={{ ...bandOrder('process'), ...pickCssStyle(settings, { bg: 'css_how_bg', padding: undefined }) }}
       >
         <div className="s2-container s2-section-inner s2-width-standard">
           <div className="s2-home-section-head s2-public-section-head">
