@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import './styles/global.css'
 import FormBuilderPage from './pages/FormBuilder'
 import HomepageBuilderPage from './pages/HomepageBuilder'
 import ServiceBuilderPage from './pages/ServiceBuilder'
 import StatusManagerPage from './pages/StatusManager'
+import BuilderBottomNav from './components/BuilderBottomNav'
+import { BuilderStickyProvider } from './components/BuilderMobileUi'
 
 /* ── Navigation config ───────────────────────────────────────────────── */
 const NAV = [
@@ -25,18 +27,6 @@ const NAV = [
 
 /* ── Root App ────────────────────────────────────────────────────────── */
 export default function App() {
-  // FIXED: this state previously always started at the hardcoded
-  // 'homepage' value, completely ignoring whatever ?page=X was in the URL
-  // that got the admin here. AdminServices (the main admin app) links into
-  // this Builder app with URLs like
-  // "?page=form-builder&service=5" in 3 live places — the post-create
-  // redirect after making a new service, the field-count badge, and the
-  // "Form" button in the services table. Every one of those landed on the
-  // Homepage Builder instead, since nothing here ever read the URL.
-  // FormBuilderPage itself already correctly reads ?service= from the URL
-  // (confirmed, unrelated bug) — only this page-level routing was broken.
-  // Maps the external "form-builder" URL value to this app's internal
-  // 'forms' nav id.
   const initialPage = (() => {
     const params = new URLSearchParams(window.location.search)
     const requested = params.get('page')
@@ -50,9 +40,21 @@ export default function App() {
 
   const config = window.S2NRI_BUILDER || {}
   const backUrl = config.adminUrl || '/admin'
+  const siteUrl = config.siteUrl || '/'
+
+  const fallbackSticky = useMemo(() => (
+    <>
+      <a href={siteUrl} target="_blank" rel="noreferrer" className="btn btn-primary btn-lg s2-builder-sticky-primary">
+        View Site ↗
+      </a>
+      <a href={backUrl} className="btn btn-secondary btn-lg s2-builder-sticky-secondary">
+        Admin Dashboard
+      </a>
+    </>
+  ), [siteUrl, backUrl])
 
   return (
-    <div className="s2builder-app">
+    <div className="s2builder-app s2-mobile-app-shell">
       {/* Sidebar */}
       <aside className={`s2builder-sidebar ${mobileOpen ? 'open' : ''}`}>
         <div className="sidebar-logo">
@@ -89,53 +91,58 @@ export default function App() {
         </div>
       </aside>
 
+      {mobileOpen && (
+        <button
+          type="button"
+          className="s2builder-sidebar-backdrop"
+          aria-label="Close menu"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
+
       {/* Main content */}
       <div className="s2builder-main">
-        {/* Top bar */}
         <header className="s2builder-topbar">
           <button
+            type="button"
             onClick={() => setMobileOpen(o => !o)}
-            style={{ display: 'none', border: 'none', background: 'none', cursor: 'pointer', fontSize: 18, padding: 4 }}
             className="mobile-menu-btn"
+            aria-label="Open builder menu"
           >
             ☰
           </button>
 
-          {/* Breadcrumb */}
-          <div style={{ fontSize: 13, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <div className="s2builder-topbar-breadcrumb">
             <span>Builder</span>
             <span>›</span>
-            <span style={{ color: 'var(--text)', fontWeight: 600 }}>
+            <span className="s2builder-topbar-breadcrumb__current">
               {NAV.flatMap(g => g.items).find(i => i.id === page)?.label}
             </span>
           </div>
 
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div className="s2builder-topbar-actions s2-builder-topbar-actions--desktop-only">
             <a
-              href={config.siteUrl || '/'}
+              href={siteUrl}
               target="_blank"
               rel="noreferrer"
-              style={{ fontSize: 12, color: 'var(--text-muted)', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}
+              className="s2builder-view-site-link"
             >
               View Site ↗
             </a>
           </div>
         </header>
 
-        {/* Page content */}
-        <main className="s2builder-content">
-          {page === 'homepage' && <HomepageBuilderPage />}
-          {page === 'service'  && <ServiceBuilderPage />}
-          {page === 'forms'    && <FormBuilderPage />}
-          {page === 'status'   && <StatusManagerPage />}
-        </main>
-      </div>
+        <BuilderStickyProvider fallbackSticky={fallbackSticky}>
+          <main className="s2builder-content s2-mobile-app-surface">
+            {page === 'homepage' && <HomepageBuilderPage />}
+            {page === 'service'  && <ServiceBuilderPage />}
+            {page === 'forms'    && <FormBuilderPage />}
+            {page === 'status'   && <StatusManagerPage />}
+          </main>
+        </BuilderStickyProvider>
 
-      <style>{`
-        @media (max-width: 768px) {
-          .mobile-menu-btn { display: flex !important; }
-        }
-      `}</style>
+        <BuilderBottomNav page={page} setPage={setPage} onMenu={() => setMobileOpen(true)} />
+      </div>
     </div>
   )
 }

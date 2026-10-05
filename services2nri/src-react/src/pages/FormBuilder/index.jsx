@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import {
   DndContext,
   closestCenter,
@@ -20,6 +20,7 @@ import api from '../../utils/api'
 import { useApi } from '../../hooks/useApi'
 import { useToast } from '../../hooks/useToast'
 import { ToastContainer, Button, Modal, FormGroup, Toggle, ConfirmDialog, DragHandle, EmptyState, Spinner } from '../../components/common'
+import { useBuilderSticky } from '../../components/BuilderMobileUi'
 
 /* ── Constants ──────────────────────────────────────────────────────── */
 const FIELD_TYPES = [
@@ -99,7 +100,7 @@ export default function FormBuilderPage() {
       {svcsLoading ? (
         <Spinner />
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 20, alignItems: 'flex-start' }}>
+        <div className="s2builder-form-grid" style={{ display: 'grid', gridTemplateColumns: '280px 1fr', gap: 20, alignItems: 'flex-start' }}>
           {/* Service list sidebar */}
           <div className="card">
             <div className="card-header">
@@ -240,6 +241,22 @@ function FormEditor({ serviceId, serviceName }) {
     }
   }
 
+  const addFieldSticky = useMemo(
+    () => (
+      <Button
+        variant="primary"
+        className="btn-lg s2-builder-sticky-primary"
+        style={{ width: '100%', justifyContent: 'center' }}
+        icon="+"
+        onClick={() => setEditingField({ ...emptyField(activeStep) })}
+      >
+        Add Field
+      </Button>
+    ),
+    [activeStep],
+  )
+  useBuilderSticky(addFieldSticky)
+
   if (loading) return <div className="card"><Spinner /></div>
   if (error) return <div className="card card-body"><div className="alert alert-error">{error}</div></div>
 
@@ -255,7 +272,7 @@ function FormEditor({ serviceId, serviceName }) {
               {fields.length} field{fields.length !== 1 ? 's' : ''} • Drag to reorder within each step
             </p>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="s2-builder-header-save--desktop-only" style={{ display: 'flex', gap: 8 }}>
             <Button
               variant="primary"
               size="sm"

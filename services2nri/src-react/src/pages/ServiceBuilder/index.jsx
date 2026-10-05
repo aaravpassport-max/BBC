@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor,
   useSensor, useSensors,
@@ -17,6 +17,7 @@ import {
   ColorPicker, ImageUpload, Alert, DragHandle,
   EmptyState, Spinner, ConfirmDialog,
 } from '../../components/common'
+import { useBuilderSticky, BuilderToolbar } from '../../components/BuilderMobileUi'
 
 /* ── Section type definitions ───────────────────────────────────────── */
 const SECTION_TYPES = [
@@ -69,6 +70,19 @@ export default function ServiceBuilderPage() {
   const [activeTab, setActiveTab] = useState(urlTab)
   const { data: svcsData, loading: svcsLoading } = useApi('admin/services', { per_page: 200 })
   const services = svcsData?.services || []
+  const selectedSvc = services.find(s => s.id === selectedServiceId)
+  const siteUrl = (window.S2NRI_BUILDER?.siteUrl || '/').replace(/\/$/, '')
+  const previewHref = selectedSvc?.slug ? `${siteUrl}/service/${selectedSvc.slug}` : siteUrl
+
+  const previewSticky = useMemo(
+    () => (selectedServiceId ? (
+      <a href={previewHref} target="_blank" rel="noreferrer" className="btn btn-primary btn-lg s2-builder-sticky-primary">
+        Preview Service ↗
+      </a>
+    ) : null),
+    [selectedServiceId, previewHref],
+  )
+  useBuilderSticky(previewSticky)
 
   return (
     <div>
@@ -80,7 +94,7 @@ export default function ServiceBuilderPage() {
       </div>
 
       {svcsLoading ? <Spinner /> : (
-        <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 20, alignItems: 'flex-start' }}>
+        <div className="s2builder-service-grid" style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 20, alignItems: 'flex-start' }}>
           {/* Service list */}
           <div className="card">
             <div className="card-header">
@@ -113,19 +127,19 @@ export default function ServiceBuilderPage() {
           {selectedServiceId ? (
             <div>
               {/* Sub-tabs */}
-              <div className="tabs" style={{ marginBottom: 20 }}>
+              <BuilderToolbar className="s2builder-service-tabs">
                 {[
                   ['sections', '📋 Sections'],
                   ['hero',     '🖼️ Hero Settings'],
                   ['marquee',  '📢 Marquee'],
                   ['nav',      '🗂️ Section Nav'],
                 ].map(([key, label]) => (
-                  <button key={key} className={`tab-btn ${activeTab === key ? 'active' : ''}`}
+                  <button key={key} type="button" className={`tab-btn ${activeTab === key ? 'active' : ''}`}
                     onClick={() => setActiveTab(key)}>
                     {label}
                   </button>
                 ))}
-              </div>
+              </BuilderToolbar>
 
               {activeTab === 'sections' && (
                 <SectionsEditor

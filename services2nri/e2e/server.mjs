@@ -54,8 +54,23 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (url.pathname === '/s2nri-builder' || url.pathname.startsWith('/s2nri-builder/')) {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    fs.readFile(path.join(root, 'e2e/builder-shell.html'), (err, data) => {
+      if (err) {
+        res.writeHead(500);
+        res.end('Builder shell missing');
+        return;
+      }
+      res.end(data);
+    });
+    return;
+  }
+
   let filePath;
-  if (url.pathname.startsWith('/assets/release/')) {
+  if (url.pathname.startsWith('/builder/')) {
+    filePath = path.join(root, url.pathname.slice(1).split('?')[0]);
+  } else if (url.pathname.startsWith('/assets/release/')) {
     const assetPath = url.pathname.slice(1).split('?')[0];
     filePath = path.join(root, assetPath);
   } else if (url.pathname.startsWith('/assets/')) {

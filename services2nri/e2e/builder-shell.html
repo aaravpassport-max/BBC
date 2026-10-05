@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>S2NRI Builder E2E</title>
+  <link rel="stylesheet" href="/builder/s2nri-builder.css" />
+</head>
+<body class="s2-builder-portal">
+  <div id="s2nri-builder-root" class="s2-mobile-app-root"></div>
+  <script>
+    window.S2NRI_BUILDER = {
+      apiBase: '/mock-api',
+      nonce: 'e2e-nonce',
+      version: '4.7.47-e2e',
+      siteUrl: '/',
+      adminUrl: '/admin?shell=production',
+      builderUrl: '/s2nri-builder',
+      primaryColor: '#4A6FA5',
+    }
+  </script>
+  <script type="module" src="/builder/s2nri-builder.js"></script>
+</body>
+</html>

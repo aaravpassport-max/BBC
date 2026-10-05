@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.47] — 2026-10-05 — Cloud Agent
+
+- **S2NRI Builder mobile parity:** bottom tab nav (Home / Service / Forms / Status / Menu), sticky action bar (View Site, Save Homepage, Add Field, Preview Service), mobile app surface + touch targets, stacked builder grids, bottom-sheet modals.
+- **Builder shell:** `#s2nri-builder-root.s2-mobile-app-root` in `BuilderPage.php`.
+- **E2E:** `builder-shell.html`, `/s2nri-builder` route on E2E server, `builder-mobile.spec.ts`.
+
+---
+
 ## [4.7.46] — 2026-10-05 — Cloud Agent
 
 - **Admin portal mobile polish:** dashboard sticky “View All Requests”; homepage builder sticky “Preview Homepage”; ticket detail sticky “Send Reply”; reviews/tickets status chips in `AdminToolbar`.

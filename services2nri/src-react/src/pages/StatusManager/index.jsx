@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { PROGRESS_STEPS, SPECIAL_STATUSES, ALL_STATUSES, getStatusColor } from '../../utils/statuses'
 import { Button, Alert, StatusBadge, Modal, FormGroup } from '../../components/common'
+import { BuilderToolbar } from '../../components/BuilderMobileUi'
 import { useToast } from '../../hooks/useToast'
 import { ToastContainer } from '../../components/common'
 import api from '../../utils/api'
@@ -20,11 +21,11 @@ export default function StatusManagerPage() {
         </div>
       </div>
 
-      <div className="tabs">
+      <BuilderToolbar className="s2builder-status-tabs">
         {[['workflow', '⚡ Workflow'], ['preview', '👁️ Preview'], ['bulk', '🔄 Bulk Update'], ['audit', '📋 Recent Changes']].map(([key, label]) => (
-          <button key={key} className={`tab-btn ${activeTab === key ? 'active' : ''}`} onClick={() => setActiveTab(key)}>{label}</button>
+          <button key={key} type="button" className={`tab-btn ${activeTab === key ? 'active' : ''}`} onClick={() => setActiveTab(key)}>{label}</button>
         ))}
-      </div>
+      </BuilderToolbar>
 
       {activeTab === 'workflow' && <WorkflowView />}
       {activeTab === 'preview' && <PreviewView />}

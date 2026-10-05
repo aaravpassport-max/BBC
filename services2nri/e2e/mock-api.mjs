@@ -277,6 +277,40 @@ export function handleMockApi(pathname, method) {
   if (method === 'GET' && path === 'admin/settings') {
     return { settings: { platform_name: { value: 'Services2NRI E2E' }, primary_color: { value: '#4A6FA5' } } }
   }
+  if (method === 'GET' && path === 'admin/settings') {
+    return {
+      settings: {
+        platform_name: { value: 'Services2NRI E2E' },
+        primary_color: { value: '#4A6FA5' },
+        hero_heading_1: { value: 'Stay Connected to' },
+        hero_heading_2: { value: 'INDIA' },
+        custom_css_homepage: { value: '' },
+      },
+    }
+  }
+  if (method === 'PUT' && path === 'admin/settings') {
+    return { ok: true }
+  }
+  if (method === 'GET' && path === 'admin/services') {
+    return {
+      services: [
+        {
+          id: 1,
+          name: 'Property Management',
+          slug: 'complete-property-management',
+          icon: '🏠',
+          category_name: 'Property',
+        },
+      ],
+    }
+  }
+  if (method === 'GET' && path.match(/^admin\/services\/\d+\/form-fields$/)) {
+    return { fields: [{ id: 1, field_key: 'notes', label: 'Notes', field_type: 'textarea', step: 1, sort_order: 1, is_active: true }] }
+  }
+  if (method === 'GET' && path.match(/^admin\/services\/\d+\/sections$/)) {
+    return { sections: [{ id: 1, type: 'description', title: 'Overview', sort_order: 1, is_visible: 1, content: {} }] }
+  }
+
   if (method === 'GET' && path === 'admin/design') {
     return {
       config: {

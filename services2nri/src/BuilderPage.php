@@ -200,8 +200,8 @@ class BuilderPage {
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 </head>
-<body>
-  <div id="s2nri-builder-root">
+<body class="s2-builder-portal">
+  <div id="s2nri-builder-root" class="s2-mobile-app-root">
     <div id="s2nri-builder-loading">
       <div class="boot-spinner"></div>
       <span>Loading S2NRI Builder v<?php echo S2NRI_VERSION; ?>…</span>

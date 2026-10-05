@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import api from '../../utils/api'
 import { useToast } from '../../hooks/useToast'
 import { ToastContainer, Button, FormGroup, Alert, Spinner } from '../../components/common'
+import { useBuilderSticky } from '../../components/BuilderMobileUi'
 
 /* ─────────────────────────────────────────────────────────────────────────────
  * Homepage Page Builder
@@ -223,18 +224,28 @@ export default function HomepageBuilderPage() {
 
   const section = HOMEPAGE_SECTIONS.find(s => s.id === activeSection)
 
+  const saveSticky = useMemo(
+    () => (
+      <Button variant="primary" className="btn-lg s2-builder-sticky-primary" loading={saving} onClick={save} disabled={!dirty} style={{ width: '100%', justifyContent: 'center' }}>
+        {dirty ? 'Save Homepage' : 'Saved ✓'}
+      </Button>
+    ),
+    [dirty, saving, save],
+  )
+  useBuilderSticky(saveSticky)
+
   if (loading) return <Spinner />
 
   return (
     <>
       <ToastContainer toasts={toasts} />
-      <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr 480px', gap: 0, height: 'calc(100vh - 52px)', overflow: 'hidden' }}>
+      <div className="s2builder-home-grid" style={{ display: 'grid', gridTemplateColumns: '240px 1fr 480px', gap: 0, height: 'calc(100vh - 52px)', overflow: 'hidden' }}>
 
         {/* ── Left panel: section list ── */}
         <div style={{ borderRight: '1px solid var(--border)', overflowY: 'auto', background: 'var(--surface)' }}>
           <div style={{ padding: '16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>Homepage Sections</h3>
-            <Button variant="primary" size="sm" loading={saving} onClick={save} disabled={!dirty}>
+            <Button variant="primary" size="sm" className="s2-builder-header-save--desktop-only" loading={saving} onClick={save} disabled={!dirty}>
               {dirty ? 'Save' : '✓'}
             </Button>
           </div>
