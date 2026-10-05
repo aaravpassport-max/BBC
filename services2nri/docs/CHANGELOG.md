@@ -5,6 +5,15 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.66] — 2026-10-05 — Cloud Agent
+
+- **Instant loading architecture:** Session-scoped GET cache with in-flight deduplication (`resource-cache`, `api.getCached`, `useResource`) — stale-while-revalidate for portal navigation.
+- **Shell-first UI:** Admin, customer, and service detail pages render headers/layout immediately; tables and stats use fixed-dimension skeletons instead of full-page spinners.
+- **Prefetch:** Route-aware API prefetch on link hover, focus, click, and after each navigation (`prefetch.ts`, `SpaNavigationBridge`, sidebar nav).
+- **Cache invalidation:** Mutating API calls invalidate related GET cache keys to keep data accurate after saves.
+
+---
+
 ## [4.7.65] — 2026-10-05 — Cloud Agent
 
 - **Service section lifecycle (root fix):** Unified left-column rendering so seeded CMS rows and entity fallbacks always run on one path — no more empty left column when `sections.length > 0` but Design System `hide_tmpl_service_*` suppressed every block.

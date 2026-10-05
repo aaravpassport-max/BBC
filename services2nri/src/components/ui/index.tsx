@@ -18,6 +18,7 @@
 import React, { useEffect, useRef } from 'react'
 import { useStore } from '@/lib/store'
 import { resolvePrimary } from '@/lib/design-tokens'
+import { DashboardPageSkeleton } from '@/components/ui/LoadingPlaceholders'
 
 // ── Spinner ───────────────────────────────────────────────────────────────────
 interface SpinnerProps {
@@ -499,22 +500,10 @@ export function PageHeader({ title, subtitle, action }: PageHeaderProps) {
 interface LoadingScreenProps {
   message?: string
 }
-export function LoadingScreen({ message = 'Loading…' }: LoadingScreenProps) {
-  const primary = resolvePrimary(useStore((s) => s.settings))
+export function LoadingScreen({ message }: LoadingScreenProps) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '300px',
-        gap: '16px',
-        color: '#6b7280',
-      }}
-    >
-      <Spinner size={36} color={primary} />
-      <p style={{ margin: 0, fontSize: '14px' }}>{message}</p>
+    <div style={{ minHeight: 300 }} aria-busy="true" aria-label={message || 'Loading content'}>
+      <DashboardPageSkeleton />
     </div>
   )
 }

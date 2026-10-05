@@ -78,8 +78,17 @@ const AdminCities            = lazy(() => import('./pages/admin/index').then((m)
 
 import { useStore } from './lib/store'
 import { STAFF_ROLES } from './lib/constants'
+import { prefetchForRoute } from '@/lib/prefetch'
 
 // ── Scroll to top on route change (wr component) ──────────────────────────────
+function PrefetchCurrentRoute() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    prefetchForRoute(pathname)
+  }, [pathname])
+  return null
+}
+
 function ScrollToTop() {
   const { pathname, hash } = useLocation()
   useEffect(() => {
@@ -236,6 +245,7 @@ export function App() {
         <DesignLiveSync />
         <ExperienceReveal />
         <ScrollToTop />
+        <PrefetchCurrentRoute />
         <NotificationLoader />
         <CookieConsentBanner />
         <Routes>

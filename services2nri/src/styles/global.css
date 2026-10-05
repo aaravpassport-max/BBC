@@ -182,6 +182,27 @@ img { max-width: 100%; height: auto; }
 @media (min-width: 768px) and (max-width: 1023px) { .s2-hide-tablet { display: none !important; } }
 @media (max-width: 767px) { .s2-hide-mobile { display: none !important; } }
 
+@keyframes s2-skeleton-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.s2-skeleton {
+  background: linear-gradient(90deg, #eef2f7 0%, #f8fafc 45%, #eef2f7 100%);
+  background-size: 200% 100%;
+  animation: s2-skeleton-shimmer 1.15s ease-in-out infinite;
+}
+
+.s2-skeleton-region {
+  contain: layout style;
+}
+
+.s2-region-refreshing {
+  opacity: 0.72;
+  transition: opacity 0.2s ease;
+  pointer-events: none;
+}
+
 /* ── App-style bottom navigation bar (mobile only) ──────────────────────────
    Rendered by BottomNav.tsx from both Layout (public+auth) and SidebarLayout
    (customer dashboard, staff excluded). Hidden entirely above 768px — desktop

@@ -15,6 +15,7 @@
  */
 
 import { apiCoreRequest } from '../../shared/api-core.js'
+import { fetchResource, invalidateCache, peekCached } from './resource-cache'
 
 let _cachedToken: string | null = null
 
@@ -112,7 +113,25 @@ async function request<T = unknown>(
     window.S2NRI_CONFIG.nonce = (data as Record<string, unknown>).new_nonce as string
   }
 
+  if (method !== 'GET') {
+    touchMutationInvalidation(path)
+  }
+
   return data as T
+}
+
+function touchMutationInvalidation(path: string) {
+  const p = path.split('?')[0]
+  if (p.includes('bookings') || p.includes('requests')) invalidateCache('admin/bookings')
+  if (p.includes('payments')) invalidateCache('admin/payments')
+  if (p.includes('customers')) invalidateCache('admin/customers')
+  if (p.includes('services') && p.includes('sections')) invalidateCache('sections')
+  if (p.includes('services')) invalidateCache('admin/services')
+  if (p.includes('categories')) invalidateCache('admin/categories')
+  if (p.includes('tickets')) invalidateCache('admin/tickets')
+  if (p.includes('reviews')) invalidateCache('admin/reviews')
+  if (p.includes('settings')) invalidateCache('admin/settings')
+  if (p.includes('notifications')) invalidateCache('notifications')
 }
 
 /**
@@ -120,6 +139,14 @@ async function request<T = unknown>(
  */
 export const api = {
   get:    <T = unknown>(path: string)                           => request<T>('GET',    path),
+  /** Stale-while-revalidate GET with session-scoped cache (instant revisits). */
+  getCached: <T = unknown>(path: string, opts?: { ttl?: number; persist?: boolean; force?: boolean }) =>
+    fetchResource<T>('GET', path, () => request<T>('GET', path), {
+      ttl: opts?.ttl,
+      persist: opts?.persist ?? true,
+      force: opts?.force,
+    }),
+  peekGet: <T = unknown>(path: string) => peekCached<T>('GET', path),
   post:   <T = unknown>(path: string, body: unknown)            => request<T>('POST',   path, body),
   put:    <T = unknown>(path: string, body: unknown)            => request<T>('PUT',    path, body),
   patch:  <T = unknown>(path: string, body: unknown)            => request<T>('PATCH',  path, body),

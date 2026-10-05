@@ -2,7 +2,9 @@
  * Admin pages — complete working source (all 22 pages)
  * Exact match of compiled admin-DC3AMdvm.js (182,322 chars)
  */
-import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useResource } from '@/lib/useResource'
+import { TableSkeleton, StatCardsSkeleton, DetailPanelSkeleton } from '@/components/ui/LoadingPlaceholders'
 import { resolvePrimary } from '@/lib/design-tokens'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useStore } from '@/lib/store'
@@ -55,7 +57,7 @@ function PageWrap({
     </AdminScreen>
   )
 }
-function Spinner() { return <div style={{ textAlign: 'center', padding: '48px 20px', color: '#9ca3af', fontSize: 14 }}>Loading…</div> }
+function Spinner() { return <TableSkeleton rows={10} /> }
 function Empty({ icon = '📭', title, description, action }: { icon?: string; title: string; description?: string; action?: React.ReactNode }) {
   return (
     <div style={{ textAlign: 'center', padding: '56px 24px', color: '#6b7280' }}>
@@ -211,11 +213,12 @@ function BarChart({ data = [], color = '#4A6FA5' }: { data?: Array<{ label: stri
 export function AdminDashboard() {
   const primary = resolvePrimary(useStore(s => s.settings))
   const nav = useNavigate()
-  const [data, setData] = useState<Record<string, unknown> | null>(null)
-  const [loading, setLoading] = useState(true)
-  useEffect(() => { api.get<Record<string, unknown>>('admin/analytics/dashboard').then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false)) }, [])
-  if (loading) return <Spinner />
-  const r = (data?.stats || {}) as Record<string, unknown>
+  const { data, isInitialLoad, isRefreshing } = useResource(
+    'admin/analytics/dashboard',
+    () => api.getCached<Record<string, unknown>>('admin/analytics/dashboard'),
+    { persist: true },
+  )
+  const r = ((data?.stats || {}) as Record<string, unknown>)
   const stats = [
     { label: 'Total Bookings',   value: r.total_bookings   || 0, icon: '📋', color: primary,   link: '/admin/requests' },
     { label: 'Bookings Today',   value: r.bookings_today   || 0, icon: '📅', color: '#7c3aed', link: '/admin/requests' },
@@ -229,6 +232,7 @@ export function AdminDashboard() {
   ]
   const trends = data?.trends as Record<string, unknown> | undefined
   const recent = (data?.recent || []) as Array<Record<string, unknown>>
+  // stats computed only when data present; skeleton covers isInitialLoad
   const dashSticky = (
     <Link to="/admin/requests" style={{ flex: 1, textDecoration: 'none' }}>
       <Btn style={{ width: '100%', justifyContent: 'center' }}>View All Requests</Btn>
@@ -237,7 +241,10 @@ export function AdminDashboard() {
   return (
     <AdminScreen sticky={dashSticky}>
       <PageHeader title="Admin Dashboard" subtitle="Services2NRI Overview" action={dashSticky} />
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16, marginBottom: 32 }}>
+      {isInitialLoad ? (
+        <StatCardsSkeleton count={8} />
+      ) : (
+      <div className={isRefreshing ? 's2-region-refreshing' : undefined} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 16, marginBottom: 32 }}>
         {stats.map(({ label, value, icon, color, link }) => (
           <div key={label} onClick={() => nav(link)} onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = `0 4px 16px ${color}30` }} onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '' }} style={{ background: '#fff', borderRadius: 12, border: '1px solid #EBF0F8', padding: 16, boxShadow: '0 2px 8px rgba(0,0,0,.04)', borderLeft: `4px solid ${color}`, cursor: 'pointer', transition: 'box-shadow .15s' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -247,8 +254,9 @@ export function AdminDashboard() {
           </div>
         ))}
       </div>
-      {trends && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 24 }}>
+      )}
+      {!isInitialLoad && trends && (
+        <div className={isRefreshing ? 's2-region-refreshing' : undefined} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 24 }}>
           <Card style={{ padding: '16px 20px' }}>
             <div style={{ fontSize: 13, fontWeight: 700, color: '#374151', marginBottom: 4 }}>Bookings (30 days)</div>
             <div style={{ fontSize: 22, fontWeight: 800, color: primary, marginBottom: 8 }}>{Number((data?.stats as Record<string, unknown>)?.total_bookings_month || 0)}</div>
@@ -265,7 +273,10 @@ export function AdminDashboard() {
           </Card>
         </div>
       )}
-      <Card>
+      {isInitialLoad ? (
+        <TableSkeleton rows={6} />
+      ) : (
+      <Card style={isRefreshing ? { opacity: 0.72, pointerEvents: 'none' } : undefined}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <h2 style={{ margin: 0, fontSize: 17, fontWeight: 700 }}>Recent Bookings</h2>
           <Link to="/admin/requests" style={{ color: primary, textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>View all →</Link>
@@ -285,6 +296,7 @@ export function AdminDashboard() {
           </table>
         </AdminTableWrap>
       </Card>
+      )}
     </AdminScreen>
   )
 }
@@ -292,8 +304,6 @@ export function AdminDashboard() {
 export function AdminBookingList() {
   const primary = resolvePrimary(useStore(s => s.settings))
   const nav = useNavigate()
-  const [data, setData] = useState<{ rows: Record<string, unknown>[]; total: number }>({ rows: [], total: 0 })
-  const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({ status: '', search: '', page: 1, qual_status: '' })
   const [selected, setSelected] = useState(new Set<number>())
   const [bulkBusy, setBulkBusy] = useState(false)
@@ -301,12 +311,18 @@ export function AdminBookingList() {
   const QUAL_STATS = ['', 'highly_qualified', 'qualified', 'requires_review', 'missing_documents', 'not_yet_eligible', 'incomplete']
   const QUAL_LABEL: Record<string, string> = { '': 'All Leads', highly_qualified: '🏆 Highly Qualified', qualified: '✅ Qualified', requires_review: '👀 Requires Review', missing_documents: '📎 Missing Docs', not_yet_eligible: '⛔ Not Eligible', incomplete: '⏳ Incomplete' }
   const QUAL_COLOR: Record<string, [string, string]> = { highly_qualified: ['#166534', '#dcfce7'], qualified: ['#1E2D40', '#d0effa'], requires_review: ['#92400e', '#fef3c7'], missing_documents: ['#7c2d12', '#fee2e2'], not_yet_eligible: ['#dc2626', '#fee2e2'], incomplete: ['#6b7280', '#f3f4f6'] }
-  const load = useCallback(() => {
-    setLoading(true)
+  const listPath = useMemo(() => {
     const qs = new URLSearchParams({ page: String(filters.page), per_page: '20', ...(filters.status && { status: filters.status }), ...(filters.search && { search: filters.search }), ...(filters.qual_status && { qual_status: filters.qual_status }) })
-    api.get<{ rows: Record<string, unknown>[]; total: number }>(`admin/bookings?${qs}`).then(d => { setData(d); setLoading(false) }).catch(() => setLoading(false))
+    return `admin/bookings?${qs}`
   }, [filters])
-  useEffect(() => { load() }, [load])
+  const { data, isInitialLoad, isRefreshing, refresh } = useResource(
+    listPath,
+    () => api.getCached<{ rows: Record<string, unknown>[]; total: number }>(listPath),
+    { persist: true },
+  )
+  const rows = data?.rows ?? []
+  const total = data?.total ?? 0
+  const load = useCallback(() => refresh(true), [refresh])
   const setF = (key: string) => (val: string) => setFilters(f => ({ ...f, [key]: val, page: 1 }))
   const [err, setErr] = useState('')
   async function bulkUpdate(status: string) {
@@ -321,7 +337,7 @@ export function AdminBookingList() {
     if (failed > 0) setErr(`${failed} of ${selected.size} bookings failed to update. Please check and retry those individually.`)
     load()
   }
-  const allIds = data.rows.map(r => Number(r.id))
+  const allIds = rows.map(r => Number(r.id))
   const allSelected = allIds.length > 0 && allIds.every(id => selected.has(id))
   const bookingSticky = (
     <>
@@ -340,7 +356,7 @@ export function AdminBookingList() {
       <Alert type="error" message={err} onClose={() => setErr('')} />
       <PageHeader
         title="All Bookings"
-        subtitle={`${data.total} total bookings${selected.size ? ` · ${selected.size} selected` : ''}`}
+        subtitle={`${total} total bookings${selected.size ? ` · ${selected.size} selected` : ''}`}
         action={bookingSticky}
       />
       <AdminToolbar>
@@ -348,14 +364,14 @@ export function AdminBookingList() {
         <select value={filters.status} onChange={e => setF('status')(e.target.value)} style={{ padding: '8px 14px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, background: '#fff' }}>{STATUSES.map(s => <option key={s} value={s}>{s || 'All Statuses'}</option>)}</select>
         <select value={filters.qual_status} onChange={e => setF('qual_status')(e.target.value)} style={{ padding: '8px 14px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, background: '#fff' }}>{QUAL_STATS.map(s => <option key={s} value={s}>{QUAL_LABEL[s] || s}</option>)}</select>
       </AdminToolbar>
-      {loading ? <Spinner /> : <Card style={{ padding: 0, overflow: 'hidden' }}>
+      {isInitialLoad ? <Spinner /> : <Card style={{ padding: 0, overflow: 'hidden', ...(isRefreshing ? { opacity: 0.72, pointerEvents: 'none' as const } : {}) }}>
         <AdminTableWrap>
           <table {...adminTableProps(14)}>
             <thead><tr style={{ background: '#f9fafb' }}>
               <th style={{ padding: '12px 14px', width: 36 }}><input type="checkbox" checked={allSelected} onChange={e => e.target.checked ? setSelected(new Set(allIds)) : setSelected(new Set())} /></th>
               {['Ref', 'Customer', 'Service', 'Status', 'Lead', 'Date', ''].map(h => <th key={h} style={{ padding: '12px 14px', fontWeight: 600, color: '#374151', borderBottom: '1px solid #e5e7eb', textAlign: 'left', whiteSpace: 'nowrap' }}>{h}</th>)}
             </tr></thead>
-            <tbody>{data.rows.length === 0 ? <tr><td colSpan={8} style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>No bookings found</td></tr> : data.rows.map(b => {
+            <tbody>{rows.length === 0 ? <tr><td colSpan={8} style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>No bookings found</td></tr> : rows.map(b => {
               const qs = String(b.qual_status || ''), [qc, qbg] = QUAL_COLOR[qs] || ['#6b7280', '#f3f4f6']
               return <tr key={String(b.id)} style={{ borderBottom: '1px solid #f3f4f6', cursor: 'pointer' }} onClick={() => nav(`/admin/bookings/${b.id}`)}>
                 <td style={{ padding: '12px 14px' }} onClick={e => e.stopPropagation()}><input type="checkbox" checked={selected.has(Number(b.id))} onChange={e => { const s = new Set(selected); e.target.checked ? s.add(Number(b.id)) : s.delete(Number(b.id)); setSelected(s) }} /></td>
@@ -370,10 +386,10 @@ export function AdminBookingList() {
             })}</tbody>
           </table>
         </AdminTableWrap>
-        {data.total > 20 && <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: 12 }}>
+        {total > 20 && <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: 12 }}>
           <Btn variant="ghost" onClick={() => setFilters(f => ({ ...f, page: Math.max(1, f.page - 1) }))} disabled={filters.page === 1}>← Prev</Btn>
-          <span style={{ padding: '10px 16px', fontSize: 13, color: '#6b7280' }}>Page {filters.page} of {Math.ceil(data.total / 20)}</span>
-          <Btn variant="ghost" onClick={() => setFilters(f => ({ ...f, page: f.page + 1 }))} disabled={filters.page >= Math.ceil(data.total / 20)}>Next →</Btn>
+          <span style={{ padding: '10px 16px', fontSize: 13, color: '#6b7280' }}>Page {filters.page} of {Math.ceil(total / 20)}</span>
+          <Btn variant="ghost" onClick={() => setFilters(f => ({ ...f, page: f.page + 1 }))} disabled={filters.page >= Math.ceil(total / 20)}>Next →</Btn>
         </div>}
       </Card>}
     </AdminScreen>
@@ -382,32 +398,43 @@ export function AdminBookingList() {
 // ── AdminBookingDetail ($e) ───────────────────────────────────────────────────
 export function AdminBookingDetail() {
   const { id } = useParams<{ id: string }>(), primary = resolvePrimary(useStore(s => s.settings))
-  const [booking, setBooking] = useState<Record<string, unknown> | null>(null)
-  const [loading, setLoading] = useState(true), [status, setStatus] = useState('')
+  const detailPath = id ? `admin/bookings/${id}` : null
+  const { data, isInitialLoad, error, refresh } = useResource(
+    detailPath,
+    () => api.getCached<{ booking: Record<string, unknown> }>(detailPath!),
+    { persist: true, enabled: !!id },
+  )
+  const booking = data?.booking ?? null
+  const [status, setStatus] = useState('')
   const [msg, setMsg] = useState(''), [msgBusy, setMsgBusy] = useState(false)
   const [showQuote, setShowQuote] = useState(false)
   const [qForm, setQForm] = useState({ amount: '', notes: '', line_items: [{ description: '', amount: '' }] })
   const [qBusy, setQBusy] = useState(false), [err, setErr] = useState(''), [ok, setOk] = useState('')
-  const [loadFailed, setLoadFailed] = useState(false)
-  const reload = useCallback(() => {
-    setLoading(true); setLoadFailed(false)
-    api.get<{ booking: Record<string, unknown> }>(`admin/bookings/${id}`)
-      .then(d => { setBooking(d.booking); setStatus(String(d.booking?.status || '')); setLoading(false) })
-      // FIXED: previously .catch(() => setLoading(false)) left `booking`
-      // null on ANY failure, and the render below said "Booking not
-      // found" regardless of cause — a transient server error would
-      // falsely tell staff a booking doesn't exist, when it might just be
-      // a momentary hiccup. Distinguishing lets staff retry instead of
-      // wrongly concluding the booking was deleted/corrupted.
-      .catch(() => { setLoading(false); setLoadFailed(true) })
-  }, [id])
-  useEffect(() => { reload() }, [reload])
+  useEffect(() => {
+    if (booking) setStatus(String(booking.status || ''))
+  }, [booking])
+  const reload = useCallback(() => refresh(true), [refresh])
+  const loadFailed = error && !booking
   async function updateStatus() { try { await api.put(`admin/bookings/${id}/status`, { status }); setOk('Status updated.'); reload() } catch (e: unknown) { setErr((e as { message: string }).message) } }
   async function sendMsg() { if (!msg.trim()) return; setMsgBusy(true); try { await api.post(`admin/bookings/${id}/messages`, { message: msg }); setMsg(''); reload() } catch (e: unknown) { setErr((e as { message: string }).message) }; setMsgBusy(false) }
   async function sendQuote() { if (!qForm.amount) return; setQBusy(true); try { await api.post(`admin/bookings/${id}/quote`, qForm); setShowQuote(false); setOk('Quote sent.'); reload() } catch (e: unknown) { setErr((e as { message: string }).message) }; setQBusy(false) }
-  if (loading) return <Spinner />
-  if (loadFailed) return <Alert type="error" message="Couldn't load this booking. Please refresh and try again." />
-  if (!booking) return <Alert type="error" message="Booking not found." />
+  if (loadFailed) {
+    return (
+      <AdminScreen>
+        <PageHeader title="Booking" subtitle="Request detail" />
+        <Alert type="error" message="Couldn't load this booking. Please refresh and try again." />
+      </AdminScreen>
+    )
+  }
+  if (isInitialLoad) {
+    return (
+      <AdminScreen>
+        <PageHeader title="Booking" subtitle="Request detail" />
+        <DetailPanelSkeleton />
+      </AdminScreen>
+    )
+  }
+  if (!booking) return <AdminScreen><Alert type="error" message="Booking not found." /></AdminScreen>
   const docs = (booking.documents || []) as Array<Record<string, unknown>>
   const messages = (booking.messages || []) as Array<Record<string, unknown>>
   const fields = (booking.field_data || {}) as Record<string, unknown>
@@ -636,16 +663,17 @@ export function AdminSettings() {
     { title: '📋 Quotes', fields: [['quote_validity_days','Default validity (days)'],['quote_reminder_days','Reminder before expiry (days)']] },
     { title: '🔍 SEO & Verification', fields: [['seo_title','Default Page Title'],['seo_description','Default Meta Description'],['google_site_verification','Google Search Console Verification Code'],['facebook_pixel_id','Facebook Pixel ID'],['google_analytics_id','Google Analytics ID (G-XXXXXXX)']] },
   ]
-  if (loading) return <Spinner />
-  const settingsSave = <Btn onClick={save} loading={saving}>Save All Changes</Btn>
+  const settingsSave = <Btn onClick={save} loading={saving} disabled={loading && !Object.keys(settings).length}>Save All Changes</Btn>
   return (
     <AdminScreen sticky={settingsSave}>
       <PageHeader title="Platform Settings" action={settingsSave} />
+      {loading && !Object.keys(settings).length ? <DetailPanelSkeleton /> : null}
       <Alert type="error" message={err} onClose={() => setErr('')} /><Alert type="success" message={ok} onClose={() => setOk('')} />
       <div style={{ background: '#e0f2fe', border: '1px solid #7dd3fc', borderRadius: 10, padding: '12px 16px', marginBottom: 16, fontSize: 14, color: '#1E2D40', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
         <span><strong>Visual settings</strong> (hero text, banners, stats, colors) are managed in the Homepage Builder.</span>
         <Link to="/admin/homepage" style={{ background: '#1E2D40', color: '#fff', padding: '6px 14px', borderRadius: 7, textDecoration: 'none', fontWeight: 700, fontSize: 13 }}>→ Homepage Builder</Link>
       </div>
+      {!(loading && !Object.keys(settings).length) && (
       <div style={{ maxWidth: 700, display: 'flex', flexDirection: 'column', gap: 20 }}>
         {sections.map(({ title, fields }) => <Card key={title}>
           <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>{title}</h3>
@@ -680,6 +708,7 @@ export function AdminSettings() {
           })}
         </Card>)}
       </div>
+      )}
     </AdminScreen>
   )
 }
@@ -741,9 +770,23 @@ export function AdminCustomerDetail() {
       })
   }, [id])
   useEffect(() => { reload() }, [reload])
-  if (loading) return <Spinner />
-  if (loadFailed) return <Alert type="error" message="Couldn't load this customer. Please refresh and try again." />
-  if (!data) return <Alert type="error" message={err} />
+  if (loadFailed) {
+    return (
+      <AdminScreen>
+        <PageHeader title="Customer" />
+        <Alert type="error" message="Couldn't load this customer. Please refresh and try again." />
+      </AdminScreen>
+    )
+  }
+  if (loading && !data) {
+    return (
+      <AdminScreen>
+        <PageHeader title="Customer" subtitle="Profile & bookings" />
+        <DetailPanelSkeleton />
+      </AdminScreen>
+    )
+  }
+  if (!data) return <AdminScreen><Alert type="error" message={err || 'Customer not found.'} /></AdminScreen>
   const c = (data.customer || {}) as Record<string, unknown>
   const bookings = (data.bookings || []) as Array<Record<string, unknown>>
   const stats = (data.stats || {}) as Record<string, unknown>

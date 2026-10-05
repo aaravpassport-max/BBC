@@ -38,6 +38,8 @@ import { installServiceSectionNavStrip } from '@/lib/service-section-nav-strip'
 import { hydrateEmptySection } from '@/lib/service-section-normalize'
 import { isTemplateSectionHidden } from '@/lib/section-visibility'
 import { refreshExperienceReveal } from '@/components/public/ExperienceReveal'
+import { ServiceDetailShellSkeleton } from '@/components/ui/LoadingPlaceholders'
+import { peekCached } from '@/lib/resource-cache'
 
 // ── Field types ───────────────────────────────────────────────────────────────
 interface FormField {
@@ -744,9 +746,20 @@ export function ServiceDetailPage() {
   const siteName   = settings.platform_name || 'Services2NRI'
   const waNum      = settings.platform_whatsapp
 
-  const [svc,       setSvc]       = useState<Service | null>(null)
-  const [sections,  setSections]  = useState<ServiceSection[]>([])
-  const [loading,   setLoading]   = useState(true)
+  const [svc, setSvc] = useState<Service | null>(() => {
+    if (!slug) return null
+    const cached = peekCached<{ service: Service }>('GET', `services/${slug}`)
+    return cached?.service ?? null
+  })
+  const [sections, setSections] = useState<ServiceSection[]>(() => {
+    if (!slug) return []
+    const cached = peekCached<{ sections: ServiceSection[] }>('GET', `services/${slug}/sections`)
+    return (cached?.sections || [])
+      .filter((sec) => sec.is_visible !== 0 && String(sec.is_visible) !== '0' && String(sec.is_visible) !== 'false')
+      .filter((sec) => sec.type !== 'hero' && sec.type !== 'marquee')
+      .map((sec) => hydrateEmptySection(sec))
+  })
+  const [loading, setLoading] = useState(() => !peekCached('GET', `services/${slug || ''}`))
 
   // Wizard state
   const [stepIdx,   setStepIdx]   = useState(0)
@@ -761,9 +774,10 @@ export function ServiceDetailPage() {
 
   const loadService = useCallback(() => {
     if (!slug) return
-    setLoading(true)
+    const hadCache = !!peekCached('GET', `services/${slug}`)
+    if (!hadCache) setLoading(true)
     setLoadFailed(false)
-    api.get<{ service: Service; redirect?: string; unavailable?: boolean; message?: string }>(`services/${slug}`)
+    api.getCached<{ service: Service; redirect?: string; unavailable?: boolean; message?: string }>(`services/${slug}`)
       .then(data => {
         if (data.redirect) {
           const dest = resolveInternalDestination(data.redirect)
@@ -788,7 +802,7 @@ export function ServiceDetailPage() {
           try { s.marquee_settings = JSON.parse(s.marquee_settings) } catch { s.marquee_settings = null }
         }
         setSvc(s || null)
-        return api.get<{ sections: ServiceSection[] }>(`services/${slug}/sections`)
+        return api.getCached<{ sections: ServiceSection[] }>(`services/${slug}/sections`)
           .then(r => {
             // Issue 6: filter out is_visible=0 sections so toggle actually works
             const visible = (r.sections || [])
@@ -930,15 +944,6 @@ export function ServiceDetailPage() {
     }
   }
 
-  // ── Loading ──────────────────────────────────────────────────────────────────
-  if (loading) return (
-    <Layout>
-      <div className="s2-svc-spinner-wrap">
-        <div className="s2-svc-spinner" aria-label="Loading service" />
-      </div>
-    </Layout>
-  )
-
   if (loadFailed) return (
     <Layout>
       <div className="s2-svc-state">
@@ -950,15 +955,26 @@ export function ServiceDetailPage() {
     </Layout>
   )
 
-  if (!svc) return (
-    <Layout>
-      <div className="s2-svc-state">
-        <div className="s2-svc-state__emoji">🔍</div>
-        <h2 className="s2-t-h2">Service not found</h2>
-        <Link to="/services" className="s2-btn s2-btn--ghost">← Browse All Services</Link>
-      </div>
-    </Layout>
-  )
+  if (!svc) {
+    if (loading) {
+      return (
+        <Layout>
+          <div className="s2-svc-page-main">
+            <ServiceDetailShellSkeleton />
+          </div>
+        </Layout>
+      )
+    }
+    return (
+      <Layout>
+        <div className="s2-svc-state">
+          <div className="s2-svc-state__emoji">🔍</div>
+          <h2 className="s2-t-h2">Service not found</h2>
+          <Link to="/services" className="s2-btn s2-btn--ghost">← Browse All Services</Link>
+        </div>
+      </Layout>
+    )
+  }
 
   // ── Success screen ────────────────────────────────────────────────────────────
   if (submitted) return (

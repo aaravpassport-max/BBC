@@ -24,6 +24,7 @@ import { getRuntimeDesignConfig } from '@/lib/apply-design-config'
 import { resolveChromeLayer } from '@/lib/design-resolve'
 import { DESIGN_UPDATED_EVENT } from '@/lib/design-live-sync'
 import { pageContextFromPath } from '@/lib/width-layout'
+import { prefetchForRoute } from '@/lib/prefetch'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -1035,6 +1036,8 @@ export function SidebarLayout({ children }: SidebarLayoutProps) {
             key={to}
             to={to}
             end={to.split('/').length <= 2}
+            onMouseEnter={() => prefetchForRoute(to)}
+            onFocus={() => prefetchForRoute(to)}
             style={({ isActive }) => ({
               display: 'flex',
               alignItems: 'center',

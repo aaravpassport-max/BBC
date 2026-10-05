@@ -5,6 +5,7 @@ import {
   resolveInternalDestination,
   scrollToHash,
 } from '@/lib/spa-navigation'
+import { prefetchForRoute } from '@/lib/prefetch'
 
 /**
  * Registers global navigate() for store/logout and intercepts same-origin
@@ -42,11 +43,27 @@ export function SpaNavigationBridge() {
       if (!internal) return
 
       event.preventDefault()
+      prefetchForRoute(internal)
       navigate(internal)
     }
 
+    function onLinkHover(event: Event) {
+      const anchor = (event.target as Element | null)?.closest('a[href]') as HTMLAnchorElement | null
+      if (!anchor) return
+      const href = anchor.getAttribute('href')
+      if (!href || href.startsWith('#')) return
+      const internal = resolveInternalDestination(href)
+      if (internal) prefetchForRoute(internal)
+    }
+
     document.addEventListener('click', onDocumentClick, true)
-    return () => document.removeEventListener('click', onDocumentClick, true)
+    document.addEventListener('mouseover', onLinkHover, true)
+    document.addEventListener('focusin', onLinkHover, true)
+    return () => {
+      document.removeEventListener('click', onDocumentClick, true)
+      document.removeEventListener('mouseover', onLinkHover, true)
+      document.removeEventListener('focusin', onLinkHover, true)
+    }
   }, [navigate])
 
   return null

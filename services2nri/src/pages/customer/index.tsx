@@ -12,10 +12,13 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { resolvePrimary } from '@/lib/design-tokens'
 import { Link, useParams, useNavigate, useSearchParams } from 'react-router-dom'
 import { SidebarLayout } from '@/components/layout/Layout'
-import { Card, PageHeader, Button, Alert, Modal, FormInput, Textarea, EmptyState, LoadingScreen, StatusBadge } from '@/components/ui'
+import { Card, PageHeader, Button, Alert, Modal, FormInput, Textarea, EmptyState, StatusBadge } from '@/components/ui'
+import { DetailPanelSkeleton } from '@/components/ui/LoadingPlaceholders'
 import { useStore } from '@/lib/store'
 import { useT } from '@/lib/i18n'
 import { api } from '@/lib/api'
+import { useResource } from '@/lib/useResource'
+import { StatCardsSkeleton, TableSkeleton } from '@/components/ui/LoadingPlaceholders'
 import { BOOKING_STEPS, STAFF_ROLES } from '@/lib/constants'
 import type { Booking, Ticket, UserProfile } from '@/types'
 import { AdminScreen, AdminToolbar, AdminFormStack } from '@/components/admin/AdminMobileUi'
@@ -84,27 +87,17 @@ export function CustomerDashboard() {
   const loadNotifs = useStore((s) => s.loadNotifications)
   const primary    = resolvePrimary(settings)
 
-  const [data,    setData]    = useState<{ rows: Booking[]; total: number } | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState(false)
+  const { data, isInitialLoad, error: loadError, isRefreshing } = useResource(
+    'bookings?per_page=5',
+    () => api.getCached<{ rows: Booking[]; total: number }>('bookings?per_page=5'),
+    { persist: true },
+  )
 
   useEffect(() => {
     loadNotifs()
-    api.get<{ rows: Booking[]; total: number }>('bookings?per_page=5')
-      .then((d) => { setData(d); setLoading(false) })
-      // FIXED (was previously silent): a failed fetch here left `data`
-      // null with no error flag, rendering as "0 total / 0 in progress /
-      // 0 completed" with an empty list — visually identical to a
-      // customer who genuinely has zero bookings. A customer with an
-      // active booking whose request failed (network blip, server
-      // hiccup) would see what looks like an empty, wiped account with
-      // no indication anything went wrong.
-      .catch(() => { setLoading(false); setLoadError(true) })
-  }, [])
+  }, [loadNotifs])
 
-  if (loading) return <LoadingScreen />
-
-  if (loadError) {
+  if (loadError && !data) {
     return (
       <AdminScreen>
         <div style={{ marginBottom: 24 }}>
@@ -118,6 +111,7 @@ export function CustomerDashboard() {
   const active   = (data?.rows || []).filter((b) => !['completed', 'cancelled'].includes(b.status))
   const recent   = (data?.rows || []).slice(0, 5)
   const completed = (data?.rows || []).filter((b) => b.status === 'completed').length
+  const loading = isInitialLoad
 
   const firstName = user?.first_name || user?.display_name?.split(' ')[0] || 'there'
   const dashSticky = (
@@ -133,8 +127,10 @@ export function CustomerDashboard() {
         <p style={{ margin: 0, color: '#6b7280', fontSize: 14 }}>Track your service requests and manage your India affairs.</p>
       </div>
 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 32 }}>
+      {loading ? (
+        <StatCardsSkeleton count={3} />
+      ) : (
+      <div className={isRefreshing ? 's2-region-refreshing' : undefined} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 16, marginBottom: 32 }}>
         {[
           { label: t('total_bookings'), value: data?.total || 0, icon: '📋' },
           { label: t('in_progress'),   value: active.length,    icon: '⏳' },
@@ -147,8 +143,12 @@ export function CustomerDashboard() {
           </Card>
         ))}
       </div>
+      )}
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24, flexWrap: 'wrap' as const }}>
+      {loading ? (
+        <TableSkeleton rows={5} />
+      ) : (
+      <div className={isRefreshing ? 's2-region-refreshing' : undefined} style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24, flexWrap: 'wrap' as const }}>
         {/* Recent bookings */}
         <Card>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
@@ -196,6 +196,7 @@ export function CustomerDashboard() {
           )}
         </div>
       </div>
+      )}
     </AdminScreen>
   )
 }
@@ -247,7 +248,7 @@ export function BookingListPage() {
         ))}
       </AdminToolbar>
 
-      {loading ? <LoadingScreen /> : loadError ? (
+      {loading ? <TableSkeleton rows={8} /> : loadError ? (
         <div>
           <Alert type="error" message="Couldn't load your bookings right now." />
           <Button onClick={load} style={{ marginTop: 12 }}>Retry</Button>
@@ -391,7 +392,14 @@ export function BookingDetailPage() {
     } catch (e: unknown) { setErrorMsg((e as { message: string }).message) }
   }
 
-  if (loading) return <LoadingScreen />
+  if (loading) {
+    return (
+      <AdminScreen>
+        <PageHeader title="Booking details" />
+        <DetailPanelSkeleton />
+      </AdminScreen>
+    )
+  }
   if (!booking) return <Alert type="error" message="Booking not found." />
 
   const pendingQuote = (booking.quotes || []).find((q) => q.status === 'pending')
@@ -642,7 +650,14 @@ export function NewBookingPage() {
     } catch (e: unknown) { setErrorMsg((e as { message: string }).message); setSubmitting(false) }
   }
 
-  if (loading) return <LoadingScreen />
+  if (loading) {
+    return (
+      <AdminScreen>
+        <PageHeader title="New Service Request" />
+        <DetailPanelSkeleton />
+      </AdminScreen>
+    )
+  }
 
   const submitBtn = svc ? (
     <Button onClick={submit} loading={submitting} style={{ width: '100%', justifyContent: 'center' }}>
@@ -744,7 +759,14 @@ export function ProfilePage() {
     setProfile((p) => p ? { ...p, profile: { ...p.profile, [section]: val } } : p)
   }
 
-  if (loading) return <LoadingScreen />
+  if (loading) {
+    return (
+      <AdminScreen>
+        <PageHeader title="My Profile" />
+        <DetailPanelSkeleton />
+      </AdminScreen>
+    )
+  }
 
   const saveBtn = <Button onClick={saveProfile} loading={saving} style={{ width: '100%', justifyContent: 'center' }}>Save Profile</Button>
 
@@ -865,7 +887,7 @@ export function TicketsPage() {
     <AdminScreen sticky={newTicketBtn}>
       <PageHeader title="Support Tickets" action={newTicketBtn} />
 
-      {loading ? <LoadingScreen /> : tickets.length === 0 ? (
+      {loading ? <TableSkeleton rows={6} /> : tickets.length === 0 ? (
         <EmptyState icon="🎫" title="No tickets" description="Open a support ticket if you need help with any booking or issue." action={<Button onClick={() => setShowModal(true)}>Open Ticket</Button>} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
