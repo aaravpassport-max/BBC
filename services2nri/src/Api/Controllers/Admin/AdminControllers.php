@@ -2314,6 +2314,11 @@ class SettingsAdminController extends \S2NRI\Api\Controllers\BaseController {
             'css_awards_bg', 'css_faq_bg', 'css_newsletter_bg', 'css_newsletter_padding', 'css_app_bg',
             'css_newsletter_padding_desktop', 'css_newsletter_padding_tablet', 'css_newsletter_padding_mobile',
             'css_global_font', 'css_global_radius', 'css_global_maxw',
+            'css_global_image_object_fit',
+            'css_hero_image_object_fit', 'css_svc_image_object_fit', 'css_cities_image_object_fit',
+            'css_testimonials_image_object_fit', 'css_about_image_object_fit',
+            'css_services_dir_image_object_fit', 'css_service_hero_image_object_fit',
+            'css_marketing_intro_image_object_fit', 'css_team_image_object_fit',
             // Section visibility flags
             'hide_section_hero', 'hide_section_notice', 'hide_section_search', 'hide_section_features',
             'hide_section_stats', 'hide_section_tagline', 'hide_section_cities', 'hide_section_testimonials',

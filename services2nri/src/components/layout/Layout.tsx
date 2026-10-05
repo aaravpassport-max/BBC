@@ -29,6 +29,7 @@ import { subscribeResource } from '@/lib/resource-cache'
 import { parseFooterNavLinks } from '@/lib/home-content-settings'
 import { resolvePublicNavMenu } from '@/lib/nav-menu-parse'
 import { CmsElement } from '@/components/public/CmsElement'
+import { globalImageFitStyle, sectionImageFitStyle } from '@/lib/image-object-fit'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -223,6 +224,7 @@ export function Layout({ children }: LayoutProps) {
         display: 'flex',
         flexDirection: 'column',
         ['--s2-primary' as string]: primary,
+        ...globalImageFitStyle(settings as Record<string, string>),
       }}
     >
       {/* ── Top bar ────────────────────────────────────────────────────────── */}
@@ -928,6 +930,7 @@ interface PageHeroProps {
 }
 export function PageHero({ title, subtitle, bg, meta, pageTemplateId, templateSectionKey = 'hero', hideSettingKey }: PageHeroProps) {
   const settings = useStore((s) => s.settings)
+  const sectionKey = templateSectionKey === 'intro' ? 'intro' : 'hero'
   if (
     pageTemplateId &&
     isTemplateSectionHidden(settings, pageTemplateId, templateSectionKey, hideSettingKey)
@@ -937,8 +940,11 @@ export function PageHero({ title, subtitle, bg, meta, pageTemplateId, templateSe
   return (
     <div
       className="s2-page-hero s2-surface-dark s2-hero--premium"
-      data-s2-section={templateSectionKey === 'intro' ? 'intro' : 'hero'}
-      style={bg ? { background: bg } : undefined}
+      data-s2-section={sectionKey}
+      style={{
+        ...sectionImageFitStyle(settings as Record<string, string>, sectionKey),
+        ...(bg ? { background: bg } : {}),
+      }}
     >
       <div className="s2-container">
         <div className="s2-page-hero__crumb">

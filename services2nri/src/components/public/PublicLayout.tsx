@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom'
 import { cssVars } from '@/lib/design-tokens'
 import { useStore } from '@/lib/store'
 import { isTemplateSectionHidden } from '@/lib/section-visibility'
+import { sectionImageFitStyle } from '@/lib/image-object-fit'
 
 export function PublicSection({
   children,
@@ -43,10 +44,12 @@ export function PublicSection({
     content: 's2-width-content',
     inner: 's2-width-inner',
   }[width]
+  const fitStyle = sectionKey ? sectionImageFitStyle(settings as Record<string, string>, sectionKey) : undefined
   return (
     <section
       className={`s2-section s2-marketing-section s2-experience-section${alt ? ' s2-marketing-section--alt' : ''} ${className}`.trim()}
       data-s2-reveal=""
+      style={fitStyle}
       {...(sectionKey ? { 'data-s2-section': sectionKey } : {})}
     >
       <div className={`s2-container s2-section-inner ${widthClass}`}>{children}</div>

@@ -64,7 +64,7 @@
 .s2-public-team-card img {
   width: 100%;
   height: 200px;
-  object-fit: cover;
+  object-fit: var(--s2-section-image-object-fit, var(--s2-image-object-fit, fill));
 }
 
 .s2-public-team-card__body {
@@ -507,7 +507,7 @@
 .s2-blog-featured img {
   width: 100%;
   height: 320px;
-  object-fit: cover;
+  object-fit: var(--s2-section-image-object-fit, var(--s2-image-object-fit, fill));
   display: block;
 }
 
@@ -615,7 +615,7 @@
 .s2-blog-card__img-wrap img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: var(--s2-section-image-object-fit, var(--s2-image-object-fit, fill));
   display: block;
   transition: transform 0.3s;
 }
@@ -779,7 +779,7 @@
   border-radius: 14px;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.2);
   max-height: 420px;
-  object-fit: cover;
+  object-fit: var(--s2-section-image-object-fit, var(--s2-image-object-fit, fill));
   display: block;
 }
 
@@ -978,7 +978,7 @@
 .s2-blog-related-card img {
   width: 100%;
   height: 120px;
-  object-fit: cover;
+  object-fit: var(--s2-section-image-object-fit, var(--s2-image-object-fit, fill));
 }
 
 .s2-blog-related-card__body {
