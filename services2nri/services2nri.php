@@ -3,7 +3,7 @@
  * Plugin Name:       Services2NRI
  * Plugin URI:        https://services2nri.org.in
  * Description:       Complete NRI Service Marketplace — bookings, quotes, payments, CRM, documents.
- * Version:           4.7.47
+ * Version:           4.7.48
  * Requires at least: 6.0
  * Requires PHP:      8.0
  * Author:            Services2NRI
