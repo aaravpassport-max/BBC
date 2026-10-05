@@ -110,6 +110,21 @@ function attachElementStyleControls(
   }
 }
 
+/** Platform setting keys edited from the section Elements inspector (content + visibility). */
+export function collectElementInspectorSettingKeys(
+  pageId: string,
+  section: SectionCatalogDef,
+): string[] {
+  const keys = new Set<string>()
+  for (const node of buildSectionElementTree(pageId, section)) {
+    for (const c of node.controls) {
+      if (c.settingKey) keys.add(c.settingKey)
+      if (c.hideSettingKey) keys.add(c.hideSettingKey)
+    }
+  }
+  return [...keys]
+}
+
 export function buildSectionElementTree(
   pageId: string,
   section: SectionCatalogDef,

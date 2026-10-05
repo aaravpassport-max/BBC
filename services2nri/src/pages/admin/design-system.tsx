@@ -104,7 +104,12 @@ export function AdminDesignSystem() {
 
   const save = useCallback(async () => {
     const payload = configRef.current
-    if (!payload || publishInFlight.current) return
+    if (!payload) {
+      throw new Error('Design config is not loaded yet.')
+    }
+    if (publishInFlight.current) {
+      throw new Error('A design publish is already in progress.')
+    }
     publishInFlight.current = true
     const revisionBefore = designRevision
     setSaving(true)
@@ -137,7 +142,9 @@ export function AdminDesignSystem() {
         )
       }
     } catch (e: unknown) {
-      setMessage(e instanceof Error ? e.message : 'Save failed')
+      const msg = e instanceof Error ? e.message : 'Save failed'
+      setMessage(msg)
+      throw e instanceof Error ? e : new Error(msg)
     } finally {
       publishInFlight.current = false
       setSaving(false)
@@ -248,6 +255,7 @@ export function AdminDesignSystem() {
         fonts={fonts}
         applyPreset={(id) => applyPreset(id, 'theme')}
         saving={saving}
+        onPublishDesign={save}
         previewPath={previewPath}
         setPreviewPath={setPreviewPath}
         toolsSlot={

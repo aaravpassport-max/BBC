@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.89] — 2026-10-05 — Cloud Agent
+
+- **Elements save fix:** **Save elements** now writes platform settings (content/visibility) and publishes the design JSON (per-element colors, type, spacing) in one step; `hide_el_*` visibility keys are public on the storefront. Success/error feedback appears on the Elements tab; failed design publish no longer reports success.
+
+---
+
 ## [4.7.88] — 2026-10-05 — Cloud Agent
 
 - **Services directory page:** Elements tab for hero (title, subtitle, search, meta) and **Service 1–24** grid slots on `/services`; registry still supplies card content.

@@ -41,8 +41,9 @@ test.describe('Design System element styling → public DOM', () => {
       (r) => r.url().includes('/mock-api/admin/design') && r.request().method() === 'PUT',
       { timeout: 25_000 },
     );
-    await page.getByRole('button', { name: 'Publish design' }).click();
+    await editor.getByRole('button', { name: 'Save elements' }).click();
     await publishPromise;
+    await expect(page.getByText('Elements saved')).toBeVisible({ timeout: 15_000 });
 
     await page.goto('/');
     const heroHeading = page.locator('[data-s2-page="home"][data-s2-section="hero"][data-s2-element="heading"]');

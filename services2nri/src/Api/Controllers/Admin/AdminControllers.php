@@ -2290,6 +2290,7 @@ class SettingsAdminController extends \S2NRI\Api\Controllers\BaseController {
             $is_public = (
                 in_array( $key, $public_keys, true )
                 || str_starts_with( $key, 'hide_tmpl_' )
+                || str_starts_with( $key, 'hide_el_' )
                 || self::isPublicMarketingFlatKey( $key )
             ) ? 1 : 0;
 

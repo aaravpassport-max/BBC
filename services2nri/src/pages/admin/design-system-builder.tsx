@@ -39,6 +39,7 @@ import {
   resolveContentPanel,
 } from './section-content-rich-panel'
 import { SectionElementInspector } from './section-element-inspector'
+import { collectElementInspectorSettingKeys } from '@/lib/design-element-tree'
 import {
   DesignColorSwatchGrid,
   DesignPremiumGroup,
@@ -638,6 +639,7 @@ export function SectionEditorBody({
           onSettingsChange={onSettingsChange}
           onSave={onSaveElements}
           saving={contentSaving}
+          saveMessage={contentSaveMessage}
         />
       ) : section.isPageScope ? (
         <div className="s2-design-builder-panel s2-ds-design-studio">
@@ -937,6 +939,7 @@ export function DesignSystemBuilder({
   fonts,
   applyPreset,
   saving,
+  onPublishDesign,
   previewPath,
   setPreviewPath,
   toolsSlot,
@@ -947,6 +950,8 @@ export function DesignSystemBuilder({
   fonts: Array<{ id: string; name: string; category: string; pairing: string }>
   applyPreset: (id: string) => void
   saving: boolean
+  /** Persists in-memory design config (element styles, tokens) via admin/design PUT. */
+  onPublishDesign: () => Promise<void>
   previewPath: string
   setPreviewPath: (p: string) => void
   toolsSlot?: React.ReactNode
@@ -1100,7 +1105,43 @@ export function DesignSystemBuilder({
   }
 
   const saveSectionElements = async (section: SectionCatalogDef) => {
-    await saveSectionContent(section)
+    const elementKeys = collectElementInspectorSettingKeys(pageId, section)
+    const fields = section.isPageScope ? page.pageContentFields : section.contentFields
+    const panel = section.contentPanel ?? resolveContentPanel(section)
+    const exclude = richPanelExcludes(panel)
+    const contentKeys = [
+      ...(fields || []).map((f) => f.key).filter((k) => !exclude.has(k)),
+      ...richPanelSaveKeys(panel),
+    ]
+    const keys = [...new Set([...elementKeys, ...contentKeys])]
+
+    setContentSavingId(section.id)
+    setContentSaveMessageById((prev) => {
+      const next = { ...prev }
+      delete next[section.id]
+      return next
+    })
+    try {
+      if (keys.length) {
+        await api.put('admin/settings', prepareSettingsPayload(settings, keys))
+      }
+      await onPublishDesign()
+      await loadSettings()
+      setContentSaveMessageById((prev) => ({
+        ...prev,
+        [section.id]: {
+          type: 'success',
+          text: 'Elements saved — content, visibility, and per-element styles are stored on the server.',
+        },
+      }))
+    } catch {
+      setContentSaveMessageById((prev) => ({
+        ...prev,
+        [section.id]: { type: 'error', text: 'Could not save elements. Try again or use Publish design.' },
+      }))
+    } finally {
+      setContentSavingId(null)
+    }
   }
 
   const saveSectionContent = async (section: SectionCatalogDef) => {
