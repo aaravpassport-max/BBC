@@ -70,7 +70,7 @@
 .s2-home-hero-slide-bg {
   position: absolute;
   inset: 0;
-  background-size: cover;
+  background-size: var(--s2-hero-bg-size, cover);
   background-position: center;
   background-image: var(--s2-home-slide-bg);
 }
@@ -118,7 +118,7 @@
 .s2-home-svc-card__media img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: var(--s2-section-image-object-fit, var(--s2-image-object-fit, fill));
   transition: transform 0.4s var(--s2-motion-ease, ease);
 }
 
@@ -211,7 +211,7 @@
 .s2-home-city-card img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: var(--s2-section-image-object-fit, var(--s2-image-object-fit, fill));
 }
 
 .s2-home-city-card__overlay {
@@ -360,7 +360,7 @@
 .s2-home-testimonial-card__avatar img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: var(--s2-section-image-object-fit, var(--s2-image-object-fit, fill));
   display: block;
 }
 
@@ -615,7 +615,7 @@
 .s2-home-about__img {
   width: 100%;
   height: 320px;
-  object-fit: cover;
+  object-fit: var(--s2-section-image-object-fit, var(--s2-image-object-fit, fill));
   border-radius: 16px;
   box-shadow: 0 8px 40px rgba(0, 0, 0, 0.15);
 }

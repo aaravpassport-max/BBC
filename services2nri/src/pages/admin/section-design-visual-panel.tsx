@@ -258,20 +258,39 @@ export function SectionDesignVisualPanel({
           ))}
           {spacingPlatform.length > 0 && <BandDeviceTabs device={device} onDevice={setDevice} />}
           <BandFieldGrid>
-            {spacingPlatform.map((f) => (
-              <BandTextField
-                key={f.key}
-                label={f.label}
-                hint={f.hint || (device !== 'desktop' ? `Applies at ${device} breakpoint when supported` : undefined)}
-                placeholder={f.placeholder}
-                value={readAdminSetting(settings, f.key)}
-                inherited={readAdminSetting(settings, f.key) === ''}
-                onChange={(v) => onSettingsChange(f.key, v)}
-                onClear={
-                  readAdminSetting(settings, f.key) !== '' ? () => onSettingsChange(f.key, '') : undefined
-                }
-              />
-            ))}
+            {spacingPlatform.map((f) =>
+              f.type === 'select' && f.options?.length ? (
+                <label key={f.key} className="s2-band-field s2-band-field--select">
+                  <span className="s2-band-field__label">{f.label}</span>
+                  {f.hint ? <span className="s2-band-field__hint">{f.hint}</span> : null}
+                  <select
+                    className="s2-band-select"
+                    value={readAdminSetting(settings, f.key)}
+                    onChange={(e) => onSettingsChange(f.key, e.target.value)}
+                  >
+                    <option value="">{f.placeholder ? `Default (${f.placeholder})` : 'Inherit'}</option>
+                    {f.options.map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              ) : (
+                <BandTextField
+                  key={f.key}
+                  label={f.label}
+                  hint={f.hint || (device !== 'desktop' ? `Applies at ${device} breakpoint when supported` : undefined)}
+                  placeholder={f.placeholder}
+                  value={readAdminSetting(settings, f.key)}
+                  inherited={readAdminSetting(settings, f.key) === ''}
+                  onChange={(v) => onSettingsChange(f.key, v)}
+                  onClear={
+                    readAdminSetting(settings, f.key) !== '' ? () => onSettingsChange(f.key, '') : undefined
+                  }
+                />
+              ),
+            )}
           </BandFieldGrid>
         </BandDesignGroup>
       )}
