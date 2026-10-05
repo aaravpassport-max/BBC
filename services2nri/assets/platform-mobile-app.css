@@ -251,6 +251,19 @@
     min-height: 44px;
   }
 
+  .s2-design-system-builder {
+    grid-template-columns: 1fr !important;
+  }
+
+  .s2-design-builder-nav {
+    position: static !important;
+    max-height: none;
+    border: 1px solid var(--s2-color-border, #e2e8f0);
+    border-radius: var(--s2-app-card-radius, 16px);
+    padding: var(--s2-app-gutter);
+    background: var(--s2-app-card, #fff);
+  }
+
   .s2-mobile-app-surface .s2-dash-table tbody td:empty {
     display: none;
   }

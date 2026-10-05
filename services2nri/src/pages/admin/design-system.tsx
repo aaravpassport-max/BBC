@@ -1,59 +1,34 @@
 /**
  * Admin — centralized Design & Style System for all public-facing pages.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { api } from '@/lib/api'
 import {
-  TypographyRolesEditor,
-  TokenGroupEditor,
-  ComponentsEditor,
   OverridesEditor,
   SurfaceVisibilityMatrix,
   CategoryRegistryPanel,
   CityRegistryPanel,
   NavMenuEditor,
-  PageTemplatesPanel,
-  SiteChromePanel,
-  FontAssignPanel,
   GuidedOverrideWizard,
-  LiveSitePreviewFrame,
   IconLibraryPanel,
   type RegistryService,
   type RegistryCategory,
   type RegistryCity,
 } from './design-system-panels'
-import { WidthLayoutPanel, type WidthLayoutFocus } from './width-layout-panel'
-import { HexColorField, HexAlphaColorField } from './design-admin-fields'
 import { broadcastDesignSaved } from '@/lib/design-live-sync'
 import { AdminScreen } from '@/components/admin/AdminMobileUi'
 import { ensurePatchPath, normalizeAdminDesignConfig, prepareDesignConfigForSave } from '@/lib/design-admin-config'
+import { DesignSystemBuilder } from './design-system-builder'
 
 type DesignConfig = Record<string, unknown>
 
-const TABS = [
-  'Global', 'Site Chrome', 'Page Templates', 'Typography', 'Fonts', 'Colors', 'Spacing', 'Layout Studio', 'Components',
-  'Containers', 'Borders', 'Shadows', 'Motion', 'Responsive', 'Overrides',
-  'Presets', 'Preview', 'Live Site', 'Navigation', 'Icons',
-  'Service Registry', 'Categories', 'Cities',
-] as const
-
-type Tab = (typeof TABS)[number]
-
-const COLOR_KEYS_HEX = [
-  'primary', 'primary_hover', 'primary_active', 'secondary', 'secondary_hover',
-  'accent', 'accent_hover', 'background', 'surface', 'surface_alt', 'card',
-  'border', 'divider', 'heading', 'body', 'muted', 'placeholder', 'link', 'link_hover',
-  'success', 'warning', 'error', 'info', 'disabled',
-] as const
-
-const COLOR_KEYS_ALPHA = ['overlay', 'shadow'] as const
+type ToolsTab = 'Navigation' | 'Icons' | 'Service Registry' | 'Categories' | 'Cities' | 'Advanced overrides'
 
 export function AdminDesignSystem() {
-  const [tab, setTab] = useState<Tab>('Global')
+  const [toolsTab, setToolsTab] = useState<ToolsTab | null>(null)
   const [config, setConfig] = useState<DesignConfig | null>(null)
   const [presets, setPresets] = useState<Record<string, { label: string; description: string }>>({})
   const [fonts, setFonts] = useState<Array<{ id: string; name: string; category: string; pairing: string }>>([])
-  const [fontQuery, setFontQuery] = useState('')
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [registry, setRegistry] = useState<RegistryService[]>([])
@@ -68,7 +43,6 @@ export function AdminDesignSystem() {
   const [svcDirect, setSvcDirect] = useState('active')
   const [svcFeatured, setSvcFeatured] = useState(false)
   const [svcPopular, setSvcPopular] = useState(false)
-  const [widthFocus, setWidthFocus] = useState<WidthLayoutFocus | null>(null)
   const [previewPath, setPreviewPath] = useState('/')
   const [designRevision, setDesignRevision] = useState('')
   const configRef = useRef<DesignConfig | null>(null)
@@ -105,28 +79,7 @@ export function AdminDesignSystem() {
 
   useEffect(() => { load().catch(() => setMessage('Failed to load design system')) }, [load])
 
-  const colors = (config?.colors || {}) as Record<string, string>
-  const spacing = (config?.spacing || {}) as Record<string, string>
-  const fontRoles = (config?.fonts || {}) as Record<string, string>
-  const typography = (config?.typography || {}) as Record<string, Record<string, string>>
-  const radius = (config?.radius || {}) as Record<string, string>
-  const shadow = (config?.shadow || {}) as Record<string, string>
-  const motion = (config?.motion || {}) as Record<string, string | boolean>
-  const breakpoints = (config?.breakpoints || {}) as Record<string, number>
-  const components = (config?.components || {}) as Record<string, string>
   const overrides = (config?.overrides || {}) as Record<string, Record<string, unknown>>
-  const chrome = (config?.chrome || {}) as Record<string, unknown>
-
-  const filteredFonts = useMemo(() => {
-    const q = fontQuery.toLowerCase().trim()
-    if (!q) return fonts.slice(0, 40)
-    return fonts.filter(
-      (f) =>
-        f.name.toLowerCase().includes(q) ||
-        f.category.toLowerCase().includes(q) ||
-        f.pairing.toLowerCase().includes(q)
-    )
-  }, [fonts, fontQuery])
 
   const patch = (path: string[], value: unknown) => {
     setConfig((prev) => {
@@ -263,8 +216,8 @@ export function AdminDesignSystem() {
         <div>
           <h1 style={{ margin: 0, fontSize: 26 }}>Design &amp; Style System</h1>
           <p style={{ color: '#64748B', marginTop: 8, maxWidth: 640 }}>
-            Central tokens for typography, colors, spacing, and components on every public page.
-            Changes inherit: Global → page type → page → section.
+            Pick a <strong>page</strong>, then a <strong>section</strong>, then edit <strong>Content</strong> or <strong>Design</strong>.
+            Global defaults live under <strong>Site Foundation</strong> — section overrides inherit until you change them.
           </p>
         </div>
         <div className="s2-design-system-header-actions--desktop">{publishBtn}</div>
@@ -275,271 +228,65 @@ export function AdminDesignSystem() {
         </div>
       )}
 
-      <div className="s2-design-system-tabs" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 20, marginBottom: 20 }}>
-        {TABS.map((t) => (
-          <button
-            key={t}
-            type="button"
-            onClick={() => setTab(t)}
-            style={{
-              padding: '8px 14px',
-              borderRadius: 999,
-              border: tab === t ? '2px solid var(--s2-primary, #4A6FA5)' : '1px solid #E2E8F0',
-              background: tab === t ? '#EBF0F8' : '#fff',
-              fontWeight: tab === t ? 700 : 500,
-              cursor: 'pointer',
-              fontSize: 13,
-            }}
-          >
-            {t}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'Colors' && (
-        <div style={{ display: 'grid', gap: 24 }}>
-          <p style={{ margin: 0, fontSize: 13, color: '#64748B', maxWidth: 640 }}>
-            <strong>Site Foundation</strong> color tokens — every public page inherits these until a{' '}
-            <strong>Page Template</strong> override is set (clear overrides there to revert here).
-            Overlay and shadow support hex + opacity (8-digit hex).
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
-            {COLOR_KEYS_HEX.map((key) => (
-              <HexColorField
-                key={key}
-                label={key.replace(/_/g, ' ')}
-                value={colors[key] || ''}
-                onChange={(v) => patch(['colors', key], v)}
-              />
-            ))}
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-            {COLOR_KEYS_ALPHA.map((key) => (
-              <HexAlphaColorField
-                key={key}
-                label={key.replace(/_/g, ' ')}
-                value={colors[key] || ''}
-                onChange={(v) => patch(['colors', key], v)}
-              />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {tab === 'Spacing' && (
-        <TokenGroupEditor title="Spacing scale (px)" basePath={['spacing']} tokens={spacing} patch={patch} keys={Object.keys(spacing)} unit="px" />
-      )}
-
-      {tab === 'Fonts' && (
-        <div style={{ display: 'grid', gap: 24 }}>
-          <FontAssignPanel
-            fonts={filteredFonts}
-            fontRoles={fontRoles}
-            onAssign={(role, fontId) => patch(['fonts', role], fontId)}
-          />
-          <div>
-            <p style={{ color: '#64748B' }}>100 curated Google Fonts — search by name, category, or pairing.</p>
-            <input
-              type="search"
-              placeholder="Search fonts…"
-              value={fontQuery}
-              onChange={(e) => setFontQuery(e.target.value)}
-              style={{ width: '100%', maxWidth: 400, padding: 10, borderRadius: 8, border: '1px solid #E2E8F0', marginBottom: 16 }}
-            />
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12, maxHeight: 360, overflow: 'auto' }}>
-              {filteredFonts.map((f) => (
-                <div key={f.id} style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 12 }}>
-                  <div style={{ fontWeight: 700 }}>{f.name}</div>
-                  <div style={{ fontSize: 12, color: '#64748B' }}>{f.category}</div>
-                  <div style={{ fontSize: 11, color: '#94A3B8', marginTop: 4 }}>{f.pairing}</div>
-                </div>
-              ))}
+      <DesignSystemBuilder
+        config={config}
+        patch={patch}
+        presets={presets}
+        fonts={fonts}
+        applyPreset={(id) => applyPreset(id, 'theme')}
+        saving={saving}
+        previewPath={previewPath}
+        setPreviewPath={setPreviewPath}
+        toolsSlot={
+          <>
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.06, color: '#94A3B8', marginBottom: 8 }}>
+              Platform tools
             </div>
-          </div>
-        </div>
-      )}
-
-      {tab === 'Global' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
-          <label style={{ fontSize: 13 }}>
-            Active preset id
-            <input type="text" value={String(config.preset || '')} readOnly style={{ display: 'block', width: '100%', marginTop: 6, padding: 8, borderRadius: 8, background: '#F8FAFC' }} />
-          </label>
-          {(['heading', 'body', 'ui', 'button'] as const).map((role) => (
-            <label key={role} style={{ fontSize: 13 }}>
-              <span style={{ fontWeight: 600 }}>{role} font</span>
-              <select
-                value={fontRoles[role] || ''}
-                onChange={(e) => patch(['fonts', role], e.target.value)}
-                style={{ display: 'block', width: '100%', marginTop: 6, padding: 8, borderRadius: 8 }}
+            {(['Navigation', 'Icons', 'Service Registry', 'Categories', 'Cities', 'Advanced overrides'] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setToolsTab(toolsTab === t ? null : t)}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  textAlign: 'left',
+                  padding: '8px 12px',
+                  marginBottom: 4,
+                  borderRadius: 8,
+                  border: 'none',
+                  background: toolsTab === t ? '#F1F5F9' : 'transparent',
+                  fontSize: 13,
+                  cursor: 'pointer',
+                }}
               >
-                {fonts.map((f) => (
-                  <option key={f.id} value={f.id}>{f.name}</option>
-                ))}
-              </select>
-            </label>
-          ))}
-        </div>
-      )}
+                {t}
+              </button>
+            ))}
+          </>
+        }
+      />
 
-      {tab === 'Typography' && (
-        <div style={{ display: 'grid', gap: 16 }}>
-          <p style={{ margin: 0, fontSize: 13, color: '#64748B', maxWidth: 720 }}>
-            Global typography roles (<strong>Site Foundation</strong>). Per-template title/body sizes live under{' '}
-            <strong>Page Templates</strong> with clear override back to these defaults.
-          </p>
-          <TypographyRolesEditor typography={typography} patch={patch} />
-        </div>
-      )}
-
-      {tab === 'Components' && (
-        <div style={{ display: 'grid', gap: 16 }}>
-          <p style={{ margin: 0, fontSize: 13, color: '#64748B', maxWidth: 720 }}>
-            Maps to public CSS variables <code>--s2-btn-*</code>, <code>--s2-card-radius</code>, <code>--s2-input-radius</code>.
-            Use <code>{'{colors.primary}'}</code> or <code>#HEX</code> values.
-          </p>
-          <ComponentsEditor components={components} patch={patch} />
-        </div>
-      )}
-
-      {tab === 'Site Chrome' && (
-        <SiteChromePanel chrome={chrome} patch={patch} />
-      )}
-
-      {tab === 'Page Templates' && config && (
-        <PageTemplatesPanel
-          overrides={overrides}
-          widths={(config.widths || {}) as Record<string, unknown>}
-          chrome={chrome}
-          globalColors={colors}
-          configRoot={config}
-          patch={patch}
-          onOpenWidth={(focus) => {
-            setWidthFocus(focus)
-            setTab('Layout Studio')
-          }}
-          onPreviewPath={(path) => {
-            setPreviewPath(path)
-            setTab('Live Site')
-          }}
-        />
-      )}
-
-      {tab === 'Layout Studio' && config && (
-        <WidthLayoutPanel config={config} patch={patch} focus={widthFocus} />
-      )}
-
-      {tab === 'Containers' && (
-        <>
-          <p style={{ color: '#64748B', fontSize: 13, margin: '0 0 12px', maxWidth: 720 }}>
-            Horizontal page inset is owned by <strong>Layout Studio → Horizontal gutter</strong> (Site Foundation).
-            Live CSS maps that to <code>page_margin</code> automatically; only override <code>page_margin</code> here for legacy edge cases.
-          </p>
-          <TokenGroupEditor
-            title="Layout containers (legacy spacing — prefer Layout Studio)"
-            basePath={['spacing']}
-            tokens={spacing}
-            patch={patch}
-            keys={['container_max', 'content_max', 'page_margin', 'section_y', 'section_y_mobile', 'grid_gap', 'element', 'card']}
-          />
-        </>
-      )}
-
-      {tab === 'Borders' && (
-        <TokenGroupEditor title="Border radius (px)" basePath={['radius']} tokens={radius} patch={patch} keys={Object.keys(radius)} unit="px" />
-      )}
-
-      {tab === 'Shadows' && (
-        <TokenGroupEditor title="Elevation" basePath={['shadow']} tokens={shadow} patch={patch} keys={Object.keys(shadow)} />
-      )}
-
-      {tab === 'Motion' && (
-        <div style={{ display: 'grid', gap: 16, maxWidth: 480 }}>
-          <label style={{ fontSize: 13 }}>
-            Transition duration
-            <input type="text" value={String(motion.duration || '')} onChange={(e) => patch(['motion', 'duration'], e.target.value)} style={{ display: 'block', width: '100%', marginTop: 6, padding: 8, borderRadius: 8, border: '1px solid #E2E8F0' }} />
-          </label>
-          <label style={{ fontSize: 13 }}>
-            Easing
-            <input type="text" value={String(motion.ease || '')} onChange={(e) => patch(['motion', 'ease'], e.target.value)} style={{ display: 'block', width: '100%', marginTop: 6, padding: 8, borderRadius: 8, border: '1px solid #E2E8F0' }} />
-          </label>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-            <input type="checkbox" checked={Boolean(motion.reduce_motion)} onChange={(e) => patch(['motion', 'reduce_motion'], e.target.checked)} />
-            Respect prefers-reduced-motion on public site
-          </label>
-        </div>
-      )}
-
-      {tab === 'Responsive' && (
-        <TokenGroupEditor
-          title="Breakpoints (px)"
-          basePath={['breakpoints']}
-          tokens={Object.fromEntries(Object.entries(breakpoints).map(([k, v]) => [k, String(v)]))}
-          patch={(path, val) => patch(path, Number(val))}
-          keys={Object.keys(breakpoints)}
-        />
-      )}
-
-      {tab === 'Overrides' && (
-        <div style={{ display: 'grid', gap: 24 }}>
+      {toolsTab === 'Advanced overrides' && (
+        <div style={{ marginTop: 24, borderTop: '1px solid #E2E8F0', paddingTop: 24 }}>
           <GuidedOverrideWizard overrides={overrides} patch={patch} />
           <OverridesEditor overrides={overrides} patch={patch} />
         </div>
       )}
 
-      {tab === 'Presets' && (
-        <div style={{ display: 'grid', gap: 20 }}>
-          <p style={{ margin: 0, fontSize: 13, color: '#64748B', maxWidth: 720 }}>
-            Each preset applies a complete public-site look: palette, typography, spacing, radius, shadows, buttons/cards, header/topbar/footer chrome, global widths, and clears per-template color overrides so every page matches.
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-            {Object.entries(presets).map(([id, p]) => (
-              <div key={id} className="s2-card" style={{ border: '1px solid #E2E8F0', borderRadius: 16, padding: 20 }}>
-                <h3 style={{ margin: '0 0 8px' }}>{p.label}</h3>
-                <p style={{ fontSize: 13, color: '#64748B', minHeight: 48 }}>{p.description}</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <button type="button" onClick={() => applyPreset(id, 'theme')} className="s2-btn s2-btn--primary" disabled={saving}>
-                    Apply site-wide look
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
+      {toolsTab === 'Navigation' && (
+        <div style={{ marginTop: 24 }}>
+          <NavMenuEditor onSaved={(msg) => setMessage(msg)} />
         </div>
       )}
 
-      {tab === 'Live Site' && <LiveSitePreviewFrame path={previewPath} />}
-
-      {tab === 'Preview' && (
-        <div className="s2-ds" style={{ border: '1px solid #E2E8F0', borderRadius: 16, padding: 28, background: colors.background || '#fff' }}>
-          <p className="s2-t-eyebrow">Live preview</p>
-          <h2 className="s2-t-section-heading" style={{ marginTop: 8 }}>Premium public components</h2>
-          <p className="s2-t-body" style={{ maxWidth: 520 }}>Buttons, cards, alerts, and form fields consume the same CSS variables as the live site.</p>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', margin: '20px 0' }}>
-            <button type="button" className="s2-btn s2-btn--primary">Primary</button>
-            <button type="button" className="s2-btn s2-btn--secondary">Secondary</button>
-            <button type="button" className="s2-btn s2-btn--outline">Outline</button>
-          </div>
-          <div className="s2-card s2-card--service s2-animate-hover" style={{ maxWidth: 360, marginBottom: 16 }}>
-            <h4 className="s2-card__title">Service card</h4>
-            <p className="s2-card__desc">Apostille, attestation, and document services for NRIs worldwide.</p>
-            <span className="s2-badge s2-badge--coming-soon">Coming soon</span>
-          </div>
-          <div className="s2-field" style={{ maxWidth: 360 }}>
-            <label className="s2-label">Email</label>
-            <input className="s2-input" placeholder="you@example.com" />
-          </div>
-          <div className="s2-alert s2-alert--success" style={{ maxWidth: 480, marginTop: 16 }}>Success — your design tokens are active.</div>
+      {toolsTab === 'Icons' && (
+        <div style={{ marginTop: 24 }}>
+          <IconLibraryPanel />
         </div>
       )}
 
-      {tab === 'Navigation' && (
-        <NavMenuEditor onSaved={(msg) => setMessage(msg)} />
-      )}
-
-      {tab === 'Icons' && <IconLibraryPanel />}
-
-      {tab === 'Service Registry' && (
+      {toolsTab === 'Service Registry' && (
         <div>
           <p style={{ color: '#64748B', maxWidth: 720 }}>
             Hide or publish a service once — navigation, homepage, search, forms, footer, and related sections update automatically.
@@ -611,12 +358,16 @@ export function AdminDesignSystem() {
         </div>
       )}
 
-      {tab === 'Categories' && (
-        <CategoryRegistryPanel categories={categories} surfaces={surfaces} onSave={saveCategory} />
+      {toolsTab === 'Categories' && (
+        <div style={{ marginTop: 24 }}>
+          <CategoryRegistryPanel categories={categories} surfaces={surfaces} onSave={saveCategory} />
+        </div>
       )}
 
-      {tab === 'Cities' && (
-        <CityRegistryPanel cities={cities} surfaces={citySurfaces} onSave={saveCity} />
+      {toolsTab === 'Cities' && (
+        <div style={{ marginTop: 24 }}>
+          <CityRegistryPanel cities={cities} surfaces={citySurfaces} onSave={saveCity} />
+        </div>
       )}
     </div>
     </AdminScreen>

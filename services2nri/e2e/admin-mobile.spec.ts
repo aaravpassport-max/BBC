@@ -63,7 +63,8 @@ test.describe('Admin mobile native shell', () => {
   test('design system studio has tab rail and publish sticky bar', async ({ page }) => {
     await page.goto('/admin/design')
     await expect(page.locator('.s2-design-system-page')).toBeVisible({ timeout: 25_000 })
-    await expect(page.locator('.s2-design-system-tabs')).toBeVisible()
+    await expect(page.locator('.s2-design-builder-subtabs')).toBeVisible()
+    await expect(page.locator('.s2-design-builder-subtabs').getByRole('button', { name: 'Design' })).toBeVisible()
     await expect(page.locator('.s2-admin-sticky-action-bar')).toBeVisible()
     await expect(page.locator('.s2-admin-sticky-action-bar').getByRole('button', { name: 'Publish design' })).toBeVisible()
   })

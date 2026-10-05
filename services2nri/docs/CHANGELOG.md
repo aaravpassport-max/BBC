@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.49] — 2026-10-05 — Cloud Agent
+
+- **Design System UX:** Replaced 22 flat tabs with a **Page → Section → Content | Design** builder. **Site Foundation** holds global colors, typography, fonts, components, spacing, layout, chrome, and presets. Homepage and all public page templates list sections in the left nav with per-section content fields (platform settings) and design overrides (colors, visibility, layout).
+
+---
+
 ## [4.7.48] — 2026-10-05 — Cloud Agent
 
 - **Dashboard nav parity:** mobile sidebar is overlay-only (no in-flow push); tablet/mobile hide in-flow sidebar ≤900px; scroll lock when menu open; shell overflow hardened in `portal-experience.css`.
