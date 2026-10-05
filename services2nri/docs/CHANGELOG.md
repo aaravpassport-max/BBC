@@ -5,6 +5,13 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.70] — 2026-10-05 — Cloud Agent
+
+- **CMS sync:** Footer copyright, services hero meta chips, directory intro, `services_per_page`, home grid cols/gap/card bg, platform marquee fallback on service pages, blog/legal document meta via SPA hook.
+- **Audit:** Fixed `audit-design-cms-sync.mjs` false positives; scans lib + PHP for legitimate wiring paths.
+
+---
+
 ## [4.7.69] — 2026-10-05 — Cloud Agent
 
 - **Element-level CMS:** Design System sections gain an **Elements** tab — hierarchical inspector (content / design / layout / visibility / responsive) mapped from the catalog with inherit vs override badges and clear-override actions.

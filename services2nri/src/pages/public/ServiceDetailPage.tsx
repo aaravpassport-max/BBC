@@ -1053,7 +1053,20 @@ export function ServiceDetailPage() {
   const img = svc.image_url || getServiceImage(slug || '')
   const svcMeta = svc as unknown as { hero_settings?: Record<string, unknown>; marquee_settings?: Record<string, unknown> }
   const hero = svcMeta.hero_settings
-  const marquee = svcMeta.marquee_settings
+  const svcMarquee = svcMeta.marquee_settings as Record<string, unknown> | null | undefined
+  const platformMarqueeOn = settings.marquee_show !== '0' && Boolean(settings.marquee_text?.trim())
+  const marquee =
+    svcMarquee && svcMarquee.enabled !== false && svcMarquee.text
+      ? svcMarquee
+      : platformMarqueeOn
+        ? {
+            enabled: true,
+            text: settings.marquee_text,
+            speed: settings.marquee_speed,
+            bg_color: settings.marquee_bg,
+            text_color: settings.marquee_color,
+          }
+        : null
 
   // Issue 5: hero image/title/overlay from builder settings or fallback to defaults
   const heroImg     = hero && hero.enabled !== false && hero.image_url ? String(hero.image_url) : img
@@ -1079,7 +1092,7 @@ export function ServiceDetailPage() {
       </div>
 
       {/* Issue 8: Marquee — positioned immediately after hero/breadcrumb, before sections */}
-      {!isTemplateSectionHidden(settings, 'service', 'marquee') && marquee && marquee.enabled && marquee.text ? (
+      {!isTemplateSectionHidden(settings, 'service', 'marquee') && marquee && marquee.enabled !== false && marquee.text ? (
         <div
           className="s2-svc-marquee"
           data-s2-section="marquee"

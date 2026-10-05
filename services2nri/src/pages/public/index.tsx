@@ -25,6 +25,7 @@ import type { FAQ, BlogPost, PricingPlan } from '@/types'
 import { PublicSection, PublicSectionHead, PublicGrid, PublicCard, PublicCtaLink } from '@/components/public/PublicLayout'
 import { parseAboutHighlights, parseHiwSteps, parseStringListJson, parseTeamMembers, parseValueCards } from '@/lib/home-content-settings'
 import { parseHeroMetaJson } from '@/lib/page-hero-meta'
+import { usePageDocumentMeta } from '@/lib/page-document-meta'
 import { isTemplateSectionHidden } from '@/lib/section-visibility'
 import { CmsElement } from '@/components/public/CmsElement'
 
@@ -208,10 +209,10 @@ export function ContactPage() {
         title={settings.contact_page_title || settings.contact_title || 'Contact Us'}
         subtitle={settings.contact_page_subtitle || "We're here to help. Reach us via WhatsApp, email, or the form below."}
         primary={primary}
-        meta={[
+        meta={parseHeroMetaJson(settings.contact_hero_meta_json, [
           { icon: '💬', label: 'WhatsApp 30 min' },
           { icon: '📧', label: 'Reply in 24h' },
-        ]}
+        ])}
       />
       <PublicSection pageTemplateId="contact" sectionKey="contact" width="wide">
         <div className="s2-public-contact-grid s2-mobile-stack">
@@ -608,6 +609,12 @@ function estimateReadTime(content?: string): string {
 export function BlogListPage() {
   const settings = useStore((s) => s.settings)
   const siteName = settings.platform_name || 'Services2NRI'
+  usePageDocumentMeta(settings, {
+    titleKey: 'seo_title',
+    descriptionKey: 'seo_description',
+    titleFallback: `${siteName} — NRI Knowledge Hub`,
+    descriptionFallback: settings.blog_hero_subtitle,
+  })
   const [search,     setSearch]     = useState('')
   const [activeCategory, setActiveCategory] = useState('All')
   const blogCategories = parseStringListJson(settings.blog_categories_json, BLOG_CATEGORIES)
@@ -931,10 +938,16 @@ export function BlogDetailPage() {
 }
 
 // ── TermsPage (Vn) ────────────────────────────────────────────────────────────
+function LegalCustomCss({ css }: { css?: string }) {
+  if (!css?.trim()) return null
+  return <style dangerouslySetInnerHTML={{ __html: css }} data-s2-legal-custom-css="" />
+}
+
 export function TermsPage() {
   const settings = useStore((s) => s.settings)
   const primary  = resolvePrimary(settings)
   const name     = settings.platform_name || 'Services2NRI'
+  usePageDocumentMeta(settings, { titleKey: 'seo_title', descriptionKey: 'seo_description', titleFallback: `Terms & Conditions — ${name}` })
 
   const sections = [
     ['1. Acceptance of Terms',     `By accessing or using ${name}'s services, you agree to be bound by these Terms and Conditions.`],
@@ -949,6 +962,7 @@ export function TermsPage() {
 
   return (
     <Layout>
+      <LegalCustomCss css={settings.custom_css_global} />
       <PageHero title="Terms & Conditions" subtitle="Last updated: January 2025" primary={primary} />
       <div className="s2-legal-page">
         {sections.map(([title, body]) => (
@@ -966,6 +980,7 @@ export function TermsPage() {
 export function PrivacyPage() {
   const settings = useStore((s) => s.settings)
   const name     = settings.platform_name || 'Services2NRI'
+  usePageDocumentMeta(settings, { titleKey: 'seo_title', descriptionKey: 'seo_description', titleFallback: `Privacy Policy — ${name}` })
 
   const sections = [
     { title: '1. Information We Collect', body: `When you use ${name}, we collect: personal information you provide (name, email, phone, government ID); account information; transaction data; document uploads (AES-256 encrypted); and usage data (IP, browser, pages visited) for analytics.` },
@@ -980,6 +995,7 @@ export function PrivacyPage() {
 
   return (
     <Layout>
+      <LegalCustomCss css={settings.custom_css_global} />
       <div className="s2-privacy-page s2-marketing-page">
         <div className="s2-privacy-hero s2-surface-dark">
           <h1 className="s2-privacy-hero__title">Privacy Policy</h1>

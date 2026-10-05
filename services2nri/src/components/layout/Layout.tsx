@@ -832,7 +832,10 @@ export function Layout({ children }: LayoutProps) {
               gap: 12,
             }}
           >
-            <span style={{ fontSize: 13 }}>© {new Date().getFullYear()} {name}. All rights reserved.</span>
+            <span style={{ fontSize: 13 }}>
+              {settings.footer_copyright?.trim() ||
+                `© ${new Date().getFullYear()} ${name}. All rights reserved.`}
+            </span>
             <div style={{ display: 'flex', gap: 20 }}>
               {[
                 ['/terms', 'Terms & Conditions'],

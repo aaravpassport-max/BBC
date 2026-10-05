@@ -486,6 +486,13 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           contentFields: [
             { key: 'services_page_title', label: 'Page title', placeholder: 'Our Services' },
             { key: 'services_page_subtitle', label: 'Subtitle', type: 'textarea' },
+            {
+              key: 'services_hero_meta_json',
+              label: 'Hero meta chips JSON',
+              type: 'textarea',
+              rows: 3,
+              hint: '[{"icon":"🌐","label":"Trusted by NRIs worldwide"}]',
+            },
           ],
           adminLink: { label: 'Service Registry', path: '/admin/services' },
         },
@@ -652,6 +659,13 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           contentFields: [
             { key: 'contact_page_title', label: 'Hero title', placeholder: 'Contact Us' },
             { key: 'contact_page_subtitle', label: 'Hero subtitle', type: 'textarea' },
+            {
+              key: 'contact_hero_meta_json',
+              label: 'Hero meta chips JSON',
+              type: 'textarea',
+              rows: 3,
+              hint: '[{"icon":"💬","label":"WhatsApp support"}]',
+            },
           ],
         },
         {

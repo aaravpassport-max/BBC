@@ -94,7 +94,7 @@ grep -q 's2-btn-primary-bg' assets/public-design-system.css && ok component css 
 [[ -f src/lib/design-element-tree.ts ]] && ok design element tree || bad design element tree
 [[ -f src/pages/admin/section-element-inspector.tsx ]] && ok element inspector ui || bad element inspector ui
 grep -q "tab === 'elements'" src/pages/admin/design-system-builder.tsx && ok elements editor tab || bad elements editor tab
-node scripts/audit-design-cms-sync.mjs && ok cms sync audit report || bad cms sync audit report
+node scripts/audit-design-cms-sync.mjs --strict && ok cms sync audit strict || bad cms sync audit strict
 
 if [[ $fail -ne 0 ]]; then
   echo "Verification failed."

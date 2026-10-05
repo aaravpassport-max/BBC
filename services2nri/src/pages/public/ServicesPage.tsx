@@ -12,6 +12,7 @@ import { useResource } from '@/lib/useResource'
 import { getServiceImage } from '@/lib/images'
 import type { Category, Service } from '@/types'
 import { isTemplateSectionHidden } from '@/lib/section-visibility'
+import { parseHeroMetaJson } from '@/lib/page-hero-meta'
 
 function settingFlag(raw: string | undefined, defaultOn = true): boolean {
   if (raw === undefined || raw === '') return defaultOn
@@ -79,7 +80,10 @@ export function ServicesPage() {
   }, [search])
 
   const catalog = searchResults ?? services
-  const filtered = catalog.filter((s) => !activeSlug || s.category_slug === activeSlug)
+  const filteredRaw = catalog.filter((s) => !activeSlug || s.category_slug === activeSlug)
+  const perPage = parseInt(settings.services_per_page || '', 10)
+  const filtered =
+    perPage > 0 && !searchResults ? filteredRaw.slice(0, perPage) : filteredRaw
 
   const formatDesc = (text: string, max = 100) => {
     const t = (text || '').trim()
@@ -113,9 +117,16 @@ export function ServicesPage() {
               />
             )}
             <div className="s2-page-hero__meta">
-              <span className="s2-hero-meta-chip">🌐 Trusted by NRIs worldwide</span>
-              <span className="s2-hero-meta-chip">⚡ Quote within 24 hours</span>
-              <span className="s2-hero-meta-chip">🔒 Secure document handling</span>
+              {parseHeroMetaJson(settings.services_hero_meta_json, [
+                { icon: '🌐', label: 'Trusted by NRIs worldwide' },
+                { icon: '⚡', label: 'Quote within 24 hours' },
+                { icon: '🔒', label: 'Secure document handling' },
+              ]).map((m) => (
+                <span key={m.label} className="s2-hero-meta-chip">
+                  {m.icon ? <span aria-hidden>{m.icon}</span> : null}
+                  {m.label}
+                </span>
+              ))}
             </div>
           </div>
         </section>
@@ -169,6 +180,11 @@ export function ServicesPage() {
         )}
 
         <div className="s2-dir-main">
+          {settings.services_subtitle && (
+            <p className="s2-t-body s2-dir-intro" style={{ marginBottom: 16 }}>
+              {settings.services_subtitle}
+            </p>
+          )}
           {showSkeleton ? (
             <div className="s2-dir-grid s2-stagger">
               {[1, 2, 3, 4, 5, 6].map((n) => (
