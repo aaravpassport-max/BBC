@@ -21,11 +21,11 @@ jobs:
       - name: Install and build
         working-directory: services2nri
         run: npm ci && npm run build
-      - name: Static design-system checks
-        run: bash services2nri/scripts/verify-design-system.sh
       - name: Install Playwright browser
         working-directory: services2nri
         run: npx playwright install chromium --with-deps
+      - name: Static design-system checks
+        run: bash services2nri/scripts/verify-design-system.sh
       - name: Playwright smoke tests
         working-directory: services2nri
         run: npm run test:e2e:ci
