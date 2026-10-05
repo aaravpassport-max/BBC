@@ -679,6 +679,13 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           contentFields: [
             { key: 'faq_page_title', label: 'Hero title', placeholder: 'Frequently Asked Questions' },
             { key: 'faq_page_subtitle', label: 'Hero subtitle', type: 'textarea' },
+            {
+              key: 'faq_hero_meta_json',
+              label: 'Hero meta chips JSON',
+              type: 'textarea',
+              rows: 3,
+              hint: '[{"icon":"⚡","label":"Fast responses"},{"icon":"🛡️","label":"Transparent process"}]',
+            },
           ],
         },
         {
@@ -749,6 +756,13 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           contentFields: [
             { key: 'about_page_title', label: 'Hero title', placeholder: 'About Us' },
             { key: 'about_page_subtitle', label: 'Hero subtitle', type: 'textarea' },
+            {
+              key: 'about_hero_meta_json',
+              label: 'Hero meta chips JSON',
+              type: 'textarea',
+              rows: 4,
+              hint: '[{"icon":"🌍","label":"50+ countries"},{"icon":"👥","label":"10,000+ clients"}]',
+            },
           ],
         },
         {
@@ -794,6 +808,10 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           contentFields: [
             { key: 'about_cta_title', label: 'Heading', placeholder: 'Ready to Get Started?' },
             { key: 'about_cta_subtitle', label: 'Subtitle', type: 'textarea' },
+            { key: 'about_cta_primary_text', label: 'Primary button text', placeholder: 'Explore Services' },
+            { key: 'about_cta_primary_url', label: 'Primary button link', type: 'url', placeholder: '/services' },
+            { key: 'about_cta_secondary_text', label: 'Secondary button text', placeholder: 'Create Free Account' },
+            { key: 'about_cta_secondary_url', label: 'Secondary button link', type: 'url', placeholder: '/register' },
           ],
         },
       ]
@@ -837,8 +855,12 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           label: 'Blog header',
           sectionKey: 'hero',
           contentFields: [
-            { key: 'seo_title', label: 'Blog SEO title', placeholder: 'Blog & Insights' },
-            { key: 'seo_description', label: 'Blog intro', type: 'textarea' },
+            { key: 'blog_hero_eyebrow', label: 'Eyebrow label', placeholder: 'NRI Knowledge Hub' },
+            { key: 'blog_hero_title', label: 'Hero heading', placeholder: 'Expert Guides for NRIs Living Abroad' },
+            { key: 'blog_hero_subtitle', label: 'Hero subtitle', type: 'textarea' },
+            { key: 'blog_search_placeholder', label: 'Search placeholder', placeholder: 'Search articles…' },
+            { key: 'seo_title', label: 'SEO title (document head)', placeholder: 'Blog & Insights' },
+            { key: 'seo_description', label: 'SEO meta description', type: 'textarea' },
           ],
         },
         {
@@ -846,6 +868,15 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           label: 'Article feed',
           sectionKey: 'feed',
           contentPanel: 'blog_posts',
+          contentFields: [
+            {
+              key: 'blog_categories_json',
+              label: 'Filter chips JSON',
+              type: 'textarea',
+              rows: 3,
+              hint: '["All","Immigration","Property"] — leave empty for default set',
+            },
+          ],
           adminLink: { label: 'Blog posts', path: '/admin/blog' },
         },
       ]

@@ -49,7 +49,7 @@ export const SECTION_ICONS: Record<string, string> = {
   content: '¶',
 }
 
-export type SectionEditorTab = 'content' | 'design'
+export type SectionEditorTab = 'content' | 'design' | 'elements'
 
 function isVisible(settings: Record<string, string>, section: SectionCatalogDef): boolean {
   if (!section.hideSettingKey) return true

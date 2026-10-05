@@ -10,6 +10,7 @@
 | Per page type | Width & Layout → **page type**; Page Templates overrides |
 | Per section width | Width & Layout → **section** or **service section** |
 | Per section colors | Overrides → **sections** (applies on `[data-s2-section]`) |
+| Per section **elements** | Page Templates → expand section → **Elements** tab (content / design / layout / visibility) |
 | Per service hero width | Service Page Builder → Hero Settings |
 | Components (buttons) | Design System → **Components** → `--s2-btn-*` on public site |
 | Header / footer / top bar | **Site Chrome** (global) + **Page Templates** (per route) |

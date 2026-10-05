@@ -5,6 +5,14 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.69] — 2026-10-05 — Cloud Agent
+
+- **Element-level CMS:** Design System sections gain an **Elements** tab — hierarchical inspector (content / design / layout / visibility / responsive) mapped from the catalog with inherit vs override badges and clear-override actions.
+- **Frontend sync:** Blog hero, search placeholder, category chips, and section hide flags wired to platform settings; About/FAQ hero meta chips and About bottom CTA buttons fully CMS-driven.
+- **Audit tooling:** `scripts/audit-design-cms-sync.mjs` generates `docs/DESIGN_CMS_SYNC_AUDIT.generated.json` for frontend ↔ catalog key coverage (use `--strict` in CI when ready).
+
+---
+
 ## [4.7.68] — 2026-10-05 — Cloud Agent
 
 - **Public pages:** FAQ, blog list/detail, pricing, and services directory use `useResource` + session cache — no full-page spinners or “Loading…” blocks; marketing fallbacks render instantly while API data revalidates in the background.

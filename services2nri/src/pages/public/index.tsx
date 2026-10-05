@@ -23,8 +23,10 @@ import { BlogArticleShellSkeleton } from '@/components/ui/LoadingPlaceholders'
 import { getAvatarImage, IMAGES } from '@/lib/images'
 import type { FAQ, BlogPost, PricingPlan } from '@/types'
 import { PublicSection, PublicSectionHead, PublicGrid, PublicCard, PublicCtaLink } from '@/components/public/PublicLayout'
-import { parseAboutHighlights, parseHiwSteps, parseTeamMembers, parseValueCards } from '@/lib/home-content-settings'
+import { parseAboutHighlights, parseHiwSteps, parseStringListJson, parseTeamMembers, parseValueCards } from '@/lib/home-content-settings'
+import { parseHeroMetaJson } from '@/lib/page-hero-meta'
 import { isTemplateSectionHidden } from '@/lib/section-visibility'
+import { CmsElement } from '@/components/public/CmsElement'
 
 // ── AboutPage (Bn) ────────────────────────────────────────────────────────────
 export function AboutPage() {
@@ -60,11 +62,11 @@ export function AboutPage() {
         templateSectionKey="intro"
         title={settings.about_page_title || 'About Us'}
         subtitle={settings.about_page_subtitle || 'Trusted NRI service partner since 2015 — making India management effortless from anywhere in the world.'}
-        meta={[
+        meta={parseHeroMetaJson(settings.about_hero_meta_json, [
           { icon: '🌍', label: '50+ countries' },
           { icon: '👥', label: '10,000+ clients' },
           { icon: '🔒', label: 'Encrypted docs' },
-        ]}
+        ])}
       />
 
       <PublicSection pageTemplateId="about" sectionKey="about" width="wide">
@@ -140,8 +142,12 @@ export function AboutPage() {
         <h2 className="s2-public-band-dark__title">{settings.about_cta_title || 'Ready to Get Started?'}</h2>
         <p className="s2-public-band-dark__sub">{settings.about_cta_subtitle || 'Let us handle your India affairs while you focus on what matters.'}</p>
         <div className="s2-public-band-dark__actions">
-          <Link to="/services" className="s2-public-band-dark__btn-primary">Explore Services</Link>
-          <Link to="/register" className="s2-public-band-dark__btn-ghost">Create Free Account</Link>
+          <Link to={settings.about_cta_primary_url || '/services'} className="s2-public-band-dark__btn-primary">
+            {settings.about_cta_primary_text || 'Explore Services'}
+          </Link>
+          <Link to={settings.about_cta_secondary_url || '/register'} className="s2-public-band-dark__btn-ghost">
+            {settings.about_cta_secondary_text || 'Create Free Account'}
+          </Link>
         </div>
       </section>
       )}
@@ -369,10 +375,10 @@ export function FAQPage() {
         title={settings.faq_page_title || 'Frequently Asked Questions'}
         subtitle={settings.faq_page_subtitle || 'Everything you need to know before placing a service request.'}
         primary={primary}
-        meta={[
+        meta={parseHeroMetaJson(settings.faq_hero_meta_json, [
           { icon: '⚡', label: 'Fast responses' },
           { icon: '🛡️', label: 'Transparent process' },
-        ]}
+        ])}
       />
       <PublicSection pageTemplateId="faq" className="s2-public-faq" sectionKey="faq" width="narrow">
         <div className="s2-container s2-width-narrow">
@@ -600,9 +606,11 @@ function estimateReadTime(content?: string): string {
 }
 
 export function BlogListPage() {
-  const siteName = useStore((s) => s.settings).platform_name || 'Services2NRI'
+  const settings = useStore((s) => s.settings)
+  const siteName = settings.platform_name || 'Services2NRI'
   const [search,     setSearch]     = useState('')
   const [activeCategory, setActiveCategory] = useState('All')
+  const blogCategories = parseStringListJson(settings.blog_categories_json, BLOG_CATEGORIES)
 
   const { data } = useResource(
     'blog?per_page=20',
@@ -619,23 +627,43 @@ export function BlogListPage() {
     return matchCat && matchSearch
   })
 
+  const hideHero = isTemplateSectionHidden(settings, 'blog', 'hero')
+  const hideFeed = isTemplateSectionHidden(settings, 'blog', 'feed')
+
   return (
     <Layout>
-      <div className="s2-marketing-page s2-blog-hero s2-surface-dark">
+      {!hideHero && (
+      <div className="s2-marketing-page s2-blog-hero s2-surface-dark" data-s2-section="hero">
         <div className="s2-container">
-          <p className="s2-blog-hero__eyebrow">NRI Knowledge Hub</p>
-          <h1 className="s2-blog-hero__title">Expert Guides for NRIs Living Abroad</h1>
-          <p className="s2-blog-hero__sub">Real advice on OCI cards, property management, taxation, and more — written by {siteName} specialists.</p>
+          <CmsElement pageId="blog" sectionKey="hero" elementId="eyebrow" as="p" className="s2-blog-hero__eyebrow">
+            {settings.blog_hero_eyebrow || 'NRI Knowledge Hub'}
+          </CmsElement>
+          <CmsElement pageId="blog" sectionKey="hero" elementId="heading" as="h1" className="s2-blog-hero__title">
+            {settings.blog_hero_title || 'Expert Guides for NRIs Living Abroad'}
+          </CmsElement>
+          <CmsElement pageId="blog" sectionKey="hero" elementId="subtitle" as="p" className="s2-blog-hero__sub">
+            {settings.blog_hero_subtitle ||
+              `Real advice on OCI cards, property management, taxation, and more — written by ${siteName} specialists.`}
+          </CmsElement>
           <div className="s2-blog-search">
-            <input type="search" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search articles…" aria-label="Search articles" />
+            <input
+              type="search"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder={settings.blog_search_placeholder || 'Search articles…'}
+              aria-label="Search articles"
+            />
             <div className="s2-blog-search__icon" aria-hidden>🔍</div>
           </div>
         </div>
       </div>
+      )}
 
-      <div className="s2-blog-filters">
+      {!hideFeed && (
+      <>
+      <div className="s2-blog-filters" data-s2-section="feed">
         <div className="s2-container s2-blog-filters__row">
-          {BLOG_CATEGORIES.map(cat => (
+          {blogCategories.map(cat => (
             <button
               key={cat}
               type="button"
@@ -701,6 +729,8 @@ export function BlogListPage() {
             )}
         </>
       </div>
+      </>
+      )}
     </Layout>
   )
 }

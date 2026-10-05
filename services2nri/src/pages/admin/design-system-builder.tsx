@@ -38,6 +38,7 @@ import {
   richPanelSaveKeys,
   resolveContentPanel,
 } from './section-content-rich-panel'
+import { SectionElementInspector } from './section-element-inspector'
 import {
   DesignColorSwatchGrid,
   DesignPremiumGroup,
@@ -286,7 +287,7 @@ function PageTemplateForPage(page: PageCatalogDef): PageTemplateDef | undefined 
   return PAGE_TEMPLATES.find((t) => t.id === page.id)
 }
 
-type SectionEditorTab = 'content' | 'design'
+type SectionEditorTab = 'content' | 'design' | 'elements'
 type PageWorkspaceTab = 'sections' | 'width'
 
 function widthFocusForSection(page: PageCatalogDef, section: SectionCatalogDef): WidthLayoutFocus {
@@ -530,6 +531,7 @@ function SectionDesignPanel({
 
 const SECTION_TAB_LABELS: Record<SectionEditorTab, string> = {
   content: 'Content',
+  elements: 'Elements',
   design: 'Design',
 }
 
@@ -548,7 +550,7 @@ function SectionEditorTabs({
       role="tablist"
       aria-label="Section editor"
     >
-      {(['content', 'design'] as const).map((t) => (
+      {(['content', 'elements', 'design'] as const).map((t) => (
         <button
           key={t}
           type="button"
@@ -624,6 +626,16 @@ export function SectionEditorBody({
           saving={contentSaving}
           saveMessage={contentSaveMessage}
           bandLayout={useBandChrome}
+        />
+      ) : tab === 'elements' ? (
+        <SectionElementInspector
+          page={page}
+          section={section}
+          settings={settings}
+          config={config}
+          onSettingsChange={onSettingsChange}
+          onSave={onSaveContent}
+          saving={contentSaving}
         />
       ) : section.isPageScope ? (
         <div className="s2-design-builder-panel s2-ds-design-studio">

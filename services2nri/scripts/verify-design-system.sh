@@ -91,6 +91,10 @@ grep -q 'publicRevision' src/Design/DesignSystem.php && ok design public revisio
 [[ -f src/lib/design-live-sync.ts ]] && grep -q 'syncDesignFromServer' src/lib/design-live-sync.ts && ok design live sync || bad design live sync
 php scripts/audit-preset-looks.php && ok preset look audit || bad preset look audit
 grep -q 's2-btn-primary-bg' assets/public-design-system.css && ok component css vars || bad component css vars
+[[ -f src/lib/design-element-tree.ts ]] && ok design element tree || bad design element tree
+[[ -f src/pages/admin/section-element-inspector.tsx ]] && ok element inspector ui || bad element inspector ui
+grep -q "tab === 'elements'" src/pages/admin/design-system-builder.tsx && ok elements editor tab || bad elements editor tab
+node scripts/audit-design-cms-sync.mjs && ok cms sync audit report || bad cms sync audit report
 
 if [[ $fail -ne 0 ]]; then
   echo "Verification failed."

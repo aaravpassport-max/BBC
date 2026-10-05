@@ -65,6 +65,18 @@ export function parseLogoChips(raw: string | undefined, fallback: LogoChip[]): L
 
 export type AwardBadge = { emoji: string; text: string; variant?: 'orange' | 'primary' }
 
+export function parseStringListJson(raw: string | undefined, fallback: string[]): string[] {
+  if (!raw || !String(raw).trim()) return fallback
+  try {
+    const parsed = JSON.parse(String(raw)) as unknown
+    if (!Array.isArray(parsed) || parsed.length === 0) return fallback
+    const list = parsed.map((item) => String(item).trim()).filter(Boolean)
+    return list.length ? list : fallback
+  } catch {
+    return fallback
+  }
+}
+
 export function parseAwardBadges(raw: string | undefined, fallback: AwardBadge[]): AwardBadge[] {
   const parsed = tryParseJson<unknown>(raw, null)
   if (!Array.isArray(parsed) || parsed.length === 0) return fallback
