@@ -396,7 +396,7 @@ export function HomePage() {
 
   return (
     <Layout>
-      <div className="s2-home-page">
+      <div className="s2-home-page" data-s2-home-layout="marketplace-v1">
       {/* ── 1. Hero slider + mobile-first headline & CTAs ─────────────────── */}
       {!sectionHidden(settings, 'hide_section_hero') && (
       <div
