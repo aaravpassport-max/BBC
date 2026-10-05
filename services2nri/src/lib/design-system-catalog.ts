@@ -19,6 +19,8 @@ export type ContentFieldDef = {
   placeholder?: string
   hint?: string
   rows?: number
+  /** Matches public `data-s2-element` when inference is not enough. */
+  elementId?: string
 }
 
 /** Typography roles editable per section band (Design tab). */
@@ -124,7 +126,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     contentFields: [
       { key: 'hero_heading_1', label: 'Heading line 1', placeholder: 'Stay Connected to' },
       { key: 'hero_heading_2', label: 'Heading line 2 (accent)', placeholder: 'INDIA' },
-      { key: 'hero_subheading', label: 'Eyebrow / subheading', placeholder: 'Trusted NRI partner' },
+      { key: 'hero_subheading', label: 'Eyebrow / subheading', placeholder: 'Trusted NRI partner', elementId: 'eyebrow' },
       { key: 'hero_description', label: 'Description', type: 'textarea' },
       { key: 'hero_cta_text', label: 'Primary button text', placeholder: 'Browse services' },
       { key: 'hero_cta_url', label: 'Primary button link', type: 'url', placeholder: '/services' },

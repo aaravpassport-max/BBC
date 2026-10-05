@@ -249,6 +249,7 @@ export function applyElementOverrideCss(config: DesignPayload): void {
       const safeEl = elId.replace(/[^a-z0-9_-]/gi, '_').toLowerCase()
       const decls = elementStyleCssDeclarations(styles, (v) => resolveTokenRef(v, config))
       if (!decls.length) continue
+      css += `[data-s2-page][data-s2-section="${safeSec}"][data-s2-element="${safeEl}"],`
       css += `[data-s2-section="${safeSec}"][data-s2-element="${safeEl}"]{${decls.join(';')}}\n`
     }
   }

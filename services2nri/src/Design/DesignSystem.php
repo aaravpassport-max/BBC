@@ -831,7 +831,8 @@ class DesignSystem {
                     $val = $val . 'px';
                 }
             }
-            $out .= $prop . ':' . esc_attr( $val ) . ';';
+            $important = in_array( $prop, [ 'color', 'font-size', 'font-weight', 'line-height', 'background-color' ], true );
+            $out .= $prop . ':' . esc_attr( $val ) . ( $important ? ' !important' : '' ) . ';';
         }
         return $out;
     }

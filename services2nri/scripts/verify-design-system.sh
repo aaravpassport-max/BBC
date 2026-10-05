@@ -97,12 +97,14 @@ php scripts/audit-preset-looks.php && ok preset look audit || bad preset look au
 grep -q 's2-btn-primary-bg' assets/public-design-system.css && ok component css vars || bad component css vars
 [[ -f src/lib/design-element-tree.ts ]] && ok design element tree || bad design element tree
 [[ -f src/lib/element-style-fields.ts ]] && grep -q 'elementStyleCssDeclarations' src/lib/design-resolve.ts && ok element styler || bad element styler
+[[ -f src/lib/cms-element-registry.ts ]] && ok cms element registry || bad cms element registry
+node scripts/audit-cms-element-registry.mjs && ok cms element registry audit || bad cms element registry audit
 [[ -f src/pages/admin/section-element-inspector.tsx ]] && ok element inspector ui || bad element inspector ui
 grep -q "tab === 'elements'" src/pages/admin/design-system-builder.tsx && ok elements editor tab || bad elements editor tab
 node scripts/audit-design-cms-sync.mjs --strict && ok cms sync audit strict || bad cms sync audit strict
 
 if [[ "${SKIP_CMS_E2E:-0}" != "1" ]]; then
-  if npm run test:e2e -- e2e/design-cms-content.spec.ts e2e/design-cms-matrix.spec.ts e2e/design-cms-admin-save.spec.ts; then
+  if npm run test:e2e -- e2e/design-cms-content.spec.ts e2e/design-cms-matrix.spec.ts e2e/design-cms-admin-save.spec.ts e2e/design-cms-element-style.spec.ts; then
     ok cms design e2e suites
   else
     bad cms design e2e suites

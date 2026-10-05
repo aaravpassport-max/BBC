@@ -81,6 +81,17 @@
       } catch (_) {
         /* mock API unavailable — use inline defaults */
       }
+      try {
+        const dres = await fetch('/mock-api/design/public');
+        if (dres.ok) {
+          const ddata = await dres.json();
+          if (ddata.design && window.S2NRI_CONFIG) {
+            window.S2NRI_CONFIG.design = ddata.design;
+          }
+        }
+      } catch (_) {
+        /* design mock optional */
+      }
       if (window.__E2E_SETTINGS_PATCH__ && window.S2NRI_CONFIG) {
         Object.assign(window.S2NRI_CONFIG.settings, window.__E2E_SETTINGS_PATCH__);
       }

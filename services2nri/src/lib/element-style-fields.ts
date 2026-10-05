@@ -97,7 +97,13 @@ export function elementStyleCssDeclarations(
     if (def.key === 'color' || def.key === 'background' || def.key === 'border_color') {
       val = resolveColor(val)
     }
-    lines.push(`${def.cssProperty}:${val}`)
+    const important =
+      def.cssProperty === 'color' ||
+      def.cssProperty === 'font-size' ||
+      def.cssProperty === 'font-weight' ||
+      def.cssProperty === 'line-height' ||
+      def.cssProperty === 'background-color'
+    lines.push(`${def.cssProperty}:${val}${important ? ' !important' : ''}`)
   }
   return lines
 }

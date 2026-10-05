@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.82] — 2026-10-05 — Cloud Agent
+
+- **Element styler wiring:** Canonical DOM↔catalog registry, inline styles on `CmsElement`, stronger CSS, mock `design/public` + e2e.
+
+---
+
 ## [4.7.81] — 2026-10-05 — Cloud Agent
 
 - **Element styler:** Elements tab Design group — per-element color, typography, spacing, borders; saved via design config + publish on save.

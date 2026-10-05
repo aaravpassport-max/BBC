@@ -182,10 +182,32 @@ function windowLikeSettings() {
 
 const e2ePlatformSettings = { ...windowLikeSettings(), platform_name: 'Services2NRI E2E' }
 
+function defaultE2eDesignConfig() {
+  return {
+    colors: { primary: '#4A6FA5', secondary: '#1E2D40', heading: '#1E2D40', body: '#334155' },
+    spacing: {},
+    fonts: {},
+    typography: {},
+    radius: {},
+    shadow: {},
+    motion: {},
+    breakpoints: { sm: 640, md: 768, lg: 1024 },
+    components: {},
+    overrides: { sections: {} },
+    chrome: {},
+    widths: { global: {}, page_types: {}, pages: {}, sections: {}, service_page: { sections: {} } },
+  }
+}
+
+let e2eDesignConfig = defaultE2eDesignConfig()
+let e2eDesignRevision = 'e2e-1'
+
 export function resetE2ePlatformSettings() {
   const base = { ...windowLikeSettings(), platform_name: 'Services2NRI E2E' }
   for (const key of Object.keys(e2ePlatformSettings)) delete e2ePlatformSettings[key]
   Object.assign(e2ePlatformSettings, base)
+  e2eDesignConfig = defaultE2eDesignConfig()
+  e2eDesignRevision = 'e2e-1'
 }
 
 function adminSettingsShape() {
@@ -320,6 +342,16 @@ export function handleMockApi(pathname, method, requestBody) {
     }
     return { ok: true }
   }
+  if (method === 'GET' && path === 'design/public') {
+    return { design: e2eDesignConfig, revision: e2eDesignRevision }
+  }
+  if (method === 'PUT' && path === 'admin/design') {
+    if (requestBody && typeof requestBody === 'object') {
+      e2eDesignConfig = requestBody
+      e2eDesignRevision = `e2e-${Date.now()}`
+    }
+    return { ok: true, config: e2eDesignConfig, revision: e2eDesignRevision }
+  }
   if (method === 'GET' && path === 'admin/services') {
     return {
       services: [
@@ -342,22 +374,10 @@ export function handleMockApi(pathname, method, requestBody) {
 
   if (method === 'GET' && path === 'admin/design') {
     return {
-      config: {
-        colors: { primary: '#4A6FA5' },
-        spacing: {},
-        fonts: {},
-        typography: {},
-        radius: {},
-        shadow: {},
-        motion: {},
-        breakpoints: { sm: 640, md: 768, lg: 1024 },
-        components: {},
-        overrides: {},
-        chrome: {},
-      },
+      config: e2eDesignConfig,
       presets: { modern: { label: 'Modern', description: 'Default' } },
       fonts: { library: [] },
-      revision: 'e2e-1',
+      revision: e2eDesignRevision,
     }
   }
   if (method === 'GET' && path === 'admin/service-registry') {

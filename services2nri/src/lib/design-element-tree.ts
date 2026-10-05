@@ -3,6 +3,11 @@
  * Maps catalog fields to inspectable elements (content, design, layout, visibility).
  */
 import type { ContentFieldDef, DesignSettingFieldDef, SectionCatalogDef } from '@/lib/design-system-catalog'
+import {
+  canonicalElementsForSection,
+  elementNodeLabel,
+  resolveCatalogElementId,
+} from '@/lib/cms-element-registry'
 import { sectionElementPresets } from '@/lib/section-element-presets'
 import { templateHideSettingKey } from '@/lib/section-visibility'
 import { elementStylePath, styleFieldsForElement } from '@/lib/element-style-fields'
@@ -31,32 +36,11 @@ export type CmsElementNode = {
   controls: CmsElementControl[]
 }
 
-function slugFromSettingKey(key: string): string {
-  const base = key.replace(/^css_/, '').replace(/_json$/, '')
-  const parts = base.split('_').filter(Boolean)
-  return parts.slice(-2).join('_') || base || 'field'
-}
-
 function labelFromKey(key: string): string {
   return key
     .replace(/^css_/, '')
     .replace(/_/g, ' ')
     .replace(/\b\w/g, (c) => c.toUpperCase())
-}
-
-function inferElementId(field: ContentFieldDef | DesignSettingFieldDef, index: number): string {
-  if (field.key.includes('eyebrow')) return 'eyebrow'
-  if (field.key.includes('subtitle') || field.key.endsWith('_sub')) return 'subtitle'
-  if (field.key.includes('heading') || field.key.endsWith('_title') && !field.key.includes('page')) return 'heading'
-  if (field.key.includes('description') || field.key.includes('_text') && !field.key.includes('button')) return 'body'
-  if (field.key.includes('cta2') || field.key.includes('_secondary')) return 'secondary_button'
-  if (field.key.includes('button') || field.key.includes('_cta')) return 'primary_button'
-  if (field.key.includes('_url') || field.key.includes('_link')) return 'link'
-  if (field.key.includes('image') || field.key.includes('_img')) return 'image'
-  if (field.key.includes('icon')) return 'icon'
-  if (field.key.includes('_json')) return 'collection'
-  if (field.key.startsWith('css_')) return slugFromSettingKey(field.key)
-  return slugFromSettingKey(field.key) || `element_${index}`
 }
 
 function pushControl(
@@ -67,6 +51,9 @@ function pushControl(
 ) {
   const existing = buckets.get(elementId)
   if (existing) {
+    if (existing.label === elementId || existing.label.startsWith('field_')) {
+      existing.label = elementLabel
+    }
     existing.controls.push(control)
     return
   }
@@ -77,6 +64,52 @@ function pushControl(
   })
 }
 
+function ensureCanonicalNodes(
+  pageId: string,
+  sectionKey: string,
+  buckets: Map<string, CmsElementNode>,
+): void {
+  for (const el of canonicalElementsForSection(pageId, sectionKey)) {
+    if (!buckets.has(el.id)) {
+      buckets.set(el.id, { id: el.id, label: el.label, controls: [] })
+    } else {
+      const node = buckets.get(el.id)!
+      if (!node.label || node.label === el.id) node.label = el.label
+    }
+  }
+}
+
+function attachElementStyleControls(
+  pageId: string,
+  sectionKey: string,
+  buckets: Map<string, CmsElementNode>,
+): void {
+  const canonical = canonicalElementsForSection(pageId, sectionKey)
+  const canonicalIds = new Set(canonical.map((e) => e.id))
+  const styleTargetIds =
+    canonicalIds.size > 0
+      ? [...buckets.keys()].filter((id) => canonicalIds.has(id))
+      : [...buckets.keys()].filter((id) => !id.startsWith('_') && !id.startsWith('field_'))
+
+  for (const elementId of styleTargetIds) {
+    const node = buckets.get(elementId)
+    if (!node) continue
+    const existingStyleIds = new Set(
+      node.controls.filter((c) => c.group === 'design' && c.elementStyleKey).map((c) => c.elementStyleKey),
+    )
+    for (const sf of styleFieldsForElement(elementId)) {
+      if (existingStyleIds.has(sf.key)) continue
+      node.controls.push({
+        id: `${elementId}__style__${sf.key}`,
+        label: sf.label,
+        group: 'design',
+        designPath: elementStylePath(sectionKey, elementId, sf.key),
+        elementStyleKey: sf.key,
+      })
+    }
+  }
+}
+
 export function buildSectionElementTree(
   pageId: string,
   section: SectionCatalogDef,
@@ -84,8 +117,14 @@ export function buildSectionElementTree(
   const buckets = new Map<string, CmsElementNode>()
 
   ;(section.contentFields || []).forEach((field, index) => {
-    const elementId = inferElementId(field, index)
-    pushControl(buckets, elementId, field.label.split('(')[0].trim() || labelFromKey(elementId), {
+    const elementId = resolveCatalogElementId(pageId, section.sectionKey, field, index)
+    const label = elementNodeLabel(
+      pageId,
+      section.sectionKey,
+      elementId,
+      field.label.split('(')[0].trim() || labelFromKey(elementId),
+    )
+    pushControl(buckets, elementId, label, {
       id: `${elementId}__${field.key}`,
       label: field.label,
       group: 'content',
@@ -96,7 +135,9 @@ export function buildSectionElementTree(
   })
 
   ;(section.designSettingFields || []).forEach((field, index) => {
-    const elementId = field.key.startsWith('css_') ? 'section_surface' : inferElementId(field, index)
+    const elementId = field.key.startsWith('css_')
+      ? 'section_surface'
+      : resolveCatalogElementId(pageId, section.sectionKey, field, index)
     pushControl(buckets, elementId, 'Section styling', {
       id: `design__${field.key}`,
       label: field.label,
@@ -106,6 +147,8 @@ export function buildSectionElementTree(
       designPath: ['overrides', 'sections', section.sectionKey, 'legacy', field.key],
     })
   })
+
+  ensureCanonicalNodes(pageId, section.sectionKey, buckets)
 
   if (section.hideSettingKey) {
     pushControl(buckets, '_section', 'Entire section', {
@@ -137,19 +180,6 @@ export function buildSectionElementTree(
     designPath: ['overrides', 'sections', section.sectionKey, 'typography'],
   })
 
-  for (const node of buckets.values()) {
-    if (node.id.startsWith('_')) continue
-    for (const sf of styleFieldsForElement(node.id)) {
-      node.controls.push({
-        id: `${node.id}__style__${sf.key}`,
-        label: sf.label,
-        group: 'design',
-        designPath: elementStylePath(section.sectionKey, node.id, sf.key),
-        elementStyleKey: sf.key,
-      })
-    }
-  }
-
   for (const preset of sectionElementPresets(pageId, section.sectionKey)) {
     const existing = buckets.get(preset.id)
     if (existing) {
@@ -164,7 +194,22 @@ export function buildSectionElementTree(
     })
   }
 
-  return Array.from(buckets.values())
+  attachElementStyleControls(pageId, section.sectionKey, buckets)
+
+  const canonical = canonicalElementsForSection(pageId, section.sectionKey)
+  const order = canonical.length
+    ? [...canonical.map((c) => c.id), '_section', '_layout', '_responsive']
+    : null
+
+  const nodes = Array.from(buckets.values())
+  if (!order) return nodes
+
+  const rank = new Map(order.map((id, i) => [id, i]))
+  return nodes.sort((a, b) => {
+    const ra = rank.has(a.id) ? rank.get(a.id)! : 500 + a.label.localeCompare(b.label)
+    const rb = rank.has(b.id) ? rank.get(b.id)! : 500 + b.label.localeCompare(a.label)
+    return ra - rb || a.label.localeCompare(b.label)
+  })
 }
 
 /** Collect all platform setting keys declared for a page in the catalog. */
