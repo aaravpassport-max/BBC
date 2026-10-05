@@ -1556,6 +1556,37 @@
   line-height: 1.45;
 }
 
+.s2-band-design-group__subtitle {
+  margin: 16px 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.s2-band-preview-strip {
+  margin-top: 12px;
+  padding: 14px 16px;
+  border-radius: 10px;
+  border: 1px dashed #cbd5e1;
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.s2-band-preview-strip--dark {
+  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+  border: none;
+  color: #e2e8f0;
+}
+
+.s2-band-preview-strip--dark strong {
+  font-size: 15px;
+  color: #fff;
+}
+
 .s2-ds-band-sticky-bar {
   position: sticky;
   bottom: 0;

@@ -5,6 +5,13 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.62] — 2026-10-05 — Cloud Agent
+
+- **All public page templates:** About (story, values, team, CTA), Contact, FAQ (+ support CTA), Pricing (+ compare copy), How It Works (step list + callout), and Services directory now use premium in-band list/registry editors in Design System — not just Homepage.
+- **Frontend sync:** Contact page respects `contact_*` overrides with platform fallbacks; About story uses eyebrow, secondary body, and highlight stats JSON; Pricing/FAQ section headings and CTAs are settings-driven; services directory honours search/sidebar toggles.
+
+---
+
 ## [4.7.61] — 2026-10-05 — Cloud Agent
 
 - **Design System Content:** Every homepage and public-page section has in-band controls — list editors (FAQ, press, partners, awards, HIW steps), registry previews (testimonials, pricing, blog, services, cities), service-page bands, marquee, and legal/footer panels. Removed generic “no text fields” dead-end message.

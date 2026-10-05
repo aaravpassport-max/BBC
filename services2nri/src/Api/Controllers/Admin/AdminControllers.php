@@ -2106,7 +2106,8 @@ class SettingsAdminController extends \S2NRI\Api\Controllers\BaseController {
         }
         $multiline_keys = [
             'hero_description', 'about_text', 'about_text_secondary', 'home_notice_text',
-            'newsletter_subtitle', 'app_subtitle', 'contact_address',
+            'newsletter_subtitle', 'app_subtitle', 'contact_address', 'faq_cta_body',
+            'pricing_grid_subtitle', 'pricing_compare_subtitle',
         ];
         if ( in_array( $key, $multiline_keys, true ) ) {
             return sanitize_textarea_field( $value );
@@ -2204,7 +2205,11 @@ class SettingsAdminController extends \S2NRI\Api\Controllers\BaseController {
             'about_team_title', 'about_team_json', 'about_cta_title', 'about_cta_subtitle',
             'contact_page_title', 'contact_page_subtitle', 'contact_form_title',
             'hiw_page_title', 'hiw_page_subtitle', 'hiw_page_steps_json', 'hiw_page_cta_title', 'hiw_page_cta_subtitle',
-            'faq_page_title', 'faq_page_subtitle', 'pricing_page_title', 'pricing_page_subtitle',
+            'faq_page_title', 'faq_page_subtitle', 'faq_cta_title', 'faq_cta_body', 'faq_cta_button',
+            'pricing_page_title', 'pricing_page_subtitle',
+            'pricing_grid_eyebrow', 'pricing_grid_title', 'pricing_grid_subtitle',
+            'pricing_compare_title', 'pricing_compare_subtitle',
+            'about_highlights_json',
             // CSS injection keys — read by SEO.php to inject <style> into every page
             'custom_css_homepage', 'custom_css_global',
             // Individual CSS override keys written by the Homepage Page Builder

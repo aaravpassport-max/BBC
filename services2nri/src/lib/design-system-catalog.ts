@@ -53,6 +53,16 @@ export type SectionContentPanelId =
   | 'chrome_footer'
   | 'legal_document'
   | 'registry_hub'
+  | 'about_story'
+  | 'value_cards'
+  | 'team_members'
+  | 'marketing_cta'
+  | 'contact_channels'
+  | 'services_directory'
+  | 'faq_page_cta'
+  | 'pricing_section_head'
+  | 'pricing_compare'
+  | 'hiw_page_callout'
 
 export type SectionCatalogDef = {
   id: string
@@ -464,19 +474,25 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           id: 'hero',
           label: 'Hero / Header',
           sectionKey: 'hero',
+          contentPanel: 'services_directory',
           contentFields: [
             { key: 'services_page_title', label: 'Page title', placeholder: 'Our Services' },
             { key: 'services_page_subtitle', label: 'Subtitle', type: 'textarea' },
           ],
+          adminLink: { label: 'Service Registry', path: '/admin/services' },
         },
         {
           id: 'directory',
           label: 'Search & directory',
           sectionKey: 'directory',
+          contentPanel: 'services_directory',
           contentFields: [
-            { key: 'services_subtitle', label: 'Directory intro' },
-            { key: 'services_show_search', label: 'Show search (1/0)', placeholder: '1' },
+            { key: 'services_subtitle', label: 'Directory intro line', placeholder: 'Browse by category or search the full catalog.' },
+            { key: 'services_show_search', label: 'Show search bar (1 = yes, 0 = no)', placeholder: '1' },
+            { key: 'services_show_category_filter', label: 'Show category sidebar (1/0)', placeholder: '1' },
+            { key: 'services_per_page', label: 'Cards per page (optional)', placeholder: '24' },
           ],
+          adminLink: { label: 'Categories', path: '/admin/categories' },
         },
       ]
       break
@@ -578,13 +594,15 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           id: 'contact',
           label: 'Contact form',
           sectionKey: 'contact',
+          contentPanel: 'contact_channels',
           contentFields: [
-            { key: 'contact_title', label: 'Form column heading', placeholder: 'Get in Touch' },
+            { key: 'contact_title', label: 'Left column heading', placeholder: 'Get in Touch' },
             { key: 'contact_form_title', label: 'Form title', placeholder: 'Send Us a Message' },
-            { key: 'contact_email', label: 'Display email' },
-            { key: 'contact_phone', label: 'Display phone' },
-            { key: 'contact_address', label: 'Address', type: 'textarea' },
+            { key: 'contact_email', label: 'Display email (overrides platform default)' },
+            { key: 'contact_phone', label: 'Display phone (overrides platform default)' },
+            { key: 'contact_address', label: 'Display address', type: 'textarea' },
           ],
+          adminLink: { label: 'Platform contact defaults', path: '/admin/settings' },
         },
       ]
       break
@@ -605,9 +623,20 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           sectionKey: 'faq',
           contentPanel: 'faq_database',
           contentFields: [
-            { key: 'faq_section_title', label: 'Section heading (fallback)' },
+            { key: 'faq_section_title', label: 'Section heading (fallback when API empty)' },
           ],
           adminLink: { label: 'Manage FAQ items', path: '/admin/faqs' },
+        },
+        {
+          id: 'faq_cta',
+          label: 'Still have questions?',
+          sectionKey: 'faq_cta',
+          contentPanel: 'faq_page_cta',
+          contentFields: [
+            { key: 'faq_cta_title', label: 'Card heading', placeholder: 'Still have questions?' },
+            { key: 'faq_cta_body', label: 'Supporting text', type: 'textarea' },
+            { key: 'faq_cta_button', label: 'Button label', placeholder: 'Contact Us →' },
+          ],
         },
       ]
       break
@@ -627,14 +656,22 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           label: 'Plans table',
           sectionKey: 'pricing',
           contentPanel: 'pricing_plans',
+          contentFields: [
+            { key: 'pricing_grid_eyebrow', label: 'Section eyebrow', placeholder: 'Pricing plans' },
+            { key: 'pricing_grid_title', label: 'Section heading', placeholder: 'Choose the right level of support' },
+            { key: 'pricing_grid_subtitle', label: 'Section subtitle', type: 'textarea' },
+          ],
           adminLink: { label: 'Manage plans', path: '/admin/pricing' },
         },
         {
           id: 'compare',
           label: 'Comparison table',
           sectionKey: 'compare',
-          contentPanel: 'pricing_plans',
-          contentFields: [{ key: 'pricing_page_subtitle', label: 'Comparison intro', type: 'textarea' }],
+          contentPanel: 'pricing_compare',
+          contentFields: [
+            { key: 'pricing_compare_title', label: 'Comparison heading', placeholder: 'Compare plans side by side' },
+            { key: 'pricing_compare_subtitle', label: 'Comparison intro', type: 'textarea' },
+          ],
           adminLink: { label: 'Manage plans', path: '/admin/pricing' },
         },
       ]
@@ -654,17 +691,22 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           id: 'about',
           label: 'Story section',
           sectionKey: 'about',
+          contentPanel: 'about_story',
           contentFields: [
+            { key: 'about_eyebrow', label: 'Eyebrow label', placeholder: 'Our Story' },
             { key: 'about_heading', label: 'Heading' },
-            { key: 'about_text', label: 'Body', type: 'textarea' },
+            { key: 'about_text', label: 'Primary body', type: 'textarea' },
+            { key: 'about_text_secondary', label: 'Secondary body', type: 'textarea' },
             { key: 'about_image_url', label: 'Image URL', type: 'url' },
             { key: 'about_video_url', label: 'Video URL', type: 'url' },
+            { key: 'about_highlights_json', label: 'Highlight stats JSON', type: 'textarea', rows: 4, hint: '[["10,000+","Clients Served"],["44+","Services"]]' },
           ],
         },
         {
           id: 'values',
           label: 'Core values',
           sectionKey: 'values',
+          contentPanel: 'value_cards',
           contentFields: [
             { key: 'about_values_title', label: 'Section heading', placeholder: 'Our Core Values' },
             { key: 'about_values_json', label: 'Value cards JSON', type: 'textarea', rows: 10, hint: '[{"icon":"🔒","t":"Trust","d":"…"}]' },
@@ -674,6 +716,7 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           id: 'team',
           label: 'Team grid',
           sectionKey: 'team',
+          contentPanel: 'team_members',
           contentFields: [
             { key: 'about_team_title', label: 'Section heading', placeholder: 'Meet Our Team' },
             { key: 'about_team_json', label: 'Team members JSON', type: 'textarea', rows: 10 },
@@ -683,6 +726,7 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           id: 'cta',
           label: 'Bottom CTA',
           sectionKey: 'cta',
+          contentPanel: 'marketing_cta',
           contentFields: [
             { key: 'about_cta_title', label: 'Heading', placeholder: 'Ready to Get Started?' },
             { key: 'about_cta_subtitle', label: 'Subtitle', type: 'textarea' },
@@ -708,6 +752,14 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           contentPanel: 'hiw_steps',
           contentFields: [
             { key: 'hiw_page_steps_json', label: 'Steps JSON', type: 'textarea', rows: 14, hint: '[{"n":1,"icon":"🔍","t":"Title","d":"Desc"}]' },
+          ],
+        },
+        {
+          id: 'hiw_cta',
+          label: 'Bottom callout',
+          sectionKey: 'hiw_cta',
+          contentPanel: 'hiw_page_callout',
+          contentFields: [
             { key: 'hiw_page_cta_title', label: 'Callout heading' },
             { key: 'hiw_page_cta_subtitle', label: 'Callout subtitle', type: 'textarea' },
           ],

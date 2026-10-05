@@ -11,8 +11,15 @@ import { api } from '@/lib/api'
 import { getServiceImage } from '@/lib/images'
 import type { Category, Service } from '@/types'
 
+function settingFlag(raw: string | undefined, defaultOn = true): boolean {
+  if (raw === undefined || raw === '') return defaultOn
+  return raw !== '0'
+}
+
 export function ServicesPage() {
   const settings = useStore((s) => s.settings)
+  const showSearch = settingFlag(settings.services_show_search, true)
+  const showCategoryFilter = settingFlag(settings.services_show_category_filter, true)
   const [categories, setCategories] = useState<Category[]>([])
   const [services,   setServices]   = useState<Service[]>([])
   const [search,     setSearch]     = useState('')
@@ -75,14 +82,16 @@ export function ServicesPage() {
               {settings.services_page_subtitle ||
                 `Expert assistance across ${categories.length || 8} categories — 44+ services for NRIs worldwide`}
             </p>
-            <input
-              type="search"
-              className="s2-dir-search"
-              placeholder="Search services (e.g. OCI Card, Transcript, Power of Attorney)…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              aria-label="Search services"
-            />
+            {showSearch && (
+              <input
+                type="search"
+                className="s2-dir-search"
+                placeholder="Search services (e.g. OCI Card, Transcript, Power of Attorney)…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                aria-label="Search services"
+              />
+            )}
             <div className="s2-page-hero__meta">
               <span className="s2-hero-meta-chip">🌐 Trusted by NRIs worldwide</span>
               <span className="s2-hero-meta-chip">⚡ Quote within 24 hours</span>
@@ -112,6 +121,7 @@ export function ServicesPage() {
       </div>
 
       <div className="s2-services-layout s2-container" data-s2-section="directory">
+        {showCategoryFilter && (
         <aside className="s2-services-sidebar">
           <h3 className="s2-dir-sidebar__label">Categories</h3>
           <button
@@ -134,6 +144,7 @@ export function ServicesPage() {
             </button>
           ))}
         </aside>
+        )}
 
         <div className="s2-dir-main">
           {loading ? (

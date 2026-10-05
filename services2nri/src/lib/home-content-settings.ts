@@ -86,6 +86,7 @@ export function parseAwardBadges(raw: string | undefined, fallback: AwardBadge[]
 export type ValueCard = { icon: string; t: string; d: string }
 export type TeamMember = { name: string; role: string; img?: string; bio?: string }
 export type HiwStepPage = { n: number; icon: string; t: string; d: string }
+export type HighlightPair = { value: string; label: string }
 
 export function parseValueCards(raw: string | undefined, fallback: ValueCard[]): ValueCard[] {
   const parsed = tryParseJson<unknown>(raw, null)
@@ -122,6 +123,27 @@ export function parseTeamMembers(raw: string | undefined, fallback: TeamMember[]
       }
     })
     .filter(Boolean) as TeamMember[]
+}
+
+export function parseAboutHighlights(raw: string | undefined, fallback: HighlightPair[]): HighlightPair[] {
+  const parsed = tryParseJson<unknown>(raw, null)
+  if (!Array.isArray(parsed) || parsed.length === 0) return fallback
+  return parsed
+    .map((item) => {
+      if (Array.isArray(item) && item.length >= 2) {
+        const value = String(item[0] ?? '').trim()
+        const label = String(item[1] ?? '').trim()
+        if (!value || !label) return null
+        return { value, label }
+      }
+      if (!item || typeof item !== 'object') return null
+      const o = item as Record<string, unknown>
+      const value = String(o.value || o.v || '').trim()
+      const label = String(o.label || o.l || '').trim()
+      if (!value || !label) return null
+      return { value, label }
+    })
+    .filter(Boolean) as HighlightPair[]
 }
 
 export function parseHiwSteps(raw: string | undefined, fallback: HiwStepPage[]): HiwStepPage[] {

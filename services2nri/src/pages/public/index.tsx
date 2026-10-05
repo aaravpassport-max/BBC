@@ -21,7 +21,7 @@ import { api } from '@/lib/api'
 import { getAvatarImage, IMAGES } from '@/lib/images'
 import type { FAQ, BlogPost, PricingPlan } from '@/types'
 import { PublicSection, PublicSectionHead, PublicGrid, PublicCard, PublicCtaLink } from '@/components/public/PublicLayout'
-import { parseHiwSteps, parseTeamMembers, parseValueCards } from '@/lib/home-content-settings'
+import { parseAboutHighlights, parseHiwSteps, parseTeamMembers, parseValueCards } from '@/lib/home-content-settings'
 
 // ── AboutPage (Bn) ────────────────────────────────────────────────────────────
 export function AboutPage() {
@@ -44,6 +44,11 @@ export function AboutPage() {
   ]
   const values = parseValueCards(settings.about_values_json, valuesFallback)
   const teamDisplay = parseTeamMembers(settings.about_team_json, team)
+  const highlights = parseAboutHighlights(settings.about_highlights_json, [
+    { value: '10,000+', label: 'Clients Served' },
+    { value: '44+', label: 'Services' },
+    { value: '50+', label: 'Cities' },
+  ])
 
   return (
     <Layout>
@@ -60,18 +65,19 @@ export function AboutPage() {
       <PublicSection sectionKey="intro" width="wide">
         <div className="s2-marketing-page s2-public-split-grid s2-mobile-stack">
           <div>
-            <PublicSectionHead eyebrow="Our Story" title={settings.about_heading || `${name} — Your Bridge to India`} />
+            <PublicSectionHead eyebrow={settings.about_eyebrow || 'Our Story'} title={settings.about_heading || `${name} — Your Bridge to India`} />
             <p className="s2-t-body s2-public-body-tight">
               {settings.about_text || `${name} was founded with a single mission: to eliminate the paperwork stress that NRIs face when managing affairs back home.`}
             </p>
             <p className="s2-t-body s2-public-body-tight s2-public-body-tight--lg">
-              Our team of lawyers, CAs, property managers, and immigration specialists has helped over 10,000 NRIs across 50+ countries resolve their India-related needs without a single trip back home.
+              {settings.about_text_secondary ||
+                'Our team of lawyers, CAs, property managers, and immigration specialists has helped over 10,000 NRIs across 50+ countries resolve their India-related needs without a single trip back home.'}
             </p>
             <PublicGrid min={120}>
-              {[['10,000+', 'Clients Served'], ['44+', 'Services'], ['50+', 'Cities']].map(([val, lbl]) => (
-                <PublicCard key={lbl} className="s2-public-icon-tile">
-                  <div className="s2-text-primary s2-public-stat-val">{val}</div>
-                  <div className="s2-text-muted s2-public-stat-lbl">{lbl}</div>
+              {highlights.map(({ value, label }) => (
+                <PublicCard key={label} className="s2-public-icon-tile">
+                  <div className="s2-text-primary s2-public-stat-val">{value}</div>
+                  <div className="s2-text-muted s2-public-stat-lbl">{label}</div>
                 </PublicCard>
               ))}
             </PublicGrid>
@@ -139,6 +145,10 @@ export function ContactPage() {
   const settings = useStore((s) => s.settings)
   const primary  = resolvePrimary(settings)
   const whatsapp = settings.platform_whatsapp
+  const displayEmail = settings.contact_email || settings.platform_email
+  const displayPhone = settings.contact_phone || settings.platform_phone
+  const displayAddress =
+    settings.contact_address || settings.platform_address || settings.platform_city || 'Pune, Maharashtra, India'
 
   const [form,    setForm]    = useState({ name: '', email: '', phone: '', subject: '', message: '' })
   const [success, setSuccess] = useState(false)
@@ -170,9 +180,9 @@ export function ContactPage() {
 
   const contacts = [
     { icon: '💬', t: 'WhatsApp (Fastest)', v: whatsapp ? `https://wa.me/${String(whatsapp).replace(/\D/g, '')}` : null, label: whatsapp ? `+${String(whatsapp).replace(/\D/g, '')}` : null },
-    { icon: '✉️', t: 'Email',             v: settings.platform_email ? `mailto:${settings.platform_email}` : null, label: settings.platform_email },
-    { icon: '📞', t: 'Phone',             v: settings.platform_phone ? `tel:${settings.platform_phone}` : null, label: settings.platform_phone },
-    { icon: '📍', t: 'Address',           v: null, label: settings.platform_address || settings.platform_city || 'Pune, Maharashtra, India' },
+    { icon: '✉️', t: 'Email', v: displayEmail ? `mailto:${displayEmail}` : null, label: displayEmail },
+    { icon: '📞', t: 'Phone', v: displayPhone ? `tel:${displayPhone}` : null, label: displayPhone },
+    { icon: '📍', t: 'Address', v: null, label: displayAddress },
   ].filter((c) => c.label)
 
   return (
@@ -189,7 +199,7 @@ export function ContactPage() {
       <PublicSection sectionKey="contact" width="wide">
         <div className="s2-public-contact-grid s2-mobile-stack">
           <div>
-            <PublicSectionHead title="Get in Touch" />
+            <PublicSectionHead title={settings.contact_title || 'Get in Touch'} />
             {contacts.map(({ icon, t, v, label }) => (
               <div key={t} className="s2-public-contact-row">
                 <div className="s2-public-contact-icon">{icon}</div>
@@ -371,9 +381,11 @@ export function FAQPage() {
           )}
 
           <PublicCard className="s2-public-cta-band s2-public-cta-band--spaced">
-            <h3 className="s2-t-h3">Still have questions?</h3>
-            <p className="s2-t-body">Our team responds within 30 minutes on WhatsApp during business hours.</p>
-            <PublicCtaLink to="/contact">Contact Us →</PublicCtaLink>
+            <h3 className="s2-t-h3">{settings.faq_cta_title || 'Still have questions?'}</h3>
+            <p className="s2-t-body">
+              {settings.faq_cta_body || 'Our team responds within 30 minutes on WhatsApp during business hours.'}
+            </p>
+            <PublicCtaLink to="/contact">{settings.faq_cta_button || 'Contact Us →'}</PublicCtaLink>
           </PublicCard>
         </div>
       </PublicSection>
@@ -423,9 +435,9 @@ export function PricingPage() {
       />
       <PublicSection alt sectionKey="pricing" width="standard">
         <PublicSectionHead
-          eyebrow="Pricing plans"
-          title="Choose the right level of support"
-          subtitle="Compliance-driven · Simple & intuitive · Straightforward pricing"
+          eyebrow={settings.pricing_grid_eyebrow || 'Pricing plans'}
+          title={settings.pricing_grid_title || 'Choose the right level of support'}
+          subtitle={settings.pricing_grid_subtitle || 'Compliance-driven · Simple & intuitive · Straightforward pricing'}
         />
         <div className="s2-container">
           <div className="s2-public-pricing-grid s2-stagger">
@@ -479,7 +491,10 @@ export function PricingPage() {
           the fallback content it was actually authored for. */}
       {plans.length === 0 && (
         <PublicSection sectionKey="compare" width="wide">
-          <PublicSectionHead title="Services2NRI vs Others" subtitle="See why NRIs choose us over traditional property managers" />
+          <PublicSectionHead
+            title={settings.pricing_compare_title || 'Services2NRI vs Others'}
+            subtitle={settings.pricing_compare_subtitle || 'See why NRIs choose us over traditional property managers'}
+          />
           <div className="s2-public-compare-wrap s2-container s2-width-wide">
             <table className="s2-public-compare-table">
               <thead>
