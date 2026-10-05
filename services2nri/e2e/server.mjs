@@ -39,9 +39,37 @@ const server = http.createServer((req, res) => {
   }
 
   if (url.pathname.startsWith('/mock-api')) {
-    const body = handleMockApi(url.pathname + url.search, req.method || 'GET');
-    res.writeHead(200, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify(body));
+    const respond = (payload) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(payload));
+    };
+    const run = async () => {
+      let requestBody = null;
+      if (req.method === 'PUT' || req.method === 'POST') {
+        requestBody = await new Promise((resolve, reject) => {
+          const chunks = [];
+          req.on('data', (chunk) => chunks.push(chunk));
+          req.on('end', () => {
+            const raw = Buffer.concat(chunks).toString('utf8');
+            if (!raw.trim()) {
+              resolve({});
+              return;
+            }
+            try {
+              resolve(JSON.parse(raw));
+            } catch {
+              resolve({});
+            }
+          });
+          req.on('error', reject);
+        });
+      }
+      respond(handleMockApi(url.pathname + url.search, req.method || 'GET', requestBody));
+    };
+    run().catch((err) => {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: String(err?.message || err) }));
+    });
     return;
   }
 

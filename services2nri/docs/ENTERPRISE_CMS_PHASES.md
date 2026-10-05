@@ -43,5 +43,9 @@
 - CMS e2e suites wired into `scripts/verify-design-system.sh` (skip with `SKIP_CMS_E2E=1`)
 - Home services + cities grid `CmsElement` markers; matrix cases for both bands
 
-## Phase 10 — Admin live preview e2e (next)
-- Design System save → public DOM regression in Playwright
+## Phase 10 — Admin save → public e2e (v4.7.78)
+- Mock API persists `PUT admin/settings` → `GET settings/public`
+- E2E shell loads public settings before app boot
+- `design-cms-admin-save.spec.ts` (hero + newsletter from Design System)
+
+## Phase 11 — Live preview iframe (next)

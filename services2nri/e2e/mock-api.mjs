@@ -165,7 +165,38 @@ function mockDirectoryCategories() {
   }))
 }
 
-export function handleMockApi(pathname, method) {
+function windowLikeSettings() {
+  return {
+    platform_name: 'Services2NRI',
+    primary_color: '#4A6FA5',
+    platform_whatsapp: '919876543210',
+    google_rating: '4.9',
+    google_review_count: '10,000+',
+    hero_heading_1: 'Stay Connected to',
+    hero_heading_2: 'INDIA',
+    hero_subheading: 'Without the Paperwork Stress',
+    stat_1_number: '10,000+',
+    stat_1_label: 'Happy Clients',
+  }
+}
+
+const e2ePlatformSettings = { ...windowLikeSettings(), platform_name: 'Services2NRI E2E' }
+
+export function resetE2ePlatformSettings() {
+  const base = { ...windowLikeSettings(), platform_name: 'Services2NRI E2E' }
+  for (const key of Object.keys(e2ePlatformSettings)) delete e2ePlatformSettings[key]
+  Object.assign(e2ePlatformSettings, base)
+}
+
+function adminSettingsShape() {
+  const settings = {}
+  for (const [key, value] of Object.entries(e2ePlatformSettings)) {
+    settings[key] = { value: String(value ?? '') }
+  }
+  return settings
+}
+
+export function handleMockApi(pathname, method, requestBody) {
   const path = pathname.replace(/^\/mock-api\/?/, '').replace(/^\//, '').split('?')[0];
   const key = `${method} ${path}`;
 
@@ -274,20 +305,19 @@ export function handleMockApi(pathname, method) {
       total: 1,
     }
   }
+  if (method === 'POST' && path === 'e2e/reset-platform-settings') {
+    resetE2ePlatformSettings()
+    return { ok: true }
+  }
   if (method === 'GET' && path === 'admin/settings') {
-    const settings = {
-      platform_name: { value: 'Services2NRI E2E' },
-      primary_color: { value: '#4A6FA5' },
-      hero_heading_1: { value: 'Stay Connected to' },
-      hero_heading_2: { value: 'INDIA' },
-      custom_css_homepage: { value: '' },
-    }
-    const settings_flat = Object.fromEntries(
-      Object.entries(settings).map(([k, v]) => [k, v.value]),
-    )
+    const settings = adminSettingsShape()
+    const settings_flat = { ...e2ePlatformSettings }
     return { settings, settings_flat }
   }
   if (method === 'PUT' && path === 'admin/settings') {
+    if (requestBody && typeof requestBody === 'object') {
+      Object.assign(e2ePlatformSettings, requestBody)
+    }
     return { ok: true }
   }
   if (method === 'GET' && path === 'admin/services') {
@@ -338,7 +368,7 @@ export function handleMockApi(pathname, method) {
   }
 
   const routes = {
-    'GET settings/public': { settings: windowLikeSettings() },
+    'GET settings/public': { settings: { ...e2ePlatformSettings } },
     'GET navigation/public': { menu: { cols: [] }, flat: [] },
     'GET services': { services: mockServicesForCategory('property'), categories: [] },
     'GET categories': { categories: MOCK_CATEGORIES },
@@ -359,20 +389,5 @@ export function handleMockApi(pathname, method) {
     return MOCK_SERVICE;
   }
 
-  return routes[key] ?? { ok: true, settings: windowLikeSettings() };
-}
-
-function windowLikeSettings() {
-  return {
-    platform_name: 'Services2NRI',
-    primary_color: '#4A6FA5',
-    platform_whatsapp: '919876543210',
-    google_rating: '4.9',
-    google_review_count: '10,000+',
-    hero_heading_1: 'Stay Connected to',
-    hero_heading_2: 'INDIA',
-    hero_subheading: 'Without the Paperwork Stress',
-    stat_1_number: '10,000+',
-    stat_1_label: 'Happy Clients',
-  };
+  return routes[key] ?? { ok: true, settings: { ...e2ePlatformSettings } };
 }

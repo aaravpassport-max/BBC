@@ -69,6 +69,22 @@
   </head>
   <body>
     <div id="s2nri-root" class="s2-ds"></div>
-    <script type="module" src="/assets/app.js"></script>
+    <script type="module">
+      try {
+        const res = await fetch('/mock-api/settings/public');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.settings && window.S2NRI_CONFIG) {
+            Object.assign(window.S2NRI_CONFIG.settings, data.settings);
+          }
+        }
+      } catch (_) {
+        /* mock API unavailable — use inline defaults */
+      }
+      if (window.__E2E_SETTINGS_PATCH__ && window.S2NRI_CONFIG) {
+        Object.assign(window.S2NRI_CONFIG.settings, window.__E2E_SETTINGS_PATCH__);
+      }
+      await import('/assets/app.js');
+    </script>
   </body>
 </html>

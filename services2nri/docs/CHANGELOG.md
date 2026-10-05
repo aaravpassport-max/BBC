@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.78] — 2026-10-05 — Cloud Agent
+
+- **Phase 10:** E2E mock persists platform settings; SPA loads `settings/public` before boot; admin Design System save → public DOM tests.
+
+---
+
 ## [4.7.77] — 2026-10-05 — Cloud Agent
 
 - **Phase 9:** Home services/cities `CmsElement` markers; CMS e2e in `verify-design-system.sh` (`SKIP_CMS_E2E=1` to skip).
