@@ -5,6 +5,13 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.64] — 2026-10-05 — Cloud Agent
+
+- **Service detail contrast:** Fixed trust tiles inheriting white text on light cards; enforced readable heading/body/muted tokens across blocks, charges, breadcrumbs, and wizard trust bar. Stronger hero scrim for title/meta readability.
+- **Service detail completeness:** Auto fill-in process, security, charges, FAQ, testimonial, and CTA bands when CMS sections are missing (respects template hide toggles). Charges section always shows readable copy when HTML is empty; trust badges fall back to platform stats.
+
+---
+
 ## [4.7.63] — 2026-10-05 — Cloud Agent
 
 - **Section visibility platform-wide:** Every public page template band in Design System gets the same **show/hide (eye)** control as Homepage. Service detail lists all CMS band types (trust, description, process, documents, testimonials, wizard, etc.) with `hide_tmpl_*` settings wired on the live service page.

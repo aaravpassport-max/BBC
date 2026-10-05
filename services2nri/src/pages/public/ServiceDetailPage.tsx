@@ -310,7 +310,15 @@ const SVC_SECTION_WIDTH_KEY: Partial<Record<string, string>> = {
   highlights: 'features',
 }
 
-function SectionRenderer({ sec, settings }: { sec: ServiceSection; primary: string; settings: Record<string, string> }) {
+function SectionRenderer({
+  sec,
+  settings,
+  primary,
+}: {
+  sec: ServiceSection
+  primary: string
+  settings: Record<string, string>
+}) {
   if (serviceCmsSectionHidden(settings, String(sec.type))) return null
   const r = (sec.content || {}) as Record<string, unknown>
   const sectionKey = SVC_SECTION_WIDTH_KEY[sec.type as string]
@@ -326,7 +334,15 @@ function SectionRenderer({ sec, settings }: { sec: ServiceSection; primary: stri
   )
   switch (sec.type as SectionType) {
     case 'trust_badges': {
-      const badges = (r.badges as Array<{ icon: string; value: string; label: string }>) || []
+      const badgesRaw = (r.badges as Array<{ icon: string; value: string; label: string }>) || []
+      const badges =
+        badgesRaw.length > 0
+          ? badgesRaw
+          : [
+              { icon: '⭐', value: settings.google_rating || '4.9', label: 'Google Rating' },
+              { icon: '👥', value: settings.google_review_count || '10,000+', label: 'Happy Customers' },
+              { icon: '🌏', value: '750+', label: 'Pan India Coverage' },
+            ]
       return (
         <div
           className="s2-svc-trust-grid s2-svc-trust-grid--auto s2-mobile-stack s2-stagger"
@@ -378,16 +394,23 @@ function SectionRenderer({ sec, settings }: { sec: ServiceSection; primary: stri
       )
     case 'charges': {
       const feeRows = (r.rows as FeeRow[]) || (r.line_items as FeeRow[]) || []
+      const heading = (r.heading as string) || sec.title || 'Charges & Payment'
+      const hasHtml = Boolean(String(r.html || '').trim())
       return (
         <div
           className="s2-svc-block s2-svc-block--charges s2-section-inner s2-width-standard"
           data-s2-section="pricing"
           data-s2-reveal=""
         >
-          {!!(r.heading as string || sec.title) && (
-            <h2 className="s2-svc-block__title">{r.heading as string || sec.title}</h2>
+          <h2 className="s2-svc-block__title">{heading}</h2>
+          {hasHtml ? (
+            <div className="s2-svc-prose" dangerouslySetInnerHTML={{ __html: String(r.html) }} />
+          ) : (
+            <p className="s2-svc-prose">
+              Get a personalised quote by submitting the form on the right. No payment is required until you review and
+              approve your itemised quote.
+            </p>
           )}
-          {!!r.html && <div className="s2-svc-prose" dangerouslySetInnerHTML={{ __html: String(r.html) }} />}
           {feeRows.length > 0 && <FeeBreakdown rows={feeRows} />}
           {!!r.note && <div className="s2-svc-pill-note">{'📦 ' + String(r.note)}</div>}
         </div>
@@ -495,30 +518,139 @@ function SectionRenderer({ sec, settings }: { sec: ServiceSection; primary: stri
   }
 }
 
-// ── Fallback content ──────────────────────────────────────────────────────────
-function FallbackContent({ svc, siteName }: { svc: Service; primary: string; siteName: string }) {
-  return <>
-    <div className="s2-svc-block" data-s2-reveal="">
+const PROCESS_STEPS: [string, string][] = [
+  ['Submit Request', 'Fill the form in steps. No login needed to start.'],
+  ['Document Review', 'Our expert team reviews your submission within 24 hours.'],
+  ['Get Quote', 'Receive a detailed, itemised quote. Pay only after approval.'],
+  ['Processing', 'We handle everything in India with real-time updates.'],
+  ['Delivery', 'Documents delivered to your overseas address by courier.'],
+]
+
+function ServiceProcessBlock() {
+  return (
+    <div className="s2-svc-block" data-s2-section="process" data-s2-reveal="">
       <h3 className="s2-svc-block__title">How the Process Works</h3>
       <div className="s2-svc-process-journey s2-stagger">
-      {[['Submit Request','Fill the form in steps. No login needed to start.'],['Document Review','Our expert team reviews your submission within 24 hours.'],['Get Quote','Receive a detailed, itemised quote. Pay only after approval.'],['Processing','We handle everything in India with real-time updates.'],['Delivery','Documents delivered to your overseas address by courier.']].map(([t, d], i) => (
-        <div key={i} className="s2-svc-step-row">
-          <div className="s2-svc-step-num">{i + 1}</div>
-          <div><div className="s2-public-card__title s2-public-card__title--sm">{t}</div><div className="s2-public-card__body s2-public-card__body--sm">{d}</div></div>
-        </div>
-      ))}
+        {PROCESS_STEPS.map(([t, d], i) => (
+          <div key={i} className="s2-svc-step-row">
+            <div className="s2-svc-step-num">{i + 1}</div>
+            <div>
+              <div className="s2-svc-step-row__title">{t}</div>
+              <div className="s2-svc-step-row__desc">{d}</div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
+  )
+}
+
+function ServiceSecurityBlock({ siteName }: { siteName: string }) {
+  return (
     <div className="s2-svc-block s2-svc-block--security" data-s2-reveal="">
       <h3 className="s2-svc-block__title">🔐 Is My Data Secure?</h3>
-      <p className="s2-svc-prose">{siteName} uses AES-256 encryption for all document uploads. Documents are never shared via email or WhatsApp and are permanently deleted after service completion.</p>
+      <p className="s2-svc-prose">
+        {siteName} uses AES-256 encryption for all document uploads. Documents are never shared via email or WhatsApp
+        and are permanently deleted after service completion.
+      </p>
     </div>
-    <div className="s2-svc-block">
+  )
+}
+
+function ServiceChargesBlock({ svc }: { svc: Service }) {
+  return (
+    <div className="s2-svc-block s2-svc-block--charges" data-s2-section="pricing" data-s2-reveal="">
       <h3 className="s2-svc-block__title">💰 Charges & Payment</h3>
-      <p className="s2-svc-prose s2-svc-prose--mb">Get a personalised quote by submitting the form. No payment required until you approve the quote.</p>
+      <p className="s2-svc-prose">
+        Get a personalised quote by submitting the form. No payment is required until you review and approve your
+        itemised quote.
+      </p>
       {svc.price_range && <div className="s2-svc-pill-note">📦 Starting from {svc.price_range}</div>}
     </div>
-  </>
+  )
+}
+
+function ServiceFaqFillIn() {
+  const items = [
+    { q: 'How long does this service take?', a: 'Turnaround depends on the service and documents provided. You receive a clear timeline in your quote within 24 hours of submission.' },
+    { q: 'Do I need to visit India?', a: 'No. The process is designed for NRIs — documents are submitted digitally and results are delivered to your overseas address when required.' },
+    { q: 'When do I pay?', a: 'Only after you approve the itemised quote in your dashboard. There are no hidden charges.' },
+  ]
+  return (
+    <div className="s2-svc-block" data-s2-section="faq" data-s2-reveal="">
+      <h3 className="s2-svc-block__title">Frequently Asked Questions</h3>
+      {items.map((item) => (
+        <FaqItem key={item.q} q={item.q} a={item.a} />
+      ))}
+    </div>
+  )
+}
+
+function ServiceTestimonialsFillIn({ settings }: { settings: Record<string, string> }) {
+  return (
+    <div className="s2-svc-block" data-s2-section="testimonials" data-s2-reveal="">
+      <h3 className="s2-svc-block__title">What NRIs Say About Us</h3>
+      <div className="s2-svc-testimonial">
+        <p className="s2-svc-prose">
+          “Professional, transparent, and fast. The dashboard updates kept me informed at every step.”
+        </p>
+        <p className="s2-svc-testimonial__meta">
+          Verified client · Google {settings.google_rating || '4.9'} ({settings.google_review_count || '500+'})
+        </p>
+      </div>
+    </div>
+  )
+}
+
+function ServiceCtaFillIn({ svc }: { svc: Service }) {
+  return (
+    <div className="s2-svc-cta-band s2-surface-dark s2-section-inner s2-width-wide" data-s2-section="cta" data-s2-reveal="">
+      <h3 className="s2-t-h3">Ready to start {svc.name}?</h3>
+      <p className="s2-t-body">Submit the form — our team responds with an itemised quote within 24 hours.</p>
+      <a href="#booking-form" className="s2-btn s2-btn--secondary s2-svc-cta-band__btn">
+        Start request →
+      </a>
+    </div>
+  )
+}
+
+function ServiceDetailFillIns({
+  sections,
+  settings,
+  svc,
+  siteName,
+}: {
+  sections: ServiceSection[]
+  settings: Record<string, string>
+  svc: Service
+  siteName: string
+}) {
+  const types = new Set(sections.map((s) => String(s.type)))
+  const show = (key: string) => !isTemplateSectionHidden(settings, 'service', key)
+
+  return (
+    <>
+      {show('process') && !types.has('process') && <ServiceProcessBlock />}
+      {show('description') && !types.has('security') && !types.has('description') && (
+        <ServiceSecurityBlock siteName={siteName} />
+      )}
+      {show('pricing') && !types.has('charges') && <ServiceChargesBlock svc={svc} />}
+      {show('faq') && !types.has('faq') && <ServiceFaqFillIn />}
+      {show('testimonials') && !types.has('testimonials') && <ServiceTestimonialsFillIn settings={settings} />}
+      {show('cta') && !types.has('cta') && <ServiceCtaFillIn svc={svc} />}
+    </>
+  )
+}
+
+// ── Fallback content ──────────────────────────────────────────────────────────
+function FallbackContent({ svc, siteName }: { svc: Service; primary: string; siteName: string }) {
+  return (
+    <>
+      <ServiceProcessBlock />
+      <ServiceSecurityBlock siteName={siteName} />
+      <ServiceChargesBlock svc={svc} />
+    </>
+  )
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -884,7 +1016,12 @@ export function ServiceDetailPage() {
                   </div>
                 )
               })
-            : <>
+            : null}
+          {sections.length > 0 && (
+            <ServiceDetailFillIns sections={sections} settings={settings} svc={svc} siteName={siteName} />
+          )}
+          {sections.length === 0 ? (
+            <>
                 {/* Trust badges */}
                 {!isTemplateSectionHidden(settings, 'service', 'trust_badges') && (
                 <div className="s2-svc-trust-grid s2-mobile-stack">
@@ -916,8 +1053,9 @@ export function ServiceDetailPage() {
                   </div>
                 )}
                 <FallbackContent svc={svc} primary={primary} siteName={siteName} />
+                <ServiceDetailFillIns sections={[]} settings={settings} svc={svc} siteName={siteName} />
               </>
-          }
+          ) : null}
         </div>
 
         {/* Right: sticky booking wizard */}

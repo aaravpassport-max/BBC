@@ -50,6 +50,7 @@
     var(--s2-color-surface) 0%,
     color-mix(in srgb, var(--s2-color-primary) 5%, var(--s2-color-surface)) 100%
   );
+  color: var(--s2-color-body, #334155);
   box-shadow: var(--s2-experience-shadow-rest, var(--s2-shadow-card));
   transition:
     transform var(--s2-experience-duration, 280ms) var(--s2-experience-ease, ease),
@@ -65,6 +66,13 @@
   font-size: clamp(1.25rem, 3vw, 1.5rem);
   font-weight: 900;
   letter-spacing: -0.02em;
+  color: var(--s2-color-heading, #1e2d40);
+}
+
+.s2-svc-trust-tile__label {
+  color: var(--s2-color-muted, #64748b);
+  font-weight: 600;
+  opacity: 1;
 }
 
 .s2-svc-process-journey {
@@ -106,6 +114,14 @@
     color-mix(in srgb, var(--s2-color-primary) 5%, var(--s2-color-surface)) 0%,
     var(--s2-color-surface) 55%
   );
+  padding: 26px 28px;
+}
+
+.s2-svc-block--charges .s2-svc-prose {
+  font-size: 0.9375rem;
+  line-height: 1.7;
+  color: var(--s2-color-body, #334155);
+  max-width: 52ch;
 }
 
 .s2-fee-breakdown {

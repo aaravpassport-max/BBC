@@ -22,6 +22,19 @@ test.describe('Service page sections (mock API)', () => {
     await expect(page.locator('.s2-svc-why')).toHaveCount(0)
   })
 
+  test('trust badge labels use readable contrast on light tiles', async ({ page }) => {
+    await page.goto('/service/complete-property-management')
+    const label = page.locator('.s2-svc-trust-tile__label').first()
+    await expect(label).toBeVisible({ timeout: 25_000 })
+    const color = await label.evaluate((el) => getComputedStyle(el).color)
+    const m = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/)
+    expect(m).toBeTruthy()
+    if (m) {
+      const lum = 0.2126 * Number(m[1]) + 0.7152 * Number(m[2]) + 0.0722 * Number(m[3])
+      expect(lum).toBeLessThan(140)
+    }
+  })
+
   test('service CTA band text is light on dark band', async ({ page }) => {
     await page.goto('/service/complete-property-management')
     const title = page.locator('.s2-svc-cta-band .s2-t-h3, .s2-svc-cta-band h3').first()
