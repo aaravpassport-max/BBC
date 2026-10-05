@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.88] — 2026-10-05 — Cloud Agent
+
+- **Services directory page:** Elements tab for hero (title, subtitle, search, meta) and **Service 1–24** grid slots on `/services`; registry still supplies card content.
+
+---
+
 ## [4.7.87] — 2026-10-05 — Cloud Agent
 
 - **Homepage Services & Cities grids:** Elements tab lists each grid slot (Service 1–8, City 1–8) for per-card design; registry still supplies content.

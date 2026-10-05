@@ -11,6 +11,7 @@ import {
   CITY_GRID_ITEM_PARTS,
   PARTNER_ITEM_PARTS,
   PRESS_ITEM_PARTS,
+  SERVICE_DIRECTORY_ITEM_PARTS,
   SERVICE_GRID_ITEM_PARTS,
   STAT_ITEM_PARTS,
   TESTIMONIAL_ITEM_PARTS,
@@ -252,6 +253,26 @@ export const CANONICAL_SECTION_ELEMENTS: Record<string, Record<string, Canonical
       { id: 'primary_button', label: 'Contact button' },
     ],
   },
+  services: {
+    hero: [
+      { id: 'heading', label: 'Page title' },
+      { id: 'subtitle', label: 'Subtitle' },
+      { id: 'search', label: 'Search field' },
+      { id: 'meta_chips', label: 'Meta chips row' },
+    ],
+    directory: [
+      { id: 'intro', label: 'Directory intro line' },
+      { id: 'sidebar', label: 'Category sidebar' },
+      { id: 'grid', label: 'Cards grid layout' },
+      { id: 'service_card', label: 'Directory cards (shared look)' },
+      ...listItemCanonical(
+        'service',
+        HOME_LIST_LIMITS.serviceDirectory,
+        'Service',
+        SERVICE_DIRECTORY_ITEM_PARTS,
+      ),
+    ],
+  },
   service: {
     marquee: [{ id: 'body', label: 'Marquee text' }],
     hero: [
@@ -318,6 +339,10 @@ const FIELD_ELEMENT_MAP: Record<string, string> = {
   hiw_page_steps_json: 'collection',
   pricing_compare_brand_rows_json: 'collection',
   contact_hours_json: 'collection',
+  services_page_title: 'heading',
+  services_page_subtitle: 'subtitle',
+  services_search_placeholder: 'search',
+  services_subtitle: 'intro',
   css_stats_bg: 'collection',
   css_stats_color: 'stat_item',
   css_stats_padding: 'collection',

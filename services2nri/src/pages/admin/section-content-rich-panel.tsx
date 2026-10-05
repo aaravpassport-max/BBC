@@ -1592,7 +1592,7 @@ function ServicesDirectoryPanel({
       <section className="s2-band-design-group">
         <h4 className="s2-band-design-group__title">{isDirectory ? 'Directory behaviour' : 'Services page hero'}</h4>
         <p className="s2-band-design-group__lead">
-          Cards and categories are loaded from Service Registry. Titles below control the hero and intro copy on /services.
+          Cards and categories are loaded from Service Registry. Use the Elements tab on Search &amp; directory to style Service 1–24 slots (image, badge, title, description, link, turnaround).
         </p>
         {isDirectory && (
           <div className="s2-band-content-fields">

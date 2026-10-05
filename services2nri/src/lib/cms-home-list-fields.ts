@@ -16,6 +16,8 @@ export const HOME_LIST_LIMITS = {
   serviceGrid: 8,
   /** Homepage cities band grid slots. */
   cityGrid: 8,
+  /** /services directory grid slots (styling per visible position). */
+  serviceDirectory: 24,
 } as const
 
 type ItemPart = { suffix: string; label: string }
@@ -123,6 +125,15 @@ export const SERVICE_GRID_ITEM_PARTS: ItemPart[] = [
   { suffix: 'title', label: 'title' },
   { suffix: 'desc', label: 'description' },
   { suffix: 'cta', label: 'CTA' },
+]
+
+export const SERVICE_DIRECTORY_ITEM_PARTS: ItemPart[] = [
+  { suffix: 'media', label: 'image' },
+  { suffix: 'badge', label: 'category badge' },
+  { suffix: 'title', label: 'title' },
+  { suffix: 'desc', label: 'description' },
+  { suffix: 'link', label: 'view link' },
+  { suffix: 'turnaround', label: 'turnaround label' },
 ]
 
 export const CITY_GRID_ITEM_PARTS: ItemPart[] = [

@@ -46,7 +46,7 @@ for (const [, pageId, sectionsBlob] of pageBlocks) {
           /^brand_row_\d+_(feature|us|them)$/.test(elementId) ||
           /^hours_\d+_(day|hours)$/.test(elementId) ||
           /^plan_\d+_(name|subtitle|price)$/.test(elementId) ||
-          /^service_\d+_(media|title|desc|cta)$/.test(elementId) ||
+          /^service_\d+_(media|title|desc|cta|badge|link|turnaround)$/.test(elementId) ||
           /^city_\d+_(photo|eyebrow|name)$/.test(elementId)
         if (!knownItem && elementId.startsWith('field_')) {
           orphans.push({ pageId, sectionKey, key, elementId })

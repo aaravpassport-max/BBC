@@ -78,6 +78,27 @@ test.describe('How It Works — Elements tab coverage', () => {
     await expect(editor.getByRole('heading', { name: 'City 1 name' })).toBeVisible();
   });
 
+  test('services directory lists Service 1 title in Elements', async ({ page }) => {
+    await page.goto('/admin/design');
+    await page
+      .locator('.s2-design-builder-nav__page-btn:not(.s2-design-builder-nav__page-btn--sub)')
+      .filter({ hasText: 'Services directory' })
+      .click();
+    await page.locator('[data-section-id="directory"] .s2-band-card__main').click();
+    const editor = page.getByTestId('section-editor-directory');
+    await expect(editor).toBeVisible({ timeout: 15_000 });
+    await editor.getByRole('tab', { name: 'Elements' }).click();
+    await editor.getByRole('option', { name: 'Service 1 title' }).click();
+    await expect(editor.getByRole('heading', { name: 'Service 1 title' })).toBeVisible();
+  });
+
+  test('/services page exposes directory grid CMS markers', async ({ page }) => {
+    await page.goto('/services');
+    await expect(
+      page.locator('[data-s2-page="services"][data-s2-section="directory"][data-s2-element="service_1_title"]'),
+    ).toBeVisible({ timeout: 20_000 });
+  });
+
   test('homepage exposes service and city grid CMS markers', async ({ page }) => {
     await page.goto('/');
     await expect(

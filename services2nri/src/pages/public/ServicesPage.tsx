@@ -13,6 +13,8 @@ import { getServiceImage } from '@/lib/images'
 import type { Category, Service } from '@/types'
 import { isTemplateSectionHidden } from '@/lib/section-visibility'
 import { parseHeroMetaJson } from '@/lib/page-hero-meta'
+import { CmsElement } from '@/components/public/CmsElement'
+import { HOME_LIST_LIMITS } from '@/lib/cms-home-list-fields'
 
 function settingFlag(raw: string | undefined, defaultOn = true): boolean {
   if (raw === undefined || raw === '') return defaultOn
@@ -101,25 +103,29 @@ export function ServicesPage() {
         {!hideHero && (
         <section className="s2-services-hero s2-surface-dark s2-hero--premium" data-s2-section="hero">
           <div className="s2-container">
-            <h1 className="s2-dir-hero__title">{settings.services_page_title || settings.services_title || 'All NRI Services'}</h1>
-            <p className="s2-dir-hero__sub">
+            <CmsElement pageId="services" sectionKey="hero" elementId="heading" as="h1" className="s2-dir-hero__title">
+              {settings.services_page_title || settings.services_title || 'All NRI Services'}
+            </CmsElement>
+            <CmsElement pageId="services" sectionKey="hero" elementId="subtitle" as="p" className="s2-dir-hero__sub">
               {settings.services_page_subtitle ||
                 `Expert assistance across ${categories.length || 8} categories — 44+ services for NRIs worldwide`}
-            </p>
+            </CmsElement>
             {showSearch && (
-              <input
-                type="search"
-                className="s2-dir-search"
-                placeholder={
-                  settings.services_search_placeholder ||
-                  'Search services (e.g. OCI Card, Transcript, Power of Attorney)…'
-                }
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                aria-label="Search services"
-              />
+              <CmsElement pageId="services" sectionKey="hero" elementId="search">
+                <input
+                  type="search"
+                  className="s2-dir-search"
+                  placeholder={
+                    settings.services_search_placeholder ||
+                    'Search services (e.g. OCI Card, Transcript, Power of Attorney)…'
+                  }
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  aria-label="Search services"
+                />
+              </CmsElement>
             )}
-            <div className="s2-page-hero__meta">
+            <CmsElement pageId="services" sectionKey="hero" elementId="meta_chips" className="s2-page-hero__meta">
               {parseHeroMetaJson(settings.services_hero_meta_json, [
                 { icon: '🌐', label: 'Trusted by NRIs worldwide' },
                 { icon: '⚡', label: 'Quote within 24 hours' },
@@ -130,7 +136,7 @@ export function ServicesPage() {
                   {m.label}
                 </span>
               ))}
-            </div>
+            </CmsElement>
           </div>
         </section>
         )}
@@ -158,7 +164,7 @@ export function ServicesPage() {
 
       <div className="s2-services-layout s2-container" data-s2-section="directory">
         {showCategoryFilter && (
-        <aside className="s2-services-sidebar">
+        <CmsElement pageId="services" sectionKey="directory" elementId="sidebar" as="aside" className="s2-services-sidebar">
           <h3 className="s2-dir-sidebar__label">Categories</h3>
           <button
             type="button"
@@ -179,14 +185,14 @@ export function ServicesPage() {
               <span className="s2-dir-sidebar-btn__count">{cat.service_count || 0}</span>
             </button>
           ))}
-        </aside>
+        </CmsElement>
         )}
 
         <div className="s2-dir-main">
           {settings.services_subtitle && (
-            <p className="s2-t-body s2-dir-intro" style={{ marginBottom: 16 }}>
+            <CmsElement pageId="services" sectionKey="directory" elementId="intro" as="p" className="s2-t-body s2-dir-intro" style={{ marginBottom: 16 }}>
               {settings.services_subtitle}
-            </p>
+            </CmsElement>
           )}
           {showSkeleton ? (
             <div className="s2-dir-grid s2-stagger">
@@ -215,37 +221,94 @@ export function ServicesPage() {
               </button>
             </div>
           ) : (
-            <div className="s2-dir-grid s2-stagger">
-              {filtered.map((svc) => (
-                <Link key={svc.id} to={`/service/${svc.slug}`} className="s2-dir-card">
-                  <div className="s2-dir-card__img-wrap">
-                    <img
-                      src={svc.image_url || getServiceImage(svc.slug)}
-                      alt={svc.name}
-                      loading="lazy"
-                    />
-                    {svc.category_name && (
-                      <div
-                        className="s2-dir-card__badge"
-                        style={svc.color ? cssVars({ 's2-dir-badge-bg': svc.color }) : undefined}
-                      >
-                        {svc.category_name}
-                      </div>
-                    )}
-                  </div>
-                  <div className="s2-dir-card__body">
-                    <h3 className="s2-dir-card__title">{svc.name}</h3>
-                    <p className="s2-dir-card__desc">{formatDesc(svc.short_desc || '')}</p>
-                    <div className="s2-dir-card__foot">
-                      <span className="s2-dir-card__link">View Details →</span>
-                      {(svc.turnaround_days || svc.turnaround) && (
-                        <span className="s2-dir-card__turnaround">{svc.turnaround_days || svc.turnaround} Days</span>
+            <CmsElement pageId="services" sectionKey="directory" elementId="grid" className="s2-dir-grid s2-stagger">
+              {filtered.map((svc, i) => {
+                const n = i + 1
+                const withinSlot = n <= HOME_LIST_LIMITS.serviceDirectory
+                const card = (
+                  <>
+                    <CmsElement
+                      pageId="services"
+                      sectionKey="directory"
+                      elementId={withinSlot ? `service_${n}_media` : 'service_card'}
+                      className="s2-dir-card__img-wrap"
+                    >
+                      <img
+                        src={svc.image_url || getServiceImage(svc.slug)}
+                        alt={svc.name}
+                        loading="lazy"
+                      />
+                      {svc.category_name && (
+                        <CmsElement
+                          pageId="services"
+                          sectionKey="directory"
+                          elementId={withinSlot ? `service_${n}_badge` : 'service_card'}
+                          className="s2-dir-card__badge"
+                          style={svc.color ? cssVars({ 's2-dir-badge-bg': svc.color }) : undefined}
+                        >
+                          {svc.category_name}
+                        </CmsElement>
                       )}
+                    </CmsElement>
+                    <div className="s2-dir-card__body">
+                      <CmsElement
+                        pageId="services"
+                        sectionKey="directory"
+                        elementId={withinSlot ? `service_${n}_title` : 'service_card'}
+                        as="h3"
+                        className="s2-dir-card__title"
+                      >
+                        {svc.name}
+                      </CmsElement>
+                      <CmsElement
+                        pageId="services"
+                        sectionKey="directory"
+                        elementId={withinSlot ? `service_${n}_desc` : 'service_card'}
+                        as="p"
+                        className="s2-dir-card__desc"
+                      >
+                        {formatDesc(svc.short_desc || '')}
+                      </CmsElement>
+                      <div className="s2-dir-card__foot">
+                        <CmsElement
+                          pageId="services"
+                          sectionKey="directory"
+                          elementId={withinSlot ? `service_${n}_link` : 'service_card'}
+                          as="span"
+                          className="s2-dir-card__link"
+                        >
+                          View Details →
+                        </CmsElement>
+                        {(svc.turnaround_days || svc.turnaround) && (
+                          <CmsElement
+                            pageId="services"
+                            sectionKey="directory"
+                            elementId={withinSlot ? `service_${n}_turnaround` : 'service_card'}
+                            as="span"
+                            className="s2-dir-card__turnaround"
+                          >
+                            {svc.turnaround_days || svc.turnaround} Days
+                          </CmsElement>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                </Link>
-              ))}
-            </div>
+                  </>
+                )
+                return withinSlot ? (
+                  <CmsElement key={svc.id} pageId="services" sectionKey="directory" elementId={`service_${n}`}>
+                    <Link to={`/service/${svc.slug}`} className="s2-dir-card">
+                      {card}
+                    </Link>
+                  </CmsElement>
+                ) : (
+                  <CmsElement key={svc.id} pageId="services" sectionKey="directory" elementId="service_card">
+                    <Link to={`/service/${svc.slug}`} className="s2-dir-card">
+                      {card}
+                    </Link>
+                  </CmsElement>
+                )
+              })}
+            </CmsElement>
           )}
         </div>
       </div>
