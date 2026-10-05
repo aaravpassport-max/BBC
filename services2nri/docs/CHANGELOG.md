@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.80] — 2026-10-05 — Cloud Agent
+
+- Removed in-admin **Live preview** iframe panel (Phase 11 UI); **Preview page ↗** external link remains.
+
+---
+
 ## [4.7.79] — 2026-10-05 — Cloud Agent
 
 - **Phase 11:** In-admin live preview iframe (draft postMessage + reload on save); `PlatformSettingsPreviewBridge` on public SPA.

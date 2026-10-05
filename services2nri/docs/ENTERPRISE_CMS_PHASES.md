@@ -48,9 +48,7 @@
 - E2E shell loads public settings before app boot
 - `design-cms-admin-save.spec.ts` (hero + newsletter from Design System)
 
-## Phase 11 — Live preview iframe (v4.7.79)
-- Sticky `DesignLivePreview` panel beside page builder (desktop ≥1180px)
-- Draft platform settings via `postMessage` (`platform-settings-preview.ts`)
-- Iframe reload token bumps after content / styling / structure save
+## Phase 11 — Live preview iframe (removed v4.7.80)
+- Was: embedded preview + draft postMessage (shipped v4.7.79). Removed per product choice; use **Preview page ↗** in the builder header.
 
 ## Phase 12 — (next)
