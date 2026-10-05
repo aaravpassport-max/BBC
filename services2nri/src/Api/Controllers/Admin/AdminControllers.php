@@ -2256,7 +2256,7 @@ class SettingsAdminController extends \S2NRI\Api\Controllers\BaseController {
                 continue;
             }
 
-            $is_public = in_array( $key, $public_keys, true ) ? 1 : 0;
+            $is_public = ( in_array( $key, $public_keys, true ) || str_starts_with( $key, 'hide_tmpl_' ) ) ? 1 : 0;
 
             $stored = self::sanitizeSettingValue( $key, $value );
 

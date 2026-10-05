@@ -10,6 +10,7 @@ import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { getServiceImage } from '@/lib/images'
 import type { Category, Service } from '@/types'
+import { isTemplateSectionHidden } from '@/lib/section-visibility'
 
 function settingFlag(raw: string | undefined, defaultOn = true): boolean {
   if (raw === undefined || raw === '') return defaultOn
@@ -72,9 +73,13 @@ export function ServicesPage() {
     return `${t.slice(0, max).trim()}…`
   }
 
+  const hideHero = isTemplateSectionHidden(settings, 'services', 'hero')
+  const hideDirectory = isTemplateSectionHidden(settings, 'services', 'directory')
+
   return (
     <Layout>
       <div className="s2-services-page">
+        {!hideHero && (
         <section className="s2-services-hero s2-surface-dark s2-hero--premium" data-s2-section="hero">
           <div className="s2-container">
             <h1 className="s2-dir-hero__title">{settings.services_page_title || settings.services_title || 'All NRI Services'}</h1>
@@ -99,7 +104,9 @@ export function ServicesPage() {
             </div>
           </div>
         </section>
+        )}
 
+        {!hideDirectory && (
         <div className="s2-services-body s2-surface-light">
       <div className="mobile-filter s2-container s2-dir-mobile-filter">
         <div className="s2-dir-chips">
@@ -209,6 +216,7 @@ export function ServicesPage() {
         </div>
       </div>
         </div>
+        )}
       </div>
     </Layout>
   )

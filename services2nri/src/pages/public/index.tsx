@@ -22,6 +22,7 @@ import { getAvatarImage, IMAGES } from '@/lib/images'
 import type { FAQ, BlogPost, PricingPlan } from '@/types'
 import { PublicSection, PublicSectionHead, PublicGrid, PublicCard, PublicCtaLink } from '@/components/public/PublicLayout'
 import { parseAboutHighlights, parseHiwSteps, parseTeamMembers, parseValueCards } from '@/lib/home-content-settings'
+import { isTemplateSectionHidden } from '@/lib/section-visibility'
 
 // ── AboutPage (Bn) ────────────────────────────────────────────────────────────
 export function AboutPage() {
@@ -53,6 +54,8 @@ export function AboutPage() {
   return (
     <Layout>
       <PageHero
+        pageTemplateId="about"
+        templateSectionKey="intro"
         title={settings.about_page_title || 'About Us'}
         subtitle={settings.about_page_subtitle || 'Trusted NRI service partner since 2015 — making India management effortless from anywhere in the world.'}
         meta={[
@@ -62,7 +65,7 @@ export function AboutPage() {
         ]}
       />
 
-      <PublicSection sectionKey="intro" width="wide">
+      <PublicSection pageTemplateId="about" sectionKey="about" width="wide">
         <div className="s2-marketing-page s2-public-split-grid s2-mobile-stack">
           <div>
             <PublicSectionHead eyebrow={settings.about_eyebrow || 'Our Story'} title={settings.about_heading || `${name} — Your Bridge to India`} />
@@ -97,7 +100,7 @@ export function AboutPage() {
         </div>
       </PublicSection>
 
-      <PublicSection alt sectionKey="values">
+      <PublicSection pageTemplateId="about" alt sectionKey="values">
         <PublicSectionHead title={settings.about_values_title || 'Our Core Values'} />
         <PublicGrid min={220}>
           {values.map(({ icon, t, d }) => (
@@ -110,6 +113,7 @@ export function AboutPage() {
         </PublicGrid>
       </PublicSection>
 
+      {!isTemplateSectionHidden(settings, 'about', 'team') && (
       <section className="s2-public-team-section s2-experience-section" data-s2-section="team" data-s2-reveal="">
         <div className="s2-container">
           <h2 className="s2-public-section-title s2-public-section-title--center">{settings.about_team_title || 'Meet Our Team'}</h2>
@@ -127,7 +131,9 @@ export function AboutPage() {
           </div>
         </div>
       </section>
+      )}
 
+      {!isTemplateSectionHidden(settings, 'about', 'cta') && (
       <section className="s2-public-band-dark s2-surface-dark s2-marketing-page s2-experience-section" data-s2-section="cta" data-s2-reveal="">
         <h2 className="s2-public-band-dark__title">{settings.about_cta_title || 'Ready to Get Started?'}</h2>
         <p className="s2-public-band-dark__sub">{settings.about_cta_subtitle || 'Let us handle your India affairs while you focus on what matters.'}</p>
@@ -136,6 +142,7 @@ export function AboutPage() {
           <Link to="/register" className="s2-public-band-dark__btn-ghost">Create Free Account</Link>
         </div>
       </section>
+      )}
     </Layout>
   )
 }
@@ -188,6 +195,8 @@ export function ContactPage() {
   return (
     <Layout>
       <PageHero
+        pageTemplateId="contact"
+        templateSectionKey="intro"
         title={settings.contact_page_title || settings.contact_title || 'Contact Us'}
         subtitle={settings.contact_page_subtitle || "We're here to help. Reach us via WhatsApp, email, or the form below."}
         primary={primary}
@@ -196,7 +205,7 @@ export function ContactPage() {
           { icon: '📧', label: 'Reply in 24h' },
         ]}
       />
-      <PublicSection sectionKey="contact" width="wide">
+      <PublicSection pageTemplateId="contact" sectionKey="contact" width="wide">
         <div className="s2-public-contact-grid s2-mobile-stack">
           <div>
             <PublicSectionHead title={settings.contact_title || 'Get in Touch'} />
@@ -280,6 +289,8 @@ export function HowItWorksPage() {
   return (
     <Layout>
       <PageHero
+        pageTemplateId="how-it-works"
+        templateSectionKey="intro"
         title={settings.hiw_page_title || settings.hiw_title || 'How It Works'}
         subtitle={settings.hiw_page_subtitle || 'Get your NRI service done in 6 simple steps — from anywhere in the world.'}
         primary={primary}
@@ -289,6 +300,7 @@ export function HowItWorksPage() {
           { icon: '✅', label: 'Pay after approval' },
         ]}
       />
+      {!isTemplateSectionHidden(settings, 'how-it-works', 'process') && (
       <section className="s2-public-how-section s2-marketing-page s2-experience-section" data-s2-section="process" data-s2-reveal="">
         <div className="s2-container s2-width-wide s2-stagger">
           {steps.map(({ n, icon, t, d }, i) => (
@@ -305,6 +317,7 @@ export function HowItWorksPage() {
             </div>
           ))}
 
+          {!isTemplateSectionHidden(settings, 'how-it-works', 'hiw_cta') && (
           <div className="s2-public-how-callout">
             <h3 className="s2-public-how-callout__title">{settings.hiw_page_cta_title || 'Have Questions? Talk to Us First.'}</h3>
             <p className="s2-public-how-callout__sub">{settings.hiw_page_cta_subtitle || 'Our team is available 24/7 on WhatsApp for a free consultation before you place a request.'}</p>
@@ -313,8 +326,10 @@ export function HowItWorksPage() {
               <Link to="/contact" className="s2-home-text-link">Contact Us</Link>
             </div>
           </div>
+          )}
         </div>
       </section>
+      )}
     </Layout>
   )
 }
@@ -349,6 +364,8 @@ export function FAQPage() {
   return (
     <Layout>
       <PageHero
+        pageTemplateId="faq"
+        templateSectionKey="intro"
         title={settings.faq_page_title || 'Frequently Asked Questions'}
         subtitle={settings.faq_page_subtitle || 'Everything you need to know before placing a service request.'}
         primary={primary}
@@ -357,7 +374,7 @@ export function FAQPage() {
           { icon: '🛡️', label: 'Transparent process' },
         ]}
       />
-      <PublicSection className="s2-public-faq" sectionKey="faq" width="narrow">
+      <PublicSection pageTemplateId="faq" className="s2-public-faq" sectionKey="faq" width="narrow">
         <div className="s2-container s2-width-narrow">
           {loading ? (
             <div className="s2-text-muted s2-public-faq-loading">Loading FAQs…</div>
@@ -380,6 +397,7 @@ export function FAQPage() {
             ))
           )}
 
+          {!isTemplateSectionHidden(settings, 'faq', 'faq_cta') && (
           <PublicCard className="s2-public-cta-band s2-public-cta-band--spaced">
             <h3 className="s2-t-h3">{settings.faq_cta_title || 'Still have questions?'}</h3>
             <p className="s2-t-body">
@@ -387,6 +405,7 @@ export function FAQPage() {
             </p>
             <PublicCtaLink to="/contact">{settings.faq_cta_button || 'Contact Us →'}</PublicCtaLink>
           </PublicCard>
+          )}
         </div>
       </PublicSection>
     </Layout>
@@ -429,11 +448,13 @@ export function PricingPage() {
   return (
     <Layout>
       <PageHero
+        pageTemplateId="pricing"
+        templateSectionKey="intro"
         title={settings.pricing_page_title || 'The Perfect Balance of Features & Affordability'}
         subtitle={settings.pricing_page_subtitle || 'Transparent pricing, no hidden charges. Pay only after approving your quote.'}
         bg={heroBg}
       />
-      <PublicSection alt sectionKey="pricing" width="standard">
+      <PublicSection pageTemplateId="pricing" alt sectionKey="pricing" width="standard">
         <PublicSectionHead
           eyebrow={settings.pricing_grid_eyebrow || 'Pricing plans'}
           title={settings.pricing_grid_title || 'Choose the right level of support'}
@@ -490,7 +511,7 @@ export function PricingPage() {
           problem, not just a cosmetic one. Only shown when displaying
           the fallback content it was actually authored for. */}
       {plans.length === 0 && (
-        <PublicSection sectionKey="compare" width="wide">
+        <PublicSection pageTemplateId="pricing" sectionKey="compare" width="wide">
           <PublicSectionHead
             title={settings.pricing_compare_title || 'Services2NRI vs Others'}
             subtitle={settings.pricing_compare_subtitle || 'See why NRIs choose us over traditional property managers'}

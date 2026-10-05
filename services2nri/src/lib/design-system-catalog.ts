@@ -3,6 +3,14 @@
  * Maps public routes to section keys and platform setting fields for content.
  */
 import { PAGE_TEMPLATES, type PageTemplateDef } from '@/lib/design-page-templates'
+import { templateHideSettingKey } from '@/lib/section-visibility'
+
+function applyTemplateHide(pageId: string, sections: SectionCatalogDef[]): SectionCatalogDef[] {
+  return sections.map((s) => {
+    if (s.isPageScope || s.hideSettingKey) return s
+    return { ...s, hideSettingKey: templateHideSettingKey(pageId, s.sectionKey) }
+  })
+}
 
 export type ContentFieldDef = {
   key: string
@@ -543,16 +551,44 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           adminLink: { label: 'Edit in Service Registry', path: '/admin/services' },
         },
         {
-          id: 'wizard',
-          label: 'Booking wizard',
-          sectionKey: 'wizard',
+          id: 'trust_badges',
+          label: 'Trust badges',
+          sectionKey: 'trust_badges',
           contentPanel: 'service_page_band',
-          adminLink: { label: 'Form builder', path: '/admin/services' },
+          adminLink: { label: 'Service page builder', path: '/admin/services' },
+        },
+        {
+          id: 'description',
+          label: 'Description & prose',
+          sectionKey: 'description',
+          contentPanel: 'service_page_band',
+          adminLink: { label: 'Service page builder', path: '/admin/services' },
         },
         {
           id: 'features',
           label: 'Why choose block',
           sectionKey: 'features',
+          contentPanel: 'service_page_band',
+          adminLink: { label: 'Service page builder', path: '/admin/services' },
+        },
+        {
+          id: 'process',
+          label: 'Process steps',
+          sectionKey: 'process',
+          contentPanel: 'service_page_band',
+          adminLink: { label: 'Service page builder', path: '/admin/services' },
+        },
+        {
+          id: 'documents',
+          label: 'Documents & eligibility',
+          sectionKey: 'documents',
+          contentPanel: 'service_page_band',
+          adminLink: { label: 'Service page builder', path: '/admin/services' },
+        },
+        {
+          id: 'benefits',
+          label: 'Benefits list',
+          sectionKey: 'benefits',
           contentPanel: 'service_page_band',
           adminLink: { label: 'Service page builder', path: '/admin/services' },
         },
@@ -571,11 +607,39 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           adminLink: { label: 'Service pricing fields', path: '/admin/services' },
         },
         {
+          id: 'testimonials',
+          label: 'Testimonials',
+          sectionKey: 'testimonials',
+          contentPanel: 'service_page_band',
+          adminLink: { label: 'Service page builder', path: '/admin/services' },
+        },
+        {
+          id: 'related',
+          label: 'Related services',
+          sectionKey: 'related',
+          contentPanel: 'service_page_band',
+          adminLink: { label: 'Service page builder', path: '/admin/services' },
+        },
+        {
           id: 'cta',
           label: 'Bottom CTA band',
           sectionKey: 'cta',
           contentPanel: 'service_page_band',
           adminLink: { label: 'Service page builder', path: '/admin/services' },
+        },
+        {
+          id: 'cms',
+          label: 'Rich text / notes blocks',
+          sectionKey: 'cms',
+          contentPanel: 'service_page_band',
+          adminLink: { label: 'Service page builder', path: '/admin/services' },
+        },
+        {
+          id: 'wizard',
+          label: 'Booking wizard (sidebar)',
+          sectionKey: 'wizard',
+          contentPanel: 'service_page_band',
+          adminLink: { label: 'Form builder', path: '/admin/services' },
         },
       ]
       break
@@ -852,7 +916,7 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
     default:
       sections = [MARKETING_INTRO]
   }
-  return [PAGE_DEFAULTS, ...sections]
+  return [PAGE_DEFAULTS, ...applyTemplateHide(t.id, sections)]
 }
 
 export const DESIGN_PAGE_CATALOG: PageCatalogDef[] = PAGE_TEMPLATES.map((t) => ({

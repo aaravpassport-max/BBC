@@ -11,6 +11,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useStore } from '@/lib/store'
+import { isTemplateSectionHidden } from '@/lib/section-visibility'
 import { useLangSwitch } from '@/lib/i18n'
 import { api } from '@/lib/api'
 import { NAV_MENU } from '@/lib/nav'
@@ -846,12 +847,24 @@ interface PageHeroProps {
   bg?: string
   primary?: string
   meta?: { icon?: string; label: string }[]
+  /** Design System template id — enables platform hide toggle for this hero band. */
+  pageTemplateId?: string
+  /** Template section key (catalog). Marketing intros use `intro`; default `hero`. */
+  templateSectionKey?: string
+  hideSettingKey?: string
 }
-export function PageHero({ title, subtitle, bg, meta }: PageHeroProps) {
+export function PageHero({ title, subtitle, bg, meta, pageTemplateId, templateSectionKey = 'hero', hideSettingKey }: PageHeroProps) {
+  const settings = useStore((s) => s.settings)
+  if (
+    pageTemplateId &&
+    isTemplateSectionHidden(settings, pageTemplateId, templateSectionKey, hideSettingKey)
+  ) {
+    return null
+  }
   return (
     <div
       className="s2-page-hero s2-surface-dark s2-hero--premium"
-      data-s2-section="hero"
+      data-s2-section={templateSectionKey === 'intro' ? 'intro' : 'hero'}
       style={bg ? { background: bg } : undefined}
     >
       <div className="s2-container">

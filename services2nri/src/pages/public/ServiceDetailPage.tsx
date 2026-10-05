@@ -36,6 +36,7 @@ import { getServiceImage } from '@/lib/images'
 import type { Service, ServiceSection, SectionType } from '@/types'
 import { installServiceSectionNavStrip } from '@/lib/service-section-nav-strip'
 import { hydrateEmptySection } from '@/lib/service-section-normalize'
+import { isTemplateSectionHidden, serviceCmsSectionHidden } from '@/lib/section-visibility'
 
 // ── Field types ───────────────────────────────────────────────────────────────
 interface FormField {
@@ -309,7 +310,8 @@ const SVC_SECTION_WIDTH_KEY: Partial<Record<string, string>> = {
   highlights: 'features',
 }
 
-function SectionRenderer({ sec }: { sec: ServiceSection; primary: string }) {
+function SectionRenderer({ sec, settings }: { sec: ServiceSection; primary: string; settings: Record<string, string> }) {
+  if (serviceCmsSectionHidden(settings, String(sec.type))) return null
   const r = (sec.content || {}) as Record<string, unknown>
   const sectionKey = SVC_SECTION_WIDTH_KEY[sec.type as string]
   const wrap = (children: React.ReactNode, extraClass = '', section = sectionKey) => (
@@ -806,7 +808,7 @@ export function ServiceDetailPage() {
       </div>
 
       {/* Issue 8: Marquee — positioned immediately after hero/breadcrumb, before sections */}
-      {marquee && marquee.enabled && marquee.text ? (
+      {!isTemplateSectionHidden(settings, 'service', 'marquee') && marquee && marquee.enabled && marquee.text ? (
         <div
           className="s2-svc-marquee"
           data-s2-section="marquee"
@@ -829,6 +831,7 @@ export function ServiceDetailPage() {
         {/* Left: service info */}
         <div>
           {/* Hero */}
+          {!isTemplateSectionHidden(settings, 'service', 'hero') && (
           <div
             data-s2-section="hero"
             className={`s2-svc-hero${heroAlign === 'center' ? ' s2-svc-hero--align-center' : ''}`}
@@ -864,6 +867,7 @@ export function ServiceDetailPage() {
               </div>
             </div>
           </div>
+          )}
 
           {/* Issue 6/9: sections filtered by is_visible, with device-visibility data attrs */}
           {sections.length > 0
@@ -876,12 +880,13 @@ export function ServiceDetailPage() {
                 ].filter(Boolean).join(' ') : ''
                 return (
                   <div key={sec.id} className={`s2-svc-section-wrap${dvClass ? ` ${dvClass}` : ''}`}>
-                    <SectionRenderer sec={sec} primary={primary} />
+                    <SectionRenderer sec={sec} primary={primary} settings={settings} />
                   </div>
                 )
               })
             : <>
                 {/* Trust badges */}
+                {!isTemplateSectionHidden(settings, 'service', 'trust_badges') && (
                 <div className="s2-svc-trust-grid s2-mobile-stack">
                   {[{ icon: '⭐', val: settings.google_rating || '4.9', label: 'Google Rating' }, { icon: '👥', val: settings.google_review_count || '10,000+', label: 'Happy Customers' }, { icon: '🌏', val: '750+', label: 'Pan India Coverage' }].map(({ icon, val, label }) => (
                     <div key={label} className="s2-svc-trust-tile">
@@ -891,8 +896,9 @@ export function ServiceDetailPage() {
                     </div>
                   ))}
                 </div>
+                )}
                 {/* Description */}
-                {(svc.description || svc.short_desc) && (
+                {!isTemplateSectionHidden(settings, 'service', 'description') && (svc.description || svc.short_desc) && (
                   <div className="s2-svc-block">
                     <h2 className="s2-svc-block__title s2-svc-block__title--lg">{svc.name} — Complete Guide for NRIs</h2>
                     <p className="s2-svc-prose">{svc.description || svc.short_desc}</p>
@@ -915,6 +921,7 @@ export function ServiceDetailPage() {
         </div>
 
         {/* Right: sticky booking wizard */}
+        {!isTemplateSectionHidden(settings, 'service', 'wizard') && (
         <div id="booking-form" className="s2-svc-wizard-sticky" data-s2-section="wizard">
 
           <div className="s2-svc-wizard-head">
@@ -1102,16 +1109,19 @@ export function ServiceDetailPage() {
             </div>
           )}
         </div>
+        )}
       </div>
       </div>
 
+      {!isTemplateSectionHidden(settings, 'service', 'wizard') && (
       <ServiceMobileStickyCta
         label="Start Request"
         secondaryLabel={waNum ? 'WhatsApp' : undefined}
         secondaryHref={waNum ? `https://wa.me/${String(waNum).replace(/\D/g, '')}` : undefined}
       />
+      )}
 
-      {!hasWhyChooseSection && (
+      {!hasWhyChooseSection && !isTemplateSectionHidden(settings, 'service', 'features') && (
       <section className="s2-svc-why s2-experience-section" data-s2-reveal="">
         <div className="s2-svc-why__inner">
           <h2 className="s2-svc-why__title">Why Choose {siteName}?</h2>

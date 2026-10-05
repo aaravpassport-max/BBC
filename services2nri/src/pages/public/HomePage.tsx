@@ -48,6 +48,7 @@ import {
   parseWhyChooseCards,
 } from '@/lib/home-content-settings'
 import { DEFAULT_HOME_SECTION_ORDER } from '@/lib/home-section-order'
+import { sectionHidden } from '@/lib/section-visibility'
 import { bandPadClass, pickCssStyle } from '@/lib/responsive-band-padding'
 import {
   mergeLegacyHomeOrder,
@@ -173,11 +174,6 @@ const FEATURED_IN = [
   { name: 'Economic Times', brand: 'et' },
   { name: 'YourStory', brand: 'yourstory' },
 ] as const
-
-function sectionHidden(settings: Record<string, string>, key?: string): boolean {
-  if (!key) return false
-  return String(settings[key] ?? '0') === '1'
-}
 
 const FAQ_DATA = [
   { q: '1. What kind of services do you provide?',          a: 'We provide 44+ services across 8 categories — documentation, education, OCI/passport/visa, USCIS, property management, financial services, legal services, and taxation. All designed specifically for NRIs worldwide.' },

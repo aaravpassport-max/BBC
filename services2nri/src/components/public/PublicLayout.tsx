@@ -4,12 +4,16 @@
 import React from 'react'
 import { Link } from 'react-router-dom'
 import { cssVars } from '@/lib/design-tokens'
+import { useStore } from '@/lib/store'
+import { isTemplateSectionHidden } from '@/lib/section-visibility'
 
 export function PublicSection({
   children,
   alt = false,
   className = '',
   sectionKey,
+  pageTemplateId,
+  hideSettingKey,
   width = 'standard',
 }: {
   children: React.ReactNode
@@ -17,8 +21,19 @@ export function PublicSection({
   className?: string
   /** Registers section with centralized width system (data-s2-section). */
   sectionKey?: string
+  /** When set with sectionKey, respects Design System hide toggle for this template band. */
+  pageTemplateId?: string
+  hideSettingKey?: string
   width?: 'standard' | 'wide' | 'narrow' | 'compact' | 'full' | 'content' | 'inner'
 }) {
+  const settings = useStore((s) => s.settings)
+  if (
+    sectionKey &&
+    pageTemplateId &&
+    isTemplateSectionHidden(settings, pageTemplateId, sectionKey, hideSettingKey)
+  ) {
+    return null
+  }
   const widthClass = {
     standard: 's2-width-standard',
     wide: 's2-width-wide',

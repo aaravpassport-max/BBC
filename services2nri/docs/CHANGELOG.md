@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.63] — 2026-10-05 — Cloud Agent
+
+- **Section visibility platform-wide:** Every public page template band in Design System gets the same **show/hide (eye)** control as Homepage. Service detail lists all CMS band types (trust, description, process, documents, testimonials, wizard, etc.) with `hide_tmpl_*` settings wired on the live service page.
+
+---
+
 ## [4.7.62] — 2026-10-05 — Cloud Agent
 
 - **All public page templates:** About (story, values, team, CTA), Contact, FAQ (+ support CTA), Pricing (+ compare copy), How It Works (step list + callout), and Services directory now use premium in-band list/registry editors in Design System — not just Homepage.
