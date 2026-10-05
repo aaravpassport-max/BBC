@@ -147,14 +147,9 @@
   color: var(--s2-on-light-body);
 }
 
-/* Image / gradient heroes — stronger scrim when needed */
-.s2-hero-section.s2-surface-media .s2-home-hero-overlay {
-  background: linear-gradient(
-    180deg,
-    rgba(15, 23, 42, 0.35) 0%,
-    rgba(15, 23, 42, 0.62) 45%,
-    rgba(15, 23, 42, 0.88) 100%
-  );
+/* Homepage hero — no full-image scrim; copy lives on an opaque panel */
+.s2-hero-section.s2-surface-media .s2-home-hero-copy {
+  background: none;
 }
 
 .s2-services-hero,

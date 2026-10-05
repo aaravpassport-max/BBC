@@ -37,6 +37,9 @@ import 'swiper/css/effect-fade'
 import { Layout } from '@/components/layout/Layout'
 import { PublicSectionHead } from '@/components/public/PublicLayout'
 import { CmsElement } from '@/components/public/CmsElement'
+import { HomeMarquee } from '@/components/public/HomeMarquee'
+import { HomeServiceDiscovery } from '@/components/public/HomeServiceDiscovery'
+import { HomeServicesShowcase } from '@/components/public/HomeServicesShowcase'
 import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { subscribeResource } from '@/lib/resource-cache'
@@ -340,9 +343,6 @@ export function HomePage() {
     }),
   }
   if (settings.css_hero_minheight) heroBandStyle.minHeight = settings.css_hero_minheight
-  const heroOverlayStyle: React.CSSProperties = {}
-  if (settings.hero_overlay_color) heroOverlayStyle.backgroundColor = settings.hero_overlay_color
-  if (settings.hero_overlay_opacity) heroOverlayStyle.opacity = settings.hero_overlay_opacity
 
   const howSteps = [1, 2, 3, 4, 5, 6].map((n) => {
     const fb = HOW_IT_WORKS[n - 1]
@@ -379,8 +379,6 @@ export function HomePage() {
     { emoji: '🏆', text: '#startupindia', variant: 'orange' },
     { emoji: '🎖️', text: 'Top NRI Service Platform 2024', variant: 'primary' },
   ])
-
-  const defaultNotice = `Our only official website is ${typeof window !== 'undefined' ? window.location.hostname : 'this domain'}. Please verify all services only through our official channels.`
 
   const heroPrimaryCta = settings.hero_cta_text || 'Browse services'
   const heroPrimaryUrl = settings.hero_cta_url || '/services'
@@ -422,36 +420,36 @@ export function HomePage() {
             </SwiperSlide>
           ))}
         </Swiper>
-        <div className="s2-home-hero-overlay" aria-hidden={false} style={Object.keys(heroOverlayStyle).length ? heroOverlayStyle : undefined}>
-          <div className="s2-home-hero-overlay__inner">
-            <CmsElement pageId="home" sectionKey="hero" elementId="eyebrow" as="p" className="s2-home-hero-overlay__eyebrow">
+        <div className="s2-home-hero-copy">
+          <div className="s2-home-hero-copy__panel">
+            <CmsElement pageId="home" sectionKey="hero" elementId="eyebrow" as="p" className="s2-home-hero-copy__eyebrow">
               {settings.hero_subheading || 'Trusted NRI partner'}
             </CmsElement>
-            <CmsElement pageId="home" sectionKey="hero" elementId="heading" as="h1" className="s2-home-hero-overlay__title">
+            <CmsElement pageId="home" sectionKey="hero" elementId="heading" as="h1" className="s2-home-hero-copy__title">
               {settings.hero_heading_1 ? (
                 <>
                   {settings.hero_heading_1}
                   {settings.hero_heading_2 ? (
-                    <span className="s2-home-hero-overlay__accent"> {settings.hero_heading_2}</span>
+                    <span className="s2-home-hero-copy__accent"> {settings.hero_heading_2}</span>
                   ) : null}
                 </>
               ) : (
                 settings.home_hero_title || settings.platform_tagline || 'Your India services, managed from anywhere'
               )}
             </CmsElement>
-            <CmsElement pageId="home" sectionKey="hero" elementId="body" as="p" className="s2-home-hero-overlay__sub">
+            <CmsElement pageId="home" sectionKey="hero" elementId="body" as="p" className="s2-home-hero-copy__sub">
               {settings.hero_description ||
                 settings.home_hero_subtitle ||
                 'Property, documents, tax & 44+ expert services — one secure platform with 24/7 support.'}
             </CmsElement>
-            <div className="s2-home-hero-overlay__actions">
+            <div className="s2-home-hero-copy__actions">
               <CmsElement pageId="home" sectionKey="hero" elementId="primary_button">
-                <Link to={heroPrimaryUrl} className="s2-btn s2-btn--primary s2-home-hero-overlay__cta">
+                <Link to={heroPrimaryUrl} className="s2-btn s2-btn--primary s2-home-hero-copy__cta">
                   {heroPrimaryCta}
                 </Link>
               </CmsElement>
               <CmsElement pageId="home" sectionKey="hero" elementId="secondary_button">
-                <Link to={heroSecondaryUrl} className="s2-btn s2-btn--outline s2-home-hero-overlay__cta s2-home-hero-overlay__cta--ghost">
+                <Link to={heroSecondaryUrl} className="s2-btn s2-btn--outline s2-home-hero-copy__cta s2-home-hero-copy__cta--ghost">
                   {heroSecondaryCta}
                 </Link>
               </CmsElement>
@@ -463,74 +461,28 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_notice') && (
       <div
-        className={`s2-home-band s2-notice-bar s2-home-notice ${bandPadClass(settings, 'css_notice_padding')}`}
-        data-s2-section="notice"
+        className={`s2-home-band s2-home-marquee-band ${bandPadClass(settings, 'css_notice_padding')}`}
         data-home-section-id="notice"
-        style={{ ...bandOrder('notice'), ...pickCssStyle(settings, { bg: 'css_notice_bg', padding: 'css_notice_padding', color: 'css_notice_color' }) }}
+        style={{ ...bandOrder('notice') }}
       >
-        🚨 <strong>Public Notice:</strong>{' '}
-        <CmsElement pageId="home" sectionKey="notice" elementId="body">
-          {settings.home_notice_text || defaultNotice}
-        </CmsElement>
-        {whatsapp && (
-          <>
-            {' '}
-            ·{' '}
-            <CmsElement pageId="home" sectionKey="notice" elementId="link">
-              <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} className="s2-home-notice__wa">
-                {settings.home_notice_whatsapp_label || 'WhatsApp Us'}
-              </a>
-            </CmsElement>
-          </>
-        )}
+        <HomeMarquee settings={sFlat} whatsapp={whatsapp} />
       </div>
       )}
 
       {!sectionHidden(settings, 'hide_section_search') && (
-      <section
-        className={`s2-home-band s2-home-search s2-experience-section ${bandPadClass(settings, 'css_search_padding')}`}
+      <div
+        className={`s2-home-band s2-experience-section ${bandPadClass(settings, 'css_search_padding')}`}
         data-s2-section="search"
         data-home-section-id="search"
         data-s2-reveal=""
         style={{ ...bandOrder('search'), ...pickCssStyle(settings, { bg: 'css_search_bg', padding: 'css_search_padding' }) }}
       >
-        <div className="s2-container s2-section-inner s2-width-standard">
-          <div className="s2-home-section-head s2-public-section-head">
-            <CmsElement pageId="home" sectionKey="search" elementId="heading" as="h2" className="s2-t-section-heading">
-              {settings.home_search_title || 'Find your service'}
-            </CmsElement>
-            <CmsElement pageId="home" sectionKey="search" elementId="subtitle" as="p" className="s2-t-body s2-public-section-head__sub">
-              {settings.home_search_subtitle || 'Search 44+ NRI services across every category'}
-            </CmsElement>
-          </div>
-          <form
-            className="s2-home-search__form"
-            action="/services"
-            method="get"
-            onSubmit={(e) => {
-              e.preventDefault()
-              const fd = new FormData(e.currentTarget)
-              const q = String(fd.get('q') || '').trim()
-              window.location.href = q ? `/services?q=${encodeURIComponent(q)}` : '/services'
-            }}
-          >
-            <CmsElement pageId="home" sectionKey="search" elementId="collection">
-              <input
-                type="search"
-                name="q"
-                className="s2-home-search__input"
-                placeholder={settings.home_search_placeholder || 'Search services…'}
-                aria-label="Search services"
-              />
-            </CmsElement>
-            <CmsElement pageId="home" sectionKey="search" elementId="primary_button">
-              <button type="submit" className="s2-btn s2-btn--primary s2-home-search__btn">
-                {settings.home_search_button || 'Search'}
-              </button>
-            </CmsElement>
-          </form>
-        </div>
-      </section>
+        <HomeServiceDiscovery
+          settings={sFlat}
+          categories={categories}
+          onSelectCategory={setActiveCategory}
+        />
+      </div>
       )}
 
       {!sectionHidden(settings, 'hide_section_services') && (
@@ -542,91 +494,14 @@ export function HomePage() {
         style={{ ...bandOrder('services'), ...pickCssStyle(settings, { bg: 'css_svc_bg', padding: undefined }) }}
       >
         <div className="s2-container s2-section-inner s2-width-standard">
-          <div className="s2-home-section-head s2-public-section-head">
-            <CmsElement pageId="home" sectionKey="home_services" elementId="eyebrow" as="p" className="s2-t-eyebrow">
-              {settings.services_eyebrow || 'What We Offer'}
-            </CmsElement>
-            <CmsElement pageId="home" sectionKey="home_services" elementId="heading" as="h2" className="s2-t-section-heading">
-              {settings.services_title || 'Our Services'}
-            </CmsElement>
-            {(settings.services_subtitle || 'Expert NRI assistance across 8 service categories') && (
-              <CmsElement pageId="home" sectionKey="home_services" elementId="subtitle" as="p" className="s2-t-body s2-public-section-head__sub">
-                {settings.services_subtitle || 'Expert NRI assistance across 8 service categories'}
-              </CmsElement>
-            )}
-          </div>
-
-          {/* Category tabs */}
-          <CmsElement pageId="home" sectionKey="home_services" elementId="collection" className="s2-tabs">
-            {categories.map((cat) => (
-              <button
-                key={cat.slug}
-                type="button"
-                onClick={() => setActiveCategory(cat.slug)}
-                className={`s2-tab-btn${activeCategory === cat.slug ? ' active' : ''}`}
-              >
-                {cat.icon && <span className="s2-tab-btn__icon">{cat.icon}</span>}
-                {cat.name}
-              </button>
-            ))}
-          </CmsElement>
-
-          {/* Service cards */}
-          <CmsElement pageId="home" sectionKey="home_services" elementId="service_card">
-            <CmsElement
-              pageId="home"
-              sectionKey="home_services"
-              elementId="grid"
-              className="s2-svc-grid s2-stagger"
-              style={{
-                ...(settings.css_svc_cols
-                  ? { gridTemplateColumns: `repeat(${Math.min(6, Math.max(1, parseInt(settings.css_svc_cols, 10) || 4))}, 1fr)` }
-                  : {}),
-                ...(settings.css_svc_gap ? { gap: settings.css_svc_gap } : {}),
-              }}
-            >
-            {displayServices.map((svc, i) => {
-              const n = i + 1
-              const fallbackImgs = [IMAGES.property, IMAGES.housekeeping, IMAGES.tenancy, IMAGES.rent]
-              const img = svc.image_url || (svc as Service & { img?: string }).img || fallbackImgs[i % 4]
-              const desc = (svc.short_desc || '').slice(0, 110) + ((svc.short_desc || '').length > 110 ? '...' : '')
-              return (
-                <CmsElement
-                  key={svc.id || i}
-                  pageId="home"
-                  sectionKey="home_services"
-                  elementId={`service_${n}`}
-                  className="s2-card s2-card--service s2-card--media-bleed s2-home-svc-card s2-animate-hover"
-                  style={settings.css_svc_card_bg ? { background: settings.css_svc_card_bg } : undefined}
-                >
-                  <CmsElement pageId="home" sectionKey="home_services" elementId={`service_${n}_media`} className="s2-home-svc-card__media">
-                    <img src={img} alt={svc.name} loading="lazy" />
-                    <div className="s2-home-svc-card__fade" />
-                  </CmsElement>
-                  <div className="s2-home-svc-card__body">
-                    <CmsElement pageId="home" sectionKey="home_services" elementId={`service_${n}_title`} as="h3" className="s2-home-svc-card__title">
-                      {svc.name}
-                    </CmsElement>
-                    <CmsElement pageId="home" sectionKey="home_services" elementId={`service_${n}_desc`} as="p" className="s2-home-svc-card__desc">
-                      {desc}
-                    </CmsElement>
-                    <CmsElement pageId="home" sectionKey="home_services" elementId={`service_${n}_cta`}>
-                      <Link to={`/service/${svc.slug}`} className="s2-btn s2-btn--primary s2-btn--sm s2-home-svc-card__cta">
-                        View Details →
-                      </Link>
-                    </CmsElement>
-                  </div>
-                </CmsElement>
-              )
-            })}
-            </CmsElement>
-          </CmsElement>
-
-          <CmsElement pageId="home" sectionKey="home_services" elementId="link" className="s2-home-section-cta">
-            <Link to="/services" className="s2-home-text-link">
-              {settings.services_view_all_text || 'View All Services →'}
-            </Link>
-          </CmsElement>
+          <HomeServicesShowcase
+            settings={sFlat}
+            categories={categories}
+            activeCategory={activeCategory}
+            onCategoryChange={setActiveCategory}
+            services={displayServices}
+            categoryNameMap={categoryNameMap}
+          />
         </div>
       </section>
       )}

@@ -178,6 +178,10 @@ function windowLikeSettings() {
     hero_subheading: 'Without the Paperwork Stress',
     stat_1_number: '10,000+',
     stat_1_label: 'Happy Clients',
+    home_notice_text: 'Trusted NRI services — documents, property, tax & more.',
+    home_notice_whatsapp_label: 'WhatsApp Us',
+    marquee_show: '1',
+    marquee_static: '1',
   }
 }
 

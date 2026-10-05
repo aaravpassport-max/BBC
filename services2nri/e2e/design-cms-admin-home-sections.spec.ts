@@ -81,7 +81,9 @@ test.describe('Homepage — every band admin save audit', () => {
       const marker = page.locator(
         `[data-s2-page="home"][data-s2-section="${probe.sectionKey}"][data-s2-element="${probe.elementId}"]`,
       );
-      await marker.first().scrollIntoViewIfNeeded();
+      if (probe.sectionId !== 'notice') {
+        await marker.first().scrollIntoViewIfNeeded();
+      }
       await expect(marker.first()).toContainText(probe.value, { timeout: 20_000 });
     });
   }

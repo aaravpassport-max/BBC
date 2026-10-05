@@ -25,8 +25,17 @@ async function expectLightText(page: import('@playwright/test').Page, selector: 
   }
 }
 
+/** Text on light panels should read as dark (low luminance). */
+async function expectDarkText(page: import('@playwright/test').Page, selector: string) {
+  const color = await page.locator(selector).first().evaluate((el) => getComputedStyle(el).color)
+  const rgb = parseRgb(color)
+  expect(rgb, `Could not parse color "${color}" for ${selector}`).toBeTruthy()
+  if (rgb) {
+    expect(luminance(rgb[0], rgb[1], rgb[2])).toBeLessThan(0.35)
+  }
+}
+
 const DARK_HERO_PAGES: { path: string; selector: string; label: string }[] = [
-  { path: '/', selector: '.s2-home-hero-overlay__title', label: 'home hero' },
   { path: '/services', selector: '.s2-dir-hero__title', label: 'services hero' },
   { path: '/about', selector: '.s2-page-hero__title', label: 'about hero' },
   { path: '/contact', selector: '.s2-page-hero__title', label: 'contact hero' },
@@ -46,6 +55,12 @@ const DARK_HERO_PAGES: { path: string; selector: string; label: string }[] = [
 ]
 
 test.describe('Platform contrast audit — dark band headings', () => {
+  test('home hero copy panel uses dark heading text', async ({ page }) => {
+    await page.goto('/')
+    await expect(page.locator('.s2-home-hero-copy__title').first()).toBeVisible({ timeout: 25_000 })
+    await expectDarkText(page, '.s2-home-hero-copy__title')
+  })
+
   for (const { path, selector, label } of DARK_HERO_PAGES) {
     test(`${label} (${path}) uses light heading text`, async ({ page }) => {
       await page.goto(path)

@@ -464,7 +464,30 @@ const RICH_FIELD_EXCLUDE: Record<string, string[]> = {
   awards_list: ['home_awards_json', ...allHomeListFlatSettingKeys().filter((k) => k.startsWith('award_'))],
   faq_items: ['home_faq_json', ...allHomeListFlatSettingKeys().filter((k) => k.startsWith('faq_'))],
   hiw_steps: ['hiw_page_steps_json', ...HIW_STEP_KEYS, ...HIW_PAGE_STEP_KEYS],
-  marquee_band: ['marquee_show', 'marquee_text', 'marquee_speed', 'marquee_bg', 'marquee_color', 'marquee_pause_hover'],
+  marquee_band: [
+    'home_notice_text',
+    'home_notice_whatsapp_label',
+    'home_marquee_items_json',
+    'home_marquee_json',
+    'marquee_show',
+    'marquee_text',
+    'marquee_static',
+    'marquee_speed',
+    'marquee_direction',
+    'marquee_bg',
+    'marquee_color',
+    'marquee_pause_hover',
+    'marquee_show_controls',
+    'marquee_separator',
+    'marquee_font_size',
+    'marquee_font_weight',
+    'marquee_padding',
+    'marquee_border',
+    'marquee_hide_mobile',
+    'marquee_hide_desktop',
+    'css_notice_bg',
+    'css_notice_color',
+  ],
   about_story: [
     'about_eyebrow',
     'about_heading',
@@ -947,28 +970,97 @@ function MarqueeBandEditor({
   settings: Record<string, string>
   onChange: (key: string, value: string) => void
 }) {
-  const fields: { key: string; label: string; type?: 'textarea' }[] = [
-    { key: 'marquee_show', label: 'Show marquee (1 = yes, 0 = no)' },
-    { key: 'marquee_text', label: 'Marquee message', type: 'textarea' },
-    { key: 'marquee_speed', label: 'Animation duration (seconds)' },
-    { key: 'marquee_bg', label: 'Background colour' },
-    { key: 'marquee_color', label: 'Text colour' },
-    { key: 'marquee_pause_hover', label: 'Pause on hover (1/0)' },
+  const toggleFields: { key: string; label: string; placeholder?: string }[] = [
+    { key: 'marquee_show', label: 'Enable marquee', placeholder: '1' },
+    { key: 'marquee_static', label: 'Static mode (no scroll)', placeholder: '0' },
+    { key: 'marquee_pause_hover', label: 'Pause on hover', placeholder: '1' },
+    { key: 'marquee_show_controls', label: 'Show pause/play control', placeholder: '0' },
+    { key: 'marquee_hide_mobile', label: 'Hide on mobile', placeholder: '0' },
+    { key: 'marquee_hide_desktop', label: 'Hide on desktop', placeholder: '0' },
   ]
+  const motionFields: { key: string; label: string; placeholder?: string }[] = [
+    { key: 'marquee_speed', label: 'Scroll duration (seconds)', placeholder: '36' },
+    { key: 'marquee_direction', label: 'Scroll direction (ltr / rtl)', placeholder: 'ltr' },
+    { key: 'marquee_separator', label: 'Separator between items', placeholder: '·' },
+  ]
+  const styleFields: { key: string; label: string; placeholder?: string }[] = [
+    { key: 'marquee_bg', label: 'Background colour', placeholder: '#1E2D40' },
+    { key: 'marquee_color', label: 'Text colour', placeholder: '#ffffff' },
+    { key: 'marquee_font_size', label: 'Font size', placeholder: '0.875rem' },
+    { key: 'marquee_font_weight', label: 'Font weight', placeholder: '600' },
+    { key: 'marquee_padding', label: 'Bar padding', placeholder: '11px 0' },
+    { key: 'marquee_border', label: 'Bottom border (CSS)', placeholder: '1px solid rgba(255,255,255,0.12)' },
+  ]
+
+  const fieldInput = (f: { key: string; label: string; type?: 'textarea'; rows?: number; placeholder?: string; hint?: string }) => (
+    <label key={f.key} className="s2-band-field">
+      <span className="s2-band-field__label">{f.label}</span>
+      {f.type === 'textarea' ? (
+        <textarea
+          id={`ds-field-${f.key}`}
+          className={`s2-band-input${f.key.endsWith('_json') ? ' s2-design-builder-field__json' : ''}`}
+          rows={f.rows ?? 3}
+          placeholder={f.placeholder}
+          value={readAdminSetting(settings, f.key)}
+          onChange={(e) => onChange(f.key, e.target.value)}
+        />
+      ) : (
+        <input
+          id={`ds-field-${f.key}`}
+          className="s2-band-input"
+          placeholder={f.placeholder}
+          value={readAdminSetting(settings, f.key)}
+          onChange={(e) => onChange(f.key, e.target.value)}
+        />
+      )}
+      {f.hint ? <span className="s2-band-field__hint">{f.hint}</span> : null}
+    </label>
+  )
+
   return (
     <section className="s2-band-design-group">
       <h4 className="s2-band-design-group__title">Announcement marquee</h4>
+      <p className="s2-band-design-group__lead">
+        Configure the homepage ticker below the hero. Use legacy notice text for a single message, or JSON items for multiple linked notices.
+      </p>
       <div className="s2-band-content-fields">
-        {fields.map((f) => (
-          <label key={f.key} className="s2-band-field">
-            <span className="s2-band-field__label">{f.label}</span>
-            {f.type === 'textarea' ? (
-              <textarea className="s2-band-input" rows={2} value={readAdminSetting(settings, f.key)} onChange={(e) => onChange(f.key, e.target.value)} />
-            ) : (
-              <input className="s2-band-input" value={readAdminSetting(settings, f.key)} onChange={(e) => onChange(f.key, e.target.value)} />
-            )}
-          </label>
-        ))}
+        {fieldInput({
+          key: 'home_notice_text',
+          label: 'Primary notice message',
+          type: 'textarea',
+          rows: 2,
+          placeholder: 'Public announcement copy…',
+        })}
+        {fieldInput({
+          key: 'home_notice_whatsapp_label',
+          label: 'WhatsApp link label',
+          placeholder: 'WhatsApp Us',
+          hint: 'Appended when platform WhatsApp is set and no custom items JSON is provided.',
+        })}
+        {fieldInput({
+          key: 'home_marquee_items_json',
+          label: 'Marquee items (JSON array)',
+          type: 'textarea',
+          rows: 6,
+          hint: 'Each item: { "text", "link?", "target?", "icon?" }. Overrides legacy notice when set.',
+        })}
+        {fieldInput({
+          key: 'home_marquee_json',
+          label: 'Advanced config (JSON object)',
+          type: 'textarea',
+          rows: 4,
+          hint: 'Optional overrides: enabled, static, direction, speed, pauseOnHover, showControls, separator, bg, color, fontSize, fontWeight, padding, borderBottom, hideMobile, hideDesktop, items.',
+        })}
+        {fieldInput({ key: 'marquee_text', label: 'Legacy marquee text (fallback)', type: 'textarea', rows: 2 })}
+      </div>
+      <h5 className="s2-band-design-group__subtitle">Behaviour</h5>
+      <div className="s2-band-content-fields s2-band-content-fields--grid-2">
+        {toggleFields.map((f) => fieldInput(f))}
+        {motionFields.map((f) => fieldInput(f))}
+      </div>
+      <h5 className="s2-band-design-group__subtitle">Appearance</h5>
+      <div className="s2-band-content-fields s2-band-content-fields--grid-2">
+        {styleFields.map((f) => fieldInput(f))}
       </div>
     </section>
   )
