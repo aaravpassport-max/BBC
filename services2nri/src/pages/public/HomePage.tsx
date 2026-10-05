@@ -40,6 +40,13 @@ import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { parseHeroBanners, IMAGES, getAvatarImage } from '@/lib/images'
 import type { Category, Service, City, Testimonial } from '@/types'
+import {
+  parseAwardBadges,
+  parseHomeFaqPairs,
+  parseLogoChips,
+  parseStringList,
+  parseWhyChooseCards,
+} from '@/lib/home-content-settings'
 
 // ── Animated counter ──────────────────────────────────────────────────────────
 function useCounter(target: string, duration = 1800, started: boolean) {
@@ -292,13 +299,30 @@ export function HomePage() {
   if (settings.hero_overlay_color) heroOverlayStyle.backgroundColor = settings.hero_overlay_color
   if (settings.hero_overlay_opacity) heroOverlayStyle.opacity = settings.hero_overlay_opacity
 
-  const howSteps = [
-    { n: 1, icon: '🔍', title: settings.hiw_step1_title || HOW_IT_WORKS[0].title, desc: settings.hiw_step1_desc || HOW_IT_WORKS[0].desc },
-    { n: 2, icon: '📋', title: settings.hiw_step2_title || HOW_IT_WORKS[1].title, desc: settings.hiw_step2_desc || HOW_IT_WORKS[1].desc },
-    { n: 3, icon: '📤', title: settings.hiw_step3_title || HOW_IT_WORKS[2].title, desc: settings.hiw_step3_desc || HOW_IT_WORKS[2].desc },
-    { n: 4, icon: '✔️', title: settings.hiw_step4_title || HOW_IT_WORKS[3].title, desc: settings.hiw_step4_desc || HOW_IT_WORKS[3].desc },
-    ...HOW_IT_WORKS.slice(4),
-  ]
+  const howSteps = [1, 2, 3, 4, 5, 6].map((n) => {
+    const fb = HOW_IT_WORKS[n - 1]
+    const s = settings as Record<string, string>
+    const title = s[`hiw_step${n}_title`] || fb?.title || ''
+    const desc = s[`hiw_step${n}_desc`] || fb?.desc || ''
+    return { n, icon: fb?.icon || '✓', title, desc }
+  })
+
+  const whyChoose = parseWhyChooseCards(settings.home_why_choose_json, WHY_CHOOSE)
+  const homeFaqs = parseHomeFaqPairs(settings.home_faq_json, FAQ_DATA)
+  const pressLogos = parseLogoChips(
+    settings.home_press_json,
+    FEATURED_IN.map((x) => ({ name: x.name, brand: x.brand })),
+  )
+  const partnerChips = parseStringList(
+    settings.home_partners_json,
+    ['ECE', 'NASBA', 'NACC', 'NACES', 'WES', 'CGFNS'],
+  )
+  const awardBadges = parseAwardBadges(settings.home_awards_json, [
+    { emoji: '🏆', text: '#startupindia', variant: 'orange' },
+    { emoji: '🎖️', text: 'Top NRI Service Platform 2024', variant: 'primary' },
+  ])
+
+  const defaultNotice = `Our only official website is ${typeof window !== 'undefined' ? window.location.hostname : 'this domain'}. Please verify all services only through our official channels.`
 
   const heroPrimaryCta = settings.hero_cta_text || 'Browse services'
   const heroPrimaryUrl = settings.hero_cta_url || '/services'
@@ -359,15 +383,27 @@ export function HomePage() {
       </div>
       )}
 
-      {/* ── 2. Notice bar ─────────────────────────────────────────────────── */}
-      <div className="s2-notice-bar s2-home-notice">
-        🚨 <strong>Public Notice:</strong> Our only official website is <strong>{window.location.hostname}</strong>. Please verify all services only through our official channels.
+      {!sectionHidden(settings, 'hide_section_notice') && (
+      <div
+        className="s2-notice-bar s2-home-notice"
+        data-s2-section="notice"
+        style={pickCssStyle(settings, { bg: 'css_notice_bg', padding: 'css_notice_padding', color: 'css_notice_color' })}
+      >
+        🚨 <strong>Public Notice:</strong>{' '}
+        {settings.home_notice_text || defaultNotice}
         {whatsapp && (
-          <> · <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} className="s2-home-notice__wa">WhatsApp Us</a></>
+          <>
+            {' '}
+            ·{' '}
+            <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} className="s2-home-notice__wa">
+              {settings.home_notice_whatsapp_label || 'WhatsApp Us'}
+            </a>
+          </>
         )}
       </div>
+      )}
 
-      {/* ── Search band ───────────────────────────────────────────────────── */}
+      {!sectionHidden(settings, 'hide_section_search') && (
       <section
         className="s2-home-search s2-experience-section"
         data-s2-section="search"
@@ -403,8 +439,8 @@ export function HomePage() {
           </form>
         </div>
       </section>
+      )}
 
-      {/* ── 3. Services section ───────────────────────────────────────────── */}
       {!sectionHidden(settings, 'hide_section_services') && (
       <section
         className="s2-section s2-marketing-section s2-experience-section"
@@ -461,19 +497,24 @@ export function HomePage() {
 
           <div className="s2-home-section-cta">
             <Link to="/services" className="s2-home-text-link">
-              View All Services →
+              {settings.services_view_all_text || 'View All Services →'}
             </Link>
           </div>
         </div>
       </section>
       )}
 
-      {/* ── 4. Cities grid ────────────────────────────────────────────────── */}
-      <section className="s2-marketing-section s2-marketing-section--alt s2-experience-section" data-s2-section="cities" data-s2-reveal="">
+      {!sectionHidden(settings, 'hide_section_cities') && (
+      <section
+        className="s2-marketing-section s2-marketing-section--alt s2-experience-section"
+        data-s2-section="cities"
+        data-s2-reveal=""
+        style={pickCssStyle(settings, { bg: 'css_cities_bg', padding: 'css_cities_padding' })}
+      >
         <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead
-            title="Property Management Cities"
-            subtitle="We manage NRI properties across all major Indian cities"
+            title={settings.cities_section_title || 'Property Management Cities'}
+            subtitle={settings.cities_section_subtitle || 'We manage NRI properties across all major Indian cities'}
           />
           <div className="s2-city-grid s2-city-grid--mobile-rail">
             {displayCities.map(({ name, slug, img }) => (
@@ -485,7 +526,7 @@ export function HomePage() {
                 <img src={img} alt={name} loading="lazy" />
                 <div className="s2-home-city-card__overlay">
                   <div>
-                    <div className="s2-home-city-card__eyebrow">Property Services in</div>
+                    <div className="s2-home-city-card__eyebrow">{settings.cities_card_eyebrow || 'Property Services in'}</div>
                     <div className="s2-home-city-card__name">{name}</div>
                   </div>
                 </div>
@@ -494,22 +535,33 @@ export function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
-      {/* ── 5. Stats bar ──────────────────────────────────────────────────── */}
-      <section className="s2-hero-stat-bar s2-stats-bar s2-surface-dark" data-s2-section="stats">
+      {!sectionHidden(settings, 'hide_section_stats') && (
+      <section
+        className="s2-hero-stat-bar s2-stats-bar s2-surface-dark"
+        data-s2-section="stats"
+        style={pickCssStyle(settings, { bg: 'css_stats_bg', padding: 'css_stats_padding', color: 'css_stats_color' })}
+      >
         <div className="s2-stats-bar__grid">
           {stats.map(({ n, l }) => <StatCard key={l} number={n} label={l} />)}
         </div>
       </section>
+      )}
 
-      {/* ── 6. Tagline ────────────────────────────────────────────────────── */}
-      <div className="s2-home-tagline s2-hero-quote-wrap">
-        <p>
+      {!sectionHidden(settings, 'hide_section_tagline') && (
+      <div
+        className="s2-home-tagline s2-hero-quote-wrap"
+        data-s2-section="tagline"
+        style={pickCssStyle(settings, { bg: 'css_tagline_bg', color: 'css_tagline_color' })}
+      >
+        <p style={settings.css_tagline_size ? { fontSize: settings.css_tagline_size } : undefined}>
           "{settings.home_tagline || 'Forming strong and trusted connections with our clients'}"
         </p>
       </div>
+      )}
 
-      {/* ── 7. Why Choose Us ──────────────────────────────────────────────── */}
+      {!sectionHidden(settings, 'hide_section_features') && (
       <section
         className="s2-marketing-section s2-marketing-section--alt s2-experience-section"
         data-s2-section="features"
@@ -522,7 +574,7 @@ export function HomePage() {
             title={settings.features_title || 'Why Our Customers Love Us'}
           />
           <div className="s2-feat-grid s2-stagger">
-            {WHY_CHOOSE.map(({ icon, title, sub }) => (
+            {whyChoose.map(({ icon, title, sub }) => (
               <div key={title} className="s2-home-feat-card">
                 <div className="s2-home-feat-card__icon">{icon}</div>
                 <div>
@@ -534,9 +586,15 @@ export function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
-      {/* ── 8. Testimonials ───────────────────────────────────────────────── */}
-      <section className="s2-marketing-section s2-experience-section" data-s2-section="testimonials" data-s2-reveal="">
+      {!sectionHidden(settings, 'hide_section_testimonials') && (
+      <section
+        className="s2-marketing-section s2-experience-section"
+        data-s2-section="testimonials"
+        data-s2-reveal=""
+        style={pickCssStyle(settings, { bg: 'css_testimonials_bg', padding: 'css_testimonials_padding' })}
+      >
         <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead
             eyebrow={settings.testimonials_eyebrow || 'Client Testimonials'}
@@ -586,8 +644,8 @@ export function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
-      {/* ── 9. How It Works ───────────────────────────────────────────────── */}
       {!sectionHidden(settings, 'hide_section_how') && (
       <section
         className="s2-marketing-section s2-marketing-section--alt s2-experience-section"
@@ -596,7 +654,7 @@ export function HomePage() {
         style={pickCssStyle(settings, { bg: 'css_how_bg', padding: undefined })}
       >
         <div className="s2-container s2-section-inner s2-width-standard">
-          <PublicSectionHead eyebrow="Simple Process" title={settings.hiw_title || 'How It Works'} />
+          <PublicSectionHead eyebrow={settings.hiw_eyebrow || 'Simple Process'} title={settings.hiw_title || 'How It Works'} />
           <div className="s2-how-grid s2-stagger">
             {howSteps.map(({ n, icon, title, desc }) => (
               <div key={n} className="s2-home-how-card">
@@ -609,38 +667,55 @@ export function HomePage() {
           </div>
           <div className="s2-home-how-cta">
             <Link to="/how-it-works" className="s2-home-text-link">
-              Learn more about the full process →
+              {settings.hiw_footer_link_text || 'Learn more about the full process →'}
             </Link>
           </div>
         </div>
       </section>
       )}
 
-      {/* ── 10. As Featured In ────────────────────────────────────────────── */}
-      <div className="s2-home-logo-strip s2-marketing-section s2-experience-section" data-s2-section="partners" data-s2-reveal="">
-        <p className="s2-home-logo-strip__label">As Featured In</p>
+      {!sectionHidden(settings, 'hide_section_press') && (
+      <div
+        className="s2-home-logo-strip s2-marketing-section s2-experience-section"
+        data-s2-section="press"
+        data-s2-reveal=""
+        style={pickCssStyle(settings, { bg: 'css_press_bg' })}
+      >
+        <p className="s2-home-logo-strip__label">{settings.home_press_label || 'As Featured In'}</p>
         <div className="s2-home-logo-strip__row s2-stagger">
-          {FEATURED_IN.map(({ name, brand }) => (
+          {pressLogos.map(({ name, brand }) => (
             <div key={name} className="s2-home-press-chip" data-brand={brand}>{name}</div>
           ))}
         </div>
       </div>
+      )}
 
-      {/* ── 11. Partners ──────────────────────────────────────────────────── */}
-      <div className="s2-home-logo-strip s2-home-logo-strip--alt s2-experience-section" data-s2-reveal="">
-        <p className="s2-home-logo-strip__label">Our Partners</p>
+      {!sectionHidden(settings, 'hide_section_partners') && (
+      <div
+        className="s2-home-logo-strip s2-home-logo-strip--alt s2-experience-section"
+        data-s2-section="partners"
+        data-s2-reveal=""
+        style={pickCssStyle(settings, { bg: 'css_partners_bg' })}
+      >
+        <p className="s2-home-logo-strip__label">{settings.home_partners_label || 'Our Partners'}</p>
         <div className="s2-home-logo-strip__row s2-stagger">
-          {['ECE', 'NASBA', 'NACC', 'NACES', 'WES', 'CGFNS'].map((p) => (
+          {partnerChips.map((p) => (
             <div key={p} className="s2-home-partner-chip">{p}</div>
           ))}
         </div>
       </div>
+      )}
 
-      {/* ── 12. About section ─────────────────────────────────────────────── */}
-      <section className="s2-marketing-section s2-experience-section" data-s2-section="about" data-s2-reveal="">
+      {!sectionHidden(settings, 'hide_section_about') && (
+      <section
+        className="s2-marketing-section s2-experience-section"
+        data-s2-section="about"
+        data-s2-reveal=""
+        style={pickCssStyle(settings, { bg: 'css_about_bg', padding: 'css_about_padding' })}
+      >
         <div className="s2-home-about-grid s2-mobile-stack s2-container s2-section-inner s2-width-wide">
           <div>
-            <p className="s2-t-eyebrow">About Us</p>
+            <p className="s2-t-eyebrow">{settings.about_eyebrow || 'About Us'}</p>
             <h2 className="s2-t-section-heading">
               {settings.about_heading || 'Your Trusted Partner for All NRI Services'}
             </h2>
@@ -648,10 +723,11 @@ export function HomePage() {
               {settings.about_text || 'We are a team of dedicated experts who specialize in NRI documentation, immigration, financial services, and property management. Our mission is to create a permanent digital solution for all NRI needs.'}
             </p>
             <p className="s2-t-body">
-              Our expert team of lawyers, CAs, property managers, document specialists, and immigration consultants handles 44+ services across 8 domains — so you never need to worry about managing India from abroad.
+              {settings.about_text_secondary ||
+                'Our expert team of lawyers, CAs, property managers, document specialists, and immigration consultants handles 44+ services across 8 domains — so you never need to worry about managing India from abroad.'}
             </p>
             <div className="s2-home-about__actions">
-              <Link to="/about" className="s2-btn s2-btn--primary">Know More →</Link>
+              <Link to="/about" className="s2-btn s2-btn--primary">{settings.about_cta_text || 'Know More →'}</Link>
               {whatsapp && (
                 <a
                   href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`}
@@ -659,7 +735,7 @@ export function HomePage() {
                   rel="noopener noreferrer"
                   className="s2-btn s2-btn--whatsapp"
                 >
-                  💬 Chat with Us
+                  {settings.about_whatsapp_cta || '💬 Chat with Us'}
                 </a>
               )}
             </div>
@@ -684,31 +760,46 @@ export function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
-      {/* ── 13. Awards ────────────────────────────────────────────────────── */}
-      <div className="s2-home-awards s2-experience-section" data-s2-reveal="">
-        <p className="s2-home-logo-strip__label">Awards We Have Received</p>
+      {!sectionHidden(settings, 'hide_section_awards') && (
+      <div
+        className="s2-home-awards s2-experience-section"
+        data-s2-section="awards"
+        data-s2-reveal=""
+        style={pickCssStyle(settings, { bg: 'css_awards_bg' })}
+      >
+        <p className="s2-home-logo-strip__label">{settings.home_awards_label || 'Awards We Have Received'}</p>
         <div className="s2-home-awards__row">
-          <div className="s2-home-award s2-home-award--orange">
-            <span className="s2-home-award__emoji">🏆</span>
-            <span className="s2-home-award__text-orange">#startupindia</span>
-          </div>
-          <div className="s2-home-award s2-home-award--primary">
-            <span className="s2-home-award__emoji">🎖️</span>
-            <span className="s2-home-award__text-primary">Top NRI Service Platform 2024</span>
-          </div>
+          {awardBadges.map((a) => (
+            <div
+              key={a.text}
+              className={`s2-home-award s2-home-award--${a.variant === 'primary' ? 'primary' : 'orange'}`}
+            >
+              <span className="s2-home-award__emoji">{a.emoji}</span>
+              <span className={a.variant === 'primary' ? 's2-home-award__text-primary' : 's2-home-award__text-orange'}>
+                {a.text}
+              </span>
+            </div>
+          ))}
         </div>
       </div>
+      )}
 
-      {/* ── 14. FAQ ───────────────────────────────────────────────────────── */}
-      <section className="s2-marketing-section s2-experience-section" data-s2-section="faq" data-s2-reveal="">
+      {!sectionHidden(settings, 'hide_section_faq') && (
+      <section
+        className="s2-marketing-section s2-experience-section"
+        data-s2-section="faq"
+        data-s2-reveal=""
+        style={pickCssStyle(settings, { bg: 'css_faq_bg' })}
+      >
         <div className="s2-home-faq s2-container s2-section-inner s2-width-narrow">
           <PublicSectionHead
             eyebrow={settings.faq_section_eyebrow || 'FAQ'}
             title={settings.faq_section_title || "Let's Clear All The Doubts!"}
           />
           <div className="s2-home-faq__list">
-            {FAQ_DATA.map(({ q, a }, i) => (
+            {homeFaqs.map(({ q, a }, i) => (
               <div key={i} className={`s2-home-faq__item${openFaq === i ? ' is-open' : ''}`}>
                 <button
                   type="button"
@@ -726,14 +817,20 @@ export function HomePage() {
           </div>
           <div className="s2-home-faq__footer">
             <Link to="/faq" className="s2-home-text-link">
-              View All FAQs →
+              {settings.faq_footer_link_text || 'View All FAQs →'}
             </Link>
           </div>
         </div>
       </section>
+      )}
 
-      {/* ── 15. Newsletter ────────────────────────────────────────────────── */}
-      <section className="s2-home-newsletter s2-experience-section" data-s2-section="newsletter" data-s2-reveal="">
+      {!sectionHidden(settings, 'hide_section_newsletter') && (
+      <section
+        className="s2-home-newsletter s2-experience-section"
+        data-s2-section="newsletter"
+        data-s2-reveal=""
+        style={pickCssStyle(settings, { bg: 'css_newsletter_bg', padding: 'css_newsletter_padding' })}
+      >
         <h3 className="s2-home-newsletter__title">{settings.newsletter_title || 'Subscribe to Our Newsletter'}</h3>
         <p className="s2-home-newsletter__sub">
           {settings.newsletter_subtitle || 'Stay updated on the latest NRI news, service launches, and important updates.'}
@@ -750,9 +847,15 @@ export function HomePage() {
           </button>
         </div>
       </section>
+      )}
 
-      {/* ── 16. App download ──────────────────────────────────────────────── */}
-      <section className="s2-home-app s2-surface-dark s2-experience-section" data-s2-section="app" data-s2-reveal="">
+      {!sectionHidden(settings, 'hide_section_app') && (
+      <section
+        className="s2-home-app s2-surface-dark s2-experience-section"
+        data-s2-section="app"
+        data-s2-reveal=""
+        style={pickCssStyle(settings, { bg: 'css_app_bg' })}
+      >
         <div className="s2-home-app__grid s2-mobile-stack">
           <div>
             <p className="s2-home-app__eyebrow">{settings.app_eyebrow || 'Mobile App'}</p>
@@ -779,10 +882,11 @@ export function HomePage() {
           <div className="s2-home-app__emoji" aria-hidden>📱</div>
         </div>
       </section>
+      )}
 
-      {/* ── 17. Location pills ────────────────────────────────────────────── */}
-      <div className="s2-home-locations">
-        <p className="s2-home-logo-strip__label">Locations</p>
+      {!sectionHidden(settings, 'hide_section_locations') && (
+      <div className="s2-home-locations" data-s2-section="locations">
+        <p className="s2-home-logo-strip__label">{settings.home_locations_label || 'Locations'}</p>
         <div className="s2-home-locations__pills">
           {displayCities.map(({ name }) => (
             <Link key={name} to="/services/property" className="s2-home-loc-pill">
@@ -791,6 +895,7 @@ export function HomePage() {
           ))}
         </div>
       </div>
+      )}
       </div>
     </Layout>
   )

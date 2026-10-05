@@ -6,11 +6,13 @@ import React, { useState, useEffect } from 'react'
 import { cssVars } from '@/lib/design-tokens'
 import { Link, useParams } from 'react-router-dom'
 import { Layout } from '@/components/layout/Layout'
+import { useStore } from '@/lib/store'
 import { api } from '@/lib/api'
 import { getServiceImage } from '@/lib/images'
 import type { Category, Service } from '@/types'
 
 export function ServicesPage() {
+  const settings = useStore((s) => s.settings)
   const [categories, setCategories] = useState<Category[]>([])
   const [services,   setServices]   = useState<Service[]>([])
   const [search,     setSearch]     = useState('')
@@ -68,9 +70,10 @@ export function ServicesPage() {
       <div className="s2-services-page">
         <section className="s2-services-hero s2-surface-dark s2-hero--premium" data-s2-section="hero">
           <div className="s2-container">
-            <h1 className="s2-dir-hero__title">All NRI Services</h1>
+            <h1 className="s2-dir-hero__title">{settings.services_page_title || settings.services_title || 'All NRI Services'}</h1>
             <p className="s2-dir-hero__sub">
-              Expert assistance across {categories.length || 8} categories — 44+ services for NRIs worldwide
+              {settings.services_page_subtitle ||
+                `Expert assistance across ${categories.length || 8} categories — 44+ services for NRIs worldwide`}
             </p>
             <input
               type="search"

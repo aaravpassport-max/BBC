@@ -10,7 +10,18 @@ export type ContentFieldDef = {
   type?: 'text' | 'textarea' | 'url'
   placeholder?: string
   hint?: string
+  rows?: number
 }
+
+/** Typography roles editable per section band (Design tab). */
+export const SECTION_TYPOGRAPHY_ROLES = [
+  'section_heading',
+  'section_subheading',
+  'eyebrow',
+  'body',
+] as const
+
+export type SectionTypographyRole = (typeof SECTION_TYPOGRAPHY_ROLES)[number]
 
 export type DesignSettingFieldDef = {
   key: string
@@ -55,7 +66,10 @@ const PAGE_DEFAULTS: SectionCatalogDef = {
     'Page-wide styling inherits Site Foundation first. Overrides here apply to every section on this page unless a section has its own override.',
 }
 
-/** Home — exact Page → Section list requested for the public homepage builder. */
+const WHY_JSON_HINT =
+  'JSON array: [{"icon":"🔒","title":"Secure Platform","sub":"Description…"}]. Up to 12 cards.'
+
+/** Home — full public homepage (every band on the live page). */
 const HOME_SECTIONS: SectionCatalogDef[] = [
   {
     id: 'hero',
@@ -65,27 +79,43 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     contentFields: [
       { key: 'hero_heading_1', label: 'Heading line 1', placeholder: 'Stay Connected to' },
       { key: 'hero_heading_2', label: 'Heading line 2 (accent)', placeholder: 'INDIA' },
-      { key: 'hero_subheading', label: 'Subheading', placeholder: 'Without the Paperwork Stress' },
+      { key: 'hero_subheading', label: 'Eyebrow / subheading', placeholder: 'Trusted NRI partner' },
       { key: 'hero_description', label: 'Description', type: 'textarea' },
       { key: 'hero_cta_text', label: 'Primary button text', placeholder: 'Browse services' },
       { key: 'hero_cta_url', label: 'Primary button link', type: 'url', placeholder: '/services' },
       { key: 'hero_cta2_text', label: 'Secondary button text', placeholder: 'Get a quote' },
       { key: 'hero_cta2_url', label: 'Secondary button link', type: 'url', placeholder: '/contact' },
-      { key: 'hero_banners', label: 'Background slides (URLs)', type: 'textarea', hint: 'Comma-separated image URLs (up to 5). Leave blank for default gradient slides.' },
+      { key: 'hero_banners', label: 'Background slides (URLs)', type: 'textarea', hint: 'Comma-separated image URLs (up to 5).' },
     ],
     designSettingFields: [
-      { key: 'hero_overlay_color', label: 'Overlay color', type: 'color', placeholder: '#0f172a' },
+      { key: 'hero_overlay_color', label: 'Overlay color', type: 'color' },
       { key: 'hero_overlay_opacity', label: 'Overlay opacity (0–1)', placeholder: '0.55' },
       { key: 'css_hero_minheight', label: 'Min height', placeholder: '520px' },
       { key: 'css_hero_textcolor', label: 'Text color', type: 'color' },
-      { key: 'css_hero_bg', label: 'Background (CSS)', placeholder: 'linear-gradient(...)' },
+      { key: 'css_hero_bg', label: 'Background (CSS)' },
       { key: 'css_hero_padding', label: 'Padding', placeholder: '48px 0' },
+    ],
+  },
+  {
+    id: 'notice',
+    label: 'Notice Bar',
+    sectionKey: 'notice',
+    hideSettingKey: 'hide_section_notice',
+    contentFields: [
+      { key: 'home_notice_text', label: 'Notice message', type: 'textarea', placeholder: 'Public notice copy…' },
+      { key: 'home_notice_whatsapp_label', label: 'WhatsApp link label', placeholder: 'WhatsApp Us' },
+    ],
+    designSettingFields: [
+      { key: 'css_notice_bg', label: 'Background', placeholder: '#fff8e1' },
+      { key: 'css_notice_color', label: 'Text color', type: 'color' },
+      { key: 'css_notice_padding', label: 'Padding', placeholder: '12px 16px' },
     ],
   },
   {
     id: 'search',
     label: 'Search Section',
     sectionKey: 'search',
+    hideSettingKey: 'hide_section_search',
     contentFields: [
       { key: 'home_search_title', label: 'Heading', placeholder: 'Find your service' },
       { key: 'home_search_subtitle', label: 'Supporting text', placeholder: 'Search 44+ NRI services' },
@@ -101,9 +131,17 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     id: 'features',
     label: 'Why Choose Us',
     sectionKey: 'features',
+    hideSettingKey: 'hide_section_features',
     contentFields: [
       { key: 'features_eyebrow', label: 'Eyebrow label', placeholder: 'Why Choose Us' },
       { key: 'features_title', label: 'Section heading', placeholder: 'Why Our Customers Love Us' },
+      {
+        key: 'home_why_choose_json',
+        label: 'Feature cards',
+        type: 'textarea',
+        rows: 14,
+        hint: WHY_JSON_HINT,
+      },
     ],
     designSettingFields: [
       { key: 'css_features_bg', label: 'Background', placeholder: '#ffffff' },
@@ -119,6 +157,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
       { key: 'services_eyebrow', label: 'Eyebrow label', placeholder: 'What We Offer' },
       { key: 'services_title', label: 'Section heading', placeholder: 'Our Services' },
       { key: 'services_subtitle', label: 'Subtitle', placeholder: 'Expert NRI assistance across categories' },
+      { key: 'services_view_all_text', label: 'View all link text', placeholder: 'View All Services →' },
     ],
     designSettingFields: [
       { key: 'css_svc_bg', label: 'Section background', placeholder: '#ffffff' },
@@ -126,7 +165,74 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
       { key: 'css_svc_cols', label: 'Grid columns (desktop)', placeholder: '4' },
       { key: 'css_svc_gap', label: 'Grid gap', placeholder: '24px' },
     ],
-    contentNote: 'Service names and cards come from the Service Registry. Use Design → visibility to hide the whole block.',
+    contentNote: 'Service cards come from the Service Registry.',
+    adminLink: { label: 'Service Registry', path: '/admin/services' },
+  },
+  {
+    id: 'cities',
+    label: 'Cities Grid',
+    sectionKey: 'cities',
+    hideSettingKey: 'hide_section_cities',
+    contentFields: [
+      { key: 'cities_section_title', label: 'Section heading', placeholder: 'Property Management Cities' },
+      { key: 'cities_section_subtitle', label: 'Subtitle', placeholder: 'We manage NRI properties across major cities' },
+      { key: 'cities_card_eyebrow', label: 'Card eyebrow', placeholder: 'Property Services in' },
+    ],
+    designSettingFields: [
+      { key: 'css_cities_bg', label: 'Background', placeholder: '#f8fafc' },
+      { key: 'css_cities_padding', label: 'Padding', placeholder: '64px 0' },
+    ],
+    adminLink: { label: 'Manage cities', path: '/admin/cities' },
+  },
+  {
+    id: 'stats',
+    label: 'Stats Counter',
+    sectionKey: 'stats',
+    hideSettingKey: 'hide_section_stats',
+    contentFields: [
+      { key: 'stat_1_number', label: 'Stat 1 number' },
+      { key: 'stat_1_label', label: 'Stat 1 label' },
+      { key: 'stat_2_number', label: 'Stat 2 number' },
+      { key: 'stat_2_label', label: 'Stat 2 label' },
+      { key: 'stat_3_number', label: 'Stat 3 number' },
+      { key: 'stat_3_label', label: 'Stat 3 label' },
+      { key: 'stat_4_number', label: 'Stat 4 number' },
+      { key: 'stat_4_label', label: 'Stat 4 label' },
+    ],
+    designSettingFields: [
+      { key: 'css_stats_bg', label: 'Background', type: 'color' },
+      { key: 'css_stats_color', label: 'Text color', type: 'color' },
+      { key: 'css_stats_padding', label: 'Padding', placeholder: '32px 0' },
+    ],
+  },
+  {
+    id: 'tagline',
+    label: 'Tagline Strip',
+    sectionKey: 'tagline',
+    hideSettingKey: 'hide_section_tagline',
+    contentFields: [{ key: 'home_tagline', label: 'Quote text', type: 'textarea' }],
+    designSettingFields: [
+      { key: 'css_tagline_bg', label: 'Background' },
+      { key: 'css_tagline_color', label: 'Text color', type: 'color' },
+      { key: 'css_tagline_size', label: 'Font size', placeholder: '1.25rem' },
+    ],
+  },
+  {
+    id: 'testimonials',
+    label: 'Testimonials',
+    sectionKey: 'testimonials',
+    hideSettingKey: 'hide_section_testimonials',
+    contentFields: [
+      { key: 'testimonials_eyebrow', label: 'Eyebrow label', placeholder: 'Client Testimonials' },
+      { key: 'testimonials_title', label: 'Section heading', placeholder: 'What Our Customers Say' },
+      { key: 'google_rating', label: 'Google rating display', placeholder: '4.9' },
+      { key: 'google_review_count', label: 'Google review count', placeholder: '500+' },
+    ],
+    adminLink: { label: 'Manage testimonial entries', path: '/admin/testimonials' },
+    designSettingFields: [
+      { key: 'css_testimonials_bg', label: 'Background', placeholder: '#ffffff' },
+      { key: 'css_testimonials_padding', label: 'Padding', placeholder: '64px 0' },
+    ],
   },
   {
     id: 'process',
@@ -134,6 +240,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     sectionKey: 'process',
     hideSettingKey: 'hide_section_how',
     contentFields: [
+      { key: 'hiw_eyebrow', label: 'Eyebrow label', placeholder: 'Simple Process' },
       { key: 'hiw_title', label: 'Section heading', placeholder: 'How It Works' },
       { key: 'hiw_step1_title', label: 'Step 1 title' },
       { key: 'hiw_step1_desc', label: 'Step 1 description', type: 'textarea' },
@@ -143,17 +250,130 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
       { key: 'hiw_step3_desc', label: 'Step 3 description', type: 'textarea' },
       { key: 'hiw_step4_title', label: 'Step 4 title' },
       { key: 'hiw_step4_desc', label: 'Step 4 description', type: 'textarea' },
+      { key: 'hiw_step5_title', label: 'Step 5 title' },
+      { key: 'hiw_step5_desc', label: 'Step 5 description', type: 'textarea' },
+      { key: 'hiw_step6_title', label: 'Step 6 title' },
+      { key: 'hiw_step6_desc', label: 'Step 6 description', type: 'textarea' },
+      { key: 'hiw_footer_link_text', label: 'Footer link text', placeholder: 'Learn more about the full process →' },
     ],
     designSettingFields: [
       { key: 'css_how_bg', label: 'Background', placeholder: '#f1f5f9' },
-      { key: 'css_how_cols', label: 'Columns (desktop)', placeholder: '4' },
+      { key: 'css_how_cols', label: 'Columns (desktop)', placeholder: '3' },
       { key: 'css_how_gap', label: 'Grid gap', placeholder: '24px' },
+    ],
+  },
+  {
+    id: 'press',
+    label: 'As Featured In',
+    sectionKey: 'press',
+    hideSettingKey: 'hide_section_press',
+    contentFields: [
+      { key: 'home_press_label', label: 'Section label', placeholder: 'As Featured In' },
+      {
+        key: 'home_press_json',
+        label: 'Press logos / names',
+        type: 'textarea',
+        rows: 6,
+        hint: '[{"name":"Inc42","brand":"inc42"}] or comma-separated names',
+      },
+    ],
+    designSettingFields: [{ key: 'css_press_bg', label: 'Background' }],
+  },
+  {
+    id: 'partners',
+    label: 'Partners Strip',
+    sectionKey: 'partners',
+    hideSettingKey: 'hide_section_partners',
+    contentFields: [
+      { key: 'home_partners_label', label: 'Section label', placeholder: 'Our Partners' },
+      {
+        key: 'home_partners_json',
+        label: 'Partner names',
+        type: 'textarea',
+        rows: 4,
+        hint: 'JSON array of strings or comma-separated names',
+      },
+    ],
+    designSettingFields: [{ key: 'css_partners_bg', label: 'Background' }],
+  },
+  {
+    id: 'about',
+    label: 'About Band',
+    sectionKey: 'about',
+    hideSettingKey: 'hide_section_about',
+    contentFields: [
+      { key: 'about_eyebrow', label: 'Eyebrow', placeholder: 'About Us' },
+      { key: 'about_heading', label: 'Heading' },
+      { key: 'about_text', label: 'Primary body', type: 'textarea' },
+      { key: 'about_text_secondary', label: 'Secondary body', type: 'textarea' },
+      { key: 'about_image_url', label: 'Image URL', type: 'url' },
+      { key: 'about_video_url', label: 'Video URL', type: 'url' },
+      { key: 'about_cta_text', label: 'Primary button', placeholder: 'Know More →' },
+      { key: 'about_whatsapp_cta', label: 'WhatsApp button', placeholder: '💬 Chat with Us' },
+    ],
+    designSettingFields: [
+      { key: 'css_about_bg', label: 'Background', placeholder: '#ffffff' },
+      { key: 'css_about_padding', label: 'Padding', placeholder: '64px 0' },
+    ],
+  },
+  {
+    id: 'awards',
+    label: 'Awards',
+    sectionKey: 'awards',
+    hideSettingKey: 'hide_section_awards',
+    contentFields: [
+      { key: 'home_awards_label', label: 'Section label', placeholder: 'Awards We Have Received' },
+      {
+        key: 'home_awards_json',
+        label: 'Award badges',
+        type: 'textarea',
+        rows: 6,
+        hint: '[{"emoji":"🏆","text":"#startupindia","variant":"orange"}]',
+      },
+    ],
+    designSettingFields: [{ key: 'css_awards_bg', label: 'Background' }],
+  },
+  {
+    id: 'faq',
+    label: 'FAQ',
+    sectionKey: 'faq',
+    hideSettingKey: 'hide_section_faq',
+    contentFields: [
+      { key: 'faq_section_eyebrow', label: 'Eyebrow label', placeholder: 'FAQ' },
+      { key: 'faq_section_title', label: 'Section heading', placeholder: "Let's Clear All The Doubts!" },
+      {
+        key: 'home_faq_json',
+        label: 'FAQ items (homepage)',
+        type: 'textarea',
+        rows: 12,
+        hint: '[{"q":"Question?","a":"Answer."}] — used when API FAQs empty',
+      },
+      { key: 'faq_footer_link_text', label: 'Footer link', placeholder: 'View All FAQs →' },
+    ],
+    adminLink: { label: 'Manage FAQ database', path: '/admin/faqs' },
+    designSettingFields: [{ key: 'css_faq_bg', label: 'Background' }],
+  },
+  {
+    id: 'newsletter',
+    label: 'CTA Section',
+    sectionKey: 'newsletter',
+    hideSettingKey: 'hide_section_newsletter',
+    contentFields: [
+      { key: 'newsletter_title', label: 'Heading', placeholder: 'Subscribe to Our Newsletter' },
+      { key: 'newsletter_subtitle', label: 'Supporting text', type: 'textarea' },
+      { key: 'newsletter_placeholder', label: 'Email placeholder', placeholder: 'Your email address' },
+      { key: 'newsletter_button', label: 'Button text', placeholder: 'Subscribe' },
+    ],
+    designSettingFields: [
+      { key: 'css_newsletter_bg', label: 'Background (CSS)' },
+      { key: 'css_newsletter_padding', label: 'Padding', placeholder: '48px 20px' },
     ],
   },
   {
     id: 'app',
     label: 'Download App',
     sectionKey: 'app',
+    hideSettingKey: 'hide_section_app',
     contentFields: [
       { key: 'app_eyebrow', label: 'Eyebrow label', placeholder: 'Mobile App' },
       { key: 'app_title', label: 'Heading', placeholder: 'Download Our App' },
@@ -161,37 +381,17 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
       { key: 'app_playstore_url', label: 'Google Play URL', type: 'url' },
       { key: 'app_appstore_url', label: 'Apple App Store URL', type: 'url' },
     ],
+    designSettingFields: [{ key: 'css_app_bg', label: 'Background override' }],
   },
   {
-    id: 'testimonials',
-    label: 'Testimonials',
-    sectionKey: 'testimonials',
+    id: 'locations',
+    label: 'Locations Row',
+    sectionKey: 'locations',
+    hideSettingKey: 'hide_section_locations',
     contentFields: [
-      { key: 'testimonials_title', label: 'Section heading', placeholder: 'What Our Customers Say' },
-      { key: 'testimonials_eyebrow', label: 'Eyebrow label', placeholder: 'Client Testimonials' },
+      { key: 'home_locations_label', label: 'Section label', placeholder: 'Locations' },
     ],
-    adminLink: { label: 'Manage testimonial entries', path: '/admin/testimonials' },
-  },
-  {
-    id: 'faq',
-    label: 'FAQ',
-    sectionKey: 'faq',
-    contentFields: [
-      { key: 'faq_section_eyebrow', label: 'Eyebrow label', placeholder: 'FAQ' },
-      { key: 'faq_section_title', label: 'Section heading', placeholder: "Let's Clear All The Doubts!" },
-    ],
-    adminLink: { label: 'Manage FAQ items', path: '/admin/faqs' },
-  },
-  {
-    id: 'newsletter',
-    label: 'CTA Section',
-    sectionKey: 'newsletter',
-    contentFields: [
-      { key: 'newsletter_title', label: 'Heading', placeholder: 'Subscribe to Our Newsletter' },
-      { key: 'newsletter_subtitle', label: 'Supporting text', type: 'textarea' },
-      { key: 'newsletter_placeholder', label: 'Email placeholder', placeholder: 'Your email address' },
-      { key: 'newsletter_button', label: 'Button text', placeholder: 'Subscribe' },
-    ],
+    adminLink: { label: 'Manage cities', path: '/admin/cities' },
   },
   {
     id: 'footer',
@@ -199,8 +399,10 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     sectionKey: 'footer',
     contentFields: [
       { key: 'footer_copyright', label: 'Copyright line' },
+      { key: 'platform_name', label: 'Brand name (footer)' },
+      { key: 'platform_tagline', label: 'Tagline (footer)' },
     ],
-    contentNote: 'Global header/footer chrome defaults live under Site Foundation → Header & footer. Section colors here override only the footer band.',
+    contentNote: 'Header/footer chrome defaults: Site Foundation → Header & footer.',
   },
 ]
 
@@ -221,8 +423,24 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
       break
     case 'services':
       sections = [
-        { id: 'hero', label: 'Hero / Header', sectionKey: 'hero', contentFields: [{ key: 'services_title', label: 'Page title', placeholder: 'Our Services' }] },
-        { id: 'directory', label: 'Search & directory', sectionKey: 'directory', contentFields: [{ key: 'services_subtitle', label: 'Subtitle' }] },
+        {
+          id: 'hero',
+          label: 'Hero / Header',
+          sectionKey: 'hero',
+          contentFields: [
+            { key: 'services_page_title', label: 'Page title', placeholder: 'Our Services' },
+            { key: 'services_page_subtitle', label: 'Subtitle', type: 'textarea' },
+          ],
+        },
+        {
+          id: 'directory',
+          label: 'Search & directory',
+          sectionKey: 'directory',
+          contentFields: [
+            { key: 'services_subtitle', label: 'Directory intro' },
+            { key: 'services_show_search', label: 'Show search (1/0)', placeholder: '1' },
+          ],
+        },
       ]
       break
     case 'category':
@@ -233,21 +451,33 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
       break
     case 'service':
       sections = [
-        { id: 'hero', label: 'Service hero', sectionKey: 'hero' },
+        { id: 'marquee', label: 'Announcement bar', sectionKey: 'marquee' },
+        { id: 'hero', label: 'Service hero', sectionKey: 'hero', adminLink: { label: 'Edit service hero', path: '/admin/services' } },
         { id: 'wizard', label: 'Booking wizard', sectionKey: 'wizard' },
+        { id: 'features', label: 'Why choose block', sectionKey: 'features' },
         { id: 'faq', label: 'FAQ block', sectionKey: 'faq', adminLink: { label: 'Edit service FAQs', path: '/admin/services' } },
         { id: 'pricing', label: 'Pricing / charges', sectionKey: 'pricing' },
+        { id: 'cta', label: 'Bottom CTA band', sectionKey: 'cta' },
       ]
       break
     case 'contact':
       sections = [
-        MARKETING_INTRO,
+        {
+          id: 'intro',
+          label: 'Page Hero',
+          sectionKey: 'intro',
+          contentFields: [
+            { key: 'contact_page_title', label: 'Hero title', placeholder: 'Contact Us' },
+            { key: 'contact_page_subtitle', label: 'Hero subtitle', type: 'textarea' },
+          ],
+        },
         {
           id: 'contact',
           label: 'Contact form',
           sectionKey: 'contact',
           contentFields: [
-            { key: 'contact_title', label: 'Heading', placeholder: 'Get in touch' },
+            { key: 'contact_title', label: 'Form column heading', placeholder: 'Get in Touch' },
+            { key: 'contact_form_title', label: 'Form title', placeholder: 'Send Us a Message' },
             { key: 'contact_email', label: 'Display email' },
             { key: 'contact_phone', label: 'Display phone' },
             { key: 'contact_address', label: 'Address', type: 'textarea' },
@@ -258,22 +488,51 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
     case 'faq':
       sections = [
         {
+          id: 'intro',
+          label: 'Page Hero',
+          sectionKey: 'intro',
+          contentFields: [
+            { key: 'faq_page_title', label: 'Hero title', placeholder: 'Frequently Asked Questions' },
+            { key: 'faq_page_subtitle', label: 'Hero subtitle', type: 'textarea' },
+          ],
+        },
+        {
           id: 'faq',
           label: 'FAQ accordion',
           sectionKey: 'faq',
           contentFields: [
-            { key: 'faq_section_title', label: 'Page heading', placeholder: 'Frequently asked questions' },
+            { key: 'faq_section_title', label: 'Section heading (fallback)' },
           ],
           adminLink: { label: 'Manage FAQ items', path: '/admin/faqs' },
         },
       ]
       break
     case 'pricing':
-      sections = [MARKETING_INTRO, { id: 'pricing', label: 'Plans table', sectionKey: 'pricing' }, { id: 'compare', label: 'Comparison table', sectionKey: 'compare' }]
+      sections = [
+        {
+          id: 'intro',
+          label: 'Page Hero',
+          sectionKey: 'intro',
+          contentFields: [
+            { key: 'pricing_page_title', label: 'Hero title', placeholder: 'Pricing' },
+            { key: 'pricing_page_subtitle', label: 'Hero subtitle', type: 'textarea' },
+          ],
+        },
+        { id: 'pricing', label: 'Plans table', sectionKey: 'pricing', adminLink: { label: 'Manage plans', path: '/admin/pricing' } },
+        { id: 'compare', label: 'Comparison table', sectionKey: 'compare' },
+      ]
       break
     case 'about':
       sections = [
-        MARKETING_INTRO,
+        {
+          id: 'intro',
+          label: 'Page Hero',
+          sectionKey: 'intro',
+          contentFields: [
+            { key: 'about_page_title', label: 'Hero title', placeholder: 'About Us' },
+            { key: 'about_page_subtitle', label: 'Hero subtitle', type: 'textarea' },
+          ],
+        },
         {
           id: 'about',
           label: 'Story section',
@@ -285,25 +544,54 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
             { key: 'about_video_url', label: 'Video URL', type: 'url' },
           ],
         },
+        {
+          id: 'values',
+          label: 'Core values',
+          sectionKey: 'values',
+          contentFields: [
+            { key: 'about_values_title', label: 'Section heading', placeholder: 'Our Core Values' },
+            { key: 'about_values_json', label: 'Value cards JSON', type: 'textarea', rows: 10, hint: '[{"icon":"🔒","t":"Trust","d":"…"}]' },
+          ],
+        },
+        {
+          id: 'team',
+          label: 'Team grid',
+          sectionKey: 'team',
+          contentFields: [
+            { key: 'about_team_title', label: 'Section heading', placeholder: 'Meet Our Team' },
+            { key: 'about_team_json', label: 'Team members JSON', type: 'textarea', rows: 10 },
+          ],
+        },
+        {
+          id: 'cta',
+          label: 'Bottom CTA',
+          sectionKey: 'cta',
+          contentFields: [
+            { key: 'about_cta_title', label: 'Heading', placeholder: 'Ready to Get Started?' },
+            { key: 'about_cta_subtitle', label: 'Subtitle', type: 'textarea' },
+          ],
+        },
       ]
       break
     case 'how-it-works':
       sections = [
-        MARKETING_INTRO,
+        {
+          id: 'intro',
+          label: 'Page Hero',
+          sectionKey: 'intro',
+          contentFields: [
+            { key: 'hiw_page_title', label: 'Hero title', placeholder: 'How It Works' },
+            { key: 'hiw_page_subtitle', label: 'Hero subtitle', type: 'textarea' },
+          ],
+        },
         {
           id: 'process',
           label: 'Steps',
           sectionKey: 'process',
           contentFields: [
-            { key: 'hiw_title', label: 'Section heading' },
-            { key: 'hiw_step1_title', label: 'Step 1 title' },
-            { key: 'hiw_step1_desc', label: 'Step 1 description', type: 'textarea' },
-            { key: 'hiw_step2_title', label: 'Step 2 title' },
-            { key: 'hiw_step2_desc', label: 'Step 2 description', type: 'textarea' },
-            { key: 'hiw_step3_title', label: 'Step 3 title' },
-            { key: 'hiw_step3_desc', label: 'Step 3 description', type: 'textarea' },
-            { key: 'hiw_step4_title', label: 'Step 4 title' },
-            { key: 'hiw_step4_desc', label: 'Step 4 description', type: 'textarea' },
+            { key: 'hiw_page_steps_json', label: 'Steps JSON', type: 'textarea', rows: 14, hint: '[{"n":1,"icon":"🔍","t":"Title","d":"Desc"}]' },
+            { key: 'hiw_page_cta_title', label: 'Callout heading' },
+            { key: 'hiw_page_cta_subtitle', label: 'Callout subtitle', type: 'textarea' },
           ],
         },
       ]

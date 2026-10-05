@@ -21,6 +21,7 @@ import { api } from '@/lib/api'
 import { getAvatarImage, IMAGES } from '@/lib/images'
 import type { FAQ, BlogPost, PricingPlan } from '@/types'
 import { PublicSection, PublicSectionHead, PublicGrid, PublicCard, PublicCtaLink } from '@/components/public/PublicLayout'
+import { parseHiwSteps, parseTeamMembers, parseValueCards } from '@/lib/home-content-settings'
 
 // ── AboutPage (Bn) ────────────────────────────────────────────────────────────
 export function AboutPage() {
@@ -35,18 +36,20 @@ export function AboutPage() {
     { name: 'Deepa Krishnan', role: 'Financial Advisor',        img: getAvatarImage('avatar_5'), bio: 'CA with specialization in NRI taxation and investments.' },
   ]
 
-  const values = [
+  const valuesFallback = [
     { icon: '🔒', t: 'Trust & Transparency', d: 'Every quote is itemised. Every document is encrypted. No surprises.' },
     { icon: '⚡', t: 'Speed & Efficiency',   d: 'We know time is precious. Most services delivered in 7–21 days.' },
     { icon: '🌍', t: 'Global Reach',          d: 'Serving NRIs in 50+ countries with round-the-clock support.' },
     { icon: '💎', t: 'Premium Quality',       d: 'Verified professionals, legal compliance, quality guarantees.' },
   ]
+  const values = parseValueCards(settings.about_values_json, valuesFallback)
+  const teamDisplay = parseTeamMembers(settings.about_team_json, team)
 
   return (
     <Layout>
       <PageHero
-        title="About Us"
-        subtitle="Trusted NRI service partner since 2015 — making India management effortless from anywhere in the world."
+        title={settings.about_page_title || 'About Us'}
+        subtitle={settings.about_page_subtitle || 'Trusted NRI service partner since 2015 — making India management effortless from anywhere in the world.'}
         meta={[
           { icon: '🌍', label: '50+ countries' },
           { icon: '👥', label: '10,000+ clients' },
@@ -88,8 +91,8 @@ export function AboutPage() {
         </div>
       </PublicSection>
 
-      <PublicSection alt>
-        <PublicSectionHead title="Our Core Values" />
+      <PublicSection alt sectionKey="values">
+        <PublicSectionHead title={settings.about_values_title || 'Our Core Values'} />
         <PublicGrid min={220}>
           {values.map(({ icon, t, d }) => (
             <PublicCard key={t} className="s2-public-icon-tile">
@@ -101,11 +104,11 @@ export function AboutPage() {
         </PublicGrid>
       </PublicSection>
 
-      <section className="s2-public-team-section s2-experience-section" data-s2-reveal="">
+      <section className="s2-public-team-section s2-experience-section" data-s2-section="team" data-s2-reveal="">
         <div className="s2-container">
-          <h2 className="s2-public-section-title s2-public-section-title--center">Meet Our Team</h2>
+          <h2 className="s2-public-section-title s2-public-section-title--center">{settings.about_team_title || 'Meet Our Team'}</h2>
           <div className="s2-public-team-grid s2-stagger">
-            {team.map(({ name: n, role, img, bio }) => (
+            {teamDisplay.map(({ name: n, role, img, bio }) => (
               <div key={n} className="s2-public-team-card">
                 <img src={img} alt={n} />
                 <div className="s2-public-team-card__body">
@@ -119,9 +122,9 @@ export function AboutPage() {
         </div>
       </section>
 
-      <section className="s2-public-band-dark s2-surface-dark s2-marketing-page s2-experience-section" data-s2-reveal="">
-        <h2 className="s2-public-band-dark__title">Ready to Get Started?</h2>
-        <p className="s2-public-band-dark__sub">Let us handle your India affairs while you focus on what matters.</p>
+      <section className="s2-public-band-dark s2-surface-dark s2-marketing-page s2-experience-section" data-s2-section="cta" data-s2-reveal="">
+        <h2 className="s2-public-band-dark__title">{settings.about_cta_title || 'Ready to Get Started?'}</h2>
+        <p className="s2-public-band-dark__sub">{settings.about_cta_subtitle || 'Let us handle your India affairs while you focus on what matters.'}</p>
         <div className="s2-public-band-dark__actions">
           <Link to="/services" className="s2-public-band-dark__btn-primary">Explore Services</Link>
           <Link to="/register" className="s2-public-band-dark__btn-ghost">Create Free Account</Link>
@@ -175,8 +178,8 @@ export function ContactPage() {
   return (
     <Layout>
       <PageHero
-        title="Contact Us"
-        subtitle="We're here to help. Reach us via WhatsApp, email, or the form below."
+        title={settings.contact_page_title || settings.contact_title || 'Contact Us'}
+        subtitle={settings.contact_page_subtitle || "We're here to help. Reach us via WhatsApp, email, or the form below."}
         primary={primary}
         meta={[
           { icon: '💬', label: 'WhatsApp 30 min' },
@@ -228,7 +231,7 @@ export function ContactPage() {
               </div>
             ) : (
               <div className="s2-public-contact-form">
-                <h3 className="s2-t-h3">Send Us a Message</h3>
+                <h3 className="s2-t-h3">{settings.contact_form_title || 'Send Us a Message'}</h3>
                 <div className="s2-public-form-grid">
                   {[['name', 'Full Name', 'text'], ['email', 'Email Address', 'email'], ['phone', 'Phone / WhatsApp', 'tel'], ['subject', 'Subject', 'text']].map(([field, ph, type]) => (
                     <input key={field} type={type} placeholder={ph} value={form[field as keyof typeof form]} onChange={(e) => setForm((f) => ({ ...f, [field]: e.target.value }))}
@@ -251,9 +254,10 @@ export function ContactPage() {
 
 // ── HowItWorksPage ($n) ───────────────────────────────────────────────────────
 export function HowItWorksPage() {
-  const primary = resolvePrimary(useStore((s) => s.settings))
+  const settings = useStore((s) => s.settings)
+  const primary = resolvePrimary(settings)
 
-  const steps = [
+  const stepsFallback = [
     { n: 1, icon: '🔍', t: 'Browse & Select Service',    d: 'Visit our Services page and browse 44+ NRI services across 8 categories. Use the search bar or filter by category. Each service page shows the exact documents required, turnaround time, and a price range.' },
     { n: 2, icon: '📋', t: 'Submit Your Request',        d: 'Click "Place Service Inquiry" on the service page. Fill in the service-specific form (each service has a tailored form). You can also reach us directly on WhatsApp for a consultation first.' },
     { n: 3, icon: '📤', t: 'Upload Your Documents',      d: 'After submitting your request, you\'ll receive access to your secure dashboard. Upload your required documents through the encrypted portal. All files are AES-256 encrypted.' },
@@ -261,12 +265,13 @@ export function HowItWorksPage() {
     { n: 5, icon: '💳', t: 'Approve & Pay Securely',     d: 'Review the quote in your dashboard. Approve it and make payment via bank transfer, UPI, or Razorpay. For international clients, we accept SWIFT wire transfers.' },
     { n: 6, icon: '🚀', t: 'Receive Your Documents',     d: 'Our team handles the complete process with regular status updates. You track everything live in your dashboard. Documents are delivered to your overseas address or digitally as required.' },
   ]
+  const steps = parseHiwSteps(settings.hiw_page_steps_json, stepsFallback)
 
   return (
     <Layout>
       <PageHero
-        title="How It Works"
-        subtitle="Get your NRI service done in 6 simple steps — from anywhere in the world."
+        title={settings.hiw_page_title || settings.hiw_title || 'How It Works'}
+        subtitle={settings.hiw_page_subtitle || 'Get your NRI service done in 6 simple steps — from anywhere in the world.'}
         primary={primary}
         meta={[
           { icon: '📝', label: 'Submit online' },
@@ -274,7 +279,7 @@ export function HowItWorksPage() {
           { icon: '✅', label: 'Pay after approval' },
         ]}
       />
-      <section className="s2-public-how-section s2-marketing-page s2-experience-section" data-s2-reveal="">
+      <section className="s2-public-how-section s2-marketing-page s2-experience-section" data-s2-section="process" data-s2-reveal="">
         <div className="s2-container s2-width-wide s2-stagger">
           {steps.map(({ n, icon, t, d }, i) => (
             <div key={n} className="s2-public-how-step">
@@ -291,8 +296,8 @@ export function HowItWorksPage() {
           ))}
 
           <div className="s2-public-how-callout">
-            <h3 className="s2-public-how-callout__title">Have Questions? Talk to Us First.</h3>
-            <p className="s2-public-how-callout__sub">Our team is available 24/7 on WhatsApp for a free consultation before you place a request.</p>
+            <h3 className="s2-public-how-callout__title">{settings.hiw_page_cta_title || 'Have Questions? Talk to Us First.'}</h3>
+            <p className="s2-public-how-callout__sub">{settings.hiw_page_cta_subtitle || 'Our team is available 24/7 on WhatsApp for a free consultation before you place a request.'}</p>
             <div className="s2-public-how-callout__actions">
               <Link to="/services" className="s2-btn s2-btn--primary">Browse Services →</Link>
               <Link to="/contact" className="s2-home-text-link">Contact Us</Link>
@@ -317,7 +322,8 @@ const FAQ_FALLBACK: FAQ[] = [
 ]
 
 export function FAQPage() {
-  const primary = resolvePrimary(useStore((s) => s.settings))
+  const settings = useStore((s) => s.settings)
+  const primary = resolvePrimary(settings)
   const [openIdx, setOpenIdx] = useState<number | null>(null)
   const [faqs,    setFaqs]    = useState<FAQ[]>([])
   const [loading, setLoading] = useState(true)
@@ -333,8 +339,8 @@ export function FAQPage() {
   return (
     <Layout>
       <PageHero
-        title="Frequently Asked Questions"
-        subtitle="Everything you need to know before placing a service request."
+        title={settings.faq_page_title || 'Frequently Asked Questions'}
+        subtitle={settings.faq_page_subtitle || 'Everything you need to know before placing a service request.'}
         primary={primary}
         meta={[
           { icon: '⚡', label: 'Fast responses' },
@@ -395,6 +401,7 @@ const COMPARE_FEATURES = [
 ]
 
 export function PricingPage() {
+  const settings = useStore((s) => s.settings)
   const [plans, setPlans] = useState<PricingPlan[]>([])
 
   useEffect(() => {
@@ -410,8 +417,8 @@ export function PricingPage() {
   return (
     <Layout>
       <PageHero
-        title="The Perfect Balance of Features & Affordability"
-        subtitle="Transparent pricing, no hidden charges. Pay only after approving your quote."
+        title={settings.pricing_page_title || 'The Perfect Balance of Features & Affordability'}
+        subtitle={settings.pricing_page_subtitle || 'Transparent pricing, no hidden charges. Pay only after approving your quote.'}
         bg={heroBg}
       />
       <PublicSection alt sectionKey="pricing" width="standard">

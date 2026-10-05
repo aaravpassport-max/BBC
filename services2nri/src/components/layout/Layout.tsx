@@ -628,7 +628,7 @@ export function Layout({ children }: LayoutProps) {
       <PageWidthScope>{children}</PageWidthScope>
 
       {/* ── Footer ────────────────────────────────────────────────────────── */}
-      <footer className="s2-site-footer">
+      <footer className="s2-site-footer" data-s2-section="footer">
         <div className="s2-layout-footer-inner">
           <div
             className="s2-mobile-stack s2-site-footer__grid"

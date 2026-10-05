@@ -2142,6 +2142,8 @@ class SettingsAdminController extends \S2NRI\Api\Controllers\BaseController {
             'hiw_show', 'hiw_title', 'hiw_step1_title', 'hiw_step1_desc',
             'hiw_step2_title', 'hiw_step2_desc', 'hiw_step3_title', 'hiw_step3_desc',
             'hiw_step4_title', 'hiw_step4_desc',
+            'hiw_step5_title', 'hiw_step5_desc', 'hiw_step6_title', 'hiw_step6_desc',
+            'hiw_eyebrow', 'hiw_footer_link_text',
             'testimonials_show', 'testimonials_title',
             'contact_show', 'contact_title', 'contact_email', 'contact_phone',
             'contact_address', 'footer_copyright',
@@ -2163,20 +2165,40 @@ class SettingsAdminController extends \S2NRI\Api\Controllers\BaseController {
             'faq_section_eyebrow', 'faq_section_title',
             'newsletter_title', 'newsletter_subtitle', 'newsletter_placeholder', 'newsletter_button',
             'app_eyebrow', 'app_title', 'app_subtitle',
+            'home_notice_text', 'home_notice_whatsapp_label',
+            'home_why_choose_json', 'home_faq_json', 'home_press_json', 'home_press_label',
+            'home_partners_json', 'home_partners_label', 'home_awards_json', 'home_awards_label',
+            'home_locations_label', 'services_view_all_text', 'services_page_title', 'services_page_subtitle',
+            'cities_section_title', 'cities_section_subtitle', 'cities_card_eyebrow',
+            'about_eyebrow', 'about_text_secondary', 'about_cta_text', 'about_whatsapp_cta',
+            'faq_footer_link_text',
+            'about_page_title', 'about_page_subtitle', 'about_values_title', 'about_values_json',
+            'about_team_title', 'about_team_json', 'about_cta_title', 'about_cta_subtitle',
+            'contact_page_title', 'contact_page_subtitle', 'contact_form_title',
+            'hiw_page_title', 'hiw_page_subtitle', 'hiw_page_steps_json', 'hiw_page_cta_title', 'hiw_page_cta_subtitle',
+            'faq_page_title', 'faq_page_subtitle', 'pricing_page_title', 'pricing_page_subtitle',
             // CSS injection keys — read by SEO.php to inject <style> into every page
             'custom_css_homepage', 'custom_css_global',
             // Individual CSS override keys written by the Homepage Page Builder
             'css_hero_minheight', 'css_hero_textcolor', 'css_hero_bg', 'css_hero_padding',
+            'css_notice_bg', 'css_notice_color', 'css_notice_padding',
             'css_search_bg', 'css_search_padding',
             'css_features_bg', 'css_features_padding',
+            'css_cities_bg', 'css_cities_padding',
             'css_stats_bg', 'css_stats_color', 'css_stats_padding',
             'css_tagline_bg', 'css_tagline_color', 'css_tagline_size',
+            'css_testimonials_bg', 'css_testimonials_padding',
             'css_svc_cols', 'css_svc_bg', 'css_svc_card_bg', 'css_svc_gap',
             'css_how_bg', 'css_how_cols', 'css_how_gap',
+            'css_press_bg', 'css_partners_bg', 'css_about_bg', 'css_about_padding',
+            'css_awards_bg', 'css_faq_bg', 'css_newsletter_bg', 'css_newsletter_padding', 'css_app_bg',
             'css_global_font', 'css_global_radius', 'css_global_maxw',
             // Section visibility flags
-            'hide_section_hero', 'hide_section_stats', 'hide_section_tagline',
-            'hide_section_services', 'hide_section_how', 'hide_section_global',
+            'hide_section_hero', 'hide_section_notice', 'hide_section_search', 'hide_section_features',
+            'hide_section_stats', 'hide_section_tagline', 'hide_section_cities', 'hide_section_testimonials',
+            'hide_section_services', 'hide_section_how', 'hide_section_press', 'hide_section_partners',
+            'hide_section_about', 'hide_section_awards', 'hide_section_faq', 'hide_section_newsletter',
+            'hide_section_app', 'hide_section_locations', 'hide_section_global',
         ];
 
         $updated = 0;
@@ -2200,8 +2222,13 @@ class SettingsAdminController extends \S2NRI\Api\Controllers\BaseController {
 
         // If any section was just turned ON (hide_section_X = '0'),
         // strip stale hide-CSS from custom_css_homepage so it can't override JS show/hide.
-        $hide_keys = ['hide_section_hero','hide_section_stats','hide_section_tagline',
-                      'hide_section_services','hide_section_how'];
+        $hide_keys = [
+            'hide_section_hero', 'hide_section_notice', 'hide_section_search', 'hide_section_features',
+            'hide_section_stats', 'hide_section_tagline', 'hide_section_cities', 'hide_section_testimonials',
+            'hide_section_services', 'hide_section_how', 'hide_section_press', 'hide_section_partners',
+            'hide_section_about', 'hide_section_awards', 'hide_section_faq', 'hide_section_newsletter',
+            'hide_section_app', 'hide_section_locations',
+        ];
         $any_shown = false;
         foreach ( $hide_keys as $hk ) {
             if ( isset( $data[$hk] ) && $data[$hk] === '0' ) { $any_shown = true; break; }

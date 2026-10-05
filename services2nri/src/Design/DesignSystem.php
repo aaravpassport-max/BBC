@@ -703,27 +703,78 @@ class DesignSystem {
         return implode( "\n", $lines );
     }
 
-    /** Section-scoped color overrides from overrides.sections */
+    /** Section-scoped color + typography overrides from overrides.sections */
     private static function renderSectionOverrideCss( array $config ): string {
         $sections = $config['overrides']['sections'] ?? [];
         if ( ! is_array( $sections ) || $sections === [] ) {
             return '';
         }
         $css = '';
+        $roleClasses = [
+            'section_heading'    => '.s2-t-section-heading,.s2-public-section-title,h2,h3.s2-home-newsletter__title,h3.s2-home-app__title',
+            'section_subheading' => '.s2-t-body,.s2-home-newsletter__sub,.s2-home-app__sub',
+            'eyebrow'            => '.s2-t-eyebrow,.s2-home-hero-overlay__eyebrow,.s2-home-app__eyebrow',
+            'body'               => '.s2-t-body,p',
+        ];
         foreach ( $sections as $sec => $ov ) {
-            if ( ! is_array( $ov ) || empty( $ov['colors'] ) || ! is_array( $ov['colors'] ) ) {
+            if ( ! is_array( $ov ) ) {
                 continue;
             }
             $sec = sanitize_key( (string) $sec );
-            $block = '';
-            foreach ( $ov['colors'] as $k => $v ) {
-                if ( ! is_string( $v ) || $v === '' ) {
-                    continue;
-                }
-                $block .= '  --s2-color-' . sanitize_key( $k ) . ':' . self::resolveTokenRef( $v, $config ) . ";\n";
+            if ( $sec === '' || $sec === '_page' ) {
+                continue;
             }
-            if ( $block !== '' ) {
-                $css .= '[data-s2-section="' . esc_attr( $sec ) . '"]{' . $block . "}\n";
+            $selector = '[data-s2-section="' . esc_attr( $sec ) . '"]';
+
+            if ( ! empty( $ov['colors'] ) && is_array( $ov['colors'] ) ) {
+                $block = '';
+                foreach ( $ov['colors'] as $k => $v ) {
+                    if ( ! is_string( $v ) || $v === '' ) {
+                        continue;
+                    }
+                    $block .= '  --s2-color-' . sanitize_key( $k ) . ':' . self::resolveTokenRef( $v, $config ) . ";\n";
+                }
+                if ( $block !== '' ) {
+                    $css .= $selector . '{' . $block . "}\n";
+                }
+            }
+
+            if ( ! empty( $ov['typography'] ) && is_array( $ov['typography'] ) ) {
+                foreach ( $ov['typography'] as $role => $t ) {
+                    if ( ! is_array( $t ) || ! isset( $roleClasses[ $role ] ) ) {
+                        continue;
+                    }
+                    $classes = $roleClasses[ $role ];
+                    $sizeD = (string) ( $t['size_desktop'] ?? '' );
+                    $sizeT = (string) ( $t['size_tablet'] ?? $sizeD );
+                    $sizeM = (string) ( $t['size_mobile'] ?? $sizeT );
+                    $weight = (string) ( $t['font_weight'] ?? '' );
+                    $lh = (string) ( $t['line_height'] ?? '' );
+                    $color = (string) ( $t['color'] ?? '' );
+                    $decl = '';
+                    if ( $sizeD !== '' ) {
+                        $decl .= 'font-size:' . esc_attr( $sizeD ) . ';';
+                    }
+                    if ( $weight !== '' ) {
+                        $decl .= 'font-weight:' . esc_attr( $weight ) . ';';
+                    }
+                    if ( $lh !== '' ) {
+                        $decl .= 'line-height:' . esc_attr( $lh ) . ';';
+                    }
+                    if ( $color !== '' ) {
+                        $decl .= 'color:' . self::resolveTokenRef( $color, $config ) . ';';
+                    }
+                    if ( $decl === '' ) {
+                        continue;
+                    }
+                    $css .= $selector . ' ' . $classes . '{' . $decl . "}\n";
+                    if ( $sizeT !== '' && $sizeT !== $sizeD ) {
+                        $css .= '@media(max-width:1024px){' . $selector . ' ' . $classes . '{font-size:' . esc_attr( $sizeT ) . ';}}' . "\n";
+                    }
+                    if ( $sizeM !== '' && $sizeM !== $sizeT ) {
+                        $css .= '@media(max-width:768px){' . $selector . ' ' . $classes . '{font-size:' . esc_attr( $sizeM ) . ';}}' . "\n";
+                    }
+                }
             }
         }
         return $css;

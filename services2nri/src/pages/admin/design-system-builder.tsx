@@ -7,6 +7,7 @@ import {
   DESIGN_PAGE_CATALOG,
   FOUNDATION_NAV,
   SECTION_DESIGN_COLOR_KEYS,
+  SECTION_TYPOGRAPHY_ROLES,
   type FoundationPanelId,
   type PageCatalogDef,
   type SectionCatalogDef,
@@ -26,7 +27,7 @@ import {
   FontAssignPanel,
   LiveSitePreviewFrame,
 } from './design-system-panels'
-import { HexColorField, HexAlphaColorField } from './design-admin-fields'
+import { HexColorField, HexAlphaColorField, PxTokenField, parsePx } from './design-admin-fields'
 import { hasOverrideAtPath, OverrideFieldShell, readPathLeaf } from './design-inherit-ui'
 import { WidthLayoutPanel, type WidthLayoutFocus } from './width-layout-panel'
 
@@ -44,6 +45,92 @@ const COLOR_KEYS_ALPHA = ['overlay', 'shadow'] as const
 
 function sectionColorPath(sectionKey: string, colorKey: string): string[] {
   return ['overrides', 'sections', sectionKey, 'colors', colorKey]
+}
+
+function sectionTypographyPath(sectionKey: string, role: string, field: string): string[] {
+  return ['overrides', 'sections', sectionKey, 'typography', role, field]
+}
+
+function SectionTypographyPanel({
+  sectionKey,
+  config,
+  patch,
+}: {
+  sectionKey: string
+  config: DesignConfig
+  patch: PatchFn
+}) {
+  if (!sectionKey || sectionKey === '_page') return null
+  return (
+    <div>
+      <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>Section typography</h3>
+      <p style={{ margin: '0 0 12px', fontSize: 13, color: '#64748B' }}>
+        Overrides headings and body text inside this band only. Clear a field to inherit from Site Foundation.
+      </p>
+      <div style={{ display: 'grid', gap: 16 }}>
+        {SECTION_TYPOGRAPHY_ROLES.map((role) => (
+          <fieldset key={role} style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 14 }}>
+            <legend style={{ fontWeight: 700, padding: '0 6px', fontSize: 13 }}>{role.replace(/_/g, ' ')}</legend>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
+              {(['size_desktop', 'size_tablet', 'size_mobile'] as const).map((field) => {
+                const path = sectionTypographyPath(sectionKey, role, field)
+                const raw = readPathLeaf(config, path)
+                const inherited = !hasOverrideAtPath(config, path)
+                return (
+                  <OverrideFieldShell
+                    key={field}
+                    label={field.replace(/_/g, ' ')}
+                    inherited={inherited}
+                    onClear={inherited ? undefined : () => patch(path, null)}
+                  >
+                    <PxTokenField
+                      label=""
+                      value={typeof raw === 'string' ? raw : ''}
+                      onChange={(v) => patch(path, v ? parsePx(v) : null)}
+                    />
+                  </OverrideFieldShell>
+                )
+              })}
+              {(['font_weight', 'line_height'] as const).map((field) => {
+                const path = sectionTypographyPath(sectionKey, role, field)
+                const raw = readPathLeaf(config, path)
+                const inherited = !hasOverrideAtPath(config, path)
+                return (
+                  <OverrideFieldShell
+                    key={field}
+                    label={field.replace(/_/g, ' ')}
+                    inherited={inherited}
+                    onClear={inherited ? undefined : () => patch(path, null)}
+                  >
+                    <input
+                      type="text"
+                      value={typeof raw === 'string' ? raw : ''}
+                      onChange={(e) => patch(path, e.target.value || null)}
+                      style={{ width: '100%', padding: 6, borderRadius: 6, border: '1px solid #E2E8F0' }}
+                    />
+                  </OverrideFieldShell>
+                )
+              })}
+              {(() => {
+                const path = sectionTypographyPath(sectionKey, role, 'color')
+                const raw = readPathLeaf(config, path)
+                const inherited = !hasOverrideAtPath(config, path)
+                return (
+                  <OverrideFieldShell label="color" inherited={inherited} onClear={inherited ? undefined : () => patch(path, null)}>
+                    <HexColorField
+                      label=""
+                      value={typeof raw === 'string' && raw.startsWith('#') ? raw : ''}
+                      onChange={(v) => patch(path, v || null)}
+                    />
+                  </OverrideFieldShell>
+                )
+              })()}
+            </div>
+          </fieldset>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 function SectionContentPanel({
@@ -99,7 +186,7 @@ function SectionContentPanel({
             {f.label}
             {f.type === 'textarea' ? (
               <textarea
-                rows={3}
+                rows={f.rows ?? 3}
                 value={settings[f.key] || ''}
                 onChange={(e) => onChange(f.key, e.target.value)}
                 placeholder={f.placeholder}
@@ -369,6 +456,8 @@ function SectionDesignPanel({
           })}
         </div>
       </div>
+
+      <SectionTypographyPanel sectionKey={section.sectionKey} config={config} patch={patch} />
 
       <SectionPlatformDesignFields
         section={section}
