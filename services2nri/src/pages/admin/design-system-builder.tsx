@@ -12,6 +12,13 @@ import {
   type SectionCatalogDef,
 } from '@/lib/design-system-catalog'
 import {
+  PAGE_TEMPLATES,
+  TEMPLATE_COLOR_KEYS,
+  templateColorOverridePath,
+  templateTypographyPath,
+  type PageTemplateDef,
+} from '@/lib/design-page-templates'
+import {
   TypographyRolesEditor,
   TokenGroupEditor,
   ComponentsEditor,
@@ -41,21 +48,32 @@ function sectionColorPath(sectionKey: string, colorKey: string): string[] {
 
 function SectionContentPanel({
   section,
+  page,
   settings,
   onChange,
   onSave,
   saving,
 }: {
   section: SectionCatalogDef
+  page: PageCatalogDef
   settings: Record<string, string>
   onChange: (key: string, value: string) => void
   onSave: () => void
   saving: boolean
 }) {
-  const fields = section.contentFields || []
+  const fields = section.isPageScope
+    ? page.pageContentFields || []
+    : section.contentFields || []
   if (fields.length === 0) {
     return (
       <div className="s2-design-builder-panel">
+        {section.adminLink && (
+          <p style={{ margin: '0 0 12px' }}>
+            <a href={section.adminLink.path} className="s2-btn s2-btn--outline s2-btn--sm">
+              {section.adminLink.label} →
+            </a>
+          </p>
+        )}
         <p style={{ color: '#64748B', fontSize: 14, lineHeight: 1.6, margin: 0 }}>
           {section.contentNote ||
             'No direct text fields for this block yet. Use linked admin screens (FAQs, Testimonials, Service Registry) or Homepage Builder for copy.'}
@@ -65,6 +83,13 @@ function SectionContentPanel({
   }
   return (
     <div className="s2-design-builder-panel">
+      {section.adminLink && (
+        <p style={{ margin: '0 0 12px' }}>
+          <a href={section.adminLink.path} className="s2-btn s2-btn--outline s2-btn--sm">
+            {section.adminLink.label} →
+          </a>
+        </p>
+      )}
       {section.contentNote && (
         <p style={{ color: '#64748B', fontSize: 13, marginTop: 0 }}>{section.contentNote}</p>
       )}
@@ -100,19 +125,177 @@ function SectionContentPanel({
   )
 }
 
+function PageTemplateForPage(page: PageCatalogDef): PageTemplateDef | undefined {
+  return PAGE_TEMPLATES.find((t) => t.id === page.id)
+}
+
+function SectionPlatformDesignFields({
+  section,
+  settings,
+  onChange,
+  onSave,
+  saving,
+}: {
+  section: SectionCatalogDef
+  settings: Record<string, string>
+  onChange: (key: string, value: string) => void
+  onSave: () => void
+  saving: boolean
+}) {
+  const fields = section.designSettingFields || []
+  if (fields.length === 0) return null
+  return (
+    <div>
+      <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>Section styling (platform)</h3>
+      <p style={{ margin: '0 0 12px', fontSize: 13, color: '#64748B' }}>
+        These map to homepage CSS tokens. Clear a field to remove the override and fall back to global defaults.
+      </p>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+        {fields.map((f) => {
+          const val = settings[f.key] || ''
+          const inherited = val === ''
+          return (
+            <OverrideFieldShell
+              key={f.key}
+              label={f.label}
+              hint={f.hint}
+              inherited={inherited}
+              onClear={inherited ? undefined : () => onChange(f.key, '')}
+            >
+              {f.type === 'color' ? (
+                <HexColorField label="" value={val} onChange={(v) => onChange(f.key, v)} />
+              ) : (
+                <input
+                  type="text"
+                  value={val}
+                  placeholder={f.placeholder}
+                  onChange={(e) => onChange(f.key, e.target.value)}
+                  style={{ width: '100%', padding: 8, borderRadius: 8, border: '1px solid #E2E8F0' }}
+                />
+              )}
+            </OverrideFieldShell>
+          )
+        })}
+      </div>
+      <button type="button" className="s2-btn s2-btn--outline" style={{ marginTop: 16 }} onClick={onSave} disabled={saving}>
+        {saving ? 'Saving styling…' : 'Save section styling'}
+      </button>
+    </div>
+  )
+}
+
+function PageDefaultsDesignPanel({
+  page,
+  config,
+  patch,
+  onOpenLayout,
+}: {
+  page: PageCatalogDef
+  config: DesignConfig
+  patch: PatchFn
+  onOpenLayout: (focus: WidthLayoutFocus) => void
+}) {
+  const template = PageTemplateForPage(page)
+  if (!template) {
+    return <p style={{ color: '#64748B' }}>No page template metadata for this route.</p>
+  }
+  const widthFocus: WidthLayoutFocus = page.widthPageSlug
+    ? { scope: 'page', selectedPage: page.widthPageSlug }
+    : page.widthPageType
+      ? { scope: 'page_type', selectedType: page.widthPageType }
+      : { scope: 'global' }
+
+  return (
+    <div className="s2-design-builder-panel" style={{ display: 'grid', gap: 20 }}>
+      <p style={{ margin: 0, fontSize: 13, color: '#64748B', maxWidth: 720 }}>
+        Page-level design sits between <strong>Site Foundation</strong> and individual sections. Clear any field to inherit from foundation.
+      </p>
+      <div>
+        <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>Page colors</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+          {TEMPLATE_COLOR_KEYS.map((colorKey) => {
+            const path = templateColorOverridePath(template, colorKey)
+            const raw = readPathLeaf(config, path)
+            const inherited = !hasOverrideAtPath(config, path)
+            return (
+              <OverrideFieldShell
+                key={colorKey}
+                label={colorKey.replace(/_/g, ' ')}
+                inherited={inherited}
+                onClear={inherited ? undefined : () => patch(path, null)}
+              >
+                <HexColorField
+                  label=""
+                  value={typeof raw === 'string' ? raw : ''}
+                  onChange={(v) => patch(path, v || null)}
+                />
+              </OverrideFieldShell>
+            )
+          })}
+        </div>
+      </div>
+      <div>
+        <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>Page typography samples</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+          {(['page_title', 'body'] as const).map((role) => {
+            const path = templateTypographyPath(template, role, 'size_desktop')
+            const raw = readPathLeaf(config, path)
+            const inherited = !hasOverrideAtPath(config, path)
+            return (
+              <OverrideFieldShell
+                key={role}
+                label={`${role.replace(/_/g, ' ')} size (desktop)`}
+                inherited={inherited}
+                onClear={inherited ? undefined : () => patch(path, null)}
+              >
+                <input
+                  type="text"
+                  value={typeof raw === 'string' ? raw : ''}
+                  placeholder="e.g. 2.5rem"
+                  onChange={(e) => patch(path, e.target.value || null)}
+                  style={{ width: '100%', padding: 8, borderRadius: 8, border: '1px solid #E2E8F0' }}
+                />
+              </OverrideFieldShell>
+            )
+          })}
+        </div>
+      </div>
+      <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
+        <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>Page layout & width</h3>
+        <button type="button" className="s2-btn s2-btn--outline" onClick={() => onOpenLayout(widthFocus)}>
+          Open page width defaults
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function SectionDesignPanel({
   section,
   page,
   config,
   patch,
+  settings,
+  onSettingsChange,
+  onSavePlatformDesign,
+  platformDesignSaving,
   onOpenLayout,
 }: {
   section: SectionCatalogDef
   page: PageCatalogDef
   config: DesignConfig
   patch: PatchFn
+  settings: Record<string, string>
+  onSettingsChange: (key: string, value: string) => void
+  onSavePlatformDesign: () => void
+  platformDesignSaving: boolean
   onOpenLayout: (focus: WidthLayoutFocus) => void
 }) {
+  if (section.isPageScope) {
+    return (
+      <PageDefaultsDesignPanel page={page} config={config} patch={patch} onOpenLayout={onOpenLayout} />
+    )
+  }
   const hideKey = section.hideSettingKey
   const [hideVal, setHideVal] = useState('0')
   useEffect(() => {
@@ -186,6 +369,14 @@ function SectionDesignPanel({
           })}
         </div>
       </div>
+
+      <SectionPlatformDesignFields
+        section={section}
+        settings={settings}
+        onChange={onSettingsChange}
+        onSave={onSavePlatformDesign}
+        saving={platformDesignSaving}
+      />
 
       <div style={{ borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
         <h3 style={{ margin: '0 0 8px', fontSize: 15 }}>Layout & width</h3>
@@ -366,6 +557,7 @@ export function DesignSystemBuilder({
   const [layoutFocus, setLayoutFocus] = useState<WidthLayoutFocus | null>(null)
   const [settings, setSettings] = useState<Record<string, string>>({})
   const [contentSaving, setContentSaving] = useState(false)
+  const [platformDesignSaving, setPlatformDesignSaving] = useState(false)
   const [fontQuery, setFontQuery] = useState('')
 
   const page = useMemo(() => DESIGN_PAGE_CATALOG.find((p) => p.id === pageId) || DESIGN_PAGE_CATALOG[0], [pageId])
@@ -403,7 +595,7 @@ export function DesignSystemBuilder({
     setNavMode('page')
     setPageId(id)
     const p = DESIGN_PAGE_CATALOG.find((x) => x.id === id)
-    const firstSec = p?.sections[0]?.id || 'hero'
+    const firstSec = p?.sections.find((s) => !s.isPageScope)?.id || p?.sections[0]?.id || 'hero'
     setSectionId(firstSec)
     setExpandedPages((prev) => ({ ...prev, [id]: true }))
   }
@@ -416,17 +608,33 @@ export function DesignSystemBuilder({
   }
 
   const saveSectionContent = async () => {
-    if (!section?.contentFields?.length) return
+    const fields = section?.isPageScope ? page.pageContentFields : section?.contentFields
+    if (!fields?.length) return
     setContentSaving(true)
     try {
       const payload: Record<string, string> = {}
-      section.contentFields.forEach((f) => {
+      fields.forEach((f) => {
         payload[f.key] = settings[f.key] || ''
       })
       await api.put('admin/settings', payload)
       await loadSettings()
     } finally {
       setContentSaving(false)
+    }
+  }
+
+  const saveSectionPlatformDesign = async () => {
+    if (!section?.designSettingFields?.length) return
+    setPlatformDesignSaving(true)
+    try {
+      const payload: Record<string, string> = {}
+      section.designSettingFields.forEach((f) => {
+        payload[f.key] = settings[f.key] || ''
+      })
+      await api.put('admin/settings', payload)
+      await loadSettings()
+    } finally {
+      setPlatformDesignSaving(false)
     }
   }
 
@@ -591,6 +799,7 @@ export function DesignSystemBuilder({
             {sectionTab === 'content' ? (
               <SectionContentPanel
                 section={section}
+                page={page}
                 settings={settings}
                 onChange={(k, v) => setSettings((prev) => ({ ...prev, [k]: v }))}
                 onSave={saveSectionContent}
@@ -602,6 +811,10 @@ export function DesignSystemBuilder({
                 page={page}
                 config={config}
                 patch={patch}
+                settings={settings}
+                onSettingsChange={(k, v) => setSettings((prev) => ({ ...prev, [k]: v }))}
+                onSavePlatformDesign={saveSectionPlatformDesign}
+                platformDesignSaving={platformDesignSaving}
                 onOpenLayout={(focus) => setLayoutFocus(focus)}
               />
             )}

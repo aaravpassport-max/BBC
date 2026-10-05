@@ -159,6 +159,22 @@ const FEATURED_IN = [
   { name: 'YourStory', brand: 'yourstory' },
 ] as const
 
+function pickCssStyle(
+  settings: Record<string, string>,
+  keys: { bg?: string; padding?: string; color?: string },
+): React.CSSProperties | undefined {
+  const style: React.CSSProperties = {}
+  if (keys.bg && settings[keys.bg]) style.background = settings[keys.bg]
+  if (keys.padding && settings[keys.padding]) style.padding = settings[keys.padding]
+  if (keys.color && settings[keys.color]) style.color = settings[keys.color]
+  return Object.keys(style).length ? style : undefined
+}
+
+function sectionHidden(settings: Record<string, string>, key?: string): boolean {
+  if (!key) return false
+  return String(settings[key] ?? '0') === '1'
+}
+
 const FAQ_DATA = [
   { q: '1. What kind of services do you provide?',          a: 'We provide 44+ services across 8 categories — documentation, education, OCI/passport/visa, USCIS, property management, financial services, legal services, and taxation. All designed specifically for NRIs worldwide.' },
   { q: '2. What is your service fee structure?',           a: 'All services are quote-based. After you submit your requirements, our expert team reviews and sends a transparent, itemised quote within 24 hours. You only pay after approving the quote — no surprises.' },
@@ -264,11 +280,37 @@ export function HomePage() {
   const categoryNameMap: Record<string, string> = {}
   categories.forEach((c) => { categoryNameMap[c.slug] = c.name })
 
+  const heroBandStyle: React.CSSProperties = {
+    ...pickCssStyle(settings, {
+      bg: 'css_hero_bg',
+      padding: 'css_hero_padding',
+      color: 'css_hero_textcolor',
+    }),
+  }
+  if (settings.css_hero_minheight) heroBandStyle.minHeight = settings.css_hero_minheight
+  const heroOverlayStyle: React.CSSProperties = {}
+  if (settings.hero_overlay_color) heroOverlayStyle.backgroundColor = settings.hero_overlay_color
+  if (settings.hero_overlay_opacity) heroOverlayStyle.opacity = settings.hero_overlay_opacity
+
+  const howSteps = [
+    { n: 1, icon: '🔍', title: settings.hiw_step1_title || HOW_IT_WORKS[0].title, desc: settings.hiw_step1_desc || HOW_IT_WORKS[0].desc },
+    { n: 2, icon: '📋', title: settings.hiw_step2_title || HOW_IT_WORKS[1].title, desc: settings.hiw_step2_desc || HOW_IT_WORKS[1].desc },
+    { n: 3, icon: '📤', title: settings.hiw_step3_title || HOW_IT_WORKS[2].title, desc: settings.hiw_step3_desc || HOW_IT_WORKS[2].desc },
+    { n: 4, icon: '✔️', title: settings.hiw_step4_title || HOW_IT_WORKS[3].title, desc: settings.hiw_step4_desc || HOW_IT_WORKS[3].desc },
+    ...HOW_IT_WORKS.slice(4),
+  ]
+
+  const heroPrimaryCta = settings.hero_cta_text || 'Browse services'
+  const heroPrimaryUrl = settings.hero_cta_url || '/services'
+  const heroSecondaryCta = settings.hero_cta2_text || 'Get a quote'
+  const heroSecondaryUrl = settings.hero_cta2_url || '/contact'
+
   return (
     <Layout>
       <div className="s2-home-page">
       {/* ── 1. Hero slider + mobile-first headline & CTAs ─────────────────── */}
-      <div className="s2-hero-section s2-surface-media" data-s2-section="hero" style={heroWidthStyle}>
+      {!sectionHidden(settings, 'hide_section_hero') && (
+      <div className="s2-hero-section s2-surface-media" data-s2-section="hero" style={{ ...heroWidthStyle, ...heroBandStyle }}>
         <Swiper
           className="s2-home-hero-swiper"
           modules={[Autoplay, Pagination, Navigation, EffectFade]}
@@ -284,27 +326,38 @@ export function HomePage() {
             </SwiperSlide>
           ))}
         </Swiper>
-        <div className="s2-home-hero-overlay" aria-hidden={false}>
+        <div className="s2-home-hero-overlay" aria-hidden={false} style={Object.keys(heroOverlayStyle).length ? heroOverlayStyle : undefined}>
           <div className="s2-home-hero-overlay__inner">
-            <p className="s2-home-hero-overlay__eyebrow">Trusted NRI partner</p>
+            <p className="s2-home-hero-overlay__eyebrow">{settings.hero_subheading || 'Trusted NRI partner'}</p>
             <h1 className="s2-home-hero-overlay__title">
-              {settings.home_hero_title || settings.platform_tagline || 'Your India services, managed from anywhere'}
+              {settings.hero_heading_1 ? (
+                <>
+                  {settings.hero_heading_1}
+                  {settings.hero_heading_2 ? (
+                    <span className="s2-home-hero-overlay__accent"> {settings.hero_heading_2}</span>
+                  ) : null}
+                </>
+              ) : (
+                settings.home_hero_title || settings.platform_tagline || 'Your India services, managed from anywhere'
+              )}
             </h1>
             <p className="s2-home-hero-overlay__sub">
-              {settings.home_hero_subtitle ||
+              {settings.hero_description ||
+                settings.home_hero_subtitle ||
                 'Property, documents, tax & 44+ expert services — one secure platform with 24/7 support.'}
             </p>
             <div className="s2-home-hero-overlay__actions">
-              <Link to="/services" className="s2-btn s2-btn--primary s2-home-hero-overlay__cta">
-                Browse services
+              <Link to={heroPrimaryUrl} className="s2-btn s2-btn--primary s2-home-hero-overlay__cta">
+                {heroPrimaryCta}
               </Link>
-              <Link to="/contact" className="s2-btn s2-btn--outline s2-home-hero-overlay__cta s2-home-hero-overlay__cta--ghost">
-                Get a quote
+              <Link to={heroSecondaryUrl} className="s2-btn s2-btn--outline s2-home-hero-overlay__cta s2-home-hero-overlay__cta--ghost">
+                {heroSecondaryCta}
               </Link>
             </div>
           </div>
         </div>
       </div>
+      )}
 
       {/* ── 2. Notice bar ─────────────────────────────────────────────────── */}
       <div className="s2-notice-bar s2-home-notice">
@@ -314,13 +367,56 @@ export function HomePage() {
         )}
       </div>
 
-      {/* ── 3. Services section ───────────────────────────────────────────── */}
-      <section className="s2-section s2-marketing-section s2-experience-section" data-s2-section="home_services" data-s2-reveal="">
+      {/* ── Search band ───────────────────────────────────────────────────── */}
+      <section
+        className="s2-home-search s2-experience-section"
+        data-s2-section="search"
+        data-s2-reveal=""
+        style={pickCssStyle(settings, { bg: 'css_search_bg', padding: 'css_search_padding' })}
+      >
         <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead
-            eyebrow="What We Offer"
-            title="Our Services"
-            subtitle="Expert NRI assistance across 8 service categories"
+            title={settings.home_search_title || 'Find your service'}
+            subtitle={settings.home_search_subtitle || 'Search 44+ NRI services across every category'}
+          />
+          <form
+            className="s2-home-search__form"
+            action="/services"
+            method="get"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const fd = new FormData(e.currentTarget)
+              const q = String(fd.get('q') || '').trim()
+              window.location.href = q ? `/services?q=${encodeURIComponent(q)}` : '/services'
+            }}
+          >
+            <input
+              type="search"
+              name="q"
+              className="s2-home-search__input"
+              placeholder={settings.home_search_placeholder || 'Search services…'}
+              aria-label="Search services"
+            />
+            <button type="submit" className="s2-btn s2-btn--primary s2-home-search__btn">
+              {settings.home_search_button || 'Search'}
+            </button>
+          </form>
+        </div>
+      </section>
+
+      {/* ── 3. Services section ───────────────────────────────────────────── */}
+      {!sectionHidden(settings, 'hide_section_services') && (
+      <section
+        className="s2-section s2-marketing-section s2-experience-section"
+        data-s2-section="home_services"
+        data-s2-reveal=""
+        style={pickCssStyle(settings, { bg: 'css_svc_bg', padding: undefined })}
+      >
+        <div className="s2-container s2-section-inner s2-width-standard">
+          <PublicSectionHead
+            eyebrow={settings.services_eyebrow || 'What We Offer'}
+            title={settings.services_title || 'Our Services'}
+            subtitle={settings.services_subtitle || 'Expert NRI assistance across 8 service categories'}
           />
 
           {/* Category tabs */}
@@ -370,6 +466,7 @@ export function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── 4. Cities grid ────────────────────────────────────────────────── */}
       <section className="s2-marketing-section s2-marketing-section--alt s2-experience-section" data-s2-section="cities" data-s2-reveal="">
@@ -413,9 +510,17 @@ export function HomePage() {
       </div>
 
       {/* ── 7. Why Choose Us ──────────────────────────────────────────────── */}
-      <section className="s2-marketing-section s2-marketing-section--alt s2-experience-section" data-s2-section="features" data-s2-reveal="">
+      <section
+        className="s2-marketing-section s2-marketing-section--alt s2-experience-section"
+        data-s2-section="features"
+        data-s2-reveal=""
+        style={pickCssStyle(settings, { bg: 'css_features_bg', padding: 'css_features_padding' })}
+      >
         <div className="s2-container s2-section-inner s2-width-standard">
-          <PublicSectionHead eyebrow="Why Choose Us" title="Why Our Customers Love Us" />
+          <PublicSectionHead
+            eyebrow={settings.features_eyebrow || 'Why Choose Us'}
+            title={settings.features_title || 'Why Our Customers Love Us'}
+          />
           <div className="s2-feat-grid s2-stagger">
             {WHY_CHOOSE.map(({ icon, title, sub }) => (
               <div key={title} className="s2-home-feat-card">
@@ -433,7 +538,10 @@ export function HomePage() {
       {/* ── 8. Testimonials ───────────────────────────────────────────────── */}
       <section className="s2-marketing-section s2-experience-section" data-s2-section="testimonials" data-s2-reveal="">
         <div className="s2-container s2-section-inner s2-width-standard">
-          <PublicSectionHead eyebrow="Client Testimonials" title="What Our Customers Say" />
+          <PublicSectionHead
+            eyebrow={settings.testimonials_eyebrow || 'Client Testimonials'}
+            title={settings.testimonials_title || 'What Our Customers Say'}
+          />
           <Swiper
             className="s2-home-testimonials-swiper"
             modules={[Autoplay, Pagination]}
@@ -480,11 +588,17 @@ export function HomePage() {
       </section>
 
       {/* ── 9. How It Works ───────────────────────────────────────────────── */}
-      <section className="s2-marketing-section s2-marketing-section--alt s2-experience-section" data-s2-section="process" data-s2-reveal="">
+      {!sectionHidden(settings, 'hide_section_how') && (
+      <section
+        className="s2-marketing-section s2-marketing-section--alt s2-experience-section"
+        data-s2-section="process"
+        data-s2-reveal=""
+        style={pickCssStyle(settings, { bg: 'css_how_bg', padding: undefined })}
+      >
         <div className="s2-container s2-section-inner s2-width-standard">
-          <PublicSectionHead eyebrow="Simple Process" title="How It Works" />
+          <PublicSectionHead eyebrow="Simple Process" title={settings.hiw_title || 'How It Works'} />
           <div className="s2-how-grid s2-stagger">
-            {HOW_IT_WORKS.map(({ n, icon, title, desc }) => (
+            {howSteps.map(({ n, icon, title, desc }) => (
               <div key={n} className="s2-home-how-card">
                 <div className="s2-home-how-card__num">0{n}</div>
                 <div className="s2-home-how-card__icon">{icon}</div>
@@ -500,6 +614,7 @@ export function HomePage() {
           </div>
         </div>
       </section>
+      )}
 
       {/* ── 10. As Featured In ────────────────────────────────────────────── */}
       <div className="s2-home-logo-strip s2-marketing-section s2-experience-section" data-s2-section="partners" data-s2-reveal="">
@@ -588,7 +703,10 @@ export function HomePage() {
       {/* ── 14. FAQ ───────────────────────────────────────────────────────── */}
       <section className="s2-marketing-section s2-experience-section" data-s2-section="faq" data-s2-reveal="">
         <div className="s2-home-faq s2-container s2-section-inner s2-width-narrow">
-          <PublicSectionHead eyebrow="FAQ" title="Let's Clear All The Doubts!" />
+          <PublicSectionHead
+            eyebrow={settings.faq_section_eyebrow || 'FAQ'}
+            title={settings.faq_section_title || "Let's Clear All The Doubts!"}
+          />
           <div className="s2-home-faq__list">
             {FAQ_DATA.map(({ q, a }, i) => (
               <div key={i} className={`s2-home-faq__item${openFaq === i ? ' is-open' : ''}`}>
@@ -616,11 +734,20 @@ export function HomePage() {
 
       {/* ── 15. Newsletter ────────────────────────────────────────────────── */}
       <section className="s2-home-newsletter s2-experience-section" data-s2-section="newsletter" data-s2-reveal="">
-        <h3 className="s2-home-newsletter__title">Subscribe to Our Newsletter</h3>
-        <p className="s2-home-newsletter__sub">Stay updated on the latest NRI news, service launches, and important updates.</p>
+        <h3 className="s2-home-newsletter__title">{settings.newsletter_title || 'Subscribe to Our Newsletter'}</h3>
+        <p className="s2-home-newsletter__sub">
+          {settings.newsletter_subtitle || 'Stay updated on the latest NRI news, service launches, and important updates.'}
+        </p>
         <div className="s2-home-newsletter__form">
-          <input type="email" placeholder="Your email address" className="s2-home-newsletter__input" aria-label="Email for newsletter" />
-          <button type="button" className="s2-home-newsletter__btn">Subscribe</button>
+          <input
+            type="email"
+            placeholder={settings.newsletter_placeholder || 'Your email address'}
+            className="s2-home-newsletter__input"
+            aria-label="Email for newsletter"
+          />
+          <button type="button" className="s2-home-newsletter__btn">
+            {settings.newsletter_button || 'Subscribe'}
+          </button>
         </div>
       </section>
 
@@ -628,10 +755,11 @@ export function HomePage() {
       <section className="s2-home-app s2-surface-dark s2-experience-section" data-s2-section="app" data-s2-reveal="">
         <div className="s2-home-app__grid s2-mobile-stack">
           <div>
-            <p className="s2-home-app__eyebrow">Mobile App</p>
-            <h3 className="s2-home-app__title">Download Our App</h3>
+            <p className="s2-home-app__eyebrow">{settings.app_eyebrow || 'Mobile App'}</p>
+            <h3 className="s2-home-app__title">{settings.app_title || 'Download Our App'}</h3>
             <p className="s2-home-app__sub">
-              Manage all your NRI services from your smartphone anytime, anywhere. Track progress, upload documents, and communicate with our team on the go.
+              {settings.app_subtitle ||
+                'Manage all your NRI services from your smartphone anytime, anywhere. Track progress, upload documents, and communicate with our team on the go.'}
             </p>
             <div className="s2-home-app__stores">
               {[
