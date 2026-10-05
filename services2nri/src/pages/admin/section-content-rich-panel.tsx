@@ -386,7 +386,7 @@ function ServicesRegistryPreview() {
   return (
     <RegistryPreview
       title="Service cards on homepage"
-      lead="Tabs and cards come from Service Registry and Categories. Edit titles above; manage cards in the registry."
+      lead="Tabs and cards come from Service Registry and Categories. Use the Elements tab to style Service 1–8 slots (image, title, description, CTA) per grid position."
       adminPath="/admin/services"
       adminLabel="Service Registry"
       loading={loading}
@@ -431,7 +431,7 @@ function CitiesRegistryPreview() {
   return (
     <RegistryPreview
       title="City tiles"
-      lead="City names, images, and SEO pages are managed in City Manager. Section headings are edited below."
+      lead="City content lives in City Manager. Use the Elements tab to style City 1–8 slots (photo, eyebrow, name) on the homepage grid."
       adminPath="/admin/cities"
       adminLabel="City Manager"
       loading={loading}

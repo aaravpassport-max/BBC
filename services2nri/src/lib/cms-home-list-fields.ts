@@ -12,6 +12,10 @@ export const HOME_LIST_LIMITS = {
   partners: 10,
   awards: 6,
   testimonials: 6,
+  /** Homepage services band grid slots (registry fills content; Elements styles each slot). */
+  serviceGrid: 8,
+  /** Homepage cities band grid slots. */
+  cityGrid: 8,
 } as const
 
 type ItemPart = { suffix: string; label: string }
@@ -112,6 +116,19 @@ export const TESTIMONIAL_ITEM_PARTS: ItemPart[] = [
   { suffix: 'quote', label: 'quote' },
   { suffix: 'author', label: 'author' },
   { suffix: 'meta', label: 'location / rating' },
+]
+
+export const SERVICE_GRID_ITEM_PARTS: ItemPart[] = [
+  { suffix: 'media', label: 'image' },
+  { suffix: 'title', label: 'title' },
+  { suffix: 'desc', label: 'description' },
+  { suffix: 'cta', label: 'CTA' },
+]
+
+export const CITY_GRID_ITEM_PARTS: ItemPart[] = [
+  { suffix: 'photo', label: 'photo' },
+  { suffix: 'eyebrow', label: 'eyebrow' },
+  { suffix: 'name', label: 'name' },
 ]
 
 export function allHomeListFlatSettingKeys(): string[] {

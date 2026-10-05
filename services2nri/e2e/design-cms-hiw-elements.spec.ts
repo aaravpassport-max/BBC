@@ -54,4 +54,35 @@ test.describe('How It Works — Elements tab coverage', () => {
     ).toBeVisible({ timeout: 20_000 });
     await expect(page.locator('[data-s2-section="process"][data-s2-element="step_3_icon"]')).toBeVisible();
   });
+
+  test('services section lists Service 1 card in Elements', async ({ page }) => {
+    await page.goto('/admin/design');
+    await page.locator('.s2-design-builder-nav__page-btn:not(.s2-design-builder-nav__page-btn--sub)').filter({ hasText: 'Homepage' }).click();
+    await page.locator('[data-section-id="home_services"] .s2-band-card__main').click();
+    const editor = page.getByTestId('section-editor-home_services');
+    await editor.getByRole('tab', { name: 'Elements' }).click();
+    await editor.getByRole('option', { name: 'Service 1 title' }).click();
+    await expect(editor.getByRole('heading', { name: 'Service 1 title' })).toBeVisible();
+    await expect(
+      editor.locator('.s2-ds-element-detail__group').filter({ hasText: 'Design' }).getByText('Text color'),
+    ).toBeVisible();
+  });
+
+  test('cities section lists City 1 name in Elements', async ({ page }) => {
+    await page.goto('/admin/design');
+    await page.locator('.s2-design-builder-nav__page-btn:not(.s2-design-builder-nav__page-btn--sub)').filter({ hasText: 'Homepage' }).click();
+    await page.locator('[data-section-id="cities"] .s2-band-card__main').click();
+    const editor = page.getByTestId('section-editor-cities');
+    await editor.getByRole('tab', { name: 'Elements' }).click();
+    await editor.getByRole('option', { name: 'City 1 name' }).click();
+    await expect(editor.getByRole('heading', { name: 'City 1 name' })).toBeVisible();
+  });
+
+  test('homepage exposes service and city grid CMS markers', async ({ page }) => {
+    await page.goto('/');
+    await expect(
+      page.locator('[data-s2-section="home_services"][data-s2-element="service_1_title"]'),
+    ).toBeVisible({ timeout: 20_000 });
+    await expect(page.locator('[data-s2-section="cities"][data-s2-element="city_1_name"]')).toBeVisible();
+  });
 });

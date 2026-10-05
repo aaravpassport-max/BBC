@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.87] — 2026-10-05 — Cloud Agent
+
+- **Homepage Services & Cities grids:** Elements tab lists each grid slot (Service 1–8, City 1–8) for per-card design; registry still supplies content.
+
+---
+
 ## [4.7.86] — 2026-10-05 — Cloud Agent
 
 - **Per-item Elements (marketing pages):** About value cards, team members, and story highlights; How It Works timeline steps; Pricing plan cards and brand compare rows; Contact business hours — each item appears in Elements with flat settings synced from list editors.

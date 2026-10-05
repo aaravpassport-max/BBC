@@ -581,28 +581,37 @@ export function HomePage() {
             }}
           >
             {displayServices.map((svc, i) => {
+              const n = i + 1
               const fallbackImgs = [IMAGES.property, IMAGES.housekeeping, IMAGES.tenancy, IMAGES.rent]
               const img = svc.image_url || (svc as Service & { img?: string }).img || fallbackImgs[i % 4]
+              const desc = (svc.short_desc || '').slice(0, 110) + ((svc.short_desc || '').length > 110 ? '...' : '')
               return (
-                <div
+                <CmsElement
                   key={svc.id || i}
+                  pageId="home"
+                  sectionKey="home_services"
+                  elementId={`service_${n}`}
                   className="s2-card s2-card--service s2-card--media-bleed s2-home-svc-card s2-animate-hover"
                   style={settings.css_svc_card_bg ? { background: settings.css_svc_card_bg } : undefined}
                 >
-                  <div className="s2-home-svc-card__media">
+                  <CmsElement pageId="home" sectionKey="home_services" elementId={`service_${n}_media`} className="s2-home-svc-card__media">
                     <img src={img} alt={svc.name} loading="lazy" />
                     <div className="s2-home-svc-card__fade" />
-                  </div>
+                  </CmsElement>
                   <div className="s2-home-svc-card__body">
-                    <h3 className="s2-home-svc-card__title">{svc.name}</h3>
-                    <p className="s2-home-svc-card__desc">
-                      {(svc.short_desc || '').slice(0, 110)}{(svc.short_desc || '').length > 110 ? '...' : ''}
-                    </p>
-                    <Link to={`/service/${svc.slug}`} className="s2-btn s2-btn--primary s2-btn--sm s2-home-svc-card__cta">
-                      View Details →
-                    </Link>
+                    <CmsElement pageId="home" sectionKey="home_services" elementId={`service_${n}_title`} as="h3" className="s2-home-svc-card__title">
+                      {svc.name}
+                    </CmsElement>
+                    <CmsElement pageId="home" sectionKey="home_services" elementId={`service_${n}_desc`} as="p" className="s2-home-svc-card__desc">
+                      {desc}
+                    </CmsElement>
+                    <CmsElement pageId="home" sectionKey="home_services" elementId={`service_${n}_cta`}>
+                      <Link to={`/service/${svc.slug}`} className="s2-btn s2-btn--primary s2-btn--sm s2-home-svc-card__cta">
+                        View Details →
+                      </Link>
+                    </CmsElement>
                   </div>
-                </div>
+                </CmsElement>
               )
             })}
           </CmsElement>
@@ -634,21 +643,37 @@ export function HomePage() {
             </CmsElement>
           </div>
           <CmsElement pageId="home" sectionKey="cities" elementId="collection" className="s2-city-grid s2-city-grid--mobile-rail">
-            {displayCities.map(({ name, slug, img }) => (
-              <Link
-                key={slug || name}
-                to={`/cities/property-management-in-${slug || name.toLowerCase()}`}
-                className="s2-home-city-card"
-              >
-                <img src={img} alt={name} loading="lazy" />
-                <div className="s2-home-city-card__overlay">
-                  <div>
-                    <div className="s2-home-city-card__eyebrow">{settings.cities_card_eyebrow || 'Property Services in'}</div>
-                    <div className="s2-home-city-card__name">{name}</div>
-                  </div>
-                </div>
-              </Link>
-            ))}
+            {displayCities.map(({ name, slug, img }, idx) => {
+              const n = idx + 1
+              const cardEyebrow = settings.cities_card_eyebrow || 'Property Services in'
+              return (
+                <CmsElement
+                  key={slug || name}
+                  pageId="home"
+                  sectionKey="cities"
+                  elementId={`city_${n}`}
+                >
+                  <Link
+                    to={`/cities/property-management-in-${slug || name.toLowerCase()}`}
+                    className="s2-home-city-card"
+                  >
+                    <CmsElement pageId="home" sectionKey="cities" elementId={`city_${n}_photo`}>
+                      <img src={img} alt={name} loading="lazy" />
+                    </CmsElement>
+                    <div className="s2-home-city-card__overlay">
+                      <div>
+                        <CmsElement pageId="home" sectionKey="cities" elementId={`city_${n}_eyebrow`} className="s2-home-city-card__eyebrow">
+                          {cardEyebrow}
+                        </CmsElement>
+                        <CmsElement pageId="home" sectionKey="cities" elementId={`city_${n}_name`} className="s2-home-city-card__name">
+                          {name}
+                        </CmsElement>
+                      </div>
+                    </div>
+                  </Link>
+                </CmsElement>
+              )
+            })}
           </CmsElement>
         </div>
       </section>
