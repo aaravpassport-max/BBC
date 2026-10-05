@@ -26,16 +26,16 @@ test.describe('Homepage marketplace flow', () => {
     const shell = page.locator('.s2-home-svc-panel-shell')
     await expect(shell).toBeVisible()
 
-    const pills = page.locator('.s2-home-svc-nav__pill')
-    const count = await pills.count()
+    const tiles = page.locator('.s2-home-svc-cat-tile')
+    const count = await tiles.count()
     expect(count).toBeGreaterThan(1)
 
     const heights: number[] = []
     for (let i = 0; i < Math.min(count, 4); i += 1) {
       const before = await shell.boundingBox()
       heights.push(before?.height ?? 0)
-      await pills.nth(i).click()
-      await expect(pills.nth(i)).toHaveClass(/is-active/)
+      await tiles.nth(i).click()
+      await expect(tiles.nth(i)).toHaveClass(/is-active/)
       await page.waitForTimeout(120)
     }
     const max = Math.max(...heights)
@@ -54,6 +54,6 @@ test.describe('Homepage marketplace flow — mobile', () => {
     await expect(page.locator('.s2-home-discovery__search')).toBeVisible({ timeout: 25_000 })
     const band = page.locator('#home-services-band')
     await band.scrollIntoViewIfNeeded()
-    await expect(page.locator('.s2-home-svc-nav__pill').first()).toBeVisible({ timeout: 25_000 })
+    await expect(page.locator('.s2-home-svc-categories__mobile-select select')).toBeVisible({ timeout: 25_000 })
   })
 })

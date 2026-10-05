@@ -1,7 +1,7 @@
 import React, { useLayoutEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CmsElement } from '@/components/public/CmsElement'
-import { IMAGES } from '@/lib/images'
+import { getServiceImage } from '@/lib/images'
 import type { Category, Service } from '@/types'
 
 const VISIBLE_SLOTS = 4
@@ -24,6 +24,7 @@ export function HomeServicesShowcase({
   categoryNameMap,
 }: Props) {
   const panelRef = useRef<HTMLDivElement>(null)
+  const activeTileRef = useRef<HTMLButtonElement | null>(null)
   const [panelMinHeight, setPanelMinHeight] = useState<number | undefined>(undefined)
   const [fadeKey, setFadeKey] = useState(0)
 
@@ -43,9 +44,15 @@ export function HomeServicesShowcase({
     onCategoryChange(slug)
   }
 
+  useLayoutEffect(() => {
+    activeTileRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' })
+  }, [activeCategory])
+
   const cols = settings.css_svc_cols
     ? Math.min(6, Math.max(1, parseInt(settings.css_svc_cols, 10) || 4))
     : undefined
+
+  const activeName = categoryNameMap[activeCategory] || 'this category'
 
   return (
     <div className="s2-home-svc-showcase" id="home-services-band">
@@ -63,34 +70,56 @@ export function HomeServicesShowcase({
         )}
       </div>
 
-      <CmsElement pageId="home" sectionKey="home_services" elementId="collection" className="s2-home-svc-nav-wrap">
-        <div className="s2-home-svc-nav" role="tablist" aria-label="Service categories">
+      <CmsElement pageId="home" sectionKey="home_services" elementId="collection" className="s2-home-svc-categories">
+        <div className="s2-home-svc-categories__toolbar">
+          <p className="s2-home-svc-categories__lead">
+            Browse by category — currently showing <strong>{activeName}</strong>
+          </p>
+          <Link to={`/services${activeCategory ? `/${activeCategory}` : ''}`} className="s2-home-svc-categories__all-link">
+            Full category →
+          </Link>
+        </div>
+
+        <label className="s2-home-svc-categories__mobile-select">
+          <span className="s2-home-svc-categories__mobile-label">Category</span>
+          <select
+            value={activeCategory}
+            aria-label="Choose service category"
+            onChange={(e) => handleCategory(e.target.value)}
+          >
+            {categories.map((cat) => (
+              <option key={cat.slug} value={cat.slug}>
+                {cat.name}
+                {cat.service_count != null && cat.service_count > 0 ? ` (${cat.service_count})` : ''}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <div className="s2-home-svc-cat-grid" role="tablist" aria-label="Service categories">
           {categories.map((cat) => {
             const selected = activeCategory === cat.slug
             return (
               <button
                 key={cat.slug}
+                ref={selected ? activeTileRef : undefined}
                 type="button"
                 role="tab"
                 aria-selected={selected}
-                className={`s2-home-svc-nav__pill${selected ? ' is-active' : ''}`}
+                className={`s2-home-svc-cat-tile${selected ? ' is-active' : ''}`}
                 onClick={() => handleCategory(cat.slug)}
               >
-                <span className="s2-home-svc-nav__pill-icon" aria-hidden>{cat.icon || '📁'}</span>
-                <span className="s2-home-svc-nav__pill-label">{cat.name}</span>
+                <span className="s2-home-svc-cat-tile__icon" aria-hidden>
+                  {cat.icon || '📁'}
+                </span>
+                <span className="s2-home-svc-cat-tile__name">{cat.name}</span>
                 {cat.service_count != null && cat.service_count > 0 ? (
-                  <span className="s2-home-svc-nav__pill-count">{cat.service_count}</span>
+                  <span className="s2-home-svc-cat-tile__count">{cat.service_count} services</span>
                 ) : null}
               </button>
             )
           })}
         </div>
-        <p className="s2-home-svc-nav__hint">
-          Showing highlights in{' '}
-          <strong>{categoryNameMap[activeCategory] || 'this category'}</strong>
-          {' · '}
-          <Link to={`/services${activeCategory ? `/${activeCategory}` : ''}`}>Open full category</Link>
-        </p>
       </CmsElement>
 
       <CmsElement pageId="home" sectionKey="home_services" elementId="service_card">
@@ -101,6 +130,7 @@ export function HomeServicesShowcase({
               key={`${activeCategory}-${fadeKey}`}
               className="s2-svc-grid s2-home-svc-grid s2-home-svc-panel--fade-in"
               role="tabpanel"
+              aria-label={`Services in ${activeName}`}
               style={{
                 ...(cols ? { gridTemplateColumns: `repeat(${cols}, 1fr)` } : {}),
                 ...(settings.css_svc_gap ? { gap: settings.css_svc_gap } : {}),
@@ -111,8 +141,10 @@ export function HomeServicesShowcase({
                 if (!svc) {
                   return <div key={`empty-${n}`} className="s2-home-svc-card s2-home-svc-card--placeholder" aria-hidden />
                 }
-                const fallbackImgs = [IMAGES.property, IMAGES.housekeeping, IMAGES.tenancy, IMAGES.rent]
-                const img = svc.image_url || (svc as Service & { img?: string }).img || fallbackImgs[i % 4]
+                const img =
+                  svc.image_url ||
+                  (svc as Service & { img?: string }).img ||
+                  getServiceImage(svc.slug || activeCategory)
                 const desc = (svc.short_desc || '').slice(0, 110) + ((svc.short_desc || '').length > 110 ? '…' : '')
                 return (
                   <CmsElement
@@ -124,7 +156,7 @@ export function HomeServicesShowcase({
                     style={settings.css_svc_card_bg ? { background: settings.css_svc_card_bg } : undefined}
                   >
                     <CmsElement pageId="home" sectionKey="home_services" elementId={`service_${n}_media`} className="s2-home-svc-card__media">
-                      <img src={img} alt={svc.name} loading="lazy" />
+                      <img src={img} alt="" loading="lazy" />
                     </CmsElement>
                     <div className="s2-home-svc-card__body">
                       <CmsElement pageId="home" sectionKey="home_services" elementId={`service_${n}_title`} as="h3" className="s2-home-svc-card__title">
