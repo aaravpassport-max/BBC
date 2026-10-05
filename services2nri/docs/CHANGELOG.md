@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.61] — 2026-10-05 — Cloud Agent
+
+- **Design System Content:** Every homepage and public-page section has in-band controls — list editors (FAQ, press, partners, awards, HIW steps), registry previews (testimonials, pricing, blog, services, cities), service-page bands, marquee, and legal/footer panels. Removed generic “no text fields” dead-end message.
+
+---
+
 ## [4.7.60] — 2026-10-05 — Cloud Agent
 
 - **Design builder layout:** Removed embedded live preview under sections. Section bands use **full admin page scroll** (no fixed-height inner scroll panel), matching reference homepage builder UX.

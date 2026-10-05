@@ -32,7 +32,12 @@ import { WidthLayoutPanel, type WidthLayoutFocus } from './width-layout-panel'
 import { PageTypeWidthStudio } from './page-type-width-studio'
 import { DesignSectionManager } from './design-section-manager'
 import { SectionDesignVisualPanel } from './section-design-visual-panel'
-import { SectionContentRichPanel, richPanelExcludes, richPanelSaveKeys } from './section-content-rich-panel'
+import {
+  SectionContentRichPanel,
+  richPanelExcludes,
+  richPanelSaveKeys,
+  resolveContentPanel,
+} from './section-content-rich-panel'
 import {
   DesignColorSwatchGrid,
   DesignPremiumGroup,
@@ -176,23 +181,20 @@ function SectionContentPanel({
   const fields = section.isPageScope
     ? page.pageContentFields || []
     : section.contentFields || []
-  const showRichPanel = Boolean(bandLayout && section.contentPanel)
-  const visibleFields = fields.filter((f) => !richPanelExcludes(section.contentPanel).has(f.key))
+  const contentPanel = section.contentPanel ?? resolveContentPanel(section)
+  const showRichPanel = Boolean(bandLayout && contentPanel)
+  const visibleFields = fields.filter((f) => !richPanelExcludes(contentPanel).has(f.key))
+  const sectionForRich = contentPanel ? { ...section, contentPanel } : section
 
-  if (!showRichPanel && visibleFields.length === 0) {
+  if (!showRichPanel && visibleFields.length === 0 && !bandLayout) {
     return (
-      <div className={`s2-design-builder-panel s2-ds-content-studio${bandLayout ? ' s2-band-content-studio' : ''}`}>
+      <div className="s2-design-builder-panel s2-ds-content-studio">
+        {section.contentNote && <p className="s2-ds-premium-card__hint">{section.contentNote}</p>}
         {section.adminLink && (
-          <p style={{ margin: '0 0 12px' }}>
-            <a href={section.adminLink.path} className="s2-btn s2-btn--outline s2-btn--sm">
-              {section.adminLink.label} →
-            </a>
-          </p>
+          <a href={section.adminLink.path} className="s2-btn s2-btn--outline s2-btn--sm">
+            {section.adminLink.label} →
+          </a>
         )}
-        <p style={{ color: '#64748B', fontSize: 14, lineHeight: 1.6, margin: 0 }}>
-          {section.contentNote ||
-            'No direct text fields for this block yet. Use linked admin screens (FAQs, Testimonials, Service Registry) or Homepage Builder for copy.'}
-        </p>
       </div>
     )
   }
@@ -210,7 +212,7 @@ function SectionContentPanel({
           {section.contentNote}
         </p>
       )}
-      {showRichPanel && <SectionContentRichPanel section={section} settings={settings} onChange={onChange} />}
+      {showRichPanel && <SectionContentRichPanel section={sectionForRich} settings={settings} onChange={onChange} />}
       <div className="s2-ds-content-fields">
         <div className={bandLayout ? 's2-band-content-fields' : undefined} style={bandLayout ? undefined : { display: 'grid', gap: 4, maxWidth: 720 }}>
           {visibleFields.map((f) => {
@@ -1084,10 +1086,11 @@ export function DesignSystemBuilder({
 
   const saveSectionContent = async (section: SectionCatalogDef) => {
     const fields = section.isPageScope ? page.pageContentFields : section.contentFields
-    const exclude = richPanelExcludes(section.contentPanel)
+    const panel = section.contentPanel ?? resolveContentPanel(section)
+    const exclude = richPanelExcludes(panel)
     const keys = [
       ...(fields || []).map((f) => f.key).filter((k) => !exclude.has(k)),
-      ...richPanelSaveKeys(section.contentPanel),
+      ...richPanelSaveKeys(panel),
     ]
     if (keys.length === 0) return
     setContentSavingId(section.id)

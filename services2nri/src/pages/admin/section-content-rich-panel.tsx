@@ -5,7 +5,17 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '@/lib/api'
 import type { SectionCatalogDef } from '@/lib/design-system-catalog'
-import { parseWhyChooseCards, type WhyChooseCard } from '@/lib/home-content-settings'
+import {
+  parseAwardBadges,
+  parseHomeFaqPairs,
+  parseLogoChips,
+  parseWhyChooseCards,
+  type AwardBadge,
+  type FaqPair,
+  type LogoChip,
+  type WhyChooseCard,
+} from '@/lib/home-content-settings'
+import type { SectionContentPanelId } from '@/lib/design-system-catalog'
 import { readAdminSetting } from '@/lib/settings-admin'
 
 function parseBannerUrls(raw: string): string[] {
@@ -409,19 +419,32 @@ function CitiesRegistryPreview() {
   )
 }
 
+const HIW_STEP_KEYS = [1, 2, 3, 4, 5, 6].flatMap((n) => [`hiw_step${n}_title`, `hiw_step${n}_desc`])
+
 const RICH_FIELD_EXCLUDE: Record<string, string[]> = {
   hero_slides: ['hero_banners'],
   why_choose: ['home_why_choose_json'],
   stats_cards: ['stat_1_number', 'stat_1_label', 'stat_2_number', 'stat_2_label', 'stat_3_number', 'stat_3_label', 'stat_4_number', 'stat_4_label'],
+  press_logos: ['home_press_json'],
+  partners_list: ['home_partners_json'],
+  awards_list: ['home_awards_json'],
+  faq_items: ['home_faq_json'],
+  hiw_steps: ['hiw_page_steps_json', ...HIW_STEP_KEYS],
+  marquee_band: ['marquee_show', 'marquee_text', 'marquee_speed', 'marquee_bg', 'marquee_color', 'marquee_pause_hover'],
 }
 
-export function richPanelExcludes(contentPanel?: SectionCatalogDef['contentPanel']): Set<string> {
+export function resolveContentPanel(section: SectionCatalogDef): SectionContentPanelId | undefined {
+  if (section.contentPanel) return section.contentPanel
+  if ((section.contentFields?.length ?? 0) > 0) return undefined
+  return section.adminLink ? 'registry_hub' : 'registry_hub'
+}
+
+export function richPanelExcludes(contentPanel?: SectionContentPanelId): Set<string> {
   if (!contentPanel) return new Set()
   return new Set(RICH_FIELD_EXCLUDE[contentPanel] || [])
 }
 
-/** Settings keys owned by the rich content panel (must be included on save). */
-export function richPanelSaveKeys(contentPanel?: SectionCatalogDef['contentPanel']): string[] {
+export function richPanelSaveKeys(contentPanel?: SectionContentPanelId): string[] {
   switch (contentPanel) {
     case 'hero_slides':
       return ['hero_banners']
@@ -429,9 +452,532 @@ export function richPanelSaveKeys(contentPanel?: SectionCatalogDef['contentPanel
       return ['home_why_choose_json']
     case 'stats_cards':
       return [1, 2, 3, 4].flatMap((n) => [`stat_${n}_number`, `stat_${n}_label`])
+    case 'press_logos':
+      return ['home_press_json']
+    case 'partners_list':
+      return ['home_partners_json']
+    case 'awards_list':
+      return ['home_awards_json']
+    case 'faq_items':
+      return ['home_faq_json']
+    case 'hiw_steps':
+      return ['hiw_page_steps_json', ...HIW_STEP_KEYS]
+    case 'marquee_band':
+      return ['marquee_show', 'marquee_text', 'marquee_speed', 'marquee_bg', 'marquee_color', 'marquee_pause_hover']
     default:
       return []
   }
+}
+
+function FaqItemsEditor({
+  settings,
+  onChange,
+}: {
+  settings: Record<string, string>
+  onChange: (key: string, value: string) => void
+}) {
+  const [items, setItems] = useState<FaqPair[]>(() => parseHomeFaqPairs(readAdminSetting(settings, 'home_faq_json'), []))
+  useEffect(() => {
+    setItems(parseHomeFaqPairs(readAdminSetting(settings, 'home_faq_json'), []))
+  }, [settings.home_faq_json])
+
+  const sync = (next: FaqPair[]) => {
+    setItems(next)
+    onChange('home_faq_json', JSON.stringify(next, null, 2))
+  }
+  const list = items.length ? items : [{ q: '', a: '' }]
+
+  return (
+    <section className="s2-band-design-group">
+      <h4 className="s2-band-design-group__title">FAQ items</h4>
+      <p className="s2-band-design-group__lead">Shown on the homepage when the live FAQ database is empty. Database entries take priority on the FAQ page.</p>
+      <FaqRegistryPreview compact />
+      <div className="s2-band-list">
+        {list.map((item, i) => (
+          <ListItemShell
+            key={i}
+            index={i}
+            title={item.q || `Question ${i + 1}`}
+            canRemove={list.length > 1}
+            onRemove={() => sync(list.filter((_, j) => j !== i))}
+            onMoveUp={
+              i > 0
+                ? () => {
+                    const n = [...list]
+                    ;[n[i - 1], n[i]] = [n[i], n[i - 1]]
+                    sync(n)
+                  }
+                : undefined
+            }
+            onMoveDown={
+              i < list.length - 1
+                ? () => {
+                    const n = [...list]
+                    ;[n[i], n[i + 1]] = [n[i + 1], n[i]]
+                    sync(n)
+                  }
+                : undefined
+            }
+          >
+            <label className="s2-band-field">
+              <span className="s2-band-field__label">Question</span>
+              <input className="s2-band-input" value={item.q} onChange={(e) => {
+                const n = [...list]
+                n[i] = { ...n[i], q: e.target.value }
+                sync(n)
+              }} />
+            </label>
+            <label className="s2-band-field">
+              <span className="s2-band-field__label">Answer</span>
+              <textarea className="s2-band-input" rows={3} value={item.a} onChange={(e) => {
+                const n = [...list]
+                n[i] = { ...n[i], a: e.target.value }
+                sync(n)
+              }} />
+            </label>
+          </ListItemShell>
+        ))}
+      </div>
+      {list.length < 20 && (
+        <button type="button" className="s2-band-add-btn" onClick={() => sync([...list, { q: '', a: '' }])}>
+          + Add FAQ
+        </button>
+      )}
+    </section>
+  )
+}
+
+function LogoChipsEditor({
+  jsonKey,
+  title,
+  settings,
+  onChange,
+  stringListFallback,
+}: {
+  jsonKey: string
+  title: string
+  settings: Record<string, string>
+  onChange: (key: string, value: string) => void
+  stringListFallback?: boolean
+}) {
+  const raw = readAdminSetting(settings, jsonKey)
+  const [chips, setChips] = useState<LogoChip[]>(() => parseLogoChips(raw, []))
+  useEffect(() => {
+    setChips(parseLogoChips(readAdminSetting(settings, jsonKey), []))
+  }, [settings, jsonKey])
+
+  const sync = (next: LogoChip[]) => {
+    setChips(next)
+    onChange(jsonKey, JSON.stringify(next, null, 2))
+  }
+  const list = chips.length ? chips : [{ name: '' }]
+
+  return (
+    <section className="s2-band-design-group">
+      <h4 className="s2-band-design-group__title">{title}</h4>
+      <div className="s2-band-list">
+        {list.map((chip, i) => (
+          <ListItemShell
+            key={i}
+            index={i}
+            title={chip.name || `Item ${i + 1}`}
+            canRemove={list.length > 1}
+            onRemove={() => sync(list.filter((_, j) => j !== i))}
+          >
+            <div className="s2-band-field-grid s2-band-field-grid--cols-2">
+              <label className="s2-band-field">
+                <span className="s2-band-field__label">Name</span>
+                <input
+                  className="s2-band-input"
+                  value={chip.name}
+                  onChange={(e) => {
+                    const n = [...list]
+                    n[i] = { ...n[i], name: e.target.value }
+                    sync(n)
+                  }}
+                />
+              </label>
+              {!stringListFallback && (
+                <label className="s2-band-field">
+                  <span className="s2-band-field__label">Brand slug (optional)</span>
+                  <input
+                    className="s2-band-input"
+                    value={chip.brand ?? ''}
+                    onChange={(e) => {
+                      const n = [...list]
+                      n[i] = { ...n[i], brand: e.target.value || undefined }
+                      sync(n)
+                    }}
+                  />
+                </label>
+              )}
+            </div>
+          </ListItemShell>
+        ))}
+      </div>
+      <button type="button" className="s2-band-add-btn" onClick={() => sync([...list, { name: '' }])}>
+        + Add item
+      </button>
+    </section>
+  )
+}
+
+function AwardsEditor({ settings, onChange }: { settings: Record<string, string>; onChange: (key: string, value: string) => void }) {
+  const [badges, setBadges] = useState<AwardBadge[]>(() => parseAwardBadges(readAdminSetting(settings, 'home_awards_json'), []))
+  useEffect(() => {
+    setBadges(parseAwardBadges(readAdminSetting(settings, 'home_awards_json'), []))
+  }, [settings.home_awards_json])
+
+  const sync = (next: AwardBadge[]) => {
+    setBadges(next)
+    onChange('home_awards_json', JSON.stringify(next, null, 2))
+  }
+  const list = badges.length ? badges : [{ emoji: '🏆', text: '', variant: 'orange' as const }]
+
+  return (
+    <section className="s2-band-design-group">
+      <h4 className="s2-band-design-group__title">Award badges</h4>
+      <div className="s2-band-list">
+        {list.map((b, i) => (
+          <ListItemShell key={i} index={i} title={b.text || `Badge ${i + 1}`} canRemove={list.length > 1} onRemove={() => sync(list.filter((_, j) => j !== i))}>
+            <div className="s2-band-field-grid s2-band-field-grid--cols-3">
+              <label className="s2-band-field">
+                <span className="s2-band-field__label">Emoji</span>
+                <input className="s2-band-input" value={b.emoji} onChange={(e) => {
+                  const n = [...list]
+                  n[i] = { ...n[i], emoji: e.target.value }
+                  sync(n)
+                }} />
+              </label>
+              <label className="s2-band-field">
+                <span className="s2-band-field__label">Label</span>
+                <input className="s2-band-input" value={b.text} onChange={(e) => {
+                  const n = [...list]
+                  n[i] = { ...n[i], text: e.target.value }
+                  sync(n)
+                }} />
+              </label>
+              <label className="s2-band-field s2-band-field--select">
+                <span className="s2-band-field__label">Style</span>
+                <select
+                  className="s2-band-select"
+                  value={b.variant ?? 'orange'}
+                  onChange={(e) => {
+                    const n = [...list]
+                    n[i] = { ...n[i], variant: e.target.value === 'primary' ? 'primary' : 'orange' }
+                    sync(n)
+                  }}
+                >
+                  <option value="orange">Orange</option>
+                  <option value="primary">Primary</option>
+                </select>
+              </label>
+            </div>
+          </ListItemShell>
+        ))}
+      </div>
+      <button type="button" className="s2-band-add-btn" onClick={() => sync([...list, { emoji: '🏆', text: '', variant: 'orange' }])}>
+        + Add badge
+      </button>
+    </section>
+  )
+}
+
+function HiWStepsEditor({
+  section,
+  settings,
+  onChange,
+}: {
+  section: SectionCatalogDef
+  settings: Record<string, string>
+  onChange: (key: string, value: string) => void
+}) {
+  const useJson = section.contentFields?.some((f) => f.key === 'hiw_page_steps_json')
+  if (useJson) {
+    return (
+      <section className="s2-band-design-group">
+        <h4 className="s2-band-design-group__title">Process steps</h4>
+        <label className="s2-band-field">
+          <span className="s2-band-field__label">Steps JSON</span>
+          <textarea
+            className="s2-band-input"
+            rows={12}
+            value={readAdminSetting(settings, 'hiw_page_steps_json')}
+            onChange={(e) => onChange('hiw_page_steps_json', e.target.value)}
+            placeholder='[{"n":1,"icon":"🔍","t":"Title","d":"Description"}]'
+          />
+        </label>
+      </section>
+    )
+  }
+
+  return (
+    <section className="s2-band-design-group">
+      <h4 className="s2-band-design-group__title">How it works — steps</h4>
+      <div className="s2-band-list">
+        {[1, 2, 3, 4, 5, 6].map((n, idx) => (
+          <ListItemShell key={n} index={idx} title={readAdminSetting(settings, `hiw_step${n}_title`) || `Step ${n}`}>
+            <label className="s2-band-field">
+              <span className="s2-band-field__label">Title</span>
+              <input
+                className="s2-band-input"
+                value={readAdminSetting(settings, `hiw_step${n}_title`)}
+                onChange={(e) => onChange(`hiw_step${n}_title`, e.target.value)}
+              />
+            </label>
+            <label className="s2-band-field">
+              <span className="s2-band-field__label">Description</span>
+              <textarea
+                className="s2-band-input"
+                rows={2}
+                value={readAdminSetting(settings, `hiw_step${n}_desc`)}
+                onChange={(e) => onChange(`hiw_step${n}_desc`, e.target.value)}
+              />
+            </label>
+          </ListItemShell>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function MarqueeBandEditor({
+  settings,
+  onChange,
+}: {
+  settings: Record<string, string>
+  onChange: (key: string, value: string) => void
+}) {
+  const fields: { key: string; label: string; type?: 'textarea' }[] = [
+    { key: 'marquee_show', label: 'Show marquee (1 = yes, 0 = no)' },
+    { key: 'marquee_text', label: 'Marquee message', type: 'textarea' },
+    { key: 'marquee_speed', label: 'Animation duration (seconds)' },
+    { key: 'marquee_bg', label: 'Background colour' },
+    { key: 'marquee_color', label: 'Text colour' },
+    { key: 'marquee_pause_hover', label: 'Pause on hover (1/0)' },
+  ]
+  return (
+    <section className="s2-band-design-group">
+      <h4 className="s2-band-design-group__title">Announcement marquee</h4>
+      <div className="s2-band-content-fields">
+        {fields.map((f) => (
+          <label key={f.key} className="s2-band-field">
+            <span className="s2-band-field__label">{f.label}</span>
+            {f.type === 'textarea' ? (
+              <textarea className="s2-band-input" rows={2} value={readAdminSetting(settings, f.key)} onChange={(e) => onChange(f.key, e.target.value)} />
+            ) : (
+              <input className="s2-band-input" value={readAdminSetting(settings, f.key)} onChange={(e) => onChange(f.key, e.target.value)} />
+            )}
+          </label>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function ServicePageBandPanel({ section }: { section: SectionCatalogDef }) {
+  const copy: Record<string, string> = {
+    hero: 'Hero copy, imagery, and CTAs are edited per service in the Page Builder.',
+    wizard: 'Booking form fields and steps are configured in the service Form Builder.',
+    features: 'Why-choose cards and proof points live on each service page.',
+    faq: 'Service-specific FAQs are managed inside the service record.',
+    pricing: 'Quote rules and pricing copy are part of the service definition.',
+    cta: 'Bottom call-to-action bands are part of the service page layout.',
+  }
+  return (
+    <section className="s2-band-design-group">
+      <div className="s2-band-registry-head">
+        <div>
+          <h4 className="s2-band-design-group__title">{section.label}</h4>
+          <p className="s2-band-design-group__lead">{copy[section.sectionKey] || 'This band is rendered from the active service page template.'}</p>
+        </div>
+        <Link to={section.adminLink?.path || '/admin/services'} className="s2-btn s2-btn--outline s2-btn--sm">
+          {(section.adminLink?.label || 'Service Registry')} →
+        </Link>
+      </div>
+      <ServicesRegistryPreview />
+    </section>
+  )
+}
+
+function FaqRegistryPreview({ compact }: { compact?: boolean }) {
+  const [loading, setLoading] = useState(true)
+  const [rows, setRows] = useState<Array<{ id: number; question: string }>>([])
+  useEffect(() => {
+    api
+      .get<{ faqs: Array<Record<string, unknown>> }>('admin/faqs')
+      .then((d) => setRows((d.faqs || []).slice(0, compact ? 4 : 8).map((f) => ({ id: Number(f.id), question: String(f.question || '') }))))
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false))
+  }, [compact])
+  if (compact) {
+    return rows.length ? (
+      <p className="s2-band-field__hint s2-band-field__hint--block">Live database: {rows.length}+ entries (first: “{rows[0]?.question.slice(0, 48)}…”).</p>
+    ) : null
+  }
+  return (
+    <RegistryPreview title="FAQ database" lead="Published FAQs from the manager appear on the FAQ page automatically." adminPath="/admin/faqs" adminLabel="FAQ Manager" loading={loading} empty={rows.length === 0}>
+      <ul className="s2-band-simple-list">
+        {rows.map((f) => (
+          <li key={f.id}>{f.question}</li>
+        ))}
+      </ul>
+    </RegistryPreview>
+  )
+}
+
+function TestimonialsRegistryPreview() {
+  const [loading, setLoading] = useState(true)
+  const [rows, setRows] = useState<Array<{ id: number; name: string; text: string }>>([])
+  useEffect(() => {
+    api
+      .get<{ testimonials: Array<Record<string, unknown>> }>('admin/testimonials')
+      .then((d) =>
+        setRows(
+          (d.testimonials || []).slice(0, 6).map((t) => ({
+            id: Number(t.id),
+            name: String(t.name || ''),
+            text: String(t.text || t.quote || '').slice(0, 120),
+          })),
+        ),
+      )
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false))
+  }, [])
+  return (
+    <RegistryPreview title="Testimonial entries" lead="Quotes shown in the slider come from the testimonial manager." adminPath="/admin/testimonials" adminLabel="Testimonials" loading={loading} empty={rows.length === 0}>
+      <div className="s2-band-list">
+        {rows.map((t, i) => (
+          <div key={t.id} className="s2-band-list-item">
+            <div className="s2-band-list-item__head">
+              <span className="s2-band-list-item__index">{i + 1}</span>
+              <span className="s2-band-list-item__title">{t.name}</span>
+            </div>
+            <div className="s2-band-list-item__body">
+              <p className="s2-band-field__hint">{t.text}{t.text.length >= 120 ? '…' : ''}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </RegistryPreview>
+  )
+}
+
+function PricingPlansPreview() {
+  const [loading, setLoading] = useState(true)
+  const [rows, setRows] = useState<Array<{ id: number; name: string; price: string }>>([])
+  useEffect(() => {
+    api
+      .get<{ plans: Array<Record<string, unknown>> }>('admin/pricing-plans')
+      .then((d) => setRows((d.plans || []).map((p) => ({ id: Number(p.id), name: String(p.name || ''), price: String(p.price || '') }))))
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false))
+  }, [])
+  return (
+    <RegistryPreview title="Pricing plans" lead="Plan cards and comparison rows are loaded from Pricing Plans." adminPath="/admin/pricing" adminLabel="Pricing Plans" loading={loading} empty={rows.length === 0}>
+      <div className="s2-band-registry-grid">
+        {rows.map((p) => (
+          <div key={p.id} className="s2-band-registry-card">
+            <div className="s2-band-registry-card__name">{p.name}</div>
+            <div className="s2-band-field__hint">{p.price}</div>
+          </div>
+        ))}
+      </div>
+    </RegistryPreview>
+  )
+}
+
+function BlogPostsPreview() {
+  const [loading, setLoading] = useState(true)
+  const [rows, setRows] = useState<Array<{ id: number; title: string }>>([])
+  useEffect(() => {
+    api
+      .get<{ posts: Array<Record<string, unknown>> }>('admin/blog')
+      .then((d) => setRows((d.posts || []).slice(0, 8).map((p) => ({ id: Number(p.id), title: String(p.title || '') }))))
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false))
+  }, [])
+  return (
+    <RegistryPreview title="Blog articles" lead="The feed lists published posts from Blog Posts admin." adminPath="/admin/blog" adminLabel="Blog Posts" loading={loading} empty={rows.length === 0}>
+      <ul className="s2-band-simple-list">
+        {rows.map((p) => (
+          <li key={p.id}>{p.title}</li>
+        ))}
+      </ul>
+    </RegistryPreview>
+  )
+}
+
+function CategoriesRegistryPreview() {
+  const [loading, setLoading] = useState(true)
+  const [rows, setRows] = useState<Array<{ slug: string; name: string; count: number }>>([])
+  useEffect(() => {
+    Promise.all([
+      api.get<{ categories: Array<Record<string, unknown>> }>('admin/categories'),
+      api.get<{ services: Array<Record<string, unknown>> }>('admin/services?per_page=200'),
+    ])
+      .then(([c, s]) => {
+        const services = s.services || []
+        setRows(
+          (c.categories || []).map((cat) => {
+            const slug = String(cat.slug || '')
+            const count = services.filter((x) => String(x.category_slug || x.category) === slug).length
+            return { slug, name: String(cat.name || ''), count }
+          }),
+        )
+      })
+      .catch(() => setRows([]))
+      .finally(() => setLoading(false))
+  }, [])
+  return (
+    <RegistryPreview title="Category directory" lead="Each category tab and its services come from Categories + Service Registry." adminPath="/admin/categories" adminLabel="Categories" loading={loading} empty={rows.length === 0}>
+      <div className="s2-band-registry-grid">
+        {rows.map((c) => (
+          <div key={c.slug} className="s2-band-registry-card">
+            <div className="s2-band-registry-card__name">{c.name}</div>
+            <div className="s2-band-field__hint">{c.count} services</div>
+          </div>
+        ))}
+      </div>
+    </RegistryPreview>
+  )
+}
+
+function ChromeFooterPanel() {
+  return (
+    <section className="s2-band-design-group">
+      <h4 className="s2-band-design-group__title">Site footer</h4>
+      <p className="s2-band-design-group__lead">Copyright and brand lines below. Navigation columns inherit from Site Foundation → Header &amp; footer.</p>
+    </section>
+  )
+}
+
+function LegalDocumentPanel() {
+  return (
+    <section className="s2-band-design-group">
+      <h4 className="s2-band-design-group__title">Legal document</h4>
+      <p className="s2-band-design-group__lead">
+        Body copy for Terms and Privacy ships with the theme. Use CSS override below for typography tweaks, or edit the React source when you need full legal rewrites.
+      </p>
+    </section>
+  )
+}
+
+function RegistryHubPanel({ section }: { section: SectionCatalogDef }) {
+  const path = section.adminLink?.path || '/admin/services'
+  const label = section.adminLink?.label || 'Open admin screen'
+  if (path.includes('faqs')) return <FaqRegistryPreview />
+  if (path.includes('testimonials')) return <TestimonialsRegistryPreview />
+  if (path.includes('pricing')) return <PricingPlansPreview />
+  if (path.includes('blog')) return <BlogPostsPreview />
+  if (path.includes('cities')) return <CitiesRegistryPreview />
+  if (path.includes('categories')) return <CategoriesRegistryPreview />
+  if (path.includes('services')) return <ServicesRegistryPreview />
+  return (
+    <RegistryPreview title={section.label} lead="Manage entries on the linked admin screen." adminPath={path} adminLabel={label} loading={false} empty={false}>
+      <p className="s2-band-field__hint">Use the button above to add or edit live content for this band.</p>
+    </RegistryPreview>
+  )
 }
 
 export function SectionContentRichPanel({
@@ -443,7 +989,8 @@ export function SectionContentRichPanel({
   settings: Record<string, string>
   onChange: (key: string, value: string) => void
 }) {
-  switch (section.contentPanel) {
+  const panel = section.contentPanel ?? resolveContentPanel(section)
+  switch (panel) {
     case 'hero_slides':
       return <HeroSlidesEditor settings={settings} onChange={onChange} />
     case 'why_choose':
@@ -453,7 +1000,38 @@ export function SectionContentRichPanel({
     case 'services_registry':
       return <ServicesRegistryPreview />
     case 'cities_registry':
+    case 'locations_cities':
       return <CitiesRegistryPreview />
+    case 'testimonials_registry':
+      return <TestimonialsRegistryPreview />
+    case 'faq_items':
+      return <FaqItemsEditor settings={settings} onChange={onChange} />
+    case 'faq_database':
+      return <FaqRegistryPreview />
+    case 'press_logos':
+      return <LogoChipsEditor jsonKey="home_press_json" title="Press & media logos" settings={settings} onChange={onChange} />
+    case 'partners_list':
+      return <LogoChipsEditor jsonKey="home_partners_json" title="Partner names" settings={settings} onChange={onChange} stringListFallback />
+    case 'awards_list':
+      return <AwardsEditor settings={settings} onChange={onChange} />
+    case 'hiw_steps':
+      return <HiWStepsEditor section={section} settings={settings} onChange={onChange} />
+    case 'marquee_band':
+      return <MarqueeBandEditor settings={settings} onChange={onChange} />
+    case 'service_page_band':
+      return <ServicePageBandPanel section={section} />
+    case 'pricing_plans':
+      return <PricingPlansPreview />
+    case 'blog_posts':
+      return <BlogPostsPreview />
+    case 'category_catalog':
+      return <CategoriesRegistryPreview />
+    case 'chrome_footer':
+      return <ChromeFooterPanel />
+    case 'legal_document':
+      return <LegalDocumentPanel />
+    case 'registry_hub':
+      return <RegistryHubPanel section={section} />
     default:
       return null
   }

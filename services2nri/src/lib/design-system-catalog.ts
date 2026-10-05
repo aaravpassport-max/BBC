@@ -37,6 +37,22 @@ export type SectionContentPanelId =
   | 'stats_cards'
   | 'services_registry'
   | 'cities_registry'
+  | 'testimonials_registry'
+  | 'faq_items'
+  | 'faq_database'
+  | 'press_logos'
+  | 'partners_list'
+  | 'awards_list'
+  | 'hiw_steps'
+  | 'pricing_plans'
+  | 'blog_posts'
+  | 'category_catalog'
+  | 'marquee_band'
+  | 'service_page_band'
+  | 'locations_cities'
+  | 'chrome_footer'
+  | 'legal_document'
+  | 'registry_hub'
 
 export type SectionCatalogDef = {
   id: string
@@ -177,7 +193,6 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
       { key: 'css_svc_cols', label: 'Grid columns (desktop)', placeholder: '4' },
       { key: 'css_svc_gap', label: 'Grid gap', placeholder: '24px' },
     ],
-    contentNote: 'Service cards come from the Service Registry.',
     adminLink: { label: 'Service Registry', path: '/admin/services' },
   },
   {
@@ -242,6 +257,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
       { key: 'google_rating', label: 'Google rating display', placeholder: '4.9' },
       { key: 'google_review_count', label: 'Google review count', placeholder: '500+' },
     ],
+    contentPanel: 'testimonials_registry',
     adminLink: { label: 'Manage testimonial entries', path: '/admin/testimonials' },
     designSettingFields: [
       { key: 'css_testimonials_bg', label: 'Background', placeholder: '#ffffff' },
@@ -253,6 +269,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     label: 'How It Works',
     sectionKey: 'process',
     hideSettingKey: 'hide_section_how',
+    contentPanel: 'hiw_steps',
     contentFields: [
       { key: 'hiw_eyebrow', label: 'Eyebrow label', placeholder: 'Simple Process' },
       { key: 'hiw_title', label: 'Section heading', placeholder: 'How It Works' },
@@ -281,6 +298,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     label: 'As Featured In',
     sectionKey: 'press',
     hideSettingKey: 'hide_section_press',
+    contentPanel: 'press_logos',
     contentFields: [
       { key: 'home_press_label', label: 'Section label', placeholder: 'As Featured In' },
       {
@@ -298,6 +316,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     label: 'Partners Strip',
     sectionKey: 'partners',
     hideSettingKey: 'hide_section_partners',
+    contentPanel: 'partners_list',
     contentFields: [
       { key: 'home_partners_label', label: 'Section label', placeholder: 'Our Partners' },
       {
@@ -335,6 +354,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     label: 'Awards',
     sectionKey: 'awards',
     hideSettingKey: 'hide_section_awards',
+    contentPanel: 'awards_list',
     contentFields: [
       { key: 'home_awards_label', label: 'Section label', placeholder: 'Awards We Have Received' },
       {
@@ -352,6 +372,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     label: 'FAQ',
     sectionKey: 'faq',
     hideSettingKey: 'hide_section_faq',
+    contentPanel: 'faq_items',
     contentFields: [
       { key: 'faq_section_eyebrow', label: 'Eyebrow label', placeholder: 'FAQ' },
       { key: 'faq_section_title', label: 'Section heading', placeholder: "Let's Clear All The Doubts!" },
@@ -402,6 +423,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     label: 'Locations Row',
     sectionKey: 'locations',
     hideSettingKey: 'hide_section_locations',
+    contentPanel: 'locations_cities',
     contentFields: [
       { key: 'home_locations_label', label: 'Section label', placeholder: 'Locations' },
     ],
@@ -411,6 +433,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     id: 'footer',
     label: 'Footer',
     sectionKey: 'footer',
+    contentPanel: 'chrome_footer',
     contentFields: [
       { key: 'footer_copyright', label: 'Copyright line' },
       { key: 'platform_name', label: 'Brand name (footer)' },
@@ -459,19 +482,85 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
       break
     case 'category':
       sections = [
-        { id: 'hero', label: 'Category header', sectionKey: 'hero' },
-        { id: 'directory', label: 'Service grid', sectionKey: 'directory' },
+        {
+          id: 'hero',
+          label: 'Category header',
+          sectionKey: 'hero',
+          contentFields: [
+            { key: 'services_page_title', label: 'Fallback title', placeholder: 'Services' },
+            { key: 'services_page_subtitle', label: 'Fallback subtitle', type: 'textarea' },
+          ],
+        },
+        {
+          id: 'directory',
+          label: 'Service grid',
+          sectionKey: 'directory',
+          contentPanel: 'category_catalog',
+          contentFields: [
+            { key: 'services_subtitle', label: 'Directory intro line' },
+            { key: 'services_show_search', label: 'Show search (1/0)', placeholder: '1' },
+          ],
+          adminLink: { label: 'Service Registry', path: '/admin/services' },
+        },
       ]
       break
     case 'service':
       sections = [
-        { id: 'marquee', label: 'Announcement bar', sectionKey: 'marquee' },
-        { id: 'hero', label: 'Service hero', sectionKey: 'hero', adminLink: { label: 'Edit service hero', path: '/admin/services' } },
-        { id: 'wizard', label: 'Booking wizard', sectionKey: 'wizard' },
-        { id: 'features', label: 'Why choose block', sectionKey: 'features' },
-        { id: 'faq', label: 'FAQ block', sectionKey: 'faq', adminLink: { label: 'Edit service FAQs', path: '/admin/services' } },
-        { id: 'pricing', label: 'Pricing / charges', sectionKey: 'pricing' },
-        { id: 'cta', label: 'Bottom CTA band', sectionKey: 'cta' },
+        {
+          id: 'marquee',
+          label: 'Announcement bar',
+          sectionKey: 'marquee',
+          contentPanel: 'marquee_band',
+          contentFields: [
+            { key: 'marquee_show', label: 'Show marquee (1/0)', placeholder: '1' },
+            { key: 'marquee_text', label: 'Marquee text', type: 'textarea' },
+            { key: 'marquee_speed', label: 'Scroll speed (seconds)', placeholder: '40' },
+            { key: 'marquee_bg', label: 'Background colour', placeholder: '#1E2D40' },
+            { key: 'marquee_color', label: 'Text colour', placeholder: '#ffffff' },
+          ],
+        },
+        {
+          id: 'hero',
+          label: 'Service hero',
+          sectionKey: 'hero',
+          contentPanel: 'service_page_band',
+          adminLink: { label: 'Edit in Service Registry', path: '/admin/services' },
+        },
+        {
+          id: 'wizard',
+          label: 'Booking wizard',
+          sectionKey: 'wizard',
+          contentPanel: 'service_page_band',
+          adminLink: { label: 'Form builder', path: '/admin/services' },
+        },
+        {
+          id: 'features',
+          label: 'Why choose block',
+          sectionKey: 'features',
+          contentPanel: 'service_page_band',
+          adminLink: { label: 'Service page builder', path: '/admin/services' },
+        },
+        {
+          id: 'faq',
+          label: 'FAQ block',
+          sectionKey: 'faq',
+          contentPanel: 'service_page_band',
+          adminLink: { label: 'Edit service FAQs', path: '/admin/services' },
+        },
+        {
+          id: 'pricing',
+          label: 'Pricing / charges',
+          sectionKey: 'pricing',
+          contentPanel: 'service_page_band',
+          adminLink: { label: 'Service pricing fields', path: '/admin/services' },
+        },
+        {
+          id: 'cta',
+          label: 'Bottom CTA band',
+          sectionKey: 'cta',
+          contentPanel: 'service_page_band',
+          adminLink: { label: 'Service page builder', path: '/admin/services' },
+        },
       ]
       break
     case 'contact':
@@ -514,6 +603,7 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           id: 'faq',
           label: 'FAQ accordion',
           sectionKey: 'faq',
+          contentPanel: 'faq_database',
           contentFields: [
             { key: 'faq_section_title', label: 'Section heading (fallback)' },
           ],
@@ -532,8 +622,21 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
             { key: 'pricing_page_subtitle', label: 'Hero subtitle', type: 'textarea' },
           ],
         },
-        { id: 'pricing', label: 'Plans table', sectionKey: 'pricing', adminLink: { label: 'Manage plans', path: '/admin/pricing' } },
-        { id: 'compare', label: 'Comparison table', sectionKey: 'compare' },
+        {
+          id: 'pricing',
+          label: 'Plans table',
+          sectionKey: 'pricing',
+          contentPanel: 'pricing_plans',
+          adminLink: { label: 'Manage plans', path: '/admin/pricing' },
+        },
+        {
+          id: 'compare',
+          label: 'Comparison table',
+          sectionKey: 'compare',
+          contentPanel: 'pricing_plans',
+          contentFields: [{ key: 'pricing_page_subtitle', label: 'Comparison intro', type: 'textarea' }],
+          adminLink: { label: 'Manage plans', path: '/admin/pricing' },
+        },
       ]
       break
     case 'about':
@@ -602,6 +705,7 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           id: 'process',
           label: 'Steps',
           sectionKey: 'process',
+          contentPanel: 'hiw_steps',
           contentFields: [
             { key: 'hiw_page_steps_json', label: 'Steps JSON', type: 'textarea', rows: 14, hint: '[{"n":1,"icon":"🔍","t":"Title","d":"Desc"}]' },
             { key: 'hiw_page_cta_title', label: 'Callout heading' },
@@ -611,18 +715,87 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
       ]
       break
     case 'blog':
-      sections = [{ id: 'hero', label: 'Blog header', sectionKey: 'hero' }, { id: 'feed', label: 'Article feed', sectionKey: 'feed' }]
+      sections = [
+        {
+          id: 'hero',
+          label: 'Blog header',
+          sectionKey: 'hero',
+          contentFields: [
+            { key: 'seo_title', label: 'Blog SEO title', placeholder: 'Blog & Insights' },
+            { key: 'seo_description', label: 'Blog intro', type: 'textarea' },
+          ],
+        },
+        {
+          id: 'feed',
+          label: 'Article feed',
+          sectionKey: 'feed',
+          contentPanel: 'blog_posts',
+          adminLink: { label: 'Blog posts', path: '/admin/blog' },
+        },
+      ]
       break
     case 'city':
-      sections = [{ id: 'hero', label: 'City hero', sectionKey: 'hero' }, { id: 'content', label: 'Local content', sectionKey: 'content' }]
+      sections = [
+        {
+          id: 'hero',
+          label: 'City hero',
+          sectionKey: 'hero',
+          contentPanel: 'cities_registry',
+          contentFields: [{ key: 'cities_section_title', label: 'Fallback hero title' }],
+          adminLink: { label: 'City Manager', path: '/admin/cities' },
+        },
+        {
+          id: 'content',
+          label: 'Local content',
+          sectionKey: 'content',
+          contentPanel: 'cities_registry',
+          adminLink: { label: 'City Manager', path: '/admin/cities' },
+        },
+      ]
       break
     case 'terms':
     case 'privacy':
-      sections = [{ id: 'intro', label: 'Legal header', sectionKey: 'intro' }, { id: 'content', label: 'Document body', sectionKey: 'content' }]
+      sections = [
+        {
+          id: 'intro',
+          label: 'Legal header',
+          sectionKey: 'intro',
+          contentFields: [
+            { key: 'seo_title', label: 'Page title (SEO)' },
+            { key: 'seo_description', label: 'Meta description', type: 'textarea' },
+          ],
+        },
+        {
+          id: 'content',
+          label: 'Document body',
+          sectionKey: 'content',
+          contentPanel: 'legal_document',
+          contentFields: [
+            { key: 'custom_css_global', label: 'Legal page CSS override', type: 'textarea', rows: 4 },
+          ],
+        },
+      ]
       break
     case 'visa':
     case 'country':
-      sections = [{ id: 'hero', label: 'Hub hero', sectionKey: 'hero' }, { id: 'content', label: 'Hub content', sectionKey: 'content' }]
+      sections = [
+        {
+          id: 'hero',
+          label: 'Hub hero',
+          sectionKey: 'hero',
+          contentFields: [
+            { key: 'platform_tagline', label: 'Hub eyebrow / tagline' },
+            { key: 'seo_title', label: 'Hub title (SEO)' },
+          ],
+        },
+        {
+          id: 'content',
+          label: 'Hub content',
+          sectionKey: 'content',
+          contentPanel: 'services_registry',
+          adminLink: { label: 'Service Registry', path: '/admin/services' },
+        },
+      ]
       break
     default:
       sections = [MARKETING_INTRO]
