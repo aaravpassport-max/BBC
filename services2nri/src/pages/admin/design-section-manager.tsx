@@ -50,6 +50,27 @@ export const SECTION_ICONS: Record<string, string> = {
 
 type SectionEditorTab = 'content' | 'design'
 
+function SectionRow({
+  sectionId,
+  isActive,
+  children,
+}: {
+  sectionId: string
+  isActive: boolean
+  children: React.ReactNode
+}) {
+  const rowRef = React.useRef<HTMLDivElement>(null)
+  React.useEffect(() => {
+    if (!isActive || !rowRef.current) return
+    rowRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }, [isActive, sectionId])
+  return (
+    <div ref={rowRef} className={`s2-ds-section-row${isActive ? ' is-editing' : ''}`}>
+      {children}
+    </div>
+  )
+}
+
 function isVisible(settings: Record<string, string>, section: SectionCatalogDef): boolean {
   if (!section.hideSettingKey) return true
   return readAdminSetting(settings, section.hideSettingKey) !== '1'
@@ -197,6 +218,7 @@ export function DesignSectionManager({
   onResetSection,
   resettingSectionId,
   orderAppliesOnLiveSite,
+  renderInlineEditor,
 }: {
   page: PageCatalogDef
   sections: SectionCatalogDef[]
@@ -215,6 +237,7 @@ export function DesignSectionManager({
   onResetSection?: (section: SectionCatalogDef) => void
   resettingSectionId?: string | null
   orderAppliesOnLiveSite?: boolean
+  renderInlineEditor?: (section: SectionCatalogDef) => React.ReactNode
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -271,60 +294,70 @@ export function DesignSectionManager({
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
           <SortableContext items={orderedIds} strategy={verticalListSortingStrategy}>
             <div className="s2-ds-section-manager__list">
-              {orderedSections.map((sec) => (
-                <SortableSectionCard
-                  key={sec.id}
-                  section={sec}
-                  isActive={activeSectionId === sec.id}
-                  isHidden={!isVisible(settings, sec)}
-                  onToggleVisibility={() => onVisibilityChange(sec, !isVisible(settings, sec))}
-                  onOpenTab={(tab) => onOpenSectionTab(sec.id, tab)}
-                  onSelect={() => onSelectSection(sec.id)}
-                  onReset={onResetSection}
-                  resetting={resettingSectionId === sec.id}
-                />
-              ))}
+              {orderedSections.map((sec) => {
+                const isActive = activeSectionId === sec.id
+                return (
+                  <SectionRow key={sec.id} sectionId={sec.id} isActive={isActive}>
+                    <SortableSectionCard
+                      section={sec}
+                      isActive={isActive}
+                      isHidden={!isVisible(settings, sec)}
+                      onToggleVisibility={() => onVisibilityChange(sec, !isVisible(settings, sec))}
+                      onOpenTab={(tab) => onOpenSectionTab(sec.id, tab)}
+                      onSelect={() => onSelectSection(sec.id)}
+                      onReset={onResetSection}
+                      resetting={resettingSectionId === sec.id}
+                    />
+                    {isActive && renderInlineEditor?.(sec)}
+                  </SectionRow>
+                )
+              })}
             </div>
           </SortableContext>
         </DndContext>
       ) : (
         <div className="s2-ds-section-manager__list">
-          {sections.map((sec) => (
-            <div
-              key={sec.id}
-              className={`s2-ds-section-card s2-ds-section-card--static${activeSectionId === sec.id ? ' is-active' : ''}${!isVisible(settings, sec) ? ' is-hidden' : ''}`}
-            >
-              <span className="s2-ds-section-card__icon" aria-hidden>
-                {SECTION_ICONS[sec.id] || '☰'}
-              </span>
-              <button type="button" className="s2-ds-section-card__main" onClick={() => onSelectSection(sec.id)}>
-                <span className="s2-ds-section-card__title">{sec.label}</span>
-                {!isVisible(settings, sec) && <span className="s2-ds-section-card__badge">Hidden</span>}
-              </button>
-              <div className="s2-ds-section-card__actions">
-                {sec.hideSettingKey && (
-                  <button
-                    type="button"
-                    className={`s2-ds-icon-btn${isVisible(settings, sec) ? ' is-on' : ''}`}
-                    onClick={() => onVisibilityChange(sec, !isVisible(settings, sec))}
-                  >
-                    👁
+          {sections.map((sec) => {
+            const isActive = activeSectionId === sec.id
+            return (
+              <SectionRow key={sec.id} sectionId={sec.id} isActive={isActive}>
+                <div
+                  className={`s2-ds-section-card s2-ds-section-card--static${isActive ? ' is-active' : ''}${!isVisible(settings, sec) ? ' is-hidden' : ''}`}
+                >
+                  <span className="s2-ds-section-card__icon" aria-hidden>
+                    {SECTION_ICONS[sec.id] || '☰'}
+                  </span>
+                  <button type="button" className="s2-ds-section-card__main" onClick={() => onSelectSection(sec.id)}>
+                    <span className="s2-ds-section-card__title">{sec.label}</span>
+                    {!isVisible(settings, sec) && <span className="s2-ds-section-card__badge">Hidden</span>}
                   </button>
-                )}
-                <button type="button" className="s2-ds-quick-tab" onClick={() => onOpenSectionTab(sec.id, 'content')}>
-                  Content
-                </button>
-                <button type="button" className="s2-ds-quick-tab s2-ds-quick-tab--design" onClick={() => onOpenSectionTab(sec.id, 'design')}>
-                  Design
-                </button>
-                <SectionMoreMenu
-                  section={sec}
-                  onReset={onResetSection}
-                  resetting={resettingSectionId === sec.id}
-                />
-              </div>
-            </div>
-          ))}
+                  <div className="s2-ds-section-card__actions">
+                    {sec.hideSettingKey && (
+                      <button
+                        type="button"
+                        className={`s2-ds-icon-btn${isVisible(settings, sec) ? ' is-on' : ''}`}
+                        onClick={() => onVisibilityChange(sec, !isVisible(settings, sec))}
+                      >
+                        👁
+                      </button>
+                    )}
+                    <button type="button" className="s2-ds-quick-tab" onClick={() => onOpenSectionTab(sec.id, 'content')}>
+                      Content
+                    </button>
+                    <button type="button" className="s2-ds-quick-tab s2-ds-quick-tab--design" onClick={() => onOpenSectionTab(sec.id, 'design')}>
+                      Design
+                    </button>
+                    <SectionMoreMenu
+                      section={sec}
+                      onReset={onResetSection}
+                      resetting={resettingSectionId === sec.id}
+                    />
+                  </div>
+                </div>
+                {isActive && renderInlineEditor?.(sec)}
+              </SectionRow>
+            )
+          })}
         </div>
       )}
     </div>

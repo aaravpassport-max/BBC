@@ -526,6 +526,85 @@ function SectionEditorTabs({
   )
 }
 
+export type SectionEditorBodyProps = {
+  section: SectionCatalogDef
+  page: PageCatalogDef
+  tab: SectionEditorTab
+  onTab: (t: SectionEditorTab) => void
+  settings: Record<string, string>
+  settingsLoading: boolean
+  config: DesignConfig
+  patch: PatchFn
+  onSettingsChange: (key: string, value: string) => void
+  onSaveContent: () => void
+  onSavePlatformDesign: () => void
+  contentSaving: boolean
+  platformDesignSaving: boolean
+  contentSaveMessage: { type: 'success' | 'error'; text: string } | null
+  designSaveMessage: { type: 'success' | 'error'; text: string } | null
+  onVisibilityChange?: (visible: boolean) => void
+}
+
+export function SectionEditorBody({
+  section,
+  page,
+  tab,
+  onTab,
+  settings,
+  settingsLoading,
+  config,
+  patch,
+  onSettingsChange,
+  onSaveContent,
+  onSavePlatformDesign,
+  contentSaving,
+  platformDesignSaving,
+  contentSaveMessage,
+  designSaveMessage,
+  onVisibilityChange,
+}: SectionEditorBodyProps) {
+  return (
+    <div className="s2-ds-section-inline-editor">
+      <SectionEditorTabs tab={tab} onTab={onTab} compact />
+      {tab === 'content' && settingsLoading ? (
+        <div className="s2-design-builder-panel">
+          <p className="s2-design-builder-workspace__desc">Loading saved content…</p>
+        </div>
+      ) : tab === 'content' ? (
+        <SectionContentPanel
+          section={section}
+          page={page}
+          settings={settings}
+          onChange={onSettingsChange}
+          onSave={onSaveContent}
+          saving={contentSaving}
+          saveMessage={contentSaveMessage}
+        />
+      ) : (
+        <div className="s2-design-builder-panel s2-ds-design-studio">
+          <SectionDesignPanel
+            section={section}
+            page={page}
+            config={config}
+            patch={patch}
+            settings={settings}
+            onSettingsChange={onSettingsChange}
+            onSavePlatformDesign={onSavePlatformDesign}
+            platformDesignSaving={platformDesignSaving}
+            designSaveMessage={designSaveMessage}
+            onVisibilityChange={
+              onVisibilityChange ||
+              (section.hideSettingKey
+                ? (vis) => onSettingsChange(section.hideSettingKey!, vis ? '0' : '1')
+                : undefined)
+            }
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
 function PageSectionAccordion({
   section,
   page,
@@ -545,25 +624,9 @@ function PageSectionAccordion({
   contentSaveMessage,
   designSaveMessage,
   onVisibilityChange,
-}: {
-  section: SectionCatalogDef
-  page: PageCatalogDef
+}: SectionEditorBodyProps & {
   expanded: boolean
   onToggle: () => void
-  tab: SectionEditorTab
-  onTab: (t: SectionEditorTab) => void
-  settings: Record<string, string>
-  settingsLoading: boolean
-  config: DesignConfig
-  patch: PatchFn
-  onSettingsChange: (key: string, value: string) => void
-  onSaveContent: () => void
-  onSavePlatformDesign: () => void
-  contentSaving: boolean
-  platformDesignSaving: boolean
-  contentSaveMessage: { type: 'success' | 'error'; text: string } | null
-  designSaveMessage: { type: 'success' | 'error'; text: string } | null
-  onVisibilityChange?: (visible: boolean) => void
 }) {
   return (
     <section className={`s2-design-section-accordion${expanded ? ' is-expanded' : ''}`}>
@@ -578,42 +641,24 @@ function PageSectionAccordion({
       </button>
       {expanded && (
         <div className="s2-design-section-accordion__body">
-          <SectionEditorTabs tab={tab} onTab={onTab} compact />
-          {tab === 'content' && settingsLoading ? (
-            <div className="s2-design-builder-panel">
-              <p className="s2-design-builder-workspace__desc">Loading saved content…</p>
-            </div>
-          ) : tab === 'content' ? (
-            <SectionContentPanel
-              section={section}
-              page={page}
-              settings={settings}
-              onChange={onSettingsChange}
-              onSave={onSaveContent}
-              saving={contentSaving}
-              saveMessage={contentSaveMessage}
-            />
-          ) : (
-            <div className="s2-design-builder-panel s2-ds-design-studio">
-              <SectionDesignPanel
-                section={section}
-                page={page}
-                config={config}
-                patch={patch}
-                settings={settings}
-                onSettingsChange={onSettingsChange}
-                onSavePlatformDesign={onSavePlatformDesign}
-                platformDesignSaving={platformDesignSaving}
-                designSaveMessage={designSaveMessage}
-                onVisibilityChange={
-                  onVisibilityChange ||
-                  (section.hideSettingKey
-                    ? (vis) => onSettingsChange(section.hideSettingKey!, vis ? '0' : '1')
-                    : undefined)
-                }
-              />
-            </div>
-          )}
+          <SectionEditorBody
+            section={section}
+            page={page}
+            tab={tab}
+            onTab={onTab}
+            settings={settings}
+            settingsLoading={settingsLoading}
+            config={config}
+            patch={patch}
+            onSettingsChange={onSettingsChange}
+            onSaveContent={onSaveContent}
+            onSavePlatformDesign={onSavePlatformDesign}
+            contentSaving={contentSaving}
+            platformDesignSaving={platformDesignSaving}
+            contentSaveMessage={contentSaveMessage}
+            designSaveMessage={designSaveMessage}
+            onVisibilityChange={onVisibilityChange}
+          />
         </div>
       )}
     </section>
@@ -1251,31 +1296,27 @@ export function DesignSystemBuilder({
               onResetSection={resetSection}
               resettingSectionId={resettingSectionId}
               orderAppliesOnLiveSite={page.id === 'home'}
-            />
-            {activeSection && !activeSection.isPageScope && (
-              <div className="s2-ds-section-editor">
-                <PageSectionAccordion
-                  section={activeSection}
+              renderInlineEditor={(sec) => (
+                <SectionEditorBody
+                  section={sec}
                   page={page}
-                  expanded
-                  onToggle={() => setActiveSectionId(null)}
-                  tab={sectionTabFor(activeSection.id)}
-                  onTab={(t) => setSectionTabFor(activeSection.id, t)}
+                  tab={sectionTabFor(sec.id)}
+                  onTab={(t) => setSectionTabFor(sec.id, t)}
                   settings={settings}
                   settingsLoading={settingsLoading}
                   config={config}
                   patch={patch}
                   onSettingsChange={(k, v) => setSettings((prev) => ({ ...prev, [k]: v }))}
-                  onSaveContent={() => saveSectionContent(activeSection)}
-                  onSavePlatformDesign={() => saveSectionPlatformDesign(activeSection)}
-                  contentSaving={contentSavingId === activeSection.id}
-                  platformDesignSaving={platformDesignSavingId === activeSection.id}
-                  contentSaveMessage={contentSaveMessageById[activeSection.id] ?? null}
-                  designSaveMessage={designSaveMessageById[activeSection.id] ?? null}
-                  onVisibilityChange={(vis) => setSectionVisibility(activeSection, vis)}
+                  onSaveContent={() => saveSectionContent(sec)}
+                  onSavePlatformDesign={() => saveSectionPlatformDesign(sec)}
+                  contentSaving={contentSavingId === sec.id}
+                  platformDesignSaving={platformDesignSavingId === sec.id}
+                  contentSaveMessage={contentSaveMessageById[sec.id] ?? null}
+                  designSaveMessage={designSaveMessageById[sec.id] ?? null}
+                  onVisibilityChange={(vis) => setSectionVisibility(sec, vis)}
                 />
-              </div>
-            )}
+              )}
+            />
           </>
         )}
 
