@@ -47,6 +47,7 @@ import {
   parseStringList,
   parseWhyChooseCards,
 } from '@/lib/home-content-settings'
+import { homeSectionOrderStyle, parseHomeSectionOrder } from '@/lib/home-section-order'
 
 // ── Animated counter ──────────────────────────────────────────────────────────
 function useCounter(target: string, duration = 1800, started: boolean) {
@@ -329,12 +330,18 @@ export function HomePage() {
   const heroSecondaryCta = settings.hero_cta2_text || 'Get a quote'
   const heroSecondaryUrl = settings.hero_cta2_url || '/contact'
 
+  const homeSectionOrder = useMemo(
+    () => parseHomeSectionOrder(settings.home_section_order_json),
+    [settings.home_section_order_json],
+  )
+  const bandOrder = (id: string) => homeSectionOrderStyle(id, homeSectionOrder)
+
   return (
     <Layout>
       <div className="s2-home-page">
       {/* ── 1. Hero slider + mobile-first headline & CTAs ─────────────────── */}
       {!sectionHidden(settings, 'hide_section_hero') && (
-      <div className="s2-hero-section s2-surface-media" data-s2-section="hero" style={{ ...heroWidthStyle, ...heroBandStyle }}>
+      <div className="s2-home-band s2-hero-section s2-surface-media" data-s2-section="hero" data-home-section-id="hero" style={{ ...bandOrder('hero'), ...heroWidthStyle, ...heroBandStyle }}>
         <Swiper
           className="s2-home-hero-swiper"
           modules={[Autoplay, Pagination, Navigation, EffectFade]}
@@ -385,9 +392,10 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_notice') && (
       <div
-        className="s2-notice-bar s2-home-notice"
+        className="s2-home-band s2-notice-bar s2-home-notice"
         data-s2-section="notice"
-        style={pickCssStyle(settings, { bg: 'css_notice_bg', padding: 'css_notice_padding', color: 'css_notice_color' })}
+        data-home-section-id="notice"
+        style={{ ...bandOrder('notice'), ...pickCssStyle(settings, { bg: 'css_notice_bg', padding: 'css_notice_padding', color: 'css_notice_color' }) }}
       >
         🚨 <strong>Public Notice:</strong>{' '}
         {settings.home_notice_text || defaultNotice}
@@ -405,10 +413,11 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_search') && (
       <section
-        className="s2-home-search s2-experience-section"
+        className="s2-home-band s2-home-search s2-experience-section"
         data-s2-section="search"
+        data-home-section-id="search"
         data-s2-reveal=""
-        style={pickCssStyle(settings, { bg: 'css_search_bg', padding: 'css_search_padding' })}
+        style={{ ...bandOrder('search'), ...pickCssStyle(settings, { bg: 'css_search_bg', padding: 'css_search_padding' }) }}
       >
         <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead
@@ -443,10 +452,11 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_services') && (
       <section
-        className="s2-section s2-marketing-section s2-experience-section"
+        className="s2-home-band s2-section s2-marketing-section s2-experience-section"
         data-s2-section="home_services"
+        data-home-section-id="services"
         data-s2-reveal=""
-        style={pickCssStyle(settings, { bg: 'css_svc_bg', padding: undefined })}
+        style={{ ...bandOrder('services'), ...pickCssStyle(settings, { bg: 'css_svc_bg', padding: undefined }) }}
       >
         <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead
@@ -506,10 +516,11 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_cities') && (
       <section
-        className="s2-marketing-section s2-marketing-section--alt s2-experience-section"
+        className="s2-home-band s2-marketing-section s2-marketing-section--alt s2-experience-section"
         data-s2-section="cities"
+        data-home-section-id="cities"
         data-s2-reveal=""
-        style={pickCssStyle(settings, { bg: 'css_cities_bg', padding: 'css_cities_padding' })}
+        style={{ ...bandOrder('cities'), ...pickCssStyle(settings, { bg: 'css_cities_bg', padding: 'css_cities_padding' }) }}
       >
         <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead
@@ -539,9 +550,10 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_stats') && (
       <section
-        className="s2-hero-stat-bar s2-stats-bar s2-surface-dark"
+        className="s2-home-band s2-hero-stat-bar s2-stats-bar s2-surface-dark"
         data-s2-section="stats"
-        style={pickCssStyle(settings, { bg: 'css_stats_bg', padding: 'css_stats_padding', color: 'css_stats_color' })}
+        data-home-section-id="stats"
+        style={{ ...bandOrder('stats'), ...pickCssStyle(settings, { bg: 'css_stats_bg', padding: 'css_stats_padding', color: 'css_stats_color' }) }}
       >
         <div className="s2-stats-bar__grid">
           {stats.map(({ n, l }) => <StatCard key={l} number={n} label={l} />)}
@@ -551,9 +563,10 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_tagline') && (
       <div
-        className="s2-home-tagline s2-hero-quote-wrap"
+        className="s2-home-band s2-home-tagline s2-hero-quote-wrap"
         data-s2-section="tagline"
-        style={pickCssStyle(settings, { bg: 'css_tagline_bg', color: 'css_tagline_color' })}
+        data-home-section-id="tagline"
+        style={{ ...bandOrder('tagline'), ...pickCssStyle(settings, { bg: 'css_tagline_bg', color: 'css_tagline_color' }) }}
       >
         <p style={settings.css_tagline_size ? { fontSize: settings.css_tagline_size } : undefined}>
           "{settings.home_tagline || 'Forming strong and trusted connections with our clients'}"
@@ -563,10 +576,11 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_features') && (
       <section
-        className="s2-marketing-section s2-marketing-section--alt s2-experience-section"
+        className="s2-home-band s2-marketing-section s2-marketing-section--alt s2-experience-section"
         data-s2-section="features"
+        data-home-section-id="features"
         data-s2-reveal=""
-        style={pickCssStyle(settings, { bg: 'css_features_bg', padding: 'css_features_padding' })}
+        style={{ ...bandOrder('features'), ...pickCssStyle(settings, { bg: 'css_features_bg', padding: 'css_features_padding' }) }}
       >
         <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead
@@ -590,10 +604,11 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_testimonials') && (
       <section
-        className="s2-marketing-section s2-experience-section"
+        className="s2-home-band s2-marketing-section s2-experience-section"
         data-s2-section="testimonials"
+        data-home-section-id="testimonials"
         data-s2-reveal=""
-        style={pickCssStyle(settings, { bg: 'css_testimonials_bg', padding: 'css_testimonials_padding' })}
+        style={{ ...bandOrder('testimonials'), ...pickCssStyle(settings, { bg: 'css_testimonials_bg', padding: 'css_testimonials_padding' }) }}
       >
         <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead
@@ -648,10 +663,11 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_how') && (
       <section
-        className="s2-marketing-section s2-marketing-section--alt s2-experience-section"
+        className="s2-home-band s2-marketing-section s2-marketing-section--alt s2-experience-section"
         data-s2-section="process"
+        data-home-section-id="how"
         data-s2-reveal=""
-        style={pickCssStyle(settings, { bg: 'css_how_bg', padding: undefined })}
+        style={{ ...bandOrder('how'), ...pickCssStyle(settings, { bg: 'css_how_bg', padding: undefined }) }}
       >
         <div className="s2-container s2-section-inner s2-width-standard">
           <PublicSectionHead eyebrow={settings.hiw_eyebrow || 'Simple Process'} title={settings.hiw_title || 'How It Works'} />
@@ -676,10 +692,11 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_press') && (
       <div
-        className="s2-home-logo-strip s2-marketing-section s2-experience-section"
+        className="s2-home-band s2-home-logo-strip s2-marketing-section s2-experience-section"
         data-s2-section="press"
+        data-home-section-id="press"
         data-s2-reveal=""
-        style={pickCssStyle(settings, { bg: 'css_press_bg' })}
+        style={{ ...bandOrder('press'), ...pickCssStyle(settings, { bg: 'css_press_bg' }) }}
       >
         <p className="s2-home-logo-strip__label">{settings.home_press_label || 'As Featured In'}</p>
         <div className="s2-home-logo-strip__row s2-stagger">
@@ -692,10 +709,11 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_partners') && (
       <div
-        className="s2-home-logo-strip s2-home-logo-strip--alt s2-experience-section"
+        className="s2-home-band s2-home-logo-strip s2-home-logo-strip--alt s2-experience-section"
         data-s2-section="partners"
+        data-home-section-id="partners"
         data-s2-reveal=""
-        style={pickCssStyle(settings, { bg: 'css_partners_bg' })}
+        style={{ ...bandOrder('partners'), ...pickCssStyle(settings, { bg: 'css_partners_bg' }) }}
       >
         <p className="s2-home-logo-strip__label">{settings.home_partners_label || 'Our Partners'}</p>
         <div className="s2-home-logo-strip__row s2-stagger">
@@ -708,10 +726,11 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_about') && (
       <section
-        className="s2-marketing-section s2-experience-section"
+        className="s2-home-band s2-marketing-section s2-experience-section"
         data-s2-section="about"
+        data-home-section-id="about"
         data-s2-reveal=""
-        style={pickCssStyle(settings, { bg: 'css_about_bg', padding: 'css_about_padding' })}
+        style={{ ...bandOrder('about'), ...pickCssStyle(settings, { bg: 'css_about_bg', padding: 'css_about_padding' }) }}
       >
         <div className="s2-home-about-grid s2-mobile-stack s2-container s2-section-inner s2-width-wide">
           <div>
@@ -764,10 +783,11 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_awards') && (
       <div
-        className="s2-home-awards s2-experience-section"
+        className="s2-home-band s2-home-awards s2-experience-section"
         data-s2-section="awards"
+        data-home-section-id="awards"
         data-s2-reveal=""
-        style={pickCssStyle(settings, { bg: 'css_awards_bg' })}
+        style={{ ...bandOrder('awards'), ...pickCssStyle(settings, { bg: 'css_awards_bg' }) }}
       >
         <p className="s2-home-logo-strip__label">{settings.home_awards_label || 'Awards We Have Received'}</p>
         <div className="s2-home-awards__row">
@@ -788,10 +808,11 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_faq') && (
       <section
-        className="s2-marketing-section s2-experience-section"
+        className="s2-home-band s2-marketing-section s2-experience-section"
         data-s2-section="faq"
+        data-home-section-id="faq"
         data-s2-reveal=""
-        style={pickCssStyle(settings, { bg: 'css_faq_bg' })}
+        style={{ ...bandOrder('faq'), ...pickCssStyle(settings, { bg: 'css_faq_bg' }) }}
       >
         <div className="s2-home-faq s2-container s2-section-inner s2-width-narrow">
           <PublicSectionHead
@@ -826,10 +847,11 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_newsletter') && (
       <section
-        className="s2-home-newsletter s2-experience-section"
+        className="s2-home-band s2-home-newsletter s2-experience-section"
         data-s2-section="newsletter"
+        data-home-section-id="newsletter"
         data-s2-reveal=""
-        style={pickCssStyle(settings, { bg: 'css_newsletter_bg', padding: 'css_newsletter_padding' })}
+        style={{ ...bandOrder('newsletter'), ...pickCssStyle(settings, { bg: 'css_newsletter_bg', padding: 'css_newsletter_padding' }) }}
       >
         <h3 className="s2-home-newsletter__title">{settings.newsletter_title || 'Subscribe to Our Newsletter'}</h3>
         <p className="s2-home-newsletter__sub">
@@ -851,10 +873,11 @@ export function HomePage() {
 
       {!sectionHidden(settings, 'hide_section_app') && (
       <section
-        className="s2-home-app s2-surface-dark s2-experience-section"
+        className="s2-home-band s2-home-app s2-surface-dark s2-experience-section"
         data-s2-section="app"
+        data-home-section-id="app"
         data-s2-reveal=""
-        style={pickCssStyle(settings, { bg: 'css_app_bg' })}
+        style={{ ...bandOrder('app'), ...pickCssStyle(settings, { bg: 'css_app_bg' }) }}
       >
         <div className="s2-home-app__grid s2-mobile-stack">
           <div>
@@ -885,7 +908,7 @@ export function HomePage() {
       )}
 
       {!sectionHidden(settings, 'hide_section_locations') && (
-      <div className="s2-home-locations" data-s2-section="locations">
+      <div className="s2-home-band s2-home-locations" data-s2-section="locations" data-home-section-id="locations" style={bandOrder('locations')}>
         <p className="s2-home-logo-strip__label">{settings.home_locations_label || 'Locations'}</p>
         <div className="s2-home-locations__pills">
           {displayCities.map(({ name }) => (

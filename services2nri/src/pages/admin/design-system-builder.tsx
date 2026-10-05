@@ -30,6 +30,15 @@ import {
 import { HexColorField, HexAlphaColorField, PxTokenField, parsePx } from './design-admin-fields'
 import { hasOverrideAtPath, OverrideFieldShell, readPathLeaf } from './design-inherit-ui'
 import { WidthLayoutPanel, type WidthLayoutFocus } from './width-layout-panel'
+import { PageTypeWidthStudio } from './page-type-width-studio'
+import { DesignSectionManager } from './design-section-manager'
+import {
+  DesignColorSwatchGrid,
+  DesignPremiumGroup,
+  DesignTypographyGrid,
+  DesignVisibilityToggle,
+} from './design-premium-design-panel'
+import { DEFAULT_HOME_SECTION_ORDER, parseHomeSectionOrder } from '@/lib/home-section-order'
 import {
   normalizeSettingsApiResponse,
   prepareSettingsPayload,
@@ -67,16 +76,16 @@ function SectionTypographyPanel({
 }) {
   if (!sectionKey || sectionKey === '_page') return null
   return (
-    <div>
-      <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>Section typography</h3>
-      <p style={{ margin: '0 0 12px', fontSize: 13, color: '#64748B' }}>
-        Overrides headings and body text inside this band only. Clear a field to inherit from Site Foundation.
-      </p>
-      <div style={{ display: 'grid', gap: 16 }}>
+    <DesignPremiumGroup
+      title="Typography"
+      description="Fine-tune headings and body text inside this band. Clear a field to inherit from Site Foundation."
+      badge="Section override"
+    >
+      <DesignTypographyGrid>
         {SECTION_TYPOGRAPHY_ROLES.map((role) => (
-          <fieldset key={role} style={{ border: '1px solid #E2E8F0', borderRadius: 12, padding: 14 }}>
-            <legend style={{ fontWeight: 700, padding: '0 6px', fontSize: 13 }}>{role.replace(/_/g, ' ')}</legend>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10 }}>
+          <div key={role} className="s2-ds-type-role">
+            <div className="s2-ds-type-role__label">{role.replace(/_/g, ' ')}</div>
+            <div className="s2-ds-type-role__fields">
               {(['size_desktop', 'size_tablet', 'size_mobile'] as const).map((field) => {
                 const path = sectionTypographyPath(sectionKey, role, field)
                 const raw = readPathLeaf(config, path)
@@ -131,10 +140,10 @@ function SectionTypographyPanel({
                 )
               })()}
             </div>
-          </fieldset>
+          </div>
         ))}
-      </div>
-    </div>
+      </DesignTypographyGrid>
+    </DesignPremiumGroup>
   )
 }
 
@@ -237,7 +246,8 @@ function PageTemplateForPage(page: PageCatalogDef): PageTemplateDef | undefined 
   return PAGE_TEMPLATES.find((t) => t.id === page.id)
 }
 
-type SectionEditorTab = 'content' | 'design' | 'width'
+type SectionEditorTab = 'content' | 'design'
+type PageWorkspaceTab = 'sections' | 'width'
 
 function widthFocusForSection(page: PageCatalogDef, section: SectionCatalogDef): WidthLayoutFocus {
   if (section.isPageScope) {
@@ -277,12 +287,12 @@ function SectionPlatformDesignFields({
   const fields = section.designSettingFields || []
   if (fields.length === 0) return null
   return (
-    <div>
-      <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>Section styling (platform)</h3>
-      <p style={{ margin: '0 0 12px', fontSize: 13, color: '#64748B' }}>
-        These map to homepage CSS tokens. Clear a field to remove the override and fall back to global defaults.
-      </p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+    <DesignPremiumGroup
+      title="Band styling"
+      description="Visual tokens for this section on the live site. Clear a field to inherit defaults."
+      badge="Platform CSS"
+    >
+      <DesignColorSwatchGrid>
         {fields.map((f) => {
           const val = readAdminSetting(settings, f.key)
           const inherited = val === ''
@@ -308,10 +318,10 @@ function SectionPlatformDesignFields({
             </OverrideFieldShell>
           )
         })}
-      </div>
+      </DesignColorSwatchGrid>
       <div className="s2-design-builder-actions">
-        <button type="button" className="s2-btn s2-btn--outline" onClick={onSave} disabled={saving}>
-          {saving ? 'Saving styling…' : 'Save section styling'}
+        <button type="button" className="s2-btn s2-btn--primary" onClick={onSave} disabled={saving}>
+          {saving ? 'Saving styling…' : 'Save band styling'}
         </button>
         {saveMessage && (
           <span className={`s2-design-builder-toast s2-design-builder-toast--${saveMessage.type}`} role="status">
@@ -319,7 +329,7 @@ function SectionPlatformDesignFields({
           </span>
         )}
       </div>
-    </div>
+    </DesignPremiumGroup>
   )
 }
 
@@ -338,13 +348,13 @@ function PageDefaultsDesignPanel({
   }
 
   return (
-    <div className="s2-design-builder-panel" style={{ display: 'grid', gap: 20 }}>
-      <p style={{ margin: 0, fontSize: 13, color: '#64748B', maxWidth: 720 }}>
-        Page-level design sits between <strong>Site Foundation</strong> and individual sections. Clear any field to inherit from foundation.
-      </p>
-      <div>
-        <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>Page colors</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+    <div className="s2-ds-design-studio" style={{ display: 'grid', gap: 16 }}>
+      <DesignPremiumGroup
+        title="Page colors"
+        description="Overrides for this route only. Individual sections can still override further."
+        badge="Page defaults"
+      >
+        <DesignColorSwatchGrid>
           {TEMPLATE_COLOR_KEYS.map((colorKey) => {
             const path = templateColorOverridePath(template, colorKey)
             const raw = readPathLeaf(config, path)
@@ -364,11 +374,10 @@ function PageDefaultsDesignPanel({
               </OverrideFieldShell>
             )
           })}
-        </div>
-      </div>
-      <div>
-        <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>Page typography samples</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
+        </DesignColorSwatchGrid>
+      </DesignPremiumGroup>
+      <DesignPremiumGroup title="Page typography" description="Title and body sizes for this page type.">
+        <DesignTypographyGrid>
           {(['page_title', 'body'] as const).map((role) => {
             const path = templateTypographyPath(template, role, 'size_desktop')
             const raw = readPathLeaf(config, path)
@@ -390,59 +399,8 @@ function PageDefaultsDesignPanel({
               </OverrideFieldShell>
             )
           })}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function PageDefaultsWidthPanel({
-  page,
-  config,
-  patch,
-}: {
-  page: PageCatalogDef
-  config: DesignConfig
-  patch: PatchFn
-}) {
-  const widthFocus = widthFocusForSection(page, {
-    id: '_page',
-    label: 'Page defaults',
-    sectionKey: '_page',
-    isPageScope: true,
-  })
-  return (
-    <div style={{ display: 'grid', gap: 12 }}>
-      <p style={{ margin: 0, fontSize: 13, color: '#64748B', maxWidth: 720 }}>
-        Page-level width and gutters apply to this public route unless a section sets its own layout override.
-        Clear values to inherit from Site Foundation.
-      </p>
-      <WidthLayoutPanel config={config} patch={patch} focus={widthFocus} />
-    </div>
-  )
-}
-
-function SectionWidthPanel({
-  section,
-  page,
-  config,
-  patch,
-}: {
-  section: SectionCatalogDef
-  page: PageCatalogDef
-  config: DesignConfig
-  patch: PatchFn
-}) {
-  if (section.isPageScope) {
-    return <PageDefaultsWidthPanel page={page} config={config} patch={patch} />
-  }
-  const widthFocus = widthFocusForSection(page, section)
-  return (
-    <div style={{ display: 'grid', gap: 12 }}>
-      <p style={{ margin: 0, fontSize: 13, color: '#64748B', maxWidth: 720 }}>
-        Padding, max width, and gutters for the <strong>{section.label}</strong> band. Overrides inherit Foundation → page → section.
-      </p>
-      <WidthLayoutPanel config={config} patch={patch} focus={widthFocus} />
+        </DesignTypographyGrid>
+      </DesignPremiumGroup>
     </div>
   )
 }
@@ -457,6 +415,7 @@ function SectionDesignPanel({
   onSavePlatformDesign,
   platformDesignSaving,
   designSaveMessage,
+  onVisibilityChange,
 }: {
   section: SectionCatalogDef
   page: PageCatalogDef
@@ -467,55 +426,32 @@ function SectionDesignPanel({
   onSavePlatformDesign: () => void
   platformDesignSaving: boolean
   designSaveMessage: { type: 'success' | 'error'; text: string } | null
+  onVisibilityChange?: (visible: boolean) => void
 }) {
   if (section.isPageScope) {
     return <PageDefaultsDesignPanel page={page} config={config} patch={patch} />
   }
   const hideKey = section.hideSettingKey
-  const [hideVal, setHideVal] = useState('0')
-  useEffect(() => {
-    if (!hideKey) return
-    api.get<{ settings: Record<string, unknown>; settings_flat?: Record<string, string> }>('admin/settings').then((d) => {
-      const flat = normalizeSettingsApiResponse(d)
-      setHideVal(flat[hideKey] ?? '0')
-    }).catch(() => {})
-  }, [hideKey, section.id])
-
-  const saveVisibility = async (hidden: boolean) => {
-    if (!hideKey) return
-    const v = hidden ? '1' : '0'
-    setHideVal(v)
-    await api.put('admin/settings', { [hideKey]: v })
-  }
+  const visible = !hideKey || readAdminSetting(settings, hideKey) !== '1'
 
   return (
-    <div className="s2-design-builder-panel" style={{ display: 'grid', gap: 20 }}>
-      <p style={{ margin: 0, fontSize: 13, color: '#64748B', maxWidth: 720 }}>
-        Section styling overrides inherit from <strong>Site Foundation</strong> → page → this block.
-        Clear any field to revert to the inherited default.
-      </p>
-
-      {hideKey && (
-        <OverrideFieldShell
-          label="Show on homepage"
-          hint="When off, this block is hidden on the live homepage."
-          inherited={hideVal === '0'}
-          onClear={hideVal === '1' ? () => saveVisibility(false) : undefined}
-        >
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14 }}>
-            <input
-              type="checkbox"
-              checked={hideVal !== '1'}
-              onChange={(e) => saveVisibility(!e.target.checked)}
-            />
-            Visible on site
-          </label>
-        </OverrideFieldShell>
+    <div className="s2-ds-design-studio" style={{ display: 'grid', gap: 16 }}>
+      {hideKey && onVisibilityChange && (
+        <DesignPremiumGroup title="Visibility" badge={visible ? 'Live' : 'Hidden'}>
+          <DesignVisibilityToggle
+            visible={visible}
+            onChange={onVisibilityChange}
+            label={`Show “${section.label}” on the public page`}
+          />
+        </DesignPremiumGroup>
       )}
 
-      <div>
-        <h3 style={{ margin: '0 0 12px', fontSize: 15 }}>Section colors</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 12 }}>
+      <DesignPremiumGroup
+        title="Section colors"
+        description="Design tokens for this band. Inherited from Site Foundation → page until you customize."
+        badge="Section override"
+      >
+        <DesignColorSwatchGrid>
           {SECTION_DESIGN_COLOR_KEYS.map((colorKey) => {
             const path = sectionColorPath(section.sectionKey, colorKey)
             const raw = readPathLeaf(config, path)
@@ -535,8 +471,8 @@ function SectionDesignPanel({
               </OverrideFieldShell>
             )
           })}
-        </div>
-      </div>
+        </DesignColorSwatchGrid>
+      </DesignPremiumGroup>
 
       <SectionTypographyPanel sectionKey={section.sectionKey} config={config} patch={patch} />
 
@@ -555,7 +491,6 @@ function SectionDesignPanel({
 const SECTION_TAB_LABELS: Record<SectionEditorTab, string> = {
   content: 'Content',
   design: 'Design',
-  width: 'Width Control',
 }
 
 function SectionEditorTabs({
@@ -569,7 +504,7 @@ function SectionEditorTabs({
 }) {
   return (
     <div className={`s2-design-builder-subtabs s2-design-section-tabs${compact ? ' s2-design-section-tabs--compact' : ''}`}>
-      {(['content', 'design', 'width'] as const).map((t) => (
+      {(['content', 'design'] as const).map((t) => (
         <button
           key={t}
           type="button"
@@ -601,6 +536,7 @@ function PageSectionAccordion({
   platformDesignSaving,
   contentSaveMessage,
   designSaveMessage,
+  onVisibilityChange,
 }: {
   section: SectionCatalogDef
   page: PageCatalogDef
@@ -619,6 +555,7 @@ function PageSectionAccordion({
   platformDesignSaving: boolean
   contentSaveMessage: { type: 'success' | 'error'; text: string } | null
   designSaveMessage: { type: 'success' | 'error'; text: string } | null
+  onVisibilityChange?: (visible: boolean) => void
 }) {
   return (
     <section className={`s2-design-section-accordion${expanded ? ' is-expanded' : ''}`}>
@@ -648,8 +585,8 @@ function PageSectionAccordion({
               saving={contentSaving}
               saveMessage={contentSaveMessage}
             />
-          ) : tab === 'design' ? (
-            <div className="s2-design-builder-panel">
+          ) : (
+            <div className="s2-design-builder-panel s2-ds-design-studio">
               <SectionDesignPanel
                 section={section}
                 page={page}
@@ -660,11 +597,13 @@ function PageSectionAccordion({
                 onSavePlatformDesign={onSavePlatformDesign}
                 platformDesignSaving={platformDesignSaving}
                 designSaveMessage={designSaveMessage}
+                onVisibilityChange={
+                  onVisibilityChange ||
+                  (section.hideSettingKey
+                    ? (vis) => onSettingsChange(section.hideSettingKey!, vis ? '0' : '1')
+                    : undefined)
+                }
               />
-            </div>
-          ) : (
-            <div className="s2-design-builder-panel">
-              <SectionWidthPanel section={section} page={page} config={config} patch={patch} />
             </div>
           )}
         </div>
@@ -851,7 +790,12 @@ export function DesignSystemBuilder({
 }) {
   const [navMode, setNavMode] = useState<'foundation' | 'page'>('page')
   const [pageId, setPageId] = useState('home')
-  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({})
+  const [pageWorkspaceTab, setPageWorkspaceTab] = useState<PageWorkspaceTab>('sections')
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null)
+  const [sectionOrder, setSectionOrder] = useState<string[]>([])
+  const [structureBaseline, setStructureBaseline] = useState('')
+  const [structureSaving, setStructureSaving] = useState(false)
+  const [structureMessage, setStructureMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
   const [expandedFoundation, setExpandedFoundation] = useState<Record<string, boolean>>({ colors: true })
   const [sectionTabById, setSectionTabById] = useState<Record<string, SectionEditorTab>>({})
   const [settings, setSettings] = useState<Record<string, string>>({})
@@ -868,6 +812,40 @@ export function DesignSystemBuilder({
 
   const page = useMemo(() => DESIGN_PAGE_CATALOG.find((p) => p.id === pageId) || DESIGN_PAGE_CATALOG[0], [pageId])
 
+  const manageableSections = useMemo(
+    () => page.sections.filter((s) => !s.isPageScope),
+    [page.sections],
+  )
+
+  const structureSnapshot = useCallback(
+    (flat: Record<string, string>, order: string[]) => {
+      const vis: Record<string, string> = {}
+      manageableSections.forEach((s) => {
+        if (s.hideSettingKey) vis[s.hideSettingKey] = flat[s.hideSettingKey] ?? '0'
+      })
+      return JSON.stringify({ vis, order })
+    },
+    [manageableSections],
+  )
+
+  const structureDirty =
+    structureBaseline !== structureSnapshot(settings, page.id === 'home' ? sectionOrder : [])
+
+  const orderedSectionIds = useMemo(() => {
+    if (page.id !== 'home') return manageableSections.map((s) => s.id)
+    const known = new Set(manageableSections.map((s) => s.id))
+    const ids = sectionOrder.filter((id) => known.has(id))
+    manageableSections.forEach((s) => {
+      if (!ids.includes(s.id)) ids.push(s.id)
+    })
+    return ids
+  }, [manageableSections, page.id, sectionOrder])
+
+  const activeSection = useMemo(
+    () => page.sections.find((s) => s.id === activeSectionId) || null,
+    [activeSectionId, page.sections],
+  )
+
   const sectionTabFor = useCallback(
     (sectionKey: string): SectionEditorTab => sectionTabById[sectionKey] || 'content',
     [sectionTabById],
@@ -877,17 +855,29 @@ export function DesignSystemBuilder({
     setSectionTabById((prev) => ({ ...prev, [sectionKey]: tab }))
   }, [])
 
+  const applyStructureBaseline = useCallback(
+    (flat: Record<string, string>, order: string[], pid: string) => {
+      setStructureBaseline(structureSnapshot(flat, pid === 'home' ? order : []))
+    },
+    [structureSnapshot],
+  )
+
   const loadSettings = useCallback(async () => {
     setSettingsLoading(true)
     try {
       const d = await api.get<{ settings: Record<string, unknown>; settings_flat?: Record<string, string> }>('admin/settings')
-      setSettings(normalizeSettingsApiResponse(d))
+      const flat = normalizeSettingsApiResponse(d)
+      setSettings(flat)
+      const order = parseHomeSectionOrder(flat.home_section_order_json)
+      setSectionOrder(order)
+      applyStructureBaseline(flat, order, pageId)
     } catch {
       setSettings({})
+      setSectionOrder([...DEFAULT_HOME_SECTION_ORDER])
     } finally {
       setSettingsLoading(false)
     }
-  }, [])
+  }, [applyStructureBaseline, pageId])
 
   useEffect(() => {
     loadSettings()
@@ -908,14 +898,18 @@ export function DesignSystemBuilder({
   const selectPage = (id: string) => {
     setNavMode('page')
     setPageId(id)
+    setPageWorkspaceTab('sections')
+    setActiveSectionId(null)
   }
+
+  useEffect(() => {
+    applyStructureBaseline(settings, sectionOrder, pageId)
+    // Re-anchor dirty tracking when switching pages only (not on every settings keystroke).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageId])
 
   const selectFoundation = () => {
     setNavMode('foundation')
-  }
-
-  const toggleSectionExpanded = (sectionKey: string) => {
-    setExpandedSections((prev) => ({ ...prev, [sectionKey]: !prev[sectionKey] }))
   }
 
   const toggleFoundationExpanded = (panelId: FoundationPanelId) => {
@@ -978,10 +972,44 @@ export function DesignSystemBuilder({
     }
   }
 
+  const savePageStructure = async () => {
+    setStructureSaving(true)
+    setStructureMessage(null)
+    try {
+      const payload: Record<string, string> = {}
+      manageableSections.forEach((s) => {
+        if (s.hideSettingKey) payload[s.hideSettingKey] = readAdminSetting(settings, s.hideSettingKey) || '0'
+      })
+      if (page.id === 'home') {
+        payload.home_section_order_json = JSON.stringify(orderedSectionIds)
+      }
+      await api.put('admin/settings', payload)
+      await loadSettings()
+      setStructureMessage({ type: 'success', text: 'Page structure saved — order and visibility updated on the live site.' })
+    } catch {
+      setStructureMessage({ type: 'error', text: 'Could not save page structure.' })
+    } finally {
+      setStructureSaving(false)
+    }
+  }
+
+  const setSectionVisibility = (section: SectionCatalogDef, visible: boolean) => {
+    if (!section.hideSettingKey) return
+    setSettings((prev) => ({ ...prev, [section.hideSettingKey!]: visible ? '0' : '1' }))
+  }
+
+  const openSectionEditor = (sectionId: string, tab: SectionEditorTab) => {
+    setActiveSectionId(sectionId)
+    setSectionTabFor(sectionId, tab)
+    setPageWorkspaceTab('sections')
+  }
+
   const workspaceDesc =
     navMode === 'foundation'
       ? 'Global tokens and chrome for the entire public site. Pages and sections inherit these until they define an override.'
-      : 'Select a section to expand it, then use Content, Design, or Width Control — only settings for that block are shown.'
+      : pageWorkspaceTab === 'width'
+        ? 'Simple layout controls for this page type — no container jargon.'
+        : 'Drag sections, hide or show bands, then open Content or Design for focused editing.'
 
   return (
     <div className="s2-design-system-builder">
@@ -1043,6 +1071,26 @@ export function DesignSystemBuilder({
                 </a>
               )}
             </div>
+            {navMode === 'page' && (
+              <div className="s2-ds-page-tabs" role="tablist">
+                <button
+                  type="button"
+                  role="tab"
+                  className={`s2-ds-page-tab${pageWorkspaceTab === 'sections' ? ' is-active' : ''}`}
+                  onClick={() => setPageWorkspaceTab('sections')}
+                >
+                  Sections
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  className={`s2-ds-page-tab${pageWorkspaceTab === 'width' ? ' is-active' : ''}`}
+                  onClick={() => setPageWorkspaceTab('width')}
+                >
+                  Layout &amp; Width
+                </button>
+              </div>
+            )}
           </div>
 
         {navMode === 'foundation' ? (
@@ -1070,31 +1118,76 @@ export function DesignSystemBuilder({
               </FoundationAreaAccordion>
             ))}
           </div>
-        ) : (
-          <div className="s2-design-builder-section-stack">
-            {page.sections.map((sec) => (
-              <PageSectionAccordion
-                key={sec.id}
-                section={sec}
-                page={page}
-                expanded={Boolean(expandedSections[sec.id])}
-                onToggle={() => toggleSectionExpanded(sec.id)}
-                tab={sectionTabFor(sec.id)}
-                onTab={(t) => setSectionTabFor(sec.id, t)}
-                settings={settings}
-                settingsLoading={settingsLoading}
-                config={config}
-                patch={patch}
-                onSettingsChange={(k, v) => setSettings((prev) => ({ ...prev, [k]: v }))}
-                onSaveContent={() => saveSectionContent(sec)}
-                onSavePlatformDesign={() => saveSectionPlatformDesign(sec)}
-                contentSaving={contentSavingId === sec.id}
-                platformDesignSaving={platformDesignSavingId === sec.id}
-                contentSaveMessage={contentSaveMessageById[sec.id] ?? null}
-                designSaveMessage={designSaveMessageById[sec.id] ?? null}
-              />
-            ))}
+        ) : pageWorkspaceTab === 'width' ? (
+          <div className="s2-design-builder-panel">
+            <PageTypeWidthStudio page={page} config={config} patch={patch} />
           </div>
+        ) : (
+          <>
+            {page.sections.some((s) => s.isPageScope) && (
+              <div className="s2-design-builder-panel" style={{ paddingBottom: 0 }}>
+                <PageSectionAccordion
+                  section={page.sections.find((s) => s.isPageScope)!}
+                  page={page}
+                  expanded={activeSectionId === '_page'}
+                  onToggle={() => setActiveSectionId(activeSectionId === '_page' ? null : '_page')}
+                  tab={sectionTabFor('_page')}
+                  onTab={(t) => setSectionTabFor('_page', t)}
+                  settings={settings}
+                  settingsLoading={settingsLoading}
+                  config={config}
+                  patch={patch}
+                  onSettingsChange={(k, v) => setSettings((prev) => ({ ...prev, [k]: v }))}
+                  onSaveContent={() => saveSectionContent(page.sections.find((s) => s.isPageScope)!)}
+                  onSavePlatformDesign={() => saveSectionPlatformDesign(page.sections.find((s) => s.isPageScope)!)}
+                  contentSaving={contentSavingId === '_page'}
+                  platformDesignSaving={platformDesignSavingId === '_page'}
+                  contentSaveMessage={contentSaveMessageById._page ?? null}
+                  designSaveMessage={designSaveMessageById._page ?? null}
+                />
+              </div>
+            )}
+            <DesignSectionManager
+              page={page}
+              sections={manageableSections}
+              orderedIds={orderedSectionIds}
+              onReorder={setSectionOrder}
+              settings={settings}
+              onVisibilityChange={setSectionVisibility}
+              activeSectionId={activeSectionId}
+              onSelectSection={(id) => setActiveSectionId((prev) => (prev === id ? null : id))}
+              onOpenSectionTab={openSectionEditor}
+              onSaveStructure={savePageStructure}
+              structureSaving={structureSaving}
+              structureDirty={structureDirty}
+              structureMessage={structureMessage}
+              reorderEnabled={page.id === 'home'}
+            />
+            {activeSection && !activeSection.isPageScope && (
+              <div className="s2-ds-section-editor">
+                <PageSectionAccordion
+                  section={activeSection}
+                  page={page}
+                  expanded
+                  onToggle={() => setActiveSectionId(null)}
+                  tab={sectionTabFor(activeSection.id)}
+                  onTab={(t) => setSectionTabFor(activeSection.id, t)}
+                  settings={settings}
+                  settingsLoading={settingsLoading}
+                  config={config}
+                  patch={patch}
+                  onSettingsChange={(k, v) => setSettings((prev) => ({ ...prev, [k]: v }))}
+                  onSaveContent={() => saveSectionContent(activeSection)}
+                  onSavePlatformDesign={() => saveSectionPlatformDesign(activeSection)}
+                  contentSaving={contentSavingId === activeSection.id}
+                  platformDesignSaving={platformDesignSavingId === activeSection.id}
+                  contentSaveMessage={contentSaveMessageById[activeSection.id] ?? null}
+                  designSaveMessage={designSaveMessageById[activeSection.id] ?? null}
+                  onVisibilityChange={(vis) => setSectionVisibility(activeSection, vis)}
+                />
+              </div>
+            )}
+          </>
         )}
 
         <div className="s2-design-builder-preview-block">

@@ -2195,7 +2195,7 @@ class SettingsAdminController extends \S2NRI\Api\Controllers\BaseController {
             'home_notice_text', 'home_notice_whatsapp_label',
             'home_why_choose_json', 'home_faq_json', 'home_press_json', 'home_press_label',
             'home_partners_json', 'home_partners_label', 'home_awards_json', 'home_awards_label',
-            'home_locations_label', 'services_view_all_text', 'services_page_title', 'services_page_subtitle',
+            'home_locations_label', 'home_section_order_json', 'services_view_all_text', 'services_page_title', 'services_page_subtitle',
             'cities_section_title', 'cities_section_subtitle', 'cities_card_eyebrow',
             'about_eyebrow', 'about_text_secondary', 'about_cta_text', 'about_whatsapp_cta',
             'faq_footer_link_text',

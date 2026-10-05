@@ -22,6 +22,15 @@
   margin: 0;
 }
 
+.s2-home-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.s2-home-band {
+  width: 100%;
+}
+
 .s2-home-page .s2-hero-section {
   height: clamp(480px, 70vh, 700px);
   max-width: var(--s2-width-sec-hero-max, var(--s2-section-max, 100%));
