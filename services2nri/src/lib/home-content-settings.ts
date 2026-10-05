@@ -66,6 +66,33 @@ export function parseLogoChips(raw: string | undefined, fallback: LogoChip[]): L
 export type AwardBadge = { emoji: string; text: string; variant?: 'orange' | 'primary' }
 
 export type HoursRow = { day: string; hours: string }
+export type CompareBrandRow = { feature: string; us: string; them: string }
+
+export function parseCompareBrandRows(raw: string | undefined, fallback: CompareBrandRow[]): CompareBrandRow[] {
+  if (!raw || !String(raw).trim()) return fallback
+  try {
+    const parsed = JSON.parse(String(raw)) as unknown
+    if (!Array.isArray(parsed) || parsed.length === 0) return fallback
+    return parsed
+      .map((item) => {
+        if (Array.isArray(item) && item.length >= 3) {
+          return { feature: String(item[0]).trim(), us: String(item[1]).trim(), them: String(item[2]).trim() }
+        }
+        if (!item || typeof item !== 'object') return null
+        const o = item as Record<string, unknown>
+        const feature = String(o.feature || o.f || '').trim()
+        if (!feature) return null
+        return {
+          feature,
+          us: String(o.us || o.brand || o.nriway || '').trim(),
+          them: String(o.them || o.other || o.traditional || '').trim(),
+        }
+      })
+      .filter(Boolean) as CompareBrandRow[]
+  } catch {
+    return fallback
+  }
+}
 
 export function parseHoursRows(raw: string | undefined, fallback: HoursRow[]): HoursRow[] {
   if (!raw || !String(raw).trim()) return fallback

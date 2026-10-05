@@ -15,7 +15,12 @@
 - `hide_el_{page}_{section}_{element}` toggles in Elements tab
 - `CmsElement` wrappers on high-traffic blocks (home hero, blog hero)
 
-## Phase 4 — Service detail element packs (next)
+## Phase 4 — Directory & pricing JSON (v4.7.72)
+- Services directory search placeholder CMS key
+- Pricing brand comparison rows JSON
+- Home notice / search `CmsElement` markers
+
+## Phase 5 — Service detail element packs (next)
 - Catalog element defs per service section band
 - Platform defaults when CMS section rows empty
 - Playwright: change setting → assert DOM

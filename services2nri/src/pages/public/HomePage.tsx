@@ -442,14 +442,18 @@ export function HomePage() {
         style={{ ...bandOrder('notice'), ...pickCssStyle(settings, { bg: 'css_notice_bg', padding: 'css_notice_padding', color: 'css_notice_color' }) }}
       >
         🚨 <strong>Public Notice:</strong>{' '}
-        {settings.home_notice_text || defaultNotice}
+        <CmsElement pageId="home" sectionKey="notice" elementId="body">
+          {settings.home_notice_text || defaultNotice}
+        </CmsElement>
         {whatsapp && (
           <>
             {' '}
             ·{' '}
-            <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} className="s2-home-notice__wa">
-              {settings.home_notice_whatsapp_label || 'WhatsApp Us'}
-            </a>
+            <CmsElement pageId="home" sectionKey="notice" elementId="link">
+              <a href={`https://wa.me/${String(whatsapp).replace(/\D/g, '')}`} className="s2-home-notice__wa">
+                {settings.home_notice_whatsapp_label || 'WhatsApp Us'}
+              </a>
+            </CmsElement>
           </>
         )}
       </div>
@@ -479,16 +483,20 @@ export function HomePage() {
               window.location.href = q ? `/services?q=${encodeURIComponent(q)}` : '/services'
             }}
           >
-            <input
-              type="search"
-              name="q"
-              className="s2-home-search__input"
-              placeholder={settings.home_search_placeholder || 'Search services…'}
-              aria-label="Search services"
-            />
-            <button type="submit" className="s2-btn s2-btn--primary s2-home-search__btn">
-              {settings.home_search_button || 'Search'}
-            </button>
+            <CmsElement pageId="home" sectionKey="search" elementId="collection">
+              <input
+                type="search"
+                name="q"
+                className="s2-home-search__input"
+                placeholder={settings.home_search_placeholder || 'Search services…'}
+                aria-label="Search services"
+              />
+            </CmsElement>
+            <CmsElement pageId="home" sectionKey="search" elementId="primary_button">
+              <button type="submit" className="s2-btn s2-btn--primary s2-home-search__btn">
+                {settings.home_search_button || 'Search'}
+              </button>
+            </CmsElement>
           </form>
         </div>
       </section>

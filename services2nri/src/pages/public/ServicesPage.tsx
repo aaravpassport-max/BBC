@@ -110,7 +110,10 @@ export function ServicesPage() {
               <input
                 type="search"
                 className="s2-dir-search"
-                placeholder="Search services (e.g. OCI Card, Transcript, Power of Attorney)…"
+                placeholder={
+                  settings.services_search_placeholder ||
+                  'Search services (e.g. OCI Card, Transcript, Power of Attorney)…'
+                }
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 aria-label="Search services"

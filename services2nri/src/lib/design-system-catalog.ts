@@ -503,6 +503,7 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           contentPanel: 'services_directory',
           contentFields: [
             { key: 'services_subtitle', label: 'Directory intro line', placeholder: 'Browse by category or search the full catalog.' },
+            { key: 'services_search_placeholder', label: 'Search input placeholder', placeholder: 'Search services…' },
             { key: 'services_show_search', label: 'Show search bar (1 = yes, 0 = no)', placeholder: '1' },
             { key: 'services_show_category_filter', label: 'Show category sidebar (1/0)', placeholder: '1' },
             { key: 'services_per_page', label: 'Cards per page (optional)', placeholder: '24' },
@@ -793,6 +794,13 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
             { key: 'pricing_compare_brand_subtitle', label: 'Brand compare subtitle', type: 'textarea' },
             { key: 'pricing_compare_brand_name', label: 'Your brand column header', placeholder: 'NRIWAY' },
             { key: 'pricing_compare_other_name', label: 'Competitor column header', placeholder: 'Traditional Agents' },
+            {
+              key: 'pricing_compare_brand_rows_json',
+              label: 'Brand comparison rows JSON',
+              type: 'textarea',
+              rows: 10,
+              hint: '[["Feature","Us","Them"],["Transparent pricing","✅","❌"]]',
+            },
           ],
           adminLink: { label: 'Manage plans', path: '/admin/pricing' },
         },

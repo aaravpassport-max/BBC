@@ -26,6 +26,7 @@ import { PublicSection, PublicSectionHead, PublicGrid, PublicCard, PublicCtaLink
 import {
   parseAboutHighlights,
   parseHiwSteps,
+  parseCompareBrandRows,
   parseHoursRows,
   parseStringListJson,
   parseTeamMembers,
@@ -482,6 +483,17 @@ export function PricingPage() {
 
   const heroBg = 'linear-gradient(135deg, var(--s2-color-secondary) 0%, var(--s2-color-primary) 100%)'
 
+  const brandCompareFallback = [
+    { feature: 'Real-time booking tracking', us: '✅ Dashboard + email updates', them: '❌ Phone calls only' },
+    { feature: 'Transparent pricing', us: '✅ Quote before any payment', them: '❌ Hidden charges common' },
+    { feature: 'Document security', us: '✅ AES-256 encrypted portal', them: '❌ Via WhatsApp / email' },
+    { feature: 'Pan India coverage', us: '✅ 750+ cities across India', them: '⚠️ Limited to few cities' },
+    { feature: 'Money-back guarantee', us: '✅ On failed applications', them: '❌ Non-refundable deposits' },
+    { feature: '24/7 WhatsApp support', us: '✅ Instant response team', them: '⚠️ Office hours only' },
+    { feature: 'No upfront fee for quote', us: '✅ Free consultation always', them: '❌ Retainer required' },
+  ]
+  const brandCompareRows = parseCompareBrandRows(settings.pricing_compare_brand_rows_json, brandCompareFallback)
+
   return (
     <Layout>
       <PageHero
@@ -609,17 +621,9 @@ export function PricingPage() {
               </tr>
             </thead>
             <tbody>
-              {[
-                ['Real-time booking tracking', '✅ Dashboard + email updates', '❌ Phone calls only'],
-                ['Transparent pricing', '✅ Quote before any payment', '❌ Hidden charges common'],
-                ['Document security', '✅ AES-256 encrypted portal', '❌ Via WhatsApp / email'],
-                ['Pan India coverage', '✅ 750+ cities across India', '⚠️ Limited to few cities'],
-                ['Money-back guarantee', '✅ On failed applications', '❌ Non-refundable deposits'],
-                ['24/7 WhatsApp support', '✅ Instant response team', '⚠️ Office hours only'],
-                ['No upfront fee for quote', '✅ Free consultation always', '❌ Retainer required'],
-              ].map(([feat, us, them]) => (
-                <tr key={feat}>
-                  <td className="s2-public-compare-feat">{feat}</td>
+              {brandCompareRows.map(({ feature, us, them }) => (
+                <tr key={feature}>
+                  <td className="s2-public-compare-feat">{feature}</td>
                   <td className="s2-public-compare-td-success">{us}</td>
                   <td className="s2-public-compare-td-muted">{them}</td>
                 </tr>

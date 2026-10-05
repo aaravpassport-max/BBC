@@ -5,6 +5,12 @@ Format: [Version] — YYYY-MM-DD — Author — Description
 
 ---
 
+## [4.7.72] — 2026-10-05 — Cloud Agent
+
+- **Phase 4:** `services_search_placeholder`; pricing brand compare rows JSON; home notice/search `CmsElement` hooks.
+
+---
+
 ## [4.7.71] — 2026-10-05 — Cloud Agent
 
 - **Phase 2 CMS:** Full contact form copy, hours JSON, success/error states; pricing consultation band + brand compare headers; HIW hero meta; service wizard tags, upload hint, mobile CTA, why-choose fallback JSON.
