@@ -1,0 +1,93 @@
+name: Build Attendance Desktop (Windows)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'cursor/native-wpf-desktop-cf54'
+    paths:
+      - 'attendance-tracker/**'
+      - '.github/workflows/build-attendance-desktop-windows.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build and test core engine
+        working-directory: attendance-tracker/core
+        run: |
+          npm ci
+          npm test
+          npm run build
+
+      - name: Publish native WPF app (self-contained)
+        working-directory: attendance-tracker/desktop-wpf
+        run: |
+          dotnet publish "AttendanceTracker.Desktop\AttendanceTracker.Desktop.csproj" `
+            -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=true `
+            -o "..\dist\AttendanceTracker-win-x64"
+
+      - name: Bundle core runtime for sidecar
+        shell: pwsh
+        run: |
+          $out = "attendance-tracker/dist/AttendanceTracker-win-x64"
+          New-Item -ItemType Directory -Force -Path "$out/core/dist" | Out-Null
+          Copy-Item -Recurse -Force attendance-tracker/core/dist/* "$out/core/dist/"
+          New-Item -ItemType Directory -Force -Path "$out/core/scripts" | Out-Null
+          Copy-Item -Recurse -Force attendance-tracker/core/scripts/* "$out/core/scripts/"
+          Copy-Item -Force attendance-tracker/core/package.json "$out/core/package.json"
+
+      - name: Bundle portable Node.js
+        shell: pwsh
+        run: |
+          $version = "20.18.0"
+          $zip = "node-v$version-win-x64.zip"
+          Invoke-WebRequest -Uri "https://nodejs.org/dist/v$version/$zip" -OutFile $env:RUNNER_TEMP\$zip
+          Expand-Archive -Path $env:RUNNER_TEMP\$zip -DestinationPath $env:RUNNER_TEMP -Force
+          $dest = "attendance-tracker/dist/AttendanceTracker-win-x64/runtime/node"
+          New-Item -ItemType Directory -Force -Path $dest | Out-Null
+          Copy-Item -Force "$env:RUNNER_TEMP/node-v$version-win-x64/node.exe" "$dest/node.exe"
+
+      - name: Create portable ZIP
+        shell: pwsh
+        run: |
+          $zip = "attendance-tracker/dist/AttendanceTracker-Windows-x64-v1.0.0.zip"
+          if (Test-Path $zip) { Remove-Item $zip -Force }
+          Compress-Archive -Path "attendance-tracker/dist/AttendanceTracker-win-x64/*" -DestinationPath $zip
+
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AttendanceTracker-Windows-x64-v1.0.0
+          path: attendance-tracker/dist/AttendanceTracker-Windows-x64-v1.0.0.zip
+          retention-days: 90
+
+      - name: Publish GitHub Release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: attendance-desktop-v1.0.0
+          name: Workforce Attendance Console v1.0.0 (Windows x64)
+          body: |
+            Native WPF Windows admin console. Extract the ZIP and run `AttendanceTracker.exe`.
+            Includes bundled Node.js runtime and the proven core attendance engine.
+          files: attendance-tracker/dist/AttendanceTracker-Windows-x64-v1.0.0.zip
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
