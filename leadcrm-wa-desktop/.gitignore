@@ -1,0 +1,7 @@
+node_modules/
+.build-cache/
+php/
+mariadb/
+dist/
+electron/node_modules/
+electron/dist/
