@@ -11,9 +11,13 @@
 
 Employees **do not** install or log in to the admin WPF app.
 
+## Employee install (Windows)
+
+**Recommended:** run **`WorkforceAttendance-Employee-Setup-1.0.3.exe`** from [WINDOWS_INSTALL.md](./WINDOWS_INSTALL.md) (Start Menu entry, optional start-at-login).
+
 ## Employee day-one flow
 
-1. IT installs **AttendanceAgent.exe** on the employee’s Windows PC (company-owned).
+1. IT installs the **employee Setup.exe** (or `AttendanceAgent.exe`) on the employee’s Windows PC (company-owned).
 2. Employee sees the **transparency notice** once and dismisses it (required before tracking).
 3. A **tray icon** appears; the agent records session and activity in the background.
 4. Employee opens **tray → View my activity today** to see their own hours (browser page).
