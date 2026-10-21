@@ -7,20 +7,60 @@ internal static class Program
     [STAThread]
     private static void Main()
     {
-        // Identity resolution (which employee/device this install belongs
-        // to) is a Stage 1 gap — a real build reads this from a config
-        // file written during IT-managed install, not from environment
-        // variables. Left explicit here rather than hand-waved.
-        var employeeId = Environment.GetEnvironmentVariable("ATTENDANCE_EMPLOYEE_ID")
-            ?? throw new InvalidOperationException("ATTENDANCE_EMPLOYEE_ID is not configured for this install.");
-        var deviceId = Environment.GetEnvironmentVariable("ATTENDANCE_DEVICE_ID") ?? Environment.MachineName;
+        ApplicationConfiguration.Initialize();
+
+        AgentInstallConfig install;
+        try
+        {
+            install = AgentInstallConfig.Load();
+        }
+        catch (Exception ex)
+        {
+            AgentStartupError.ShowFatal("Could not read employee install settings.", ex);
+            return;
+        }
+
+        var employeeId = install.EmployeeId;
+        var deviceId = install.DeviceId;
         var dbPath = Environment.GetEnvironmentVariable("ATTENDANCE_DB_PATH")
-            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "AttendanceAgent", "attendance.db");
+            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "WorkforceAttendance", "attendance.db");
 
-        Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
-        ApplicationConfiguration.Initialize(); // once, here — not repeated further down
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(dbPath)!);
+        }
+        catch (Exception ex)
+        {
+            AgentStartupError.ShowFatal("Could not create the data folder for this agent.", ex);
+            return;
+        }
 
-        using var repo = new SqliteRepository(dbPath);
+        SqliteRepository repo;
+        try
+        {
+            repo = new SqliteRepository(dbPath);
+        }
+        catch (Exception ex)
+        {
+            AgentStartupError.ShowFatal("Could not open the local attendance database.", ex);
+            return;
+        }
+
+        using (repo)
+        {
+            try
+            {
+                RunAgent(repo, employeeId, deviceId);
+            }
+            catch (Exception ex)
+            {
+                AgentStartupError.ShowFatal("The attendance agent stopped because of an unexpected error.", ex);
+            }
+        }
+    }
+
+    private static void RunAgent(SqliteRepository repo, string employeeId, string deviceId)
+    {
 
         // ---- The transparency gate, enforced at startup, not just at
         // write time. This ordering is the whole point: the notice is

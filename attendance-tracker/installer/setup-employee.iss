@@ -32,6 +32,9 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "Create a &desktop shortcut (optional)"; GroupDescription: "Shortcuts:"; Flags: unchecked
 Name: "runatlogin"; Description: "Start monitoring automatically when I sign in to Windows"; GroupDescription: "Startup:"; Flags: checkedonce
 
+[Dirs]
+Name: "{commonappdata}\WorkforceAttendance"; Permissions: users-modify
+
 [Files]
 Source: "..\dist\AttendanceAgent-win-x64\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "..\browser-extension\*"; DestDir: "{app}\browser-extension"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "README.md"
@@ -46,3 +49,59 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\{#AgentExe}"; Description: "Start {#AppName} now"; Flags: postinstall nowait skipifsilent
+
+[Code]
+var
+  EmployeeIdPage: TInputQueryWizardPage;
+
+function JsonEscape(const S: String): String;
+var
+  I: Integer;
+  C: Char;
+begin
+  Result := '';
+  for I := 1 to Length(S) do
+  begin
+    C := S[I];
+    if C = '\' then Result := Result + '\\'
+    else if C = '"' then Result := Result + '\"'
+    else Result := Result + C;
+  end;
+end;
+
+function DefaultEmployeeId: String;
+var
+  UserName, Computer: String;
+begin
+  UserName := ExpandConstant('{username}');
+  Computer := GetEnv('COMPUTERNAME');
+  if Computer = '' then Computer := 'PC';
+  if UserName = '' then Result := Computer
+  else Result := UserName + '@' + Computer;
+end;
+
+procedure InitializeWizard;
+begin
+  EmployeeIdPage := CreateInputQueryPage(wpSelectDir,
+    'Employee ID',
+    'Who will use this PC?',
+    'Enter the ID from HR (email or staff number). Leave blank to use your Windows sign-in name + PC name.');
+  EmployeeIdPage.Add('Employee ID (optional):', False);
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  ConfigPath, Json, EmpId, DevId: String;
+begin
+  if CurStep = ssPostInstall then
+  begin
+    EmpId := Trim(EmployeeIdPage.Values[0]);
+    if EmpId = '' then EmpId := DefaultEmployeeId;
+    DevId := GetEnv('COMPUTERNAME');
+    if DevId = '' then DevId := 'PC';
+    ConfigPath := ExpandConstant('{commonappdata}\WorkforceAttendance\agent-config.json');
+    ForceDirectories(ExtractFilePath(ConfigPath));
+    Json := '{ "employee_id": "' + JsonEscape(EmpId) + '", "device_id": "' + JsonEscape(DevId) + '" }' + #13#10;
+    SaveStringToFile(ConfigPath, Json, False);
+  end;
+end;

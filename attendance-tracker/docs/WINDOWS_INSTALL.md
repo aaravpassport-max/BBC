@@ -2,18 +2,16 @@
 
 Use the **Setup.exe** installers (Start Menu, uninstall in Settings → Apps). No browser required for admin daily work.
 
-## Direct downloads (v1.0.3)
-
-After CI publishes release `attendance-desktop-v1.0.3`:
+## Direct downloads (v1.0.4)
 
 | Role | Installer |
 |------|-----------|
-| **Admin / HR** | https://github.com/aaravpassport-max/BBC/releases/download/attendance-desktop-v1.0.3/WorkforceAttendance-Admin-Setup-1.0.3.exe |
-| **Employee** | https://github.com/aaravpassport-max/BBC/releases/download/attendance-desktop-v1.0.3/WorkforceAttendance-Employee-Setup-1.0.3.exe |
+| **Admin / HR** | https://github.com/aaravpassport-max/BBC/releases/download/attendance-desktop-v1.0.4/WorkforceAttendance-Admin-Setup-1.0.4.exe |
+| **Employee** | https://github.com/aaravpassport-max/BBC/releases/download/attendance-desktop-v1.0.4/WorkforceAttendance-Employee-Setup-1.0.4.exe |
 
-Release page: https://github.com/aaravpassport-max/BBC/releases/tag/attendance-desktop-v1.0.3
+Release page: https://github.com/aaravpassport-max/BBC/releases/tag/attendance-desktop-v1.0.4
 
-> If v1.0.3 is not listed yet, open **Actions → Build Attendance Desktop (Windows)** and run the workflow, or use the portable ZIP from v1.0.2 until the new release finishes.
+> **v1.0.3 employee installs:** upgrade to **v1.0.4** if the agent “does nothing” when opened — v1.0.3 required an environment variable that the installer did not set.
 
 ## Admin console
 
@@ -24,12 +22,22 @@ Release page: https://github.com/aaravpassport-max/BBC/releases/tag/attendance-d
 
 ## Employee agent
 
-1. Run **WorkforceAttendance-Employee-Setup-1.0.3.exe** on each employee PC.
-2. Keep **Start monitoring automatically when I sign in** enabled unless IT deploys startup another way.
-3. Accept the **transparency notice** once.
-4. Use the **system tray** icon — not the admin console.
+1. Run **WorkforceAttendance-Employee-Setup-1.0.4.exe** on each employee PC.
+2. On the **Employee ID** step, enter HR’s ID or leave blank (uses `WindowsUser@ComputerName`).
+3. Keep **Start monitoring automatically when I sign in** enabled unless IT deploys startup another way.
+4. When the app starts, a **monitoring notice** appears — check **“I have read and understand”** and click **Continue**. Closing the window without that **does not start** the agent (by design).
+5. There is **no main window** — look for the **tray icon** (near the clock). Double-click or right-click for **View my activity today**.
 
 Employees do **not** use `AttendanceTracker.exe`.
+
+### Employee app “won’t open”
+
+| Symptom | Fix |
+|---------|-----|
+| Nothing visible after double-click | Check the **system tray** (^ arrow). The agent runs in the background. |
+| Notice flashes and closes | You closed without checking the box — run again and click **Continue**. |
+| v1.0.3 install, instant exit | Reinstall **v1.0.4** or create `%ProgramData%\WorkforceAttendance\agent-config.json` with `{"employee_id":"you@PC","device_id":"PCNAME"}`. |
+| Error dialog | See `%LocalAppData%\WorkforceAttendance\logs\agent-startup.log`. |
 
 ## Build installers locally
 
