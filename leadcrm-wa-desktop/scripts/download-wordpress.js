@@ -26,9 +26,33 @@ function download(url, dest) {
   });
 }
 
+function syncDesktopWordPressAssets() {
+  const muDir = path.join(OUT, 'wp-content', 'mu-plugins');
+  fs.mkdirSync(muDir, { recursive: true });
+  const muCandidates = [
+    path.join(__dirname, '..', 'app', 'wordpress', 'wp-content', 'mu-plugins', 'leadcrm-desktop.php'),
+    path.join(__dirname, '..', 'app', 'bin', 'leadcrm-desktop.php'),
+  ];
+  for (const muSrc of muCandidates) {
+    if (fs.existsSync(muSrc)) {
+      fs.copyFileSync(muSrc, path.join(muDir, 'leadcrm-desktop.php'));
+      break;
+    }
+  }
+  const bootSrc = path.join(__dirname, '..', 'app', 'bin', 'leadcrm-desktop-bootstrap.php');
+  if (fs.existsSync(bootSrc)) {
+    fs.copyFileSync(bootSrc, path.join(OUT, 'leadcrm-desktop-bootstrap.php'));
+  }
+  const routerSrc = path.join(__dirname, '..', 'app', 'bin', 'desktop-router.php');
+  if (fs.existsSync(routerSrc)) {
+    fs.copyFileSync(routerSrc, path.join(OUT, 'router.php'));
+  }
+}
+
 async function main() {
   if (fs.existsSync(path.join(OUT, 'wp-includes')) && fs.existsSync(path.join(PLUGIN, 'leadcrm.php'))) {
     console.log('[wordpress] Core + LeadCRM plugin already present.');
+    syncDesktopWordPressAssets();
     return;
   }
   fs.mkdirSync(CACHE, { recursive: true });
@@ -54,25 +78,7 @@ async function main() {
     throw new Error('leadcrm-wa-build plugin not found next to leadcrm-wa-desktop');
   }
   execSync(`cp -a "${pluginSource}" "${PLUGIN}"`, { stdio: 'inherit' });
-  const muDir = path.join(OUT, 'wp-content', 'mu-plugins');
-  fs.mkdirSync(muDir, { recursive: true });
-  const muSrc = path.join(__dirname, '..', 'app', 'wordpress', 'wp-content', 'mu-plugins', 'leadcrm-desktop.php');
-  if (fs.existsSync(muSrc)) {
-    fs.copyFileSync(muSrc, path.join(muDir, 'leadcrm-desktop.php'));
-  }
-  const bootSrc = path.join(__dirname, '..', 'app', 'wordpress', 'leadcrm-desktop-bootstrap.php');
-  if (fs.existsSync(bootSrc)) {
-    fs.copyFileSync(bootSrc, path.join(OUT, 'leadcrm-desktop-bootstrap.php'));
-  }
-  fs.writeFileSync(
-    path.join(OUT, 'router.php'),
-    `<?php
-$uri = urldecode(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
-$file = __DIR__ . $uri;
-if ($uri !== '/' && is_file($file)) return false;
-require __DIR__ . '/index.php';
-`,
-  );
+  syncDesktopWordPressAssets();
   const binDir = path.join(__dirname, '..', 'app', 'bin');
   fs.mkdirSync(binDir, { recursive: true });
   console.log('[wordpress] WordPress + LeadCRM WA plugin ready.');

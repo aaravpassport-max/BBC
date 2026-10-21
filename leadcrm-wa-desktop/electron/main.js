@@ -204,10 +204,12 @@ function ensureDesktopBootstrapFiles() {
     fs.mkdirSync(path.dirname(muLive), { recursive: true });
     fs.copyFileSync(muBundled, muLive);
   }
-  const bootBundled = path.join(APP_DIR, 'wordpress', 'leadcrm-desktop-bootstrap.php');
+  const bootBundled = path.join(APP_DIR, 'bin', 'leadcrm-desktop-bootstrap.php');
+  const bootBundledLegacy = path.join(APP_DIR, 'wordpress', 'leadcrm-desktop-bootstrap.php');
   const bootLive = path.join(WP_DIR, 'leadcrm-desktop-bootstrap.php');
-  if (fs.existsSync(bootBundled)) {
-    fs.copyFileSync(bootBundled, bootLive);
+  const bootSrc = fs.existsSync(bootBundled) ? bootBundled : bootBundledLegacy;
+  if (fs.existsSync(bootSrc)) {
+    fs.copyFileSync(bootSrc, bootLive);
   }
   const cfg = path.join(WP_DIR, 'wp-config.php');
   if (fs.existsSync(cfg)) {
