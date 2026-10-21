@@ -135,7 +135,14 @@ class BookingAdminController extends \S2NRI\Api\Controllers\BaseController {
             'email' => $booking['assigned_email'],
             'phone' => $booking['assigned_phone'] ?? '',
         ] : null;
-        $booking['vendor'] = null; // vendor assignment not implemented in this version
+        $booking['vendor'] = null;
+        if ( ! empty( $booking['vendor_id'] ) ) {
+            $vendor_row = $wpdb->get_row( $wpdb->prepare(
+                "SELECT id, name, phone, whatsapp, company FROM {$p}s2nri_vendors WHERE id = %d LIMIT 1",
+                (int) $booking['vendor_id']
+            ), ARRAY_A );
+            $booking['vendor'] = $vendor_row ?: null;
+        }
 
         // Delivery info string (M-04, M-09)
         if ( $booking['due_date'] && $booking['delivery_working_days'] ) {
