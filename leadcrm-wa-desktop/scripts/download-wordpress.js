@@ -60,6 +60,10 @@ async function main() {
   if (fs.existsSync(muSrc)) {
     fs.copyFileSync(muSrc, path.join(muDir, 'leadcrm-desktop.php'));
   }
+  const bootSrc = path.join(__dirname, '..', 'app', 'wordpress', 'leadcrm-desktop-bootstrap.php');
+  if (fs.existsSync(bootSrc)) {
+    fs.copyFileSync(bootSrc, path.join(OUT, 'leadcrm-desktop-bootstrap.php'));
+  }
   fs.writeFileSync(
     path.join(OUT, 'router.php'),
     `<?php

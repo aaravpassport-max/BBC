@@ -30,6 +30,7 @@ let dbPort = 3308;
 let phpProcess = null;
 let mariaProcess = null;
 let mainWindow = null;
+const SESSION_PARTITION = 'persist:leadcrm-wa';
 
 [DATA_DIR, DB_DATA_DIR, LOG_DIR].forEach(d => fs.mkdirSync(d, { recursive: true }));
 
@@ -147,6 +148,11 @@ function ensureDesktopBootstrapFiles() {
   if (fs.existsSync(muBundled)) {
     fs.mkdirSync(path.dirname(muLive), { recursive: true });
     fs.copyFileSync(muBundled, muLive);
+  }
+  const bootBundled = path.join(APP_DIR, 'wordpress', 'leadcrm-desktop-bootstrap.php');
+  const bootLive = path.join(WP_DIR, 'leadcrm-desktop-bootstrap.php');
+  if (fs.existsSync(bootBundled)) {
+    fs.copyFileSync(bootBundled, bootLive);
   }
   const cfg = path.join(WP_DIR, 'wp-config.php');
   if (fs.existsSync(cfg)) {
@@ -308,6 +314,65 @@ function runWordPressInstall(dbPass) {
   fs.writeFileSync(INSTALLED_FLAG, JSON.stringify({ at: new Date().toISOString(), siteUrl }, null, 2));
 }
 
+function attachLoginBypass(win) {
+  const bootstrap = `http://127.0.0.1:${phpPort}/leadcrm-desktop-bootstrap.php`;
+  const crm = `http://127.0.0.1:${phpPort}/crm/`;
+  const rerouteLogin = (url) => {
+    if (typeof url === 'string' && url.includes('wp-login.php')) {
+      win.loadURL(bootstrap);
+      return true;
+    }
+    return false;
+  };
+  win.webContents.on('will-navigate', (event, url) => {
+    if (rerouteLogin(url)) event.preventDefault();
+  });
+  win.webContents.on('did-navigate', (_event, url) => {
+    rerouteLogin(url);
+  });
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith(`http://127.0.0.1:${phpPort}`)) return { action: 'allow' };
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
+}
+
+async function establishDesktopSession() {
+  const bootstrap = `http://127.0.0.1:${phpPort}/leadcrm-desktop-bootstrap.php`;
+  return new Promise((resolve, reject) => {
+    const hidden = new BrowserWindow({
+      show: false,
+      webPreferences: {
+        partition: SESSION_PARTITION,
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    });
+    const timeout = setTimeout(() => {
+      try { hidden.destroy(); } catch {}
+      reject(new Error('Could not start LeadCRM session (timeout).'));
+    }, 120000);
+    const finish = () => {
+      clearTimeout(timeout);
+      try { hidden.destroy(); } catch {}
+      resolve();
+    };
+    hidden.webContents.on('did-fail-load', (_e, _code, desc) => {
+      clearTimeout(timeout);
+      try { hidden.destroy(); } catch {}
+      reject(new Error(`LeadCRM session failed: ${desc}`));
+    });
+    hidden.webContents.on('did-navigate', (_e, url) => {
+      if (url.includes('/crm')) finish();
+    });
+    hidden.webContents.on('did-finish-load', () => {
+      const url = hidden.webContents.getURL();
+      if (url.includes('/crm')) finish();
+    });
+    hidden.loadURL(bootstrap);
+  });
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1360,
@@ -315,16 +380,16 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 640,
     title: 'LeadCRM WA',
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
+    webPreferences: {
+      partition: SESSION_PARTITION,
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
     show: false,
   });
+  attachLoginBypass(mainWindow);
   mainWindow.loadURL(`http://127.0.0.1:${phpPort}/crm/`);
   mainWindow.once('ready-to-show', () => mainWindow.show());
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (url.startsWith(`http://127.0.0.1:${phpPort}`)) return { action: 'allow' };
-    shell.openExternal(url);
-    return { action: 'deny' };
-  });
 
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
@@ -353,6 +418,7 @@ app.on('ready', async () => {
     const dbPass = await startMariaDB();
     await startPhp();
     runWordPressInstall(dbPass);
+    await establishDesktopSession();
     createWindow();
   } catch (e) {
     dialog.showErrorBox('LeadCRM failed to start', `${e.message}\n\nData: ${DATA_DIR}`);
