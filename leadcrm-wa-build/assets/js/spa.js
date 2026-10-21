@@ -13,6 +13,9 @@
     var SECTIONS = LCRM_SPA.sections;
 
     var currentSection = '';
+    var navToken       = 0;
+    var scrollPos      = {};
+    var loaderTimer    = null;
     var sectionCache   = {};  // key → html, populated after first load
     var collapsed      = localStorage.getItem('lcrm_sidebar_col') === '1';
 
@@ -49,6 +52,7 @@
         // Same section, no sub → skip (unless settings which needs tab re-render)
         if ( section === currentSection && section !== 'settings' && !sub ) return;
 
+        saveScroll();
         currentSection = section;
 
         if ( push ) {
@@ -69,8 +73,11 @@
             return;
         }
 
+        var token = ++navToken;
         showLoader();
         post('lcrm_spa_section', { section: section, tab: sub || '' }, function (res) {
+            if ( token !== navToken ) return;
+            hideLoader();
             if ( res.success ) {
                 sectionCache[section] = res.data.html;
                 inject(section, res.data.html, sub);
@@ -83,12 +90,14 @@
     // Injects HTML into content pane, scrolls to top, runs post-inject init.
     function inject(section, html, sub) {
         var $c = $('#lcrm-content');
-        $c.fadeOut(60, function () {
-            $c.html(html);
-            $c.fadeIn(80);
-            $c.scrollTop(0);
-            postInject(section, sub);
-        });
+        hideLoader();
+        $c.html(html);
+        $c.scrollTop(scrollPos[section] || 0);
+        postInject(section, sub);
+    }
+
+    function saveScroll() {
+        if ( currentSection ) scrollPos[currentSection] = $('#lcrm-content').scrollTop();
     }
 
     // TRACE: Runs after section HTML is in the DOM.
@@ -270,17 +279,21 @@
 
     /* ── LOADER / ERROR ─────────────────────────────────────── */
 
+    // Overlay progress bar: never replaces content, so nothing reflows while loading.
     function showLoader() {
-        $('#lcrm-content').html(
-            '<div style="display:flex;align-items:center;justify-content:center;min-height:280px;">'
-            + '<div style="text-align:center;">'
-            + '<div class="lcrm-spinner" style="margin:0 auto 12px;"></div>'
-            + '<div style="color:#9ca3af;font-size:13px;">Loading…</div>'
-            + '</div></div>'
-        );
+        clearTimeout(loaderTimer);
+        loaderTimer = setTimeout(function () {
+            if ( !$('#lcrm-nav-progress').length ) $('#lcrm-content').parent().append('<div id="lcrm-nav-progress"></div>');
+        }, 150);
+    }
+
+    function hideLoader() {
+        clearTimeout(loaderTimer);
+        $('#lcrm-nav-progress').remove();
     }
 
     function showError(msg) {
+        hideLoader();
         $('#lcrm-content').html(
             '<div style="text-align:center;padding:60px 20px;color:#ef4444;font-size:14px;">⚠ ' + msg + '</div>'
         );

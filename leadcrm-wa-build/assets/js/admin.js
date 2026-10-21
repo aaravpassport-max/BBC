@@ -402,12 +402,14 @@ function lcrmBuildColPickerPanel(){
 var lcrmLeadsSeq=0, lcrmLeadsXhr=null;
 function lcrmLoadLeads(){
     var span=lcrmGetVisibleCols().length||20;
-    $('#lcrm-tbody').html('<tr><td colspan="'+span+'" class="lcrm-loading">Loading\u2026</td></tr>');
+    if($('#lcrm-tbody tr.lcrm-lead-row').length) $('#lcrm-leads-table').closest('.lcrm-table-wrap').addClass('lcrm-refreshing');
+    else $('#lcrm-tbody').html('<tr><td colspan="'+span+'" class="lcrm-loading">Loading\u2026</td></tr>');
     var data=$.extend({page:lcrmPage,orderby:lcrmSort,order:lcrmOrder},lcrmFilters);
     var seq=++lcrmLeadsSeq;
     if(lcrmLeadsXhr) lcrmLeadsXhr.abort();
     lcrmLeadsXhr=lcrmPost('lcrm_get_leads',data,function(d){
         if(seq!==lcrmLeadsSeq) return;
+        $('.lcrm-refreshing').removeClass('lcrm-refreshing');
         var html='';
         if(!d.leads||!d.leads.length){
             html='<tr><td colspan="'+span+'" class="lcrm-loading">No leads found.</td></tr>';
@@ -436,6 +438,7 @@ function lcrmLoadLeads(){
         }
     },function(msg){
         if(seq!==lcrmLeadsSeq) return;
+        $('.lcrm-refreshing').removeClass('lcrm-refreshing');
         $('#lcrm-tbody').html('<tr><td colspan="'+span+'" class="lcrm-loading">'+lcrmErr(msg)+'</td></tr>');
     });
 }

@@ -317,6 +317,7 @@ require_once ABSPATH . 'wp-settings.php';
     (await waitRows(1)) && (await names()).includes('QA Gamma') ? pass('Priority + Temperature combined') : fail('Combined filters', await names());
     await page.selectOption('#lcrm-filter-temp', '');
     await page.selectOption('#lcrm-filter-priority', '');
+    await waitRows(3);
     await page.selectOption('#lcrm-filter-stage', String(stages[0]));
     (await waitRows(1)) && (await names()).includes('QA Alpha') ? pass('Stage filter instant') : fail('Stage filter', await names());
     await page.selectOption('#lcrm-filter-wstatus', 'On Hold');
@@ -367,6 +368,70 @@ require_once ABSPATH . 'wp-settings.php';
       }
     }
     await page.setViewportSize({ width: 1360, height: 860 });
+  }
+
+  // 4c) Navigation stability: geometry of persistent chrome must never move while switching sections
+  if (navCount > 0) {
+    await page.setViewportSize({ width: 1360, height: 860 });
+    await page.goto(`${BASE}/crm/#dashboard`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1500);
+    await page.evaluate(() => {
+      const geo = () => {
+        const r = s => { const b = document.querySelector(s).getBoundingClientRect(); return [b.left, b.top, b.width, b.height].map(Math.round).join(','); };
+        return { side: r('#lcrm-sidebar'), top: r('.lcrm-spa-topbar'), cont: [document.querySelector('#lcrm-content').getBoundingClientRect().left, document.querySelector('#lcrm-content').getBoundingClientRect().width, document.querySelector('#lcrm-content').getBoundingClientRect().top].map(Math.round).join(','),
+          hidden: getComputedStyle(document.querySelector('#lcrm-content')).display === 'none', docW: document.documentElement.scrollWidth - innerWidth };
+      };
+      window.__geo = { base: geo(), bad: 0, hiddenFrames: 0, samples: 0 };
+      const tick = () => {
+        const g = geo(); const b = window.__geo.base;
+        window.__geo.samples++;
+        if (g.side !== b.side || g.top !== b.top || g.cont !== b.cont || g.docW > 0) window.__geo.bad++;
+        if (g.hidden) window.__geo.hiddenFrames++;
+        requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    });
+    const secIds = await page.$$eval('.lcrm-nav-item', els => els.map(e => e.dataset.section));
+    for (let round = 0; round < 3; round++) {
+      for (const id of secIds) {
+        await page.click(`.lcrm-nav-item[data-section="${id}"]`);
+        await page.waitForTimeout(id === 'add' ? 500 : 250);
+        await page.evaluate(() => document.querySelectorAll('.lcrm-modal').forEach(m => { m.style.display = 'none'; m.classList.remove('open'); }));
+      }
+    }
+    await page.click('.lcrm-nav-item[data-section="leads"]');
+    await page.waitForTimeout(800);
+    for (let i = 0; i < 4; i++) { await page.evaluate(() => history.back()); await page.waitForTimeout(250); }
+    for (let i = 0; i < 3; i++) { await page.evaluate(() => history.forward()); await page.waitForTimeout(250); }
+    // rapid-fire switching (race protection)
+    for (const id of ['analytics', 'pipeline', 'leads', 'vendors', 'alerts', 'leads']) await page.click(`.lcrm-nav-item[data-section="${id}"]`);
+    await page.waitForTimeout(1500);
+    const finalActive = await page.$eval('.lcrm-nav-item.active', e => e.dataset.section);
+    const hasLeads = await page.locator('#lcrm-leads-table').count();
+    // collapse/expand while sampling
+    for (let i = 0; i < 4; i++) { await page.click('#lcrm-menu-toggle'); await page.waitForTimeout(300); }
+    const geo = await page.evaluate(() => window.__geo);
+    // sidebar width legitimately changes while collapsed; only count non-sidebar drift in that phase separately
+    const noHidden = geo.hiddenFrames === 0;
+    (noHidden) ? pass('Content pane never hidden during navigation', `${geo.samples} frames`) : fail('Content pane hidden (flash)', `${geo.hiddenFrames} frames`);
+    (finalActive === 'leads' && hasLeads) ? pass('Rapid switching settles on last section', finalActive) : fail('Rapid switching race', `${finalActive} leads=${hasLeads}`);
+    // chrome geometry stability measured separately without the collapse phase
+    await page.evaluate(() => { window.__geo.bad = 0; window.__geo.base = null; });
+    await page.evaluate(() => {
+      const el = id => document.querySelector(id).getBoundingClientRect();
+      window.__geo.base = { side: ['#lcrm-sidebar'].map(s => { const b = el(s); return [b.left, b.top, b.width, b.height].map(Math.round).join(','); })[0] };
+    });
+    const geoStable = await page.evaluate(async (ids) => {
+      const snap = () => { const f = s => { const b = document.querySelector(s).getBoundingClientRect(); return [b.left, b.top, b.width, b.height].map(Math.round).join(','); }; return f('#lcrm-sidebar') + '|' + f('.lcrm-spa-topbar') + '|' + f('#lcrm-content'); };
+      const base = snap(); let drift = 0; const seen = new Set();
+      for (const id of ids) {
+        document.querySelector(`.lcrm-nav-item[data-section="${id}"]`).click();
+        for (let i = 0; i < 12; i++) { await new Promise(r => requestAnimationFrame(r)); const s = snap(); if (s !== base) { drift++; seen.add(id + ':' + s); } }
+      }
+      return { drift, seen: [...seen].slice(0, 3) };
+    }, secIds);
+    geoStable.drift === 0 ? pass('Sidebar/header/content geometry stable across all sections', `${secIds.length} sections`) : fail('Layout shift during navigation', JSON.stringify(geoStable));
+    await page.screenshot({ path: path.join(OUT, '12-nav-stable.png') });
   }
 
   // 5) API health — admin-ajax reachable

@@ -280,7 +280,8 @@ body { overflow: hidden; }
 
 /* Content pane — equivalent of #wpbody-content */
 .lcrm-spa-content {
-  flex: 1; overflow-y: auto; overflow-x: hidden; position: relative;
+  flex: 1; overflow-y: scroll; overflow-x: hidden; position: relative;
+  scrollbar-gutter: stable; overscroll-behavior: contain; min-height: 0;
 }
 .lcrm-spa-content::-webkit-scrollbar { width: 7px; }
 .lcrm-spa-content::-webkit-scrollbar-thumb { background: #c3c4c7; border-radius: 3px; }
@@ -302,7 +303,15 @@ body { overflow: hidden; }
 .lcrm-spa .lcrm-modal { z-index: 999999 !important; }
 
 /* ── ENTRY ANIMATION ────────────────────────────────────── */
-.lcrm-spa-content .lcrm-wrap { animation: lcrm-in .15s ease; }
+.lcrm-spa-content .lcrm-wrap { animation: lcrm-in .16s ease-out; }
+.lcrm-main { position: relative; contain: layout; }
+.lcrm-sidebar { will-change: width; contain: layout style; }
+.lcrm-nav-item { transition: background-color .15s ease, color .15s ease; }
+#lcrm-nav-progress { position:absolute; top:36px; left:0; height:2px; width:40%; background:#00a0e3; z-index:50;
+  animation: lcrm-prog 1s ease-in-out infinite; }
+@keyframes lcrm-prog { from { transform:translateX(-100%); } to { transform:translateX(260%); } }
+.lcrm-table-wrap.lcrm-refreshing { opacity:.55; transition: opacity .15s; pointer-events:none; }
+@media (prefers-reduced-motion: reduce) { .lcrm-spa-content .lcrm-wrap, .lcrm-sidebar { animation:none; transition:none; } }
 @keyframes lcrm-in { from { opacity:.4; } to { opacity:1; } }
 
 /* ── SECTION LOADER ─────────────────────────────────────── */
