@@ -2,7 +2,7 @@
  * LeadCRM WA Desktop — WordPress + leadcrm-wa-build plugin
  * Bundled MariaDB + PHP + Electron shell
  */
-const { app, BrowserWindow, dialog, shell, Menu } = require('electron');
+const { app, BrowserWindow, dialog, shell, Menu, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const net = require('net');
@@ -22,6 +22,7 @@ const LOG_DIR = path.join(DATA_DIR, 'logs');
 const DB_CFG_FILE = path.join(DATA_DIR, 'db.json');
 const WP_DIR = path.join(DATA_DIR, 'wordpress');
 const INSTALLED_FLAG = path.join(DATA_DIR, 'wordpress-installed.json');
+const APP_VERSION_FILE = path.join(DATA_DIR, 'app-version.json');
 const LOGIN_FILE = path.join(DATA_DIR, 'LOGIN.txt');
 const PHP_INI_FILE = path.join(DATA_DIR, 'php.ini');
 
@@ -139,7 +140,7 @@ function ensureWordPressTree() {
   const binSrc = path.join(APP_DIR, 'bin');
   const binDest = path.join(DATA_DIR, 'bin');
   if (fs.existsSync(binSrc) && !fs.existsSync(binDest)) copyDir(binSrc, binDest);
-  ensureDesktopBootstrapFiles();
+  syncBundledPluginIfNeeded();
 }
 
 function ensureDesktopBootstrapFiles() {
@@ -165,6 +166,26 @@ function ensureDesktopBootstrapFiles() {
       fs.writeFileSync(cfg, text);
     }
   }
+}
+
+function syncBundledPluginIfNeeded() {
+  if (!fs.existsSync(path.join(WP_DIR, 'wp-includes'))) return;
+  const version = app.getVersion();
+  let prev = '';
+  if (fs.existsSync(APP_VERSION_FILE)) {
+    try { prev = JSON.parse(fs.readFileSync(APP_VERSION_FILE, 'utf8')).version || ''; } catch {}
+  }
+  ensureDesktopBootstrapFiles();
+  if (prev === version) return;
+
+  const pluginSrc = path.join(APP_DIR, 'wordpress', 'wp-content', 'plugins', 'leadcrm-wa-build');
+  const pluginDest = path.join(WP_DIR, 'wp-content', 'plugins', 'leadcrm-wa-build');
+  if (fs.existsSync(pluginSrc)) {
+    appendLog(path.join(LOG_DIR, 'init.log'), `Syncing LeadCRM plugin for app v${version}…\n`);
+    fs.rmSync(pluginDest, { recursive: true, force: true });
+    copyDir(pluginSrc, pluginDest);
+  }
+  fs.writeFileSync(APP_VERSION_FILE, JSON.stringify({ version, syncedAt: new Date().toISOString() }, null, 2));
 }
 
 function writeDbConfig(port) {
@@ -314,11 +335,17 @@ function runWordPressInstall(dbPass) {
   fs.writeFileSync(INSTALLED_FLAG, JSON.stringify({ at: new Date().toISOString(), siteUrl }, null, 2));
 }
 
+function needsAuthReroute(url, title = '') {
+  if (typeof url !== 'string') return false;
+  if (url.includes('wp-login.php')) return true;
+  if (url.includes('/crm') && /login/i.test(title) && !/dashboard/i.test(title)) return true;
+  return false;
+}
+
 function attachLoginBypass(win) {
-  const bootstrap = `http://127.0.0.1:${phpPort}/leadcrm-desktop-bootstrap.php`;
-  const crm = `http://127.0.0.1:${phpPort}/crm/`;
-  const rerouteLogin = (url) => {
-    if (typeof url === 'string' && url.includes('wp-login.php')) {
+  const bootstrap = bootstrapUrl();
+  const rerouteLogin = (url, title = '') => {
+    if (needsAuthReroute(url, title)) {
       win.loadURL(bootstrap);
       return true;
     }
@@ -327,8 +354,12 @@ function attachLoginBypass(win) {
   win.webContents.on('will-navigate', (event, url) => {
     if (rerouteLogin(url)) event.preventDefault();
   });
+  win.webContents.on('will-redirect', (event, url) => {
+    if (rerouteLogin(url)) event.preventDefault();
+  });
   win.webContents.on('did-navigate', (_event, url) => {
-    rerouteLogin(url);
+    const title = win.webContents.getTitle();
+    rerouteLogin(url, title);
   });
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith(`http://127.0.0.1:${phpPort}`)) return { action: 'allow' };
@@ -368,19 +399,41 @@ function createWindow() {
 
   mainWindow.webContents.on('did-finish-load', () => {
     const url = mainWindow.webContents.getURL();
-    if (url.includes('wp-login.php')) {
+    const title = mainWindow.webContents.getTitle();
+    if (needsAuthReroute(url, title)) {
       mainWindow.loadURL(bootstrapUrl());
     }
   });
 
-  // Sign in locally, then land on CRM (never block app exit on failure).
-  mainWindow.loadURL(bootstrapUrl()).catch(() => openCrm());
-  setTimeout(() => {
-    const url = mainWindow?.webContents?.getURL?.() || '';
-    if (mainWindow && !mainWindow.isDestroyed() && !url.includes('/crm')) {
-      openCrm();
+  const ses = session.fromPartition(SESSION_PARTITION);
+  const openWithSession = async () => {
+    await ses.cookies.flushStore().catch(() => {});
+    mainWindow.loadURL(bootstrapUrl()).catch(() => openCrm());
+  };
+  openWithSession();
+
+  let authRetries = 0;
+  const authTimer = setInterval(() => {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      clearInterval(authTimer);
+      return;
     }
-  }, 15000);
+    const url = mainWindow.webContents.getURL();
+    const title = mainWindow.webContents.getTitle();
+    if (url.includes('/crm/') && /dashboard|leadcrm/i.test(title) && !/login/i.test(title)) {
+      clearInterval(authTimer);
+      return;
+    }
+    if (authRetries >= 8) {
+      clearInterval(authTimer);
+      openCrm();
+      return;
+    }
+    authRetries += 1;
+    if (needsAuthReroute(url, title) || !url.includes('/crm/')) {
+      mainWindow.loadURL(bootstrapUrl()).catch(() => openCrm());
+    }
+  }, 2000);
 
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {

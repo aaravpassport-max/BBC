@@ -1,4 +1,4 @@
-# Delivery audit — LeadCRM WA Desktop v1.0.4
+# Delivery audit — LeadCRM WA Desktop v1.0.5
 
 **Product:** Standalone Windows app wrapping **leadcrm-wa-build** (WordPress plugin SPA at `/crm/`).  
 **Not in scope:** The separate `leadcrm/` Next.js monorepo or release tag `leadcrm-desktop-v1.0.0`.
@@ -28,7 +28,7 @@ Screenshot set: `01-after-bootstrap` through `07-add-lead-form` (see CI artifact
 ## What still requires Windows confirmation
 
 - NSIS install, MariaDB/PHP bundled binaries, splash → main window, and `%APPDATA%` data paths (see [TESTING.md](./TESTING.md)).
-- Recommended release: **`leadcrm-wa-v1.0.4`** (`LeadCRM-WA-Setup-1.0.4.exe`).
+- Recommended release: **`leadcrm-wa-v1.0.5`** (`LeadCRM-WA-Setup-1.0.5.exe`).
 
 ## If something fails on Windows
 

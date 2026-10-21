@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - 'cursor/leadcrm-wa-windows-11df'
+    tags:
+      - 'leadcrm-wa-v*'
     paths:
       - 'leadcrm-wa-desktop/**'
       - 'leadcrm-wa-build/**'

@@ -35,7 +35,7 @@ Screenshots `01`–`07` are the visual record for delivery sign-off.
 
 ## Windows smoke test (manual)
 
-1. Install **LeadCRM-WA-Setup-1.0.4.exe** (or latest release tag `leadcrm-wa-v*`).
+1. Install **LeadCRM-WA-Setup-1.0.5.exe** (or latest release tag `leadcrm-wa-v*`).
 2. First launch: splash → CRM dashboard (no WordPress login).
 3. Menu: **Open CRM**, **Sign in again (local)** if session issues.
 4. Data lives in `%APPDATA%\leadcrm-wa-desktop\LeadCRM-WA\` — see `LOGIN.txt` and `logs/startup.log` on failure.

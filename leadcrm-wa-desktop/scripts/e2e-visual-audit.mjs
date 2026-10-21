@@ -121,7 +121,18 @@ require_once ABSPATH . 'wp-settings.php';
   if (afterBoot.includes('/crm')) pass('Bootstrap redirects to /crm/', afterBoot);
   else fail('Bootstrap redirects to /crm/', afterBoot);
 
-  // 2) CRM must not be wp-login
+  // 2) CRM without prior cookies (Electron-style cold load)
+  await context.clearCookies();
+  await page.goto(`${BASE}/crm/`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForTimeout(2000);
+  let titleCold = await page.title();
+  if (titleCold.includes('Log In') || (await page.locator('body').innerText()).includes('Sign in to access')) {
+    fail('CRM cold load without cookies', titleCold);
+  } else {
+    pass('CRM cold load without cookies', titleCold.slice(0, 80));
+  }
+
+  // 3) CRM must not be wp-login
   await page.goto(`${BASE}/crm/`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.waitForTimeout(2000);
   await page.screenshot({ path: path.join(OUT, '02-crm-home.png'), fullPage: true });
