@@ -12,14 +12,15 @@ var lcrmSaving=false, lcrmFormDirty=false;
 /* ============================================================
    UTILITY
    ============================================================ */
+var LCRM_WORK_STATUSES=['Inquiry','Under Discussion','On Hold','In Progress','Completed','Closed/Delivered'];
 function lcrmPost(action,data,cb,errCb){
     data.action=action; data.nonce=LCRM.nonce;
-    $.post(LCRM.ajax_url,data)
+    return $.post(LCRM.ajax_url,data)
      .done(function(r){
          if(r && typeof r==='object' && r.success){if(cb)cb(r.data);}
          else if(errCb) errCb((r && r.data)?r.data:{msg:'Server error (action: '+action+'). Check PHP logs.'});
      })
-     .fail(function(){ if(errCb)errCb({msg:'Connection error. Please try again.'}); });
+     .fail(function(x,st){ if(st==='abort') return; if(errCb)errCb({msg:'Connection error. Please try again.'}); });
 }
 function lcrmErr(d){ return (d&&d.msg)?d.msg:'An error occurred.'; }
 function lcrmMsg($el,msg,type){ $el.removeClass('lcrm-msg-ok lcrm-msg-err').addClass(type==='ok'?'lcrm-msg-ok':'lcrm-msg-err').text(msg).show(); setTimeout(function(){ $el.fadeOut(); },3000); }
@@ -40,6 +41,7 @@ var LCRM_BUILTIN_COLS = [
     {key:'work_type',      label:'Work Type',     cls:'col-wt',            sortable:true, sortField:'work_type',    defaultWidth:120,defaultVisible:true },
     {key:'lead_source',    label:'Source',        cls:'col-src',           sortable:false,defaultWidth:100,defaultVisible:false},
     {key:'stage',          label:'Stage',         cls:'col-stage',         sortable:false,defaultWidth:110,defaultVisible:true },
+    {key:'work_status',    label:'Status',        cls:'col-wstatus',       sortable:false,defaultWidth:140,defaultVisible:true },
     {key:'brand',          label:'Brand',         cls:'col-brand',         sortable:false,defaultWidth:90, defaultVisible:true },
     {key:'priority',       label:'Priority',      cls:'col-priority',      sortable:false,defaultWidth:78, defaultVisible:true },
     {key:'temperature',    label:'Temp',          cls:'col-temp',          sortable:false,defaultWidth:72, defaultVisible:true },
@@ -269,6 +271,10 @@ function lcrmRenderCell(col,l){
             return '<td class="'+cls+'">'+lcrmEsc(l.lead_source||'\u2014')+'</td>';
         case 'stage':
             return '<td class="'+cls+' lcrm-editable" data-editable="stage_id" data-lead-id="'+l.id+'" data-val="'+l.stage_id+'" style="vertical-align:middle;"><span class="lcrm-badge" style="background:'+l.stage_color+'">'+lcrmEsc(l.stage_name)+'</span></td>';
+        case 'work_status':
+            var ws=l.work_status||'Inquiry', wo='';
+            LCRM_WORK_STATUSES.forEach(function(o){ wo+='<option value="'+lcrmEsc(o)+'"'+(o===ws?' selected':'')+'>'+lcrmEsc(o)+'</option>'; });
+            return '<td class="'+cls+'"><select class="lcrm-ws-select lcrm-ws-'+ws.replace(/[^a-z]/gi,'').toLowerCase()+'" data-lead-id="'+l.id+'" data-prev="'+lcrmEsc(ws)+'" aria-label="Status">'+wo+'</select></td>';
         case 'brand':
             return '<td class="'+cls+'">'+lcrmEsc(l.brand_name||'\u2014')+'</td>';
         case 'priority':
@@ -393,11 +399,15 @@ function lcrmBuildColPickerPanel(){
 /* ============================================================
    LEADS LIST
    ============================================================ */
+var lcrmLeadsSeq=0, lcrmLeadsXhr=null;
 function lcrmLoadLeads(){
     var span=lcrmGetVisibleCols().length||20;
     $('#lcrm-tbody').html('<tr><td colspan="'+span+'" class="lcrm-loading">Loading\u2026</td></tr>');
     var data=$.extend({page:lcrmPage,orderby:lcrmSort,order:lcrmOrder},lcrmFilters);
-    lcrmPost('lcrm_get_leads',data,function(d){
+    var seq=++lcrmLeadsSeq;
+    if(lcrmLeadsXhr) lcrmLeadsXhr.abort();
+    lcrmLeadsXhr=lcrmPost('lcrm_get_leads',data,function(d){
+        if(seq!==lcrmLeadsSeq) return;
         var html='';
         if(!d.leads||!d.leads.length){
             html='<tr><td colspan="'+span+'" class="lcrm-loading">No leads found.</td></tr>';
@@ -425,6 +435,7 @@ function lcrmLoadLeads(){
             setTimeout(function(){ $h.fadeOut(400); },8000);
         }
     },function(msg){
+        if(seq!==lcrmLeadsSeq) return;
         $('#lcrm-tbody').html('<tr><td colspan="'+span+'" class="lcrm-loading">'+lcrmErr(msg)+'</td></tr>');
     });
 }
@@ -522,7 +533,7 @@ $(document).on('click','#lcrm-col-reset-btn',function(){
    FILTER VISIBILITY
    ============================================================ */
 var lcrmFilterPrefs=null;
-var lcrmDefaultVisibleFilters=['lcrm-search-wrap','lcrm-fwrap-stage','lcrm-fwrap-vendor','lcrm-fwrap-brand','lcrm-fwrap-wt','lcrm-fwrap-priority','lcrm-fwrap-temp','lcrm-fwrap-date'];
+var lcrmDefaultVisibleFilters=['lcrm-search-wrap','lcrm-fwrap-stage','lcrm-fwrap-wstatus','lcrm-fwrap-vendor','lcrm-fwrap-brand','lcrm-fwrap-wt','lcrm-fwrap-priority','lcrm-fwrap-temp','lcrm-fwrap-date'];
 function lcrmLoadFilterPrefs(cb){
     try{ var r=localStorage.getItem('lcrm_filter_prefs'); lcrmFilterPrefs=r?JSON.parse(r):null; }catch(e){ lcrmFilterPrefs=null; }
     if(cb) cb();
@@ -554,21 +565,41 @@ $(document).on('click','#lcrm-filter-save-btn',function(){
 /* ============================================================
    FILTERS & SORT
    ============================================================ */
-$(document).on('click','#lcrm-filter-btn',function(){
-    lcrmFilters={
+function lcrmCollectFilters(){
+    return {
         search:$('#lcrm-search').val(), stage_id:$('#lcrm-filter-stage').val(),
+        work_status:$('#lcrm-filter-wstatus').val()||'',
         vendor_id:$('#lcrm-filter-vendor').val(), brand_id:$('#lcrm-filter-brand').val(),
         work_type:$('#lcrm-filter-wt').val(), priority:$('#lcrm-filter-priority').val(),
         temperature:$('#lcrm-filter-temp').val(), date_from:$('#lcrm-filter-from').val(),
         date_to:$('#lcrm-filter-to').val(), internal_status:$('#lcrm-filter-status').val()||'',
         remarks_search:$('#lcrm-filter-remarks').val()||''
     };
-    lcrmPage=1; lcrmLoadLeads();
+}
+var lcrmFilterTimer=null;
+function lcrmApplyFilters(){
+    clearTimeout(lcrmFilterTimer);
+    lcrmFilters=lcrmCollectFilters(); lcrmPage=1; lcrmLoadLeads();
+}
+$(document).on('click','#lcrm-filter-btn',lcrmApplyFilters);
+$(document).on('change','#lcrm-filters-bar select, #lcrm-filters-bar input[type=date]',lcrmApplyFilters);
+$(document).on('input','#lcrm-search,#lcrm-filter-status,#lcrm-filter-remarks',function(){
+    clearTimeout(lcrmFilterTimer); lcrmFilterTimer=setTimeout(lcrmApplyFilters,350);
 });
 $(document).on('click','#lcrm-reset-btn',function(){
+    clearTimeout(lcrmFilterTimer);
     $('#lcrm-search,#lcrm-filter-from,#lcrm-filter-to,#lcrm-filter-status,#lcrm-filter-remarks').val('');
-    $('#lcrm-filter-stage,#lcrm-filter-vendor,#lcrm-filter-brand,#lcrm-filter-wt,#lcrm-filter-priority,#lcrm-filter-temp').val('');
+    $('#lcrm-filter-stage,#lcrm-filter-wstatus,#lcrm-filter-vendor,#lcrm-filter-brand,#lcrm-filter-wt,#lcrm-filter-priority,#lcrm-filter-temp').val('');
     lcrmFilters={}; lcrmPage=1; lcrmLoadLeads();
+});
+$(document).on('change','.lcrm-ws-select',function(){
+    var $s=$(this), id=$s.data('lead-id'), val=$s.val(), prev=$s.attr('data-prev');
+    $s.prop('disabled',true);
+    lcrmPost('lcrm_quick_update',{id:id,field:'work_status',value:val},function(){
+        $s.prop('disabled',false).attr('data-prev',val)
+          .attr('class','lcrm-ws-select lcrm-ws-'+val.replace(/[^a-z]/gi,'').toLowerCase());
+        if(lcrmFilters && lcrmFilters.work_status && lcrmFilters.work_status!==val) lcrmLoadLeads();
+    },function(m){ $s.prop('disabled',false).val(prev); alert(lcrmErr(m)); });
 });
 $(document).on('click','.lcrm-sort',function(){
     var col=$(this).data('col');
@@ -576,7 +607,7 @@ $(document).on('click','.lcrm-sort',function(){
     lcrmPage=1; lcrmBuildThead(); lcrmLoadLeads();
 });
 $(document).on('click','.lcrm-pag-btn',function(){ lcrmPage=parseInt($(this).data('page')); lcrmLoadLeads(); });
-$(document).on('keypress','#lcrm-search',function(e){ if(e.which===13){ lcrmPage=1; $('#lcrm-filter-btn').click(); } });
+$(document).on('keypress','#lcrm-search',function(e){ if(e.which===13){ lcrmApplyFilters(); } });
 
 /* ============================================================
    BULK SELECT

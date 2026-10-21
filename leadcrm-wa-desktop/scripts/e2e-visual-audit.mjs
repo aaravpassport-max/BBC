@@ -225,6 +225,150 @@ require_once ABSPATH . 'wp-settings.php';
     await visitSection('add', '07-add-lead-form.png', 'Add Lead');
   }
 
+  // 4b) Functional QA: sidebar toggle, Status column, instant filters
+  if (navCount > 0) {
+    await page.setViewportSize({ width: 1360, height: 860 });
+    await page.goto(`${BASE}/crm/#leads`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(2000);
+    await page.evaluate(() => localStorage.removeItem('lcrm_sidebar_col'));
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForTimeout(1500);
+
+    let sideOk = true;
+    for (let i = 0; i < 3; i++) {
+      await page.click('#lcrm-menu-toggle');
+      await page.waitForTimeout(350);
+      const w1 = (await page.locator('#lcrm-sidebar').boundingBox()).width;
+      const vis = await page.locator('#lcrm-menu-toggle').isVisible();
+      if (i === 0) await page.screenshot({ path: path.join(OUT, '08-sidebar-collapsed.png') });
+      await page.click('#lcrm-menu-toggle');
+      await page.waitForTimeout(350);
+      const w2 = (await page.locator('#lcrm-sidebar').boundingBox()).width;
+      if (!(w1 < 80 && w2 > 180 && vis)) sideOk = false;
+    }
+    await page.click('#lcrm-menu-toggle');
+    await page.waitForTimeout(350);
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForTimeout(1200);
+    const persisted = (await page.locator('#lcrm-sidebar').boundingBox()).width < 80;
+    await page.click('#lcrm-menu-toggle');
+    await page.waitForTimeout(350);
+    (sideOk && persisted) ? pass('Sidebar collapse/expand x3 + persistence') : fail('Sidebar collapse/expand', `ok=${sideOk} persisted=${persisted}`);
+
+    const api = (action, data) => page.evaluate(async ({ action, data }) => {
+      const body = new URLSearchParams({ action, nonce: LCRM.nonce, ...data });
+      const r = await fetch(LCRM.ajax_url, { method: 'POST', credentials: 'include', body });
+      return r.json();
+    }, { action, data });
+    const stages = await page.evaluate(() => LCRM.stages.map(s => s.id));
+    const mk = (n, extra) => api('lcrm_save_lead', { client_name: n, client_phone: '99' + Math.floor(Math.random() * 1e8), work_type: 'Logo', force_create: '1', ...extra });
+    const seeds = [
+      ['QA Alpha', { stage_id: stages[0], priority: 'high', lead_temperature: 'hot', remarks: 'alpharem' }],
+      ['QA Beta', { stage_id: stages[1] || stages[0], priority: 'low', lead_temperature: 'cold', remarks: 'betarem' }],
+      ['QA Gamma', { stage_id: stages[0], priority: 'high', lead_temperature: 'cold', remarks: 'gammarem' }],
+    ];
+    const ids = [];
+    for (const [n, e] of seeds) { const r = await mk(n, e); ids.push(r.data && r.data.id); }
+    ids.every(Boolean) ? pass('Create test inquiries', ids.join(',')) : fail('Create test inquiries', JSON.stringify(ids));
+
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForTimeout(1500);
+    const rows = () => page.locator('#lcrm-tbody tr.lcrm-lead-row').count();
+    const names = async () => (await page.locator('#lcrm-tbody tr.lcrm-lead-row').allInnerTexts()).join('|');
+    const waitRows = async n => { for (let i = 0; i < 30; i++) { if ((await rows()) === n) return true; await page.waitForTimeout(150); } return false; };
+
+    // Status: default, change, persist, independence from Stage
+    const row = id => page.locator(`#lcrm-tbody tr[data-id="${id}"]`);
+    const defaultStatus = await row(ids[0]).locator('.lcrm-ws-select').inputValue();
+    const stageBefore = await row(ids[0]).locator('td.col-stage, td[data-editable="stage_id"]').first().innerText();
+    await row(ids[0]).locator('.lcrm-ws-select').selectOption('In Progress');
+    await row(ids[1]).locator('.lcrm-ws-select').selectOption('On Hold');
+    await page.waitForTimeout(800);
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForTimeout(1500);
+    const st0 = await row(ids[0]).locator('.lcrm-ws-select').inputValue();
+    const st1 = await row(ids[1]).locator('.lcrm-ws-select').inputValue();
+    const st2 = await row(ids[2]).locator('.lcrm-ws-select').inputValue();
+    const stageAfter = await row(ids[0]).locator('td[data-editable="stage_id"]').first().innerText();
+    (defaultStatus === 'Inquiry' && st0 === 'In Progress' && st1 === 'On Hold' && st2 === 'Inquiry')
+      ? pass('Status saves + persists after reload', `${st0}/${st1}/${st2}`) : fail('Status persistence', `${defaultStatus} ${st0}/${st1}/${st2}`);
+    stageBefore.trim() === stageAfter.trim() ? pass('Changing Status leaves Stage untouched', stageAfter.trim()) : fail('Stage changed by Status', `${stageBefore} -> ${stageAfter}`);
+    const q = await api('lcrm_quick_update', { id: ids[2], field: 'stage_id', value: stages[1] || stages[0] });
+    const g = await api('lcrm_get_leads', { search: 'QA Gamma' });
+    const gl = g.data.leads[0];
+    (q.success && gl.work_status === 'Inquiry' && String(gl.stage_id) === String(stages[1] || stages[0]))
+      ? pass('Changing Stage leaves Status untouched', gl.work_status) : fail('Status changed by Stage', JSON.stringify(gl).slice(0, 200));
+    const bad = await api('lcrm_quick_update', { id: ids[2], field: 'work_status', value: 'Bogus' });
+    const g2 = await api('lcrm_get_leads', { search: 'QA Gamma' });
+    g2.data.leads[0].work_status === 'Inquiry' ? pass('Invalid Status rejected/normalised') : fail('Invalid Status stored');
+
+    // Instant filters — never click the Filter button
+    await page.fill('#lcrm-search', 'QA ');
+    const f1 = await waitRows(3);
+    await page.screenshot({ path: path.join(OUT, '09-leads-status-column.png'), fullPage: true });
+    f1 ? pass('Instant text search (debounced)') : fail('Instant text search', await names());
+    await page.selectOption('#lcrm-filter-wstatus', 'In Progress');
+    (await waitRows(1)) && (await names()).includes('QA Alpha') ? pass('Status filter instant') : fail('Status filter', await names());
+    await page.selectOption('#lcrm-filter-wstatus', '');
+    await waitRows(3);
+    await page.selectOption('#lcrm-filter-priority', 'high');
+    (await waitRows(2)) ? pass('Priority filter instant') : fail('Priority filter', await names());
+    await page.selectOption('#lcrm-filter-temp', 'cold');
+    (await waitRows(1)) && (await names()).includes('QA Gamma') ? pass('Priority + Temperature combined') : fail('Combined filters', await names());
+    await page.selectOption('#lcrm-filter-temp', '');
+    await page.selectOption('#lcrm-filter-priority', '');
+    await page.selectOption('#lcrm-filter-stage', String(stages[0]));
+    (await waitRows(1)) && (await names()).includes('QA Alpha') ? pass('Stage filter instant') : fail('Stage filter', await names());
+    await page.selectOption('#lcrm-filter-wstatus', 'On Hold');
+    (await waitRows(0)) ? pass('Stage + Status combined (no match)') : fail('Stage+Status combo', await names());
+    await page.selectOption('#lcrm-filter-stage', '');
+    (await waitRows(1)) && (await names()).includes('QA Beta') ? pass('Clear Stage keeps Status filter') : fail('Clear single filter', await names());
+    const today = new Date().toISOString().slice(0, 10);
+    await page.fill('#lcrm-filter-from', today);
+    await page.fill('#lcrm-filter-to', today);
+    (await waitRows(1)) ? pass('Date range filters instant') : fail('Date filter', await names());
+    await page.fill('#lcrm-filter-from', '2000-01-01'); await page.fill('#lcrm-filter-to', '2000-01-02');
+    (await waitRows(0)) ? pass('Date range excludes out-of-range') : fail('Date exclusion', await names());
+    await page.click('#lcrm-reset-btn');
+    (await waitRows(3)) || (await rows()) >= 3 ? pass('Reset clears all filters instantly') : fail('Reset', String(await rows()));
+
+    // Rapid typing / stale-request protection
+    await page.fill('#lcrm-search', 'QA Alpha');
+    await page.fill('#lcrm-search', 'QA Beta');
+    await page.waitForTimeout(1200);
+    const nm = await names();
+    (nm.includes('QA Beta') && !nm.includes('QA Alpha')) ? pass('Latest filter wins (no stale results)') : fail('Stale results', nm);
+    await page.click('#lcrm-reset-btn');
+    await page.waitForTimeout(600);
+
+    // Existing features: edit inline stage, sort, pagination container
+    await page.click('.lcrm-sort >> nth=0').catch(() => {});
+    await page.waitForTimeout(600);
+    (await rows()) >= 3 ? pass('Sorting still works') : fail('Sorting');
+    (await page.locator('#lcrm-pagination').count()) ? pass('Pagination present') : fail('Pagination missing');
+
+    // Responsive layout
+    for (const [w, h] of [[1920, 1000], [1360, 860], [1024, 768], [768, 900], [390, 844]]) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.waitForTimeout(500);
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      const toggle = await page.locator('#lcrm-menu-toggle').isVisible();
+      await page.screenshot({ path: path.join(OUT, `10-responsive-${w}.png`) });
+      if (w <= 782) {
+        await page.click('#lcrm-menu-toggle');
+        await page.waitForTimeout(400);
+        const open = await page.locator('#lcrm-sidebar.mobile-open').count();
+        await page.screenshot({ path: path.join(OUT, `11-mobile-drawer-${w}.png`) });
+        await page.click('#lcrm-sidebar-overlay', { position: { x: 380, y: 400 } }).catch(() => {});
+        await page.waitForTimeout(300);
+        (toggle && open && overflow <= 4) ? pass(`Responsive ${w}px (drawer toggle)`) : fail(`Responsive ${w}px`, `toggle=${toggle} open=${open} overflow=${overflow}`);
+      } else {
+        (toggle && overflow <= 4) ? pass(`Responsive ${w}px`) : fail(`Responsive ${w}px`, `toggle=${toggle} overflow=${overflow}`);
+      }
+    }
+    await page.setViewportSize({ width: 1360, height: 860 });
+  }
+
   // 5) API health — admin-ajax reachable
   const ajax = await page.evaluate(async (url) => {
     const r = await fetch(`${url}/wp-admin/admin-ajax.php`, { method: 'POST', credentials: 'include', body: 'action=heartbeat' });

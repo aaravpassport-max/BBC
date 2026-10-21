@@ -10,7 +10,7 @@ function lcrm_get_leads( $args = [] ) {
         'date_from'=>'','date_to'=>'','priority'=>'','temperature'=>'',
         'brand_id'=>'','work_started'=>'','next_action_today'=>false,
         'client_followup_today'=>false,'vendor_followup_today'=>false,
-        'internal_status'=>'','remarks_search'=>'','conv_search'=>'','tag_id'=>'','user_id'=>'',
+        'internal_status'=>'','work_status'=>'','remarks_search'=>'','conv_search'=>'','tag_id'=>'','user_id'=>'',
         'orderby'=>'created_at','order'=>'DESC','limit'=>50,'offset'=>0,
     ];
     $a = wp_parse_args($args, $defaults);
@@ -33,6 +33,7 @@ function lcrm_get_leads( $args = [] ) {
     if ($a['next_action_today'])   { $where[]='l.next_action_date=%s';      $vals[]=date('Y-m-d'); }
     if ($a['client_followup_today']){ $where[]='l.client_followup_date=%s'; $vals[]=date('Y-m-d'); }
     if ($a['vendor_followup_today']){ $where[]='l.vendor_followup_date=%s'; $vals[]=date('Y-m-d'); }
+    if (!empty($a['work_status'])) { $where[] = 'l.work_status=%s'; $vals[] = $a['work_status']; }
     if (!empty($a['internal_status'])) { $like = '%' . $wpdb->esc_like($a['internal_status']) . '%'; $where[] = 'l.internal_status LIKE %s'; $vals[] = $like; }
     if (!empty($a['remarks_search'])) { $like = '%' . $wpdb->esc_like($a['remarks_search']) . '%'; $where[] = '(l.remarks LIKE %s OR l.final_remarks LIKE %s)'; $vals[] = $like; $vals[] = $like; }
     // Conversation search — searches message text in conversations table
@@ -155,6 +156,7 @@ function lcrm_update_lead($id,$data) {
     }
     // Always preserve is_access_revoked — only admin actions should change this
     unset($row['is_access_revoked']);
+    if (!isset($data['work_status'])) unset($row['work_status']);
 
     // Auto work_started if payment moved to a "work" stage
     if (isset($data['stage_id']) && $row['pmt_received']>0) {
@@ -177,6 +179,7 @@ function lcrm_update_lead($id,$data) {
         'lead_temperature'     => 'Temperature',
         'work_type'            => 'Work Type',
         'internal_status'      => 'Internal Status',
+        'work_status'          => 'Status',
         'next_action_date'     => 'Next Action Date',
         'client_followup_date' => 'Client Follow-up',
         'vendor_followup_date' => 'Vendor Follow-up',
@@ -238,6 +241,7 @@ function lcrm_sanitize_lead_row($data) {
         'stage_id'             => intval((isset($data['stage_id']) ? $data['stage_id'] : 1)),
         'brand_id'             => intval((isset($data['brand_id']) ? $data['brand_id'] : 0)) ?: null,
         'internal_status'      => sanitize_text_field((isset($data['internal_status']) ? $data['internal_status'] : '')),
+        'work_status'          => lcrm_clean_work_status(isset($data['work_status']) ? $data['work_status'] : ''),
         'next_action_date'     => sanitize_text_field((isset($data['next_action_date']) ? $data['next_action_date'] : '')) ?: null,
         'client_followup_date' => sanitize_text_field((isset($data['client_followup_date']) ? $data['client_followup_date'] : '')) ?: null,
         'vendor_followup_date' => sanitize_text_field((isset($data['vendor_followup_date']) ? $data['vendor_followup_date'] : '')) ?: null,
@@ -869,4 +873,12 @@ function lcrm_render_form_field_html($field, $render_data) {
         default:
             return $wrap_open.$lbl.'<input type="text" name="'.$name.'" id="'.$id.'" class="lcrm-input lcrm-input-full"'.$ra.'>'.$wrap_close;
     }
+}
+
+function lcrm_work_statuses() {
+    return ['Inquiry','Under Discussion','On Hold','In Progress','Completed','Closed/Delivered'];
+}
+function lcrm_clean_work_status($v) {
+    $v = sanitize_text_field((string) $v);
+    return in_array($v, lcrm_work_statuses(), true) ? $v : 'Inquiry';
 }

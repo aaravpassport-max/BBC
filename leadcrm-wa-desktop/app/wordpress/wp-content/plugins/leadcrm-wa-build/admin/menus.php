@@ -442,6 +442,7 @@ function lcrm_page_leads() {
             <label class="lcrm-prefs-check"><input type="checkbox" class="lcrm-filter-toggle" data-filter="lcrm-fwrap-priority" checked> Priority</label>
             <label class="lcrm-prefs-check"><input type="checkbox" class="lcrm-filter-toggle" data-filter="lcrm-fwrap-temp" checked> Temperature</label>
             <label class="lcrm-prefs-check"><input type="checkbox" class="lcrm-filter-toggle" data-filter="lcrm-fwrap-date" checked> Date Range</label>
+            <label class="lcrm-prefs-check"><input type="checkbox" class="lcrm-filter-toggle" data-filter="lcrm-fwrap-wstatus"> Status</label>
             <label class="lcrm-prefs-check"><input type="checkbox" class="lcrm-filter-toggle" data-filter="lcrm-fwrap-status"> Internal Status</label>
             <label class="lcrm-prefs-check"><input type="checkbox" class="lcrm-filter-toggle" data-filter="lcrm-fwrap-remarks"> Remarks Search</label>
         </div>
@@ -454,6 +455,10 @@ function lcrm_page_leads() {
         <span id="lcrm-fwrap-stage"><select id="lcrm-filter-stage" class="lcrm-input">
             <option value="">All Stages</option>
             <?php foreach ($stages as $s) echo '<option value="' . esc_attr($s->id) . '">' . esc_html($s->name) . '</option>'; ?>
+        </select></span>
+        <span id="lcrm-fwrap-wstatus"><select id="lcrm-filter-wstatus" class="lcrm-input">
+            <option value="">All Status</option>
+            <?php foreach (lcrm_work_statuses() as $ws) echo '<option value="' . esc_attr($ws) . '">' . esc_html($ws) . '</option>'; ?>
         </select></span>
         <span id="lcrm-fwrap-vendor"><select id="lcrm-filter-vendor" class="lcrm-input">
             <option value="">All Vendors</option>
@@ -485,7 +490,7 @@ function lcrm_page_leads() {
         </span>
         <span id="lcrm-fwrap-status" style="display:none;"><input type="text" id="lcrm-filter-status" class="lcrm-input" placeholder="Internal Status..."></span>
         <span id="lcrm-fwrap-remarks" style="display:none;"><input type="text" id="lcrm-filter-remarks" class="lcrm-input" placeholder="Search remarks..."></span>
-        <button id="lcrm-filter-btn" class="button lcrm-btn">Filter</button>
+        <button id="lcrm-filter-btn" class="button lcrm-btn" title="Re-run the current filters">Refresh</button>
         <button id="lcrm-reset-btn"  class="button lcrm-btn">Reset</button>
     </div>
 

@@ -31,6 +31,7 @@ function lcrm_ajax_get_leads() {
            'priority'=>sanitize_text_field(isset($_POST['priority']) ? $_POST['priority'] : ''),'temperature'=>sanitize_text_field(isset($_POST['temperature']) ? $_POST['temperature'] : ''),
            'brand_id'=>sanitize_text_field(isset($_POST['brand_id']) ? $_POST['brand_id'] : ''),
            'internal_status'=>sanitize_text_field(isset($_POST['internal_status']) ? $_POST['internal_status'] : ''),
+           'work_status'=>sanitize_text_field(isset($_POST['work_status']) ? $_POST['work_status'] : ''),
            'remarks_search'=>sanitize_text_field(isset($_POST['remarks_search']) ? $_POST['remarks_search'] : ''),
            'conv_search'=>sanitize_text_field(isset($_POST['conv_search']) ? $_POST['conv_search'] : ''),
            'tag_id'=>sanitize_text_field(isset($_POST['tag_id']) ? $_POST['tag_id'] : ''),
@@ -54,7 +55,7 @@ function lcrm_ajax_get_leads() {
         $out[]=['id'=>$l->id,'lead_date'=>$l->lead_date,'lead_date_d'=>lcrm_date_display($l->lead_date),
             'client_name'=>$l->client_name,'client_phone'=>$l->client_phone,'client_email'=>$l->client_email,
             'work_type'=>$l->work_type,'lead_source'=>$l->lead_source,'stage_id'=>$l->stage_id,
-            'stage_name'=>$l->stage_name,'stage_color'=>$l->stage_color,'internal_status'=>$l->internal_status,
+            'stage_name'=>$l->stage_name,'stage_color'=>$l->stage_color,'internal_status'=>$l->internal_status,'work_status'=>(isset($l->work_status)&&$l->work_status!=='')?$l->work_status:'Inquiry',
             'next_action_date'=>$l->next_action_date,'next_action_d'=>lcrm_date_display($l->next_action_date),
             'client_followup_date'=>$l->client_followup_date,'vendor_followup_date'=>$l->vendor_followup_date,
             'priority'=>$l->priority,'lead_temperature'=>$l->lead_temperature,'work_started'=>$l->work_started,
@@ -138,7 +139,7 @@ function lcrm_ajax_quick_update() {
     if(!lcrm_current_can('lcrm_edit_leads')) wp_send_json_error(['msg'=>'Permission denied.'],403);
     global $wpdb;
     $id=intval(isset($_POST['id']) ? $_POST['id'] : 0);$field=sanitize_key(isset($_POST['field']) ? $_POST['field'] : '');$value=sanitize_text_field(isset($_POST['value']) ? $_POST['value'] : '');
-    $allowed=['stage_id','internal_status','remarks','final_remarks','next_action_date','vendor_id',
+    $allowed=['stage_id','internal_status','work_status','remarks','final_remarks','next_action_date','vendor_id',
                'work_type','lead_source','priority','lead_temperature',
                'work_started','client_followup_date','vendor_followup_date','next_action_type','brand_id',
                // Client-facing financials — all staff
@@ -149,6 +150,7 @@ function lcrm_ajax_quick_update() {
         $allowed = array_merge($allowed, ['vendor_charge','pmt_to_vendor']);
     }
     if(!in_array($field,$allowed,true)) wp_send_json_error(['msg'=>'Invalid field.']);
+    if($field==='work_status') $value=lcrm_clean_work_status($value);
     $wpdb->update("{$wpdb->prefix}lcrm_leads",[$field=>$value,'updated_at'=>current_time('mysql')],['id'=>$id]);
     if(in_array($field,['total_quote','pmt_received','vendor_charge'],true)){
         $l=lcrm_get_lead($id);

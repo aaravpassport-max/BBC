@@ -270,7 +270,7 @@ function lcrm_spa_shell() {
             <div class="lcrm-sidebar-logo">
                 <span class="lcrm-logo-icon">⚡</span>
                 <span class="lcrm-logo-text"><?php echo $site; ?></span>
-                <button class="lcrm-sidebar-collapse" id="lcrm-sidebar-collapse" aria-label="Collapse">‹</button>
+                <button class="lcrm-sidebar-collapse" id="lcrm-sidebar-collapse" type="button" title="Collapse / expand menu" aria-label="Collapse or expand menu">‹</button>
             </div>
 
             <nav class="lcrm-sidenav">
@@ -303,7 +303,7 @@ function lcrm_spa_shell() {
         <!-- MAIN -->
         <div class="lcrm-main" id="lcrm-main">
             <header class="lcrm-spa-topbar" id="lcrm-spa-topbar">
-                <button class="lcrm-menu-toggle" id="lcrm-menu-toggle">☰</button>
+                <button class="lcrm-menu-toggle" id="lcrm-menu-toggle" type="button" title="Collapse / expand menu" aria-label="Toggle navigation menu" aria-expanded="true">☰</button>
                 <span class="lcrm-spa-topbar-title" id="lcrm-spa-topbar-title">Dashboard</span>
                 <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
                     <button class="lcrm-spa-topbar-btn" id="lcrm-quick-add-btn" title="Add Lead">+ Add Lead</button>

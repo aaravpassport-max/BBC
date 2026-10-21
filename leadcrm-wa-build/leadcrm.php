@@ -255,3 +255,14 @@ function lcrm_admin_assets( $hook ) {
         'open_add'     => (isset($_GET['open_add']) && $_GET['open_add'] == '1') ? 1 : 0,
     ]);
 }
+
+add_action('init', function () {
+    if ( get_option('lcrm_work_status_v1', 0) ) return;
+    global $wpdb;
+    $t = $wpdb->prefix . 'lcrm_leads';
+    if ( $wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $t)) !== $t ) return;
+    $cols = (array) $wpdb->get_col("SHOW COLUMNS FROM {$t}", 0);
+    if ( ! in_array('work_status', $cols, true) )
+        $wpdb->query("ALTER TABLE {$t} ADD COLUMN work_status VARCHAR(30) NOT NULL DEFAULT 'Inquiry'");
+    update_option('lcrm_work_status_v1', 1);
+}, 5);

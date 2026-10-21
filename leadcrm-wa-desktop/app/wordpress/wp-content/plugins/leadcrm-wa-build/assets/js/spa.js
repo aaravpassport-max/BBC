@@ -178,14 +178,23 @@
         $('#lcrm-sidebar-collapse').on('click', function () {
             collapsed = !collapsed;
             $('#lcrm-sidebar').toggleClass('collapsed', collapsed);
+            $('#lcrm-menu-toggle').attr('aria-expanded', collapsed ? 'false' : 'true');
             localStorage.setItem('lcrm_sidebar_col', collapsed ? '1' : '0');
         });
 
         // Mobile drawer
         $('#lcrm-menu-toggle').on('click', function () {
-            $('#lcrm-sidebar').addClass('mobile-open');
-            $('#lcrm-sidebar-overlay').addClass('active');
+            if ( window.innerWidth <= 782 ) {
+                $('#lcrm-sidebar').toggleClass('mobile-open');
+                $('#lcrm-sidebar-overlay').toggleClass('active', $('#lcrm-sidebar').hasClass('mobile-open'));
+                return;
+            }
+            collapsed = !collapsed;
+            $('#lcrm-sidebar').toggleClass('collapsed', collapsed);
+            $(this).attr('aria-expanded', collapsed ? 'false' : 'true');
+            localStorage.setItem('lcrm_sidebar_col', collapsed ? '1' : '0');
         });
+        $('#lcrm-menu-toggle').attr('aria-expanded', collapsed ? 'false' : 'true');
         $('#lcrm-sidebar-overlay').on('click', closeDrawer);
 
         // Nav click → SPA navigate

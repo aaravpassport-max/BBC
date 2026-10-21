@@ -173,6 +173,14 @@ body { overflow: hidden; }
   opacity: 0; width: 0; pointer-events: none; overflow: hidden;
 }
 .lcrm-sidebar.collapsed .lcrm-sidebar-collapse { transform: rotate(180deg); }
+.lcrm-sidebar.collapsed .lcrm-sidebar-logo { flex-direction: column; padding: 8px 0; gap: 4px; justify-content: center; }
+.lcrm-sidebar.collapsed .lcrm-logo-text { display: none; }
+.lcrm-sidebar.collapsed .lcrm-sidebar-collapse { color: #fff; background: rgba(255,255,255,.12); }
+.lcrm-ws-select { font-size: 12px; padding: 2px 4px; border: 1px solid #c3c4c7; border-radius: 4px; background: #fff; max-width: 100%; }
+.lcrm-ws-select:disabled { opacity: .6; }
+.lcrm-ws-inquiry { border-color:#94a3b8; } .lcrm-ws-underdiscussion { border-color:#3b82f6; }
+.lcrm-ws-onhold { border-color:#f59e0b; } .lcrm-ws-inprogress { border-color:#8b5cf6; }
+.lcrm-ws-completed { border-color:#16a34a; } .lcrm-ws-closeddelivered { border-color:#0f766e; }
 
 .lcrm-sidebar-logo {
   display: flex; align-items: center; gap: 9px;
@@ -250,8 +258,8 @@ body { overflow: hidden; }
   flex-shrink: 0; border-bottom: 1px solid #1d2327; z-index: 100;
 }
 .lcrm-menu-toggle {
-  display: none; background: none; border: none; font-size: 16px;
-  cursor: pointer; color: rgba(255,255,255,.7); padding: 4px; border-radius: 3px; line-height: 1;
+  display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,.08); border: none; font-size: 16px;
+  cursor: pointer; color: rgba(255,255,255,.85); padding: 4px 8px; border-radius: 3px; line-height: 1;
 }
 .lcrm-menu-toggle:hover { color: #fff; }
 .lcrm-spa-topbar-title {
@@ -332,6 +340,9 @@ body { overflow: hidden; }
   }
   .lcrm-sidebar.mobile-open { left: 0; }
   .lcrm-sidebar-collapse { display:none; }
+  .lcrm-sidebar.collapsed .lcrm-nav-label, .lcrm-sidebar.collapsed .lcrm-logo-text { opacity:1; width:auto; display:inline; }
+  .lcrm-sidebar.collapsed .lcrm-sidebar-logo { flex-direction:row; padding:13px 12px 11px; }
+  .lcrm-sidebar.collapsed .lcrm-nav-badge, .lcrm-sidebar.collapsed .lcrm-user-info { opacity:1; width:auto; pointer-events:auto; }
   .lcrm-main { width:100%; }
   .lcrm-menu-toggle { display:flex; }
   /* Table scrolls horizontally */

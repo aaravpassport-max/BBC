@@ -18,6 +18,7 @@ function lcrm_install_tables() {
         stage_id            BIGINT UNSIGNED NOT NULL DEFAULT 1,
         brand_id            BIGINT UNSIGNED DEFAULT NULL,
         internal_status     VARCHAR(150)    NOT NULL DEFAULT '',
+        work_status         VARCHAR(30)     NOT NULL DEFAULT 'Inquiry',
         next_action_date    DATE            DEFAULT NULL,
         client_followup_date DATE           DEFAULT NULL,
         vendor_followup_date DATE           DEFAULT NULL,
@@ -279,6 +280,7 @@ function lcrm_migrate_columns() {
     if ( ! in_array('custom_fields', $cols) ) $add[] = "ADD COLUMN custom_fields LONGTEXT NOT NULL DEFAULT '{}'";
     if ( ! in_array('assigned_to',        $cols) ) $add[] = "ADD COLUMN assigned_to BIGINT UNSIGNED DEFAULT NULL";
     if ( ! in_array('is_access_revoked',  $cols) ) $add[] = "ADD COLUMN is_access_revoked TINYINT(1) NOT NULL DEFAULT 0";
+    if ( ! in_array('work_status',        $cols) ) $add[] = "ADD COLUMN work_status VARCHAR(30) NOT NULL DEFAULT 'Inquiry'";
     if ( ! empty($add) ) $wpdb->query("ALTER TABLE {$wpdb->prefix}lcrm_leads " . implode(', ', $add));
 
     // Fields table columns
