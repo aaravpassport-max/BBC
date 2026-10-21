@@ -23,6 +23,7 @@ const DB_CFG_FILE = path.join(DATA_DIR, 'db.json');
 const WP_DIR = path.join(DATA_DIR, 'wordpress');
 const INSTALLED_FLAG = path.join(DATA_DIR, 'wordpress-installed.json');
 const LOGIN_FILE = path.join(DATA_DIR, 'LOGIN.txt');
+const PHP_INI_FILE = path.join(DATA_DIR, 'php.ini');
 
 let phpPort = 9780;
 let dbPort = 3308;
@@ -68,12 +69,14 @@ function getMysqlBinary() {
 }
 
 function ensurePhpIni() {
-  const bundledIni = path.join(PHP_DIR, 'php.ini');
-  if (!fs.existsSync(path.join(PHP_DIR, IS_WIN ? 'php.exe' : 'bin/php')) && !fs.existsSync(path.join(PHP_DIR, 'php.exe'))) {
-    return bundledIni;
-  }
+  const phpExe = getPhpBinary();
+  if (!phpExe) throw new Error('PHP executable not found in the application bundle.');
+
   const extDir = path.join(PHP_DIR, 'ext');
-  const ini = `extension_dir = "ext"
+  if (fs.existsSync(extDir)) {
+    const extensionDir = extDir.replace(/\\/g, '/');
+    const ini = `; LeadCRM WA desktop — stored in user data (Program Files is read-only)
+extension_dir = "${extensionDir}"
 extension=pdo_mysql
 extension=mysqli
 extension=mbstring
@@ -83,8 +86,16 @@ extension=fileinfo
 max_execution_time = 300
 memory_limit = 256M
 `;
-  fs.writeFileSync(bundledIni, ini);
-  return bundledIni;
+    fs.writeFileSync(PHP_INI_FILE, ini);
+    return PHP_INI_FILE;
+  }
+
+  throw new Error(`PHP extensions folder missing: ${extDir}`);
+}
+
+function phpCliArgs(extraArgs) {
+  const ini = ensurePhpIni();
+  return ini ? ['-c', ini, ...extraArgs] : extraArgs;
 }
 
 function appendLog(file, data) {
@@ -227,7 +238,6 @@ async function startMariaDB() {
 async function startPhp() {
   const php = getPhpBinary();
   if (!php) throw new Error('PHP not found');
-  const ini = ensurePhpIni();
   const router = path.join(WP_DIR, 'router.php');
   if (!fs.existsSync(router)) {
     fs.writeFileSync(router, `<?php
@@ -238,7 +248,7 @@ require __DIR__ . '/index.php';
 `);
   }
 
-  phpProcess = spawn(php, ['-c', ini, '-S', `127.0.0.1:${phpPort}`, '-t', WP_DIR, router], {
+  phpProcess = spawn(php, phpCliArgs(['-S', `127.0.0.1:${phpPort}`, '-t', WP_DIR, router]), {
     cwd: WP_DIR,
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
@@ -256,7 +266,7 @@ function runWordPressInstall(dbPass) {
   if (!fs.existsSync(installer)) throw new Error('install-wordpress.php missing');
 
   const siteUrl = `http://127.0.0.1:${phpPort}`;
-  const result = spawnSync(php, [installer], {
+  const result = spawnSync(php, phpCliArgs([installer]), {
     env: {
       ...process.env,
       LCRM_WP_ROOT: WP_DIR,
