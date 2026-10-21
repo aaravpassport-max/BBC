@@ -12,13 +12,16 @@ The UI is 100% WPF. The attendance calculation engine remains the proven TypeScr
 
 ## Direct download (Windows x64)
 
-**Latest portable build (extract and run `AttendanceTracker.exe`):**
+**Recommended — normal Windows installers (Admin + Employee):** see **`docs/WINDOWS_INSTALL.md`**
+
+- Admin: `WorkforceAttendance-Admin-Setup-1.0.3.exe`
+- Employee: `WorkforceAttendance-Employee-Setup-1.0.3.exe`
+
+**Portable ZIP (extract and run `AttendanceTracker.exe`):**
 
 https://github.com/aaravpassport-max/BBC/releases/download/attendance-desktop-v1.0.2/AttendanceTracker-Windows-x64-v1.0.2.zip
 
-Release page: https://github.com/aaravpassport-max/BBC/releases/tag/attendance-desktop-v1.0.2
-
-> Use **v1.0.2** or newer (fixes crashes after sign-in and path detection). **v1.0.0** used Node 20 (broken database). Extract the **entire ZIP** — do not copy only `AttendanceTracker.exe`.
+> Use **v1.0.2+** for portable builds. Installers ship from **v1.0.3** onward.
 
 Employee usage (agents, not this admin app): `docs/EMPLOYEE_GUIDE.md`
 
@@ -42,7 +45,12 @@ Run:
 
 ## Installer
 
-After building, open `installer\setup.iss` in [Inno Setup](https://jrsoftware.org/isinfo.php) and compile to produce `AttendanceTracker-Setup-1.0.0.exe`.
+Compile on Windows with Inno Setup 6:
+
+- `installer\setup-admin.iss` → Admin Setup.exe  
+- `installer\setup-employee.iss` → Employee Setup.exe  
+
+Or run `scripts\build-installers.ps1` after publishing both apps to `dist\`.
 
 ## First run
 
