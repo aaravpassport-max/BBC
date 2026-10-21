@@ -30,8 +30,8 @@ function syncDesktopWordPressAssets() {
   const muDir = path.join(OUT, 'wp-content', 'mu-plugins');
   fs.mkdirSync(muDir, { recursive: true });
   const muCandidates = [
+    path.join(__dirname, '..', 'app', 'bin', 'leadcrm-desktop-mu-plugin.php'),
     path.join(__dirname, '..', 'app', 'wordpress', 'wp-content', 'mu-plugins', 'leadcrm-desktop.php'),
-    path.join(__dirname, '..', 'app', 'bin', 'leadcrm-desktop.php'),
   ];
   for (const muSrc of muCandidates) {
     if (fs.existsSync(muSrc)) {

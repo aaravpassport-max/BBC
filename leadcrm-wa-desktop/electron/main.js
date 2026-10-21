@@ -198,9 +198,12 @@ function ensureWordPressTree() {
 }
 
 function ensureDesktopBootstrapFiles() {
-  const muBundled = path.join(APP_DIR, 'wordpress', 'wp-content', 'mu-plugins', 'leadcrm-desktop.php');
+  const muBundled = resolveBinary([
+    path.join(APP_DIR, 'bin', 'leadcrm-desktop-mu-plugin.php'),
+    path.join(APP_DIR, 'wordpress', 'wp-content', 'mu-plugins', 'leadcrm-desktop.php'),
+  ]);
   const muLive = path.join(WP_DIR, 'wp-content', 'mu-plugins', 'leadcrm-desktop.php');
-  if (fs.existsSync(muBundled)) {
+  if (muBundled) {
     fs.mkdirSync(path.dirname(muLive), { recursive: true });
     fs.copyFileSync(muBundled, muLive);
   }

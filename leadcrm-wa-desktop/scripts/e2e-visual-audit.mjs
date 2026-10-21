@@ -50,10 +50,11 @@ function copyDir(src, dest) {
 function ensureDesktopWordPressFiles(wpRoot) {
   const muDir = path.join(wpRoot, 'wp-content', 'mu-plugins');
   fs.mkdirSync(muDir, { recursive: true });
-  fs.copyFileSync(
-    path.join(ROOT, 'app', 'wordpress', 'wp-content', 'mu-plugins', 'leadcrm-desktop.php'),
-    path.join(muDir, 'leadcrm-desktop.php'),
-  );
+  const muSrc = path.join(ROOT, 'app', 'bin', 'leadcrm-desktop-mu-plugin.php');
+  if (!fs.existsSync(muSrc)) {
+    throw new Error(`Missing ${muSrc} — run from leadcrm-wa-desktop repo`);
+  }
+  fs.copyFileSync(muSrc, path.join(muDir, 'leadcrm-desktop.php'));
   fs.copyFileSync(
     path.join(ROOT, 'app', 'bin', 'leadcrm-desktop-bootstrap.php'),
     path.join(wpRoot, 'leadcrm-desktop-bootstrap.php'),
