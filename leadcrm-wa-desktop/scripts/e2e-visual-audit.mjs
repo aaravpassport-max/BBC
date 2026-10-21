@@ -47,6 +47,23 @@ function copyDir(src, dest) {
   }
 }
 
+function ensureDesktopWordPressFiles(wpRoot) {
+  const muDir = path.join(wpRoot, 'wp-content', 'mu-plugins');
+  fs.mkdirSync(muDir, { recursive: true });
+  fs.copyFileSync(
+    path.join(ROOT, 'app', 'wordpress', 'wp-content', 'mu-plugins', 'leadcrm-desktop.php'),
+    path.join(muDir, 'leadcrm-desktop.php'),
+  );
+  fs.copyFileSync(
+    path.join(ROOT, 'app', 'bin', 'leadcrm-desktop-bootstrap.php'),
+    path.join(wpRoot, 'leadcrm-desktop-bootstrap.php'),
+  );
+  fs.copyFileSync(
+    path.join(ROOT, 'app', 'bin', 'desktop-router.php'),
+    path.join(wpRoot, 'router.php'),
+  );
+}
+
 const results = [];
 function pass(name, detail = '') {
   results.push({ name, ok: true, detail });
@@ -67,6 +84,7 @@ async function main() {
   }
   copyDir(WP_SRC, WP);
   copyDir(path.join(ROOT, 'app', 'bin'), path.join(AUDIT, 'bin'));
+  ensureDesktopWordPressFiles(WP);
 
   spawnSync('sudo', ['mysql', '-e', 'DROP DATABASE IF EXISTS leadcrm_wp_audit; CREATE DATABASE leadcrm_wp_audit; GRANT ALL ON leadcrm_wp_audit.* TO \'lcrmuser\'@\'127.0.0.1\'; FLUSH PRIVILEGES;'], { stdio: 'inherit' });
 
@@ -74,7 +92,7 @@ async function main() {
 define('DB_NAME', 'leadcrm_wp_audit');
 define('DB_USER', 'lcrmuser');
 define('DB_PASSWORD', 'testpass123');
-define('DB_HOST', '127.0.0.1');
+define('DB_HOST', '127.0.0.1:3306');
 define('DB_CHARSET', 'utf8mb4');
 define('DB_COLLATE', '');
 $table_prefix = 'wp_';
