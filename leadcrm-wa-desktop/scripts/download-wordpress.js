@@ -54,6 +54,12 @@ async function main() {
     throw new Error('leadcrm-wa-build plugin not found next to leadcrm-wa-desktop');
   }
   execSync(`cp -a "${pluginSource}" "${PLUGIN}"`, { stdio: 'inherit' });
+  const muDir = path.join(OUT, 'wp-content', 'mu-plugins');
+  fs.mkdirSync(muDir, { recursive: true });
+  const muSrc = path.join(__dirname, '..', 'app', 'wordpress', 'wp-content', 'mu-plugins', 'leadcrm-desktop.php');
+  if (fs.existsSync(muSrc)) {
+    fs.copyFileSync(muSrc, path.join(muDir, 'leadcrm-desktop.php'));
+  }
   fs.writeFileSync(
     path.join(OUT, 'router.php'),
     `<?php

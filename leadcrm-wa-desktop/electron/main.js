@@ -138,6 +138,27 @@ function ensureWordPressTree() {
   const binSrc = path.join(APP_DIR, 'bin');
   const binDest = path.join(DATA_DIR, 'bin');
   if (fs.existsSync(binSrc) && !fs.existsSync(binDest)) copyDir(binSrc, binDest);
+  ensureDesktopBootstrapFiles();
+}
+
+function ensureDesktopBootstrapFiles() {
+  const muBundled = path.join(APP_DIR, 'wordpress', 'wp-content', 'mu-plugins', 'leadcrm-desktop.php');
+  const muLive = path.join(WP_DIR, 'wp-content', 'mu-plugins', 'leadcrm-desktop.php');
+  if (fs.existsSync(muBundled)) {
+    fs.mkdirSync(path.dirname(muLive), { recursive: true });
+    fs.copyFileSync(muBundled, muLive);
+  }
+  const cfg = path.join(WP_DIR, 'wp-config.php');
+  if (fs.existsSync(cfg)) {
+    let text = fs.readFileSync(cfg, 'utf8');
+    if (!text.includes('LCRM_DESKTOP_APP')) {
+      text = text.replace(
+        "define('WP_DEBUG'",
+        "define('LCRM_DESKTOP_APP', true);\ndefine('WP_DEBUG'",
+      );
+      fs.writeFileSync(cfg, text);
+    }
+  }
 }
 
 function writeDbConfig(port) {
@@ -169,6 +190,7 @@ define('AUTH_SALT',        '${salts[4]}');
 define('SECURE_AUTH_SALT', '${salts[5]}');
 define('LOGGED_IN_SALT',   '${salts[6]}');
 define('NONCE_SALT',       '${salts[7]}');
+define('LCRM_DESKTOP_APP', true);
 define('WP_DEBUG', false);
 define('FS_METHOD', 'direct');
 if (!defined('ABSPATH')) define('ABSPATH', __DIR__ . '/');
@@ -292,7 +314,7 @@ function createWindow() {
     height: 860,
     minWidth: 1024,
     minHeight: 640,
-    title: 'LeadCRM',
+    title: 'LeadCRM WA',
     webPreferences: { contextIsolation: true, nodeIntegration: false },
     show: false,
   });
@@ -309,13 +331,8 @@ function createWindow() {
       label: 'LeadCRM',
       submenu: [
         { label: 'Open CRM', click: () => mainWindow?.loadURL(`http://127.0.0.1:${phpPort}/crm/`) },
-        { label: 'WordPress Admin', click: () => mainWindow?.loadURL(`http://127.0.0.1:${phpPort}/wp-admin/`) },
+        { label: 'Advanced settings', click: () => mainWindow?.loadURL(`http://127.0.0.1:${phpPort}/wp-admin/`) },
         { label: 'Data folder', click: () => shell.openPath(DATA_DIR) },
-        { label: 'Login credentials', click: () => {
-          if (fs.existsSync(LOGIN_FILE)) {
-            dialog.showMessageBox(mainWindow, { type: 'info', message: fs.readFileSync(LOGIN_FILE, 'utf8') });
-          }
-        }},
         { type: 'separator' },
         { role: 'quit' },
       ],

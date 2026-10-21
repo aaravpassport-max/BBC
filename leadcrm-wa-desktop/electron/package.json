@@ -1,6 +1,6 @@
 {
   "name": "leadcrm-wa-desktop",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "LeadCRM WA — Windows desktop (WordPress + leadcrm-wa-build)",
   "author": "LeadCRM",
   "main": "main.js",
