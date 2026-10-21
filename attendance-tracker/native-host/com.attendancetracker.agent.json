@@ -1,0 +1,9 @@
+{
+  "name": "com.attendancetracker.agent",
+  "description": "Relays browser tab/URL activity to the on-device Workforce Attendance agent. Only active after the employee has acknowledged the on-device monitoring notice.",
+  "path": "AttendanceAgentNativeHost.exe",
+  "type": "stdio",
+  "allowed_origins": [
+    "chrome-extension://REPLACE_WITH_ACTUAL_EXTENSION_ID/"
+  ]
+}

@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <!-- Windows-only target: SystemEvents, WTS session notifications, and
+         the notice WinForm all require this. This project cannot build on
+         a non-Windows SDK, which is exactly why it was not built here. -->
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Runs with no visible window/taskbar icon by default; the notice
+         form and employee self-view are explicitly shown, everything else
+         is a background service-style process. -->
+    <AssemblyName>AttendanceAgent</AssemblyName>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.8" />
+    <!-- NamedPipeServerStreamAcl.Create (UsageIngestPipeServer.cs) — added
+         explicitly rather than assumed to ship transitively via
+         net8.0-windows/UseWindowsForms, since that assumption is exactly
+         the kind of thing that's wrong until an actual `dotnet build`
+         proves it (not possible from this Linux sandbox — see README). -->
+    <PackageReference Include="System.IO.Pipes.AccessControl" Version="5.0.0" />
+  </ItemGroup>
+
+</Project>

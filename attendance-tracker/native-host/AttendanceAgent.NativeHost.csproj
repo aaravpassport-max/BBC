@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <!-- Deliberately a plain console app, not WinExe: Chrome's native
+         messaging launcher redirects stdin/stdout/stderr to pipes of its
+         own and starts this process with CREATE_NO_WINDOW-equivalent
+         behavior, so no console window is expected to flash on screen in
+         normal use. UNVERIFIED — see README; this is the standard,
+         documented pattern for native messaging hosts, not something
+         this sandbox can confirm by running it. -->
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>AttendanceAgentNativeHost</AssemblyName>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+</Project>

@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>My Activity</title>
+<!-- Avoids the browser auto-requesting /favicon.ico, which would otherwise
+     fall through to this server's session-required routing (there is no
+     unauthenticated allowlist entry for it) and log a spurious 401 in
+     devtools on every load — found by actually loading this page in a
+     real browser, not by inspection. -->
+<link rel="icon" href="data:,">
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --fg: #1a1d23; --muted: #6b7280;
+    --border: #e3e5e9; --accent: #2563eb; --good: #15803d; --warn: #b45309; --bad: #b91c1c;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #15171c; --card: #1d2026; --fg: #e8e9ec; --muted: #9aa0ab; --border: #2b2f38; --accent: #5b9bff; --good: #4ade80; --warn: #fbbf24; --bad: #f87171; color-scheme: dark; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 -apple-system, "Segoe UI", Roboto, Arial, sans-serif; padding: 20px; }
+  h1 { font-size: 18px; margin: 0; }
+  h2 { font-size: 13px; margin: 0 0 10px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+  header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; flex-wrap: wrap; gap: 6px; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; min-width: 0; }
+  .stat { font-size: 24px; font-weight: 600; }
+  .stat-label { color: var(--muted); font-size: 12px; margin-top: 2px; }
+  .status-pill { display: inline-block; padding: 2px 9px; border-radius: 99px; font-size: 13px; font-weight: 600; }
+  .status-present { background: rgba(21,128,61,0.15); color: var(--good); }
+  .status-incomplete { background: rgba(180,83,9,0.15); color: var(--warn); }
+  .status-unverified_only { background: rgba(180,83,9,0.15); color: var(--warn); }
+  .status-absent { background: rgba(185,28,28,0.15); color: var(--bad); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; }
+  .bar { height: 10px; border-radius: 5px; background: var(--border); overflow: hidden; display: flex; margin-top: 6px; }
+  .bar > span { display: block; height: 100%; }
+  .seg-active { background: var(--good); }
+  .seg-idle_break { background: #94a3b8; }
+  .seg-monitoring_gap { background: var(--warn); }
+  .seg-locked { background: var(--bad); }
+  .seg-sleep { background: #64748b; }
+  .seg-unverified { background: #a855f7; }
+  .legend { display: flex; gap: 12px; margin-top: 6px; font-size: 11px; color: var(--muted); flex-wrap: wrap; }
+  .legend span.dot { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+  #error, #loading { padding: 40px 0; text-align: center; color: var(--muted); }
+  #error { color: var(--bad); }
+  .flag { background: rgba(180,83,9,0.12); border: 1px solid var(--warn); color: var(--warn); border-radius: 6px; padding: 8px 10px; font-size: 12px; margin-bottom: 10px; }
+  .scroll-x { overflow-x: auto; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+  <div id="loading">Connecting to the attendance server&hellip;</div>
+  <div id="error" hidden></div>
+
+  <div id="app" hidden>
+    <header>
+      <div>
+        <h1 id="employeeName">&mdash;</h1>
+        <div class="sub">Viewing your own records only &middot; last synced <span id="lastSync">&mdash;</span></div>
+      </div>
+      <div class="sub">This device &middot; <span id="deviceId"></span></div>
+    </header>
+
+    <div class="grid">
+      <div class="card">
+        <div class="stat-label">Today &middot; <span id="todayDate"></span></div>
+        <div class="stat"><span id="todayStatus" class="status-pill">&mdash;</span></div>
+      </div>
+      <div class="card">
+        <div class="stat" id="todayActive">&mdash;</div>
+        <div class="stat-label">Active time today</div>
+      </div>
+      <div class="card">
+        <div class="stat" id="todayBreak">&mdash;</div>
+        <div class="stat-label">Break time today</div>
+      </div>
+      <div class="card">
+        <div class="stat" id="todaySession">&mdash;</div>
+        <div class="stat-label">Login &rarr; now span</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:16px">
+      <h2>Today's timeline</h2>
+      <div id="todayFlags"></div>
+      <div class="bar" id="todayBar"></div>
+      <div class="legend">
+        <span><span class="dot seg-active"></span>Active</span>
+        <span><span class="dot seg-idle_break"></span>Break</span>
+        <span><span class="dot seg-monitoring_gap"></span>Monitoring gap</span>
+        <span><span class="dot seg-locked"></span>Locked</span>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>This month so far</h2>
+        <table>
+          <tr><td>Days present</td><td id="mDaysPresent"></td></tr>
+          <tr><td>Active time</td><td id="mActive"></td></tr>
+          <tr><td>Break time</td><td id="mBreak"></td></tr>
+          <tr><td>Avg. active / present day</td><td id="mAvgActive"></td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <h2>Apps &amp; browser usage today</h2>
+        <div class="scroll-x"><table id="usageTable"><tbody></tbody></table></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>History (last 12 months)</h2>
+      <label class="sub" style="display:block;margin-bottom:8px">
+        <input type="checkbox" id="showAbsentToggle"> Show absent days too (<span id="absentCount">0</span> hidden by default)
+      </label>
+      <div class="scroll-x">
+        <table>
+          <thead><tr><th>Date</th><th>Status</th><th>Sessions</th><th>First login</th><th>Last activity</th></tr></thead>
+          <tbody id="historyBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- Device-token bootstrap: "no repeated login on your own PC" ----
+  // The device token is minted once, out of band, when an admin enrolls
+  // this employee's machine (see auth-repository.ts#enrollDevice). This
+  // page's job is only to EXCHANGE that long-lived token for a short
+  // session, never to prompt for a password. The token itself is
+  // supplied once via ?deviceToken=... (the tray app opens this URL),
+  // then persisted in localStorage for every later open with no query
+  // string at all — the direct analog of "already securely established
+  // through the Windows account."
+  var qs = new URLSearchParams(location.search);
+  var urlToken = qs.get("deviceToken");
+  if (urlToken) {
+    try { localStorage.setItem("deviceToken", urlToken); } catch (e) {}
+    history.replaceState(null, "", location.pathname);
+  }
+  var deviceToken = urlToken || (function () { try { return localStorage.getItem("deviceToken"); } catch (e) { return null; } })();
+
+  var els = {
+    loading: document.getElementById("loading"),
+    error: document.getElementById("error"),
+    app: document.getElementById("app"),
+  };
+
+  function showError(msg) {
+    els.loading.hidden = true;
+    els.app.hidden = true;
+    els.error.hidden = false;
+    els.error.textContent = msg;
+  }
+
+  if (!deviceToken) {
+    showError("This device isn't enrolled yet. Ask your administrator to enroll this PC, which opens this page with a one-time setup link.");
+    return;
+  }
+
+  var sessionToken = null;
+  var employeeId = null;
+  var deviceId = null;
+
+  function api(path, opts) {
+    opts = opts || {};
+    opts.headers = Object.assign({}, opts.headers, sessionToken ? { Authorization: "Bearer " + sessionToken } : {});
+    return fetch(path, opts).then(function (res) {
+      if (!res.ok) {
+        return res.json().catch(function () { return {}; }).then(function (b) {
+          var err = new Error(b.error || ("Request failed: " + res.status));
+          err.status = res.status;
+          throw err;
+        });
+      }
+      return res.json();
+    });
+  }
+
+  function fmtMs(ms) {
+    if (ms == null) return "—";
+    var totalMin = Math.round(ms / 60000);
+    var h = Math.floor(totalMin / 60), m = totalMin % 60;
+    return h > 0 ? (h + "h " + m + "m") : (m + "m");
+  }
+  function fmtClock(iso) {
+    if (!iso) return "—";
+    return new Date(iso).toISOString().slice(11, 16) + " UTC";
+  }
+  function statusPillClass(status) { return "status-pill status-" + status; }
+
+  api("/api/auth/device-login", { method: "POST", body: JSON.stringify({ deviceToken: deviceToken }), headers: { "Content-Type": "application/json" } })
+    .then(function (login) {
+      sessionToken = login.token;
+      employeeId = login.employeeId;
+      deviceId = login.deviceId;
+      return loadEverything();
+    })
+    .then(function () {
+      els.loading.hidden = true;
+      els.app.hidden = false;
+    })
+    .catch(function (err) {
+      if (err.status === 401) {
+        try { localStorage.removeItem("deviceToken"); } catch (e) {}
+        showError("This device's credential is no longer recognized (it may have been revoked). Ask your administrator to re-enroll this PC.");
+      } else {
+        showError("Couldn't reach the attendance server: " + err.message);
+      }
+    });
+
+  function todayUtc() { return new Date().toISOString().slice(0, 10); }
+
+  function loadEverything() {
+    var now = new Date();
+    var date = todayUtc();
+    var year = now.getUTCFullYear(), month = now.getUTCMonth() + 1;
+    var dateFrom = new Date(now.getTime());
+    dateFrom.setUTCDate(dateFrom.getUTCDate() - 365);
+
+    return Promise.all([
+      api("/api/me"),
+      api("/api/reports/daily?employeeId=" + employeeId + "&date=" + date),
+      api("/api/reports/monthly?employeeId=" + employeeId + "&year=" + year + "&month=" + month),
+      api("/api/history?employeeId=" + employeeId + "&dateFrom=" + dateFrom.toISOString().slice(0, 10) + "&dateTo=" + date),
+    ]).then(function (results) {
+      render(results[0], results[1], results[2], results[3], date);
+    });
+  }
+
+  function render(me, daily, monthly, history, date) {
+    document.getElementById("employeeName").textContent = me.displayName || employeeId;
+    document.getElementById("deviceId").textContent = deviceId || me.deviceId || "";
+    document.getElementById("lastSync").textContent = new Date().toISOString().slice(0, 16).replace("T", " ") + " UTC";
+    document.getElementById("todayDate").textContent = date;
+
+    var statusEl = document.getElementById("todayStatus");
+    statusEl.textContent = daily.status;
+    statusEl.className = statusPillClass(daily.status);
+
+    document.getElementById("todayActive").textContent = fmtMs(daily.activeMs);
+    document.getElementById("todayBreak").textContent = fmtMs(daily.breakMs);
+    document.getElementById("todaySession").textContent = fmtMs(daily.totalSessionDurationMs);
+
+    var flagsEl = document.getElementById("todayFlags");
+    flagsEl.innerHTML = "";
+    if (daily.status === "incomplete") {
+      var f = document.createElement("div");
+      f.className = "flag";
+      f.textContent = daily.isLogoutMissing
+        ? "A previous session is missing a sign-out. Figures may be revised once that's reconciled."
+        : "A monitoring gap was detected today (the agent stopped reporting for a period). Figures may be revised once synced data catches up.";
+      flagsEl.appendChild(f);
+    }
+
+    var bar = document.getElementById("todayBar");
+    bar.innerHTML = "";
+    var allIntervals = [];
+    (daily.sessions || []).forEach(function (s) { (s.stateIntervals || []).forEach(function (iv) { allIntervals.push(iv); }); });
+    var asOfMs = Date.now();
+    var withDur = allIntervals.map(function (iv) {
+      var endMs = iv.endUtc ? new Date(iv.endUtc).getTime() : asOfMs;
+      return { state: iv.state, durationMs: Math.max(0, endMs - new Date(iv.startUtc).getTime()) };
+    });
+    var totalMs = withDur.reduce(function (acc, iv) { return acc + iv.durationMs; }, 0);
+    if (totalMs > 0) {
+      withDur.forEach(function (iv) {
+        if (iv.durationMs <= 0) return;
+        var seg = document.createElement("span");
+        seg.className = "seg-" + iv.state;
+        seg.style.width = ((iv.durationMs / totalMs) * 100) + "%";
+        seg.title = iv.state + " (" + fmtMs(iv.durationMs) + ")";
+        bar.appendChild(seg);
+      });
+    }
+
+    document.getElementById("mDaysPresent").textContent = monthly.totals ? monthly.totals.daysWithRecords : "—";
+    document.getElementById("mActive").textContent = fmtMs(monthly.totals ? monthly.totals.activeMs : null);
+    document.getElementById("mBreak").textContent = fmtMs(monthly.totals ? monthly.totals.breakMs : null);
+    document.getElementById("mAvgActive").textContent = fmtMs(monthly.averages ? monthly.averages.avgActiveMsPerPresentDay : null);
+
+    var tbody = document.querySelector("#usageTable tbody");
+    tbody.innerHTML = "";
+    var usage = daily.usage;
+    var rows = [];
+    (usage && usage.byExecutable || []).forEach(function (e) { rows.push({ name: e.executableName, ms: e.ms }); });
+    (usage && usage.byDomain || []).forEach(function (d) { rows.push({ name: d.domain, ms: d.ms }); });
+    if (rows.length === 0) {
+      tbody.innerHTML = "<tr><td class=\"sub\">No app/browser usage recorded yet today.</td></tr>";
+    } else {
+      rows.sort(function (a, b) { return b.ms - a.ms; }).forEach(function (r) {
+        var tr = document.createElement("tr");
+        tr.innerHTML = "<td>" + r.name + "</td><td>" + fmtMs(r.ms) + "</td>";
+        tbody.appendChild(tr);
+      });
+    }
+
+    allHistoryRows = (history || []).slice().reverse();
+    renderHistoryRows();
+  }
+
+  // Module-level (closure) state so the "show absent days" checkbox can
+  // re-render without a network round-trip. A full year of history is
+  // mostly weekends/leave/absence — showing all 366 rows by default
+  // buries the days that matter, so present/incomplete days show first
+  // and absence is opt-in. Found by actually loading a full year of
+  // seeded history in a real browser and seeing an unusably long table,
+  // not by reasoning about it in the abstract.
+  var allHistoryRows = [];
+  function renderHistoryRows() {
+    var showAbsent = document.getElementById("showAbsentToggle").checked;
+    var rows = showAbsent ? allHistoryRows : allHistoryRows.filter(function (r) { return r.status !== "absent"; });
+    var absentCount = allHistoryRows.filter(function (r) { return r.status === "absent"; }).length;
+    document.getElementById("absentCount").textContent = absentCount;
+    var hBody = document.getElementById("historyBody");
+    hBody.innerHTML = "";
+    if (rows.length === 0) {
+      hBody.innerHTML = "<tr><td colspan=\"5\" class=\"sub\">No recorded days in this range yet.</td></tr>";
+      return;
+    }
+    rows.forEach(function (row) {
+      var tr = document.createElement("tr");
+      tr.innerHTML =
+        "<td>" + row.date + "</td>" +
+        "<td><span class=\"" + statusPillClass(row.status) + "\">" + row.status + "</span></td>" +
+        "<td>" + row.sessionCount + "</td>" +
+        "<td>" + fmtClock(row.firstLoginUtc) + "</td>" +
+        "<td>" + fmtClock(row.lastActivityUtc) + "</td>";
+      hBody.appendChild(tr);
+    });
+  }
+  document.getElementById("showAbsentToggle").addEventListener("change", renderHistoryRows);
+})();
+</script>
+</body>
+</html>

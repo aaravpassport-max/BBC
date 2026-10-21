@@ -1,0 +1,33 @@
+<UserControl x:Class="AttendanceTracker.Desktop.Views.LoginView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <Grid Background="{StaticResource OfficeBgBrush}">
+    <Border Background="{StaticResource OfficeSurfaceBrush}" BorderBrush="{StaticResource OfficeBorderBrush}" BorderThickness="1"
+            CornerRadius="4" Padding="36" MaxWidth="440" VerticalAlignment="Center" HorizontalAlignment="Center">
+      <StackPanel>
+        <TextBlock Text="Workforce Attendance Console" FontSize="22" FontWeight="SemiBold" Margin="0,0,0,4"/>
+        <TextBlock Text="Native Windows administration for attendance, activity, and reports."
+                   Foreground="{StaticResource OfficeMutedBrush}" TextWrapping="Wrap" Margin="0,0,0,24"/>
+
+        <StackPanel x:Name="FirstRunPanel" Visibility="Collapsed" Margin="0,0,0,16">
+          <TextBlock Text="First-run setup" FontWeight="SemiBold" Margin="0,0,0,8"/>
+          <TextBlock Text="Create the local database and administrator account. Data stays on this PC unless you configure agents to sync to a central server."
+                     Foreground="{StaticResource OfficeMutedBrush}" TextWrapping="Wrap" Margin="0,0,0,12"/>
+          <TextBlock Text="Display name" Margin="0,0,0,4"/>
+          <TextBox x:Name="AdminNameBox" Text="Administrator"/>
+          <CheckBox x:Name="SeedDemoCheck" Content="Add a demo employee record" Margin="0,8,0,0"/>
+        </StackPanel>
+
+        <TextBlock Text="Email" Margin="0,0,0,4"/>
+        <TextBox x:Name="EmailBox"/>
+
+        <TextBlock Text="Password" Margin="0,12,0,4"/>
+        <PasswordBox x:Name="PasswordBox"/>
+
+        <TextBlock x:Name="ErrorText" Foreground="#B91C1C" TextWrapping="Wrap" Margin="0,12,0,0" Visibility="Collapsed"/>
+
+        <Button x:Name="ActionButton" Content="Sign in" Style="{StaticResource OfficePrimaryButton}" Margin="0,20,0,0" Click="Action_Click"/>
+      </StackPanel>
+    </Border>
+  </Grid>
+</UserControl>
