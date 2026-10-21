@@ -76,8 +76,8 @@ public sealed class TrayPresence : IDisposable
                 "3. Right-click → \"View my activity today\" for your summary.\n\n" +
                 "There is no full-screen app window — that is normal for employees.",
                 "Workforce Attendance Agent",
-                MessageBoxButtons.OK,
-                MessageBoxIcon.Information);
+                System.Windows.Forms.MessageBoxButtons.OK,
+                System.Windows.Forms.MessageBoxIcon.Information);
         }
     }
 
