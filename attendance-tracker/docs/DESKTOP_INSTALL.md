@@ -10,6 +10,16 @@ The UI is 100% WPF. The attendance calculation engine remains the proven TypeScr
 - **.NET 8 Desktop Runtime** (included if you use the self-contained publish from `build-windows.ps1`)
 - **Node.js 20+** *or* the bundled `runtime\node\node.exe` from `scripts\download-node-win.ps1`
 
+## Direct download (Windows x64)
+
+**Latest portable build (extract and run `AttendanceTracker.exe`):**
+
+https://github.com/aaravpassport-max/BBC/releases/download/attendance-desktop-v1.0.0/AttendanceTracker-Windows-x64-v1.0.0.zip
+
+Release page: https://github.com/aaravpassport-max/BBC/releases/tag/attendance-desktop-v1.0.0
+
+Includes self-contained .NET runtime, bundled `node.exe`, and the `core` engine. No separate Node or .NET install required.
+
 ## Build from source (Windows)
 
 ```powershell
