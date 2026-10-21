@@ -1,6 +1,6 @@
 {
   "name": "leadcrm-wa-desktop",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "LeadCRM WA — Windows desktop (WordPress + leadcrm-wa-build)",
   "author": "LeadCRM",
   "main": "main.js",
@@ -15,12 +15,25 @@
     "directories": { "output": "../dist" },
     "artifactName": "LeadCRM-WA-Setup-${version}.${ext}",
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "zip", "arch": ["x64"] }
+      ],
+      "executableName": "LeadCRM WA",
+      "requestedExecutionLevel": "asInvoker",
       "signAndEditExecutable": false
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
+      "installerLanguages": ["en_US"],
+      "language": "1033",
+      "include": "installer.nsh",
+      "deleteAppDataOnUninstall": false,
+      "installDir": "$LOCALAPPDATA\\Programs\\LeadCRM-WA",
+      "warningsAsErrors": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
       "shortcutName": "LeadCRM WA"
@@ -30,7 +43,7 @@
       { "from": "../php", "to": "php", "filter": ["**/*"] },
       { "from": "../mariadb", "to": "mariadb", "filter": ["**/*"] }
     ],
-    "files": ["main.js", "preload.js", "package.json"]
+    "files": ["main.js", "preload.js", "installer.nsh", "package.json"]
   },
   "devDependencies": {
     "electron": "^28.3.3",

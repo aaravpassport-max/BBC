@@ -87,6 +87,7 @@ jobs:
           name: LeadCRM-WA-Windows
           path: |
             leadcrm-wa-desktop/dist/*.exe
+            leadcrm-wa-desktop/dist/*-win.zip
             leadcrm-wa-desktop/dist/win-unpacked/**
           retention-days: 90
 
@@ -94,6 +95,8 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/leadcrm-wa-')
         uses: softprops/action-gh-release@v2
         with:
-          files: leadcrm-wa-desktop/dist/*.exe
+          files: |
+            leadcrm-wa-desktop/dist/*.exe
+            leadcrm-wa-desktop/dist/*-win.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
