@@ -130,7 +130,10 @@ function touchMutationInvalidation(path: string) {
   if (p.includes('categories')) invalidateCache('admin/categories')
   if (p.includes('tickets')) invalidateCache('admin/tickets')
   if (p.includes('reviews')) invalidateCache('admin/reviews')
-  if (p.includes('settings')) invalidateCache('admin/settings')
+  if (p.includes('settings')) {
+    invalidateCache('admin/settings')
+    invalidateCache('settings/public')
+  }
   if (p.includes('notifications')) invalidateCache('notifications')
 }
 

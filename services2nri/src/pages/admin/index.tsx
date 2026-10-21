@@ -414,14 +414,70 @@ export function AdminBookingDetail() {
   const [showQuote, setShowQuote] = useState(false)
   const [qForm, setQForm] = useState({ amount: '', notes: '', line_items: [{ description: '', amount: '' }] })
   const [qBusy, setQBusy] = useState(false), [err, setErr] = useState(''), [ok, setOk] = useState('')
+  const [deliveryDays, setDeliveryDays] = useState('')
+  const [deliveryDate, setDeliveryDate] = useState('')
+  const [deliveryNote, setDeliveryNote] = useState('')
+  const [secondaryStatus, setSecondaryStatus] = useState('')
+  const [shippingType, setShippingType] = useState('domestic')
+  const [vendorId, setVendorId] = useState('')
+  const [fulfillBusy, setFulfillBusy] = useState(false)
   useEffect(() => {
-    if (booking) setStatus(String(booking.status || ''))
+    if (booking) {
+      setStatus(String(booking.status || ''))
+      setDeliveryDays(booking.delivery_working_days != null ? String(booking.delivery_working_days) : '')
+      setDeliveryDate(booking.due_date ? String(booking.due_date).slice(0, 10) : '')
+      setDeliveryNote(String(booking.delivery_note || ''))
+      setSecondaryStatus(String(booking.secondary_status || ''))
+      setShippingType(String(booking.shipping_type || 'domestic'))
+      setVendorId(booking.vendor_id != null ? String(booking.vendor_id) : '')
+    }
   }, [booking])
   const reload = useCallback(() => refresh(true), [refresh])
   const loadFailed = error && !booking
-  async function updateStatus() { try { await api.put(`admin/bookings/${id}/status`, { status }); setOk('Status updated.'); reload() } catch (e: unknown) { setErr((e as { message: string }).message) } }
-  async function sendMsg() { if (!msg.trim()) return; setMsgBusy(true); try { await api.post(`admin/bookings/${id}/messages`, { message: msg }); setMsg(''); reload() } catch (e: unknown) { setErr((e as { message: string }).message) }; setMsgBusy(false) }
-  async function sendQuote() { if (!qForm.amount) return; setQBusy(true); try { await api.post(`admin/bookings/${id}/quote`, qForm); setShowQuote(false); setOk('Quote sent.'); reload() } catch (e: unknown) { setErr((e as { message: string }).message) }; setQBusy(false) }
+  async function updateStatus() { try { await api.put(`admin/bookings/${id}/status`, { status }); setOk('Status updated.'); await reload() } catch (e: unknown) { setErr((e as { message: string }).message) } }
+  async function sendMsg() { if (!msg.trim()) return; setMsgBusy(true); try { await api.post(`admin/bookings/${id}/messages`, { message: msg }); setMsg(''); await reload() } catch (e: unknown) { setErr((e as { message: string }).message) }; setMsgBusy(false) }
+  async function sendQuote() { if (!qForm.amount) return; setQBusy(true); try { await api.post(`admin/bookings/${id}/quote`, qForm); setShowQuote(false); setOk('Quote sent.'); await reload() } catch (e: unknown) { setErr((e as { message: string }).message) }; setQBusy(false) }
+  async function saveDelivery() {
+    setFulfillBusy(true)
+    try {
+      const body: Record<string, string | number> = {}
+      if (deliveryDays.trim()) body.working_days = Number(deliveryDays)
+      else if (deliveryDate.trim()) body.fixed_date = deliveryDate
+      else { setErr('Enter working days or a fixed delivery date.'); setFulfillBusy(false); return }
+      if (deliveryNote.trim()) body.note = deliveryNote.trim()
+      await api.patch(`admin/bookings/${id}/delivery`, body)
+      setOk('Delivery timeline updated.')
+      await reload()
+    } catch (e: unknown) { setErr((e as { message: string }).message) }
+    setFulfillBusy(false)
+  }
+  async function saveVendor() {
+    setFulfillBusy(true)
+    try {
+      await api.patch(`admin/bookings/${id}/vendor`, { vendor_id: vendorId ? Number(vendorId) : null })
+      setOk('Vendor assignment saved.')
+      await reload()
+    } catch (e: unknown) { setErr((e as { message: string }).message) }
+    setFulfillBusy(false)
+  }
+  async function saveSecondaryStatus() {
+    setFulfillBusy(true)
+    try {
+      await api.patch(`admin/bookings/${id}/secondary-status`, { value: secondaryStatus })
+      setOk('Fulfillment status updated.')
+      await reload()
+    } catch (e: unknown) { setErr((e as { message: string }).message) }
+    setFulfillBusy(false)
+  }
+  async function saveShippingType() {
+    setFulfillBusy(true)
+    try {
+      await api.patch(`admin/bookings/${id}/shipping-type`, { shipping_type: shippingType })
+      setOk('Shipping type updated.')
+      await reload()
+    } catch (e: unknown) { setErr((e as { message: string }).message) }
+    setFulfillBusy(false)
+  }
   if (loadFailed) {
     return (
       <AdminScreen>
@@ -442,6 +498,9 @@ export function AdminBookingDetail() {
   const docs = (booking.documents || []) as Array<Record<string, unknown>>
   const messages = (booking.messages || []) as Array<Record<string, unknown>>
   const fields = (booking.field_data || {}) as Record<string, unknown>
+  const vendorList = (booking.vendor_list || []) as Array<Record<string, unknown>>
+  const vendor = (booking.vendor || null) as Record<string, unknown> | null
+  const deliveryInfo = booking.delivery_info ? String(booking.delivery_info) : ''
   const STATUSES = ['submitted','under_review','quote_sent','quote_approved','in_progress','docs_requested','docs_received','processing','completed','cancelled','on_hold']
   const bookingActions = (
     <>
@@ -507,6 +566,52 @@ export function AdminBookingDetail() {
             {booking.customer_id ? <Link to={`/admin/customers/${String(booking.customer_id)}`} style={{ color: primary, fontWeight: 700, textDecoration: 'none', fontSize: 14, display: 'block', marginBottom: 4 }}>{String(booking.customer_name)} →</Link> : null}
             {booking.customer_email ? <p style={{ margin: '4px 0', fontSize: 13, color: '#6b7280' }}>{String(booking.customer_email as string)}</p> : null}
             {booking.customer_phone ? <p style={{ margin: '4px 0', fontSize: 13, color: '#6b7280' }}>{String(booking.customer_phone as string)}</p> : null}
+          </Card>
+          <Card style={{ marginBottom: 16 }}>
+            <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700 }}>Delivery &amp; fulfillment</h3>
+            {deliveryInfo ? (
+              <p style={{ margin: '0 0 12px', fontSize: 13, color: '#1d4ed8', background: '#eff6ff', padding: '10px 12px', borderRadius: 8 }}>
+                {deliveryInfo}
+              </p>
+            ) : (
+              <p style={{ margin: '0 0 12px', fontSize: 13, color: '#9ca3af' }}>No delivery date set yet.</p>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280' }}>Working days (excl. weekends &amp; holidays)</label>
+              <input type="number" min={1} value={deliveryDays} onChange={e => setDeliveryDays(e.target.value)} placeholder="e.g. 30" style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14 }} />
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280' }}>Or fixed date</label>
+              <input type="date" value={deliveryDate} onChange={e => setDeliveryDate(e.target.value)} style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14 }} />
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280' }}>Delivery note (internal)</label>
+              <textarea value={deliveryNote} onChange={e => setDeliveryNote(e.target.value)} rows={2} placeholder="Courier instructions, tracking, etc." style={{ padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 13, resize: 'vertical', fontFamily: 'inherit' }} />
+              <Btn onClick={saveDelivery} loading={fulfillBusy} style={{ width: '100%', justifyContent: 'center' }}>Save delivery timeline</Btn>
+            </div>
+            <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 12, marginBottom: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 6 }}>Shipping</label>
+              <select value={shippingType} onChange={e => setShippingType(e.target.value)} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, marginBottom: 8 }}>
+                {['domestic', 'international', 'none'].map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
+              </select>
+              <Btn variant="secondary" onClick={saveShippingType} loading={fulfillBusy} style={{ width: '100%', justifyContent: 'center' }}>Update shipping</Btn>
+            </div>
+            <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 12, marginBottom: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 6 }}>Fulfillment status</label>
+              <input value={secondaryStatus} onChange={e => setSecondaryStatus(e.target.value)} placeholder="e.g. dispatched, at_courier" style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, marginBottom: 8, boxSizing: 'border-box' }} />
+              <Btn variant="secondary" onClick={saveSecondaryStatus} loading={fulfillBusy} style={{ width: '100%', justifyContent: 'center' }}>Save status</Btn>
+            </div>
+            <div style={{ borderTop: '1px solid #f3f4f6', paddingTop: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: '#6b7280', display: 'block', marginBottom: 6 }}>Vendor / courier partner</label>
+              {vendor ? (
+                <p style={{ margin: '0 0 8px', fontSize: 13, color: '#374151' }}>
+                  <strong>{String(vendor.name)}</strong>
+                  {vendor.phone ? ` · ${String(vendor.phone)}` : ''}
+                  {vendor.whatsapp ? ` · WA ${String(vendor.whatsapp)}` : ''}
+                </p>
+              ) : null}
+              <select data-testid="admin-vendor-select" value={vendorId} onChange={e => setVendorId(e.target.value)} style={{ width: '100%', padding: '8px 12px', border: '1px solid #d1d5db', borderRadius: 8, fontSize: 14, marginBottom: 8 }}>
+                <option value="">— Unassigned —</option>
+                {vendorList.map(v => <option key={String(v.id)} value={String(v.id)}>{String(v.name)}{v.company ? ` (${String(v.company)})` : ''}</option>)}
+              </select>
+              <Btn variant="secondary" onClick={saveVendor} loading={fulfillBusy} style={{ width: '100%', justifyContent: 'center' }}>Assign vendor</Btn>
+            </div>
           </Card>
           <Card>
             <h3 style={{ margin: '0 0 12px', fontSize: 15, fontWeight: 700 }}>Documents ({docs.length})</h3>

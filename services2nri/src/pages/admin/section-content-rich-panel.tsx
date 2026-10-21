@@ -312,12 +312,14 @@ function StatsCardsEditor({
               placeholder="10,000+"
               value={readAdminSetting(settings, `stat_${n}_number`)}
               onChange={(e) => onChange(`stat_${n}_number`, e.target.value)}
+              onInput={(e) => onChange(`stat_${n}_number`, (e.target as HTMLInputElement).value)}
             />
             <input
               className="s2-band-input"
               placeholder="Label"
               value={readAdminSetting(settings, `stat_${n}_label`)}
               onChange={(e) => onChange(`stat_${n}_label`, e.target.value)}
+              onInput={(e) => onChange(`stat_${n}_label`, (e.target as HTMLInputElement).value)}
             />
           </div>
         ))}

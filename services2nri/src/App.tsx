@@ -22,6 +22,7 @@ import { spaNavigate, scrollToHash } from '@/lib/spa-navigation'
 import './styles/global.css'
 import { applyDesignConfig } from '@/lib/apply-design-config'
 import { DesignLiveSync } from '@/components/public/DesignLiveSync'
+import { SettingsLiveSync } from '@/components/public/SettingsLiveSync'
 import { ExperienceReveal } from '@/components/public/ExperienceReveal'
 import { resolvePrimary } from '@/lib/design-tokens'
 
@@ -246,6 +247,7 @@ export function App() {
         <SpaNavigationBridge />
         <MobileDashTableEnhancer />
         <DesignLiveSync />
+        <SettingsLiveSync />
         <ExperienceReveal />
         <ScrollToTop />
         <PrefetchCurrentRoute />
