@@ -1,0 +1,313 @@
+import { act, cleanup, renderHook, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { useModuleData } from '../use-module-data';
+import { useCachedPage } from '../use-cached-page';
+import { useModuleCounts } from '../use-module-counts';
+import { useLeadsData } from '@/features/tenant/crm/leads/hooks/use-leads-data';
+import { clearPageCache, getPageCacheSize, invalidatePageCache } from '@/shared/cache/page-cache';
+
+const mocks = vi.hoisted(() => ({
+  auth: { isLoading: false, authError: null as string | null, tenant: { id: 'tenant-a' }, user: { id: 'user-a', role: 'Sales Rep' } },
+  get: vi.fn(),
+}));
+vi.mock('@/store/AuthContext', () => ({ useAuth: () => mocks.auth }));
+vi.mock('@/lib/config', () => ({ USE_MOCK_DATA: false }));
+vi.mock('@/lib/api/client', () => ({ apiClient: { get: mocks.get } }));
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (error: unknown) => void;
+  const promise = new Promise<T>((yes, no) => { resolve = yes; reject = no; });
+  return { promise, resolve, reject };
+}
+const response = (page: number) => ({
+  data: [{ id: `page-${page}` }],
+  meta: { page, pageSize: 25, total: 80, totalPages: 4 },
+});
+
+beforeEach(() => {
+  clearPageCache();
+  mocks.get.mockReset();
+  mocks.auth = { isLoading: false, authError: null, tenant: { id: 'tenant-a' }, user: { id: 'user-a', role: 'Sales Rep' } };
+});
+afterEach(() => { cleanup(); clearPageCache(); });
+
+describe('real cached request lifecycle', () => {
+  it('refreshes mounted Lead lists and selected detail after one invalidation without an explicit page refetch', async () => {
+    let firstName = 'Before';
+    const record = () => ({ id: 'lead', tenantId: 'tenant-a', firstName, lastName: 'Person', status: 'Warm',
+      createdAt: '2026-10-01T00:00:00Z', updatedAt: '2026-10-01T00:00:00Z', isArchived: false });
+    const listResponse = () => ({ data: [record()], meta: { page: 1, pageSize: 25, total: 1, totalPages: 1 } });
+    const refreshedList = deferred<ReturnType<typeof listResponse>>();
+    mocks.get.mockImplementation(async (path: string) => path === '/crm/leads/lead'
+      ? { data: record() } : firstName === 'Saved' ? refreshedList.promise : listResponse());
+    const first = renderHook(() => useLeadsData({ page: 1, pageSize: 25 }));
+    const second = renderHook(() => useLeadsData({ page: 1, pageSize: 25 }));
+    const detail = renderHook(() => useModuleData({ moduleId: 'leads', page: 1, pageSize: 25, recordId: 'lead' }));
+    await waitFor(() => expect(first.result.current.leads[0]?.firstName).toBe('Before'));
+    await waitFor(() => expect(second.result.current.leads[0]?.firstName).toBe('Before'));
+    await waitFor(() => expect(detail.result.current.data[0]?.firstName).toBe('Before'));
+    expect(mocks.get.mock.calls.filter(([path]) => path === '/crm/leads')).toHaveLength(1);
+    firstName = 'Saved';
+    act(() => invalidatePageCache('leads', 'tenant-a'));
+    await waitFor(() => expect(mocks.get.mock.calls.filter(([path]) => path === '/crm/leads')).toHaveLength(2));
+    await act(async () => refreshedList.resolve(listResponse()));
+    await waitFor(() => expect(first.result.current.leads[0]?.firstName).toBe('Saved'));
+    await waitFor(() => expect(second.result.current.leads[0]?.firstName).toBe('Saved'));
+    await waitFor(() => expect(detail.result.current.data[0]?.firstName).toBe('Saved'));
+    expect(mocks.get.mock.calls.filter(([path]) => path === '/crm/leads')).toHaveLength(2);
+    expect(mocks.get.mock.calls.filter(([path]) => path === '/crm/leads/lead')).toHaveLength(2);
+    firstName = 'Manual refresh';
+    await act(async () => first.result.current.refetch());
+    expect(first.result.current.leads[0]?.firstName).toBe('Manual refresh');
+    expect(mocks.get.mock.calls.filter(([path]) => path === '/crm/leads')).toHaveLength(3);
+  });
+
+  it('restarts an in-flight workflow list after an authorization refresh clears the cache', async () => {
+    const old = deferred<string[]>(), fresh = deferred<string[]>();
+    const fetchFn = vi.fn().mockReturnValueOnce(old.promise).mockReturnValueOnce(fresh.promise);
+    const hook = renderHook(() => useCachedPage({ module: 'workflows', params: {}, fetchFn }));
+    act(() => clearPageCache(true));
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    await act(async () => { old.resolve(['obsolete-workflow']); });
+    expect(hook.result.current.data).toBeUndefined();
+    expect(hook.result.current.isInitialLoad).toBe(true);
+    await act(async () => { fresh.resolve(['saved-workflow']); });
+    expect(hook.result.current.data).toEqual(['saved-workflow']);
+  });
+
+  it('hides previously loaded data during access refresh and ignores the result after access is revoked', async () => {
+    const fresh = deferred<string[]>();
+    const fetchFn = vi.fn().mockResolvedValueOnce(['private-workflow']).mockReturnValueOnce(fresh.promise);
+    const hook = renderHook(({ disabled }) => useCachedPage({ module: 'workflows', params: {}, fetchFn, disabled }), { initialProps: { disabled: false } });
+    await waitFor(() => expect(hook.result.current.data).toEqual(['private-workflow']));
+    act(() => clearPageCache(true));
+    expect(hook.result.current.data).toBeUndefined();
+    hook.rerender({ disabled: true });
+    await act(async () => { fresh.resolve(['revoked-workflow']); });
+    expect(hook.result.current.data).toBeUndefined();
+    expect(getPageCacheSize()).toBe(0);
+    act(() => clearPageCache(true));
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['leads', 'contacts', 'accounts'])('refreshes an open %s table when a panel mutation invalidates it', async moduleId => {
+    mocks.get.mockResolvedValueOnce(response(1));
+    const hook = renderHook(() => useModuleData({ moduleId, page: 1, pageSize: 25 }));
+    await waitFor(() => expect(hook.result.current.data).toEqual(response(1).data));
+    mocks.get.mockResolvedValueOnce({ data: [], meta: { total: 0, page: 1, limit: 25 } });
+    act(() => invalidatePageCache(moduleId, 'tenant-a'));
+    await waitFor(() => expect(hook.result.current.meta?.total).toBe(0));
+    expect(hook.result.current.data).toEqual([]);
+  });
+  it('aborts old queries and cannot cache a late page under the new page key', async () => {
+    const first = deferred<ReturnType<typeof response>>();
+    const second = deferred<ReturnType<typeof response>>();
+    mocks.get.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
+    const hook = renderHook(({ page }) => useModuleData({ moduleId: 'leads', page, pageSize: 25 }), { initialProps: { page: 1 } });
+    const firstSignal = mocks.get.mock.calls[0][1].signal;
+    hook.rerender({ page: 2 });
+    await act(async () => { await Promise.resolve(); });
+    expect(firstSignal.aborted).toBe(true);
+    await act(async () => { second.resolve(response(2)); });
+    await act(async () => { first.resolve(response(1)); });
+    expect(hook.result.current.data).toEqual(response(2).data);
+    hook.unmount();
+    mocks.get.mockReturnValue(new Promise(() => {}));
+    const cached = renderHook(() => useModuleData({ moduleId: 'leads', page: 2, pageSize: 25 }));
+    expect(cached.result.current.data).toEqual(response(2).data);
+    expect(cached.result.current.meta?.total).toBe(80);
+    expect(cached.result.current.isInitialLoad).toBe(false);
+  });
+
+  it('does not copy loaded results into a new filter key before its request completes', async () => {
+    mocks.get.mockResolvedValueOnce(response(1));
+    const hook = renderHook(({ search }) => useModuleData({ moduleId: 'accounts', page: 1, pageSize: 25, search }), { initialProps: { search: 'first' } });
+    await waitFor(() => expect(hook.result.current.meta?.total).toBe(80));
+    mocks.get.mockReturnValue(new Promise(() => {}));
+    hook.rerender({ search: 'second' });
+    expect(hook.result.current.data).toEqual([]);
+    hook.unmount();
+    const next = renderHook(() => useModuleData({ moduleId: 'accounts', page: 1, pageSize: 25, search: 'second' }));
+    expect(next.result.current.isInitialLoad).toBe(true);
+    expect(getPageCacheSize()).toBe(1);
+  });
+
+  it.each(['logout', 'mutation', 'unmount'])('blocks cache resurrection after %s', async (action) => {
+    const pending = deferred<string[]>();
+    const hook = renderHook(() => useCachedPage({ module: 'contacts', params: {}, fetchFn: () => pending.promise }));
+    if (action === 'logout') clearPageCache();
+    if (action === 'mutation') invalidatePageCache('contacts', 'tenant-a');
+    if (action === 'unmount') hook.unmount();
+    await act(async () => { pending.resolve(['old-contact']); });
+    expect(getPageCacheSize()).toBe(0);
+    if (action !== 'unmount') expect(hook.result.current.data).toBeUndefined();
+  });
+
+  it.each(['tenant', 'user'])('never renders another %s scope while its request is pending', async (change) => {
+    const fetchFn = vi.fn().mockResolvedValueOnce(['private-data']);
+    const hook = renderHook(() => useCachedPage({ module: 'invoices', params: {}, fetchFn }));
+    await waitFor(() => expect(hook.result.current.data).toEqual(['private-data']));
+    fetchFn.mockReturnValue(new Promise(() => {}));
+    if (change === 'tenant') mocks.auth.tenant = { id: 'tenant-b' };
+    else mocks.auth.user = { id: 'user-b', role: 'Sales Rep' };
+    hook.rerender();
+    expect(hook.result.current.data).toBeUndefined();
+    expect(hook.result.current.isInitialLoad).toBe(true);
+  });
+
+  it('keeps good rows on a failed background refresh, but clears them after access is denied', async () => {
+    const fetchFn = vi.fn().mockResolvedValue(['good-row']);
+    const hook = renderHook(() => useCachedPage({ module: 'contacts', params: {}, fetchFn }));
+    await waitFor(() => expect(hook.result.current.data).toEqual(['good-row']));
+    fetchFn.mockRejectedValueOnce(new Error('offline'));
+    await act(async () => { await hook.result.current.refetch(); });
+    expect(hook.result.current.data).toEqual(['good-row']);
+    expect(hook.result.current.error).toBe('offline');
+    fetchFn.mockRejectedValueOnce(Object.assign(new Error('Access denied'), { status: 403 }));
+    await act(async () => { await hook.result.current.refetch(); });
+    expect(hook.result.current.data).toBeUndefined();
+    expect(getPageCacheSize()).toBe(0);
+  });
+
+  it('coalesces identical pending reads across readers and repeated refreshes', async () => {
+    const pending = deferred<string[]>();
+    const fetchFn = vi.fn().mockReturnValue(pending.promise);
+    const first = renderHook(() => useCachedPage({ module: 'contacts', params: {}, fetchFn }));
+    const second = renderHook(() => useCachedPage({ module: 'contacts', params: {}, fetchFn }));
+    act(() => { void first.result.current.refetch(); void second.result.current.refetch(); });
+    expect(fetchFn).toHaveBeenCalledOnce();
+    first.unmount();
+    await act(async () => { pending.resolve(['current']); });
+    expect(second.result.current.data).toEqual(['current']);
+    expect(second.result.current.isInitialLoad).toBe(false);
+  });
+
+  it('evicts open Task details after a reassignment invalidation returns 404', async () => {
+    const fetchFn = vi.fn().mockResolvedValueOnce({ id: 'assigned-task' });
+    const hook = renderHook(() => useCachedPage({ module: 'tasks', params: { recordId: 'assigned-task' }, revalidateOnInvalidation: true, fetchFn }));
+    await waitFor(() => expect(hook.result.current.data).toEqual({ id: 'assigned-task' }));
+    fetchFn.mockRejectedValueOnce(Object.assign(new Error('Task not found'), { status: 404 }));
+    act(() => invalidatePageCache('tasks', 'tenant-a'));
+    await waitFor(() => expect(hook.result.current.errorStatus).toBe(404));
+    expect(hook.result.current.data).toBeUndefined();
+    hook.unmount(); fetchFn.mockReturnValue(new Promise(() => {}));
+    const remounted = renderHook(() => useCachedPage({ module: 'tasks', params: { recordId: 'assigned-task' }, fetchFn }));
+    expect(remounted.result.current.data).toBeUndefined();
+  });
+
+  it('evicts a record after authoritative 404 so remount cannot hydrate deleted data', async () => {
+    const fetchFn = vi.fn().mockResolvedValueOnce({ id: 'deleted-record' });
+    const hook = renderHook(() => useCachedPage({ module: 'contacts', params: { recordId: 'deleted-record' }, fetchFn }));
+    await waitFor(() => expect(hook.result.current.data).toEqual({ id: 'deleted-record' }));
+    fetchFn.mockRejectedValueOnce(Object.assign(new Error('Contact not found'), { status: 404 }));
+    await act(async () => { await hook.result.current.refetch(); });
+    expect(hook.result.current.data).toBeUndefined(); expect(getPageCacheSize()).toBe(0);
+    hook.unmount(); fetchFn.mockReturnValue(new Promise(() => {}));
+    const remounted = renderHook(() => useCachedPage({ module: 'contacts', params: { recordId: 'deleted-record' }, fetchFn }));
+    expect(remounted.result.current.data).toBeUndefined();
+  });
+
+  it('clears every shared reader after a denied response even when the first reader evicts its module', async () => {
+    const denied = deferred<string[]>();
+    const fetchFn = vi.fn().mockResolvedValueOnce(['private']).mockReturnValue(denied.promise);
+    const first = renderHook(() => useCachedPage({ module: 'contacts', params: {}, fetchFn }));
+    await waitFor(() => expect(first.result.current.data).toEqual(['private']));
+    const second = renderHook(() => useCachedPage({ module: 'contacts', params: {}, fetchFn }));
+    expect(second.result.current.data).toEqual(['private']);
+    act(() => { void first.result.current.refetch(); });
+    await act(async () => { denied.reject(Object.assign(new Error('Access denied'), { status: 403 })); });
+    expect(first.result.current.data).toBeUndefined(); expect(second.result.current.data).toBeUndefined();
+    expect(getPageCacheSize()).toBe(0);
+  });
+
+  it('does not fetch when disabled or when signed out', () => {
+    const fetchFn = vi.fn();
+    renderHook(() => useCachedPage({ module: 'contacts', params: {}, fetchFn, disabled: true }));
+    mocks.auth.user = { id: '', role: '' };
+    renderHook(() => useCachedPage({ module: 'contacts', params: {}, fetchFn }));
+    expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  it('scopes sidebar counts to the current tenant and ignores its previous pending request', async () => {
+    const old = deferred<{ meta: { total: number } }>();
+    mocks.get.mockReturnValueOnce(old.promise);
+    const hook = renderHook(() => useModuleCounts(['leads']));
+    mocks.auth.tenant = { id: 'tenant-b' };
+    mocks.get.mockResolvedValueOnce({ meta: { total: 2 } });
+    hook.rerender();
+    await waitFor(() => expect(hook.result.current.counts.leads).toBe(2));
+    await act(async () => { old.resolve({ meta: { total: 999 } }); });
+    expect(hook.result.current.counts.leads).toBe(2);
+  });
+
+  it('keeps permitted sidebar counts when another module denies access', async () => {
+    mocks.get.mockImplementation(async (path) => {
+      if (path === '/crm/leads') throw Object.assign(new Error('Access denied'), { status: 403 });
+      return { meta: { total: 7 } };
+    });
+    const hook = renderHook(() => useModuleCounts(['leads', 'accounts']));
+    await waitFor(() => expect(hook.result.current.isLoading).toBe(false));
+    expect(hook.result.current.counts).toEqual({ leads: 0, accounts: 7 });
+  });
+});
+
+it.each(['leads', 'contacts', 'accounts', 'deals'])('loads a selected %s by ID independently of stale text filters and pagination', async moduleId => {
+  mocks.get.mockResolvedValue({ data: { id: 'selected', firstName: 'Johnny', isArchived: false } });
+  const hook = renderHook(() => useModuleData({ moduleId, page: 8, pageSize: 25, search: 'wrong name', filter: [{ field: 'status', operator: 'equals', value: 'COLD' }], recordId: 'selected' }));
+  await waitFor(() => expect(hook.result.current.data[0]?.id).toBe('selected'));
+  expect(mocks.get).toHaveBeenCalledWith(`/crm/${moduleId}/selected`, { signal: expect.any(AbortSignal) });
+  expect(hook.result.current.meta).toMatchObject({ page: 1, total: 1 });
+});
+
+it('coalesces rapid manual refreshes and a pending background read into one awaitable operation', async () => {
+  const initial = deferred<string[]>();
+  const fetchFn = vi.fn().mockReturnValue(initial.promise);
+  const hook = renderHook(() => useCachedPage({ module: 'coalesced', params: {}, fetchFn, disabled: false }));
+  let first!: Promise<void>, second!: Promise<void>;
+  act(() => { first = hook.result.current.refetch(); second = hook.result.current.refetch(); });
+  expect(first).toBe(second);
+  expect(fetchFn).toHaveBeenCalledOnce();
+  let finished = false;
+  void first.then(() => { finished = true; });
+  expect(finished).toBe(false);
+  await act(async () => { initial.resolve(['current']); await first; });
+  expect(finished).toBe(true);
+  expect(hook.result.current.data).toEqual(['current']);
+});
+
+it.each(['leads', 'contacts', 'accounts'])('rejects wrong and archived %s targets instead of displaying another row', async moduleId => {
+  mocks.get.mockResolvedValueOnce({ data: { id: 'wrong' } });
+  const hook = renderHook(() => useModuleData({ moduleId, page: 2, pageSize: 25, recordId: 'selected' }));
+  await waitFor(() => expect(hook.result.current.error).toBe('This record is no longer available.'));
+  expect(hook.result.current.data).toEqual([]);
+  mocks.get.mockResolvedValueOnce({ data: { id: 'selected', isArchived: true } });
+  await act(async () => { await hook.result.current.refetch(); });
+  expect(hook.result.current.data).toEqual([]);
+  expect(hook.result.current.error).toBe('This record is no longer available.');
+});
+
+it.each(['leads', 'contacts', 'accounts', 'deals'])('shares one raw selected %s response for concurrent readers', async moduleId => {
+  mocks.get.mockResolvedValue({ data: { id: 'selected', firstName: 'Visible', lastName: 'Record', email: 'native@example.test', isArchived: false } });
+  const first = renderHook(() => useModuleData({ moduleId, page: 8, pageSize: 25, recordId: 'selected', search: 'stale filter' }));
+  const second = renderHook(() => useModuleData({ moduleId, page: 1, pageSize: 25, recordId: 'selected' }));
+  await waitFor(() => expect(first.result.current.data[0]?.email).toBe('native@example.test'));
+  await waitFor(() => expect(second.result.current.data[0]?.email).toBe('native@example.test'));
+  expect(mocks.get.mock.calls.filter(([path]) => path === `/crm/${moduleId}/selected`)).toHaveLength(1);
+});
+
+
+it('waits for auth initialization even when a previous user remains in context', async () => {
+  mocks.auth.isLoading = true;
+  mocks.get.mockResolvedValue(response(1));
+  const hook = renderHook(() => useModuleData({ moduleId: 'leads', page: 1, pageSize: 25 }));
+  await act(async () => { window.dispatchEvent(new Event('focus')); });
+  expect(mocks.get).not.toHaveBeenCalled();
+  mocks.auth.isLoading = false;
+  mocks.auth.authError = 'Session restore unavailable';
+  hook.rerender();
+  expect(mocks.get).not.toHaveBeenCalled();
+  mocks.auth.authError = null;
+  hook.rerender();
+  await waitFor(() => expect(mocks.get).toHaveBeenCalledOnce());
+});

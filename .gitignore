@@ -1,2 +1,13 @@
 .pack-staging/
 services2nri-extract/
+leadcrm/node_modules/
+leadcrm/frontend/.next/
+leadcrm/frontend/.next-dev/
+leadcrm/backend/dist/
+leadcrm/shared/dist/
+leadcrm/.env.local-development/
+leadcrm/.leadcrm-desktop-data/
+leadcrm-desktop/electron/node_modules/
+leadcrm-desktop/dist/
+leadcrm-desktop/.build-cache/
+leadcrm-desktop/runtimes/

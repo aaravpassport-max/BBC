@@ -1,0 +1,190 @@
+# Campaign email delivery
+
+Implemented for the existing Campaigns module, including single-source field audiences and Schedule Once. This describes local implementation and validation; it is not a production deployment or confirmation of live provider delivery.
+
+## Existing transport reused
+
+`backend/src/shared/services/email.service.ts` remains the only Brevo sending implementation. Campaigns call its `sendMail`, which calls `POST https://api.brevo.com/v3/smtp/email` once per recipient. It reads the existing backend variables `BREVO_API_KEY`, `BREVO_FROM_EMAIL`, and `BREVO_FROM_NAME`. No second provider client or API key was added. The browser calls LeadCRM only.
+
+`sendMail` now returns `{ messageId: string | null, submitted: boolean }`. Existing account email callers can continue awaiting it without using the result. A development fallback or allowlist block returns `submitted: false`; it cannot be recorded as a successful campaign submission. Campaign calls require configured delivery. Provider requests have a 15-second timeout and return safe errors without logging the API key, message body, or raw provider response. The hardcoded fallback sender was removed: configure the existing sender variable.
+
+Regression coverage includes registration verification, OTP, password reset, administrative password reset, invitations, welcome-email rendering, and the existing authentication tests. Automated tests mock Brevo; none send real emails.
+
+## API map
+
+Every marketing endpoint below retains authentication, tenant context, workspace readiness checks, and the listed RBAC permission. Browser paths go through the existing same-origin `/api/proxy` transport. Controller and service names are qualified by their source file stem; files live under `backend/src/modules/marketing/`.
+
+| Method | Full backend path | Frontend function | Controller | Service | Permission |
+| --- | --- | --- | --- | --- | --- |
+| GET | `/api/v1/marketing/campaigns` | `campaignsApi.list` | `campaigns.controller.getCampaigns` | `campaigns.service.getCampaigns` | `campaigns.view` |
+| GET | `/api/v1/marketing/campaigns/:id` | `campaignsApi.get` | `campaigns.controller.getCampaignById` | `campaigns.service.getCampaignById` | `campaigns.view` |
+| GET | `/api/v1/marketing/campaigns/metrics` | `campaignsApi.metrics` | `campaigns.controller.getCampaignMetrics` | `campaigns.service.getCampaignMetrics` | `campaigns.view_reports` |
+| POST | `/api/v1/marketing/campaigns` | `campaignsApi.create` | `campaigns.controller.createCampaign` | `campaigns.service.createCampaign` | `campaigns.create` |
+| PUT | `/api/v1/marketing/campaigns/:id` | `campaignsApi.update` | `campaigns.controller.updateCampaign` | `campaigns.service.updateCampaign` | `campaigns.edit` |
+| PATCH | `/api/v1/marketing/campaigns/:id/send` | `campaignsApi.send` | `campaigns.controller.sendCampaign` | `campaigns.service.queueCampaign` → `prepareCampaign` → `deliverPrepared` → shared `sendMail` | `campaigns.send` |
+| PATCH | `/api/v1/marketing/campaigns/:id/schedule` | `campaignsApi.schedule` | `campaigns.controller.scheduleCampaign` | `campaigns.service.scheduleCampaign` | `campaigns.send` |
+| DELETE | `/api/v1/marketing/campaigns/:id/schedule` | `campaignsApi.cancelSchedule` | `campaigns.controller.cancelCampaignSchedule` | `campaigns.service.cancelCampaignSchedule` | `campaigns.send` |
+| PATCH | `/api/v1/marketing/campaigns/:id/archive` | `campaignsApi.archive` | `campaigns.controller.archiveCampaign` | `campaigns.service.archiveCampaign` | `campaigns.archive` |
+| GET | `/api/v1/marketing/templates` | `templatesApi.list` | `templates.controller.getTemplates` | `templates.service.getTemplates` | `campaigns.view` |
+| GET | `/api/v1/marketing/templates/:id` | `templatesApi.get` | `templates.controller.getTemplateById` | `templates.service.getTemplateById` | `campaigns.view` |
+| POST | `/api/v1/marketing/templates` | `templatesApi.create` | `templates.controller.createTemplate` | `templates.service.createTemplate` | `campaigns.create` |
+| PUT | `/api/v1/marketing/templates/:id` | `templatesApi.update` | `templates.controller.updateTemplate` | `templates.service.updateTemplate` | `campaigns.edit` |
+| PATCH | `/api/v1/marketing/templates/:id/archive` | `templatesApi.archive` | `templates.controller.archiveTemplate` | `templates.service.archiveTemplate` | `campaigns.archive` |
+| GET | `/api/v1/marketing/audiences` | `audiencesApi.list` | `audiences.controller.getAudiences` | `audiences.service.getAudiences` | `campaigns.view` |
+| POST | `/api/v1/marketing/audiences` | `audiencesApi.create` | `audiences.controller.createAudience` | `audiences.service.createAudience` | `campaigns.create` |
+| PUT | `/api/v1/marketing/audiences/:id` | `audiencesApi.update` | `audiences.controller.updateAudience` | `audiences.service.updateAudience` | `campaigns.edit` |
+| GET | `/api/v1/marketing/audiences/fields?source=LEADS` | `audiencesApi.fields` | `audiences.controller.audienceFields` | `audiences.service.audienceFields` | `campaigns.view` |
+| POST | `/api/v1/marketing/audiences/preview` | `audiencesApi.preview` | `audiences.controller.previewAudience` | `audiences.service.resolveAudience` | `campaigns.view` |
+| POST | `/api/v1/webhooks/brevo` | None; Brevo calls it | `brevo-webhook.brevoWebhookRouter` | `brevo-webhook.processBrevoEvent` | Valid configured Bearer token; production HTTPS |
+
+Save Draft uses POST for a new draft and PUT for an existing draft. It never invokes Brevo. Send Now reuses the existing **PATCH** route. It returns HTTP 202 after the snapshot and allowance reservation commit:
+
+```json
+{ "success": true, "data": { "campaignId": "...", "eligibleRecipients": 45, "submittedRecipients": 0, "failedRecipients": 0, "status": "SENDING" } }
+```
+
+The composer polls GET by ID every two seconds, for up to five minutes, to display the actual submission totals and completion state. A 202 response does not claim that any messages were delivered. Longer sends continue on the backend and their saved status remains available in Campaigns.
+
+## Database and sending behavior
+
+- `Campaign` stores draft content, selected source/audience, creator, status, eligible recipient count and submission counts. Only DRAFT records may be edited or submitted through Send Now. The scheduler claims SCHEDULED records through the same sender. Campaigns with an unfinished submission cannot be archived.
+- `TargetAudience` and `TargetAudienceCondition` persist one source, at most 20 flat typed conditions and AND/OR match mode. Omitted/legacy match mode remains AND. `Template` persists reusable subjects and sanitized content. Campaigns, audiences, templates and delivery results have no browser-storage persistence path.
+- `CampaignContact` stores eligible and excluded CRM records, normalized email/phone, resolved field values and sender context in personalization, CRM reference, delivery status, exclusion/failure reason and provider message ID. Reports prefer submitted identity snapshots over current CRM names. Optional CRM references use `ON DELETE SET NULL` so deleting a CRM record preserves the snapshot.
+- `EmailDeliveryLog` stores pending and resulting submissions with `brevoMessageId`. `EmailEvent` stores deduplicated provider event types; `CampaignMetrics` stores real aggregate snapshots. Audit entries record create/update/archive, submission totals and detected interruptions.
+- A transaction claims `DRAFT → SENDING`, checks the entire audience allowance, and commits all snapshots before any provider call. A second claim returns 409. Validation or allowance failures roll the transaction back to DRAFT without sending.
+- Provider calls run in groups of at most five, with current scheduling/sending actor access checked before each batch. Submissions and delivery remain separate: webhook evidence determines SENT/PARTIALLY_SENT/DELIVERED; explicit rejected requests are failed. Unconfirmed attempts remain pending for review. Durable submission leases and interrupted recovery retain accepted and uncertain attempts without automatic resend. These statuses cannot be reset through the draft update API.
+- `CampaignEmailQuota` reserves the entire eligible count per UTC date, shared across tenants and environments using the backend's Brevo account. `BREVO_DAILY_EMAIL_LIMIT` defaults to 300. Concurrent sends cannot overbook the same allowance. Reservations conservatively include pending, failed and uncertain attempts for that day; authentication emails are excluded. This is a campaign allowance, **not an exact remaining Brevo account quota**. Brevo remains authoritative and may reject requests because other account emails consumed its quota.
+
+The migration is `backend/prisma/migrations/20260924110000_campaign_brevo_delivery/migration.sql`. It adds the fields, statuses, message/event uniqueness constraints and quota table described above. Apply it before running the new backend.
+
+## Audience resolution and safety
+
+New sources are LEADS or CONTACTS, either directly or through a saved audience; those two inputs are mutually exclusive. Saved audiences determine their source. Legacy ALL history remains readable, but preview, duplication, sending and scheduling require explicit source repair. One invalid legacy item does not prevent the audience list loading.
+
+The backend resolves recipients itself and accepts no browser-provided recipient list. Its approved field catalog is the same catalog used by Customize Fields and Workflows, including active custom fields hidden from forms. Native technical keys and `customFieldValues.<fieldId>` remain stable when labels change. Text, dropdown, number, date, supported references and product lists use field-specific operators; ordinary private files permit only empty/not-empty checks. Unknown, disabled, foreign-module or incompatible fields/operators fail validation. AND combines every flat rule; OR combines any rule. With no rules, either mode includes the chosen source. Product equals matches ANY selected product; not-equals matches NONE.
+
+Audience preview and submission share the server resolver. It reads records in stable 250-record batches with their custom values, account/assigned-agent display names and ordered product links; there are no per-recipient field/reference reads. Preview returns counts and a server-paginated eligible recipient list. Recipient revalidation preserves converted/inactive exclusion, opt-outs, staff exclusion, normalization and deduplication.
+
+Tenant scope is taken from authenticated context. Campaign, template, audience and reference values are checked within that scope. User emails for the tenant are loaded as an exclusion set; Users are never a recipient source. Emails are trimmed and lowercased for validation, snapshot storage and comparison, without rewriting CRM records. Deduplication applies within the selected source. Staff matches receive `STAFF_EMAIL`.
+
+Missing/invalid email, archived/inactive/converted records, Contact do-not-contact, previous unsubscribes, hard bounces, blocked/spam/invalid-address events and configured recipient restrictions are excluded. Opt-outs also suppress an equivalent email on a Lead. SMS adds normalized phone, invalid/missing phone, phone deduplication and do-not-contact counts.
+
+Existing nonproduction `BREVO_SANDBOX_EMAILS` restrictions remain: a configured allowlist limits eligible recipients and the transport enforces its restrictions independently. The worker uses the same resolver and transport as Send Now.
+
+Frontend and backend share strict payload schemas, Unicode names with length/control-character validation and subjects trimmed with a 200-character maximum and no CR/LF. The seven existing variable aliases remain available alongside approved native/custom field tokens. Searchable pickers group fields under their configured labels; template source filtering affects the editor only. Supported account/agent references resolve to readable names, products retain their ordered names, missing values render blank and numeric zero remains zero. Private file IDs/links cannot be personalized. Unknown/unavailable tokens block submission preflight; arbitrary object properties and expressions cannot resolve. Recipient values are HTML-escaped before insertion, subjects are validated after rendering and SMS length is checked after personalization and the system footer.
+
+## Schedule Once
+
+The composer offers Send Now or Schedule Once. Date/time inputs are explicitly Asia/Manila, converted to a UTC instant for existing `scheduledFor`. PATCH schedule accepts only `{ "scheduledFor": "<future ISO instant with offset>" }`; client-provided actor, rules, timezone or recurrence are rejected. Initial scheduling requires an unstarted Draft and derives the actor from the session. It copies effective subject/body from the selected template when needed and stores approved source/matchMode/conditions plus the fixed timezone in `scheduleConfig`. Recipients are evaluated at dispatch time. Editing or archiving a saved audience/template later cannot alter approved content/rules.
+
+SCHEDULED content is read-only. Reschedule changes due time and the validated actor while preserving approval. Cancel returns an unclaimed schedule to Draft and clears due time/actor/configuration. To edit content/rules, cancel, edit and schedule again. Archive also cancels an unclaimed schedule atomically. Schedule, reschedule and cancel require `campaigns.send`; content editing keeps `campaigns.edit`.
+
+The backend starts bounded due discovery at startup and every 30 seconds, selecting at most 25 schedules per pass. No browser is required. Conditional claims match expected status, due time, scheduling actor and revision; two workers, cancellation and rescheduling have one winner. Send Now only claims Draft. Before claiming, the worker checks current actor/workspace permission, active approved fields, provider configuration, current recipient eligibility and quota, then enters the existing snapshot/lease/provider sender path. Permission loss, unavailable field/token, zero eligible recipients or exhausted quota return an unclaimed schedule to Draft with a persistent `scheduleFailureReason`, displayed in details. They are not automatically retried. Transient database failures leave the due schedule pending. Shutdown stops discovery and preserves unclaimed schedules for restart; submission uncertainty retains the existing manual-review recovery behavior.
+
+Apply `20261123000000_campaign_schedule` after prior migrations and before starting this backend. It adds SCHEDULED, default-AND audience semantics, scheduling actor/configuration and the due-time index. It does not activate legacy Draft timestamps, rewrite historical timestamps or replay past campaigns. Existing Campaign list/report polling continues; populated refreshes preserve rows, filters and controls without refresh-only spinners or disabling.
+
+Backend HTML uses `sanitize-html` before storage and after personalization. It permits a restricted set of formatting/link/image tags and URL schemes; executable elements, SVG, event handlers and unsafe URLs are stripped. Frontend HTML uses DOMPurify and a sandboxed preview iframe. Required input errors are shown below the relevant field, one message per field. Transport errors retain the saved draft and editor content.
+
+Marketing writes/preview share a 30-per-minute limiter per IP, and send attempts have a five-per-minute limiter per IP. The webhook has a separate 1,000-per-minute limiter. These are process-local abuse controls; database state and quota transactions provide cross-process duplicate-send protection.
+
+## Webhook and metrics
+
+Supported events: `request`, `delivered`, `opened`, `unique_opened`, `click`, `soft_bounce`, `hard_bounce`, `blocked`, `spam`, `unsubscribed`, `invalid_email`, `error`, `deferred`.
+
+Authorization requires a separate random `BREVO_WEBHOOK_TOKEN` of at least 32 characters and a matching `Authorization: Bearer ...` header. This is a webhook verification secret, not a second Brevo API key. Production requests require HTTPS. Configure authentication using Brevo's [secured webhook settings](https://developers.brevo.com/docs/secured-webhooks), with events described in its [transactional webhook documentation](https://developers.brevo.com/docs/transactional-webhooks).
+
+The backend validates the payload, finds the stored Brevo message ID and matching recipient email, and derives tenant/environment from that stored record. It does not trust event tenant fields. Unknown records return retryable 503 to handle callbacks arriving before the send response is saved. Event uniqueness is per delivery and normalized event type: repeated opens/clicks count once per recipient. `unique_opened` and `opened` are one metric. Later low-priority events cannot erase an unsubscribe or bounce status.
+
+The canonical route is POST `/api/v1/webhooks/brevo`, as requested for dashboard configuration. The earlier `/api/v1/webhooks/brevo/email` path is retained as a compatible alias; both use the same authentication and handler and are covered by authenticated HTTP tests.
+
+Only confirmed provider acceptance increments submissions. Delivery/open/click/bounce figures come from corresponding events. Before webhooks arrive, delivery/open/click metrics remain zero. The report no longer treats submissions as deliveries or displays a hardcoded 100% sent result. No device or per-link analytics are fabricated.
+
+## Deployment and operational limits
+
+1. Apply the committed migration using the project's production migration command (`npm --prefix backend run db:deploy`) and build/deploy the backend and frontend together. No production migration or deployment was performed during this work.
+2. Keep `BREVO_API_KEY`, `BREVO_FROM_EMAIL` and `BREVO_FROM_NAME` on Render. Verify the configured sender in Brevo. Set `BREVO_DAILY_EMAIL_LIMIT=300` (or the intended campaign allowance). Never place the API key in Vercel or a `NEXT_PUBLIC_` variable.
+3. For Sandbox tests, configure only intended test addresses in the existing `BREVO_SANDBOX_EMAILS` variable.
+4. Configure the webhook token on Render and register `https://<backend-host>/api/v1/webhooks/brevo` in Brevo with the matching Bearer header and required events. Enable the provider's applicable tracking settings for open/click callbacks.
+5. Use the existing frontend backend URL configuration to point Vercel's proxy at Render. The local Next build warned that its local backend URL defaults to localhost; that does not inspect or modify Vercel settings.
+
+Dashboard setup check on 2026-09-24: the repository documents `https://leadcrm-backend-os8d.onrender.com`. Its `/health` returned 200, but an empty unauthenticated POST to `/api/v1/webhooks/brevo` returned 404 (`Cannot POST`). The new route therefore was not available on that deployed service at the time of the check. Brevo and Render opened at login pages in the available browser. No webhook or secret was created or changed. Confirm the service in Render and deploy the implementation before activating/testing the Brevo webhook. Use Node 22.13 or newer; the installed sanitizer requires Node 22.12 or newer.
+
+Sending runs in the existing long-running Render Node process after preparation; no durable external worker was added. Closing the browser does not stop it. A caught persistence interruption marks the campaign PAUSED when the database is available. A hard backend restart can leave a campaign SENDING with pending or ambiguous recipients. Review its `CampaignContact`, `EmailDeliveryLog` and provider results before further action. Do not reset it to DRAFT or blindly replay the audience. Automatic restart recovery/retry is intentionally absent because an accepted email cannot be safely undone.
+
+Send Now supports one EMAIL message. SMS and multi-channel drafts remain available. Unimplemented scheduling/drip/trigger composer controls are not presented as working sends; legacy scheduled EMAIL/MULTI_CHANNEL jobs are paused to prevent bypassing the new recipient and Sandbox safeguards. Existing SMS scheduler behavior is unchanged. Browser-only campaign/template archive restoration was removed; no database restore endpoint has been added.
+
+## Verification performed
+
+- Backend: **70 tests passed across nine files**, including real disposable PostgreSQL plus authenticated HTTP flows. Coverage includes Juan/Maria personalization and persistence, staff exclusion, case-insensitive duplicates, atomic double-send, whole-audience quota rollback and concurrent reservations, Sandbox under production Node settings, tenant/environment/RBAC failures, foreign references, partial failures, maximum concurrency of five, preservation after CRM deletion, HTTP 202 followed by persisted completion, webhook authentication/deduplication/suppression, sanitizer/header attacks, transport requests, and account email regressions.
+- Frontend: **19 tests passed across two files**: seven real composer interaction tests plus the existing 12-test campaign loading/archive suite. Composer tests cover required errors, draft-only persistence, double clicks, partial-submission feedback, background completion polling, reopening/updating a saved draft, retaining content after send failure and immediately selecting a newly persisted audience. These are component tests with mocked APIs, not a deployed browser test.
+- `npm run lint` passed all three workspaces. In this repository, lint runs TypeScript `tsc --noEmit`.
+- Prisma generation and schema validation passed. All 57 migrations applied successfully to a new isolated local PostgreSQL database, including this migration. No existing application database was changed.
+- `npm --prefix backend run build` passed. `npm --prefix frontend run build` passed, generating 187 routes; the final post-review build also passed.
+- Full changed-source review and a Campaign storage/provider-secret search were performed. No Campaign feature uses localStorage/sessionStorage or calls Brevo from frontend code.
+
+Backend test command:
+
+```text
+npm --prefix backend test -- src/modules/marketing/campaigns/__tests__ src/shared/services/__tests__ src/core/auth/__tests__/verification.service.test.ts src/core/auth/__tests__/registration-flow.test.ts src/core/auth/__tests__/change-password.service.test.ts src/api/middleware/__tests__/role-authorization.test.ts src/tests/migrations/migration-ordering.test.ts
+```
+
+Frontend test command:
+
+```text
+npm --prefix frontend test -- src/features/tenant/marketing/campaigns/ui/__tests__/campaign-builder.test.tsx src/features/tenant/marketing/campaigns/hooks/__tests__/use-campaigns-data.test.ts
+```
+
+The database integration suite runs only when `DATABASE_URL` points to localhost/127.0.0.1 and a database named `leadcrm_campaign_test_<digits>`; otherwise it is explicitly skipped. It was executed, not skipped, in the run reported here. Brevo calls were mocked throughout. Live inbox delivery and externally registered webhook delivery still require an explicitly authorized test after deployment/configuration.
+
+## Submission reporting investigation — 2026-09-25
+
+Production Render and Vercel were running commit `4b40b25`. Read-only database inspection found three four-recipient campaigns with zero persisted submissions. Every recipient had `PROVIDER_SUBMISSION_UNCONFIRMED`, no provider message ID, and no submission timestamp. Render logged four `Brevo request failed` messages at each corresponding time: September 25 at 00:00:39, 00:02:06, and 00:04:31 Philippine time. The deployed code discarded the provider status and exception details, so those logs cannot establish whether the requests were rejected or their responses could not be read.
+
+The connected Brevo account displayed only older transactional events (September 18–20) when viewing September 18–25 with no event/sender/tag filters. A read-only request using the local Brevo configuration returned HTTP 401; this does not establish which credentials Render uses. The reported inbox arrivals remain uncorrelated until a received Message-ID is matched to provider records. No production counts were repaired and no emails were resent. The deployed webhook now responds HTTP 401 to an empty unauthenticated POST, confirming route reachability and authentication enforcement; this is not a successful authenticated event test.
+
+The exact reporting path is `campaign-builder.tsx` → `campaignsApi.send` → `campaigns.controller.sendCampaign` → `queueCampaign` → `prepareCampaign`/`resolveAudience` → `deliverPrepared` → shared `sendMail`. The transport already used HTTP success and returned `submitted`; there was no `result.success === true` mismatch. Its response JSON parsing could throw after HTTP acceptance, and the campaign catch treated every exception as a failed recipient. The final counters then reflected those failed records, and the frontend displayed them. This explains the classification defect, but does not prove which exception occurred in the historical production requests.
+
+The correction keeps HTTP acceptance independent of optional response decoding, distinguishes explicit HTTP rejections from unknown network outcomes, and calculates completion counts from persisted recipient timestamps/statuses. GET campaign detail now exposes the same shared `CampaignSendResult` as the send operation through `data.sendResult`. The composer consumes that summary, then uses the existing single return-to-list refresh. No new provider, table, retry mechanism, or polling loop was added. Submission persistence acquires the campaign lock before recipient records, matching webhook lock order. Soft bounces now set the existing bounce timestamp without permanently suppressing the address.
+
+Structured diagnostics include campaign/tenant/recipient IDs, provider HTTP status category, acceptance counts, and provider message IDs. They omit credentials, authorization headers, message content, and recipient addresses. A successful response with an unreadable body remains submitted but has no tracking identifier; it requires provider reconciliation, never an automatic retry.
+
+Focused verification uses real disposable PostgreSQL and authenticated local HTTP, with only outbound Brevo calls mocked. It covers one/four recipients, all accepted, partial rejection, all rejected, unknown outcomes, replay rejection, production-Node Sandbox enforcement, duplicate delivery/open/click/bounce/unsubscribe events, frontend authoritative summaries, and existing account-email regressions. Deploy the backend contract before the corresponding frontend. Historical count repair requires confirmed provider evidence and is separate from deploying these code changes.
+
+Validation for this correction: 50 backend tests and 22 frontend tests passed; all three workspace type checks passed; backend and frontend production builds passed. The local frontend build retains existing warnings about workspace-root inference and a localhost backend fallback in local configuration; these do not describe Vercel's deployed configuration. Read-only inspection of the deployed Campaigns table and the Welcome haha report confirmed the same persisted 4 eligible / 0 submitted / 4 failed values. The changes above are local and have not been deployed.
+
+Follow-up configuration inspection found Brevo API IP blocking enabled with only `74.220.52.6` authorized. Render's Connect panel lists `74.220.52.0/24` and `74.220.60.0/24` as the deployed service's outbound ranges. Brevo listed `74.220.52.132` as unauthorized, so the allowlist did not cover this backend's possible egress addresses. After the user explicitly approved both shared Render ranges, both were saved and verified in Brevo on September 25 at 10:48 Philippine time. IP blocking remains enabled; no credentials were changed. This fixes an observed network configuration defect, but a fresh controlled send is still required to confirm live acceptance. The provided Message-ID belongs to a September 11 welcome email and cannot substantiate the September 25 campaign sends.
+
+Render's configured sender matches a verified Brevo sender. The displayed API key is active; its masked suffix matches the local key, but the Render key was not revealed or compared. Render has `BREVO_API_KEY`, `BREVO_FROM_EMAIL`, `BREVO_FROM_NAME`, and `BREVO_WEBHOOK_TOKEN`; `BREVO_SANDBOX_EMAILS` is absent, so Sandbox campaigns remain correctly blocked until an explicit test-recipient allowlist is configured. The existing outbound webhook is Active, uses Token authentication, points to the deployed HTTPS `/api/v1/webhooks/brevo` endpoint, and enables all eleven requested event categories. Its token equality and real event delivery remain to be verified without exposing credentials. No webhook settings were changed during this inspection.
+
+### Live verification after the network correction
+
+With the user's explicit approval for one test recipient, the deployed LeadCRM UI created a new verification campaign on September 25 at 11:11 Philippine time. Before sending, read-only database checks and the audience preview confirmed exactly one eligible lead, matching the approved address. The saved audience uses existing company, status, and source conditions; existing leads were not changed. Send Now was clicked once; no earlier campaign was replayed.
+
+Campaign `f84bd144-02b7-4f30-9d75-732315d8867a` persisted `SENT`, recipientCount 1, sentCount 1, failedCount 0. Its recipient stored a Brevo message ID and submission timestamp. Real `request` and `delivered` webhook events then persisted, with deliveredAt set and the delivery log marked delivered. Brevo's dashboard independently showed Sent and Delivered for the verification subject. LeadCRM's table automatically showed Submitted 1 / Sent, and its report showed 1 eligible / 1 submitted / 0 failures / 1 delivered. Opens and clicks were still zero and were not simulated.
+
+This successful test ran on the existing production deployment, before the local reporting changes were deployed. It confirms the corrected IP allowlist permits actual submissions and the existing authenticated webhook can correlate and persist delivery. The local reporting changes remain useful for distinguishing future explicit rejections from uncertain outcomes, but were not required for this live success. Historical failures were left unchanged because their discarded error details cannot be reconstructed, and the supplied older welcome-email ID does not prove acceptance of those campaigns.
+
+### Engagement tracking verification — 2026-09-25
+
+The existing path is shared `sendMail` → `deliverPrepared` (stores the provider ID on CampaignContact and EmailDeliveryLog) → `processBrevoEvent` (authenticated, message-ID/email correlation, tenant/environment scoped transaction) → `getCampaignById` → `CampaignReportView`. No new tracking service, model, endpoint, or engagement polling is needed. The report and stored open/click metrics both use submitted recipients as the denominator. Existing per-delivery/event uniqueness prevents repeated opens or clicks from incrementing recipient totals; the first received event timestamp is retained.
+
+The narrow code correction records soft bounces in the existing bouncedAt field, allowing later delivered/opened/clicked statuses to advance without permanent suppression. Webhook metric snapshots now populate the existing deliveryRate and bounceRate fields, which previously remained at their zero defaults. All totals still come from persisted recipient timestamps. Existing hard-bounce, blocked, invalid-email and unsubscribe handling, tenant isolation, token authentication and Sandbox restrictions are preserved.
+
+Brevo Settings → Transactionals emails → Tracking has **Anonymous email tracking = No**. The outbound webhook had Opened enabled but **Unique opened disabled**. Brevo documents the first-opening payload as `unique_opened`, which the existing backend already normalizes to `opened`. The missing Unique opened subscription was enabled and saved on the existing webhook; its destination, authentication and other subscriptions were unchanged. Proxy-open options remain disabled.
+
+The approved single-recipient campaign `f09c6973-1b66-49f2-8ba9-ea2402f0a919` contains a normal HTTPS "Visit LeadCRM" link. Its provider ID is `<202609250333.98042341145@smtp-relay.mailin.fr>`. Production persisted submission at 03:33:16 UTC, delivery at 03:33:17 UTC and the user's click at 03:34:19 UTC. Brevo later displayed two clicks while LeadCRM still counted one unique clicked recipient. The refreshed deployed report showed Submitted 1, Delivered 1, Clicked 1 / 100%, Bounced 0. Brevo displayed First opening for this message, but it occurred before the Unique opened subscription was enabled, so LeadCRM correctly still showed Opened 0 at that check. No historical event was fabricated or email resent.
+
+Focused coverage verifies authenticated HTTP delivery/open/click sequences, both first-opening and regular-open payloads, repeated-event deduplication, preserved first timestamps, message-ID/email correlation, all four required bounce cases and persisted report counts. Frontend report tests verify delivery, open, click and bounce cards from the normal detail fetch. Bounce testing uses isolated local PostgreSQL with mocked outbound delivery; no real invalid addresses are contacted. Backend/frontend type checks and the backend build pass. These code changes are local, not deployed; the webhook subscription change is live.
+
+Provider reference: https://developers.brevo.com/docs/transactional-webhooks#first-opening
+
+After the user reopened the same message, the next ordinary Campaigns fetch showed Opened 1 / 100% and Clicked 1 / 100% for this campaign. No second test email or count repair was needed. Final focused validation: 27 backend integration tests and four frontend report tests passed. The local database had stopped between sessions; restarting that isolated database resolved the initial connection failure before the successful run.
+
+### Pre-commit review — 2026-09-25
+
+Remote `origin/main` and `upstream/main` both pointed to local HEAD `4b40b25e3bfdf5c405c06d91bb27063a02a373b4` at review time. The review also fixed final send snapshots resetting deliveryRate/bounceRate to their defaults when webhooks had already arrived during a batch. A regression test delivers soft-bounce and delivery events while another recipient's submission is pending, then verifies the final snapshot retains both rates with the completed submission denominator.
+
+The final regression run passed 91 backend tests across nine suites, 26 frontend campaign tests across three suites, and all three workspace type checks. No schema, migration, dependency or secret-file changes are included. Commit the new campaign report test along with the modified files. Deploy the backend before the frontend because the frontend consumes `data.sendResult` from campaign detail. Avoid restarting Render while campaigns are sending; the existing in-process sender does not automatically resume after a hard restart. Unconfirmed submissions remain subject to manual review and must not be blindly resent.
+
+The final root production build passed for both backend and frontend (187 generated frontend pages). Existing local workspace-root and localhost backend fallback warnings remain; the live Vercel-to-Render route was already verified through the campaign test. The reviewed fixes are ready for a backend-first release, not yet committed or pushed by this review.
+
