@@ -33,10 +33,12 @@ public partial class MainWindow : Window
 
     private void Navigate(string key)
     {
-        SetNavStyles(key);
-        if (!_pages.TryGetValue(key, out var page))
+        try
         {
-            page = key switch
+            SetNavStyles(key);
+            if (!_pages.TryGetValue(key, out var page))
+            {
+                page = key switch
             {
                 "dashboard" => new DashboardView(_api),
                 "employees" => new EmployeesView(_api),
@@ -44,13 +46,19 @@ public partial class MainWindow : Window
                 "reports" => new ReportsView(_api),
                 "corrections" => new CorrectionsView(_api),
                 "settings" => new SettingsView(),
+                "employee-guide" => new EmployeeGuideView(),
                 _ => new DashboardView(_api),
             };
-            _pages[key] = page;
+                _pages[key] = page;
+            }
+            MainContent.Content = page;
+            if (page is IRefreshable r)
+                _ = r.RefreshAsync();
         }
-        MainContent.Content = page;
-        if (page is IRefreshable r)
-            _ = r.RefreshAsync();
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "Navigation error", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void SetNavStyles(string active)
@@ -62,6 +70,7 @@ public partial class MainWindow : Window
             (NavHistory, "history"),
             (NavReports, "reports"),
             (NavCorrections, "corrections"),
+            (NavEmployeesGuide, "employee-guide"),
             (NavSettings, "settings"),
         })
         {

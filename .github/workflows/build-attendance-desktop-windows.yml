@@ -41,7 +41,7 @@ jobs:
         run: |
           dotnet publish "AttendanceTracker.Desktop\AttendanceTracker.Desktop.csproj" `
             -c Release -r win-x64 --self-contained true `
-            -p:PublishSingleFile=true `
+            -p:PublishSingleFile=false `
             -o "..\dist\AttendanceTracker-win-x64"
 
       - name: Bundle core runtime for sidecar
@@ -68,27 +68,31 @@ jobs:
       - name: Create portable ZIP
         shell: pwsh
         run: |
-          $zip = "attendance-tracker/dist/AttendanceTracker-Windows-x64-v1.0.1.zip"
+          $out = "attendance-tracker/dist/AttendanceTracker-win-x64"
+          Copy-Item -Recurse -Force attendance-tracker/agent-windows "$out/agent-windows"
+          Copy-Item -Recurse -Force attendance-tracker/browser-extension "$out/browser-extension"
+
+          $zip = "attendance-tracker/dist/AttendanceTracker-Windows-x64-v1.0.2.zip"
           if (Test-Path $zip) { Remove-Item $zip -Force }
           Compress-Archive -Path "attendance-tracker/dist/AttendanceTracker-win-x64/*" -DestinationPath $zip
 
       - name: Upload ZIP artifact
         uses: actions/upload-artifact@v4
         with:
-          name: AttendanceTracker-Windows-x64-v1.0.1
-          path: attendance-tracker/dist/AttendanceTracker-Windows-x64-v1.0.1.zip
+          name: AttendanceTracker-Windows-x64-v1.0.2
+          path: attendance-tracker/dist/AttendanceTracker-Windows-x64-v1.0.2.zip
           retention-days: 90
 
       - name: Publish GitHub Release asset
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: attendance-desktop-v1.0.1
-          name: Workforce Attendance Console v1.0.1 (Windows x64)
+          tag_name: attendance-desktop-v1.0.2
+          name: Workforce Attendance Console v1.0.2 (Windows x64)
           body: |
             Native WPF Windows admin console. Extract the ZIP and run `AttendanceTracker.exe`.
             Includes Node.js 22 (required for built-in SQLite) and the core attendance engine.
             **First run:** create your own admin email and password on the sign-in screen (no pre-made account).
-          files: attendance-tracker/dist/AttendanceTracker-Windows-x64-v1.0.1.zip
+          files: attendance-tracker/dist/AttendanceTracker-Windows-x64-v1.0.2.zip
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

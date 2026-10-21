@@ -1,0 +1,51 @@
+<UserControl x:Class="AttendanceTracker.Desktop.Views.EmployeeGuideView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <ScrollViewer VerticalScrollBarVisibility="Auto">
+    <StackPanel MaxWidth="720">
+      <TextBlock Text="Employee setup" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,8"/>
+      <TextBlock TextWrapping="Wrap" Foreground="{StaticResource OfficeMutedBrush}" Margin="0,0,0,20">
+        This Windows app is for administrators (HR/IT). Employees do not sign in here.
+        They use a small background agent on their work PC plus an optional browser extension.
+      </TextBlock>
+
+      <TextBlock Text="1. Admin (you)" FontWeight="SemiBold" Margin="0,0,0,6"/>
+      <TextBlock TextWrapping="Wrap" Margin="0,0,0,16">
+        Run this console on the admin PC (or a central server). Create employees in the database
+        (seed script or future enrollment UI), enroll each PC, and distribute the agent installer.
+      </TextBlock>
+
+      <TextBlock Text="2. Employee Windows agent" FontWeight="SemiBold" Margin="0,0,0,6"/>
+      <TextBlock TextWrapping="Wrap" Margin="0,0,0,8">
+        Install AttendanceAgent.exe from the agent-windows publish folder on each company PC.
+        On first run the employee sees a transparency notice, then a tray icon.
+      </TextBlock>
+      <TextBlock x:Name="AgentPathText" FontFamily="Consolas" FontSize="12" TextWrapping="Wrap"
+                 Background="{StaticResource OfficeSurfaceBrush}" Padding="10" Margin="0,0,0,16"/>
+
+      <TextBlock Text="3. Employee self-view (no admin password)" FontWeight="SemiBold" Margin="0,0,0,6"/>
+      <TextBlock TextWrapping="Wrap" Margin="0,0,0,8">
+        Tray menu → “View my activity today” opens today’s hours, breaks, and apps in the browser
+        (device token login — no password each day).
+      </TextBlock>
+      <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+        <Button Content="Open employee dashboard in browser" Style="{StaticResource OfficePrimaryButton}"
+                Click="OpenDashboard_Click" Margin="0,0,8,0"/>
+        <TextBlock x:Name="DashboardUrlHint" VerticalAlignment="Center" Foreground="{StaticResource OfficeMutedBrush}"
+                   TextWrapping="Wrap"/>
+      </StackPanel>
+
+      <TextBlock Text="4. Optional: Chrome extension" FontWeight="SemiBold" Margin="0,0,0,6"/>
+      <TextBlock TextWrapping="Wrap" Margin="0,0,0,8">
+        Load browser-extension/ in Chrome for website-level activity (needs native-host registration).
+        See browser-extension/README.md in the full source package.
+      </TextBlock>
+
+      <TextBlock Text="5. Sync to this admin PC" FontWeight="SemiBold" Margin="0,0,0,6"/>
+      <TextBlock TextWrapping="Wrap">
+        Set on each employee PC: ATTENDANCE_SERVER_URL = this machine’s API URL (shown in Settings),
+        and ATTENDANCE_DEVICE_TOKEN from device enrollment. Agents queue events offline and sync automatically.
+      </TextBlock>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

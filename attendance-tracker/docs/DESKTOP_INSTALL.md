@@ -14,11 +14,13 @@ The UI is 100% WPF. The attendance calculation engine remains the proven TypeScr
 
 **Latest portable build (extract and run `AttendanceTracker.exe`):**
 
-https://github.com/aaravpassport-max/BBC/releases/download/attendance-desktop-v1.0.1/AttendanceTracker-Windows-x64-v1.0.1.zip
+https://github.com/aaravpassport-max/BBC/releases/download/attendance-desktop-v1.0.2/AttendanceTracker-Windows-x64-v1.0.2.zip
 
-Release page: https://github.com/aaravpassport-max/BBC/releases/tag/attendance-desktop-v1.0.1
+Release page: https://github.com/aaravpassport-max/BBC/releases/tag/attendance-desktop-v1.0.2
 
-> **v1.0.0** bundled Node 20, which cannot run the database engine (`node:sqlite` needs Node 22+). Use **v1.0.1** or newer.
+> Use **v1.0.2** or newer (fixes crashes after sign-in and path detection). **v1.0.0** used Node 20 (broken database). Extract the **entire ZIP** — do not copy only `AttendanceTracker.exe`.
+
+Employee usage (agents, not this admin app): `docs/EMPLOYEE_GUIDE.md`
 
 Includes self-contained .NET runtime, bundled `node.exe`, and the `core` engine. No separate Node or .NET install required.
 

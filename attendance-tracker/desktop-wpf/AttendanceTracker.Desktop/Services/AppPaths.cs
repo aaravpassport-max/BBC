@@ -17,18 +17,36 @@ public static class AppPaths
     {
         get
         {
+            // Prefer the folder that actually contains AttendanceTracker.exe (works with extracted ZIP).
+            var exeDir = Path.GetDirectoryName(Environment.ProcessPath);
+            if (!string.IsNullOrEmpty(exeDir))
+            {
+                var fromExe = Path.GetFullPath(exeDir);
+                if (HasCoreBundle(fromExe))
+                    return fromExe;
+            }
+
             var baseDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-            // Published layout: .../AttendanceTracker/ with sibling core/ and runtime/node/
-            var candidate = Path.GetFullPath(Path.Combine(baseDir, ".."));
-            if (Directory.Exists(Path.Combine(candidate, "core", "dist")))
-                return candidate;
-            // Dev layout: repo root attendance-tracker/
-            candidate = Path.GetFullPath(Path.Combine(baseDir, "..", "..", ".."));
-            if (Directory.Exists(Path.Combine(candidate, "core", "dist")))
-                return candidate;
-            return baseDir;
+            if (HasCoreBundle(baseDir))
+                return Path.GetFullPath(baseDir);
+
+            foreach (var candidate in new[]
+            {
+                Path.GetFullPath(Path.Combine(baseDir, "..")),
+                Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..")),
+            })
+            {
+                if (HasCoreBundle(candidate))
+                    return candidate;
+            }
+
+            return Path.GetFullPath(baseDir);
         }
     }
+
+    private static bool HasCoreBundle(string root) =>
+        Directory.Exists(Path.Combine(root, "core", "dist"))
+        && File.Exists(Path.Combine(root, "core", "scripts", "start-server.mjs"));
 
     public static string CoreDirectory => Path.Combine(InstallRoot, "core");
     public static string StartServerScript => Path.Combine(CoreDirectory, "scripts", "start-server.mjs");
