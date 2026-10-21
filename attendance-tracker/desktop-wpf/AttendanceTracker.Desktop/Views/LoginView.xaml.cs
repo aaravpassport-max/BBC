@@ -10,6 +10,7 @@ public partial class LoginView : UserControl
     private bool _firstRun;
 
     public event EventHandler? LoginSucceeded;
+    public event EventHandler? LoginCancelled;
 
     public LoginView()
     {
@@ -32,6 +33,8 @@ public partial class LoginView : UserControl
         ErrorText.Visibility = Visibility.Collapsed;
         ConfigureFirstRun(!File.Exists(AppPaths.DatabasePath));
     }
+
+    private void Cancel_Click(object sender, RoutedEventArgs e) => LoginCancelled?.Invoke(this, EventArgs.Empty);
 
     private async void Action_Click(object sender, RoutedEventArgs e)
     {

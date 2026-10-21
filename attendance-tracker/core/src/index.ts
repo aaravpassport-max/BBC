@@ -29,6 +29,7 @@ export {
   enrollDevice,
   revokeDeviceToken,
   loginDevice,
+  loginLocalViewer,
   resolveSession,
   revokeSession,
   submitCorrectionRequest,

@@ -318,7 +318,28 @@ test("correction-request lifecycle: submit (own/foreign/wrong-role), admin lists
   });
 });
 
-// ---- 9. Missing / malformed auth ----
+// ---- 9. Local viewer (unified desktop read-only mode) ----
+
+test("POST /api/auth/local-viewer mints a read-only session that can list employees but cannot review corrections", async () => {
+  await withTestServer(async (base, db) => {
+    seedEmployeeWithSession(db, "emp-1", "dev-1", "s1");
+    const viewerRes = await fetch(`${base}/api/auth/local-viewer`, { method: "POST" });
+    assert.equal(viewerRes.status, 200);
+    const viewerToken = ((await viewerRes.json()) as any).token as string;
+
+    const employees = await fetch(`${base}/api/employees`, { headers: authHeaders(viewerToken) });
+    assert.equal(employees.status, 200);
+
+    const review = await fetch(`${base}/api/corrections/requests/fake-id/review`, {
+      method: "POST",
+      headers: authHeaders(viewerToken),
+      body: JSON.stringify({ approve: true }),
+    });
+    assert.equal(review.status, 403);
+  });
+});
+
+// ---- 10. Missing / malformed auth ----
 
 test("a protected route with no Authorization header returns 401, and a malformed/unknown bearer token returns 401 (not a crash)", async () => {
   await withTestServer(async (base, db) => {
@@ -338,7 +359,7 @@ test("a protected route with no Authorization header returns 401, and a malforme
   });
 });
 
-// ---- 10. Expiry is enforced, not schema decoration ----
+// ---- 11. Expiry is enforced, not schema decoration ----
 
 test("an expired session token is rejected with 401 on the very next request", async () => {
   await withTestServer(async (base, db) => {

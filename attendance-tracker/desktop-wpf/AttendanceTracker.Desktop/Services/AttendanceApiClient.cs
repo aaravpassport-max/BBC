@@ -33,6 +33,21 @@ public sealed class AttendanceApiClient
         return req;
     }
 
+    public async Task LocalViewerLoginAsync()
+    {
+        var res = await _http.PostAsync("/api/auth/local-viewer", null);
+        if (!res.IsSuccessStatusCode)
+        {
+            var err = await res.Content.ReadAsStringAsync();
+            throw new InvalidOperationException(ParseError(err) ?? "Could not open read-only view.");
+        }
+        var body = await res.Content.ReadFromJsonAsync<LoginResponse>(JsonOptions)
+            ?? throw new InvalidOperationException("Empty viewer login response.");
+        SessionState.BearerToken = body.Token;
+        SessionState.Role = body.Role ?? "viewer";
+        SessionState.SubjectId = body.DisplayName ?? "Workstation (read-only)";
+    }
+
     public async Task<LoginResponse> AdminLoginAsync(string email, string password)
     {
         var res = await _http.PostAsJsonAsync("/api/auth/admin-login", new { email, password });

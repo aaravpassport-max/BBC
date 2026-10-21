@@ -56,6 +56,7 @@ import {
   loginAdmin,
   loginEmployee,
   loginDevice,
+  loginLocalViewer,
   resolveSession,
   revokeSession,
   submitCorrectionRequest,
@@ -140,6 +141,11 @@ function bearerToken(req: IncomingMessage): string | null {
   const header = req.headers["authorization"];
   if (!header || !header.startsWith("Bearer ")) return null;
   return header.slice("Bearer ".length).trim() || null;
+}
+
+function isLoopbackRequest(req: IncomingMessage): boolean {
+  const addr = req.socket.remoteAddress;
+  return addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
 }
 
 /**
@@ -244,6 +250,22 @@ export function createRequestHandler(db: Database) {
         }
         return;
       }
+      if (isPost && parts.length === 3 && parts[0] === "api" && parts[1] === "auth" && parts[2] === "local-viewer") {
+        if (!isLoopbackRequest(req)) { forbidden(res, "Local viewer sign-in is only allowed from this PC."); return; }
+        sendJson(res, 200, loginLocalViewer(db));
+        return;
+      }
+      if (isPost && parts.length === 3 && parts[0] === "api" && parts[1] === "maintenance" && parts[2] === "recompute-open") {
+        if (!isLoopbackRequest(req)) { forbidden(res, "Maintenance tasks are only allowed from this PC."); return; }
+        const rows = db.prepare(`SELECT session_id FROM attendance_sessions WHERE end_utc IS NULL`).all() as { session_id: string }[];
+        const sessionIds = rows.map((r) => r.session_id);
+        for (const sid of sessionIds) {
+          recomputeSession(db, sid);
+          recomputeUsage(db, sid);
+        }
+        sendJson(res, 200, { recomputedSessionIds: sessionIds });
+        return;
+      }
 
       // ---- Everything past this point requires a valid session ----
       const token = bearerToken(req);
@@ -253,7 +275,9 @@ export function createRequestHandler(db: Database) {
         return;
       }
       const isAdmin = session.role === "admin";
-      /** For employee/device sessions, the one employeeId they're allowed to act as. Admin has no such restriction. */
+      const isViewer = session.role === "viewer";
+      const canViewAll = isAdmin || isViewer;
+      /** For employee/device sessions, the one employeeId they're allowed to act as. Admin/viewer has no such restriction. */
       const ownEmployeeId = session.role === "employee" || session.role === "device" ? session.subjectId : null;
 
       if (isPost && parts.length === 3 && parts[0] === "api" && parts[1] === "auth" && parts[2] === "logout") {
@@ -279,17 +303,17 @@ export function createRequestHandler(db: Database) {
 
       // ---- Admin-only: employee directory, classification rules, retention ----
       if (isGet && parts.length === 2 && parts[0] === "api" && parts[1] === "employees") {
-        if (!isAdmin) { forbidden(res, "Only administrators can list all employees."); return; }
+        if (!canViewAll) { forbidden(res, "Only administrators can list all employees."); return; }
         sendJson(res, 200, getAllEmployees(db));
         return;
       }
       if (isGet && parts.length === 2 && parts[0] === "api" && parts[1] === "classification-rules") {
-        if (!isAdmin) { forbidden(res, "Only administrators can view monitoring/classification rules."); return; }
+        if (!canViewAll) { forbidden(res, "Only administrators can view monitoring/classification rules."); return; }
         sendJson(res, 200, getAllClassificationRules(db));
         return;
       }
       if (isGet && parts.length === 2 && parts[0] === "api" && parts[1] === "retention") {
-        if (!isAdmin) { forbidden(res, "Only administrators can view the retention configuration."); return; }
+        if (!canViewAll) { forbidden(res, "Only administrators can view the retention configuration."); return; }
         sendJson(res, 200, { retentionDays: getRetentionDays(db) });
         return;
       }
@@ -297,7 +321,7 @@ export function createRequestHandler(db: Database) {
       // ---- Employee-scoped (admin unrestricted; employee/device must match their own id) ----
       if (isGet && parts.length === 4 && parts[0] === "api" && parts[1] === "employees" && parts[3] === "sessions") {
         const employeeId = decodeURIComponent(parts[2]!);
-        if (!isAdmin && employeeId !== ownEmployeeId) { forbidden(res, "You can only view your own sessions."); return; }
+        if (!canViewAll && employeeId !== ownEmployeeId) { forbidden(res, "You can only view your own sessions."); return; }
         const date = url.searchParams.get("date");
         if (!date || !DATE_RE.test(date)) { badRequest(res, "Query parameter 'date' is required, format YYYY-MM-DD (UTC calendar day)."); return; }
         sendJson(res, 200, getSessionsForEmployeeOnDate(db, employeeId, date));
@@ -308,7 +332,7 @@ export function createRequestHandler(db: Database) {
         const sessionId = decodeURIComponent(parts[2]!);
         const sessionRow = getSessionById(db, sessionId);
         if (!sessionRow) { notFound(res, `No session with id ${sessionId}`); return; }
-        if (!isAdmin && sessionRow.employeeId !== ownEmployeeId) { forbidden(res, "You can only view your own sessions."); return; }
+        if (!canViewAll && sessionRow.employeeId !== ownEmployeeId) { forbidden(res, "You can only view your own sessions."); return; }
         const stateIntervals = getStateIntervals(db, sessionId);
         const breakIntervals = getBreakIntervals(db, sessionId);
         const appIntervals = getAppForegroundIntervals(db, sessionId);
@@ -336,6 +360,7 @@ export function createRequestHandler(db: Database) {
       // ingest on behalf of any employee/device (a bulk-import or
       // backfill tool's use case).
       if (isPost && parts.length === 3 && parts[0] === "api" && parts[1] === "events" && parts[2] === "ingest") {
+        if (isViewer) { forbidden(res, "Changes require an administrator sign-in."); return; }
         const body = await readJsonBody(req);
         const events = body.events;
         if (!Array.isArray(events) || events.length === 0) {
@@ -394,7 +419,7 @@ export function createRequestHandler(db: Database) {
         const employeeId = url.searchParams.get("employeeId");
         const date = url.searchParams.get("date");
         if (!employeeId) { badRequest(res, "Query parameter 'employeeId' is required."); return; }
-        if (!isAdmin && employeeId !== ownEmployeeId) { forbidden(res, "You can only view your own reports."); return; }
+        if (!canViewAll && employeeId !== ownEmployeeId) { forbidden(res, "You can only view your own reports."); return; }
         if (!date || !DATE_RE.test(date)) { badRequest(res, "Query parameter 'date' is required, format YYYY-MM-DD."); return; }
         const report = getDailyReport(db, employeeId, date);
         if (parts[2] === "daily.csv") {
@@ -411,7 +436,7 @@ export function createRequestHandler(db: Database) {
         const yearStr = url.searchParams.get("year");
         const monthStr = url.searchParams.get("month");
         if (!employeeId) { badRequest(res, "Query parameter 'employeeId' is required."); return; }
-        if (!isAdmin && employeeId !== ownEmployeeId) { forbidden(res, "You can only view your own reports."); return; }
+        if (!canViewAll && employeeId !== ownEmployeeId) { forbidden(res, "You can only view your own reports."); return; }
         const year = Number(yearStr);
         const month = Number(monthStr);
         if (!yearStr || !monthStr || !Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
@@ -449,13 +474,13 @@ export function createRequestHandler(db: Database) {
           return;
         }
         let employeeIdParam = url.searchParams.get("employeeId");
-        if (!isAdmin) {
+        if (!canViewAll) {
           // A non-admin session can never browse anyone else's history —
           // their own employeeId is enforced here, not merely assumed.
           if (employeeIdParam && employeeIdParam !== ownEmployeeId) { forbidden(res, "You can only view your own history."); return; }
           employeeIdParam = ownEmployeeId;
         }
-        const departmentParam = isAdmin ? url.searchParams.get("department") : null;
+        const departmentParam = canViewAll ? url.searchParams.get("department") : null;
         const deviceIdParam = url.searchParams.get("deviceId");
         sendJson(res, 200, queryAttendanceHistory(db, {
           ...(employeeIdParam ? { employeeId: employeeIdParam } : {}),
@@ -470,6 +495,7 @@ export function createRequestHandler(db: Database) {
 
       // ---- Correction requests: employee/device submits, admin reviews ----
       if (isPost && parts.length === 3 && parts[0] === "api" && parts[1] === "corrections" && parts[2] === "request") {
+        if (isViewer) { forbidden(res, "Changes require an administrator sign-in."); return; }
         if (isAdmin) { forbidden(res, "Admins record corrections directly; this endpoint is for employee-submitted requests."); return; }
         const body = await readJsonBody(req);
         const sessionId = String(body.sessionId ?? "");
@@ -487,7 +513,7 @@ export function createRequestHandler(db: Database) {
         return;
       }
       if (isGet && parts.length === 3 && parts[0] === "api" && parts[1] === "corrections" && parts[2] === "requests") {
-        if (!isAdmin) { forbidden(res, "Only administrators can review correction requests across employees."); return; }
+        if (!canViewAll) { forbidden(res, "Only administrators can review correction requests across employees."); return; }
         const status = url.searchParams.get("status");
         if (status && status !== "pending" && status !== "approved" && status !== "rejected") {
           badRequest(res, "Query parameter 'status', if given, must be one of: pending, approved, rejected.");
@@ -501,7 +527,7 @@ export function createRequestHandler(db: Database) {
         return;
       }
       if (isPost && parts.length === 5 && parts[0] === "api" && parts[1] === "corrections" && parts[2] === "requests" && parts[4] === "review") {
-        if (!isAdmin) { forbidden(res, "Only administrators can review correction requests."); return; }
+        if (!isAdmin) { forbidden(res, "Changes require an administrator sign-in."); return; }
         const requestId = decodeURIComponent(parts[3]!);
         const body = await readJsonBody(req);
         if (typeof body.approve !== "boolean") { badRequest(res, "Body field 'approve' (boolean) is required."); return; }

@@ -6,7 +6,7 @@ namespace AttendanceAgent;
 /// Per-machine install config written by the employee Setup.exe (or IT).
 /// Environment variables still override for advanced deployment.
 /// </summary>
-internal sealed record AgentInstallConfig(string EmployeeId, string DeviceId)
+public sealed record AgentInstallConfig(string EmployeeId, string DeviceId)
 {
     private static readonly string ConfigDir = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),

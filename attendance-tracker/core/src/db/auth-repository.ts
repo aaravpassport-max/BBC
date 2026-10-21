@@ -21,7 +21,7 @@ type Database = DatabaseSync;
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours for a web login
 const DEVICE_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days — the local tray app shouldn't force a re-login mid-shift or even mid-month
 
-export type Role = "admin" | "employee" | "device";
+export type Role = "admin" | "employee" | "device" | "viewer";
 
 export interface AuthSession {
   role: Role;
@@ -92,6 +92,15 @@ export function revokeDeviceToken(db: Database, token: string): void {
 }
 
 /** The local tray app calls this (instead of a password prompt) to get a short-lived API session from its long-lived device token. */
+/**
+ * Read-only local console session for the unified desktop app on an employee PC.
+ * Minted only from loopback; the API layer enforces that separately.
+ */
+export function loginLocalViewer(db: Database): { token: string; role: "viewer"; displayName: string } {
+  const token = createSession(db, "viewer", "local-workstation");
+  return { token, role: "viewer", displayName: "Workstation (read-only)" };
+}
+
 export function loginDevice(db: Database, deviceToken: string): { token: string; employeeId: string; deviceId: string } {
   const row = db.prepare(`SELECT employee_id, device_id, revoked_at_utc FROM device_tokens WHERE token_hash = ?`).get(hashToken(deviceToken)) as
     | { employee_id: string; device_id: string; revoked_at_utc: string | null }
@@ -109,7 +118,7 @@ export function loginDevice(db: Database, deviceToken: string): { token: string;
 function createSession(db: Database, role: Role, subjectId: string, deviceId?: string): string {
   const token = generateToken();
   const now = Date.now();
-  const ttl = role === "device" ? DEVICE_SESSION_TTL_MS : SESSION_TTL_MS;
+  const ttl = role === "device" || role === "viewer" ? DEVICE_SESSION_TTL_MS : SESSION_TTL_MS;
   db.prepare(
     `INSERT INTO sessions (token_hash, subject_type, subject_id, device_id, created_at_utc, expires_at_utc) VALUES (?, ?, ?, ?, ?, ?)`,
   ).run(hashToken(token), role, subjectId, deviceId ?? null, new Date(now).toISOString(), new Date(now + ttl).toISOString());

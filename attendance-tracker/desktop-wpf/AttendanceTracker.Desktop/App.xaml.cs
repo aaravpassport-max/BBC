@@ -15,6 +15,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        Services.WorkplaceMonitoringHost.Stop();
         Services.CoreEngineHost.Instance.Dispose();
         base.OnExit(e);
     }

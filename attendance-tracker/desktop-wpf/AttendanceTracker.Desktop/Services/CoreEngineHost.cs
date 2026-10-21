@@ -31,10 +31,7 @@ public sealed class CoreEngineHost : IDisposable
         var config = AppConfig.Load();
 
         if (!File.Exists(AppPaths.DatabasePath))
-        {
-            throw new InvalidOperationException(
-                "No database found. Complete first-run setup from the sign-in screen.");
-        }
+            throw new InvalidOperationException("Local database is not ready yet.");
 
         if (File.Exists(AppPaths.PortFilePath))
         {

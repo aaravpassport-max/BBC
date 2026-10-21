@@ -39,6 +39,11 @@ public partial class CorrectionsView : UserControl, IRefreshable
 
     private async void Approve_Click(object sender, RoutedEventArgs e)
     {
+        if (!SessionState.CanModify)
+        {
+            StatusText.Text = "Sign in as administrator to approve or reject.";
+            return;
+        }
         var row = Selected;
         if (row is null) { StatusText.Text = "Select a request."; return; }
         try
@@ -54,6 +59,11 @@ public partial class CorrectionsView : UserControl, IRefreshable
 
     private async void Reject_Click(object sender, RoutedEventArgs e)
     {
+        if (!SessionState.CanModify)
+        {
+            StatusText.Text = "Sign in as administrator to approve or reject.";
+            return;
+        }
         var row = Selected;
         if (row is null) { StatusText.Text = "Select a request."; return; }
         try

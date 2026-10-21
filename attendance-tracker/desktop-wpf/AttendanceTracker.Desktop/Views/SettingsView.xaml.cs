@@ -23,6 +23,11 @@ public partial class SettingsView : UserControl, IRefreshable
 
     private void Backup_Click(object sender, RoutedEventArgs e)
     {
+        if (!SessionState.CanModify)
+        {
+            StatusText.Text = "Sign in as administrator to back up or restore the database.";
+            return;
+        }
         try
         {
             AppPaths.EnsureDirectories();
@@ -41,6 +46,11 @@ public partial class SettingsView : UserControl, IRefreshable
 
     private void Restore_Click(object sender, RoutedEventArgs e)
     {
+        if (!SessionState.CanModify)
+        {
+            StatusText.Text = "Sign in as administrator to back up or restore the database.";
+            return;
+        }
         var dlg = new OpenFileDialog { Filter = "SQLite database|*.db", Title = "Select backup to restore" };
         if (dlg.ShowDialog() != true)
             return;

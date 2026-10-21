@@ -10,7 +10,7 @@ if (-not (Test-Path $Iscc)) {
 }
 $IssDir = Join-Path $Root "installer"
 $args = @("/DAppVersion=$AppVersion")
-foreach ($script in @("setup-admin.iss", "setup-employee.iss")) {
+foreach ($script in @("setup-unified.iss", "setup-admin.iss", "setup-employee.iss")) {
   $path = Join-Path $IssDir $script
   Write-Host "Compiling $script ..."
   & $Iscc @args $path

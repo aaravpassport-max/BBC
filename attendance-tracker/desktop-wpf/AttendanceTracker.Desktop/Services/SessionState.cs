@@ -8,6 +8,10 @@ public static class SessionState
 
     public static bool IsAuthenticated => !string.IsNullOrEmpty(BearerToken);
 
+    public static bool IsAdmin => Role == "admin";
+
+    public static bool CanModify => IsAdmin;
+
     public static void Clear()
     {
         BearerToken = null;

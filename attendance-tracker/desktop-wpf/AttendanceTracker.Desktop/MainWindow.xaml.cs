@@ -14,21 +14,70 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        LoginPanel.LoginSucceeded += OnLoginSucceeded;
+        LoginPanel.LoginSucceeded += OnAdminLoginSucceeded;
+        LoginPanel.LoginCancelled += (_, _) => LoginOverlay.Visibility = Visibility.Collapsed;
         Loaded += MainWindow_Loaded;
     }
 
     private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
-        LoginPanel.ConfigureFirstRun(!File.Exists(AppPaths.DatabasePath));
+        try
+        {
+            StartupStatusText.Text = "Preparing local database…";
+            await WorkstationSetup.EnsureReadyAsync();
+
+            StartupStatusText.Text = "Starting attendance engine…";
+            await CoreEngineHost.Instance.EnsureStartedAsync();
+
+            StartupStatusText.Text = "Loading live data…";
+            await _api.LocalViewerLoginAsync();
+            EnterViewerShell();
+
+            WorkplaceMonitoringHost.Start();
+        }
+        catch (Exception ex)
+        {
+            StartupStatusText.Text = ex.Message;
+            MessageBox.Show(ex.Message, "Workforce Attendance", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
-    private void OnLoginSucceeded(object? sender, EventArgs e)
+    private void EnterViewerShell()
     {
-        LoginPanel.Visibility = Visibility.Collapsed;
+        StartupPanel.Visibility = Visibility.Collapsed;
         ShellGrid.Visibility = Visibility.Visible;
-        SignedInLabel.Text = $"Signed in as {SessionState.SubjectId ?? "Administrator"}";
+        UpdateChromeForSession();
         Navigate("dashboard");
+    }
+
+    private void UpdateChromeForSession()
+    {
+        if (SessionState.IsAdmin)
+        {
+            SignedInLabel.Text = $"Administrator — {SessionState.SubjectId ?? "signed in"} (changes enabled)";
+            AdminSignInButton.Visibility = Visibility.Collapsed;
+            ExitAdminButton.Visibility = Visibility.Visible;
+        }
+        else
+        {
+            SignedInLabel.Text = "Live attendance data (read-only — sign in as admin to make changes)";
+            AdminSignInButton.Visibility = Visibility.Visible;
+            ExitAdminButton.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void OnAdminLoginSucceeded(object? sender, EventArgs e)
+    {
+        LoginOverlay.Visibility = Visibility.Collapsed;
+        UpdateChromeForSession();
+        _pages.Clear();
+        Navigate("dashboard");
+    }
+
+    private void AdminSignIn_Click(object sender, RoutedEventArgs e)
+    {
+        LoginPanel.ConfigureFirstRun(!AppConfig.Load().FirstRunCompleted);
+        LoginOverlay.Visibility = Visibility.Visible;
     }
 
     private void Navigate(string key)
@@ -39,19 +88,20 @@ public partial class MainWindow : Window
             if (!_pages.TryGetValue(key, out var page))
             {
                 page = key switch
-            {
-                "dashboard" => new DashboardView(_api),
-                "employees" => new EmployeesView(_api),
-                "history" => new HistoryView(_api),
-                "reports" => new ReportsView(_api),
-                "corrections" => new CorrectionsView(_api),
-                "settings" => new SettingsView(),
-                "employee-guide" => new EmployeeGuideView(),
-                _ => new DashboardView(_api),
-            };
+                {
+                    "dashboard" => new DashboardView(_api),
+                    "employees" => new EmployeesView(_api),
+                    "history" => new HistoryView(_api),
+                    "reports" => new ReportsView(_api),
+                    "corrections" => new CorrectionsView(_api),
+                    "settings" => new SettingsView(),
+                    "employee-guide" => new EmployeeGuideView(),
+                    _ => new DashboardView(_api),
+                };
                 _pages[key] = page;
             }
             MainContent.Content = page;
+            ReadOnlyUi.ApplyToRoot(page);
             if (page is IRefreshable r)
                 _ = r.RefreshAsync();
         }
@@ -87,10 +137,10 @@ public partial class MainWindow : Window
     private async void SignOut_Click(object sender, RoutedEventArgs e)
     {
         await _api.LogoutAsync();
-        ShellGrid.Visibility = Visibility.Collapsed;
-        LoginPanel.Visibility = Visibility.Visible;
-        LoginPanel.ResetForm();
+        await _api.LocalViewerLoginAsync();
+        UpdateChromeForSession();
         _pages.Clear();
+        Navigate("dashboard");
     }
 }
 
