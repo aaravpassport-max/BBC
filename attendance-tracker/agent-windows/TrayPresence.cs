@@ -56,6 +56,31 @@ public sealed class TrayPresence : IDisposable
         _icon.DoubleClick += (_, _) => ShowSelfView();
     }
 
+    /// <summary>One-time friendly pointer — the agent has no main window.</summary>
+    public void ShowStartupHint()
+    {
+        try
+        {
+            _icon.ShowBalloonTip(
+                8000,
+                "Workforce Attendance Agent",
+                "Monitoring is active. Click the ^ arrow by the clock, then this icon. Right-click → View my activity today.",
+                ToolTipIcon.Info);
+        }
+        catch
+        {
+            MessageBox.Show(
+                "The attendance agent is running in the background.\n\n" +
+                "1. Click the ^ arrow next to the clock (system tray).\n" +
+                "2. Find the information icon for this agent.\n" +
+                "3. Right-click → \"View my activity today\" for your summary.\n\n" +
+                "There is no full-screen app window — that is normal for employees.",
+                "Workforce Attendance Agent",
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Information);
+        }
+    }
+
     /// <summary>
     /// Opens the employee's own live dashboard — the SAME page proven by
     /// verify-local-dashboard.mjs — in the system's default browser,

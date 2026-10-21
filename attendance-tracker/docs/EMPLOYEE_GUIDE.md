@@ -9,7 +9,7 @@
 | **Employee** | **Browser** (optional) | “View my activity today” from the tray — no daily password |
 | **Employee** | **Chrome extension** (optional) | Track active website URLs |
 
-Employees **do not** install or log in to the admin WPF app.
+Employees **do not** install or log in to the admin WPF app. There is **no employee “dashboard app”** with a big window like HR — only the **tray agent** plus a small **“My activity today”** view.
 
 ## Employee install (Windows)
 
@@ -20,7 +20,16 @@ Employees **do not** install or log in to the admin WPF app.
 1. IT installs the **employee Setup.exe** (or `AttendanceAgent.exe`) on the employee’s Windows PC (company-owned).
 2. Employee sees the **transparency notice** once and dismisses it (required before tracking).
 3. A **tray icon** appears; the agent records session and activity in the background.
-4. Employee opens **tray → View my activity today** to see their own hours (browser page).
+4. Employee finds the **tray icon** (click **^** next to the clock if hidden).
+5. **Right-click** the icon → **View my activity today** (small window or browser — not the HR admin console).
+
+### What employees will NOT see
+
+| Expectation | Reality |
+|-------------|---------|
+| A login screen like admin | **No** — agent uses install config, not daily login |
+| A full desktop “dashboard” | **No** — only tray + optional activity summary |
+| All company employees / reports | **No** — that is **Admin Console** on HR’s PC only |
 
 ## Central reporting (optional)
 

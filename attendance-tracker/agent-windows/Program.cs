@@ -123,6 +123,7 @@ internal static class Program
         // SessionMonitor does. There is no code path in this file that
         // starts the monitor without it.
         using var tray = new TrayPresence(repo, employeeId, deviceId);
+        tray.ShowStartupHint();
         using var monitor = new SessionMonitor(repo, employeeId, deviceId, sessionId);
         // Stage 2: accepts app-foreground/browser events relayed from the
         // native-messaging host the browser extension talks to. Started
