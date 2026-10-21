@@ -32,12 +32,11 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install PHP
-        run: sudo apt-get update && sudo apt-get install -y php-cli php-mysql mariadb-client
-
-      - name: MariaDB for audit
+      - name: Install PHP and MariaDB
         run: |
-          sudo systemctl start mariadb || sudo service mariadb start
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y php-cli php-mysql mariadb-server
+          sudo systemctl start mariadb || sudo systemctl start mysql
           sudo mysql -e "CREATE USER IF NOT EXISTS 'lcrmuser'@'127.0.0.1' IDENTIFIED BY 'testpass123'; GRANT ALL ON *.* TO 'lcrmuser'@'127.0.0.1'; FLUSH PRIVILEGES;"
 
       - name: Prepare WordPress + Playwright
