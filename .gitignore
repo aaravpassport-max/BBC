@@ -11,3 +11,12 @@ leadcrm-desktop/electron/node_modules/
 leadcrm-desktop/dist/
 leadcrm-desktop/.build-cache/
 leadcrm-desktop/runtimes/
+leadcrm-wa-desktop/php/
+leadcrm-wa-desktop/mariadb/
+leadcrm-wa-desktop/.build-cache/
+leadcrm-wa-desktop/dist/
+leadcrm-wa-desktop/electron/node_modules/
+leadcrm-wa-desktop/app/wordpress/wp-admin/
+leadcrm-wa-desktop/app/wordpress/wp-includes/
+leadcrm-wa-desktop/app/wordpress/*.php
+!leadcrm-wa-desktop/app/wordpress/router.php

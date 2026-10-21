@@ -1,0 +1,10 @@
+{
+  "name": "leadcrm-wa-desktop-root",
+  "private": true,
+  "scripts": {
+    "prepare": "node scripts/download-wordpress.js",
+    "prepare:win": "node scripts/download-wordpress.js && node scripts/download-windows-runtime.js",
+    "start": "cd electron && npm start",
+    "build:win": "npm run prepare:win && cd electron && npm install && npm run build"
+  }
+}

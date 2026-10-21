@@ -1,0 +1,365 @@
+/*
+ * LeadCRM SPA Shell CSS
+ * Does two things only:
+ * 1. App shell layout (sidebar, topbar, content pane)
+ * 2. WP admin base styles that aren't loaded on the frontend
+ *    (.button, inputs, select, body font) — exact copies of
+ *    WordPress admin CSS so everything looks identical to wp-admin
+ */
+
+/* ============================================================
+   WP ADMIN BASE STYLES
+   WordPress loads these in wp-admin. On the SPA page they are
+   not loaded, so we copy them here exactly.
+   ============================================================ */
+
+/* Body — matches WP admin body exactly */
+html, body {
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+               Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+  font-size: 13px;
+  line-height: 1.4em;
+  color: #3c4146;
+  background: #f0f0f1;
+}
+
+/* Links — WP admin blue */
+a { color: #2271b1; }
+a:hover { color: #135e96; }
+
+/* Inputs — from wp-admin/css/forms.css */
+input[type="text"],
+input[type="email"],
+input[type="number"],
+input[type="search"],
+input[type="password"],
+input[type="date"],
+select,
+textarea {
+  font-family: inherit;
+  font-size: 14px;
+  padding: 3px 5px;
+  background-color: #fff;
+  border: 1px solid #8c8f94;
+  border-radius: 4px;
+  color: #2c3338;
+  outline: none;
+  min-height: 30px;
+  box-sizing: border-box;
+}
+input[type="text"]:focus,
+input[type="email"]:focus,
+input[type="search"]:focus,
+select:focus,
+textarea:focus {
+  border-color: #2271b1;
+  box-shadow: 0 0 0 1px #2271b1;
+}
+
+/* Buttons — from wp-admin/css/buttons.css */
+.button,
+.button-secondary {
+  display: inline-block;
+  text-decoration: none;
+  font-size: 13px;
+  line-height: 2.15384615;
+  min-height: 30px;
+  margin: 0;
+  padding: 0 10px;
+  cursor: pointer;
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 3px;
+  white-space: nowrap;
+  box-sizing: border-box;
+  font-family: inherit;
+  background: #f6f7f7;
+  border-color: #2271b1;
+  color: #2271b1;
+  vertical-align: top;
+}
+.button:hover,
+.button-secondary:hover {
+  background: #f0f0f1;
+  border-color: #0a4b78;
+  color: #0a4b78;
+  text-decoration: none;
+}
+.button:focus,
+.button-secondary:focus {
+  background: #f6f7f7;
+  border-color: #3582c4;
+  box-shadow: 0 0 0 1px #3582c4;
+  outline: none;
+}
+.button:active {
+  background: #f6f7f7;
+  border-color: #7e8993;
+  box-shadow: inset 0 2px 5px -3px rgba(0,0,0,.5);
+}
+.button-primary {
+  background: #2271b1;
+  border-color: #2271b1;
+  color: #fff;
+  text-decoration: none;
+}
+.button-primary:hover {
+  background: #135e96;
+  border-color: #135e96;
+  color: #fff;
+}
+.button-primary:focus {
+  background: #2271b1;
+  border-color: #2271b1;
+  box-shadow: 0 0 0 1px #fff, 0 0 0 3px #2271b1;
+  color: #fff;
+}
+.button:disabled,
+.button[disabled],
+.button:disabled:hover,
+.button[disabled]:hover {
+  color: #a7aaad;
+  border-color: #dcdcde;
+  background: #f6f7f7;
+  cursor: default;
+  box-shadow: none;
+  opacity: 1;
+}
+.button-primary:disabled,
+.button-primary[disabled] {
+  background: #a7aaad;
+  border-color: #a7aaad;
+  color: #fff;
+}
+
+/* ============================================================
+   SPA SHELL LAYOUT
+   Fixed full-screen app shell. Sidebar + main area.
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body { overflow: hidden; }
+
+.lcrm-spa {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  overflow: hidden;
+  position: fixed;
+  top: 0; left: 0;
+  background: #f0f0f1;
+}
+
+/* ── SIDEBAR ────────────────────────────────────────────── */
+.lcrm-sidebar {
+  width: 220px;
+  height: 100vh;
+  background: #1a3560;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  transition: width .18s ease;
+  overflow: hidden;
+  z-index: 200;
+}
+.lcrm-sidebar.collapsed { width: 46px; }
+.lcrm-sidebar.collapsed .lcrm-logo-text,
+.lcrm-sidebar.collapsed .lcrm-nav-label,
+.lcrm-sidebar.collapsed .lcrm-nav-badge,
+.lcrm-sidebar.collapsed .lcrm-user-info {
+  opacity: 0; width: 0; pointer-events: none; overflow: hidden;
+}
+.lcrm-sidebar.collapsed .lcrm-sidebar-collapse { transform: rotate(180deg); }
+
+.lcrm-sidebar-logo {
+  display: flex; align-items: center; gap: 9px;
+  padding: 13px 12px 11px;
+  border-bottom: 1px solid rgba(255,255,255,.12);
+  min-height: 50px; flex-shrink: 0;
+}
+.lcrm-logo-icon { font-size: 17px; width: 22px; text-align: center; flex-shrink: 0; }
+.lcrm-logo-text {
+  font-size: 13px; font-weight: 700; color: #fff;
+  flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: opacity .18s, width .18s;
+}
+.lcrm-sidebar-collapse {
+  background: none; border: none; cursor: pointer;
+  color: rgba(255,255,255,.5); font-size: 14px; padding: 3px 4px;
+  border-radius: 3px; flex-shrink: 0; transition: transform .18s, color .18s;
+  line-height: 1;
+}
+.lcrm-sidebar-collapse:hover { color: #fff; }
+
+.lcrm-sidenav {
+  flex: 1; overflow-y: auto; overflow-x: hidden; padding: 5px 6px;
+}
+.lcrm-sidenav::-webkit-scrollbar { width: 3px; }
+.lcrm-sidenav::-webkit-scrollbar-thumb { background: rgba(255,255,255,.2); border-radius: 3px; }
+
+.lcrm-nav-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 9px; border-radius: 3px;
+  color: rgba(255,255,255,.75);
+  text-decoration: none !important;
+  font-size: 12.5px; font-weight: 400;
+  transition: background .14s, color .14s;
+  margin-bottom: 1px; white-space: nowrap; cursor: pointer;
+}
+.lcrm-nav-item:hover {
+  background: rgba(255,255,255,.1); color: #fff; text-decoration: none !important;
+}
+.lcrm-nav-item.active {
+  background: #039be5; color: #fff; font-weight: 600;
+}
+.lcrm-nav-item.active .lcrm-nav-badge { background: rgba(255,255,255,.3); }
+.lcrm-nav-icon { font-size: 13px; width: 18px; text-align: center; flex-shrink: 0; }
+.lcrm-nav-label { flex: 1; transition: opacity .18s, width .18s; }
+.lcrm-nav-badge {
+  background: #c62828; color: #fff; font-size: 9.5px; font-weight: 700;
+  padding: 1px 5px; border-radius: 99px; min-width: 17px; text-align: center; flex-shrink: 0;
+}
+
+.lcrm-sidebar-footer {
+  border-top: 1px solid rgba(255,255,255,.1); padding: 9px 10px; flex-shrink: 0;
+}
+.lcrm-user-row { display: flex; align-items: center; gap: 8px; }
+.lcrm-user-avatar {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: #039be5; color: #fff; font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.lcrm-user-name {
+  font-size: 12px; font-weight: 600; color: rgba(255,255,255,.9);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 140px;
+}
+.lcrm-user-logout { font-size: 11px; color: rgba(255,255,255,.5); text-decoration: none; display: block; margin-top: 1px; }
+.lcrm-user-logout:hover { color: #fff; text-decoration: underline; }
+.lcrm-user-info { min-width: 0; }
+
+/* ── MAIN AREA ──────────────────────────────────────────── */
+.lcrm-main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+/* Thin topbar — just title + quick actions, does NOT replace lcrm-topbar */
+.lcrm-spa-topbar {
+  height: 36px; background: #23282d;
+  display: flex; align-items: center; padding: 0 12px; gap: 8px;
+  flex-shrink: 0; border-bottom: 1px solid #1d2327; z-index: 100;
+}
+.lcrm-menu-toggle {
+  display: none; background: none; border: none; font-size: 16px;
+  cursor: pointer; color: rgba(255,255,255,.7); padding: 4px; border-radius: 3px; line-height: 1;
+}
+.lcrm-menu-toggle:hover { color: #fff; }
+.lcrm-spa-topbar-title {
+  font-size: 12px; font-weight: 600; color: rgba(255,255,255,.7); flex: 1;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.lcrm-spa-topbar-btn {
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.15);
+  border-radius: 3px; padding: 3px 9px; font-size: 11.5px; font-weight: 600;
+  cursor: pointer; color: rgba(255,255,255,.8); transition: all .13s; line-height: 1.5;
+}
+.lcrm-spa-topbar-btn:hover { background: rgba(255,255,255,.15); color: #fff; border-color: rgba(255,255,255,.3); }
+.lcrm-topnav-badge {
+  position: absolute; top: -4px; right: -4px;
+  background: #c62828; color: #fff; font-size: 9px; font-weight: 800;
+  padding: 1px 4px; border-radius: 99px; line-height: 13px; min-width: 15px; text-align: center;
+}
+
+/* Content pane — equivalent of #wpbody-content */
+.lcrm-spa-content {
+  flex: 1; overflow-y: auto; overflow-x: hidden; position: relative;
+}
+.lcrm-spa-content::-webkit-scrollbar { width: 7px; }
+.lcrm-spa-content::-webkit-scrollbar-thumb { background: #c3c4c7; border-radius: 3px; }
+.lcrm-spa-content::-webkit-scrollbar-track { background: #f0f0f1; }
+
+/* ── TABLE MAX HEIGHT FIX FOR SPA ───────────────────────────
+ * admin.css: max-height: calc(100vh - 220px)
+ * This was calibrated for WP admin:
+ *   32px admin bar + 46px wp submenu + ~140px CRM chrome = 218px
+ * In SPA:
+ *   36px spa-topbar + ~50px lcrm-topbar + ~52px filters = 138px
+ * The 220px formula gives too little height. Fix to match actual chrome.
+ * ──────────────────────────────────────────────────────────── */
+.lcrm-spa-content .lcrm-table-wrap {
+  max-height: calc(100vh - 36px - 50px - 52px - 8px) !important;
+}
+
+/* ── MODAL STACKING ─────────────────────────────────────── */
+.lcrm-spa .lcrm-modal { z-index: 999999 !important; }
+
+/* ── ENTRY ANIMATION ────────────────────────────────────── */
+.lcrm-spa-content .lcrm-wrap { animation: lcrm-in .15s ease; }
+@keyframes lcrm-in { from { opacity:.4; } to { opacity:1; } }
+
+/* ── SECTION LOADER ─────────────────────────────────────── */
+#lcrm-section-loader { display:flex; align-items:center; justify-content:center; min-height:200px; }
+
+/* ── SIDEBAR OVERLAY (mobile) ───────────────────────────── */
+.lcrm-sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:199; }
+.lcrm-sidebar-overlay.active { display:block; }
+
+/* ── LOGIN PAGE ─────────────────────────────────────────── */
+.lcrm-spa-loginwall {
+  min-height:100vh; display:flex; align-items:center; justify-content:center;
+  background: linear-gradient(135deg, #1a3560, #039be5);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+.lcrm-spa-login-box {
+  background:#fff; border-radius:4px; padding:36px 32px;
+  text-align:center; max-width:340px; width:90%; box-shadow:0 8px 40px rgba(0,0,0,.25);
+}
+.lcrm-spa-login-logo { font-size:38px; margin-bottom:10px; }
+.lcrm-spa-login-box h1 { font-size:18px; font-weight:700; color:#1a2840; margin:0 0 5px; }
+.lcrm-spa-login-box p  { font-size:13px; color:#546e7a; margin:0 0 20px; }
+.lcrm-spa-login-btn {
+  display:inline-block; background:#2271b1; color:#fff;
+  font-weight:700; font-size:13px; padding:9px 24px; border-radius:3px; text-decoration:none;
+}
+.lcrm-spa-login-btn:hover { background:#135e96; color:#fff; text-decoration:none; }
+
+/* ── MOBILE ════════════════════════════════════════════════ */
+@media (max-width: 782px) {
+  .lcrm-sidebar {
+    position: fixed; left: -100%; top:0; height:100vh; z-index:300;
+    transition: left .18s ease; width: 240px !important;
+    box-shadow: 4px 0 20px rgba(0,0,0,.3);
+  }
+  .lcrm-sidebar.mobile-open { left: 0; }
+  .lcrm-sidebar-collapse { display:none; }
+  .lcrm-main { width:100%; }
+  .lcrm-menu-toggle { display:flex; }
+  /* Table scrolls horizontally */
+  .lcrm-spa-content .lcrm-table-wrap { max-height: 60vh !important; overflow-x: auto; }
+  /* Stats 2 col */
+  .lcrm-spa-content .lcrm-stats-grid { grid-template-columns: 1fr 1fr !important; }
+  /* Settings tabs scroll */
+  .lcrm-spa-content .lcrm-settings-tabs { overflow-x: auto; flex-wrap: nowrap !important; }
+  .lcrm-spa-content .lcrm-stab { flex-shrink: 0; }
+  /* Bottom nav */
+  .lcrm-bottom-nav {
+    display: flex !important; position:fixed; bottom:0; left:0; right:0;
+    background:#fff; border-top:1px solid #dcdcde; z-index:201;
+    padding-bottom: env(safe-area-inset-bottom,0);
+  }
+  .lcrm-bottom-tab {
+    flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+    padding:6px 2px; font-size:9.5px; color:#646970; text-decoration:none; gap:2px;
+    border:none; background:none; cursor:pointer; position:relative;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .lcrm-bottom-tab.active { color:#2271b1; }
+  .lcrm-bottom-tab-icon { font-size:16px; line-height:1; }
+  .lcrm-bottom-tab-badge {
+    position:absolute; top:3px; right:calc(50% - 15px);
+    background:#c62828; color:#fff; font-size:9px; font-weight:800;
+    padding:1px 4px; border-radius:99px; min-width:14px; text-align:center; line-height:12px;
+  }
+  .lcrm-spa-content { padding-bottom:50px; }
+}
+.lcrm-bottom-nav { display:none; }
