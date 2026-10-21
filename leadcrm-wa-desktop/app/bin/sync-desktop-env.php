@@ -16,6 +16,8 @@ $_SERVER['HTTP_HOST'] = parse_url($siteUrl, PHP_URL_HOST) . (
 );
 $_SERVER['REQUEST_URI'] = '/';
 
+@unlink($wpRoot . '/.maintenance');
+
 define('WP_USE_THEMES', false);
 require $wpRoot . '/wp-load.php';
 

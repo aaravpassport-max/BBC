@@ -155,6 +155,14 @@ async function resolveRuntimePorts() {
   phpPort = await pickPort(phpPort, DEFAULT_PHP_PORT, DEFAULT_PHP_PORT + 12);
 }
 
+function clearWordPressMaintenance() {
+  const flag = path.join(WP_DIR, '.maintenance');
+  if (fs.existsSync(flag)) {
+    appendLog(path.join(LOG_DIR, 'init.log'), 'Removed WordPress .maintenance flag\n');
+    try { fs.unlinkSync(flag); } catch {}
+  }
+}
+
 function syncBundledBin() {
   const binSrc = path.join(APP_DIR, 'bin');
   const binDest = path.join(DATA_DIR, 'bin');
@@ -269,6 +277,7 @@ define('NONCE_SALT',       '${salts[7]}');
 define('LCRM_DESKTOP_APP', true);
 define('WP_DEBUG', false);
 define('FS_METHOD', 'direct');
+if (file_exists(__DIR__ . '/.maintenance')) { @unlink(__DIR__ . '/.maintenance'); }
 if (!defined('ABSPATH')) define('ABSPATH', __DIR__ . '/');
 require_once ABSPATH . 'wp-settings.php';
 `;
@@ -342,14 +351,11 @@ async function startMariaDB() {
 async function startPhp() {
   const php = getPhpBinary();
   if (!php) throw new Error('PHP not found');
+  const routerSrc = path.join(APP_DIR, 'bin', 'desktop-router.php');
   const router = path.join(WP_DIR, 'router.php');
-  if (!fs.existsSync(router)) {
-    fs.writeFileSync(router, `<?php
-$uri = urldecode(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH));
-$file = __DIR__ . $uri;
-if ($uri !== '/' && is_file($file)) return false;
-require __DIR__ . '/index.php';
-`);
+  if (fs.existsSync(routerSrc)) fs.copyFileSync(routerSrc, router);
+  else if (!fs.existsSync(router)) {
+    throw new Error('desktop-router.php missing from app bundle');
   }
 
   phpProcess = spawn(php, phpCliArgs(['-S', `127.0.0.1:${phpPort}`, '-t', WP_DIR, router]), {
@@ -530,6 +536,7 @@ app.on('ready', async () => {
   try {
     await resolveRuntimePorts();
     ensureWordPressTree();
+    clearWordPressMaintenance();
     const dbPass = await startMariaDB();
     await startPhp();
     syncDesktopEnv(dbPass);

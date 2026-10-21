@@ -15,7 +15,44 @@ permissions:
   contents: write
 
 jobs:
+  verify:
+    name: E2E visual audit (release gate)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Fetch leadcrm-wa-build.zip
+        run: |
+          if [ ! -f leadcrm-wa-build/leadcrm.php ]; then
+            curl -fsSL "https://github.com/${{ github.repository }}/raw/main/leadcrm-wa-build.zip" -o leadcrm-wa-build.zip
+            unzip -q leadcrm-wa-build.zip
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install PHP
+        run: sudo apt-get update && sudo apt-get install -y php-cli php-mysql mariadb-client
+
+      - name: MariaDB for audit
+        run: |
+          sudo systemctl start mariadb || sudo service mariadb start
+          sudo mysql -e "CREATE USER IF NOT EXISTS 'lcrmuser'@'127.0.0.1' IDENTIFIED BY 'testpass123'; GRANT ALL ON *.* TO 'lcrmuser'@'127.0.0.1'; FLUSH PRIVILEGES;"
+
+      - name: Prepare WordPress + Playwright
+        working-directory: leadcrm-wa-desktop
+        run: |
+          node scripts/download-wordpress.js
+          npm ci
+          npx playwright install chromium
+
+      - name: Run E2E visual audit
+        working-directory: leadcrm-wa-desktop
+        run: npm run verify
+
   build:
+    needs: verify
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4

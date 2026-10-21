@@ -19,6 +19,9 @@ if ( ! lcrm_desktop_is_local_request() ) {
     return;
 }
 
+// Never show hosting-style maintenance on the offline desktop app.
+add_filter( 'enable_maintenance_mode', '__return_false', 100 );
+
 function lcrm_desktop_local_user() {
     static $user = null;
     if ( $user !== null ) {

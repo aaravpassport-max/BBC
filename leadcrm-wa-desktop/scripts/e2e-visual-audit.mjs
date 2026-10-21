@@ -3,14 +3,16 @@
  * End-to-end visual audit — same HTTP flow as the Windows desktop app.
  */
 import { createRequire } from 'node:module';
-const require = createRequire(import.meta.url);
-const { chromium } = require(process.env.PLAYWRIGHT_MODULE || '/workspace/leadcrm/node_modules/playwright');
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import net from 'node:net';
 
+const require = createRequire(import.meta.url);
 const ROOT = path.resolve(import.meta.dirname, '..');
+const pwModule = process.env.PLAYWRIGHT_MODULE
+  || path.join(ROOT, 'node_modules', 'playwright');
+const { chromium } = require(fs.existsSync(pwModule) ? pwModule : '/workspace/leadcrm/node_modules/playwright');
 const WP_SRC = path.join(ROOT, 'app', 'wordpress');
 const AUDIT = process.env.LCRM_AUDIT_DIR || '/tmp/lcrm-wa-audit';
 const WP = path.join(AUDIT, 'wordpress');
@@ -80,10 +82,15 @@ define('LCRM_DESKTOP_APP', true);
 define('AUTH_KEY','a');define('SECURE_AUTH_KEY','a');define('LOGGED_IN_KEY','a');define('NONCE_KEY','a');
 define('AUTH_SALT','a');define('SECURE_AUTH_SALT','a');define('LOGGED_IN_SALT','a');define('NONCE_SALT','a');
 define('WP_DEBUG', false);
+if (file_exists(__DIR__ . '/.maintenance')) { @unlink(__DIR__ . '/.maintenance'); }
 if (!defined('ABSPATH')) define('ABSPATH', __DIR__ . '/');
 require_once ABSPATH . 'wp-settings.php';
 `;
   fs.writeFileSync(path.join(WP, 'wp-config.php'), wpConfig);
+  fs.copyFileSync(
+    path.join(ROOT, 'app', 'bin', 'desktop-router.php'),
+    path.join(WP, 'router.php'),
+  );
 
   const install = spawnSync('php', [path.join(AUDIT, 'bin', 'install-wordpress.php')], {
     env: {
@@ -131,6 +138,19 @@ require_once ABSPATH . 'wp-settings.php';
   } else {
     pass('CRM cold load without cookies', titleCold.slice(0, 80));
   }
+
+  // Maintenance mode must not block CRM (stuck .maintenance after interrupted install)
+  const upgrading = Math.floor(Date.now() / 1000);
+  fs.writeFileSync(path.join(WP, '.maintenance'), `<?php $upgrading = ${upgrading};`);
+  await page.goto(`${BASE}/crm/`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+  await page.waitForTimeout(1500);
+  const maintBody = await page.locator('body').innerText();
+  if (/scheduled maintenance/i.test(maintBody)) {
+    fail('WordPress maintenance bypass', 'CRM showed maintenance screen');
+  } else {
+    pass('WordPress maintenance bypass', 'CRM loads with .maintenance present');
+  }
+  try { fs.unlinkSync(path.join(WP, '.maintenance')); } catch {}
 
   // 3) CRM must not be wp-login
   await page.goto(`${BASE}/crm/`, { waitUntil: 'domcontentloaded', timeout: 60000 });

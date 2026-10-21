@@ -7,6 +7,7 @@ if (php_sapi_name() !== 'cli') {
 }
 
 $wpRoot = getenv('LCRM_WP_ROOT') ?: dirname(__DIR__) . '/wordpress';
+@unlink($wpRoot . '/.maintenance');
 $siteUrl = rtrim(getenv('LCRM_SITE_URL') ?: 'http://127.0.0.1:9780', '/');
 $adminUser = getenv('LCRM_ADMIN_USER') ?: 'admin';
 $adminEmail = getenv('LCRM_ADMIN_EMAIL') ?: 'admin@leadcrm.local';
@@ -70,4 +71,5 @@ if ($loginFile) {
     @chmod($loginFile, 0600);
 }
 
+@unlink($wpRoot . '/.maintenance');
 echo "Done.\n";

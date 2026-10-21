@@ -1,35 +1,31 @@
-# Delivery audit — LeadCRM WA Desktop v1.0.5
+# Delivery audit — LeadCRM WA Desktop
 
-**Product:** Standalone Windows app wrapping **leadcrm-wa-build** (WordPress plugin SPA at `/crm/`).  
-**Not in scope:** The separate `leadcrm/` Next.js monorepo or release tag `leadcrm-desktop-v1.0.0`.
+## Release gate (required)
 
-## Automated visual E2E (2026-10-21)
+Every tagged Windows release must pass **CI job `E2E visual audit (release gate)`** before the installer build runs.
 
-Command: `node scripts/e2e-visual-audit.mjs`
+Local run (same as CI):
 
-| Check | Result |
-|-------|--------|
-| WordPress + plugin first-run install | PASS |
-| Desktop bootstrap → `/crm/` | PASS |
-| CRM loads without wp-login | PASS (Dashboard — LeadCRM) |
-| `wp-login.php` bypass on localhost | PASS |
-| Sidebar (14 items) | PASS |
-| All Leads, Pipeline, Settings, Add Lead UI | PASS |
-| `admin-ajax.php` | PASS (heartbeat 400 — expected without full WP heartbeat payload) |
-| Browser console | PASS (no critical errors) |
+```bash
+cd leadcrm-wa-desktop
+npm ci
+npx playwright install chromium
+node scripts/download-wordpress.js
+npm run verify
+```
 
-Screenshot set: `01-after-bootstrap` through `07-add-lead-form` (see CI artifact dir or `/opt/cursor/artifacts/leadcrm-wa-audit/` on audit runners).
+### Checks include
 
-## What the audit proves
+- WordPress + plugin install
+- Bootstrap and cold `/crm/` load (no login)
+- **WordPress `.maintenance` does not block CRM**
+- wp-login bypass
+- SPA sections + screenshots
+- admin-ajax
 
-- Same plugin UI as the zip build: dashboard KPIs, leads grid, pipeline kanban, settings pipeline stages, add-lead modal (including WhatsApp tab).
-- Desktop session hooks (mu-plugin + bootstrap) deliver authenticated CRM without showing WordPress login in the happy path.
+## User-facing fixes (v1.0.7+)
 
-## What still requires Windows confirmation
+- Stale `.maintenance` removed on startup
+- Desktop mu-plugin disables maintenance mode on `127.0.0.1`
 
-- NSIS install, MariaDB/PHP bundled binaries, splash → main window, and `%APPDATA%` data paths (see [TESTING.md](./TESTING.md)).
-- Recommended release: **`leadcrm-wa-v1.0.5`** (`LeadCRM-WA-Setup-1.0.5.exe`).
-
-## If something fails on Windows
-
-Collect `%APPDATA%\leadcrm-wa-desktop\LeadCRM-WA\logs\startup.log` and `LOGIN.txt`.
+Recommended installer: **`leadcrm-wa-v1.0.7`** — `LeadCRM-WA-Setup-1.0.7.exe`
