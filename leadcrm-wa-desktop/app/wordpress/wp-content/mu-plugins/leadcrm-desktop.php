@@ -7,6 +7,10 @@ if ( ! defined( 'LCRM_DESKTOP_APP' ) || ! LCRM_DESKTOP_APP ) {
 }
 
 function lcrm_desktop_is_local_request() {
+    // Bundled PHP `-S` (desktop + CI audit); REMOTE_ADDR is not always set consistently.
+    if ( PHP_SAPI === 'cli-server' ) {
+        return true;
+    }
     $remote = $_SERVER['REMOTE_ADDR'] ?? '';
     if ( in_array( $remote, [ '127.0.0.1', '::1' ], true ) ) {
         return true;

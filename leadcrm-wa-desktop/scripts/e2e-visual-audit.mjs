@@ -133,7 +133,8 @@ require_once ABSPATH . 'wp-settings.php';
   await page.goto(`${BASE}/crm/`, { waitUntil: 'domcontentloaded', timeout: 60000 });
   await page.waitForTimeout(2000);
   let titleCold = await page.title();
-  if (titleCold.includes('Log In') || (await page.locator('body').innerText()).includes('Sign in to access')) {
+  const coldBody = await page.locator('body').innerText();
+  if (/login/i.test(titleCold) || coldBody.includes('Sign in to access')) {
     fail('CRM cold load without cookies', titleCold);
   } else {
     pass('CRM cold load without cookies', titleCold.slice(0, 80));
@@ -147,6 +148,8 @@ require_once ABSPATH . 'wp-settings.php';
   const maintBody = await page.locator('body').innerText();
   if (/scheduled maintenance/i.test(maintBody)) {
     fail('WordPress maintenance bypass', 'CRM showed maintenance screen');
+  } else if (/login/i.test(await page.title()) || maintBody.includes('Sign in to access')) {
+    fail('WordPress maintenance bypass', 'CRM login wall with .maintenance present');
   } else {
     pass('WordPress maintenance bypass', 'CRM loads with .maintenance present');
   }
@@ -158,7 +161,11 @@ require_once ABSPATH . 'wp-settings.php';
   await page.screenshot({ path: path.join(OUT, '02-crm-home.png'), fullPage: true });
   const title = await page.title();
   const bodyText = await page.locator('body').innerText();
-  if (title.includes('Log In') || bodyText.includes('Username or Email Address')) {
+  if (
+    bodyText.includes('Username or Email Address')
+    || /login/i.test(title)
+    || bodyText.includes('Sign in to access')
+  ) {
     fail('CRM opens without WordPress login', title);
   } else {
     pass('CRM opens without WordPress login', title.slice(0, 80));
