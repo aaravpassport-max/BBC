@@ -32,7 +32,6 @@
       "language": "1033",
       "include": "installer.nsh",
       "deleteAppDataOnUninstall": false,
-      "installDir": "$LOCALAPPDATA\\Programs\\LeadCRM-WA",
       "warningsAsErrors": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
