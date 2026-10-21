@@ -57,6 +57,10 @@ public sealed class SqliteRepository : IDisposable
         using var pragma2 = _connection.CreateCommand();
         pragma2.CommandText = "PRAGMA foreign_keys = ON;";
         pragma2.ExecuteNonQuery();
+        lock (_writeLock)
+        {
+            AgentDatabaseBootstrap.EnsureSchema(_connection);
+        }
     }
 
     public bool HasAcknowledgedNotice(string employeeId, string deviceId)
@@ -148,6 +152,7 @@ public sealed class SqliteRepository : IDisposable
     {
         lock (_writeLock)
         {
+            AgentDatabaseBootstrap.EnsureEmployeeAndDevice(_connection, employeeId, deviceId);
             using var cmd = _connection.CreateCommand();
             cmd.CommandText = @"
                 INSERT INTO notice_acknowledgements (employee_id, device_id, policy_version, first_shown_at_utc, acknowledged_at_utc)

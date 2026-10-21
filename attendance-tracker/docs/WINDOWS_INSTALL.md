@@ -2,16 +2,16 @@
 
 Use the **Setup.exe** installers (Start Menu, uninstall in Settings → Apps). No browser required for admin daily work.
 
-## Direct downloads (v1.0.4)
+## Direct downloads (v1.0.5)
 
 | Role | Installer |
 |------|-----------|
-| **Admin / HR** | https://github.com/aaravpassport-max/BBC/releases/download/attendance-desktop-v1.0.4/WorkforceAttendance-Admin-Setup-1.0.4.exe |
-| **Employee** | https://github.com/aaravpassport-max/BBC/releases/download/attendance-desktop-v1.0.4/WorkforceAttendance-Employee-Setup-1.0.4.exe |
+| **Admin / HR** | https://github.com/aaravpassport-max/BBC/releases/download/attendance-desktop-v1.0.5/WorkforceAttendance-Admin-Setup-1.0.5.exe |
+| **Employee** | https://github.com/aaravpassport-max/BBC/releases/download/attendance-desktop-v1.0.5/WorkforceAttendance-Employee-Setup-1.0.5.exe |
 
-Release page: https://github.com/aaravpassport-max/BBC/releases/tag/attendance-desktop-v1.0.4
+Release page: https://github.com/aaravpassport-max/BBC/releases/tag/attendance-desktop-v1.0.5
 
-> **v1.0.3 employee installs:** upgrade to **v1.0.4** if the agent “does nothing” when opened — v1.0.3 required an environment variable that the installer did not set.
+> **SQLite `no such table: notice_acknowledgements`:** reinstall **v1.0.5** employee Setup, or delete `%ProgramData%\WorkforceAttendance\attendance.db` and start the agent again (creates a fresh database).
 
 ## Admin console
 
@@ -22,7 +22,7 @@ Release page: https://github.com/aaravpassport-max/BBC/releases/tag/attendance-d
 
 ## Employee agent
 
-1. Run **WorkforceAttendance-Employee-Setup-1.0.4.exe** on each employee PC.
+1. Run **WorkforceAttendance-Employee-Setup-1.0.5.exe** on each employee PC.
 2. On the **Employee ID** step, enter HR’s ID or leave blank (uses `WindowsUser@ComputerName`).
 3. Keep **Start monitoring automatically when I sign in** enabled unless IT deploys startup another way.
 4. When the app starts, a **monitoring notice** appears — check **“I have read and understand”** and click **Continue**. Closing the window without that **does not start** the agent (by design).
@@ -36,7 +36,8 @@ Employees do **not** use `AttendanceTracker.exe`.
 |---------|-----|
 | Nothing visible after double-click | Check the **system tray** (^ arrow). The agent runs in the background. |
 | Notice flashes and closes | You closed without checking the box — run again and click **Continue**. |
-| v1.0.3 install, instant exit | Reinstall **v1.0.4** or create `%ProgramData%\WorkforceAttendance\agent-config.json` with `{"employee_id":"you@PC","device_id":"PCNAME"}`. |
+| v1.0.3 install, instant exit | Reinstall **v1.0.5** or create `%ProgramData%\WorkforceAttendance\agent-config.json` with `{"employee_id":"you@PC","device_id":"PCNAME"}`. |
+| Error: `no such table: notice_acknowledgements` | Reinstall **v1.0.5** employee Setup, or delete `%ProgramData%\WorkforceAttendance\attendance.db` and relaunch. |
 | Error dialog | See `%LocalAppData%\WorkforceAttendance\logs\agent-startup.log`. |
 
 ## Build installers locally
