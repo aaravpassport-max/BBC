@@ -1,0 +1,18 @@
+{
+  "name": "@attendance-tracker/core",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Platform-agnostic time-calculation and state-reconciliation engine for the attendance tracker. No Windows/browser dependencies here by design — this is the part proven by executed tests.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/copy-migrations.mjs && node scripts/copy-public.mjs",
+    "test": "node --test --import tsx test/**/*.test.ts",
+    "test:watch": "node --test --watch --import tsx test/**/*.test.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}

@@ -14,9 +14,11 @@ The UI is 100% WPF. The attendance calculation engine remains the proven TypeScr
 
 **Latest portable build (extract and run `AttendanceTracker.exe`):**
 
-https://github.com/aaravpassport-max/BBC/releases/download/attendance-desktop-v1.0.0/AttendanceTracker-Windows-x64-v1.0.0.zip
+https://github.com/aaravpassport-max/BBC/releases/download/attendance-desktop-v1.0.1/AttendanceTracker-Windows-x64-v1.0.1.zip
 
-Release page: https://github.com/aaravpassport-max/BBC/releases/tag/attendance-desktop-v1.0.0
+Release page: https://github.com/aaravpassport-max/BBC/releases/tag/attendance-desktop-v1.0.1
+
+> **v1.0.0** bundled Node 20, which cannot run the database engine (`node:sqlite` needs Node 22+). Use **v1.0.1** or newer.
 
 Includes self-contained .NET runtime, bundled `node.exe`, and the `core` engine. No separate Node or .NET install required.
 
@@ -43,8 +45,8 @@ After building, open `installer\setup.iss` in [Inno Setup](https://jrsoftware.or
 ## First run
 
 1. Launch **Workforce Attendance Console**.
-2. On first launch, create the **administrator account** (creates `%LocalAppData%\AttendanceTracker\data\attendance.db`).
-3. Sign in with that account.
+2. On first launch, **create your administrator account** — there is no pre-made ID/password. Use any email (e.g. `admin@yourcompany.local`) and a password you choose (creates `%LocalAppData%\AttendanceTracker\data\attendance.db`).
+3. Sign in with the same email and password.
 4. Optional: run `node core/scripts/seed-demo-data.mjs %LocalAppData%\AttendanceTracker\data\attendance.db` for rich demo attendance (overwrites if you delete the DB first).
 
 ## Data locations

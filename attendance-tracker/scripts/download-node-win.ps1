@@ -1,7 +1,7 @@
 # Downloads portable Node.js Windows x64 into runtime/node/ for offline installs.
 $ErrorActionPreference = "Stop"
 $Root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
-$Version = "20.18.0"
+$Version = "22.12.0"
 $Zip = "node-v$Version-win-x64.zip"
 $Url = "https://nodejs.org/dist/v$Version/$Zip"
 $Dest = Join-Path $Root "runtime\node"

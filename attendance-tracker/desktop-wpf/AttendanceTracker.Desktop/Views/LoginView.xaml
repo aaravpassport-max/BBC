@@ -11,7 +11,7 @@
 
         <StackPanel x:Name="FirstRunPanel" Visibility="Collapsed" Margin="0,0,0,16">
           <TextBlock Text="First-run setup" FontWeight="SemiBold" Margin="0,0,0,8"/>
-          <TextBlock Text="Create the local database and administrator account. Data stays on this PC unless you configure agents to sync to a central server."
+          <TextBlock Text="Create the local database and administrator account — there is no default login. Pick any email and password (e.g. admin@local and a password you will remember)."
                      Foreground="{StaticResource OfficeMutedBrush}" TextWrapping="Wrap" Margin="0,0,0,12"/>
           <TextBlock Text="Display name" Margin="0,0,0,4"/>
           <TextBox x:Name="AdminNameBox" Text="Administrator"/>

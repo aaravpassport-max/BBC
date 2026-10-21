@@ -43,7 +43,9 @@ public sealed class CoreEngineHost : IDisposable
 
         var node = AppPaths.ResolveNodeExecutable()
             ?? throw new InvalidOperationException(
-                "Node.js was not found. Install Node.js 20+ or use the full Windows installer bundle.");
+                "Node.js was not found. Use the full Windows ZIP (includes runtime\\node\\node.exe) or install Node.js 22+.");
+
+        NodeRuntime.EnsureVersionOrThrow(node);
 
         if (!File.Exists(AppPaths.StartServerScript))
             throw new FileNotFoundException("Core server script is missing from the installation.", AppPaths.StartServerScript);
@@ -51,7 +53,7 @@ public sealed class CoreEngineHost : IDisposable
         var psi = new ProcessStartInfo
         {
             FileName = node,
-            Arguments = $"\"{AppPaths.StartServerScript}\"",
+            Arguments = NodeRuntime.BuildArguments(AppPaths.StartServerScript),
             WorkingDirectory = AppPaths.CoreDirectory,
             UseShellExecute = false,
             CreateNoWindow = true,
@@ -79,19 +81,21 @@ public sealed class CoreEngineHost : IDisposable
     {
         AppPaths.EnsureDirectories();
         var node = AppPaths.ResolveNodeExecutable()
-            ?? throw new InvalidOperationException("Node.js is required for first-run setup.");
+            ?? throw new InvalidOperationException("Node.js 22+ is required for first-run setup (bundled in the ZIP).");
+
+        NodeRuntime.EnsureVersionOrThrow(node);
 
         if (!File.Exists(AppPaths.BootstrapScript))
             throw new FileNotFoundException("Bootstrap script missing.", AppPaths.BootstrapScript);
 
-        var args = $"\"{AppPaths.BootstrapScript}\" \"{AppPaths.DatabasePath}\" \"{email}\" \"{password}\" \"{displayName}\"";
+        var trailing = $"\"{AppPaths.DatabasePath}\" \"{email}\" \"{password}\" \"{displayName}\"";
         if (seedDemo)
-            args += " --seed-demo";
+            trailing += " --seed-demo";
 
         var psi = new ProcessStartInfo
         {
             FileName = node,
-            Arguments = args,
+            Arguments = NodeRuntime.BuildArguments(AppPaths.BootstrapScript, trailing),
             WorkingDirectory = AppPaths.CoreDirectory,
             UseShellExecute = false,
             CreateNoWindow = true,
