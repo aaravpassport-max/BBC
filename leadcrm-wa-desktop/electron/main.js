@@ -337,40 +337,12 @@ function attachLoginBypass(win) {
   });
 }
 
-async function establishDesktopSession() {
-  const bootstrap = `http://127.0.0.1:${phpPort}/leadcrm-desktop-bootstrap.php`;
-  return new Promise((resolve, reject) => {
-    const hidden = new BrowserWindow({
-      show: false,
-      webPreferences: {
-        partition: SESSION_PARTITION,
-        contextIsolation: true,
-        nodeIntegration: false,
-      },
-    });
-    const timeout = setTimeout(() => {
-      try { hidden.destroy(); } catch {}
-      reject(new Error('Could not start LeadCRM session (timeout).'));
-    }, 120000);
-    const finish = () => {
-      clearTimeout(timeout);
-      try { hidden.destroy(); } catch {}
-      resolve();
-    };
-    hidden.webContents.on('did-fail-load', (_e, _code, desc) => {
-      clearTimeout(timeout);
-      try { hidden.destroy(); } catch {}
-      reject(new Error(`LeadCRM session failed: ${desc}`));
-    });
-    hidden.webContents.on('did-navigate', (_e, url) => {
-      if (url.includes('/crm')) finish();
-    });
-    hidden.webContents.on('did-finish-load', () => {
-      const url = hidden.webContents.getURL();
-      if (url.includes('/crm')) finish();
-    });
-    hidden.loadURL(bootstrap);
-  });
+function crmUrl() {
+  return `http://127.0.0.1:${phpPort}/crm/`;
+}
+
+function bootstrapUrl() {
+  return `http://127.0.0.1:${phpPort}/leadcrm-desktop-bootstrap.php`;
 }
 
 function createWindow() {
@@ -385,17 +357,37 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
-    show: false,
+    show: true,
+    backgroundColor: '#0f172a',
   });
   attachLoginBypass(mainWindow);
-  mainWindow.loadURL(`http://127.0.0.1:${phpPort}/crm/`);
-  mainWindow.once('ready-to-show', () => mainWindow.show());
+
+  const openCrm = () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.loadURL(crmUrl());
+  };
+
+  mainWindow.webContents.on('did-finish-load', () => {
+    const url = mainWindow.webContents.getURL();
+    if (url.includes('wp-login.php')) {
+      mainWindow.loadURL(bootstrapUrl());
+    }
+  });
+
+  // Sign in locally, then land on CRM (never block app exit on failure).
+  mainWindow.loadURL(bootstrapUrl()).catch(() => openCrm());
+  setTimeout(() => {
+    const url = mainWindow?.webContents?.getURL?.() || '';
+    if (mainWindow && !mainWindow.isDestroyed() && !url.includes('/crm')) {
+      openCrm();
+    }
+  }, 15000);
 
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
       label: 'LeadCRM',
       submenu: [
-        { label: 'Open CRM', click: () => mainWindow?.loadURL(`http://127.0.0.1:${phpPort}/crm/`) },
+        { label: 'Open CRM', click: () => mainWindow?.loadURL(crmUrl()) },
+        { label: 'Sign in again (local)', click: () => mainWindow?.loadURL(bootstrapUrl()) },
         { label: 'Advanced settings', click: () => mainWindow?.loadURL(`http://127.0.0.1:${phpPort}/wp-admin/`) },
         { label: 'Data folder', click: () => shell.openPath(DATA_DIR) },
         { type: 'separator' },
@@ -413,15 +405,39 @@ function cleanup() {
 
 app.on('ready', async () => {
   if (!app.requestSingleInstanceLock()) return app.quit();
+
+  const splash = new BrowserWindow({
+    width: 440,
+    height: 220,
+    frame: false,
+    center: true,
+    resizable: false,
+    alwaysOnTop: true,
+    backgroundColor: '#0f172a',
+    webPreferences: { contextIsolation: true, nodeIntegration: false },
+  });
+  splash.loadURL(
+    'data:text/html;charset=utf-8,' + encodeURIComponent(
+      '<body style="margin:0;background:#0f172a;color:#fff;font-family:Segoe UI,sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column">'
+      + '<div style="font-size:20px;font-weight:600;margin-bottom:10px">LeadCRM WA</div>'
+      + '<div style="color:#94a3b8;font-size:13px">Starting local CRM services…</div></body>',
+    ),
+  );
+
   try {
     ensureWordPressTree();
     const dbPass = await startMariaDB();
     await startPhp();
     runWordPressInstall(dbPass);
-    await establishDesktopSession();
+    splash.close();
     createWindow();
   } catch (e) {
-    dialog.showErrorBox('LeadCRM failed to start', `${e.message}\n\nData: ${DATA_DIR}`);
+    appendLog(path.join(LOG_DIR, 'startup.log'), `${e.stack || e.message}\n`);
+    splash.close();
+    dialog.showErrorBox(
+      'LeadCRM failed to start',
+      `${e.message}\n\nData folder:\n${DATA_DIR}\n\nLog:\n${path.join(LOG_DIR, 'startup.log')}`,
+    );
     app.quit();
   }
 });
