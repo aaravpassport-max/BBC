@@ -2,7 +2,7 @@
  * LeadCRM WA Desktop — WordPress + leadcrm-wa-build plugin
  * Bundled MariaDB + PHP + Electron shell
  */
-const { app, BrowserWindow, dialog, shell, Menu, session } = require('electron');
+const { app, BrowserWindow, dialog, shell, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const net = require('net');
@@ -26,8 +26,10 @@ const APP_VERSION_FILE = path.join(DATA_DIR, 'app-version.json');
 const LOGIN_FILE = path.join(DATA_DIR, 'LOGIN.txt');
 const PHP_INI_FILE = path.join(DATA_DIR, 'php.ini');
 
-let phpPort = 9780;
-let dbPort = 3308;
+const DEFAULT_PHP_PORT = 9780;
+const DEFAULT_DB_PORT = 3308;
+let phpPort = DEFAULT_PHP_PORT;
+let dbPort = DEFAULT_DB_PORT;
 let phpProcess = null;
 let mariaProcess = null;
 let mainWindow = null;
@@ -104,18 +106,64 @@ function appendLog(file, data) {
   try { fs.appendFileSync(file, data); } catch {}
 }
 
-function waitForPort(port, ms = 60000) {
+function waitForPort(port, ms = 60000, label = 'service') {
   return new Promise((resolve, reject) => {
     const start = Date.now();
     const tick = () => {
       const s = net.createConnection({ port, host: '127.0.0.1' }, () => { s.end(); resolve(); });
       s.on('error', () => {
-        if (Date.now() - start > ms) reject(new Error(`Port ${port} timeout`));
-        else setTimeout(tick, 400);
+        if (Date.now() - start > ms) {
+          reject(new Error(`${label} did not start on port ${port} (timeout). See logs in ${LOG_DIR}`));
+        } else setTimeout(tick, 400);
       });
     };
     tick();
   });
+}
+
+function portAvailable(port) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.unref();
+    server.once('error', () => resolve(false));
+    server.listen({ port, host: '127.0.0.1' }, () => server.close(() => resolve(true)));
+  });
+}
+
+async function pickPort(preferred, from, to) {
+  if (await portAvailable(preferred)) return preferred;
+  for (let p = from; p <= to; p += 1) {
+    if (await portAvailable(p)) return p;
+  }
+  throw new Error(
+    `No free port (${preferred} or ${from}-${to} busy). Quit other LeadCRM copies, free those ports, or reboot Windows.`,
+  );
+}
+
+function loadSavedPorts() {
+  if (!fs.existsSync(DB_CFG_FILE)) return;
+  try {
+    const cfg = JSON.parse(fs.readFileSync(DB_CFG_FILE, 'utf8'));
+    if (cfg.port) dbPort = cfg.port;
+    if (cfg.phpPort) phpPort = cfg.phpPort;
+  } catch {}
+}
+
+async function resolveRuntimePorts() {
+  loadSavedPorts();
+  dbPort = await pickPort(dbPort, DEFAULT_DB_PORT, DEFAULT_DB_PORT + 12);
+  phpPort = await pickPort(phpPort, DEFAULT_PHP_PORT, DEFAULT_PHP_PORT + 12);
+}
+
+function syncBundledBin() {
+  const binSrc = path.join(APP_DIR, 'bin');
+  const binDest = path.join(DATA_DIR, 'bin');
+  if (!fs.existsSync(binSrc)) return;
+  fs.mkdirSync(binDest, { recursive: true });
+  for (const name of fs.readdirSync(binSrc)) {
+    const src = path.join(binSrc, name);
+    if (fs.statSync(src).isFile()) fs.copyFileSync(src, path.join(binDest, name));
+  }
 }
 
 function copyDir(src, dest) {
@@ -137,9 +185,7 @@ function ensureWordPressTree() {
     appendLog(path.join(LOG_DIR, 'init.log'), 'Copying WordPress to user data…\n');
     copyDir(bundled, WP_DIR);
   }
-  const binSrc = path.join(APP_DIR, 'bin');
-  const binDest = path.join(DATA_DIR, 'bin');
-  if (fs.existsSync(binSrc) && !fs.existsSync(binDest)) copyDir(binSrc, binDest);
+  syncBundledBin();
   syncBundledPluginIfNeeded();
 }
 
@@ -193,7 +239,10 @@ function writeDbConfig(port) {
   if (fs.existsSync(DB_CFG_FILE)) {
     try { pass = JSON.parse(fs.readFileSync(DB_CFG_FILE, 'utf8')).pass; } catch {}
   }
-  fs.writeFileSync(DB_CFG_FILE, JSON.stringify({ port, pass, user: 'lcrmuser', name: 'leadcrm_wp' }, null, 2));
+  fs.writeFileSync(
+    DB_CFG_FILE,
+    JSON.stringify({ port, phpPort, pass, user: 'lcrmuser', name: 'leadcrm_wp' }, null, 2),
+  );
   return pass;
 }
 
@@ -261,11 +310,17 @@ async function startMariaDB() {
   }
 
   mariaProcess = spawn(mysqld, [`--defaults-file=${mariaConfigPath()}`, `--datadir=${DB_DATA_DIR}`], {
-    stdio: 'ignore',
+    stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   });
+  const mariaLog = path.join(LOG_DIR, 'mariadb.log');
+  mariaProcess.stdout?.on('data', d => appendLog(mariaLog, d.toString()));
+  mariaProcess.stderr?.on('data', d => appendLog(mariaLog, d.toString()));
+  mariaProcess.on('exit', code => {
+    if (code) appendLog(mariaLog, `\n[mysqld exited with code ${code}]\n`);
+  });
 
-  await waitForPort(dbPort, 120000);
+  await waitForPort(dbPort, 180000, 'MariaDB');
 
   const esc = dbPass.replace(/'/g, "''");
   const sql = [
@@ -303,7 +358,30 @@ require __DIR__ . '/index.php';
     windowsHide: true,
   });
   phpProcess.stderr.on('data', d => appendLog(path.join(LOG_DIR, 'php.log'), d.toString()));
-  await waitForPort(phpPort, 30000);
+  phpProcess.on('exit', code => {
+    if (code) appendLog(path.join(LOG_DIR, 'php.log'), `\n[php exited with code ${code}]\n`);
+  });
+  await waitForPort(phpPort, 60000, 'PHP');
+}
+
+function syncDesktopEnv(dbPass) {
+  const php = getPhpBinary();
+  const syncScript = path.join(DATA_DIR, 'bin', 'sync-desktop-env.php');
+  if (!php || !fs.existsSync(syncScript)) return;
+
+  const siteUrl = `http://127.0.0.1:${phpPort}`;
+  const result = spawnSync(php, phpCliArgs([syncScript]), {
+    env: {
+      ...process.env,
+      LCRM_WP_ROOT: WP_DIR,
+      LCRM_SITE_URL: siteUrl,
+      LCRM_DB_HOST: `127.0.0.1:${dbPort}`,
+      LCRM_DB_PASSWORD: dbPass,
+    },
+    encoding: 'utf8',
+    timeout: 120000,
+  });
+  appendLog(path.join(LOG_DIR, 'init.log'), (result.stdout || '') + (result.stderr || ''));
 }
 
 function runWordPressInstall(dbPass) {
@@ -405,35 +483,7 @@ function createWindow() {
     }
   });
 
-  const ses = session.fromPartition(SESSION_PARTITION);
-  const openWithSession = async () => {
-    await ses.cookies.flushStore().catch(() => {});
-    mainWindow.loadURL(bootstrapUrl()).catch(() => openCrm());
-  };
-  openWithSession();
-
-  let authRetries = 0;
-  const authTimer = setInterval(() => {
-    if (!mainWindow || mainWindow.isDestroyed()) {
-      clearInterval(authTimer);
-      return;
-    }
-    const url = mainWindow.webContents.getURL();
-    const title = mainWindow.webContents.getTitle();
-    if (url.includes('/crm/') && /dashboard|leadcrm/i.test(title) && !/login/i.test(title)) {
-      clearInterval(authTimer);
-      return;
-    }
-    if (authRetries >= 8) {
-      clearInterval(authTimer);
-      openCrm();
-      return;
-    }
-    authRetries += 1;
-    if (needsAuthReroute(url, title) || !url.includes('/crm/')) {
-      mainWindow.loadURL(bootstrapUrl()).catch(() => openCrm());
-    }
-  }, 2000);
+  mainWindow.loadURL(crmUrl()).catch(() => mainWindow.loadURL(bootstrapUrl()));
 
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
@@ -478,18 +528,23 @@ app.on('ready', async () => {
   );
 
   try {
+    await resolveRuntimePorts();
     ensureWordPressTree();
     const dbPass = await startMariaDB();
     await startPhp();
+    syncDesktopEnv(dbPass);
     runWordPressInstall(dbPass);
     splash.close();
     createWindow();
   } catch (e) {
     appendLog(path.join(LOG_DIR, 'startup.log'), `${e.stack || e.message}\n`);
     splash.close();
+    const sessionHint = String(e.message).includes('LeadCRM session')
+      ? '\n\nYou may be on an old installer (v1.0.3 or earlier). Install LeadCRM-WA-Setup-1.0.6.exe from GitHub Releases.'
+      : '';
     dialog.showErrorBox(
       'LeadCRM failed to start',
-      `${e.message}\n\nData folder:\n${DATA_DIR}\n\nLog:\n${path.join(LOG_DIR, 'startup.log')}`,
+      `${e.message}${sessionHint}\n\nData folder:\n${DATA_DIR}\n\nLogs:\n${LOG_DIR}`,
     );
     app.quit();
   }
