@@ -18,8 +18,8 @@ const PHP_DIR = path.join(ROOT, 'php');
 const MARIADB_DIR = path.join(ROOT, 'mariadb');
 const CACHE_DIR = path.join(ROOT, '.build-cache');
 
-const PHP_VERSION = '8.2.27';
-const PHP_URL = `https://windows.php.net/downloads/releases/php-${PHP_VERSION}-nts-Win32-vs17-x64.zip`;
+const PHP_VERSION = '8.2.26';
+const PHP_URL = `https://windows.php.net/downloads/releases/archives/php-${PHP_VERSION}-nts-Win32-vs16-x64.zip`;
 
 const MARIADB_VERSION = '10.11.10';
 const MARIADB_URL = `https://downloads.mariadb.com/MariaDB/mariadb-${MARIADB_VERSION}/winx64-packages/mariadb-${MARIADB_VERSION}-winx64.zip`;
