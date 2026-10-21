@@ -23,13 +23,13 @@ internal static class AgentStartupError
     public static void ShowFatal(string message, Exception? ex = null)
     {
         if (ex != null) Log(ex);
-        MessageBox.Show(
+        System.Windows.Forms.MessageBox.Show(
             message + (ex != null ? $"\n\nTechnical detail: {ex.Message}" : "") +
             "\n\nIf this keeps happening, ask IT to check:\n" +
             $"%ProgramData%\\WorkforceAttendance\\agent-config.json\n" +
             $"%LocalAppData%\\WorkforceAttendance\\logs\\agent-startup.log",
             "Workforce Attendance Agent",
-            MessageBoxButtons.OK,
-            MessageBoxIcon.Error);
+            System.Windows.Forms.MessageBoxButtons.OK,
+            System.Windows.Forms.MessageBoxIcon.Error);
     }
 }

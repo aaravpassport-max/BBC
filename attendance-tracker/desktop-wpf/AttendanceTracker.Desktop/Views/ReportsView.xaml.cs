@@ -9,7 +9,7 @@ using Microsoft.Win32;
 
 namespace AttendanceTracker.Desktop.Views;
 
-public partial class ReportsView : UserControl, IRefreshable
+public partial class ReportsView : System.Windows.Controls.UserControl, IRefreshable
 {
     private readonly AttendanceApiClient _api;
     private List<EmployeeRow> _employees = new();

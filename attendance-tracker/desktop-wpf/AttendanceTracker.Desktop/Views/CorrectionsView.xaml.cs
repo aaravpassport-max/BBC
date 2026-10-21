@@ -5,7 +5,7 @@ using AttendanceTracker.Desktop.Services;
 
 namespace AttendanceTracker.Desktop.Views;
 
-public partial class CorrectionsView : UserControl, IRefreshable
+public partial class CorrectionsView : System.Windows.Controls.UserControl, IRefreshable
 {
     private readonly AttendanceApiClient _api;
 

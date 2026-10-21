@@ -14,7 +14,7 @@ public static class ReadOnlyUi
 
     private static void DisableMutatingControls(DependencyObject node)
     {
-        if (node is Button btn && btn.Name is not "NavDashboard" and not "NavEmployees" and not "NavHistory"
+        if (node is System.Windows.Controls.Button btn && btn.Name is not "NavDashboard" and not "NavEmployees" and not "NavHistory"
             and not "NavReports" and not "NavCorrections" and not "NavEmployeesGuide" and not "NavSettings")
         {
             var content = btn.Content?.ToString() ?? "";

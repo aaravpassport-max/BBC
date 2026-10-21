@@ -41,10 +41,10 @@ public sealed class TrayPresence : IDisposable
         menu.Items.Add("View my activity today", null, (_, _) => ShowSelfView());
         menu.Items.Add("What is being monitored?", null, (_, _) => ShowNoticeText());
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add("About", null, (_, _) => MessageBox.Show(
+        menu.Items.Add("About", null, (_, _) => System.Windows.Forms.MessageBox.Show(
             "Attendance monitoring agent. Your employer can see attendance and activity " +
             "data collected by this program. See \"What is being monitored?\" for details.",
-            "Attendance Agent", MessageBoxButtons.OK, MessageBoxIcon.Information));
+            "Attendance Agent", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Information));
 
         _icon = new NotifyIcon
         {
@@ -69,7 +69,7 @@ public sealed class TrayPresence : IDisposable
         }
         catch
         {
-            MessageBox.Show(
+            System.Windows.Forms.MessageBox.Show(
                 "The attendance agent is running in the background.\n\n" +
                 "1. Click the ^ arrow next to the clock (system tray).\n" +
                 "2. Find the information icon for this agent.\n" +
@@ -119,10 +119,10 @@ public sealed class TrayPresence : IDisposable
             }
             catch (Exception ex)
             {
-                MessageBox.Show(
+                System.Windows.Forms.MessageBox.Show(
                     $"Couldn't open your activity dashboard in a browser: {ex.Message}\n\n" +
                     "Showing a local fallback summary instead.",
-                    "Attendance Agent", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    "Attendance Agent", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Warning);
             }
         }
 
@@ -140,14 +140,14 @@ public sealed class TrayPresence : IDisposable
         // displayed, so "what is collected" is never more than two
         // clicks away, on demand, for the life of the install — not
         // just at the moment of first acknowledgement.
-        MessageBox.Show(
+        System.Windows.Forms.MessageBox.Show(
             "What is collected: sign-in/sign-out and lock/unlock times, sleep and wake " +
             "events, which application is in the foreground and for how long, which " +
             "website is active in a supported browser, and the timing (not content) of " +
             "keyboard and mouse input.\n\n" +
             "Never collected: keystroke content, passwords, clipboard, message content, " +
             "screenshots, camera, or microphone.",
-            "What is being monitored?", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            "What is being monitored?", System.Windows.Forms.MessageBoxButtons.OK, System.Windows.Forms.MessageBoxIcon.Information);
     }
 
     public void Dispose()

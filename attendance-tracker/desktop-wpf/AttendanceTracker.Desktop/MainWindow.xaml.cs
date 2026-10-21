@@ -9,7 +9,7 @@ namespace AttendanceTracker.Desktop;
 public partial class MainWindow : Window
 {
     private readonly AttendanceApiClient _api = new();
-    private readonly Dictionary<string, UserControl> _pages = new();
+    private readonly Dictionary<string, System.Windows.Controls.UserControl> _pages = new();
 
     public MainWindow()
     {
@@ -113,7 +113,7 @@ public partial class MainWindow : Window
 
     private void SetNavStyles(string active)
     {
-        foreach (var (name, tag) in new (Button btn, string tag)[]
+        foreach (var (name, tag) in new (System.Windows.Controls.Button btn, string tag)[]
         {
             (NavDashboard, "dashboard"),
             (NavEmployees, "employees"),
@@ -130,7 +130,7 @@ public partial class MainWindow : Window
 
     private void Nav_Click(object sender, RoutedEventArgs e)
     {
-        if (sender is Button b && b.Tag is string tag)
+        if (sender is System.Windows.Controls.Button b && b.Tag is string tag)
             Navigate(tag);
     }
 

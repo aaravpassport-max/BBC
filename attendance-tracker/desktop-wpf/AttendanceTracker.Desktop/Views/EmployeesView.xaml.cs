@@ -3,7 +3,7 @@ using AttendanceTracker.Desktop.Services;
 
 namespace AttendanceTracker.Desktop.Views;
 
-public partial class EmployeesView : UserControl, IRefreshable
+public partial class EmployeesView : System.Windows.Controls.UserControl, IRefreshable
 {
     private readonly AttendanceApiClient _api;
 

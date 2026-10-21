@@ -6,7 +6,7 @@ using Microsoft.Win32;
 
 namespace AttendanceTracker.Desktop.Views;
 
-public partial class SettingsView : UserControl, IRefreshable
+public partial class SettingsView : System.Windows.Controls.UserControl, IRefreshable
 {
     public SettingsView()
     {

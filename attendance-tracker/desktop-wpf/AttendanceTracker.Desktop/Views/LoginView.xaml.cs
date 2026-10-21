@@ -5,7 +5,7 @@ using AttendanceTracker.Desktop.Services;
 
 namespace AttendanceTracker.Desktop.Views;
 
-public partial class LoginView : UserControl
+public partial class LoginView : System.Windows.Controls.UserControl
 {
     private bool _firstRun;
 

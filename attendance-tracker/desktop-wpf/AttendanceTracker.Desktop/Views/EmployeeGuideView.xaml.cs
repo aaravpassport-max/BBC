@@ -6,7 +6,7 @@ using AttendanceTracker.Desktop.Services;
 
 namespace AttendanceTracker.Desktop.Views;
 
-public partial class EmployeeGuideView : UserControl, IRefreshable
+public partial class EmployeeGuideView : System.Windows.Controls.UserControl, IRefreshable
 {
     public EmployeeGuideView()
     {
