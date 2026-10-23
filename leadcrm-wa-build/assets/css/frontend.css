@@ -1,0 +1,281 @@
+/* LeadCRM Frontend Portal Styles (v2.1.2) */
+/* Wraps and isolates CRM styles from the theme */
+
+/* ── PORTAL OUTER WRAP ─────────────────────────────────── */
+.lcrm-fe-wrap {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    color: #1e293b;
+    line-height: 1.5;
+    max-width: 1600px;
+    margin: 0 auto;
+}
+
+/* ── TOP NAVIGATION BAR ────────────────────────────────── */
+.lcrm-fe-nav {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border-bottom: 2px solid #e2e8f0;
+    padding: 0 20px;
+    position: sticky;
+    top: 0;
+    z-index: 999;
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+    flex-wrap: wrap;
+    gap: 0;
+}
+
+.lcrm-fe-nav-brand {
+    font-size: 18px;
+    font-weight: 800;
+    color: #6366f1;
+    padding: 14px 20px 14px 0;
+    border-right: 1px solid #e2e8f0;
+    margin-right: 8px;
+    letter-spacing: -.3px;
+    white-space: nowrap;
+}
+
+.lcrm-fe-nav-links {
+    display: flex;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    flex: 1;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.lcrm-fe-nav-link {
+    display: block;
+    padding: 16px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #64748b;
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    transition: all .15s;
+    white-space: nowrap;
+}
+
+.lcrm-fe-nav-link:hover {
+    color: #6366f1;
+    text-decoration: none;
+}
+
+.lcrm-fe-nav-active {
+    color: #6366f1 !important;
+    border-bottom-color: #6366f1 !important;
+    font-weight: 700;
+}
+
+.lcrm-fe-nav-user {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 0 0 16px;
+    border-left: 1px solid #e2e8f0;
+    font-size: 13px;
+    color: #64748b;
+}
+
+.lcrm-fe-logout {
+    font-size: 12px;
+    color: #ef4444;
+    text-decoration: none;
+    font-weight: 600;
+}
+.lcrm-fe-logout:hover { text-decoration: underline; color: #dc2626; }
+
+/* Alert badge in nav */
+.lcrm-fe-badge {
+    display: inline-block;
+    background: #ef4444;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 1px 6px;
+    border-radius: 999px;
+    margin-left: 3px;
+    vertical-align: middle;
+}
+
+/* ── HAMBURGER (mobile) ────────────────────────────────── */
+.lcrm-fe-hamburger {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 22px;
+    cursor: pointer;
+    color: #6366f1;
+    margin-left: auto;
+    padding: 8px;
+}
+
+/* ── PAGE CONTENT ──────────────────────────────────────── */
+.lcrm-fe-content {
+    padding: 20px;
+}
+
+.lcrm-fe-page {
+    padding: 16px 0 40px !important;
+}
+
+/* ── FRONTEND BUTTONS (don't use WP button classes) ─────── */
+.lcrm-fe-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 8px 16px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #1e293b;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all .15s;
+    line-height: 1;
+}
+.lcrm-fe-btn:hover { background: #e2e8f0; color: #1e293b; text-decoration: none; }
+
+.lcrm-fe-btn-primary {
+    background: #6366f1;
+    border-color: #6366f1;
+    color: #fff;
+}
+.lcrm-fe-btn-primary:hover { background: #4f46e5; border-color: #4f46e5; color: #fff; }
+
+.lcrm-fe-btn-danger {
+    background: #ef4444;
+    border-color: #ef4444;
+    color: #fff;
+}
+.lcrm-fe-btn-danger:hover { background: #dc2626; color: #fff; }
+
+/* Make lcrm-btn class also work on frontend (admin.js uses it) */
+.lcrm-fe-wrap .button,
+.lcrm-fe-wrap .lcrm-btn {
+    display: inline-flex !important;
+    align-items: center;
+    gap: 5px;
+    padding: 7px 14px !important;
+    background: #f1f5f9 !important;
+    border: 1px solid #e2e8f0 !important;
+    border-radius: 7px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #1e293b !important;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all .15s !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+}
+.lcrm-fe-wrap .button-primary,
+.lcrm-fe-wrap .button.button-primary {
+    background: #6366f1 !important;
+    border-color: #6366f1 !important;
+    color: #fff !important;
+}
+.lcrm-fe-wrap .button-primary:hover {
+    background: #4f46e5 !important;
+    border-color: #4f46e5 !important;
+}
+.lcrm-fe-wrap .lcrm-btn-danger {
+    background: #ef4444 !important;
+    border-color: #ef4444 !important;
+    color: #fff !important;
+}
+
+/* ── LOGIN / ACCESS DENIED PROMPTS ────────────────────── */
+.lcrm-fe-login-prompt,
+.lcrm-fe-access-denied {
+    text-align: center;
+    padding: 60px 20px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    margin: 30px auto;
+    max-width: 420px;
+}
+.lcrm-fe-login-prompt h3,
+.lcrm-fe-access-denied h3 {
+    font-size: 20px;
+    margin: 0 0 8px;
+    color: #1e293b;
+}
+.lcrm-fe-login-prompt p,
+.lcrm-fe-access-denied p {
+    color: #64748b;
+    font-size: 14px;
+}
+
+/* ── FIX THEME CONFLICTS ───────────────────────────────── */
+/* Prevent most themes' table/input resets from breaking the CRM */
+.lcrm-fe-wrap .lcrm-table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+}
+.lcrm-fe-wrap .lcrm-input {
+    appearance: auto !important;
+    -webkit-appearance: auto !important;
+}
+
+/* Modals: ensure they sit above theme header */
+.lcrm-fe-wrap .lcrm-modal {
+    position: fixed !important;
+    z-index: 99999 !important;
+}
+
+/* ── MOBILE ────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .lcrm-fe-hamburger {
+        display: block;
+    }
+    .lcrm-fe-nav-links {
+        display: none;
+        flex-direction: column;
+        align-items: flex-start;
+        width: 100%;
+        background: #fff;
+        border-top: 1px solid #e2e8f0;
+        padding: 8px 0;
+    }
+    .lcrm-fe-nav-links.lcrm-fe-nav-open {
+        display: flex;
+    }
+    .lcrm-fe-nav-links li {
+        width: 100%;
+    }
+    .lcrm-fe-nav-link {
+        padding: 12px 20px;
+        border-bottom: none;
+        border-left: 3px solid transparent;
+    }
+    .lcrm-fe-nav-active {
+        border-left-color: #6366f1 !important;
+        border-bottom-color: transparent !important;
+        background: #f5f3ff;
+    }
+    .lcrm-fe-nav-user {
+        padding: 12px 20px;
+        border-left: none;
+        border-top: 1px solid #e2e8f0;
+        margin-left: 0;
+        width: 100%;
+        flex-wrap: wrap;
+    }
+    .lcrm-fe-content {
+        padding: 12px;
+    }
+    .lcrm-fe-page {
+        padding: 10px 0 20px !important;
+    }
+    .lcrm-stats-grid {
+        grid-template-columns: 1fr 1fr !important;
+    }
+}

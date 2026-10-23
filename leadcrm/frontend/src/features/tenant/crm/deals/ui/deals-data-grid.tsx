@@ -1,0 +1,253 @@
+/**
+ * DealsDataGrid — Deals table implemented with the shared DataGrid component.
+ *
+ * Replaces the legacy DealsTable for the "table" view type,
+ * providing column preferences, sorting, bulk selection, row actions,
+ * column resize, and view mode (wrap/clip) support.
+ */
+
+'use client';
+import { getTableSortFields } from '@/shared/constants/column-registries';
+import { useCrmRecordAccess } from '@/shared/hooks/use-crm-record-access';
+
+import { useConfiguredCrmColumns } from '@/shared/hooks/use-field-layout';
+
+import React, { useMemo, useCallback } from 'react';
+import type { Deal } from '@/store/types';
+import { DEALS_TABLE_SORT_FIELDS, type ColumnConfigItem } from '@leadcrm/shared';
+import Link from 'next/link';
+import type { SortState } from '@/shared/components/data-grid';
+import { StatusBadge } from '@/shared/components/crm';
+import {
+  DataGrid,
+  useDataGridColumns,
+  buildDefaultRowActions,
+  renderDate,
+  MODULE_ACCENT_COLORS,
+  DEAL_PRIORITY_VARIANTS,
+} from '@/shared/components/data-grid';
+import type { CellRendererMap, RowActionItem } from '@/shared/components/data-grid';
+import { DEALS_COLUMN_REGISTRY } from '@/shared/constants/column-registries';
+import { formatCurrency, type CurrencyConfig } from '@/shared/utils/currency';
+
+// ─── Props Interface ─────────────────────────────────────────────────────────
+
+interface DealsDataGridProps {
+  /** Paginated deals for the current view */
+  deals: Deal[];
+  highlightRowId?: string;
+  /** Total record count */
+  totalRecords: number;
+  /** Column preferences from useColumnPreferences */
+  effectiveColumns: ColumnConfigItem[];
+  /** Current sort state */
+  sort?: SortState | null;
+  /** Sort change handler */
+  onSortChange?: (sort: SortState | null) => void;
+  /** Row click → open detail modal */
+  onRowClick: (deal: Deal) => void;
+  /** Selected row IDs */
+  selectedIds: Set<string>;
+  /** Selection change callback */
+  onSelectionChange: (ids: Set<string>) => void;
+  /** Stage name lookup */
+  stageNameMap: Record<string, string>;
+  /** Pipeline name lookup (reserved for future pipeline column) */
+  pipelineNameMap?: Record<string, string>;
+  /** Lookup: get assigned user name */
+  getAssignedUserName: (userId?: string) => string;
+  /** Lookup: get account name */
+  getAccountName: (accountId?: string) => string;
+  /** RBAC: can user edit */
+  canEdit?: boolean;
+  /** RBAC: can user delete */
+  canDelete?: boolean;
+  /** Open edit for a deal */
+  onEdit?: (deal: Deal) => void;
+  /** Delete a deal */
+  onDelete?: (deal: Deal) => void;
+  /** Open manage columns drawer */
+  onManageColumns?: () => void;
+  /** Hide a specific column */
+  onHideColumn?: (columnId: string) => void;
+  onColumnWidthChange?: (columnId: string, width: number) => void;
+  /** Display mode: wrap or clip cell content */
+  viewMode?: 'wrap' | 'clip';
+  /** Tenant currency configuration for formatting monetary values */
+  currencyConfig?: CurrencyConfig;
+}
+
+// ─── Component ───────────────────────────────────────────────────────────────
+
+export function DealsDataGrid({
+  deals,
+  highlightRowId,
+  totalRecords,
+  effectiveColumns,
+  sort = null,
+  onSortChange,
+  onRowClick,
+  selectedIds,
+  onSelectionChange,
+  stageNameMap,
+  // pipelineNameMap available via props if pipeline column is added
+  getAssignedUserName,
+  getAccountName,
+  canEdit = false,
+  canDelete = false,
+  onEdit,
+  onDelete,
+  onManageColumns,
+  onHideColumn,
+  onColumnWidthChange,
+  viewMode = 'clip',
+  currencyConfig,
+}: DealsDataGridProps): React.ReactElement {
+  const recordAccess = useCrmRecordAccess();
+  // ─── Cell Renderers ────────────────────────────────────────────────────
+
+  const cellRenderers: CellRendererMap<Deal> = useMemo(() => ({
+    title: (_value: unknown, row: Deal) => {
+      const name = row.title || 'Untitled Deal';
+      const initials = (() => {
+        const parts = name.split(' ');
+        if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+        return name.slice(0, 2).toUpperCase();
+      })();
+
+      return (
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className={`w-7 h-7 rounded-full ${MODULE_ACCENT_COLORS.leads} flex items-center justify-center text-white font-bold text-[10px] shrink-0`}>
+            {initials}
+          </div>
+          <div className="min-w-0">
+            <p className="text-[13px] font-medium text-[#1a73e8] dark:text-blue-400 truncate leading-tight hover:underline cursor-pointer">
+              {row.title}
+            </p>
+            {row.companyName && (
+              <p className="text-[11px] text-[#5A6B85] dark:text-slate-400 truncate">
+                {row.companyName}
+              </p>
+            )}
+          </div>
+        </div>
+      );
+    },
+
+    value: (_value: unknown, row: Deal) => (
+      <span className="text-[13px] font-semibold text-[#0F172A] dark:text-slate-100">
+        {typeof row.value === 'number' ? formatCurrency(row.value, currencyConfig) : '—'}
+      </span>
+    ),
+
+    stageId: (_value: unknown, row: Deal) => {
+      const stageName = stageNameMap[row.stageId] ?? '—';
+      return (
+        <StatusBadge label={stageName} variant="info" />
+      );
+    },
+
+    priority: (_value: unknown, row: Deal) => {
+      const p = row.priority ?? 'Medium';
+      return (
+        <StatusBadge
+          label={p}
+          variant={DEAL_PRIORITY_VARIANTS[p] ?? 'neutral'}
+        />
+      );
+    },
+
+    assignedUserId: (_value: unknown, row: Deal) => (
+      <span className="text-[12px] text-[#5A6B85] dark:text-slate-400 truncate">
+        {row.assignedUser ? `${row.assignedUser.firstName} ${row.assignedUser.lastName}`.trim() : getAssignedUserName(row.assignedUserId)}
+      </span>
+    ),
+
+    accountId: (_value: unknown, row: Deal) => {
+      const accountId = row.accountId ?? row.account?.id ?? row.organizationId;
+      const accountName = row.account?.name || getAccountName(accountId) || row.companyName;
+      return accountId ? <Link href={`/crm/accounts/${encodeURIComponent(accountId)}`} onClick={event => event.stopPropagation()}
+        className="text-[12px] text-blue-600 dark:text-blue-400 hover:underline truncate">{accountName || '—'}</Link> : '—';
+    },
+
+    expectedCloseDate: (_value: unknown, row: Deal) => renderDate(row.expectedCloseDate),
+
+    leadSource: (_value: unknown, row: Deal) => (
+      <span className="text-[12px] text-[#5A6B85] dark:text-slate-400 truncate">
+        {row.leadSource ?? '—'}
+      </span>
+    ),
+
+    createdAt: (_value: unknown, row: Deal) => renderDate(row.createdAt),
+  }), [stageNameMap, getAssignedUserName, getAccountName, currencyConfig]);
+
+  // ─── Column Configuration ──────────────────────────────────────────────
+
+  const { gridColumns } = useDataGridColumns<Deal>({
+    registry: DEALS_COLUMN_REGISTRY,
+    effectiveColumns,
+    cellRenderers,
+    pinnedColumns: ['title'],
+    sortableColumns: DEALS_TABLE_SORT_FIELDS,
+    resizableColumns: 'all',
+    defaultWidths: {
+      title: 240,
+      value: 140,
+      stageId: 140,
+      priority: 110,
+      assignedUserId: 160,
+      accountId: 160,
+      expectedCloseDate: 140,
+      leadSource: 130,
+      createdAt: 140,
+    },
+  });
+
+  // ─── Stable Callbacks ────────────────────────────────────────────────
+
+  const configuredColumns = useConfiguredCrmColumns('deals', gridColumns);
+
+  const getRowId = useCallback((deal: Deal) => deal.id, []);
+
+  // ─── Row Actions (⋯ menu) ─────────────────────────────────────────────
+
+  const getRowActions = useCallback((deal: Deal): RowActionItem[] => {
+    return buildDefaultRowActions({
+      onView: () => onRowClick(deal),
+      onEdit: onEdit ? () => onEdit(deal) : undefined,
+      onDelete: onDelete ? () => onDelete(deal) : undefined,
+      canEdit: canEdit && recordAccess.canMutate(deal),
+      canDelete: canDelete && recordAccess.canMutate(deal),
+    });
+  }, [onRowClick, onEdit, onDelete, canEdit, canDelete, recordAccess.canMutate]);
+
+  // ─── Render ────────────────────────────────────────────────────────────
+
+  return (
+    <DataGrid<Deal>
+      columns={configuredColumns}
+      data={deals}
+      highlightRowId={highlightRowId}
+      getRowId={getRowId}
+      height="auto"
+      selectable
+      selectedIds={selectedIds}
+      onSelectionChange={onSelectionChange}
+      sort={sort}
+      sortingMode="external"
+      sortFields={getTableSortFields('deals')} defaultSort={{ field: 'createdAt', direction: 'desc' }}
+      onSortReset={() => onSortChange?.(null)}
+      onSortChange={onSortChange}
+      onRowClick={onRowClick}
+      onHideColumn={onHideColumn}
+      enableColumnMenu={!!onHideColumn}
+      onColumnWidthChange={onColumnWidthChange}
+      columnWidths={Object.fromEntries(effectiveColumns.filter(column => column.width !== undefined).map(column => [column.id, column.width!]))}
+      rowActions={getRowActions}
+      summaryLabel={`${totalRecords} total records`}
+      emptyMessage="No deals found. Adjust your filters or create a new deal."
+      ariaLabel="Deals data grid"
+      viewMode={viewMode}
+    />
+  );
+}

@@ -1,0 +1,295 @@
+vi.mock('@/shared/hooks/use-product-interests', () => ({ useProductInterests: () => ({ products: [], loading: false, error: '' }) }));
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import React from 'react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+
+// ─── Mocks ────────────────────────────────────────────────────────────────────
+
+// Mock useData from DataContext
+vi.mock('@/store/DataContext', () => ({
+  useData: () => ({
+    pipelines: [
+      {
+        id: 'pipe-1',
+        name: 'Sales Pipeline',
+        stages: [
+          { id: 'stg-1', name: 'Lead', order: 1 },
+          { id: 'stg-2', name: 'Proposal', order: 2 },
+          { id: 'stg-3', name: 'Negotiation', order: 3 },
+        ],
+      },
+    ],
+    users: [
+      { id: 'u-1', firstName: 'Alice', lastName: 'Smith', email: 'alice@test.com' },
+      { id: 'u-2', firstName: 'Bob', lastName: 'Jones', email: 'bob@test.com' },
+    ],
+    roles: [],
+  }),
+}));
+
+// Mock useAuth from AuthContext
+vi.mock('@/store/AuthContext', () => ({
+  useAuth: () => ({
+    user: { id: 'u-1', role: 'Client Admin', email: 'admin@test.com' },
+  }),
+}));
+
+// Mock useHasPermission — default returns true (has permission)
+const mockUseHasPermission = vi.fn((_permission: string): boolean => true);
+vi.mock('@/shared/hooks/use-permissions', () => ({
+  useHasPermission: (permission: string) => mockUseHasPermission(permission),
+  usePermissions: () => ['*'],
+  useCanAny: () => true,
+  PERMISSION_BRIDGE: {},
+}));
+
+// ─── Import Components Under Test ─────────────────────────────────────────────
+
+import { RecordActionBar } from '../record-action-bar';
+import { InlineTaskForm } from '../inline-task-form';
+import { InlineDealForm } from '../inline-deal-form';
+import { PipelineProgressBar } from '../pipeline-progress-bar';
+
+// ─── RecordActionBar Tests ────────────────────────────────────────────────────
+
+describe('RecordActionBar', () => {
+  beforeEach(() => {
+    mockUseHasPermission.mockImplementation((_permission: string): boolean => true);
+  });
+
+  it('renders email, call, message, and log activity buttons', () => {
+    render(
+      <RecordActionBar
+        email="test@example.com"
+        phone="+1234567890"
+        onLogActivity={() => {}}
+      />
+    );
+
+    expect(screen.getByTitle('Email test@example.com')).toBeDefined();
+    expect(screen.getByTitle('Call +1234567890')).toBeDefined();
+    expect(screen.getByTitle('Send message')).toBeDefined();
+    expect(screen.getByTitle('Log activity')).toBeDefined();
+  });
+
+  it('disables email button when email is null', () => {
+    render(
+      <RecordActionBar email={null} phone="+1234567890" />
+    );
+
+    const emailButton = screen.getByTitle('No email available');
+    expect(emailButton).toBeDefined();
+    expect(emailButton.closest('button')?.disabled).toBe(true);
+  });
+
+  it('disables call button when phone is null', () => {
+    render(
+      <RecordActionBar email="test@example.com" phone={null} />
+    );
+
+    const callButton = screen.getByTitle('No phone available');
+    expect(callButton).toBeDefined();
+    expect(callButton.closest('button')?.disabled).toBe(true);
+  });
+
+  it('does not render log activity button when onLogActivity is not provided', () => {
+    render(
+      <RecordActionBar email="test@example.com" phone="+1234567890" />
+    );
+
+    expect(screen.queryByTitle('Log activity')).toBeNull();
+  });
+});
+
+// ─── InlineTaskForm Tests ─────────────────────────────────────────────────────
+
+describe('InlineTaskForm', () => {
+  const mockOnSubmit = vi.fn().mockResolvedValue(undefined);
+
+  beforeEach(() => {
+    mockOnSubmit.mockClear();
+  });
+
+  it('renders Task and Call tab buttons', () => {
+    render(
+      <InlineTaskForm onSubmit={mockOnSubmit} recordName="John Doe" />
+    );
+
+    expect(screen.getByText('Task')).toBeDefined();
+    expect(screen.getByText('Call')).toBeDefined();
+  });
+
+  it('shows title required error when submitting with empty title', async () => {
+    render(
+      <InlineTaskForm onSubmit={mockOnSubmit} recordName="John Doe" />
+    );
+
+    const submitButton = screen.getByText('Save Task');
+    fireEvent.click(submitButton);
+
+    await waitFor(() => {
+      expect(screen.getByText('Title is required')).toBeDefined();
+    });
+
+    expect(mockOnSubmit).not.toHaveBeenCalled();
+  });
+
+  it('renders due date and assignee fields', () => {
+    render(
+      <InlineTaskForm onSubmit={mockOnSubmit} recordName="John Doe" />
+    );
+
+    // Date input and assignee select should exist
+    const dateInput = document.querySelector('input[type="date"]');
+    expect(dateInput).toBeDefined();
+
+    // Assignee select with user options
+    expect(screen.getByText('Assignee (Default)')).toBeDefined();
+  });
+});
+
+// ─── InlineDealForm Tests ─────────────────────────────────────────────────────
+
+describe('InlineDealForm', () => {
+  const mockOnSubmit = vi.fn().mockResolvedValue(undefined);
+
+  beforeEach(() => {
+    mockOnSubmit.mockClear();
+  });
+
+  it('hides the fixed pipeline and shows its read-only Lead starting stage', () => {
+    render(
+      <InlineDealForm onSubmit={mockOnSubmit} />
+    );
+
+    expect(screen.queryByText('Pipeline')).toBeNull();
+    const startingStage = screen.getByLabelText('Starting stage') as HTMLInputElement;
+    expect(startingStage.value).toBe('Lead');
+    expect(startingStage.readOnly).toBe(true);
+    expect(document.querySelector<HTMLInputElement>('input[name="stageId"]')?.value).toBe('stg-1');
+    expect(screen.queryByText('Sales Pipeline')).toBeNull();
+  });
+
+  it('renders title field with required label', () => {
+    render(
+      <InlineDealForm onSubmit={mockOnSubmit} />
+    );
+
+    expect(screen.getByText((_, element) => element?.tagName === 'LABEL' && element.textContent === 'Title *')).toBeDefined();
+    expect(screen.getByPlaceholderText('Deal title')).toBeDefined();
+  });
+
+  it('shows title required error on submit with empty title', async () => {
+    const { container } = render(
+      <InlineDealForm onSubmit={mockOnSubmit} />
+    );
+
+    // The submit button is disabled when the form is invalid (isSubmitDisabled = !isValid).
+    // Submit the <form> element directly so validation fires regardless of button state.
+    const form = container.querySelector('form');
+    expect(form).toBeDefined();
+    fireEvent.submit(form!);
+
+    await waitFor(() => {
+      expect(screen.getByText('Title is required')).toBeDefined();
+    });
+
+    expect(mockOnSubmit).not.toHaveBeenCalled();
+  });
+
+  it('keeps expected close and priority without an editable historical value', () => {
+    render(
+      <InlineDealForm onSubmit={mockOnSubmit} />
+    );
+
+    expect(screen.queryByLabelText('Value')).toBeNull();
+    expect(screen.getByText('Expected Close Date')).toBeDefined();
+    expect(screen.queryByText('Confidence (%)')).toBeNull();
+    expect(screen.getByLabelText('Priority')).toBeDefined();
+    expect(screen.queryByText('Description')).toBeNull();
+  });
+});
+
+// ─── PipelineProgressBar Tests ────────────────────────────────────────────────
+
+describe('PipelineProgressBar', () => {
+  const stages = [
+    { id: 'stg-1', name: 'Prospect', order: 1 },
+    { id: 'stg-2', name: 'Proposal', order: 2 },
+    { id: 'stg-3', name: 'Negotiation', order: 3 },
+    { id: 'stg-4', name: 'Closing', order: 4 },
+  ];
+
+  it('renders the correct number of stage dot buttons', () => {
+    render(
+      <PipelineProgressBar
+        stages={stages}
+        currentStageId="stg-2"
+      />
+    );
+
+    // Each stage renders as a button element
+    const buttons = screen.getAllByRole('button');
+    expect(buttons.length).toBe(4);
+  });
+
+  it('highlights current stage with aria-label containing "(current)"', () => {
+    render(
+      <PipelineProgressBar
+        stages={stages}
+        currentStageId="stg-3"
+      />
+    );
+
+    const currentStageButton = screen.getByLabelText('Negotiation (current)');
+    expect(currentStageButton).toBeDefined();
+  });
+
+  it('applies ring styling to current stage dot', () => {
+    render(
+      <PipelineProgressBar
+        stages={stages}
+        currentStageId="stg-2"
+      />
+    );
+
+    const currentButton = screen.getByLabelText('Proposal (current)');
+    expect(currentButton.className).toContain('ring-2');
+  });
+
+  it('disables stage buttons when canChangeStage is false', () => {
+    render(
+      <PipelineProgressBar
+        stages={stages}
+        currentStageId="stg-2"
+        canChangeStage={false}
+      />
+    );
+
+    const buttons = screen.getAllByRole('button');
+    buttons.forEach((button) => {
+      expect((button as HTMLButtonElement).disabled).toBe(true);
+    });
+  });
+
+  it('shows compact text for narrow panels', () => {
+    const { container } = render(
+      <PipelineProgressBar
+        stages={stages}
+        currentStageId="stg-2"
+      />
+    );
+
+    // The compact view (sm:hidden) renders:
+    //   <span class="text-xs ...">Stage: <span>Proposal</span> (2/4)</span>
+    // Because the text is split across elements, check via the wrapper span's textContent.
+    const spans = Array.from(container.querySelectorAll('span'));
+    const compactSpan = spans.find(
+      (el) => {
+        const t = el.textContent ?? '';
+        return t.includes('Stage:') && t.includes('Proposal') && t.includes('2/4');
+      },
+    );
+    expect(compactSpan).toBeDefined();
+  });
+});
