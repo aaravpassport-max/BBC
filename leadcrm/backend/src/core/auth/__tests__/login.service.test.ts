@@ -1,0 +1,140 @@
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+vi.mock('../../../config/database.config', async () => ({
+  default: (await import('./auth-test-db')).db,
+}));
+vi.mock('../../../shared/helpers/crypto', () => ({
+  comparePassword: vi.fn(), hashPassword: vi.fn(),
+}));
+vi.mock('../session.service', () => ({ createSession: vi.fn(), revokeSession: vi.fn(), validateSession: vi.fn(async () => ({ lastActiveAt: new Date(), expiresAt: new Date(Date.now() + 86400000) })) }));
+vi.mock('../jwt.service', () => ({ signToken: vi.fn().mockReturnValue('server-only-token') }));
+import { db, user, tenant, resetDb } from './auth-test-db';
+import { loginUser } from '../auth.service';
+
+it.each(['Guest', 'GUEST', ' guest '])('rejects legacy %s login even with a valid employee email/password', async role => {
+  user.role = role;
+  vi.mocked(comparePassword).mockResolvedValue(true);
+  await expect(loginUser({ email: user.email, password: 'secret' })).rejects.toHaveProperty('code', 'ROLE_RETIRED');
+  expect(signToken).not.toHaveBeenCalled();
+});
+import { readAuthUser } from '../auth-user';
+import { login } from '../auth.controller';
+import { comparePassword } from '../../../shared/helpers/crypto';
+import { signToken } from '../jwt.service';
+import { createSession } from '../session.service';
+
+beforeEach(() => {
+  resetDb();
+  vi.mocked(signToken).mockReturnValue('server-only-token');
+  vi.stubEnv('NODE_ENV', 'production');
+  vi.stubEnv('JWT_SECRET', 'disposable-login-unit-key');
+  vi.stubEnv('LEADCRM_PRODUCTION_AUTH_ENABLED', 'false');
+  vi.mocked(comparePassword).mockResolvedValue(true);
+});
+afterEach(() => vi.useRealTimers());
+it('authenticates correct expired credentials and returns the existing password-change gate', async () => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2030-04-01T00:00:00.000Z'));
+  user.passwordChangedAt = new Date('2030-01-01T00:00:00.000Z');
+  user.onboardingCompletedAt = new Date('2029-12-01');
+  const result = await loginUser({ email: user.email, password: 'secret' });
+  expect(result.user).toMatchObject({ mustChangePassword: true, onboardingCompletedAt: '2029-12-01T00:00:00.000Z' });
+  expect(result.user).not.toHaveProperty('passwordHash');
+  expect(user.mustChangePassword).toBe(false);
+  expect(createSession).toHaveBeenCalledOnce();
+});
+it('login and session restore return the same Sales onboarding state', async () => {
+  const result = await loginUser({ email: user.email, password: 'secret' });
+  expect(result.user).toEqual(await readAuthUser(user.id, user.tenantId));
+  expect(result.user).toMatchObject({
+    role: 'Sales', onboardingStep: 0, onboardingCompletedAt: null, isTenantOwner: true,
+  });
+  expect(createSession).toHaveBeenCalledOnce();
+});
+it.each(['missing', 'passwordless', 'wrong-password'])('rejects %s without issuing a session', async mode => {
+  if (mode === 'missing') db.user.findMany.mockResolvedValue([]);
+  if (mode === 'passwordless') db.user.findMany.mockResolvedValue([{ ...user, passwordHash: null }]);
+  if (mode === 'wrong-password') vi.mocked(comparePassword).mockResolvedValue(false);
+  await expect(loginUser({ email: user.email, password: 'incorrect' }))
+    .rejects.toMatchObject({ statusCode: 401 });
+  expect(createSession).not.toHaveBeenCalled();
+});
+it.each([
+  { status: 'PENDING', emailVerified: null },
+  { status: 'INACTIVE', emailVerified: new Date() },
+])('blocks ineligible accounts even with dev bypass flags', async override => {
+  vi.stubEnv('DEV_OTP_BYPASS', 'true');
+  Object.assign(user, override);
+  await expect(loginUser({ email: user.email, password: 'secret' }))
+    .rejects.toMatchObject({ statusCode: 403 });
+});
+it('keeps the backend token in its HttpOnly cookie, outside the browser JSON response', async () => {
+  const req = { body: { email: user.email, password: 'secret' }, headers: {}, ip: '127.0.0.1' };
+  const res = { setHeader: vi.fn(), cookie: vi.fn(), json: vi.fn() };
+  await login(req as never, res as never, vi.fn());
+  expect(res.cookie).toHaveBeenCalledWith('leadcrm_token', expect.any(String),
+    expect.objectContaining({ httpOnly: true, sameSite: 'lax', path: '/' }));
+  expect(res.json.mock.calls[0][0].data).not.toHaveProperty('token');
+  expect(res.json.mock.calls[0][0].data.user).not.toHaveProperty('passwordHash');
+});
+
+it.each(['employee@example.com', 'employee@camxian.com.attacker.test', 'employee@sub.camxian.com'])('rejects external Client Admin email %s server-side', async email => {
+  user.role = 'Client Admin'; user.email = email;
+  await expect(loginUser({ email, password: 'secret' })).rejects.toHaveProperty('code', 'EMPLOYEE_ACCOUNT_REQUIRED');
+  expect(createSession).not.toHaveBeenCalled();
+});
+it.each(['tironjulieann10@gmail.com', 'reymarkjpanes@gmail.com'])('accepts the configured development test account %s through normal password login', async email => {
+  vi.stubEnv('NODE_ENV', 'development');
+  vi.stubEnv('LEADCRM_TEST_AUTH_ENABLED', 'true');
+  vi.stubEnv('LEADCRM_TEST_EMAIL_ALLOWLIST', 'tironjulieann10@gmail.com,reymarkjpanes@gmail.com');
+  user.role = 'Client Admin'; user.email = email;
+
+  const result = await loginUser({ email, password: 'secret' });
+
+  expect(result.user.email).toBe(email);
+  expect(createSession).toHaveBeenCalledOnce();
+});
+it('rejects non-allowlisted Gmail accounts in development', async () => {
+  vi.stubEnv('NODE_ENV', 'development');
+  vi.stubEnv('LEADCRM_TEST_AUTH_ENABLED', 'true');
+  vi.stubEnv('LEADCRM_TEST_EMAIL_ALLOWLIST', 'tironjulieann10@gmail.com,reymarkjpanes@gmail.com');
+  user.role = 'Client Admin'; user.email = 'other@gmail.com';
+
+  await expect(loginUser({ email: user.email, password: 'secret' })).rejects.toHaveProperty('code', 'EMPLOYEE_ACCOUNT_REQUIRED');
+  expect(createSession).not.toHaveBeenCalled();
+});
+it.each(['tironjulieann10@gmail.com', 'reymarkjpanes@gmail.com'])('rejects %s when the exception flag is disabled', async email => {
+  vi.stubEnv('NODE_ENV', 'development');
+  vi.stubEnv('LEADCRM_TEST_AUTH_ENABLED', 'false');
+  vi.stubEnv('LEADCRM_TEST_EMAIL_ALLOWLIST', 'tironjulieann10@gmail.com,reymarkjpanes@gmail.com');
+  user.role = 'Client Admin'; user.email = email;
+
+  await expect(loginUser({ email: user.email, password: 'secret' })).rejects.toHaveProperty('code', 'EMPLOYEE_ACCOUNT_REQUIRED');
+  expect(createSession).not.toHaveBeenCalled();
+});
+it.each(['tironjulieann10@gmail.com', 'reymarkjpanes@gmail.com'])('rejects %s in production when only the development exception is enabled', async email => {
+  vi.stubEnv('NODE_ENV', 'production');
+  vi.stubEnv('LEADCRM_TEST_AUTH_ENABLED', 'true');
+  vi.stubEnv('LEADCRM_TEST_EMAIL_ALLOWLIST', 'tironjulieann10@gmail.com,reymarkjpanes@gmail.com');
+  user.role = 'Client Admin'; user.email = email;
+
+  await expect(loginUser({ email: user.email, password: 'secret' })).rejects.toHaveProperty('code', 'EMPLOYEE_ACCOUNT_REQUIRED');
+  expect(createSession).not.toHaveBeenCalled();
+});
+it('accepts an unverified internally provisioned employee without OTP and returns the password gate', async () => {
+  user.role = 'Client Admin'; user.email = 'employee@camxian.com'; user.emailVerified = null as never; user.mustChangePassword = true;
+  const result = await loginUser({ email: 'EMPLOYEE@CAMXIAN.COM', password: 'secret' });
+  expect(result.user.mustChangePassword).toBe(true);
+  expect(createSession).toHaveBeenCalledOnce();
+});
+
+it.each(['SUSPENDED', 'CANCELLED', 'DELETED', 'REJECTED', 'unknown'])('rejects valid credentials for an unavailable %s workspace', async status => {
+  tenant.status = status;
+  await expect(loginUser({ email: user.email, password: 'secret' })).rejects.toMatchObject({ statusCode: 403 });
+  expect(createSession).not.toHaveBeenCalled();
+});
+
+it('rechecks workspace access inside the session transaction', async () => {
+  db.user.findFirst.mockResolvedValueOnce({ ...user, tenant: { ...tenant, status: 'CANCELLED' } });
+  await expect(loginUser({ email: user.email, password: 'secret' })).rejects.toMatchObject({ statusCode: 403 });
+  expect(createSession).not.toHaveBeenCalled();
+});

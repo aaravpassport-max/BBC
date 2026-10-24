@@ -1,0 +1,1 @@
+Read AGENTS.md, README.md, docs/ARCHITECTURE.md, docs/STRUCTURE.md and docs/API.md before changes. Keep frontend/backend/shared contracts aligned, preserve tenant isolation and RBAC, and use repository-root locked workspace installation.

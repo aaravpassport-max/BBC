@@ -1,0 +1,58 @@
+{
+  "name": "leadcrm",
+  "private": true,
+  "packageManager": "npm@11.19.1",
+  "allowScripts": {
+    "@prisma/client@5.22.0": true,
+    "@prisma/engines@5.22.0": true,
+    "prisma@5.22.0": true
+  },
+  "engines": {
+    "node": "^20.19.0 || >=22.13.0"
+  },
+  "overrides": {
+    "postcss": "^8.5.28",
+    "next": {
+      "postcss": "^8.5.28"
+    },
+    "gaxios": {
+      "uuid": "^11.1.1"
+    }
+  },
+  "workspaces": [
+    "frontend",
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:local": "node scripts/dev-local.cjs",
+    "dev:isolated": "node scripts/dev-isolated.cjs",
+    "desktop:prepare": "node scripts/prepare-standalone.cjs",
+    "desktop:start": "node scripts/desktop-launcher.cjs",
+    "desktop:build": "LEADCRM_DESKTOP=1 API_URL=http://127.0.0.1:13101/api/v1 npm run build && npm run desktop:prepare",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "qa:local": "node scripts/qa-local.mjs all",
+    "qa:typecheck": "node scripts/qa-local.mjs typecheck",
+    "qa:build": "node scripts/qa-local.mjs build",
+    "qa:database": "node scripts/qa-local.mjs database",
+    "qa:clean": "node scripts/qa-clean-checkout.mjs --run",
+    "test": "node scripts/qa-local.mjs unit",
+    "test:integration": "node scripts/qa-local.mjs integration",
+    "test:integration:native": "node scripts/qa-local.mjs integration --native",
+    "test:migrations": "node scripts/qa-local.mjs migrations",
+    "test:browser": "node scripts/qa-local.mjs browser",
+    "test:qa-safety": "node --test scripts/qa-safety.test.cjs",
+    "audit:inventory": "node scripts/system-audit-inventory.cjs && node scripts/classify-system-inventory.cjs && node scripts/system-audit-inventory.cjs",
+    "qa:docs": "node scripts/verify-doc-links.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1",
+    "turbo": "^2.5.4"
+  },
+  "optionalDependencies": {
+    "lightningcss": "^1.32.0"
+  },
+  "dependencies": {}
+}

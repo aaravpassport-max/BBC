@@ -1,0 +1,13 @@
+{
+  "name": "Activate AgentOS on Every Task",
+  "version": "2.4.0",
+  "enabled": true,
+  "description": "Before any spec task begins, reads the files to be changed and checks for downstream impact. Lean prompt — no Phase 0 theater.",
+  "when": {
+    "type": "preTaskExecution"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Before starting: read every file you plan to change. Identify its purpose, who calls it, and what breaks if it changes. If the task is HIGH or CRITICAL severity, write a one-paragraph Architecture Decision before writing any code. Then proceed."
+  }
+}

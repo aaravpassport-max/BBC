@@ -1,0 +1,117 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+build/
+dist/
+.next/
+.next-dev/
+out/
+
+# Coverage
+coverage/
+/data/outputs/dashboard-verification/
+
+# Environment files
+.env*
+!.env.example
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+/data-import-login.png
+/data/outputs/csv-import-qa/
+/data-import-normalization-inventory.json
+/data-import-normalized-drift.sql
+/data-import-render-inventory.json
+/data/outputs/import-deploy-test/
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Misc root-level fix/patch scripts (dev artifacts, not source)
+fix-*.ts
+fix_mock*.cjs
+patch_mock.cjs
+clean-admin.ts
+metadata.json
+
+# Vite leftover artifacts (project uses Next.js)
+vite.config.ts
+index.html
+!frontend/qa/roles/index.html
+src/main.tsx
+# Turborepo cache
+.turbo/
+# Disposable QA worker/cache artifacts.
+/.tmp/
+
+# Reviewed onboarding repair is maintained source, not a scratch script.
+!backend/src/scripts/fix-null-onboarding.ts
+
+# Backend examples contain empty placeholders only.
+!backend/.env.example
+
+# Local database inventories contain deployment-specific identifiers.
+data/outputs/retired-features-*.json
+/data/outputs/product-normalization-tests/
+/data/outputs/engagement-implementation/
+/product-normalization-before.json
+/product-normalization-after.json
+
+# Local audit evidence and recovery backups may contain private account data.
+/data/outputs/database-audit/
+
+# Reproducible local custom-field browser evidence.
+/data/outputs/custom-fields-browser/
+
+# Reproducible Campaigns browser verification artifacts.
+/data/outputs/campaign-sms/
+
+# Reproducible local UI acceptance screenshots and logs.
+/data/outputs/ui-fixes-browser/
+/data/outputs/product-share-browser/
+
+# Reproducible Campaigns status verification artifacts.
+/data/outputs/campaign-status-*.jpg
+/data/outputs/campaign-status-*.json
+/data/outputs/campaign-status-*.jsonl
+
+# Reproducible local SMS link preview state and request logs.
+/data/outputs/sms-links-preview-*.json
+/data/outputs/sms-links-preview-*.jsonl
+
+# Reproducible local mailbox acceptance evidence and redacted hosting screenshots.
+/data/outputs/mailbox-browser/
+/data/outputs/record-email-attachments-browser/
+/data/outputs/inbox-deal-conversations-browser/
+/data/outputs/workspace-crm-files-pr/
+
+# Reproducible Workflow responsive and persistence evidence.
+/data/outputs/workflow-browser/
+/data/outputs/workflow-policy-tests/
+/data/outputs/deal-stage-templates/
+
+# Reproducible local Leads acceptance screenshots and logs.
+/data/outputs/lead-polish-browser/
+/data/outputs/notification-verification/
+/data/outputs/organization-settings-browser/
+/data/outputs/campaign-clicks/
+/data/outputs/system-audit/
+/data/outputs/eight-item-audit/
+/data/outputs/campaign-groups/
+/data/outputs/quotations/
+/data/outputs/scoped-cleanup/
+/data/outputs/scoped-cleanup-tests.json
+/data/outputs/scoped-cleanup-final-retests.json
+__pycache__/
+*.pyc
