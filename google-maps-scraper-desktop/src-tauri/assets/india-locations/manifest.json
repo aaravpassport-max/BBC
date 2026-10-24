@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-20T18:16:27.101Z",
+  "counts": {
+    "statesAndUnionTerritories": 36,
+    "districts": 763,
+    "places": 6511
+  },
+  "sources": [
+    {
+      "name": "dr5hn/countries-states-cities-database",
+      "url": "https://raw.githubusercontent.com/dr5hn/countries-states-cities-database/master/json/states.json",
+      "license": "ODbL 1.0",
+      "role": "States and union territories (ISO 3166-2 names and types)"
+    },
+    {
+      "name": "GeoNames",
+      "url": "https://www.geonames.org/",
+      "license": "CC-BY-4.0 (attribution required)",
+      "role": "Districts (admin2) and populated places (cities/towns)",
+      "files": [
+        "admin1CodesASCII.txt",
+        "admin2Codes.txt",
+        "IN.zip"
+      ]
+    }
+  ],
+  "updateInstructions": "Run `npm run build:india-locations` from google-maps-scraper-desktop after upstream releases. Verify counts in this manifest."
+}
