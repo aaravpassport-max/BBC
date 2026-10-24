@@ -1,0 +1,29 @@
+F&O Lab v16.22.2 — full plugin zip (exit-leg fix)
+===============================================
+
+If your download is ~500 KB or ~270 KB, you did NOT get the full plugin.
+Full zip is about 1.87 MB (1,868,278 bytes) and contains ~170 files including:
+  autonomous-driver/, companion-daemon/, fno-data-layer.php, assets/*.js
+
+USE THIS FIRST (GitHub Release — new URL, not cached):
+
+  https://github.com/aaravpassport-max/BBC/releases/download/fno-lab-v16.22.2/fno-lab-standalone-app-v16.22.2.zip
+
+Alternates (fix-paper-trade branch):
+
+  https://github.com/aaravpassport-max/BBC/raw/cursor/fix-paper-trade-execution-439c/fno-lab-standalone-app-v16.22.2.zip
+  https://github.com/aaravpassport-max/BBC/raw/cursor/fix-paper-trade-execution-439c/fno-lab-standalone-app.zip
+
+DO NOT use commit 32b8d38 or any ~537 KB zip (sparse rebuild, missing engines).
+
+Verify after download:
+  Size: 1,868,302 bytes (about 1.8 MB)
+  SHA256: 9aa86f72602fdd73d1ea5b2343301e49c4191b978c42a3f73d8fbb6d49610cc7
+
+After extract, wp-content/plugins/fno-lab-standalone-app/ must contain
+autonomous-driver/ and fno-data-layer.php — not only fno-lab.php + assets/.
+
+App header must show: 16.22.2
+
+Windows PowerShell check:
+  (Get-FileHash .\fno-lab-standalone-app-v16.22.2.zip -Algorithm SHA256).Hash
