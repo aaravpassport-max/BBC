@@ -1,0 +1,35 @@
+<UserControl x:Class="AttendanceTracker.Desktop.Views.ReportsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <StackPanel>
+    <TextBlock Text="Reports &amp; export" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,4"/>
+    <TextBlock Text="Daily and monthly summaries with CSV export (same engine as the core API)." Foreground="{StaticResource OfficeMutedBrush}" Margin="0,0,0,16"/>
+
+    <ComboBox x:Name="EmployeeBox" DisplayMemberPath="DisplayName" Width="320" HorizontalAlignment="Left" Margin="0,0,0,12"/>
+
+    <WrapPanel Margin="0,0,0,12">
+      <StackPanel Margin="0,0,16,0">
+        <TextBlock Text="Daily date (UTC)" FontSize="12" Foreground="{StaticResource OfficeMutedBrush}"/>
+        <DatePicker x:Name="DayPicker" Width="160"/>
+      </StackPanel>
+      <StackPanel Margin="0,0,16,0">
+        <TextBlock Text="Month" FontSize="12" Foreground="{StaticResource OfficeMutedBrush}"/>
+        <StackPanel Orientation="Horizontal">
+          <ComboBox x:Name="MonthBox" Width="80" Margin="0,0,8,0"/>
+          <ComboBox x:Name="YearBox" Width="90"/>
+        </StackPanel>
+      </StackPanel>
+    </WrapPanel>
+
+    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+      <Button Content="Load daily summary" Style="{StaticResource OfficeSecondaryButton}" Margin="0,0,8,0" Click="LoadDaily_Click"/>
+      <Button Content="Load monthly summary" Style="{StaticResource OfficeSecondaryButton}" Margin="0,0,8,0" Click="LoadMonthly_Click"/>
+      <Button Content="Export daily CSV" Style="{StaticResource OfficePrimaryButton}" Margin="0,0,8,0" Click="ExportDaily_Click"/>
+      <Button Content="Export monthly CSV" Style="{StaticResource OfficePrimaryButton}" Click="ExportMonthly_Click"/>
+    </StackPanel>
+
+    <TextBox x:Name="ReportBox" Height="360" TextWrapping="Wrap" AcceptsReturn="True" VerticalScrollBarVisibility="Auto"
+             IsReadOnly="True" FontFamily="Consolas" Background="{StaticResource OfficeSurfaceBrush}"/>
+    <TextBlock x:Name="StatusText" Foreground="{StaticResource OfficeMutedBrush}" Margin="0,8,0,0"/>
+  </StackPanel>
+</UserControl>

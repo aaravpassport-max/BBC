@@ -1,0 +1,61 @@
+<UserControl x:Class="AttendanceTracker.Desktop.Views.DashboardView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <UserControl.Resources>
+    <Style x:Key="KpiCard" TargetType="Border">
+      <Setter Property="Background" Value="{StaticResource OfficeSurfaceBrush}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource OfficeBorderBrush}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="4"/>
+      <Setter Property="Padding" Value="16"/>
+    </Style>
+    <Style x:Key="KpiLabel" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource OfficeMutedBrush}"/>
+      <Setter Property="FontSize" Value="12"/>
+    </Style>
+    <Style x:Key="KpiValue" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="28"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Margin" Value="0,6,0,0"/>
+    </Style>
+  </UserControl.Resources>
+  <StackPanel>
+    <TextBlock Text="Dashboard" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,4"/>
+    <TextBlock Text="Organization-wide attendance snapshot for the selected day." Foreground="{StaticResource OfficeMutedBrush}" Margin="0,0,0,20"/>
+
+    <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+      <TextBlock Text="Date (UTC)" VerticalAlignment="Center" Margin="0,0,8,0"/>
+      <DatePicker x:Name="DatePicker" SelectedDateChanged="Date_Changed"/>
+      <Button Content="Refresh" Style="{StaticResource OfficeSecondaryButton}" Margin="12,0,0,0" Click="Refresh_Click"/>
+    </StackPanel>
+
+    <UniformGrid Columns="4" Margin="0,0,0,20">
+      <Border Style="{StaticResource KpiCard}" Margin="0,0,8,0">
+        <StackPanel>
+          <TextBlock Text="Employees" Style="{StaticResource KpiLabel}"/>
+          <TextBlock x:Name="KpiEmployees" Style="{StaticResource KpiValue}"/>
+        </StackPanel>
+      </Border>
+      <Border Style="{StaticResource KpiCard}" Margin="4,0">
+        <StackPanel>
+          <TextBlock Text="Present" Style="{StaticResource KpiLabel}"/>
+          <TextBlock x:Name="KpiPresent" Style="{StaticResource KpiValue}"/>
+        </StackPanel>
+      </Border>
+      <Border Style="{StaticResource KpiCard}" Margin="4,0">
+        <StackPanel>
+          <TextBlock Text="Absent" Style="{StaticResource KpiLabel}"/>
+          <TextBlock x:Name="KpiAbsent" Style="{StaticResource KpiValue}"/>
+        </StackPanel>
+      </Border>
+      <Border Style="{StaticResource KpiCard}" Margin="8,0,0,0">
+        <StackPanel>
+          <TextBlock Text="Incomplete" Style="{StaticResource KpiLabel}"/>
+          <TextBlock x:Name="KpiIncomplete" Style="{StaticResource KpiValue}"/>
+        </StackPanel>
+      </Border>
+    </UniformGrid>
+
+    <TextBlock x:Name="StatusText" Foreground="{StaticResource OfficeMutedBrush}"/>
+  </StackPanel>
+</UserControl>

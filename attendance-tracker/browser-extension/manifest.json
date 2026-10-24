@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "Workforce Activity Tracker — Browser Companion",
+  "version": "0.1.0",
+  "description": "Reports active tab/URL changes to the on-device attendance agent. Only runs after the employee has acknowledged the on-device monitoring notice (enforced by the agent, not by this extension alone).",
+  "permissions": ["tabs", "nativeMessaging", "storage"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Workforce Activity Tracker"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

@@ -1,0 +1,17 @@
+<UserControl x:Class="AttendanceTracker.Desktop.Views.EmployeesView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+  <StackPanel>
+    <TextBlock Text="Employees" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,4"/>
+    <TextBlock Text="Registered employees tracked by agents and browser extensions." Foreground="{StaticResource OfficeMutedBrush}" Margin="0,0,0,16"/>
+    <DataGrid x:Name="Grid" Height="520">
+      <DataGrid.Columns>
+        <DataGridTextColumn Header="ID" Binding="{Binding EmployeeId}" Width="120"/>
+        <DataGridTextColumn Header="Name" Binding="{Binding DisplayName}" Width="*"/>
+        <DataGridTextColumn Header="Department" Binding="{Binding Department}" Width="160"/>
+        <DataGridTextColumn Header="Designation" Binding="{Binding Designation}" Width="160"/>
+      </DataGrid.Columns>
+    </DataGrid>
+    <TextBlock x:Name="StatusText" Foreground="{StaticResource OfficeMutedBrush}" Margin="0,8,0,0"/>
+  </StackPanel>
+</UserControl>
