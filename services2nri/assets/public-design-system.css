@@ -3,6 +3,20 @@
  * Loaded inline via DesignSystem::renderInlineCss() on public pages.
  */
 
+#s2nri-root,
+.s2-page-wrap {
+  --s2-image-object-fit: fill;
+}
+
+[data-s2-section] img,
+[data-s2-section] .s2-home-about__img {
+  object-fit: var(--s2-section-image-object-fit, var(--s2-image-object-fit, fill));
+}
+
+.s2-home-hero-slide-bg {
+  background-size: var(--s2-hero-bg-size, cover);
+}
+
 .s2-ds .s2-container,
 .s2-page-wrap .s2-container {
   max-width: var(--s2-space-container_max, 1200px);

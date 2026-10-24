@@ -347,6 +347,19 @@ function SectionPlatformDesignFields({
             >
               {f.type === 'color' ? (
                 <HexColorField label="" value={val} onChange={(v) => onChange(f.key, v)} />
+              ) : f.type === 'select' && f.options?.length ? (
+                <select
+                  value={val}
+                  onChange={(e) => onChange(f.key, e.target.value)}
+                  style={{ width: '100%', padding: 8, borderRadius: 8, border: '1px solid #E2E8F0' }}
+                >
+                  <option value="">{f.placeholder ? `Default (${f.placeholder})` : 'Inherit default'}</option>
+                  {f.options.map((opt) => (
+                    <option key={opt} value={opt}>
+                      {opt}
+                    </option>
+                  ))}
+                </select>
               ) : (
                 <input
                   type="text"

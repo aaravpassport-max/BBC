@@ -55,6 +55,7 @@ import {
 import { DEFAULT_HOME_SECTION_ORDER } from '@/lib/home-section-order'
 import { sectionHidden } from '@/lib/section-visibility'
 import { bandPadClass, pickCssStyle } from '@/lib/responsive-band-padding'
+import { sectionImageFitStyle } from '@/lib/image-object-fit'
 import {
   mergeLegacyHomeOrder,
   orderIdsForPage,
@@ -341,6 +342,7 @@ export function HomePage() {
       padding: 'css_hero_padding',
       color: 'css_hero_textcolor',
     }),
+    ...sectionImageFitStyle(settings as Record<string, string>, 'hero'),
   }
   if (settings.css_hero_minheight) heroBandStyle.minHeight = settings.css_hero_minheight
 
@@ -491,7 +493,11 @@ export function HomePage() {
         data-s2-section="home_services"
         data-home-section-id="home_services"
         data-s2-reveal=""
-        style={{ ...bandOrder('home_services'), ...pickCssStyle(settings, { bg: 'css_svc_bg', padding: undefined }) }}
+        style={{
+          ...bandOrder('home_services'),
+          ...pickCssStyle(settings, { bg: 'css_svc_bg', padding: undefined }),
+          ...sectionImageFitStyle(settings as Record<string, string>, 'home_services'),
+        }}
       >
         <div className="s2-container s2-section-inner s2-width-standard">
           <HomeServicesShowcase
@@ -512,7 +518,11 @@ export function HomePage() {
         data-s2-section="cities"
         data-home-section-id="cities"
         data-s2-reveal=""
-        style={{ ...bandOrder('cities'), ...pickCssStyle(settings, { bg: 'css_cities_bg', padding: 'css_cities_padding' }) }}
+        style={{
+          ...bandOrder('cities'),
+          ...pickCssStyle(settings, { bg: 'css_cities_bg', padding: 'css_cities_padding' }),
+          ...sectionImageFitStyle(settings as Record<string, string>, 'cities'),
+        }}
       >
         <div className="s2-container s2-section-inner s2-width-standard">
           <div className="s2-home-section-head s2-public-section-head">
@@ -653,7 +663,11 @@ export function HomePage() {
         data-s2-section="testimonials"
         data-home-section-id="testimonials"
         data-s2-reveal=""
-        style={{ ...bandOrder('testimonials'), ...pickCssStyle(settings, { bg: 'css_testimonials_bg', padding: 'css_testimonials_padding' }) }}
+        style={{
+          ...bandOrder('testimonials'),
+          ...pickCssStyle(settings, { bg: 'css_testimonials_bg', padding: 'css_testimonials_padding' }),
+          ...sectionImageFitStyle(settings as Record<string, string>, 'testimonials'),
+        }}
       >
         <div className="s2-container s2-section-inner s2-width-standard">
           <div className="s2-home-section-head s2-public-section-head">
@@ -856,7 +870,11 @@ export function HomePage() {
         data-s2-section="about"
         data-home-section-id="about"
         data-s2-reveal=""
-        style={{ ...bandOrder('about'), ...pickCssStyle(settings, { bg: 'css_about_bg', padding: 'css_about_padding' }) }}
+        style={{
+          ...bandOrder('about'),
+          ...pickCssStyle(settings, { bg: 'css_about_bg', padding: 'css_about_padding' }),
+          ...sectionImageFitStyle(settings as Record<string, string>, 'about'),
+        }}
       >
         <div className="s2-home-about-grid s2-mobile-stack s2-container s2-section-inner s2-width-wide">
           <div>

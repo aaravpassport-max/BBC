@@ -112,7 +112,7 @@
 .s2-svc-hero img {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: var(--s2-section-image-object-fit, var(--s2-image-object-fit, fill));
   display: block;
 }
 

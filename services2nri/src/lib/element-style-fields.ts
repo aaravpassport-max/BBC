@@ -44,6 +44,14 @@ export const ELEMENT_STYLE_FIELDS: ElementStyleFieldDef[] = [
   { key: 'border_width', label: 'Border width', type: 'px', roles: ['primary_button', 'secondary_button', 'image', 'generic'], cssProperty: 'border-width' },
   { key: 'border_color', label: 'Border color', type: 'color', roles: ['primary_button', 'secondary_button', 'image', 'generic'], cssProperty: 'border-color' },
   { key: 'max_width', label: 'Max width', type: 'px', roles: ['heading', 'body', 'subtitle', 'image', 'generic'], cssProperty: 'max-width' },
+  {
+    key: 'object_fit',
+    label: 'Image fit',
+    type: 'select',
+    options: ['fill', 'cover', 'contain', 'none', 'scale-down'],
+    roles: ['image'],
+    cssProperty: 'object-fit',
+  },
   { key: 'opacity', label: 'Opacity (0–1)', type: 'text', roles: ['*'], cssProperty: 'opacity' },
 ]
 
