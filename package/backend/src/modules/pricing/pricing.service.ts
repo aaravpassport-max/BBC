@@ -1,0 +1,381 @@
+import { randomUUID as uuidv4 } from 'crypto';
+import { pool } from '../../db/pool';
+import { Errors } from '../../utils/errors';
+import { validateCoupon } from './coupon.service';
+import { computeSurgeMultiplier } from './surge.service';
+import { fetchDrivingRoute } from '../geo/route.service';
+import { getActiveSubscriptionBenefit } from '../booking/subscription.service';
+import { computeLoyaltyDiscount } from '../loyalty/loyalty.service';
+
+const QUOTE_TTL_SECONDS = parseInt(process.env.QUOTE_TTL_SECONDS || '90', 10);
+
+export interface FareBreakdown {
+  base_fare: number;
+  distance_charge: number;
+  time_charge: number;
+  waiting_charge: number;
+  toll_pass_through: number;
+  night_surcharge: number;
+  surge_multiplier: number;
+  platform_fee: number;
+  tax: number;
+  coupon_discount: number;
+  subscription_benefit: number;
+  loyalty_discount: number;
+  final_fare: number;
+}
+
+interface RateCard {
+  id: string;
+  base_fare: string;
+  per_km_rate: string;
+  per_min_rate: string;
+  night_surcharge_pct: string;
+  night_window_start: string | null;
+  night_window_end: string | null;
+  minimum_fare: string;
+  platform_fee: string;
+  tax_rate_pct: string;
+}
+
+/** Haversine distance in km — used only as a stand-in for a real routing-engine
+ * call (a production system would call an actual maps/routing provider for
+ * road-network distance, per PRD Section 8/9). */
+function haversineKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const lat1 = (a.lat * Math.PI) / 180;
+  const lat2 = (b.lat * Math.PI) / 180;
+  const sinDLat = Math.sin(dLat / 2);
+  const sinDLng = Math.sin(dLng / 2);
+  const h = sinDLat * sinDLat + Math.cos(lat1) * Math.cos(lat2) * sinDLng * sinDLng;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+function isWithinNightWindow(start: string | null, end: string | null): boolean {
+  if (!start || !end) return false;
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  const startMinutes = sh * 60 + sm;
+  const endMinutes = eh * 60 + em;
+  if (startMinutes < endMinutes) {
+    return currentMinutes >= startMinutes && currentMinutes < endMinutes;
+  }
+  // Window spans midnight.
+  return currentMinutes >= startMinutes || currentMinutes < endMinutes;
+}
+
+/**
+ * Computes the fare per the exact formula in PRD Section 5. This function is
+ * the single source of truth for pricing math — every consumer (quote
+ * generation, historical fare display, tax reporting per Section 12A) must
+ * ultimately trace back to this same calculation, never a re-derived shadow
+ * implementation.
+ */
+function computeFare(params: {
+  rateCard: RateCard;
+  distanceKm: number;
+  durationMin: number;
+  surgeMultiplier: number;
+  couponDiscount: number;
+  subscriptionBenefit: number;
+  loyaltyDiscount: number;
+}): FareBreakdown {
+  const { rateCard, distanceKm, durationMin, surgeMultiplier, couponDiscount, subscriptionBenefit, loyaltyDiscount } = params;
+
+  const base_fare = parseFloat(rateCard.base_fare);
+  const distance_charge = distanceKm * parseFloat(rateCard.per_km_rate);
+  const time_charge = durationMin * parseFloat(rateCard.per_min_rate);
+  const waiting_charge = 0; // realized only during the actual trip, not at quote time
+  const toll_pass_through = 0; // populated by a real routing/toll provider
+
+  const night_surcharge = isWithinNightWindow(rateCard.night_window_start, rateCard.night_window_end)
+    ? (base_fare + distance_charge) * (parseFloat(rateCard.night_surcharge_pct) / 100)
+    : 0;
+
+  const preSurgeSubtotal = base_fare + distance_charge + time_charge + waiting_charge + night_surcharge;
+  const surgedSubtotal = preSurgeSubtotal * surgeMultiplier;
+
+  const platform_fee = parseFloat(rateCard.platform_fee);
+  const preTaxTotal = surgedSubtotal + platform_fee + toll_pass_through;
+  const tax = preTaxTotal * (parseFloat(rateCard.tax_rate_pct) / 100);
+
+  let final_fare = preTaxTotal + tax - couponDiscount - subscriptionBenefit - loyaltyDiscount;
+
+  // Minimum fare floor applies after additive components, before treating
+  // coupon/subscription discounts as able to push below it, per PRD Section 5 —
+  // unless the specific coupon is explicitly configured to allow it (not
+  // modeled in this reference implementation; flagged for product decision).
+  const minimumFare = parseFloat(rateCard.minimum_fare);
+  if (final_fare < minimumFare) {
+    final_fare = minimumFare;
+  }
+
+  return {
+    base_fare: round2(base_fare),
+    distance_charge: round2(distance_charge),
+    time_charge: round2(time_charge),
+    waiting_charge: round2(waiting_charge),
+    toll_pass_through: round2(toll_pass_through),
+    night_surcharge: round2(night_surcharge),
+    surge_multiplier: surgeMultiplier,
+    platform_fee: round2(platform_fee),
+    tax: round2(tax),
+    coupon_discount: round2(couponDiscount),
+    subscription_benefit: round2(subscriptionBenefit),
+    loyalty_discount: round2(loyaltyDiscount),
+    final_fare: round2(final_fare),
+  };
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+export interface QuoteResult {
+  quote_id: string;
+  vehicle_category: string;
+  expires_at: string;
+  surge_multiplier: number;
+  fare_breakdown: FareBreakdown;
+}
+
+export async function generateQuotes(params: {
+  customerId: string;
+  pickup: { lat: number; lng: number };
+  drops: { lat: number; lng: number }[];
+  vehicleCategory?: string;
+  couponCode?: string;
+  loyaltyPointsToRedeem?: number;
+  bookingType?: 'parcel' | 'ride';
+}): Promise<QuoteResult[]> {
+  const { customerId, pickup, drops, vehicleCategory, couponCode, loyaltyPointsToRedeem, bookingType = 'parcel' } = params;
+
+  // Resolve serviceable zone -> city, to know which rate cards apply (PRD Section 8/9).
+  const zoneResult = await pool.query(
+    `SELECT z.city_id
+     FROM zones z
+     WHERE z.zone_type = 'service_area'
+       AND ST_Covers(z.boundary::geometry, ST_SetSRID(ST_MakePoint($1, $2), 4326))
+     LIMIT 1`,
+    [pickup.lng, pickup.lat]
+  );
+
+  if (zoneResult.rowCount === 0) {
+    throw Errors.validation({ pickup: 'This location is outside our serviceable area.' });
+  }
+  const cityId = zoneResult.rows[0].city_id;
+
+  const categoryFilter = vehicleCategory ? 'AND vc.name = $2' : '';
+  const bookingTypeArg = vehicleCategory ? 3 : 2;
+  const rateCardsResult = await pool.query(
+    `SELECT rc.*, vc.name AS category_name
+     FROM rate_cards rc
+     JOIN vehicle_categories vc ON vc.id = rc.vehicle_category_id
+     WHERE rc.city_id = $1 AND rc.status = 'published' AND vc.status = 'active'
+       AND $${bookingTypeArg} = ANY(vc.booking_types)
+       ${categoryFilter}
+     ORDER BY vc.name`,
+    vehicleCategory ? [cityId, vehicleCategory, bookingType] : [cityId, bookingType]
+  );
+
+  if (rateCardsResult.rowCount === 0) {
+    throw Errors.notFound('No available vehicle categories for this location');
+  }
+
+  // Total distance/duration — prefer OSRM road routing; fall back to haversine.
+  let totalDistanceKm = 0;
+  let totalDurationMin = 0;
+  const route = await fetchDrivingRoute([pickup, ...drops]);
+  if (route) {
+    totalDistanceKm = route.distance_m / 1000;
+    totalDurationMin = route.duration_s / 60;
+  } else {
+    let previous = pickup;
+    for (const drop of drops) {
+      totalDistanceKm += haversineKm(previous, drop);
+      previous = drop;
+    }
+    totalDurationMin = (totalDistanceKm / 25) * 60;
+  }
+
+  const quotes: QuoteResult[] = [];
+  const expiresAt = new Date(Date.now() + QUOTE_TTL_SECONDS * 1000);
+
+  const subscriptionBenefit = await getActiveSubscriptionBenefit(customerId);
+
+  for (const rateCard of rateCardsResult.rows) {
+    const surgeTiers = (rateCard.surge_tiers as number[]) || [1.0, 1.2, 1.5, 2.0];
+    const surgeCap = parseFloat(rateCard.surge_cap as string) || 3.0;
+    let surgeMultiplier = await computeSurgeMultiplier({
+      pickupLat: pickup.lat,
+      pickupLng: pickup.lng,
+      surgeTiers,
+      surgeCap,
+    });
+    if (subscriptionBenefit?.surgeExempt) {
+      surgeMultiplier = 1.0;
+    }
+
+    let fareBreakdown = computeFare({
+      rateCard,
+      distanceKm: totalDistanceKm,
+      durationMin: totalDurationMin,
+      surgeMultiplier,
+      couponDiscount: 0,
+      subscriptionBenefit: 0,
+      loyaltyDiscount: 0,
+    });
+
+    let couponId: string | null = null;
+    if (couponCode) {
+      // Validated per-category since min-order-value is checked against this
+      // specific category's pre-discount fare (PRD 15A.1) — a coupon that
+      // qualifies against a cheap category's fare might not against a pricier one.
+      try {
+        const { coupon, discountAmount } = await validateCoupon(couponCode, customerId, fareBreakdown.final_fare);
+        couponId = coupon.id;
+        const cappedDiscount = Math.min(discountAmount, fareBreakdown.final_fare);
+        fareBreakdown = {
+          ...fareBreakdown,
+          coupon_discount: cappedDiscount,
+          final_fare: round2(fareBreakdown.final_fare - cappedDiscount),
+        };
+      } catch (err) {
+        // An invalid coupon does not block quote generation entirely (PRD
+        // 2.2.5's coupon-entry screen shows the specific rejection reason but
+        // still lets the customer proceed without it) — rethrow only if this
+        // is the sole category being quoted and the caller explicitly wants
+        // a hard failure; for a multi-category quote list, log and continue
+        // without the discount on this category rather than failing the
+        // whole quote request over one category's ineligibility.
+        console.warn(`Coupon ${couponCode} invalid for category ${rateCard.category_name}:`, err);
+      }
+    }
+
+    if (subscriptionBenefit?.waivesPlatformFee && fareBreakdown.platform_fee > 0) {
+      // Itemized distinctly from coupon_discount (PRD 19A.1 acceptance
+      // criteria) — both can apply simultaneously in this reference
+      // implementation; the PRD's stacking-conflict resolution rule
+      // (Section 15A "most valuable to the customer by default") is not
+      // fully implemented here since only one specific benefit type
+      // (platform-fee waiver) exists yet — flagged for whoever adds a
+      // second benefit type that could actually conflict with a coupon.
+      const waived = fareBreakdown.platform_fee;
+      fareBreakdown = {
+        ...fareBreakdown,
+        subscription_benefit: waived,
+        final_fare: round2(fareBreakdown.final_fare - waived),
+      };
+    }
+
+    if (loyaltyPointsToRedeem && loyaltyPointsToRedeem > 0) {
+      const { discount, pointsUsed } = await computeLoyaltyDiscount(
+        customerId,
+        loyaltyPointsToRedeem,
+        fareBreakdown.final_fare
+      );
+      if (pointsUsed > 0) {
+        fareBreakdown = {
+          ...fareBreakdown,
+          loyalty_discount: discount,
+          final_fare: round2(fareBreakdown.final_fare - discount),
+          ...( { loyalty_points_used: pointsUsed } as { loyalty_points_used?: number }),
+        };
+      }
+    }
+
+    const quoteId = uuidv4();
+
+    await pool.query(
+      `INSERT INTO quotes (id, rate_card_id, rate_card_version, customer_id, pickup_geo, drops_geo,
+                            vehicle_category_id, surge_multiplier, fare_breakdown, coupon_id, expires_at, booking_type)
+       VALUES ($1, $2, $3, $4, ST_SetSRID(ST_MakePoint($5, $6), 4326), $7, $8, $9, $10, $11, $12, $13)`,
+      [
+        quoteId,
+        rateCard.id,
+        rateCard.version,
+        customerId,
+        pickup.lng,
+        pickup.lat,
+        JSON.stringify(drops),
+        rateCard.vehicle_category_id,
+        surgeMultiplier,
+        JSON.stringify(fareBreakdown),
+        couponId,
+        expiresAt,
+        bookingType,
+      ]
+    );
+
+    quotes.push({
+      quote_id: quoteId,
+      vehicle_category: rateCard.category_name,
+      expires_at: expiresAt.toISOString(),
+      surge_multiplier: surgeMultiplier,
+      fare_breakdown: fareBreakdown,
+    });
+  }
+
+  return quotes;
+}
+
+export interface VehicleCategoryInfo {
+  name: string;
+  capacity_descriptor: string;
+  license_class_required: string | null;
+  permit_required: boolean;
+  vehicle_group: string;
+}
+
+async function resolveCityIdForPickup(pickup: { lat: number; lng: number }): Promise<string | null> {
+  const zoneResult = await pool.query(
+    `SELECT z.city_id
+     FROM zones z
+     WHERE z.zone_type = 'service_area'
+       AND ST_Covers(z.boundary::geometry, ST_SetSRID(ST_MakePoint($1, $2), 4326))
+     LIMIT 1`,
+    [pickup.lng, pickup.lat]
+  );
+  return zoneResult.rowCount ? (zoneResult.rows[0].city_id as string) : null;
+}
+
+function vehicleGroupForCategory(name: string): string {
+  if (['bike', 'scooter', 'two_wheeler'].includes(name)) return 'two_wheeler';
+  if (name === 'three_wheeler') return 'three_wheeler';
+  if (['mini_truck', 'pickup_truck', 'large_truck'].includes(name)) return 'truck';
+  if (['auto', 'hatchback', 'sedan', 'suv'].includes(name)) return 'ride';
+  return 'other';
+}
+
+/** Lists bookable vehicle categories for a pickup location (active + published rate card). */
+export async function listVehicleCategoriesForLocation(pickup: {
+  lat: number;
+  lng: number;
+}, bookingType: 'parcel' | 'ride' = 'parcel'): Promise<VehicleCategoryInfo[]> {
+  const cityId = await resolveCityIdForPickup(pickup);
+  if (!cityId) {
+    throw Errors.validation({ pickup: 'This location is outside our serviceable area.' });
+  }
+
+  const result = await pool.query(
+    `SELECT DISTINCT vc.name, vc.capacity_descriptor, vc.license_class_required, vc.permit_required
+     FROM vehicle_categories vc
+     JOIN rate_cards rc ON rc.vehicle_category_id = vc.id
+     WHERE rc.city_id = $1 AND rc.status = 'published' AND vc.status = 'active'
+       AND $2 = ANY(vc.booking_types)
+     ORDER BY vc.name`,
+    [cityId, bookingType]
+  );
+
+  return result.rows.map((row) => ({
+    name: row.name as string,
+    capacity_descriptor: row.capacity_descriptor as string,
+    license_class_required: row.license_class_required as string | null,
+    permit_required: row.permit_required as boolean,
+    vehicle_group: vehicleGroupForCategory(row.name as string),
+  }));
+}
