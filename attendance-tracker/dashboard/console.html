@@ -1,0 +1,2193 @@
+<title>Workforce Attendance Console</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* ===== Design plan =====
+   Color: ops-console neutrals (cool slate) + teal accent, with semantic
+   state colors (ok/warn/bad/info) kept separate from the accent hue, one
+   per EmployeeState bucket the real engine produces.
+   Type: IBM Plex Sans for UI/display, IBM Plex Mono for every exact value
+   (timestamps, durations, ids, policy versions) — an audit console reads
+   its numbers in monospace so columns of durations and times line up and
+   read as data, not prose.
+   Layout: fixed left rail of section nav; fluid main pane that collapses
+   the rail to a top tab strip under ~760px. The attendance timeline is a
+   single horizontal bar whose segment widths are proportional to each
+   state interval's real duration — never decorative blocks.
+*/
+:root {
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --surface-2: #eceff4;
+  --border: #d9dee6;
+  --fg: #141b26;
+  --fg-muted: #5c6878;
+  --accent: #0f766e;
+  --accent-fg: #ffffff;
+  --ok: #15803d;
+  --ok-bg: #dcfce7;
+  --warn: #b45309;
+  --warn-bg: #fef3c7;
+  --bad: #b91c1c;
+  --bad-bg: #fee2e2;
+  --info: #475569;
+  --info-bg: #e2e8f0;
+  --font-display: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0a0f1a; --surface: #121a28; --surface-2: #1a2334; --border: #263249;
+    --fg: #e7ecf4; --fg-muted: #8c98ac;
+    --accent: #2dd4bf; --accent-fg: #042b26;
+    --ok: #4ade80; --ok-bg: #0f2e1b;
+    --warn: #fbbf24; --warn-bg: #2e2308;
+    --bad: #f87171; --bad-bg: #2e1313;
+    --info: #94a3b8; --info-bg: #1e2635;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0a0f1a; --surface: #121a28; --surface-2: #1a2334; --border: #263249;
+  --fg: #e7ecf4; --fg-muted: #8c98ac;
+  --accent: #2dd4bf; --accent-fg: #042b26;
+  --ok: #4ade80; --ok-bg: #0f2e1b;
+  --warn: #fbbf24; --warn-bg: #2e2308;
+  --bad: #f87171; --bad-bg: #2e1313;
+  --info: #94a3b8; --info-bg: #1e2635;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3 { font-family: var(--font-display); font-weight: 600; margin: 0; text-wrap: balance; }
+.mono { font-family: var(--font-mono); }
+button { font-family: inherit; cursor: pointer; }
+table { width: 100%; border-collapse: collapse; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+
+/* ---- Demo banner: always present, never dismissible — this is sample
+   data, and the console must never let anyone mistake it for a live
+   production feed. ---- */
+.demo-banner {
+  background: var(--warn-bg); color: var(--warn); border-bottom: 1px solid var(--border);
+  padding: 8px 16px; font-size: 12.5px; font-weight: 500; text-align: center;
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+}
+
+/* ---- App shell ---- */
+.shell { display: flex; min-height: 100vh; max-width: 1400px; margin: 0 auto; gap: 0; }
+.rail {
+  width: 220px; flex: none; border-right: 1px solid var(--border);
+  padding: 20px 12px; display: flex; flex-direction: column; gap: 4px;
+}
+.rail-brand { display: flex; align-items: center; gap: 10px; padding: 4px 10px 20px; }
+.rail-brand .mark {
+  width: 28px; height: 28px; border-radius: 7px; background: var(--accent); color: var(--accent-fg);
+  display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; flex: none;
+}
+.rail-brand .name { font-family: var(--font-display); font-weight: 600; font-size: 14.5px; }
+.rail-brand .sub { font-size: 11px; color: var(--fg-muted); }
+.nav-item {
+  display: flex; align-items: center; gap: 10px; padding: 9px 10px; border-radius: 8px;
+  color: var(--fg-muted); font-weight: 500; font-size: 13.5px; text-decoration: none;
+  border: none; background: none; width: 100%; text-align: left;
+}
+.nav-item[aria-current="true"] { background: var(--surface-2); color: var(--fg); }
+.nav-item:hover { background: var(--surface-2); }
+.nav-item .dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.rail-footer { margin-top: auto; padding: 10px; font-size: 11.5px; color: var(--fg-muted); border-top: 1px solid var(--border); }
+
+.main { flex: 1; min-width: 0; padding: 28px 28px 60px; }
+.view { display: none; }
+.view[aria-current="true"] { display: block; }
+.page-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+.page-head h1 { font-size: 21px; }
+.page-head p { color: var(--fg-muted); font-size: 13px; margin: 4px 0 0; }
+
+/* Tabs for narrow widths */
+.tabstrip { display: none; overflow-x: auto; gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
+.tabstrip button {
+  flex: none; border: none; background: none; padding: 7px 12px; border-radius: 7px;
+  font-size: 13px; font-weight: 500; color: var(--fg-muted); white-space: nowrap;
+}
+.tabstrip button[aria-current="true"] { background: var(--surface-2); color: var(--fg); }
+@media (max-width: 760px) {
+  .rail { display: none; }
+  .tabstrip { display: flex; }
+  .main { padding: 16px 0 40px; }
+}
+
+/* ---- KPI tiles ---- */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; margin-bottom: 24px; }
+.kpi {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px;
+  min-width: 0;
+}
+.kpi .label { font-size: 12px; color: var(--fg-muted); font-weight: 500; }
+.kpi .value { font-family: var(--font-mono); font-size: 25px; font-weight: 600; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.kpi .delta { font-size: 11.5px; margin-top: 4px; color: var(--fg-muted); }
+
+/* ---- Cards ---- */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 20px; }
+.card-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--border); gap: 12px; flex-wrap: wrap; }
+.card-head h2 { font-size: 14.5px; }
+.card-body { padding: 18px; }
+
+/* ---- Composition bar (org-wide state distribution) ---- */
+.comp-bar { display: flex; height: 26px; border-radius: 7px; overflow: hidden; border: 1px solid var(--border); }
+.comp-bar > div { min-width: 2px; }
+.comp-legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; font-size: 12px; color: var(--fg-muted); }
+.comp-legend .sw { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+
+/* ---- State pill ---- */
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
+.pill .sw { width: 6px; height: 6px; border-radius: 50%; }
+.pill.active { background: var(--ok-bg); color: var(--ok); }
+.pill.idle_break { background: var(--warn-bg); color: var(--warn); }
+.pill.locked, .pill.sleep, .pill.unverified { background: var(--info-bg); color: var(--info); }
+.pill.signed_out { background: var(--surface-2); color: var(--fg-muted); }
+.pill.monitoring_gap { background: var(--bad-bg); color: var(--bad); }
+.pill.yes { background: var(--ok-bg); color: var(--ok); }
+.pill.pending { background: var(--warn-bg); color: var(--warn); }
+.pill.no { background: var(--bad-bg); color: var(--bad); }
+.pill.productive { background: var(--ok-bg); color: var(--ok); }
+.pill.neutral { background: var(--info-bg); color: var(--info); }
+.pill.unproductive { background: var(--bad-bg); color: var(--bad); }
+.pill.unclassified { background: var(--surface-2); color: var(--fg-muted); }
+.pill.absent { background: var(--bad-bg); color: var(--bad); }
+.pill.incomplete { background: var(--warn-bg); color: var(--warn); }
+.pill.weekend { background: var(--surface-2); color: var(--fg-muted); }
+.pill.future { background: var(--surface-2); color: var(--fg-muted); }
+
+/* ---- Report controls (Daily / Monthly / History) ---- */
+.report-controls { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 18px; }
+.report-controls select, .report-controls input[type="date"] {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; font-size: 13px; color: var(--fg); font-family: inherit;
+}
+.date-nav { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.date-nav button { border: none; background: var(--surface); color: var(--fg); padding: 8px 12px; font-size: 14px; line-height: 1; }
+.date-nav button:hover { background: var(--surface-2); }
+.date-nav .current { padding: 8px 12px; font-size: 13px; font-weight: 600; font-family: var(--font-mono); border-left: 1px solid var(--border); border-right: 1px solid var(--border); white-space: nowrap; }
+.report-stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 20px; }
+.report-stat { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+.report-stat .label { font-size: 11.5px; color: var(--fg-muted); font-weight: 500; }
+.report-stat .value { font-family: var(--font-mono); font-size: 20px; font-weight: 600; margin-top: 5px; font-variant-numeric: tabular-nums; }
+.report-stat .value.flag { color: var(--bad); }
+.weekday-label { font-size: 11px; color: var(--fg-muted); }
+.dt tr.row-weekend td, .dt tr.row-future td { color: var(--fg-muted); }
+.dt tr.row-absent td { background: color-mix(in srgb, var(--bad) 5%, transparent); }
+
+/* ---- Toolbar (search/filter) ---- */
+.toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 14px; }
+.toolbar input[type="search"], .toolbar select {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 10px; font-size: 13px; color: var(--fg); font-family: inherit;
+}
+.toolbar input[type="search"] { flex: 1; min-width: 160px; }
+.btn {
+  border: 1px solid var(--border); background: var(--surface); color: var(--fg);
+  border-radius: 8px; padding: 8px 13px; font-size: 13px; font-weight: 500;
+}
+.btn:hover { background: var(--surface-2); }
+.btn.primary { background: var(--accent); color: var(--accent-fg); border-color: transparent; }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.danger { color: var(--bad); border-color: var(--bad); background: transparent; }
+
+/* ---- Data table ---- */
+.dt-wrap { overflow-x: auto; }
+.dt th { text-align: left; font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--fg-muted); font-weight: 600; padding: 10px 14px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.dt th button { background: none; border: none; color: inherit; font: inherit; text-transform: inherit; letter-spacing: inherit; padding: 0; display: flex; align-items: center; gap: 4px; }
+.dt td { padding: 11px 14px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+.dt tr:last-child td { border-bottom: none; }
+.dt tr.clickable { cursor: pointer; }
+.dt tr.clickable:hover td { background: var(--surface-2); }
+.dt .name { font-weight: 600; }
+.dt .muted { color: var(--fg-muted); font-size: 12px; }
+.empty-state { text-align: center; padding: 48px 20px; color: var(--fg-muted); }
+.empty-state .big { font-size: 15px; font-weight: 600; color: var(--fg); margin-bottom: 6px; }
+
+/* ---- Timeline (session detail) ---- */
+.timeline-bar { display: flex; height: 34px; border-radius: 8px; overflow: hidden; border: 1px solid var(--border); margin-bottom: 8px; }
+.timeline-bar > div { min-width: 1px; position: relative; }
+.timeline-axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--fg-muted); font-family: var(--font-mono); margin-bottom: 18px; }
+.interval-row { display: grid; grid-template-columns: 110px 1fr 90px 90px; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 12.5px; }
+.interval-row:last-child { border-bottom: none; }
+.interval-row .dur { font-family: var(--font-mono); text-align: right; color: var(--fg-muted); }
+.interval-row .range { font-family: var(--font-mono); color: var(--fg-muted); font-size: 12px; }
+
+/* ---- Compliance ---- */
+.notice-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--border); }
+.notice-row:last-child { border-bottom: none; }
+.notice-row .ts { font-family: var(--font-mono); font-size: 12px; color: var(--fg-muted); }
+
+/* ---- Modal ---- */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(10,15,26,0.45); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 50; }
+.modal-backdrop[data-open="true"] { display: flex; }
+.modal { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; max-width: 560px; width: 100%; max-height: 85vh; overflow-y: auto; }
+.modal-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 18px; border-bottom: 1px solid var(--border); }
+.modal-head h3 { font-size: 15px; }
+.modal-close { border: none; background: none; font-size: 18px; color: var(--fg-muted); line-height: 1; padding: 4px; }
+.modal-body { padding: 18px; }
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 12.5px; font-weight: 500; margin-bottom: 5px; }
+.field input, .field select, .field textarea {
+  width: 100%; background: var(--surface-2); border: 1px solid var(--border); border-radius: 7px;
+  padding: 8px 10px; font-size: 13px; color: var(--fg); font-family: inherit;
+}
+.field textarea { resize: vertical; min-height: 64px; font-family: var(--font-mono); font-size: 12.5px; }
+.form-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 6px; }
+.csv-box { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-family: var(--font-mono); font-size: 11.5px; max-height: 220px; overflow: auto; white-space: pre; }
+.toast {
+  position: fixed; bottom: max(20px, env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%);
+  background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 8px; font-size: 13px;
+  opacity: 0; transition: opacity 0.2s; pointer-events: none; z-index: 60;
+}
+.toast[data-show="true"] { opacity: 1; }
+
+/* ---- Role switcher (demo-only; a real deployment is two separate
+   logins, not a dropdown — see the note text this control renders) ---- */
+.role-switch-bar {
+  display: flex; align-items: center; gap: 10px; padding: 8px max(16px, env(safe-area-inset-left, 0px)) 8px max(16px, env(safe-area-inset-right, 0px));
+  background: var(--fg); color: var(--bg); font-size: 12.5px; flex-wrap: wrap;
+}
+.role-switch-bar label { font-weight: 500; }
+.role-switch-bar select { font: inherit; background: var(--surface); color: var(--fg); border: none; border-radius: 6px; padding: 4px 8px; }
+.role-switch-bar .role-note { opacity: 0.75; }
+[data-role="admin"][data-role-hidden="true"], [data-role="employee"][data-role-hidden="true"] { display: none !important; }
+.employee-scope-note { background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 14px; font-size: 12.5px; color: var(--fg-muted); margin-bottom: 14px; }
+.req-row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: start; padding: 14px 0; border-bottom: 1px solid var(--border); }
+.req-row:last-child { border-bottom: none; }
+.req-meta { font-size: 12.5px; color: var(--fg-muted); margin-top: 3px; }
+.req-actions { display: flex; gap: 6px; }
+</style>
+
+<div class="demo-banner">Sample data for demonstration — this console is not connected to a live device fleet. No real employee data is shown.</div>
+
+<div class="role-switch-bar">
+  <label for="role-switcher">Viewing as</label>
+  <select id="role-switcher" aria-label="Switch demo role"></select>
+  <span class="role-note" id="role-note"></span>
+</div>
+
+<div class="shell">
+  <nav class="rail" aria-label="Sections">
+    <div class="rail-brand">
+      <div class="mark">AT</div>
+      <div>
+        <div class="name">Attendance Console</div>
+        <div class="sub">Northwind Logistics Pvt. Ltd.</div>
+      </div>
+    </div>
+    <button class="nav-item" data-nav="overview" data-role="admin" aria-current="true"><span class="dot" style="background:var(--accent)"></span>Overview</button>
+    <button class="nav-item" data-nav="employees" data-role="admin"><span class="dot" style="background:var(--accent)"></span>Employees</button>
+    <button class="nav-item" data-nav="daily-report"><span class="dot" style="background:var(--accent)"></span>Daily report</button>
+    <button class="nav-item" data-nav="monthly-report"><span class="dot" style="background:var(--accent)"></span>Monthly report</button>
+    <button class="nav-item" data-nav="history"><span class="dot" style="background:var(--accent)"></span>History</button>
+    <button class="nav-item" data-nav="activity" data-role="admin"><span class="dot" style="background:var(--accent)"></span>Activity</button>
+    <button class="nav-item" data-nav="compliance" data-role="admin"><span class="dot" style="background:var(--accent)"></span>Compliance &amp; notice</button>
+    <button class="nav-item" data-nav="audit" data-role="admin"><span class="dot" style="background:var(--accent)"></span>Corrections log</button>
+    <button class="nav-item" data-nav="correction-requests" data-role="admin"><span class="dot" style="background:var(--accent)"></span>Correction requests</button>
+    <button class="nav-item" data-nav="my-corrections" data-role="employee"><span class="dot" style="background:var(--accent)"></span>My correction requests</button>
+    <div class="rail-footer">Monitoring indicator and employee self-view are fixed parts of this product — they cannot be disabled from admin settings.</div>
+  </nav>
+
+  <main class="main">
+    <div class="tabstrip" role="tablist" aria-label="Sections">
+      <button data-nav="overview" data-role="admin" aria-current="true">Overview</button>
+      <button data-nav="employees" data-role="admin">Employees</button>
+      <button data-nav="daily-report">Daily</button>
+      <button data-nav="monthly-report">Monthly</button>
+      <button data-nav="history">History</button>
+      <button data-nav="activity" data-role="admin">Activity</button>
+      <button data-nav="compliance" data-role="admin">Compliance</button>
+      <button data-nav="audit" data-role="admin">Corrections</button>
+      <button data-nav="correction-requests" data-role="admin">Requests</button>
+      <button data-nav="my-corrections" data-role="employee">My requests</button>
+    </div>
+
+    <!-- ===== OVERVIEW ===== -->
+    <section class="view" data-view="overview" aria-current="true">
+      <div class="page-head">
+        <div>
+          <h1>Today — Mon, 19 Oct 2026</h1>
+          <p>Org-wide attendance summary, reconciled from each device's activity timeline.</p>
+        </div>
+        <button class="btn" id="btn-export-overview">Export summary (CSV)</button>
+      </div>
+
+      <div class="kpi-grid" id="kpi-grid"></div>
+
+      <div class="card">
+        <div class="card-head"><h2>Current state distribution</h2><span class="muted mono" id="comp-asof"></span></div>
+        <div class="card-body">
+          <div class="comp-bar" id="comp-bar"></div>
+          <div class="comp-legend" id="comp-legend"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Needs attention</h2></div>
+        <div class="card-body" id="attention-list"></div>
+      </div>
+    </section>
+
+    <!-- ===== EMPLOYEES ===== -->
+    <section class="view" data-view="employees">
+      <div class="page-head">
+        <div>
+          <h1>Employees</h1>
+          <p>Click a row to open today's session timeline.</p>
+        </div>
+        <button class="btn" id="btn-export-employees">Export (CSV)</button>
+      </div>
+      <div class="toolbar">
+        <input type="search" id="emp-search" placeholder="Search name, department or device…" aria-label="Search employees">
+        <select id="emp-dept-filter" aria-label="Filter by department">
+          <option value="">All departments</option>
+        </select>
+        <select id="emp-state-filter" aria-label="Filter by current state">
+          <option value="">All states</option>
+          <option value="active">Active</option>
+          <option value="idle_break">Idle / break</option>
+          <option value="locked">Locked</option>
+          <option value="sleep">Sleep</option>
+          <option value="signed_out">Signed out</option>
+          <option value="monitoring_gap">Monitoring gap</option>
+        </select>
+      </div>
+      <div class="card">
+        <div class="dt-wrap">
+          <table class="dt" id="employees-table">
+            <thead>
+              <tr>
+                <th><button data-sort="name">Employee ▾</button></th>
+                <th><button data-sort="department">Department</button></th>
+                <th><button data-sort="device">Device</button></th>
+                <th><button data-sort="state">Current state</button></th>
+                <th><button data-sort="active">Active today</button></th>
+                <th><button data-sort="break">Break today</button></th>
+                <th><button data-sort="lastSeen">Last input</button></th>
+                <th>Notice</th>
+              </tr>
+            </thead>
+            <tbody id="employees-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== DAILY REPORT ===== -->
+    <section class="view" data-view="daily-report">
+      <div class="page-head">
+        <div>
+          <h1>Daily report</h1>
+          <p>Full attendance and activity detail for one employee on one date — login, logout, session duration, active time, breaks, idle/monitoring gaps, and application &amp; browser usage.</p>
+        </div>
+        <button class="btn" id="btn-export-daily">Export (CSV)</button>
+      </div>
+      <div class="report-controls">
+        <select id="dr-employee" aria-label="Employee"></select>
+        <div class="date-nav">
+          <button id="dr-prev" aria-label="Previous day">‹</button>
+          <span class="current" id="dr-date-label"></span>
+          <button id="dr-next" aria-label="Next day">›</button>
+        </div>
+        <input type="date" id="dr-date" aria-label="Pick a date">
+      </div>
+      <div id="dr-body"></div>
+    </section>
+
+    <!-- ===== MONTHLY REPORT ===== -->
+    <section class="view" data-view="monthly-report">
+      <div class="page-head">
+        <div>
+          <h1>Monthly report</h1>
+          <p>One employee's whole month, consolidated — daily attendance records plus monthly totals and averages. Weekends are shown but excluded from totals; a day that hasn't happened yet is left blank, never counted as absent.</p>
+        </div>
+        <div style="display:flex; gap:8px">
+          <button class="btn" id="btn-export-monthly-summary">Export summary (CSV)</button>
+          <button class="btn" id="btn-export-monthly-daily">Export day-by-day (CSV)</button>
+        </div>
+      </div>
+      <div class="report-controls">
+        <select id="mr-employee" aria-label="Employee"></select>
+        <div class="date-nav">
+          <button id="mr-prev" aria-label="Previous month">‹</button>
+          <span class="current" id="mr-month-label"></span>
+          <button id="mr-next" aria-label="Next month">›</button>
+        </div>
+      </div>
+      <div class="report-stat-row" id="mr-stats"></div>
+      <div class="card">
+        <div class="dt-wrap">
+          <table class="dt">
+            <thead><tr><th>Date</th><th>Status</th><th>Login</th><th>Logout</th><th>Total</th><th>Active</th><th>Break</th><th>#Br</th><th>Productive</th><th>Unproductive</th></tr></thead>
+            <tbody id="mr-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== HISTORY ===== -->
+    <section class="view" data-view="history">
+      <div class="page-head">
+        <div>
+          <h1>History</h1>
+          <p>Search attendance history across employees, departments, devices and date ranges. Click any row to open that day's full daily report — no digging through individual sessions.</p>
+        </div>
+      </div>
+      <div class="report-controls">
+        <select id="hist-employee" aria-label="Employee"><option value="">All employees</option></select>
+        <select id="hist-dept" aria-label="Department"><option value="">All departments</option></select>
+        <select id="hist-device" aria-label="Device"><option value="">All devices</option></select>
+        <input type="date" id="hist-from" aria-label="From date">
+        <input type="date" id="hist-to" aria-label="To date">
+        <select id="hist-status" aria-label="Status">
+          <option value="">All statuses</option>
+          <option value="present">Present</option>
+          <option value="incomplete">Incomplete</option>
+          <option value="absent">Absent</option>
+        </select>
+      </div>
+      <div class="card">
+        <div class="dt-wrap">
+          <table class="dt">
+            <thead><tr><th>Date</th><th>Employee</th><th>Department</th><th>Device</th><th>Status</th><th>Login</th><th>Logout</th><th>Active</th></tr></thead>
+            <tbody id="hist-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== ACTIVITY ===== -->
+    <section class="view" data-view="activity">
+      <div class="page-head">
+        <div>
+          <h1>Activity &amp; productivity</h1>
+          <p>Application and browser-domain usage, reconciled from foreground and active-tab events, classified by the admin-authored rule set below. Browser domain time is what drives classification for time spent in the browser — the browser application itself is shown separately, as a container.</p>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Org-wide time by classification</h2><span class="muted mono" id="activity-asof"></span></div>
+        <div class="card-body">
+          <div class="comp-bar" id="activity-comp-bar"></div>
+          <div class="comp-legend" id="activity-comp-legend"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Top applications</h2></div>
+        <div class="card-body">
+          <div class="dt-wrap">
+            <table class="dt">
+              <thead><tr><th>Application</th><th>Total time today</th><th>Classification</th></tr></thead>
+              <tbody id="activity-apps-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Top domains</h2></div>
+        <div class="card-body">
+          <div class="dt-wrap">
+            <table class="dt">
+              <thead><tr><th>Domain</th><th>Total time today</th><th>Classification</th></tr></thead>
+              <tbody id="activity-domains-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Classification rules in force</h2></div>
+        <div class="card-body" id="activity-rules-body"></div>
+      </div>
+    </section>
+
+    <!-- ===== COMPLIANCE ===== -->
+    <section class="view" data-view="compliance">
+      <div class="page-head">
+        <div>
+          <h1>Compliance &amp; notice</h1>
+          <p>No activity is collected for an employee/device pair until the on-device notice has been shown <em>and</em> acknowledged by that employee. This is enforced by the collection pipeline, not just by policy.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Notice acknowledgement status</h2></div>
+        <div class="card-body" id="compliance-list"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>Policy currently in force</h2></div>
+        <div class="card-body">
+          <div class="field" style="margin-bottom:10px">
+            <label>Policy version</label>
+            <div class="mono" style="font-size:13px" id="policy-version">v2026.1</div>
+          </div>
+          <p class="muted" style="color:var(--fg-muted); font-size:12.5px; margin:0">What's collected: foreground application, active browser tab/domain, keyboard &amp; mouse timing (never keystroke content), idle and lock state. Never collected: passwords, clipboard contents, message contents, screenshots, camera or microphone.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== AUDIT / CORRECTIONS ===== -->
+    <section class="view" data-view="audit">
+      <div class="page-head">
+        <div>
+          <h1>Corrections log</h1>
+          <p>Every manual correction preserves the original value, the corrected value, the reason, the admin who made it, and when — nothing is silently overwritten.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body" id="audit-body"></div>
+      </div>
+    </section>
+
+    <!-- ===== CORRECTION REQUESTS (admin review) ===== -->
+    <section class="view" data-view="correction-requests">
+      <div class="page-head">
+        <div>
+          <h1>Correction requests</h1>
+          <p>Requests submitted by employees from their own records. An employee can never alter raw data directly — approving a request here is what actually creates an entry in the corrections log; rejecting one leaves all data untouched.</p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body" id="correction-requests-body"></div>
+      </div>
+    </section>
+
+    <!-- ===== MY CORRECTION REQUESTS (employee self-service) ===== -->
+    <section class="view" data-view="my-corrections">
+      <div class="page-head">
+        <div>
+          <h1>My correction requests</h1>
+          <p>Think a date looks wrong? Submit a request with your reason — an administrator reviews it before anything changes. You can never edit your own raw records directly.</p>
+        </div>
+        <button class="btn primary" id="btn-new-correction-request">Request a correction</button>
+      </div>
+      <div class="card">
+        <div class="card-body" id="my-corrections-body"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- Session detail modal -->
+<div class="modal-backdrop" id="session-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Session detail">
+    <div class="modal-head">
+      <h3 id="session-modal-title">Session detail</h3>
+      <button class="modal-close" id="session-modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body" id="session-modal-body"></div>
+  </div>
+</div>
+
+<!-- CSV export modal -->
+<div class="modal-backdrop" id="csv-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Export CSV">
+    <div class="modal-head">
+      <h3>Export</h3>
+      <button class="modal-close" id="csv-modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="muted" style="color:var(--fg-muted); font-size:12.5px; margin:0 0 10px">Downloads aren't available in this preview — copy the CSV instead.</p>
+      <div class="csv-box" id="csv-content"></div>
+      <div class="form-actions"><button class="btn primary" id="csv-copy-btn">Copy to clipboard</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- Employee correction-request modal -->
+<div class="modal-backdrop" id="request-modal">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Request a correction">
+    <div class="modal-head">
+      <h3>Request a correction</h3>
+      <button class="modal-close" id="request-modal-close" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label>Date this concerns</label>
+        <input type="date" id="req-date">
+      </div>
+      <div class="field">
+        <label>What looks wrong?</label>
+        <select id="req-field">
+          <option value="sign-in time">Sign-in time</option>
+          <option value="sign-out time">Sign-out time</option>
+          <option value="break duration">Break duration</option>
+          <option value="session attribution">A session wasn't mine / is misattributed</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>What should it be?</label>
+        <input type="text" id="req-value" placeholder="e.g. Sign-out should be 18:30, not 17:00">
+      </div>
+      <div class="field">
+        <label>Reason</label>
+        <textarea id="req-reason" placeholder="e.g. I stayed late for the client call and forgot to lock my screen before leaving."></textarea>
+      </div>
+      <div class="form-actions">
+        <button class="btn primary" id="req-submit-btn">Submit request</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ===========================================================================
+  // DEMO DATA — mirrors the real domain model (EmployeeState, BreakInterval,
+  // NoticeAcknowledgement) proven in the engine/repository tests. All names,
+  // devices and timestamps below are invented for demonstration only.
+  // ===========================================================================
+
+  var STATE_META = {
+    active:         { label: "Active",          color: "var(--ok)",   bg: "var(--ok-bg)" },
+    idle_break:     { label: "Idle / break",     color: "var(--warn)", bg: "var(--warn-bg)" },
+    locked:         { label: "Locked",           color: "var(--info)", bg: "var(--info-bg)" },
+    sleep:          { label: "Sleep",            color: "#64748b",     bg: "var(--info-bg)" },
+    signed_out:     { label: "Signed out",       color: "var(--fg-muted)", bg: "var(--surface-2)" },
+    monitoring_gap: { label: "Monitoring gap",   color: "var(--bad)",  bg: "var(--bad-bg)" },
+    unverified:     { label: "Unverified",       color: "#8b5cf6",     bg: "var(--info-bg)" }
+  };
+
+  // Productivity classification — mirrors the real engine's rule shape
+  // (target keys "app:<executable>" / "domain:<domain>", admin-authored,
+  // latest-rule-wins). Browser domain time is what carries classification
+  // for time spent in the browser; the browser app itself ("chrome.exe")
+  // is tracked as a container and excluded from the classification totals
+  // to avoid double-counting the same minute twice.
+  var CLASSIFICATION_RULES = {
+    "app:excel.exe": "productive",
+    "app:outlook.exe": "productive",
+    "app:code.exe": "productive",
+    "app:slack.exe": "neutral",
+    "app:teams.exe": "neutral",
+    "domain:erp.internal.example": "productive",
+    "domain:crm.internal.example": "productive",
+    "domain:helpdesk.internal.example": "productive",
+    "domain:github.com": "productive",
+    "domain:stackoverflow.com": "productive",
+    "domain:figma.com": "productive",
+    "domain:news.ycombinator.com": "unproductive",
+    "domain:youtube.com": "unproductive",
+    "domain:linkedin.com": "neutral"
+  };
+  var CLASS_META = {
+    productive:   { label: "Productive",   color: "var(--ok)" },
+    neutral:      { label: "Neutral",      color: "var(--info)" },
+    unproductive: { label: "Unproductive", color: "var(--bad)" },
+    unclassified: { label: "Unclassified", color: "var(--fg-muted)" }
+  };
+  function classify(kind, target) {
+    var prefix = kind === "browser" ? "domain" : "app";
+    return CLASSIFICATION_RULES[prefix + ":" + target] || "unclassified";
+  }
+  function classPill(cls) {
+    var meta = CLASS_META[cls];
+    return el("span", { class: "pill " + cls }, [
+      el("span", { class: "sw", style: "background:" + meta.color }),
+      document.createTextNode(meta.label)
+    ]);
+  }
+
+  function mins(h, m) { return h * 60 + m; }
+  function fmtTime(totalMin) {
+    var h = Math.floor(totalMin / 60) % 24, m = totalMin % 60;
+    var ampm = h >= 12 ? "PM" : "AM", h12 = h % 12 === 0 ? 12 : h % 12;
+    return h12 + ":" + String(m).padStart(2, "0") + " " + ampm;
+  }
+  function fmtDur(totalMin) {
+    var h = Math.floor(totalMin / 60), m = Math.round(totalMin % 60);
+    if (h === 0) return m + "m";
+    return h + "h " + m + "m";
+  }
+
+  // Each employee's "today" session is a list of {state, start, end} in
+  // minutes-from-midnight, matching StateInterval semantics (non-overlapping,
+  // contiguous). Shift window: 09:30–18:30 nominal.
+  var EMPLOYEES = [
+    { id: "EMP-1001", name: "Ananya Rao", dept: "Operations", device: "OPS-DT-14",
+      intervals: [
+        [mins(9,32), mins(10,15), "active"], [mins(10,15), mins(10,22), "idle_break"],
+        [mins(10,22), mins(12,40), "active"], [mins(12,40), mins(13,10), "idle_break"],
+        [mins(13,10), mins(16,5), "active"], [mins(16,5), mins(16,12), "locked"],
+        [mins(16,12), mins(18,20), "active"], [mins(18,20), null, "active"]
+      ], noticeAckDaysAgo: 41,
+      usage: [
+        { kind: "app", target: "outlook.exe", start: mins(9,32), end: mins(10,15) },
+        { kind: "app", target: "excel.exe", start: mins(10,22), end: mins(12,40) },
+        { kind: "app", target: "chrome.exe", start: mins(13,10), end: mins(16,5) },
+        { kind: "browser", target: "erp.internal.example", start: mins(13,10), end: mins(15,30) },
+        { kind: "browser", target: "news.ycombinator.com", start: mins(15,30), end: mins(16,5) },
+        { kind: "app", target: "outlook.exe", start: mins(16,12), end: mins(18,20) },
+        { kind: "app", target: "excel.exe", start: mins(18,20), end: null }
+      ] },
+    { id: "EMP-1002", name: "Vikram Desai", dept: "Operations", device: "OPS-DT-07",
+      intervals: [
+        [mins(9,10), mins(11,50), "active"], [mins(11,50), mins(12,35), "idle_break"],
+        [mins(12,35), mins(14,0), "active"], [mins(14,0), mins(14,5), "locked"],
+        [mins(14,5), null, "active"]
+      ], noticeAckDaysAgo: 41,
+      usage: [
+        { kind: "app", target: "chrome.exe", start: mins(9,10), end: mins(11,50) },
+        { kind: "browser", target: "crm.internal.example", start: mins(9,10), end: mins(11,50) },
+        { kind: "app", target: "outlook.exe", start: mins(12,35), end: mins(14,0) },
+        { kind: "app", target: "chrome.exe", start: mins(14,5), end: null },
+        { kind: "browser", target: "crm.internal.example", start: mins(14,5), end: null }
+      ] },
+    { id: "EMP-1003", name: "Fatima Sheikh", dept: "Customer Support", device: "CS-LT-02",
+      intervals: [
+        [mins(9,45), mins(12,0), "active"], [mins(12,0), mins(12,8), "idle_break"],
+        [mins(12,8), null, "active"]
+      ], noticeAckDaysAgo: 12,
+      usage: [
+        { kind: "app", target: "chrome.exe", start: mins(9,45), end: mins(12,0) },
+        { kind: "browser", target: "helpdesk.internal.example", start: mins(9,45), end: mins(11,30) },
+        { kind: "browser", target: "youtube.com", start: mins(11,30), end: mins(12,0) },
+        { kind: "app", target: "outlook.exe", start: mins(12,8), end: null }
+      ] },
+    { id: "EMP-1004", name: "Rohan Mehta", dept: "Customer Support", device: "CS-LT-09",
+      intervals: [
+        [mins(9,0), mins(9,40), "active"], [mins(9,40), mins(10,55), "idle_break"],
+        [mins(10,55), null, "active"]
+      ], noticeAckDaysAgo: 12, flagged: "Idle for 1h 15m between 09:40 and 10:55 — worth a quick check-in.",
+      usage: [
+        { kind: "app", target: "outlook.exe", start: mins(9,0), end: mins(9,40) },
+        { kind: "app", target: "chrome.exe", start: mins(10,55), end: null },
+        { kind: "browser", target: "helpdesk.internal.example", start: mins(10,55), end: mins(12,30) },
+        { kind: "browser", target: "linkedin.com", start: mins(12,30), end: null }
+      ] },
+    { id: "EMP-1005", name: "Priya Nair", dept: "Engineering", device: "ENG-DT-21",
+      intervals: [
+        [mins(9,55), mins(13,20), "active"], [mins(13,20), mins(13,50), "sleep"],
+        [mins(13,50), null, "active"]
+      ], noticeAckDaysAgo: 41,
+      usage: [
+        { kind: "app", target: "code.exe", start: mins(9,55), end: mins(13,20) },
+        { kind: "app", target: "slack.exe", start: mins(13,50), end: mins(14,20) },
+        { kind: "app", target: "chrome.exe", start: mins(14,20), end: null },
+        { kind: "browser", target: "github.com", start: mins(14,20), end: mins(16,0) },
+        { kind: "browser", target: "stackoverflow.com", start: mins(16,0), end: null }
+      ] },
+    { id: "EMP-1006", name: "Arjun Kulkarni", dept: "Engineering", device: "ENG-DT-05",
+      intervals: [
+        [mins(10,5), null, "monitoring_gap"]
+      ], noticeAckDaysAgo: 41, flagged: "Monitoring gap since 10:05 — agent may be stopped or crashed.",
+      usage: [
+        { kind: "app", target: "code.exe", start: mins(9,15), end: mins(10,5) }
+      ] },
+    { id: "EMP-1007", name: "Sneha Iyer", dept: "Engineering", device: "ENG-LT-11",
+      intervals: [
+        [mins(9,20), mins(17,45), "active"], [mins(17,45), null, "signed_out"]
+      ], noticeAckDaysAgo: 41,
+      usage: [
+        { kind: "app", target: "code.exe", start: mins(9,20), end: mins(12,0) },
+        { kind: "app", target: "teams.exe", start: mins(12,0), end: mins(12,30) },
+        { kind: "app", target: "chrome.exe", start: mins(12,30), end: mins(17,45) },
+        { kind: "browser", target: "figma.com", start: mins(12,30), end: mins(17,45) }
+      ] },
+    { id: "EMP-1008", name: "Karan Bhatt", dept: "Operations", device: "OPS-DT-19",
+      intervals: [
+        [mins(9,40), mins(10,30), "active"], [mins(10,30), null, "unverified"]
+      ], noticeAckShown: true, noticeAckDaysAgo: null,
+      flagged: "Notice shown but not yet acknowledged — activity collection is blocked for this device.",
+      // No usage records after 10:30: the transparency gate blocks collection
+      // the moment the notice goes unacknowledged, so there is nothing to show
+      // past that point — not a missing feature, the product working as built.
+      usage: [
+        { kind: "app", target: "chrome.exe", start: mins(9,40), end: mins(10,30) },
+        { kind: "browser", target: "erp.internal.example", start: mins(9,40), end: mins(10,30) }
+      ] }
+  ];
+
+  var NOW_MIN = mins(18, 42);
+
+  function usageDurMin(u) { return (u.end === null ? NOW_MIN : u.end) - u.start; }
+
+  function employeeUsageSummary(emp) {
+    var totals = { productive: 0, neutral: 0, unproductive: 0, unclassified: 0 };
+    (emp.usage || []).forEach(function (u) {
+      if (u.kind === "app" && u.target === "chrome.exe") return; // represented by its domain records instead
+      var dur = usageDurMin(u);
+      if (dur <= 0) return;
+      totals[classify(u.kind, u.target)] += dur;
+    });
+    return totals;
+  }
+
+  function orgUsageTotals() {
+    var totals = { productive: 0, neutral: 0, unproductive: 0, unclassified: 0 };
+    EMPLOYEES.forEach(function (e) {
+      var t = employeeUsageSummary(e);
+      Object.keys(t).forEach(function (k) { totals[k] += t[k]; });
+    });
+    return totals;
+  }
+
+  function orgByTarget(kind) {
+    var map = {};
+    EMPLOYEES.forEach(function (e) {
+      (e.usage || []).forEach(function (u) {
+        if (u.kind !== kind) return;
+        if (kind === "app" && u.target === "chrome.exe") return;
+        var dur = usageDurMin(u);
+        if (dur <= 0) return;
+        map[u.target] = (map[u.target] || 0) + dur;
+      });
+    });
+    return map;
+  }
+
+  var DEPARTMENTS = Array.from(new Set(EMPLOYEES.map(function (e) { return e.dept; })));
+
+  // ===========================================================================
+  // Role-based access demo — this dropdown is a VIEW SWITCHER for this
+  // single hosted artifact, not a real login: the real access control
+  // (session tokens, server-side employeeId scoping that can't be
+  // bypassed from a query parameter) is enforced in core/src/api/
+  // server.ts and proven by core/test/auth-and-rbac.test.ts — nothing a
+  // client-side dropdown could ever demonstrate on its own. What this
+  // DOES demonstrate honestly: exactly which sections and controls an
+  // employee session would and wouldn't see, mirroring server.ts's own
+  // route-by-route rules 1:1 (see the data-role attributes on each nav
+  // button and the forced employeeId below).
+  // ===========================================================================
+  var CURRENT_ROLE = "admin"; // "admin" | "employee"
+  var CURRENT_EMPLOYEE_ID = EMPLOYEES[0].id;
+
+  // Mirrors core/src/db/migrations/005_auth.sql's correction_requests
+  // table: an employee-submitted request is NEVER itself a correction —
+  // only reviewCorrectionRequest()'s admin-side approval (modeled below
+  // as the "Approve" button) creates a corrections-log entry. Seeded
+  // with one of each status so the admin review queue and the
+  // employee's own history both have something real to render on first
+  // load, not an empty screen.
+  var CORRECTION_REQUESTS = [
+    { id: "CR-1", employeeId: EMPLOYEES[0].id, employeeName: EMPLOYEES[0].name, date: "2026-10-17", field: "sign-out time", requestedValue: "18:40 instead of 18:20", reason: "Stayed to finish the month-end reconciliation; forgot to sign out before leaving.", status: "pending", submittedAt: "2026-10-18T09:12:00Z" },
+    { id: "CR-2", employeeId: EMPLOYEES[1] ? EMPLOYEES[1].id : EMPLOYEES[0].id, employeeName: EMPLOYEES[1] ? EMPLOYEES[1].name : EMPLOYEES[0].name, date: "2026-10-15", field: "break duration", requestedValue: "Break was 10 min, not 45 min", reason: "Laptop was locked for a fire drill, not a personal break.", status: "approved", submittedAt: "2026-10-16T07:40:00Z", reviewedBy: "demo-admin", reviewedAt: "2026-10-16T11:05:00Z", note: "Confirmed with facilities — fire drill ran 10:15–11:00." },
+    { id: "CR-3", employeeId: EMPLOYEES[2] ? EMPLOYEES[2].id : EMPLOYEES[0].id, employeeName: EMPLOYEES[2] ? EMPLOYEES[2].name : EMPLOYEES[0].name, date: "2026-10-12", field: "session attribution", requestedValue: "That afternoon session wasn't mine", reason: "I was on leave that day; someone else may have used my desk.", status: "rejected", submittedAt: "2026-10-13T08:00:00Z", reviewedBy: "demo-admin", reviewedAt: "2026-10-13T14:20:00Z", note: "Badge logs show this employee on-site that afternoon — leave request was for the following day." }
+  ];
+  var crIdCounter = CORRECTION_REQUESTS.length;
+
+  function nowStateOf(emp) {
+    var last = emp.intervals[emp.intervals.length - 1];
+    return last[2];
+  }
+  function sumByState(emp, state) {
+    var total = 0;
+    emp.intervals.forEach(function (iv) {
+      if (iv[2] === state) total += (iv[1] === null ? mins(19, 5) : iv[1]) - iv[0];
+    });
+    return total;
+  }
+  function lastInputLabel(emp) {
+    var last = emp.intervals[emp.intervals.length - 1];
+    if (last[2] === "active") return "now";
+    return fmtTime(last[0]);
+  }
+  function noticeStatus(emp) {
+    if (emp.noticeAckDaysAgo === null || emp.noticeAckDaysAgo === undefined) {
+      return emp.noticeAckShown ? "pending" : "missing";
+    }
+    return "yes";
+  }
+
+  // ===========================================================================
+  // Historical report data — procedurally generated, deterministic per
+  // employee+date (the same employee+date always produces the same day —
+  // reloading the page or revisiting a date never reshuffles anyone's
+  // history). "Today" (REPORT_TODAY) is NEVER generated: it's derived
+  // straight from the same EMPLOYEES.intervals/usage arrays the Overview,
+  // Employees and Activity tabs already render from `getDayRecord`/
+  // `deriveTodayRecord`, so every tab agrees on today's numbers — no
+  // separate "today" invented for these new views.
+  //
+  // NOTE on scope: this generates realistic SAMPLE history so the daily/
+  // monthly/history controls below are genuinely operable (real date
+  // math, real navigation, real filtering, real CSV export) rather than
+  // placeholder buttons with nothing behind them. It is not a live feed
+  // from the real core/ engine — this artifact is hosted by claude.ai and
+  // cannot reach a private company server (see core/src/api/server.ts's
+  // own header comment); the real engine, migrations, repository
+  // functions and API routes this generator mirrors are built and
+  // covered by real, executed tests in core/test/reporting*.test.ts.
+  // ===========================================================================
+
+  var REPORT_TODAY = "2026-10-19";
+
+  function pad2(n) { return String(n).padStart(2, "0"); }
+  function parseDateStr(dateStr) {
+    var p = dateStr.split("-").map(Number);
+    return new Date(Date.UTC(p[0], p[1] - 1, p[2]));
+  }
+  function fmtDateStr(d) { return d.getUTCFullYear() + "-" + pad2(d.getUTCMonth() + 1) + "-" + pad2(d.getUTCDate()); }
+  function addDays(dateStr, delta) {
+    var d = parseDateStr(dateStr);
+    d.setUTCDate(d.getUTCDate() + delta);
+    return fmtDateStr(d);
+  }
+  function addMonths(dateStr, delta) {
+    var d = parseDateStr(dateStr);
+    d.setUTCMonth(d.getUTCMonth() + delta);
+    return fmtDateStr(d);
+  }
+  function isWeekend(dateStr) {
+    var dow = parseDateStr(dateStr).getUTCDay();
+    return dow === 0 || dow === 6;
+  }
+  function weekdayShort(dateStr) {
+    return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][parseDateStr(dateStr).getUTCDay()];
+  }
+  function fmtDateLong(dateStr) {
+    return parseDateStr(dateStr).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+  }
+  function daysInMonthOf(firstOfMonthStr) {
+    var p = firstOfMonthStr.split("-").map(Number);
+    return new Date(Date.UTC(p[0], p[1], 0)).getUTCDate();
+  }
+  function monthLabel(dateStr) {
+    return parseDateStr(dateStr).toLocaleDateString("en-IN", { month: "long", year: "numeric", timeZone: "UTC" });
+  }
+
+  // mulberry32 — tiny deterministic PRNG. hashSeed turns "employeeId|date"
+  // into its 32-bit seed, so the SAME employee+date always yields the SAME
+  // generated day.
+  function hashSeed(str) {
+    var h = 1779033703 ^ str.length;
+    for (var i = 0; i < str.length; i++) {
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return h >>> 0;
+  }
+  function mulberry32(seed) {
+    var a = seed;
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  var DEPT_APPS = {
+    Operations:          [["outlook.exe", "productive"], ["excel.exe", "productive"], ["teams.exe", "neutral"]],
+    "Customer Support":   [["outlook.exe", "productive"], ["teams.exe", "neutral"]],
+    Engineering:          [["code.exe", "productive"], ["slack.exe", "neutral"], ["teams.exe", "neutral"]]
+  };
+  var DEPT_DOMAINS = {
+    Operations:          [["erp.internal.example", "productive"], ["crm.internal.example", "productive"], ["linkedin.com", "neutral"], ["news.ycombinator.com", "unproductive"]],
+    "Customer Support":   [["helpdesk.internal.example", "productive"], ["crm.internal.example", "productive"], ["youtube.com", "unproductive"]],
+    Engineering:          [["github.com", "productive"], ["stackoverflow.com", "productive"], ["figma.com", "productive"], ["youtube.com", "unproductive"]]
+  };
+
+  // Splits totalMin across a subset of `names` ([key, cls] pairs), the
+  // LAST part absorbing the rounding remainder so the parts always sum
+  // to EXACTLY totalMin — never off by a rounding error.
+  function splitAcross(names, totalMin, rng) {
+    if (totalMin <= 0 || !names.length) return [];
+    var n = Math.min(names.length, 1 + Math.floor(rng() * names.length));
+    var picked = names.slice(0, n);
+    var weights = picked.map(function () { return 0.4 + rng(); });
+    var wsum = weights.reduce(function (a, b) { return a + b; }, 0);
+    var used = 0;
+    var out = [];
+    picked.forEach(function (pair, i) {
+      var m = i === picked.length - 1 ? (totalMin - used) : Math.round((weights[i] / wsum) * totalMin);
+      m = Math.max(m, 0);
+      used += m;
+      out.push({ key: pair[0], cls: pair[1], min: m });
+    });
+    return out;
+  }
+
+  // Builds one deterministic synthetic PAST day for an employee. Mirrors
+  // the real engine's own distinctions: totalSessionMin (attendance span)
+  // is tracked separately from activeMin, separately from breakMin,
+  // lockedMin and unverifiedMin (monitoring gaps) — the four always sum
+  // EXACTLY to totalSessionMin, the same reconciliation the real
+  // engine/reporting.ts enforces. A missing logout is never papered over
+  // with "now" (there is no "now" for a past date) — only the span up to
+  // the last verified activity is counted, and the day is flagged
+  // isLogoutMissing, not silently completed.
+  function genDay(emp, date) {
+    var rng = mulberry32(hashSeed(emp.id + "|" + date));
+    if (rng() < 0.055) return { date: date, status: "absent", sessionCount: 0 };
+
+    var loginMin = 9 * 60 + Math.round(rng() * 45);          // 09:00–09:45
+    var fullLogoutMin = 17 * 60 + 30 + Math.round(rng() * 60); // 17:30–18:30
+    var missingLogout = rng() < 0.05;
+    var hasGap = rng() < 0.06;
+
+    var lastKnownMin = missingLogout
+      ? Math.round(loginMin + (fullLogoutMin - loginMin) * (0.5 + rng() * 0.35))
+      : fullLogoutMin;
+    var totalMin = Math.max(lastKnownMin - loginMin, 1);
+
+    var breakMin = Math.min(20 + Math.round(rng() * 40), Math.max(totalMin - 10, 0));
+    var gapMin = hasGap ? Math.min(15 + Math.round(rng() * 60), Math.max(totalMin - breakMin - 10, 0)) : 0;
+    var lockedMin = rng() < 0.3 ? Math.min(5 + Math.round(rng() * 15), Math.max(totalMin - breakMin - gapMin - 5, 0)) : 0;
+    var activeMin = Math.max(totalMin - breakMin - gapMin - lockedMin, 0);
+
+    // Split active time into up to 4 chunks so the break/gap/lock sit
+    // BETWEEN real activity (the shape a genuine workday has), instead of
+    // being bunched at the start or end of the day.
+    var activeParts = [0, 0, 0, 0];
+    var remaining = activeMin;
+    for (var i = 0; i < 3; i++) {
+      var part = Math.round(remaining * (0.2 + rng() * 0.3));
+      activeParts[i] = part;
+      remaining -= part;
+    }
+    activeParts[3] = Math.max(remaining, 0);
+
+    // Build the actual minute-by-minute segment timeline FIRST — the same
+    // [start, end, state] shape as EMPLOYEES[i].intervals — then derive
+    // every aggregate (active/break/locked/unverified) FROM it below, so
+    // the daily report's stat numbers and the timeline rendered under
+    // them can never disagree with each other.
+    var segments = [];
+    var cursor = loginMin;
+    function push(type, dur) {
+      if (dur <= 0) return;
+      segments.push([cursor, cursor + dur, type]);
+      cursor += dur;
+    }
+    push("active", activeParts[0]);
+    push("idle_break", breakMin);
+    push("active", activeParts[1]);
+    push("monitoring_gap", gapMin);
+    push("active", activeParts[2]);
+    push("locked", lockedMin);
+    push("active", activeParts[3]);
+    if (segments.length) {
+      // Absorb any rounding slack into the final segment so segments
+      // always cover exactly [loginMin, lastKnownMin] — no gap, no overlap.
+      segments[segments.length - 1][1] += (lastKnownMin - cursor);
+    } else {
+      segments.push([loginMin, lastKnownMin, "active"]);
+    }
+
+    var sums = { active: 0, idle_break: 0, monitoring_gap: 0, locked: 0 };
+    segments.forEach(function (s) { sums[s[2]] += (s[1] - s[0]); });
+
+    var apps = DEPT_APPS[emp.dept] || DEPT_APPS.Operations;
+    var domains = DEPT_DOMAINS[emp.dept] || DEPT_DOMAINS.Operations;
+    var appSplit = splitAcross(apps, Math.round(sums.active * 0.4), rng);
+    var appUsed = appSplit.reduce(function (s, p) { return s + p.min; }, 0);
+    var domainSplit = splitAcross(domains, Math.max(sums.active - appUsed, 0), rng);
+
+    return {
+      date: date,
+      status: missingLogout ? "incomplete" : "present",
+      sessionCount: 1,
+      isLogoutMissing: missingLogout,
+      hasMonitoringGap: hasGap,
+      firstLoginMin: loginMin,
+      lastLogoutMin: missingLogout ? null : fullLogoutMin,
+      lastPointMin: lastKnownMin,
+      totalSessionMin: totalMin,
+      activeMin: sums.active,
+      breakMin: sums.idle_break,
+      lockedMin: sums.locked,
+      unverifiedMin: sums.monitoring_gap,
+      breakCount: sums.idle_break > 0 ? 1 : 0,
+      intervals: segments,
+      usage: appSplit.map(function (p) { return { kind: "app", target: p.key, cls: p.cls, min: p.min }; })
+        .concat(domainSplit.map(function (p) { return { kind: "browser", target: p.key, cls: p.cls, min: p.min }; }))
+    };
+  }
+
+  // Derives "today" from the SAME real intervals/usage the Overview,
+  // Employees and Activity tabs already render, so these new report
+  // views never disagree with the rest of the dashboard about today.
+  function deriveTodayRecord(emp) {
+    var first = emp.intervals[0][0];
+    var lastIv = emp.intervals[emp.intervals.length - 1];
+    var activeMin = sumByState(emp, "active");
+    var breakMin = sumByState(emp, "idle_break");
+    var lockedMin = sumByState(emp, "locked") + sumByState(emp, "sleep");
+    var unverifiedMin = sumByState(emp, "unverified") + sumByState(emp, "monitoring_gap");
+    var lastLogoutMin = lastIv[2] === "signed_out" ? lastIv[0] : null;
+    var totalMin = activeMin + breakMin + lockedMin + unverifiedMin;
+    var usage = [];
+    (emp.usage || []).forEach(function (u) {
+      if (u.kind === "app" && u.target === "chrome.exe") return;
+      var m = usageDurMin(u);
+      if (m <= 0) return;
+      usage.push({ kind: u.kind, target: u.target, cls: classify(u.kind, u.target), min: m });
+    });
+    return {
+      date: REPORT_TODAY,
+      status: "present",
+      sessionCount: 1,
+      isLogoutMissing: lastLogoutMin === null,
+      hasMonitoringGap: emp.intervals.some(function (iv) { return iv[2] === "monitoring_gap"; }),
+      firstLoginMin: first,
+      lastLogoutMin: lastLogoutMin,
+      // Matches the SAME fallback sumByState() uses for an open-ended
+      // interval (mins(19,5), not NOW_MIN) — otherwise the timeline's
+      // last boundary and the "Session span" stat (built from
+      // sumByState) would disagree by the gap between the two.
+      lastPointMin: lastLogoutMin !== null ? lastLogoutMin : mins(19, 5),
+      totalSessionMin: totalMin,
+      activeMin: activeMin,
+      breakMin: breakMin,
+      lockedMin: lockedMin,
+      unverifiedMin: unverifiedMin,
+      intervals: emp.intervals,
+      breakCount: emp.intervals.filter(function (iv) { return iv[2] === "idle_break"; }).length,
+      usage: usage
+    };
+  }
+
+  var HISTORY_CACHE = {};
+  function getDayRecord(emp, date) {
+    if (date === REPORT_TODAY) return deriveTodayRecord(emp);
+    if (date > REPORT_TODAY) return { date: date, status: "future" };
+    if (isWeekend(date)) return { date: date, status: "weekend" };
+    var key = emp.id + "|" + date;
+    if (!HISTORY_CACHE[key]) HISTORY_CACHE[key] = genDay(emp, date);
+    return HISTORY_CACHE[key];
+  }
+
+  function classSummaryOf(rec) {
+    var s = { productive: 0, neutral: 0, unproductive: 0, unclassified: 0 };
+    (rec.usage || []).forEach(function (u) { s[u.cls] += u.min; });
+    return s;
+  }
+
+  var REPORT_STATUS_LABEL = { present: "Present", incomplete: "Incomplete", absent: "Absent", weekend: "Weekend", future: "—" };
+  var REPORT_STATUS_CLASS = { present: "active", incomplete: "incomplete", absent: "absent", weekend: "weekend", future: "future" };
+  function reportStatusPill(status) {
+    return el("span", { class: "pill " + REPORT_STATUS_CLASS[status] }, [document.createTextNode(REPORT_STATUS_LABEL[status])]);
+  }
+
+  function populateEmployeeSelect(sel) {
+    // Rebuilt on every call (not cached past the first) because the
+    // visible set changes with CURRENT_ROLE: an employee session must
+    // never see another employee's name in this list, matching
+    // server.ts's own employeeId-scoping for employee/device sessions.
+    var visible = CURRENT_ROLE === "admin" ? EMPLOYEES : EMPLOYEES.filter(function (e) { return e.id === CURRENT_EMPLOYEE_ID; });
+    sel.innerHTML = "";
+    visible.forEach(function (e) { sel.appendChild(el("option", { value: e.id }, [document.createTextNode(e.name + " — " + e.dept)])); });
+    sel.disabled = CURRENT_ROLE !== "admin";
+  }
+
+  // ===========================================================================
+  // Rendering
+  // ===========================================================================
+
+  function el(tag, attrs, children) {
+    var e = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) {
+      if (k === "class") e.className = attrs[k];
+      else if (k === "html") e.innerHTML = attrs[k];
+      else e.setAttribute(k, attrs[k]);
+    });
+    (children || []).forEach(function (c) { if (c) e.appendChild(c); });
+    return e;
+  }
+  function text(tag, cls, str) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    e.textContent = str;
+    return e;
+  }
+
+  function pill(state) {
+    var meta = STATE_META[state];
+    return el("span", { class: "pill " + state }, [
+      el("span", { class: "sw", style: "background:" + meta.color }),
+      document.createTextNode(meta.label)
+    ]);
+  }
+
+  function renderKpis() {
+    var grid = document.getElementById("kpi-grid");
+    grid.innerHTML = "";
+    var activeNow = EMPLOYEES.filter(function (e) { return nowStateOf(e) === "active"; }).length;
+    var totalActive = EMPLOYEES.reduce(function (s, e) { return s + sumByState(e, "active"); }, 0);
+    var totalBreak = EMPLOYEES.reduce(function (s, e) { return s + sumByState(e, "idle_break"); }, 0);
+    var gaps = EMPLOYEES.filter(function (e) { return nowStateOf(e) === "monitoring_gap"; }).length;
+    var pending = EMPLOYEES.filter(function (e) { return noticeStatus(e) !== "yes"; }).length;
+
+    var kpis = [
+      { label: "Active right now", value: activeNow + " / " + EMPLOYEES.length, sub: "of monitored employees" },
+      { label: "Avg. active time", value: fmtDur(totalActive / EMPLOYEES.length), sub: "per employee, today" },
+      { label: "Total break time", value: fmtDur(totalBreak), sub: "across all employees" },
+      { label: "Monitoring gaps", value: String(gaps), sub: gaps ? "needs attention" : "none right now" },
+      { label: "Notice pending", value: String(pending), sub: pending ? "activity blocked until ack'd" : "all acknowledged" }
+    ];
+    kpis.forEach(function (k) {
+      grid.appendChild(el("div", { class: "kpi" }, [
+        text("div", "label", k.label),
+        text("div", "value mono", k.value),
+        text("div", "delta", k.sub)
+      ]));
+    });
+  }
+
+  function renderComposition() {
+    document.getElementById("comp-asof").textContent = "as of " + fmtTime(mins(18, 42));
+    var bar = document.getElementById("comp-bar");
+    var legend = document.getElementById("comp-legend");
+    bar.innerHTML = ""; legend.innerHTML = "";
+    var counts = {};
+    EMPLOYEES.forEach(function (e) { var s = nowStateOf(e); counts[s] = (counts[s] || 0) + 1; });
+    Object.keys(STATE_META).forEach(function (state) {
+      if (!counts[state]) return;
+      var pct = (counts[state] / EMPLOYEES.length) * 100;
+      bar.appendChild(el("div", { style: "flex-grow:" + pct + "; background:" + STATE_META[state].color, title: STATE_META[state].label + ": " + counts[state] }));
+      legend.appendChild(el("span", {}, [
+        el("span", { class: "sw", style: "background:" + STATE_META[state].color }),
+        document.createTextNode(STATE_META[state].label + " — " + counts[state])
+      ]));
+    });
+  }
+
+  function renderAttention() {
+    var box = document.getElementById("attention-list");
+    box.innerHTML = "";
+    var flagged = EMPLOYEES.filter(function (e) { return e.flagged; });
+    if (!flagged.length) {
+      box.appendChild(el("div", { class: "empty-state" }, [
+        text("div", "big", "Nothing needs attention"),
+        text("div", "", "No monitoring gaps or unusual idle periods right now.")
+      ]));
+      return;
+    }
+    flagged.forEach(function (e) {
+      var row = el("div", { style: "display:flex; gap:12px; padding:10px 0; border-bottom:1px solid var(--border); align-items:flex-start" });
+      row.appendChild(pill(nowStateOf(e)));
+      var right = el("div", { style: "flex:1; min-width:0" });
+      right.appendChild(text("div", "name", e.name + " · " + e.device));
+      right.appendChild(text("div", "muted", e.flagged));
+      row.appendChild(right);
+      box.appendChild(row);
+    });
+    box.lastChild.style.borderBottom = "none";
+  }
+
+  // ---- Activity & productivity ----
+  function renderActivityView() {
+    document.getElementById("activity-asof").textContent = "as of " + fmtTime(NOW_MIN);
+
+    var totals = orgUsageTotals();
+    var totalMin = totals.productive + totals.neutral + totals.unproductive + totals.unclassified;
+    var bar = document.getElementById("activity-comp-bar");
+    var legend = document.getElementById("activity-comp-legend");
+    bar.innerHTML = ""; legend.innerHTML = "";
+    ["productive", "neutral", "unproductive", "unclassified"].forEach(function (k) {
+      if (!totals[k]) return;
+      var pct = totalMin ? (totals[k] / totalMin) * 100 : 0;
+      bar.appendChild(el("div", { style: "flex-grow:" + Math.max(pct, 0.3) + "; background:" + CLASS_META[k].color, title: CLASS_META[k].label + ": " + fmtDur(totals[k]) }));
+      legend.appendChild(el("span", {}, [
+        el("span", { class: "sw", style: "background:" + CLASS_META[k].color }),
+        document.createTextNode(CLASS_META[k].label + " — " + fmtDur(totals[k]))
+      ]));
+    });
+
+    var appMap = orgByTarget("app");
+    var appsBody = document.getElementById("activity-apps-tbody");
+    appsBody.innerHTML = "";
+    Object.keys(appMap).sort(function (a, b) { return appMap[b] - appMap[a]; }).forEach(function (target) {
+      appsBody.appendChild(el("tr", {}, [
+        el("td", {}, [text("div", "name", target)]),
+        el("td", { class: "mono" }, [document.createTextNode(fmtDur(appMap[target]))]),
+        el("td", {}, [classPill(classify("app", target))])
+      ]));
+    });
+    var chromeTotal = 0;
+    EMPLOYEES.forEach(function (e) {
+      (e.usage || []).forEach(function (u) { if (u.kind === "app" && u.target === "chrome.exe") chromeTotal += usageDurMin(u); });
+    });
+    if (chromeTotal > 0) {
+      appsBody.appendChild(el("tr", {}, [
+        el("td", {}, [text("div", "name", "chrome.exe"), text("div", "muted", "browser container — see Top domains for classification")]),
+        el("td", { class: "mono" }, [document.createTextNode(fmtDur(chromeTotal))]),
+        el("td", {}, [classPill("unclassified")])
+      ]));
+    }
+
+    var domainMap = orgByTarget("browser");
+    var domainsBody = document.getElementById("activity-domains-tbody");
+    domainsBody.innerHTML = "";
+    Object.keys(domainMap).sort(function (a, b) { return domainMap[b] - domainMap[a]; }).forEach(function (target) {
+      domainsBody.appendChild(el("tr", {}, [
+        el("td", {}, [text("div", "name", target)]),
+        el("td", { class: "mono" }, [document.createTextNode(fmtDur(domainMap[target]))]),
+        el("td", {}, [classPill(classify("browser", target))])
+      ]));
+    });
+
+    var rulesBody = document.getElementById("activity-rules-body");
+    rulesBody.innerHTML = "";
+    Object.keys(CLASSIFICATION_RULES).forEach(function (key) {
+      rulesBody.appendChild(el("div", { style: "display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border)" }, [
+        text("div", "mono", key),
+        classPill(CLASSIFICATION_RULES[key])
+      ]));
+    });
+    if (rulesBody.lastChild) rulesBody.lastChild.style.borderBottom = "none";
+  }
+
+  // ---- Daily report ----
+  var dailyReportState = { employeeId: EMPLOYEES[0].id, date: REPORT_TODAY };
+
+  function reportStat(container, label, value, flag) {
+    container.appendChild(el("div", { class: "report-stat" }, [
+      text("div", "label", label),
+      el("div", { class: "value" + (flag ? " flag" : "") }, [document.createTextNode(value)])
+    ]));
+  }
+
+  // Renders the same timeline-bar + interval-list shape as the Employees
+  // session modal, but driven by a report record's `intervals` array
+  // (either a generated day's real segment list, or today's actual
+  // EMPLOYEES[i].intervals) instead of the modal's own local variables —
+  // so the daily report shows full session detail, not just totals.
+  function renderIntervalList(container, intervals, firstMin, lastMin) {
+    var span = Math.max(lastMin - firstMin, 1);
+    var bar = el("div", { class: "timeline-bar" });
+    intervals.forEach(function (iv) {
+      var end = iv[1] === null ? lastMin : iv[1];
+      var pct = ((end - iv[0]) / span) * 100;
+      var meta = STATE_META[iv[2]] || STATE_META.active;
+      bar.appendChild(el("div", { style: "flex-grow:" + Math.max(pct, 0.3) + "; background:" + meta.color, title: meta.label }));
+    });
+    container.appendChild(bar);
+    container.appendChild(el("div", { class: "timeline-axis" }, [
+      text("span", "", fmtTime(firstMin)),
+      text("span", "", intervals[intervals.length - 1][1] === null ? "now" : fmtTime(lastMin))
+    ]));
+    var list = el("div", {});
+    intervals.forEach(function (iv) {
+      var end = iv[1] === null ? null : iv[1];
+      var dur = (end === null ? lastMin : end) - iv[0];
+      list.appendChild(el("div", { class: "interval-row" }, [
+        pill(iv[2]),
+        text("div", "range", fmtTime(iv[0]) + " – " + (end === null ? "now" : fmtTime(end))),
+        text("div", "dur", fmtDur(dur)),
+        text("div", "dur", iv[2] === "idle_break" ? "break" : (iv[2] === "monitoring_gap" ? "unverified" : ""))
+      ]));
+    });
+    container.appendChild(list);
+  }
+
+  function renderDailyReportView() {
+    var empSel = document.getElementById("dr-employee");
+    populateEmployeeSelect(empSel);
+    empSel.value = dailyReportState.employeeId;
+    var dateInput = document.getElementById("dr-date");
+    dateInput.value = dailyReportState.date;
+    dateInput.max = REPORT_TODAY;
+    document.getElementById("dr-date-label").textContent = weekdayShort(dailyReportState.date) + ", " + fmtDateLong(dailyReportState.date);
+
+    var emp = EMPLOYEES.filter(function (e) { return e.id === dailyReportState.employeeId; })[0];
+    var rec = getDayRecord(emp, dailyReportState.date);
+    var body = document.getElementById("dr-body");
+    body.innerHTML = "";
+
+    if (rec.status === "weekend") {
+      body.appendChild(el("div", { class: "empty-state" }, [text("div", "big", "Weekend"), text("div", "", "No attendance is expected on this date.")]));
+      return;
+    }
+    if (rec.status === "future") {
+      body.appendChild(el("div", { class: "empty-state" }, [text("div", "big", "This date hasn't happened yet"), text("div", "", "Nothing is recorded — and nothing is assumed or estimated for it.")]));
+      return;
+    }
+    if (rec.status === "absent") {
+      var absStats = el("div", { class: "report-stat-row" });
+      reportStat(absStats, "Status", "Absent", true);
+      body.appendChild(absStats);
+      body.appendChild(el("div", { class: "empty-state" }, [
+        text("div", "big", "No sign-in recorded for this employee on this date"),
+        text("div", "", "Reported honestly as Absent — zero sessions, never shown as zero hours worked or a blank record.")
+      ]));
+      return;
+    }
+
+    var sum = classSummaryOf(rec);
+    var stats = el("div", { class: "report-stat-row" });
+    reportStat(stats, "Status", rec.status === "incomplete" ? "Incomplete" : "Present", rec.status === "incomplete");
+    reportStat(stats, "Login", fmtTime(rec.firstLoginMin));
+    reportStat(stats, "Logout", rec.lastLogoutMin === null ? "Missing" : fmtTime(rec.lastLogoutMin), rec.lastLogoutMin === null);
+    reportStat(stats, "Session span", fmtDur(rec.totalSessionMin));
+    reportStat(stats, "Active time", fmtDur(rec.activeMin));
+    reportStat(stats, "Break time", fmtDur(rec.breakMin) + " (" + rec.breakCount + ")");
+    reportStat(stats, "Locked / sleep", fmtDur(rec.lockedMin));
+    reportStat(stats, "Unverified / gap", fmtDur(rec.unverifiedMin), rec.unverifiedMin > 0);
+    reportStat(stats, "Productive", fmtDur(sum.productive));
+    reportStat(stats, "Unproductive", fmtDur(sum.unproductive), sum.unproductive > 0);
+    body.appendChild(stats);
+
+    if (rec.isLogoutMissing) {
+      body.appendChild(el("div", { class: "card", style: "padding:14px 16px; margin-bottom:16px; border-color:var(--warn)" }, [
+        text("div", "muted", "⚠ No sign-out event was received for this session. Logout and session span reflect only the last verified activity and are flagged — never silently treated as a complete day.")
+      ]));
+    }
+    if (rec.hasMonitoringGap) {
+      body.appendChild(el("div", { class: "card", style: "padding:14px 16px; margin-bottom:16px; border-color:var(--bad)" }, [
+        text("div", "muted", "⚠ A monitoring gap was detected (agent heartbeat missed). That time is recorded as unverified — never counted as active time or as a break.")
+      ]));
+    }
+
+    var timelineWrap = el("div", { class: "card", style: "padding:16px; margin-bottom:16px" });
+    timelineWrap.appendChild(text("h3", "", "Session detail"));
+    if ((rec.intervals || []).length) {
+      var sessionCountNote = rec.sessionCount > 1 ? (rec.sessionCount + " sessions this day") : "1 session";
+      timelineWrap.appendChild(text("p", "muted", sessionCountNote + " — state-by-state breakdown, login to " + (rec.lastLogoutMin === null ? "last known activity" : "logout") + "."));
+      var tlBody = el("div", { style: "margin-top:10px" });
+      renderIntervalList(tlBody, rec.intervals, rec.firstLoginMin, rec.lastPointMin != null ? rec.lastPointMin : rec.firstLoginMin + rec.totalSessionMin);
+      timelineWrap.appendChild(tlBody);
+    } else {
+      timelineWrap.appendChild(el("div", { class: "empty-state" }, [text("div", "", "No session intervals recorded for this day.")]));
+    }
+    body.appendChild(timelineWrap);
+
+    var usageWrap = el("div", { class: "card", style: "padding:16px" });
+    usageWrap.appendChild(text("h3", "", "Application & browser activity"));
+    if ((rec.usage || []).length) {
+      var urecords = el("div", { style: "margin-top:10px" });
+      rec.usage.forEach(function (u) {
+        urecords.appendChild(el("div", { class: "interval-row" }, [
+          classPill(u.cls),
+          text("div", "range", (u.kind === "app" ? "App — " : "Site — ") + u.target),
+          text("div", "dur", fmtDur(u.min))
+        ]));
+      });
+      usageWrap.appendChild(urecords);
+    } else {
+      usageWrap.appendChild(el("div", { class: "empty-state" }, [text("div", "", "No application or browser records for this day.")]));
+    }
+    body.appendChild(usageWrap);
+  }
+
+  document.getElementById("dr-employee").addEventListener("change", function (e) { dailyReportState.employeeId = e.target.value; renderDailyReportView(); });
+  document.getElementById("dr-date").addEventListener("change", function (e) { if (e.target.value) { dailyReportState.date = e.target.value; renderDailyReportView(); } });
+  document.getElementById("dr-prev").addEventListener("click", function () { dailyReportState.date = addDays(dailyReportState.date, -1); renderDailyReportView(); });
+  document.getElementById("dr-next").addEventListener("click", function () {
+    if (dailyReportState.date < REPORT_TODAY) { dailyReportState.date = addDays(dailyReportState.date, 1); renderDailyReportView(); }
+  });
+  document.getElementById("btn-export-daily").addEventListener("click", function () {
+    var emp = EMPLOYEES.filter(function (e) { return e.id === dailyReportState.employeeId; })[0];
+    var rec = getDayRecord(emp, dailyReportState.date);
+    var sum = classSummaryOf(rec);
+    var csv = toCsv([[
+      emp.name, emp.id, rec.date, rec.status,
+      rec.firstLoginMin != null ? fmtTime(rec.firstLoginMin) : "",
+      rec.lastLogoutMin != null ? fmtTime(rec.lastLogoutMin) : (rec.isLogoutMissing ? "missing" : ""),
+      rec.totalSessionMin != null ? fmtDur(rec.totalSessionMin) : "",
+      rec.activeMin != null ? fmtDur(rec.activeMin) : "",
+      rec.breakMin != null ? fmtDur(rec.breakMin) : "",
+      rec.unverifiedMin != null ? fmtDur(rec.unverifiedMin) : "",
+      sum.productive != null ? fmtDur(sum.productive) : "",
+      sum.unproductive != null ? fmtDur(sum.unproductive) : "",
+      rec.isLogoutMissing ? "yes" : "no",
+      rec.hasMonitoringGap ? "yes" : "no"
+    ]], ["employee_name", "employee_id", "date", "status", "login", "logout", "session_span", "active", "break", "unverified", "productive", "unproductive", "logout_missing", "monitoring_gap"]);
+    openCsvModal(csv);
+  });
+
+  // ---- Monthly report ----
+  var monthlyReportState = { employeeId: EMPLOYEES[0].id, month: REPORT_TODAY.slice(0, 7) };
+
+  function monthRecords(emp, month) {
+    var firstOfMonth = month + "-01";
+    var nDays = daysInMonthOf(firstOfMonth);
+    var records = [];
+    for (var d = 1; d <= nDays; d++) records.push(getDayRecord(emp, month + "-" + pad2(d)));
+    return records;
+  }
+
+  function renderMonthlyReportView() {
+    var empSel = document.getElementById("mr-employee");
+    populateEmployeeSelect(empSel);
+    empSel.value = monthlyReportState.employeeId;
+    document.getElementById("mr-month-label").textContent = monthLabel(monthlyReportState.month + "-01");
+
+    var emp = EMPLOYEES.filter(function (e) { return e.id === monthlyReportState.employeeId; })[0];
+    var records = monthRecords(emp, monthlyReportState.month);
+
+    var totals = { present: 0, incomplete: 0, absent: 0, daysWithRecords: 0, activeMin: 0, breakMin: 0, unverifiedMin: 0, productive: 0, unproductive: 0 };
+    records.forEach(function (r) {
+      if (totals[r.status] !== undefined) totals[r.status]++;
+      if (r.status === "present" || r.status === "incomplete") {
+        totals.daysWithRecords++;
+        totals.activeMin += r.activeMin; totals.breakMin += r.breakMin; totals.unverifiedMin += r.unverifiedMin;
+        var s = classSummaryOf(r);
+        totals.productive += s.productive; totals.unproductive += s.unproductive;
+      }
+    });
+
+    var statsBox = document.getElementById("mr-stats");
+    statsBox.innerHTML = "";
+    reportStat(statsBox, "Days in month", String(records.length));
+    reportStat(statsBox, "Days present", String(totals.present));
+    reportStat(statsBox, "Incomplete days", String(totals.incomplete), totals.incomplete > 0);
+    reportStat(statsBox, "Days absent", String(totals.absent), totals.absent > 0);
+    reportStat(statsBox, "Total active", fmtDur(totals.activeMin));
+    reportStat(statsBox, "Total break", fmtDur(totals.breakMin));
+    reportStat(statsBox, "Unverified / gaps", fmtDur(totals.unverifiedMin), totals.unverifiedMin > 0);
+    // Averaged over daysWithRecords ONLY — an absent day must never silently drag the average down.
+    reportStat(statsBox, "Avg active / present day", totals.daysWithRecords ? fmtDur(Math.round(totals.activeMin / totals.daysWithRecords)) : "—");
+    reportStat(statsBox, "Productive (month)", fmtDur(totals.productive));
+    reportStat(statsBox, "Unproductive (month)", fmtDur(totals.unproductive), totals.unproductive > 0);
+
+    var tbody = document.getElementById("mr-tbody");
+    tbody.innerHTML = "";
+    records.forEach(function (r) {
+      var rowCls = r.status === "weekend" ? "row-weekend" : r.status === "future" ? "row-future" : r.status === "absent" ? "row-absent" : "";
+      var s = classSummaryOf(r);
+      var tr = el("tr", rowCls ? { class: rowCls } : {});
+      tr.appendChild(el("td", {}, [text("div", "mono", r.date), text("div", "weekday-label", weekdayShort(r.date))]));
+      tr.appendChild(el("td", {}, [reportStatusPill(r.status)]));
+      tr.appendChild(el("td", { class: "mono" }, [document.createTextNode(r.firstLoginMin != null ? fmtTime(r.firstLoginMin) : "—")]));
+      tr.appendChild(el("td", { class: "mono" }, [document.createTextNode(r.lastLogoutMin != null ? fmtTime(r.lastLogoutMin) : (r.isLogoutMissing ? "Missing" : "—"))]));
+      tr.appendChild(el("td", { class: "mono" }, [document.createTextNode(r.totalSessionMin != null ? fmtDur(r.totalSessionMin) : "—")]));
+      tr.appendChild(el("td", { class: "mono" }, [document.createTextNode(r.activeMin != null ? fmtDur(r.activeMin) : "—")]));
+      tr.appendChild(el("td", { class: "mono" }, [document.createTextNode(r.breakMin != null ? fmtDur(r.breakMin) : "—")]));
+      tr.appendChild(el("td", { class: "mono" }, [document.createTextNode(r.breakCount != null ? String(r.breakCount) : "—")]));
+      tr.appendChild(el("td", { class: "mono" }, [document.createTextNode(s.productive ? fmtDur(s.productive) : "—")]));
+      tr.appendChild(el("td", { class: "mono" }, [document.createTextNode(s.unproductive ? fmtDur(s.unproductive) : "—")]));
+      if (r.status === "present" || r.status === "incomplete") {
+        tr.className = (tr.className ? tr.className + " " : "") + "clickable";
+        tr.addEventListener("click", function () {
+          dailyReportState.employeeId = emp.id; dailyReportState.date = r.date;
+          setView("daily-report"); renderDailyReportView();
+        });
+      }
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.getElementById("mr-employee").addEventListener("change", function (e) { monthlyReportState.employeeId = e.target.value; renderMonthlyReportView(); });
+  document.getElementById("mr-prev").addEventListener("click", function () { monthlyReportState.month = addMonths(monthlyReportState.month + "-01", -1).slice(0, 7); renderMonthlyReportView(); });
+  document.getElementById("mr-next").addEventListener("click", function () {
+    var nextMonth = addMonths(monthlyReportState.month + "-01", 1).slice(0, 7);
+    if (nextMonth <= REPORT_TODAY.slice(0, 7)) { monthlyReportState.month = nextMonth; renderMonthlyReportView(); }
+  });
+  document.getElementById("btn-export-monthly-summary").addEventListener("click", function () {
+    var emp = EMPLOYEES.filter(function (e) { return e.id === monthlyReportState.employeeId; })[0];
+    var records = monthRecords(emp, monthlyReportState.month);
+    var totals = { present: 0, incomplete: 0, absent: 0, daysWithRecords: 0, activeMin: 0, breakMin: 0, unverifiedMin: 0, productive: 0, unproductive: 0 };
+    records.forEach(function (r) {
+      if (totals[r.status] !== undefined) totals[r.status]++;
+      if (r.status === "present" || r.status === "incomplete") {
+        totals.daysWithRecords++; totals.activeMin += r.activeMin; totals.breakMin += r.breakMin; totals.unverifiedMin += r.unverifiedMin;
+        var s = classSummaryOf(r); totals.productive += s.productive; totals.unproductive += s.unproductive;
+      }
+    });
+    var csv = toCsv([[
+      emp.name, emp.id, monthLabel(monthlyReportState.month + "-01"), records.length, totals.daysWithRecords, totals.absent, totals.incomplete,
+      fmtDur(totals.activeMin), fmtDur(totals.breakMin), fmtDur(totals.unverifiedMin),
+      totals.daysWithRecords ? fmtDur(Math.round(totals.activeMin / totals.daysWithRecords)) : "",
+      fmtDur(totals.productive), fmtDur(totals.unproductive)
+    ]], ["employee_name", "employee_id", "month", "days_in_month", "days_with_records", "days_absent", "days_incomplete", "total_active", "total_break", "total_unverified", "avg_active_per_present_day", "total_productive", "total_unproductive"]);
+    openCsvModal(csv);
+  });
+  document.getElementById("btn-export-monthly-daily").addEventListener("click", function () {
+    var emp = EMPLOYEES.filter(function (e) { return e.id === monthlyReportState.employeeId; })[0];
+    var records = monthRecords(emp, monthlyReportState.month);
+    var rows = records.map(function (r) {
+      var s = classSummaryOf(r);
+      return [
+        r.date, weekdayShort(r.date), r.status,
+        r.firstLoginMin != null ? fmtTime(r.firstLoginMin) : "",
+        r.lastLogoutMin != null ? fmtTime(r.lastLogoutMin) : (r.isLogoutMissing ? "missing" : ""),
+        r.totalSessionMin != null ? fmtDur(r.totalSessionMin) : "",
+        r.activeMin != null ? fmtDur(r.activeMin) : "",
+        r.breakMin != null ? fmtDur(r.breakMin) : "",
+        r.unverifiedMin != null ? fmtDur(r.unverifiedMin) : "",
+        s.productive ? fmtDur(s.productive) : "",
+        s.unproductive ? fmtDur(s.unproductive) : ""
+      ];
+    });
+    var csv = toCsv(rows, ["date", "weekday", "status", "login", "logout", "session_span", "active", "break", "unverified", "productive", "unproductive"]);
+    openCsvModal(csv);
+  });
+
+  // ---- History ----
+  function populateHistoryFilters() {
+    var isAdmin = CURRENT_ROLE === "admin";
+    var empSel = document.getElementById("hist-employee");
+    empSel.innerHTML = isAdmin ? '<option value="">All employees</option>' : "";
+    EMPLOYEES.forEach(function (e) {
+      if (isAdmin || e.id === CURRENT_EMPLOYEE_ID) empSel.appendChild(el("option", { value: e.id }, [document.createTextNode(e.name)]));
+    });
+    if (!isAdmin) empSel.value = CURRENT_EMPLOYEE_ID;
+    empSel.disabled = !isAdmin;
+
+    var deptSel = document.getElementById("hist-dept");
+    if (deptSel.children.length === 1) DEPARTMENTS.forEach(function (d) { deptSel.appendChild(el("option", { value: d }, [document.createTextNode(d)])); });
+    deptSel.disabled = !isAdmin;
+    if (!isAdmin) deptSel.value = "";
+
+    var devSel = document.getElementById("hist-device");
+    if (devSel.children.length === 1) EMPLOYEES.forEach(function (e) { devSel.appendChild(el("option", { value: e.device }, [document.createTextNode(e.device)])); });
+    var fromInput = document.getElementById("hist-from"), toInput = document.getElementById("hist-to");
+    if (!fromInput.value) fromInput.value = addDays(REPORT_TODAY, -13);
+    if (!toInput.value) toInput.value = REPORT_TODAY;
+    fromInput.max = REPORT_TODAY; toInput.max = REPORT_TODAY;
+  }
+
+  function renderHistoryView() {
+    populateHistoryFilters();
+    var isAdmin = CURRENT_ROLE === "admin";
+    // A non-admin session can never browse anyone else's history, even
+    // by tampering with the (disabled, but still a real DOM element)
+    // select — the forced value here mirrors server.ts's own
+    // server-side employeeId-scoping on GET /api/history, which ignores
+    // a non-admin's employeeId query param entirely and substitutes
+    // their own id, rather than merely disabling a client-side control.
+    var empFilter = isAdmin ? document.getElementById("hist-employee").value : CURRENT_EMPLOYEE_ID;
+    var deptFilter = isAdmin ? document.getElementById("hist-dept").value : "";
+    var devFilter = document.getElementById("hist-device").value;
+    var statusFilter = document.getElementById("hist-status").value;
+    var from = document.getElementById("hist-from").value || addDays(REPORT_TODAY, -13);
+    var to = document.getElementById("hist-to").value || REPORT_TODAY;
+    if (to > REPORT_TODAY) to = REPORT_TODAY;
+
+    var employees = EMPLOYEES.filter(function (e) {
+      if (empFilter && e.id !== empFilter) return false;
+      if (deptFilter && e.dept !== deptFilter) return false;
+      if (devFilter && e.device !== devFilter) return false;
+      return true;
+    });
+
+    var rows = [];
+    employees.forEach(function (emp) {
+      var cursor = from;
+      while (cursor <= to) {
+        var r = getDayRecord(emp, cursor);
+        if (r.status !== "weekend" && r.status !== "future" && (!statusFilter || r.status === statusFilter)) {
+          rows.push({ emp: emp, rec: r });
+        }
+        cursor = addDays(cursor, 1);
+      }
+    });
+    rows.sort(function (a, b) { return a.rec.date < b.rec.date ? 1 : a.rec.date > b.rec.date ? -1 : 0; });
+
+    var tbody = document.getElementById("hist-tbody");
+    tbody.innerHTML = "";
+    if (!rows.length) {
+      tbody.appendChild(el("tr", {}, [el("td", { colspan: "8" }, [el("div", { class: "empty-state" }, [text("div", "big", "No records match these filters")])])]));
+      return;
+    }
+    rows.forEach(function (row) {
+      var emp = row.emp, r = row.rec;
+      var tr = el("tr", { class: "clickable" });
+      tr.addEventListener("click", function () {
+        dailyReportState.employeeId = emp.id; dailyReportState.date = r.date;
+        setView("daily-report"); renderDailyReportView();
+      });
+      tr.appendChild(el("td", { class: "mono" }, [document.createTextNode(r.date)]));
+      tr.appendChild(el("td", {}, [text("div", "name", emp.name)]));
+      tr.appendChild(el("td", {}, [document.createTextNode(emp.dept)]));
+      tr.appendChild(el("td", { class: "mono" }, [document.createTextNode(emp.device)]));
+      tr.appendChild(el("td", {}, [reportStatusPill(r.status)]));
+      tr.appendChild(el("td", { class: "mono" }, [document.createTextNode(r.firstLoginMin != null ? fmtTime(r.firstLoginMin) : "—")]));
+      tr.appendChild(el("td", { class: "mono" }, [document.createTextNode(r.lastLogoutMin != null ? fmtTime(r.lastLogoutMin) : (r.isLogoutMissing ? "Missing" : "—"))]));
+      tr.appendChild(el("td", { class: "mono" }, [document.createTextNode(r.activeMin != null ? fmtDur(r.activeMin) : "—")]));
+      tbody.appendChild(tr);
+    });
+  }
+
+  ["hist-employee", "hist-dept", "hist-device", "hist-from", "hist-to", "hist-status"].forEach(function (id) {
+    document.getElementById(id).addEventListener("change", renderHistoryView);
+  });
+
+  // ---- Employees table ----
+  var empSortKey = "name", empSortDir = 1;
+  function employeeRows() {
+    var q = document.getElementById("emp-search").value.trim().toLowerCase();
+    var dept = document.getElementById("emp-dept-filter").value;
+    var stateFilter = document.getElementById("emp-state-filter").value;
+    var rows = EMPLOYEES.filter(function (e) {
+      if (dept && e.dept !== dept) return false;
+      if (stateFilter && nowStateOf(e) !== stateFilter) return false;
+      if (q && (e.name + " " + e.dept + " " + e.device).toLowerCase().indexOf(q) === -1) return false;
+      return true;
+    });
+    var keyFn = {
+      name: function (e) { return e.name; },
+      department: function (e) { return e.dept; },
+      device: function (e) { return e.device; },
+      state: function (e) { return nowStateOf(e); },
+      active: function (e) { return sumByState(e, "active"); },
+      break: function (e) { return sumByState(e, "idle_break"); },
+      lastSeen: function (e) { return e.intervals[e.intervals.length - 1][0]; }
+    }[empSortKey];
+    rows.sort(function (a, b) {
+      var av = keyFn(a), bv = keyFn(b);
+      if (av < bv) return -1 * empSortDir;
+      if (av > bv) return 1 * empSortDir;
+      return 0;
+    });
+    return rows;
+  }
+
+  function renderEmployeeFilters() {
+    var sel = document.getElementById("emp-dept-filter");
+    if (sel.children.length === 1) {
+      DEPARTMENTS.forEach(function (d) { sel.appendChild(el("option", { value: d }, [document.createTextNode(d)])); });
+    }
+  }
+
+  function renderEmployeesTable() {
+    var tbody = document.getElementById("employees-tbody");
+    tbody.innerHTML = "";
+    var rows = employeeRows();
+    if (!rows.length) {
+      tbody.appendChild(el("tr", {}, [el("td", { colspan: "8" }, [
+        el("div", { class: "empty-state" }, [text("div", "big", "No employees match these filters")])
+      ])]));
+      return;
+    }
+    rows.forEach(function (e) {
+      var ns = noticeStatus(e);
+      var tr = el("tr", { class: "clickable" });
+      tr.addEventListener("click", function () { openSessionModal(e.id); });
+      tr.appendChild(el("td", {}, [text("div", "name", e.name), text("div", "muted mono", e.id)]));
+      tr.appendChild(el("td", {}, [document.createTextNode(e.dept)]));
+      tr.appendChild(el("td", { class: "mono" }, [document.createTextNode(e.device)]));
+      tr.appendChild(el("td", {}, [pill(nowStateOf(e))]));
+      tr.appendChild(el("td", { class: "mono" }, [document.createTextNode(fmtDur(sumByState(e, "active")))]));
+      tr.appendChild(el("td", { class: "mono" }, [document.createTextNode(fmtDur(sumByState(e, "idle_break")))]));
+      tr.appendChild(el("td", { class: "mono" }, [document.createTextNode(lastInputLabel(e))]));
+      tr.appendChild(el("td", {}, [el("span", { class: "pill " + (ns === "yes" ? "yes" : "pending") }, [document.createTextNode(ns === "yes" ? "Acknowledged" : ns === "pending" ? "Pending" : "Not shown")])]));
+      tbody.appendChild(tr);
+    });
+  }
+
+  document.querySelectorAll("[data-sort]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var key = btn.getAttribute("data-sort");
+      if (empSortKey === key) empSortDir *= -1; else { empSortKey = key; empSortDir = 1; }
+      renderEmployeesTable();
+    });
+  });
+  ["emp-search", "emp-dept-filter", "emp-state-filter"].forEach(function (id) {
+    document.getElementById(id).addEventListener("input", renderEmployeesTable);
+    document.getElementById(id).addEventListener("change", renderEmployeesTable);
+  });
+
+  // ---- Session detail modal ----
+  function openSessionModal(employeeId) {
+    var e = EMPLOYEES.filter(function (x) { return x.id === employeeId; })[0];
+    if (!e) return;
+    document.getElementById("session-modal-title").textContent = e.name + " — today's session";
+    var body = document.getElementById("session-modal-body");
+    body.innerHTML = "";
+
+    var first = e.intervals[0][0];
+    var lastIv = e.intervals[e.intervals.length - 1];
+    var last = lastIv[1] === null ? mins(19, 5) : lastIv[1];
+    var span = last - first;
+
+    var bar = el("div", { class: "timeline-bar" });
+    e.intervals.forEach(function (iv) {
+      var end = iv[1] === null ? last : iv[1];
+      var pct = ((end - iv[0]) / span) * 100;
+      bar.appendChild(el("div", { style: "flex-grow:" + Math.max(pct, 0.3) + "; background:" + STATE_META[iv[2]].color, title: STATE_META[iv[2]].label }));
+    });
+    body.appendChild(bar);
+    body.appendChild(el("div", { class: "timeline-axis" }, [
+      text("span", "", fmtTime(first)),
+      text("span", "", lastIv[1] === null ? "now" : fmtTime(last))
+    ]));
+
+    var list = el("div", {});
+    e.intervals.forEach(function (iv) {
+      var end = iv[1] === null ? null : iv[1];
+      var dur = (end === null ? last : end) - iv[0];
+      var row = el("div", { class: "interval-row" }, [
+        pill(iv[2]),
+        text("div", "range", fmtTime(iv[0]) + " – " + (end === null ? "now" : fmtTime(end))),
+        text("div", "dur", fmtDur(dur)),
+        text("div", "dur", iv[2] === "idle_break" ? "break" : "")
+      ]);
+      list.appendChild(row);
+    });
+    body.appendChild(list);
+
+    var usageWrap = el("div", { style: "margin-top:18px; border-top:1px solid var(--border); padding-top:16px" });
+    usageWrap.appendChild(text("h3", "", "Application & browser activity"));
+    var sum = employeeUsageSummary(e);
+    var sumTotal = sum.productive + sum.neutral + sum.unproductive + sum.unclassified;
+    if (sumTotal > 0) {
+      var ubar = el("div", { class: "comp-bar", style: "margin-top:10px" });
+      ["productive", "neutral", "unproductive", "unclassified"].forEach(function (k) {
+        if (!sum[k]) return;
+        var pct = (sum[k] / sumTotal) * 100;
+        ubar.appendChild(el("div", { style: "flex-grow:" + Math.max(pct, 0.5) + "; background:" + CLASS_META[k].color, title: CLASS_META[k].label + ": " + fmtDur(sum[k]) }));
+      });
+      usageWrap.appendChild(ubar);
+      var ulegend = el("div", { class: "comp-legend", style: "margin-top:10px" });
+      ["productive", "neutral", "unproductive", "unclassified"].forEach(function (k) {
+        if (!sum[k]) return;
+        ulegend.appendChild(el("span", {}, [
+          el("span", { class: "sw", style: "background:" + CLASS_META[k].color }),
+          document.createTextNode(CLASS_META[k].label + " — " + fmtDur(sum[k]))
+        ]));
+      });
+      usageWrap.appendChild(ulegend);
+    }
+    var urecords = el("div", { style: "margin-top:14px" });
+    (e.usage || []).forEach(function (u) {
+      var dur = usageDurMin(u);
+      if (dur <= 0) return;
+      var cls = classify(u.kind, u.target);
+      urecords.appendChild(el("div", { class: "interval-row" }, [
+        classPill(cls),
+        text("div", "range", (u.kind === "app" ? "App — " : "Site — ") + u.target),
+        text("div", "dur", fmtDur(dur)),
+        text("div", "dur", fmtTime(u.start) + (u.end === null ? " – now" : " – " + fmtTime(u.end)))
+      ]));
+    });
+    if (!(e.usage || []).length) {
+      urecords.appendChild(el("div", { class: "empty-state", style: "padding:20px" }, [text("div", "", "No application or browser records for this session.")]));
+    }
+    usageWrap.appendChild(urecords);
+    body.appendChild(usageWrap);
+
+    var noteWrap = el("div", { style: "margin-top:18px; border-top:1px solid var(--border); padding-top:16px" });
+    noteWrap.appendChild(text("h3", "", "Record a correction"));
+    noteWrap.appendChild(text("p", "muted", "Preserves the original value — nothing here overwrites raw data."));
+    var reasonField = el("div", { class: "field" }, [
+      el("label", {}, [document.createTextNode("Reason for correction")]),
+      el("textarea", { id: "correction-reason", placeholder: "e.g. Employee was in an off-site client meeting 14:00–15:30, confirmed by calendar." })
+    ]);
+    noteWrap.appendChild(reasonField);
+    var actions = el("div", { class: "form-actions" });
+    var submitBtn = el("button", { class: "btn primary" }, [document.createTextNode("Save correction")]);
+    submitBtn.addEventListener("click", function () {
+      var reason = document.getElementById("correction-reason").value.trim();
+      if (!reason) { showToast("A reason is required to save a correction."); return; }
+      AUDIT_LOG.unshift({
+        sessionEmployee: e.name, field: "idle_break reclassification", reason: reason,
+        admin: "demo-admin", at: new Date().toISOString()
+      });
+      renderAudit();
+      closeModal("session-modal");
+      showToast("Correction recorded for " + e.name + ".");
+    });
+    actions.appendChild(submitBtn);
+    noteWrap.appendChild(actions);
+    body.appendChild(noteWrap);
+
+    openModal("session-modal");
+  }
+
+  // ---- Compliance ----
+  function renderCompliance() {
+    var box = document.getElementById("compliance-list");
+    box.innerHTML = "";
+    EMPLOYEES.forEach(function (e) {
+      var ns = noticeStatus(e);
+      var row = el("div", { class: "notice-row" });
+      row.appendChild(el("div", {}, [text("div", "name", e.name), text("div", "muted mono", e.device)]));
+      row.appendChild(el("div", { class: "ts" }, [document.createTextNode(ns === "missing" ? "—" : "shown " + (ns === "yes" ? e.noticeAckDaysAgo + 1 : 2) + "d ago")]));
+      row.appendChild(el("div", { class: "ts" }, [document.createTextNode(ns === "yes" ? "ack'd " + e.noticeAckDaysAgo + "d ago" : "—")]));
+      row.appendChild(el("span", { class: "pill " + (ns === "yes" ? "yes" : "pending") }, [document.createTextNode(ns === "yes" ? "Acknowledged" : ns === "pending" ? "Pending" : "Not shown")]));
+      box.appendChild(row);
+    });
+  }
+
+  // ---- Audit log ----
+  var AUDIT_LOG = [];
+  function renderAudit() {
+    var box = document.getElementById("audit-body");
+    box.innerHTML = "";
+    if (!AUDIT_LOG.length) {
+      box.appendChild(el("div", { class: "empty-state" }, [
+        text("div", "big", "No corrections recorded"),
+        text("div", "", "Corrections made from a session's detail view will appear here, with the original value, reason and admin preserved.")
+      ]));
+      return;
+    }
+    AUDIT_LOG.forEach(function (c) {
+      var row = el("div", { style: "padding:12px 0; border-bottom:1px solid var(--border)" }, [
+        el("div", { style: "display:flex; justify-content:space-between; gap:10px" }, [
+          text("div", "name", c.sessionEmployee + " — " + c.field),
+          text("div", "muted mono", new Date(c.at).toLocaleString())
+        ]),
+        text("div", "muted", c.reason),
+        text("div", "muted mono", "by " + c.admin)
+      ]);
+      box.appendChild(row);
+    });
+  }
+
+  // ---- Correction requests: admin review queue ----
+  function crStatusPill(status) {
+    var map = { pending: ["pending", "Pending"], approved: ["yes", "Approved"], rejected: ["no", "Rejected"] };
+    var m = map[status] || map.pending;
+    return el("span", { class: "pill " + m[0] }, [document.createTextNode(m[1])]);
+  }
+
+  function renderCorrectionRequests() {
+    var box = document.getElementById("correction-requests-body");
+    box.innerHTML = "";
+    if (!CORRECTION_REQUESTS.length) {
+      box.appendChild(el("div", { class: "empty-state" }, [text("div", "big", "No correction requests"), text("div", "", "Requests employees submit from their own records will appear here for review.")]));
+      return;
+    }
+    var sorted = CORRECTION_REQUESTS.slice().sort(function (a, b) {
+      // Pending first (needs action), then most recently submitted.
+      if ((a.status === "pending") !== (b.status === "pending")) return a.status === "pending" ? -1 : 1;
+      return a.submittedAt < b.submittedAt ? 1 : -1;
+    });
+    sorted.forEach(function (r) {
+      var left = el("div", {}, [
+        el("div", { style: "display:flex; gap:8px; align-items:center" }, [
+          text("div", "name", r.employeeName + " — " + r.date),
+          crStatusPill(r.status)
+        ]),
+        text("div", "req-meta", r.field + ": " + r.requestedValue),
+        text("div", "req-meta", "“" + r.reason + "”"),
+        text("div", "req-meta", "Submitted " + new Date(r.submittedAt).toLocaleString()),
+      ]);
+      if (r.status !== "pending") {
+        left.appendChild(text("div", "req-meta", (r.status === "approved" ? "Approved" : "Rejected") + " by " + r.reviewedBy + " — " + (r.note || "")));
+      }
+      var row = el("div", { class: "req-row" }, [left]);
+      if (r.status === "pending") {
+        var actions = el("div", { class: "req-actions" });
+        var approveBtn = el("button", { class: "btn primary" }, [document.createTextNode("Approve")]);
+        var rejectBtn = el("button", { class: "btn" }, [document.createTextNode("Reject")]);
+        approveBtn.addEventListener("click", function () {
+          var note = window.prompt("Optional note for the corrections log (admin-authored, same as a direct correction):", "") || "";
+          r.status = "approved"; r.reviewedBy = "demo-admin"; r.reviewedAt = new Date().toISOString(); r.note = note;
+          // This is the ONLY path that touches the corrections log —
+          // mirrors reviewCorrectionRequest() in auth-repository.ts,
+          // which atomically creates the attendance_corrections row
+          // only on approve, never on submit.
+          AUDIT_LOG.unshift({ sessionEmployee: r.employeeName, field: r.field + " (" + r.date + ")", reason: r.reason + (note ? " — admin note: " + note : ""), admin: "demo-admin (approved employee request " + r.id + ")", at: r.reviewedAt });
+          renderCorrectionRequests(); renderAudit(); renderMyCorrections();
+          showToast("Request approved — recorded in the corrections log.");
+        });
+        rejectBtn.addEventListener("click", function () {
+          var note = window.prompt("Reason for rejecting (shown to the employee):", "") || "";
+          r.status = "rejected"; r.reviewedBy = "demo-admin"; r.reviewedAt = new Date().toISOString(); r.note = note;
+          renderCorrectionRequests(); renderMyCorrections();
+          showToast("Request rejected — no data was changed.");
+        });
+        actions.appendChild(approveBtn); actions.appendChild(rejectBtn);
+        row.appendChild(actions);
+      } else {
+        row.appendChild(el("div", {}));
+      }
+      box.appendChild(row);
+    });
+  }
+
+  // ---- My correction requests: employee self-service ----
+  function renderMyCorrections() {
+    var box = document.getElementById("my-corrections-body");
+    box.innerHTML = "";
+    var mine = CORRECTION_REQUESTS.filter(function (r) { return r.employeeId === CURRENT_EMPLOYEE_ID; })
+      .sort(function (a, b) { return a.submittedAt < b.submittedAt ? 1 : -1; });
+    if (!mine.length) {
+      box.appendChild(el("div", { class: "empty-state" }, [text("div", "big", "No requests yet"), text("div", "", "Use “Request a correction” above if something in your records looks wrong.")]));
+      return;
+    }
+    mine.forEach(function (r) {
+      var row = el("div", { class: "req-row" }, [
+        el("div", {}, [
+          el("div", { style: "display:flex; gap:8px; align-items:center" }, [text("div", "name", r.date), crStatusPill(r.status)]),
+          text("div", "req-meta", r.field + ": " + r.requestedValue),
+          text("div", "req-meta", "“" + r.reason + "”"),
+          text("div", "req-meta", "Submitted " + new Date(r.submittedAt).toLocaleString() + (r.status !== "pending" ? " — reviewed " + new Date(r.reviewedAt).toLocaleString() + (r.note ? ": " + r.note : "") : ""))
+        ])
+      ]);
+      box.appendChild(row);
+    });
+  }
+
+  document.getElementById("btn-new-correction-request").addEventListener("click", function () {
+    document.getElementById("req-date").value = REPORT_TODAY;
+    document.getElementById("req-date").max = REPORT_TODAY;
+    document.getElementById("req-field").value = "sign-out time";
+    document.getElementById("req-value").value = "";
+    document.getElementById("req-reason").value = "";
+    openModal("request-modal");
+  });
+  document.getElementById("request-modal-close").addEventListener("click", function () { closeModal("request-modal"); });
+  document.getElementById("req-submit-btn").addEventListener("click", function () {
+    var date = document.getElementById("req-date").value;
+    var field = document.getElementById("req-field").value;
+    var value = document.getElementById("req-value").value.trim();
+    var reason = document.getElementById("req-reason").value.trim();
+    if (!date || !value || !reason) { showToast("Date, requested value and reason are all required."); return; }
+    var emp = EMPLOYEES.filter(function (e) { return e.id === CURRENT_EMPLOYEE_ID; })[0];
+    crIdCounter += 1;
+    CORRECTION_REQUESTS.unshift({
+      id: "CR-" + crIdCounter, employeeId: CURRENT_EMPLOYEE_ID, employeeName: emp.name,
+      date: date, field: field, requestedValue: value, reason: reason,
+      status: "pending", submittedAt: new Date().toISOString()
+    });
+    renderMyCorrections();
+    closeModal("request-modal");
+    showToast("Request submitted — an administrator will review it.");
+  });
+
+  // ---- Modals / toast ----
+  function openModal(id) { document.getElementById(id).setAttribute("data-open", "true"); }
+  function closeModal(id) { document.getElementById(id).setAttribute("data-open", "false"); }
+  document.getElementById("session-modal-close").addEventListener("click", function () { closeModal("session-modal"); });
+  document.getElementById("csv-modal-close").addEventListener("click", function () { closeModal("csv-modal"); });
+  document.querySelectorAll(".modal-backdrop").forEach(function (bd) {
+    bd.addEventListener("click", function (ev) { if (ev.target === bd) bd.setAttribute("data-open", "false"); });
+  });
+  var toastTimer;
+  function showToast(msg) {
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.setAttribute("data-show", "true");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { t.setAttribute("data-show", "false"); }, 2600);
+  }
+
+  // ---- CSV export (copy-only — downloads don't work in this preview) ----
+  function toCsv(rows, headers) {
+    var lines = [headers.join(",")];
+    rows.forEach(function (r) { lines.push(r.map(function (v) { return '"' + String(v).replace(/"/g, '""') + '"'; }).join(",")); });
+    return lines.join("\n");
+  }
+  function openCsvModal(csv) {
+    document.getElementById("csv-content").textContent = csv;
+    openModal("csv-modal");
+  }
+  document.getElementById("btn-export-employees").addEventListener("click", function () {
+    var csv = toCsv(EMPLOYEES.map(function (e) {
+      return [e.id, e.name, e.dept, e.device, nowStateOf(e), fmtDur(sumByState(e, "active")), fmtDur(sumByState(e, "idle_break")), noticeStatus(e)];
+    }), ["employee_id", "name", "department", "device", "current_state", "active_today", "break_today", "notice_status"]);
+    openCsvModal(csv);
+  });
+  document.getElementById("btn-export-overview").addEventListener("click", function () {
+    var csv = toCsv(EMPLOYEES.map(function (e) {
+      return [e.id, e.name, nowStateOf(e), fmtDur(sumByState(e, "active")), fmtDur(sumByState(e, "idle_break"))];
+    }), ["employee_id", "name", "current_state", "active_today", "break_today"]);
+    openCsvModal(csv);
+  });
+  document.getElementById("csv-copy-btn").addEventListener("click", function () {
+    var txt = document.getElementById("csv-content").textContent;
+    try {
+      navigator.clipboard.writeText(txt).then(function () { showToast("Copied to clipboard."); }).catch(fallbackCopy);
+    } catch (e) { fallbackCopy(); }
+    function fallbackCopy() {
+      var range = document.createRange();
+      range.selectNodeContents(document.getElementById("csv-content"));
+      var sel = window.getSelection();
+      sel.removeAllRanges(); sel.addRange(range);
+      showToast("Select-all applied — use your browser's copy shortcut.");
+    }
+  });
+
+  // ---- Navigation ----
+  function viewFor(name) { return document.querySelector('[data-view="' + name + '"]'); }
+  function navButtonsFor(name) { return document.querySelectorAll('[data-nav="' + name + '"]'); }
+  function isViewAllowed(name) {
+    var btn = document.querySelector('[data-nav="' + name + '"]');
+    var requiredRole = btn ? btn.getAttribute("data-role") : null;
+    return !requiredRole || requiredRole === CURRENT_ROLE;
+  }
+  function setView(name) {
+    if (!isViewAllowed(name)) name = CURRENT_ROLE === "admin" ? "overview" : "daily-report";
+    document.querySelectorAll(".view").forEach(function (v) { v.setAttribute("aria-current", v.getAttribute("data-view") === name ? "true" : "false"); });
+    document.querySelectorAll("[data-nav]").forEach(function (b) { b.setAttribute("aria-current", b.getAttribute("data-nav") === name ? "true" : "false"); });
+    if (name === "daily-report") renderDailyReportView();
+    else if (name === "monthly-report") renderMonthlyReportView();
+    else if (name === "history") renderHistoryView();
+  }
+  document.querySelectorAll("[data-nav]").forEach(function (btn) {
+    btn.addEventListener("click", function () { setView(btn.getAttribute("data-nav")); });
+  });
+
+  // ---- Role switcher ----
+  // Hides/shows every [data-role] nav button (rail + mobile tabstrip)
+  // and, for the views only an employee/admin session can reach,
+  // forces the demo back to an allowed one — the same shape as
+  // server.ts returning 403 rather than quietly rendering someone
+  // else's data. This is also the single place that forces
+  // dailyReportState/monthlyReportState's employeeId to the logged-in
+  // employee, so switching roles can never leave a stale admin
+  // selection visible to an "employee" session.
+  function applyRoleToUi() {
+    document.querySelectorAll("[data-role]").forEach(function (node) {
+      node.setAttribute("data-role-hidden", node.getAttribute("data-role") === CURRENT_ROLE ? "false" : "true");
+    });
+    var currentView = document.querySelector('.view[aria-current="true"]');
+    if (!currentView || !isViewAllowed(currentView.getAttribute("data-view"))) {
+      setView(CURRENT_ROLE === "admin" ? "overview" : "daily-report");
+    }
+    if (CURRENT_ROLE !== "admin") {
+      dailyReportState.employeeId = CURRENT_EMPLOYEE_ID;
+      monthlyReportState.employeeId = CURRENT_EMPLOYEE_ID;
+    }
+    var note = document.getElementById("role-note");
+    note.textContent = CURRENT_ROLE === "admin"
+      ? "Full access — all employees, org-wide views, and the authority to approve or reject correction requests."
+      : "Read-only, own records only. Cannot view other employees' data or alter raw events — only submit a correction request for an admin to review.";
+    renderDailyReportView();
+    renderMonthlyReportView();
+    renderHistoryView();
+    if (CURRENT_ROLE === "admin") { renderEmployeesTable(); renderCompliance(); renderAudit(); renderCorrectionRequests(); }
+    else { renderMyCorrections(); }
+  }
+  function populateRoleSwitcher() {
+    var sel = document.getElementById("role-switcher");
+    sel.innerHTML = "";
+    sel.appendChild(el("option", { value: "admin" }, [document.createTextNode("Administrator")]));
+    EMPLOYEES.forEach(function (e) {
+      sel.appendChild(el("option", { value: "employee:" + e.id }, [document.createTextNode("Employee — " + e.name)]));
+    });
+    sel.value = "admin";
+    sel.addEventListener("change", function () {
+      if (sel.value === "admin") { CURRENT_ROLE = "admin"; }
+      else { CURRENT_ROLE = "employee"; CURRENT_EMPLOYEE_ID = sel.value.slice("employee:".length); }
+      applyRoleToUi();
+    });
+  }
+
+  // ---- Init ----
+  populateRoleSwitcher();
+  renderKpis();
+  renderComposition();
+  renderAttention();
+  renderEmployeeFilters();
+  renderEmployeesTable();
+  renderActivityView();
+  renderDailyReportView();
+  renderMonthlyReportView();
+  renderHistoryView();
+  renderCompliance();
+  renderAudit();
+  renderCorrectionRequests();
+  renderMyCorrections();
+  applyRoleToUi();
+})();
+</script>

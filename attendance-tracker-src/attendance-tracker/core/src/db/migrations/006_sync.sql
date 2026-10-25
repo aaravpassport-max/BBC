@@ -1,0 +1,18 @@
+-- Adds the one column needed for a per-device event SYNC queue, closing
+-- the "multi-computer sync" gap named in README.md's "What's left":
+-- each Windows agent writes into its OWN local SQLite file (see
+-- agent-windows/SqliteRepository.cs), so without a sync story an admin
+-- can only ever see one machine at a time. The agent-side sync client
+-- (agent-windows/EventSyncClient.cs) tracks, in this column, which of
+-- ITS OWN local rows have already been pushed to the central server via
+-- POST /api/events/ingest (src/api/server.ts) — so a crash, a lost
+-- connection, or simply being offline overnight just means the next
+-- sync attempt finds a non-empty backlog, never a lost or duplicated
+-- event (ingestRawEvent's existing ON CONFLICT(event_id) DO NOTHING
+-- already makes re-sending a previously-synced row a safe no-op on the
+-- receiving end).
+--
+-- On the CENTRAL server's own copy of this schema this column is simply
+-- never written to (nothing there is "syncing" anywhere) — harmless,
+-- not a second meaning for the same column.
+ALTER TABLE raw_events ADD COLUMN synced_at_utc TEXT;
