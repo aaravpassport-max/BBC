@@ -19,6 +19,7 @@ import {
   teamContentFields,
   valueContentFields,
 } from '@/lib/cms-marketing-list-fields'
+import { GLOBAL_IMAGE_FIT_SETTING_KEY, imageFitPlatformField } from '@/lib/image-object-fit'
 
 function applyTemplateHide(pageId: string, sections: SectionCatalogDef[]): SectionCatalogDef[] {
   return sections.map((s) => {
@@ -51,7 +52,8 @@ export type SectionTypographyRole = (typeof SECTION_TYPOGRAPHY_ROLES)[number]
 export type DesignSettingFieldDef = {
   key: string
   label: string
-  type?: 'text' | 'color'
+  type?: 'text' | 'color' | 'select'
+  options?: string[]
   placeholder?: string
   hint?: string
 }
@@ -125,6 +127,7 @@ const PAGE_DEFAULTS: SectionCatalogDef = {
   isPageScope: true,
   contentNote:
     'Page-wide styling inherits Site Foundation first. Overrides here apply to every section on this page unless a section has its own override.',
+  designSettingFields: [imageFitPlatformField(GLOBAL_IMAGE_FIT_SETTING_KEY, 'Image fit (page default)')],
 }
 
 const WHY_JSON_HINT =
@@ -156,6 +159,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
       { key: 'css_hero_textcolor', label: 'Text color', type: 'color' },
       { key: 'css_hero_bg', label: 'Background (CSS)' },
       { key: 'css_hero_padding', label: 'Padding (legacy)', placeholder: '48px 0', hint: 'Use Spacing below for Desktop / Tablet / Mobile.' },
+      imageFitPlatformField('css_hero_image_object_fit', 'Hero slide / image fit'),
     ],
   },
   {
@@ -245,6 +249,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
       { key: 'css_svc_card_bg', label: 'Card background', placeholder: '#ffffff' },
       { key: 'css_svc_cols', label: 'Grid columns (desktop)', placeholder: '4' },
       { key: 'css_svc_gap', label: 'Grid gap', placeholder: '24px' },
+      imageFitPlatformField('css_svc_image_object_fit'),
     ],
     adminLink: { label: 'Service Registry', path: '/admin/services' },
   },
@@ -262,6 +267,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     designSettingFields: [
       { key: 'css_cities_bg', label: 'Background', placeholder: '#f8fafc' },
       { key: 'css_cities_padding', label: 'Padding', placeholder: '64px 0' },
+      imageFitPlatformField('css_cities_image_object_fit'),
     ],
     adminLink: { label: 'Manage cities', path: '/admin/cities' },
   },
@@ -315,6 +321,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     designSettingFields: [
       { key: 'css_testimonials_bg', label: 'Background', placeholder: '#ffffff' },
       { key: 'css_testimonials_padding', label: 'Padding', placeholder: '64px 0' },
+      imageFitPlatformField('css_testimonials_image_object_fit'),
     ],
   },
   {
@@ -414,6 +421,7 @@ const HOME_SECTIONS: SectionCatalogDef[] = [
     designSettingFields: [
       { key: 'css_about_bg', label: 'Background', placeholder: '#ffffff' },
       { key: 'css_about_padding', label: 'Padding', placeholder: '64px 0' },
+      imageFitPlatformField('css_about_image_object_fit'),
     ],
   },
   {
@@ -597,6 +605,7 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
               hint: '[{"icon":"🌐","label":"Trusted by NRIs worldwide"}]',
             },
           ],
+          designSettingFields: [imageFitPlatformField('css_services_dir_image_object_fit', 'Directory card image fit')],
           adminLink: { label: 'Service Registry', path: '/admin/services' },
         },
         {
@@ -611,6 +620,7 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
             { key: 'services_show_category_filter', label: 'Show category sidebar (1/0)', placeholder: '1' },
             { key: 'services_per_page', label: 'Cards per page (optional)', placeholder: '24' },
           ],
+          designSettingFields: [imageFitPlatformField('css_services_dir_image_object_fit')],
           adminLink: { label: 'Categories', path: '/admin/categories' },
         },
       ]
@@ -671,6 +681,7 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
               placeholder: '💰 From ',
             },
           ],
+          designSettingFields: [imageFitPlatformField('css_service_hero_image_object_fit', 'Service hero image fit')],
           contentNote: 'Hero image, title, and CTAs are per-service in the Service Registry page builder.',
           adminLink: { label: 'Edit in Service Registry', path: '/admin/services' },
         },
@@ -952,12 +963,14 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
               hint: '[{"icon":"🌍","label":"50+ countries"},{"icon":"👥","label":"10,000+ clients"}]',
             },
           ],
+          designSettingFields: [imageFitPlatformField('css_marketing_intro_image_object_fit')],
         },
         {
           id: 'about',
           label: 'Story section',
           sectionKey: 'about',
           contentPanel: 'about_story',
+          designSettingFields: [imageFitPlatformField('css_about_image_object_fit')],
           contentFields: [
             { key: 'about_eyebrow', label: 'Eyebrow label', placeholder: 'Our Story' },
             { key: 'about_heading', label: 'Heading' },
@@ -991,6 +1004,7 @@ function sectionsForTemplate(t: PageTemplateDef): SectionCatalogDef[] {
           label: 'Team grid',
           sectionKey: 'team',
           contentPanel: 'team_members',
+          designSettingFields: [imageFitPlatformField('css_team_image_object_fit')],
           contentFields: [
             { key: 'about_team_title', label: 'Section heading', placeholder: 'Meet Our Team' },
             { key: 'about_team_json', label: 'Team members JSON', type: 'textarea', rows: 10 },

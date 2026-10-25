@@ -14,6 +14,7 @@ import type { Category, Service } from '@/types'
 import { isTemplateSectionHidden } from '@/lib/section-visibility'
 import { parseHeroMetaJson } from '@/lib/page-hero-meta'
 import { CmsElement } from '@/components/public/CmsElement'
+import { sectionImageFitStyle } from '@/lib/image-object-fit'
 import { HOME_LIST_LIMITS } from '@/lib/cms-home-list-fields'
 
 function settingFlag(raw: string | undefined, defaultOn = true): boolean {
@@ -101,7 +102,11 @@ export function ServicesPage() {
     <Layout>
       <div className="s2-services-page">
         {!hideHero && (
-        <section className="s2-services-hero s2-surface-dark s2-hero--premium" data-s2-section="hero">
+        <section
+          className="s2-services-hero s2-surface-dark s2-hero--premium"
+          data-s2-section="hero"
+          style={sectionImageFitStyle(settings as Record<string, string>, 'hero')}
+        >
           <div className="s2-container">
             <CmsElement pageId="services" sectionKey="hero" elementId="heading" as="h1" className="s2-dir-hero__title">
               {settings.services_page_title || settings.services_title || 'All NRI Services'}
@@ -162,7 +167,11 @@ export function ServicesPage() {
         </div>
       </div>
 
-      <div className="s2-services-layout s2-container" data-s2-section="directory">
+      <div
+        className="s2-services-layout s2-container"
+        data-s2-section="directory"
+        style={sectionImageFitStyle(settings as Record<string, string>, 'directory')}
+      >
         <CmsElement
           pageId="services"
           sectionKey="directory"

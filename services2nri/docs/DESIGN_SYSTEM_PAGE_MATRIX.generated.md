@@ -1,5 +1,5 @@
 # Generated audit index
-Generated: 2026-10-05T15:28:23+00:00
+Generated: 2026-10-05T15:53:32+00:00
 
 ## Routes
 | `/` | `HomePage.tsx` | page_type `homepage` |
@@ -18,16 +18,16 @@ Generated: 2026-10-05T15:28:23+00:00
 - `platform-mobile-app.css` (12187 bytes)
 - `portal-experience.css` (3099 bytes)
 - `public-contrast-system.css` (6013 bytes)
-- `public-design-system.css` (6905 bytes)
-- `public-home-sections.css` (33580 bytes)
-- `public-marketing-pages.css` (24974 bytes)
+- `public-design-system.css` (7196 bytes)
+- `public-home-sections.css` (33856 bytes)
+- `public-marketing-pages.css` (25289 bytes)
 - `public-marketing-sections.css` (1246 bytes)
 - `public-mobile-experience.css` (5473 bytes)
 - `public-page-utilities.css` (1475 bytes)
 - `public-pages-layout.css` (5952 bytes)
 - `public-platform-experience.css` (13726 bytes)
-- `public-service-detail.css` (23529 bytes)
+- `public-service-detail.css` (23592 bytes)
 - `public-service-experience.css` (6863 bytes)
-- `public-services-directory.css` (6748 bytes)
+- `public-services-directory.css` (6811 bytes)
 - `public-site-chrome.css` (1845 bytes)
 - `public-width-layout.css` (3733 bytes)

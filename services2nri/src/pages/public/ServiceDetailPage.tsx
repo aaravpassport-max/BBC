@@ -38,6 +38,7 @@ import type { Service, ServiceSection, SectionType } from '@/types'
 import { installServiceSectionNavStrip } from '@/lib/service-section-nav-strip'
 import { hydrateEmptySection } from '@/lib/service-section-normalize'
 import { isTemplateSectionHidden } from '@/lib/section-visibility'
+import { SERVICE_HERO_IMAGE_FIT_KEY, sectionImageFitStyle } from '@/lib/image-object-fit'
 import { refreshExperienceReveal } from '@/components/public/ExperienceReveal'
 import { ServiceDetailShellSkeleton } from '@/components/ui/LoadingPlaceholders'
 import { peekCached, subscribeResource } from '@/lib/resource-cache'
@@ -1134,6 +1135,7 @@ export function ServiceDetailPage() {
                   ? { 's2-width-sec-hero-max': String(hero.container_max || hero.content_max) }
                   : {}),
               }),
+              ...sectionImageFitStyle(settings as Record<string, string>, 'hero', SERVICE_HERO_IMAGE_FIT_KEY),
             }}
           >
             <img src={heroImg} alt={heroTitle} />
