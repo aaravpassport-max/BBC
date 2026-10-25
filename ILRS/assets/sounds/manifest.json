@@ -1,0 +1,46 @@
+[
+  {
+    "id": "air-horn",
+    "label": "Air Horn"
+  },
+  {
+    "id": "siren",
+    "label": "Siren"
+  },
+  {
+    "id": "alarm-clock",
+    "label": "Alarm Clock"
+  },
+  {
+    "id": "digital-beep",
+    "label": "Digital Beep"
+  },
+  {
+    "id": "buzzer",
+    "label": "Buzzer"
+  },
+  {
+    "id": "emergency-alert",
+    "label": "Emergency Alert"
+  },
+  {
+    "id": "doorbell",
+    "label": "Doorbell"
+  },
+  {
+    "id": "loud-chime",
+    "label": "Loud Chime"
+  },
+  {
+    "id": "train-whistle",
+    "label": "Train Whistle"
+  },
+  {
+    "id": "foghorn",
+    "label": "Foghorn"
+  },
+  {
+    "id": "old-telephone-ring",
+    "label": "Old Telephone Ring"
+  }
+]
