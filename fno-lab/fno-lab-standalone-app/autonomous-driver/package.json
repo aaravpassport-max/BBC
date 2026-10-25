@@ -1,0 +1,16 @@
+{
+  "name": "fno-lab-autonomous-driver",
+  "version": "1.0.0",
+  "description": "Real, standalone, headless Autonomous Driver for F&O Lab - runs the full observe-analyse-decide-trade-monitor-exit cycle without a browser. User's own founding vision document: 'I want to start the experimental system... and let it run.' Reuses the already-tested, pure decision logic from assets/fno-lab-core.js directly - never a re-implementation.",
+  "main": "autonomous-driver.js",
+  "scripts": {
+    "start": "node autonomous-driver.js",
+    "test": "node test/test-config-validation.js && node test/test-mock-wp-ajax-routing-fidelity.js && node test/run-integration-test.js && node test/test-late-entry-gate.js && node test/test-forced-squareoff-exit.js && node test/test-position-persistence.js && node test/test-restart-no-duplicate-open.js && node test/test-cycle-overlap-guard.js && node test/test-reentry-cooldown-gate.js && node test/test-signal-invalidation-gate.js && node test/test-driver-trailing-stop.js && node test/test-swing-trailing-multiday.js && node test/test-retry-queue.js && node test/test-failure-mode-evalctx-fields.js && node test/test-secret-never-logged.js && node test/test-close-position-lost-race.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.6.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

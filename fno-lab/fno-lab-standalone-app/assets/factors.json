@@ -1,0 +1,1353 @@
+[
+  {
+    "id": "f1",
+    "cat": "Market",
+    "factor": "NIFTY Trend vs 21 EMA",
+    "why": "Above 21 EMA bullish",
+    "weight": 3
+  },
+  {
+    "id": "f2",
+    "cat": "Market",
+    "factor": "NIFTY vs 50 EMA Daily",
+    "why": "Main trend",
+    "weight": 3
+  },
+  {
+    "id": "f3",
+    "cat": "Market",
+    "factor": "India VIX Level",
+    "why": "VIX 13-20 optimal",
+    "weight": 3
+  },
+  {
+    "id": "f4",
+    "cat": "Market",
+    "factor": "VIX Change 15m",
+    "why": "VIX up 5% = move coming",
+    "weight": 2
+  },
+  {
+    "id": "f5",
+    "cat": "Market",
+    "factor": "SGX/Gift Nifty Trend",
+    "why": "Global sentiment",
+    "weight": 2
+  },
+  {
+    "id": "f6",
+    "cat": "Market",
+    "factor": "US Futures Dow/Nasdaq",
+    "why": "US -1% = weak open",
+    "weight": 2
+  },
+  {
+    "id": "f7",
+    "cat": "Market",
+    "factor": "Asian Markets",
+    "why": "Nikkei/Hang Seng",
+    "weight": 1
+  },
+  {
+    "id": "f8",
+    "cat": "Market",
+    "factor": "FII Net Buy/Sell Yesterday",
+    "why": "FII sold 2000cr = pressure",
+    "weight": 2
+  },
+  {
+    "id": "f9",
+    "cat": "Market",
+    "factor": "DII Net Buy/Sell",
+    "why": "DII buying supports",
+    "weight": 1
+  },
+  {
+    "id": "f10",
+    "cat": "Market",
+    "factor": "Event Day RBI/Fed/Budget/Election",
+    "why": "90% should skip",
+    "weight": 3
+  },
+  {
+    "id": "f11",
+    "cat": "Market",
+    "factor": "Stock Results Today",
+    "why": "Stock options wild",
+    "weight": 3
+  },
+  {
+    "id": "f12",
+    "cat": "Market",
+    "factor": "Day of Week",
+    "why": "Mon gap Thu expiry",
+    "weight": 1
+  },
+  {
+    "id": "f13",
+    "cat": "Market",
+    "factor": "Time of Day",
+    "why": "9:15-9:45 fake 11-1 chop",
+    "weight": 2
+  },
+  {
+    "id": "f14",
+    "cat": "Market",
+    "factor": "Market Breadth Adv/Decl",
+    "why": "70% down = weak rally",
+    "weight": 2
+  },
+  {
+    "id": "f15",
+    "cat": "Market",
+    "factor": "Sector Trend Bank vs Nifty",
+    "why": "Bank weak = Nifty long risky",
+    "weight": 2
+  },
+  {
+    "id": "f16",
+    "cat": "Market",
+    "factor": "USDINR Movement",
+    "why": "USD up = FII selling",
+    "weight": 1
+  },
+  {
+    "id": "f17",
+    "cat": "Market",
+    "factor": "Crude Oil",
+    "why": "Crude up = market down",
+    "weight": 1
+  },
+  {
+    "id": "f18",
+    "cat": "Market",
+    "factor": "10Y Bond Yield",
+    "why": "Yield up = market down",
+    "weight": 1
+  },
+  {
+    "id": "f19",
+    "cat": "Market",
+    "factor": "Previous Day High/Low Break",
+    "why": "PDH/PDL key",
+    "weight": 2
+  },
+  {
+    "id": "f20",
+    "cat": "Market",
+    "factor": "Gap Up/Down Opening",
+    "why": "Gap >1% wait 15m",
+    "weight": 2
+  },
+  {
+    "id": "f21",
+    "cat": "Flow",
+    "factor": "OI Change CE Side",
+    "why": "Huge CE OI = resistance",
+    "weight": 3
+  },
+  {
+    "id": "f22",
+    "cat": "Flow",
+    "factor": "OI Change PE Side",
+    "why": "Huge PE OI = support",
+    "weight": 3
+  },
+  {
+    "id": "f23",
+    "cat": "Flow",
+    "factor": "OI Change % >3%",
+    "why": ">3% smart money",
+    "weight": 2
+  },
+  {
+    "id": "f24",
+    "cat": "Flow",
+    "factor": "OI Addition + Price Flat = Trap",
+    "why": "Trap",
+    "weight": 3
+  },
+  {
+    "id": "f25",
+    "cat": "Flow",
+    "factor": "PCR Level",
+    "why": "PCR >1.3 oversold <0.7 overbought",
+    "weight": 3
+  },
+  {
+    "id": "f26",
+    "cat": "Flow",
+    "factor": "PCR Change 30m",
+    "why": "PCR 1.2 to 0.9 = CE writing",
+    "weight": 2
+  },
+  {
+    "id": "f27",
+    "cat": "Flow",
+    "factor": "Max Pain Level",
+    "why": "Expiry magnet",
+    "weight": 2
+  },
+  {
+    "id": "f28",
+    "cat": "Flow",
+    "factor": "Distance from Max Pain",
+    "why": ">1.5% away strong pull",
+    "weight": 1
+  },
+  {
+    "id": "f29",
+    "cat": "Flow",
+    "factor": "Bid Qty vs Ask Qty",
+    "why": "Bid 5x Ask = buyers strong",
+    "weight": 2
+  },
+  {
+    "id": "f30",
+    "cat": "Flow",
+    "factor": "Bid-Ask Spread Options",
+    "why": "Spread >2 Rs illiquid",
+    "weight": 3
+  },
+  {
+    "id": "f31",
+    "cat": "Flow",
+    "factor": "Volume vs OI",
+    "why": "High Vol+High OI new position",
+    "weight": 2
+  },
+  {
+    "id": "f32",
+    "cat": "Flow",
+    "factor": "ATM Straddle Price",
+    "why": "Straddle rising = big move",
+    "weight": 2
+  },
+  {
+    "id": "f33",
+    "cat": "Flow",
+    "factor": "ATM Straddle % Change",
+    "why": "Straddle up 20% volatile",
+    "weight": 1
+  },
+  {
+    "id": "f34",
+    "cat": "Flow",
+    "factor": "Delta of Option",
+    "why": "Delta 0.5 ATM",
+    "weight": 2
+  },
+  {
+    "id": "f35",
+    "cat": "Flow",
+    "factor": "Gamma Expiry Day",
+    "why": "After 2pm gamma blast",
+    "weight": 3
+  },
+  {
+    "id": "f36",
+    "cat": "Flow",
+    "factor": "Theta Decay Today",
+    "why": "Thursday decay 2x",
+    "weight": 2
+  },
+  {
+    "id": "f37",
+    "cat": "Flow",
+    "factor": "Vega VIX Impact",
+    "why": "VIX up price up",
+    "weight": 1
+  },
+  {
+    "id": "f38",
+    "cat": "Flow",
+    "factor": "OI Concentration at Strike",
+    "why": "Huge OI wall",
+    "weight": 2
+  },
+  {
+    "id": "f39",
+    "cat": "Flow",
+    "factor": "ATM vs OTM OI Change",
+    "why": "ATM real move",
+    "weight": 2
+  },
+  {
+    "id": "f40",
+    "cat": "Flow",
+    "factor": "Long/Short Buildup",
+    "why": "Long buildup bullish",
+    "weight": 3
+  },
+  {
+    "id": "f41",
+    "cat": "Tech",
+    "factor": "Price vs VWAP",
+    "why": "Above VWAP buyers control",
+    "weight": 3
+  },
+  {
+    "id": "f42",
+    "cat": "Tech",
+    "factor": "EMA 9 vs 21 Crossover",
+    "why": "9 above 21 bullish",
+    "weight": 2
+  },
+  {
+    "id": "f43",
+    "cat": "Tech",
+    "factor": "EMA 21 vs 50",
+    "why": "Trend strength",
+    "weight": 1
+  },
+  {
+    "id": "f44",
+    "cat": "Tech",
+    "factor": "Supertrend Direction",
+    "why": "Green bullish Red bearish",
+    "weight": 2
+  },
+  {
+    "id": "f45",
+    "cat": "Tech",
+    "factor": "Opening Range 15m High/Low",
+    "why": "OR break = trend day",
+    "weight": 2
+  },
+  {
+    "id": "f46",
+    "cat": "Tech",
+    "factor": "OR Range Size",
+    "why": "OR <0.3% = breakout coming",
+    "weight": 1
+  },
+  {
+    "id": "f47",
+    "cat": "Tech",
+    "factor": "Support Previous Day Low",
+    "why": "PDL support",
+    "weight": 2
+  },
+  {
+    "id": "f48",
+    "cat": "Tech",
+    "factor": "Resistance Previous Day High",
+    "why": "PDH resistance",
+    "weight": 2
+  },
+  {
+    "id": "f49",
+    "cat": "Tech",
+    "factor": "Weekly High/Low",
+    "why": "Weekly stronger",
+    "weight": 1
+  },
+  {
+    "id": "f50",
+    "cat": "Tech",
+    "factor": "RSI Level",
+    "why": "RSI >70 overbought",
+    "weight": 2
+  },
+  {
+    "id": "f51",
+    "cat": "Tech",
+    "factor": "RSI Divergence",
+    "why": "Price up RSI down weakness",
+    "weight": 2
+  },
+  {
+    "id": "f52",
+    "cat": "Tech",
+    "factor": "MACD Crossover",
+    "why": "MACD confirms",
+    "weight": 1
+  },
+  {
+    "id": "f53",
+    "cat": "Tech",
+    "factor": "Bollinger Squeeze",
+    "why": "Squeeze = vol coming",
+    "weight": 1
+  },
+  {
+    "id": "f54",
+    "cat": "Tech",
+    "factor": "Bollinger Position",
+    "why": "Near upper resistance",
+    "weight": 1
+  },
+  {
+    "id": "f55",
+    "cat": "Tech",
+    "factor": "ATR Stop Distance",
+    "why": "ATR = logical SL",
+    "weight": 2
+  },
+  {
+    "id": "f56",
+    "cat": "Tech",
+    "factor": "Rejection Wick",
+    "why": "Wick at resistance rejection",
+    "weight": 2
+  },
+  {
+    "id": "f57",
+    "cat": "Tech",
+    "factor": "Volume Confirmation",
+    "why": "Breakout with volume real",
+    "weight": 2
+  },
+  {
+    "id": "f58",
+    "cat": "Tech",
+    "factor": "HH/HL Structure",
+    "why": "HH/HL uptrend",
+    "weight": 2
+  },
+  {
+    "id": "f59",
+    "cat": "Tech",
+    "factor": "Chart Pattern Flag/Triangle",
+    "why": "Pattern breakout",
+    "weight": 1
+  },
+  {
+    "id": "f60",
+    "cat": "Tech",
+    "factor": "Fibonacci Level",
+    "why": "38.2 50 61.8",
+    "weight": 1
+  },
+  {
+    "id": "f61",
+    "cat": "Vol",
+    "factor": "India VIX Trend Up/Down",
+    "why": "VIX up fear up",
+    "weight": 2
+  },
+  {
+    "id": "f62",
+    "cat": "Vol",
+    "factor": "ATM IV",
+    "why": "High IV premium expensive",
+    "weight": 2
+  },
+  {
+    "id": "f63",
+    "cat": "Vol",
+    "factor": "IV Rank/Percentile",
+    "why": "IV Rank >70 high",
+    "weight": 1
+  },
+  {
+    "id": "f64",
+    "cat": "Vol",
+    "factor": "Straddle vs Yesterday",
+    "why": "Straddle up 15% big move",
+    "weight": 1
+  },
+  {
+    "id": "f65",
+    "cat": "Vol",
+    "factor": "Historical vs IV",
+    "why": "HV > IV cheap",
+    "weight": 1
+  },
+  {
+    "id": "f66",
+    "cat": "Vol",
+    "factor": "Vol Skew OTM Put vs Call",
+    "why": "Put IV high fear",
+    "weight": 1
+  },
+  {
+    "id": "f67",
+    "cat": "Vol",
+    "factor": "Intraday Vol Range/ATR",
+    "why": "Range <50% ATR low vol",
+    "weight": 1
+  },
+  {
+    "id": "f68",
+    "cat": "Vol",
+    "factor": "Gap Size",
+    "why": "Big gap high vol",
+    "weight": 1
+  },
+  {
+    "id": "f69",
+    "cat": "Vol",
+    "factor": "News Volatility",
+    "why": "News IV crush after",
+    "weight": 2
+  },
+  {
+    "id": "f70",
+    "cat": "Vol",
+    "factor": "Expiry Day Volatility",
+    "why": "Expiry 1pm random",
+    "weight": 3
+  },
+  {
+    "id": "f71",
+    "cat": "Costs",
+    "factor": "Brokerage Per Trade",
+    "why": "Rs 20 per order",
+    "weight": 2
+  },
+  {
+    "id": "f72",
+    "cat": "Costs",
+    "factor": "STT Tax",
+    "why": "0.0625% options",
+    "weight": 2
+  },
+  {
+    "id": "f73",
+    "cat": "Costs",
+    "factor": "Exchange+GST",
+    "why": "~Rs 10-15 per lot",
+    "weight": 1
+  },
+  {
+    "id": "f74",
+    "cat": "Costs",
+    "factor": "Stamp Duty",
+    "why": "0.003%",
+    "weight": 1
+  },
+  {
+    "id": "f75",
+    "cat": "Costs",
+    "factor": "Total Charges % of Target",
+    "why": "If target 200 charges 80 = 40% gone",
+    "weight": 3
+  },
+  {
+    "id": "f76",
+    "cat": "Costs",
+    "factor": "Slippage Expected vs Actual",
+    "why": "Fast market 2-3 Rs worse",
+    "weight": 3
+  },
+  {
+    "id": "f77",
+    "cat": "Costs",
+    "factor": "Bid-Ask Spread Cost",
+    "why": "Spread 2 Rs lose 2 Rs",
+    "weight": 3
+  },
+  {
+    "id": "f78",
+    "cat": "Costs",
+    "factor": "Lot Size & Capital",
+    "why": "Bank Nifty 1% = 7500",
+    "weight": 2
+  },
+  {
+    "id": "f79",
+    "cat": "Costs",
+    "factor": "Margin Blocked",
+    "why": "Selling margin 1.2L",
+    "weight": 2
+  },
+  {
+    "id": "f80",
+    "cat": "Costs",
+    "factor": "Liquidity Volume >1000",
+    "why": "Volume <1000 stuck",
+    "weight": 3
+  },
+  {
+    "id": "f81",
+    "cat": "Costs",
+    "factor": "Impact Cost Large Qty",
+    "why": "10 lots moves price",
+    "weight": 1
+  },
+  {
+    "id": "f82",
+    "cat": "Costs",
+    "factor": "STT on ITM Expiry",
+    "why": "ITM STT 0.125% huge",
+    "weight": 3
+  },
+  {
+    "id": "f83",
+    "cat": "Costs",
+    "factor": "Auto Square Off Time",
+    "why": "MIS 3:15pm forced exit",
+    "weight": 2
+  },
+  {
+    "id": "f84",
+    "cat": "Costs",
+    "factor": "MTM Loss Futures",
+    "why": "Futures MTM daily",
+    "weight": 1
+  },
+  {
+    "id": "f85",
+    "cat": "Costs",
+    "factor": "MTF Interest Leverage",
+    "why": "MTF 12-18%",
+    "weight": 1
+  },
+  {
+    "id": "f86",
+    "cat": "Risk",
+    "factor": "Max Loss Per Day 2% Rule",
+    "why": "Loss 2% stop day",
+    "weight": 3
+  },
+  {
+    "id": "f87",
+    "cat": "Risk",
+    "factor": "Max Loss Per Trade 1% Rule",
+    "why": "1 lakh = 1000 max loss",
+    "weight": 3
+  },
+  {
+    "id": "f88",
+    "cat": "Risk",
+    "factor": "Position Size Calculation",
+    "why": "Position = Risk/(Entry-SL)",
+    "weight": 3
+  },
+  {
+    "id": "f89",
+    "cat": "Risk",
+    "factor": "Stop Loss Before Entry",
+    "why": "SL on chart not P&L",
+    "weight": 3
+  },
+  {
+    "id": "f90",
+    "cat": "Risk",
+    "factor": "Target & Risk:Reward >=1:2",
+    "why": "RR must >=1:2",
+    "weight": 3
+  },
+  {
+    "id": "f91",
+    "cat": "Risk",
+    "factor": "Consecutive Losses Today",
+    "why": "After 2 losses stop",
+    "weight": 3
+  },
+  {
+    "id": "f92",
+    "cat": "Risk",
+    "factor": "Consecutive Wins Overconfidence",
+    "why": "After 3 wins reduce size",
+    "weight": 2
+  },
+  {
+    "id": "f93",
+    "cat": "Risk",
+    "factor": "Total Open Positions",
+    "why": ">2 overtrading",
+    "weight": 2
+  },
+  {
+    "id": "f94",
+    "cat": "Risk",
+    "factor": "Overtrading Count >5",
+    "why": ">5 gambling",
+    "weight": 3
+  },
+  {
+    "id": "f95",
+    "cat": "Risk",
+    "factor": "Capital Left After Trade",
+    "why": "Never >20% capital one trade",
+    "weight": 2
+  },
+  {
+    "id": "f96",
+    "cat": "Risk",
+    "factor": "Correlation Same Direction",
+    "why": "Nifty+BankNifty double risk",
+    "weight": 2
+  },
+  {
+    "id": "f97",
+    "cat": "Risk",
+    "factor": "Hedging Is Position Hedged?",
+    "why": "Naked selling unlimited risk",
+    "weight": 3
+  },
+  {
+    "id": "f98",
+    "cat": "Risk",
+    "factor": "Expiry Day Lottery?",
+    "why": "Expiry OTM 99% lose",
+    "weight": 3
+  },
+  {
+    "id": "f99",
+    "cat": "Risk",
+    "factor": "SL Market or Limit?",
+    "why": "Limit SL may not trigger",
+    "weight": 2
+  },
+  {
+    "id": "f100",
+    "cat": "Risk",
+    "factor": "Emergency Exit Plan",
+    "why": "Broker phone number",
+    "weight": 2
+  },
+  {
+    "id": "f101",
+    "cat": "Personal",
+    "factor": "Internet Speed Stability",
+    "why": "1 disconnection = wipe",
+    "weight": 3
+  },
+  {
+    "id": "f102",
+    "cat": "Personal",
+    "factor": "Broker Platform Working?",
+    "why": "Zerodha down big days",
+    "weight": 3
+  },
+  {
+    "id": "f103",
+    "cat": "Personal",
+    "factor": "Laptop/Phone Charged",
+    "why": "Battery dead panic",
+    "weight": 2
+  },
+  {
+    "id": "f104",
+    "cat": "Personal",
+    "factor": "Mobile vs Laptop",
+    "why": "Mobile more mistakes",
+    "weight": 1
+  },
+  {
+    "id": "f105",
+    "cat": "Personal",
+    "factor": "Mindset Angry/Tired/Greedy?",
+    "why": "Angry revenge trade",
+    "weight": 3
+  },
+  {
+    "id": "f106",
+    "cat": "Personal",
+    "factor": "Sleep Last Night",
+    "why": "<6h brain can't trade",
+    "weight": 2
+  },
+  {
+    "id": "f107",
+    "cat": "Personal",
+    "factor": "Physical Health Today",
+    "why": "Fever don't trade",
+    "weight": 1
+  },
+  {
+    "id": "f108",
+    "cat": "Personal",
+    "factor": "Emotional After Win/Loss",
+    "why": "Win overconfidence loss revenge",
+    "weight": 3
+  },
+  {
+    "id": "f109",
+    "cat": "Personal",
+    "factor": "Time Free Next 2 Hours",
+    "why": "Don't trade if meeting 30m",
+    "weight": 2
+  },
+  {
+    "id": "f110",
+    "cat": "Personal",
+    "factor": "Distractions Family/TV/Noise",
+    "why": "Distracted missed exit",
+    "weight": 2
+  },
+  {
+    "id": "f111",
+    "cat": "Personal",
+    "factor": "Breaking News Checked?",
+    "why": "Breaking news unpredictable",
+    "weight": 2
+  },
+  {
+    "id": "f112",
+    "cat": "Personal",
+    "factor": "Economic Calendar Today",
+    "why": "US CPI 6pm IST",
+    "weight": 1
+  },
+  {
+    "id": "f113",
+    "cat": "Personal",
+    "factor": "Journal Updated?",
+    "why": "If not writing repeat mistakes",
+    "weight": 2
+  },
+  {
+    "id": "f114",
+    "cat": "Personal",
+    "factor": "Last Trade Reason Written?",
+    "why": "No reason = gambling",
+    "weight": 2
+  },
+  {
+    "id": "f115",
+    "cat": "Personal",
+    "factor": "Plan Written Before Open",
+    "why": "No plan = plan to fail",
+    "weight": 2
+  },
+  {
+    "id": "f116",
+    "cat": "Personal",
+    "factor": "Notifications Off",
+    "why": "WhatsApp mid trade miss SL",
+    "weight": 1
+  },
+  {
+    "id": "f117",
+    "cat": "Personal",
+    "factor": "Broker Phone Number Saved",
+    "why": "App hangs call broker",
+    "weight": 2
+  },
+  {
+    "id": "f118",
+    "cat": "Personal",
+    "factor": "Backup Device Ready",
+    "why": "Second phone/laptop",
+    "weight": 1
+  },
+  {
+    "id": "f119",
+    "cat": "Personal",
+    "factor": "Family Knows Not to Disturb",
+    "why": "Tell family",
+    "weight": 1
+  },
+  {
+    "id": "f120",
+    "cat": "Personal",
+    "factor": "Water Food Nearby",
+    "why": "Leaving desk risk",
+    "weight": 1
+  },
+  {
+    "id": "f121",
+    "cat": "Decay",
+    "factor": "Theta Decay Per Day Rs",
+    "why": "Theta Rs/day HIGH",
+    "weight": 3
+  },
+  {
+    "id": "f122",
+    "cat": "Decay",
+    "factor": "Theta Decay Per Hour",
+    "why": "Theta per hour",
+    "weight": 2
+  },
+  {
+    "id": "f123",
+    "cat": "Decay",
+    "factor": "Time Value % of Premium",
+    "why": "Time Value % pure decay",
+    "weight": 2
+  },
+  {
+    "id": "f124",
+    "cat": "Decay",
+    "factor": "Intrinsic vs Time Value",
+    "why": "OTM Intrinsic 0",
+    "weight": 2
+  },
+  {
+    "id": "f125",
+    "cat": "Decay",
+    "factor": "Value Decay Per Day %",
+    "why": "Value decay % EXTREME",
+    "weight": 3
+  },
+  {
+    "id": "f126",
+    "cat": "Decay",
+    "factor": "Days to Expiry",
+    "why": "Expiry 1 day 3.5x faster",
+    "weight": 3
+  },
+  {
+    "id": "f127",
+    "cat": "Decay",
+    "factor": "Expiry Week Decay Multiplier",
+    "why": "Decay multiplier 3.5x",
+    "weight": 2
+  },
+  {
+    "id": "f128",
+    "cat": "Decay",
+    "factor": "Lot Decay Rs Per Day",
+    "why": "Rs per lot per day",
+    "weight": 2
+  },
+  {
+    "id": "f129",
+    "cat": "Decay",
+    "factor": "Charm Delta Decay",
+    "why": "Delta decay per day",
+    "weight": 1
+  },
+  {
+    "id": "f130",
+    "cat": "Decay",
+    "factor": "Theta Curve Accelerating",
+    "why": "Theta curve steep last day",
+    "weight": 2
+  },
+  {
+    "id": "f131",
+    "cat": "Decay",
+    "factor": "Time Decay After 1 PM Expiry",
+    "why": "After 1pm decay 5x",
+    "weight": 3
+  },
+  {
+    "id": "f132",
+    "cat": "Decay",
+    "factor": "IV Crush After Event",
+    "why": "IV drops 30-50% after event",
+    "weight": 2
+  },
+  {
+    "id": "f133",
+    "cat": "Decay",
+    "factor": "Weekend Time Decay",
+    "why": "Friday 2 days weekend decay",
+    "weight": 1
+  },
+  {
+    "id": "f134",
+    "cat": "Decay",
+    "factor": "Value Decay vs Target",
+    "why": "Daily decay >50% target",
+    "weight": 2
+  },
+  {
+    "id": "f135",
+    "cat": "Decay",
+    "factor": "OTM Lottery Decay 99% to 0",
+    "why": "99% OTM expire 0",
+    "weight": 3
+  },
+  {
+    "id": "f136",
+    "cat": "Regulatory",
+    "factor": "F&O Ban List - Stock in Ban?",
+    "why": "If in ban no fresh position only exit - stuck",
+    "weight": 3
+  },
+  {
+    "id": "f137",
+    "cat": "Regulatory",
+    "factor": "ASM/GSM List - Surveillance?",
+    "why": "Margin 100% circuit 5%",
+    "weight": 3
+  },
+  {
+    "id": "f138",
+    "cat": "Regulatory",
+    "factor": "Peak Margin Rule 100% Upfront",
+    "why": "Need 100% margin not 80% penalty 1%/day",
+    "weight": 3
+  },
+  {
+    "id": "f139",
+    "cat": "Regulatory",
+    "factor": "Physical Settlement Risk - Stock Options ITM",
+    "why": "ITM stock options need lakhs for delivery",
+    "weight": 3
+  },
+  {
+    "id": "f140",
+    "cat": "Regulatory",
+    "factor": "Circuit Limit - Upper/Lower Circuit?",
+    "why": "If hits circuit can't exit",
+    "weight": 3
+  },
+  {
+    "id": "f141",
+    "cat": "Regulatory",
+    "factor": "Trading Halt - NSE Halt 10/15/20%?",
+    "why": "Exchange halts",
+    "weight": 2
+  },
+  {
+    "id": "f142",
+    "cat": "Regulatory",
+    "factor": "SEBI Expiry Day Extra Margin 2%",
+    "why": "Weekly expiry margin increased",
+    "weight": 2
+  },
+  {
+    "id": "f143",
+    "cat": "Regulatory",
+    "factor": "Corporate Action - Bonus/Split/Dividend Adjustment?",
+    "why": "Bonus split adjusts strikes SL wrong",
+    "weight": 2
+  },
+  {
+    "id": "f144",
+    "cat": "Regulatory",
+    "factor": "Short Selling Ban?",
+    "why": "SEBI bans short sometimes",
+    "weight": 1
+  },
+  {
+    "id": "f145",
+    "cat": "Regulatory",
+    "factor": "MTM Square Off Time MIS vs NRML",
+    "why": "MIS 3:15 NRML 3:20 forced exit",
+    "weight": 2
+  },
+  {
+    "id": "f146",
+    "cat": "Microstructure",
+    "factor": "Market Depth Top 5 Bids/Ask",
+    "why": "Depth 10 lots fake move 1000 lots real",
+    "weight": 2
+  },
+  {
+    "id": "f147",
+    "cat": "Microstructure",
+    "factor": "Iceberg Orders - Hidden Big Orders",
+    "why": "Big player hiding 1000 as 10 visible",
+    "weight": 2
+  },
+  {
+    "id": "f148",
+    "cat": "Microstructure",
+    "factor": "Cumulative Delta - Buy Vol - Sell Vol",
+    "why": "Delta negative price up = trap",
+    "weight": 3
+  },
+  {
+    "id": "f149",
+    "cat": "Microstructure",
+    "factor": "Volume Profile POC - Point of Control",
+    "why": "Max volume magnet",
+    "weight": 2
+  },
+  {
+    "id": "f150",
+    "cat": "Microstructure",
+    "factor": "VWAP Bands 1SD 2SD",
+    "why": ">2SD overextended mean reversion",
+    "weight": 2
+  },
+  {
+    "id": "f151",
+    "cat": "Microstructure",
+    "factor": "Order Flow Imbalance 80% Bid",
+    "why": "80% bid strong buying",
+    "weight": 2
+  },
+  {
+    "id": "f152",
+    "cat": "Microstructure",
+    "factor": "Footprint Chart Volume at Price",
+    "why": "Volume at each price inside candle absorption",
+    "weight": 2
+  },
+  {
+    "id": "f153",
+    "cat": "Microstructure",
+    "factor": "DOM Ladder - Spoofing Orders?",
+    "why": "Spoofing orders appear/disappear",
+    "weight": 1
+  },
+  {
+    "id": "f154",
+    "cat": "Microstructure",
+    "factor": "Tick Data Speed - Fast/Slow Tape",
+    "why": "Fast printing momentum slow chop",
+    "weight": 2
+  },
+  {
+    "id": "f155",
+    "cat": "Microstructure",
+    "factor": "Futures vs Spot Premium/Discount",
+    "why": "High premium bullish",
+    "weight": 2
+  },
+  {
+    "id": "f156",
+    "cat": "Greeks Deep",
+    "factor": "Gamma - Delta Change Speed",
+    "why": "Near ATM gamma highest expiry blast 50% in 5m",
+    "weight": 3
+  },
+  {
+    "id": "f157",
+    "cat": "Greeks Deep",
+    "factor": "Vega - IV Sensitivity",
+    "why": "Vega 10 = IV up 1% premium up 10 Rs",
+    "weight": 2
+  },
+  {
+    "id": "f158",
+    "cat": "Greeks Deep",
+    "factor": "Vanna - Delta Change with IV",
+    "why": "When IV changes delta changes",
+    "weight": 1
+  },
+  {
+    "id": "f159",
+    "cat": "Greeks Deep",
+    "factor": "Vomma - Vega Convexity",
+    "why": "Second order IV effect",
+    "weight": 1
+  },
+  {
+    "id": "f160",
+    "cat": "Greeks Deep",
+    "factor": "Rho - Interest Rate Sensitivity",
+    "why": "Small but long term options",
+    "weight": 1
+  },
+  {
+    "id": "f161",
+    "cat": "Greeks Deep",
+    "factor": "Put-Call Parity Arbitrage Broken?",
+    "why": "If parity broken big players arbitrage price correct",
+    "weight": 2
+  },
+  {
+    "id": "f162",
+    "cat": "Greeks Deep",
+    "factor": "Skew - OTM Put IV vs Call IV",
+    "why": "Put IV high fear market may fall",
+    "weight": 2
+  },
+  {
+    "id": "f163",
+    "cat": "Greeks Deep",
+    "factor": "Term Structure Weekly vs Monthly IV",
+    "why": "Weekly IV > monthly = event in weekly",
+    "weight": 1
+  },
+  {
+    "id": "f164",
+    "cat": "Greeks Deep",
+    "factor": "Gamma Squeeze - Market Maker Hedging",
+    "why": "MM hedging gamma can push price fast",
+    "weight": 2
+  },
+  {
+    "id": "f165",
+    "cat": "Greeks Deep",
+    "factor": "Delta Hedging Cost",
+    "why": "If you hedge delta cost reduces profit",
+    "weight": 1
+  },
+  {
+    "id": "f166",
+    "cat": "Fundamental",
+    "factor": "Promoter Pledging % High?",
+    "why": "High pledging crash risk",
+    "weight": 2
+  },
+  {
+    "id": "f167",
+    "cat": "Fundamental",
+    "factor": "FII Long/Short Ratio Index Futures",
+    "why": "FII long 80% bullish short 70% bearish",
+    "weight": 3
+  },
+  {
+    "id": "f168",
+    "cat": "Fundamental",
+    "factor": "Client vs Pro vs FII Positioning",
+    "why": "NSE publishes client long 80% contrarian bearish",
+    "weight": 2
+  },
+  {
+    "id": "f169",
+    "cat": "Fundamental",
+    "factor": "News Sentiment Score Positive/Negative",
+    "why": "Positive negative news count NLP",
+    "weight": 2
+  },
+  {
+    "id": "f170",
+    "cat": "Fundamental",
+    "factor": "Social Media Sentiment Twitter/StockTwits",
+    "why": "Retail euphoria top signal",
+    "weight": 1
+  },
+  {
+    "id": "f171",
+    "cat": "Fundamental",
+    "factor": "Results Calendar Today Reliance etc",
+    "why": "If Reliance results NIFTY volatile",
+    "weight": 2
+  },
+  {
+    "id": "f172",
+    "cat": "Fundamental",
+    "factor": "Dividend Yield & Ex-Date",
+    "why": "Ex-date stock falls by dividend",
+    "weight": 1
+  },
+  {
+    "id": "f173",
+    "cat": "Fundamental",
+    "factor": "OI Rollover % Current to Next Expiry",
+    "why": "High rollover trend continues",
+    "weight": 2
+  },
+  {
+    "id": "f174",
+    "cat": "Fundamental",
+    "factor": "Cost of Carry Futures vs Spot",
+    "why": "Futures vs spot + interest",
+    "weight": 1
+  },
+  {
+    "id": "f175",
+    "cat": "Fundamental",
+    "factor": "Cash Volume vs F&O Volume",
+    "why": "Cash low F&O high speculative",
+    "weight": 1
+  },
+  {
+    "id": "f176",
+    "cat": "Psychology",
+    "factor": "FOMO Level - Entering Because Missed Move?",
+    "why": "FOMO biggest loss reason",
+    "weight": 3
+  },
+  {
+    "id": "f177",
+    "cat": "Psychology",
+    "factor": "Anchoring Bias - Saw 23500 Now 23200 Cheap?",
+    "why": "Saw high now think cheap but trend down",
+    "weight": 2
+  },
+  {
+    "id": "f178",
+    "cat": "Psychology",
+    "factor": "Loss Aversion - Holding Losers Booking Winners Early?",
+    "why": "Holding losers booking winners early",
+    "weight": 3
+  },
+  {
+    "id": "f179",
+    "cat": "Psychology",
+    "factor": "Recency Bias - Last 2 Won So Next Will Win?",
+    "why": "Last 2 won overconfidence",
+    "weight": 2
+  },
+  {
+    "id": "f180",
+    "cat": "Psychology",
+    "factor": "Backtest Overfitting - 50 or 500 Trades?",
+    "why": "50 trades overfit 500 reliable",
+    "weight": 3
+  },
+  {
+    "id": "f181",
+    "cat": "Psychology",
+    "factor": "Slippage in Backtest Included?",
+    "why": "If not include 1-2 Rs real win 10% lower",
+    "weight": 2
+  },
+  {
+    "id": "f182",
+    "cat": "Psychology",
+    "factor": "Data Quality NSE Error?",
+    "why": "NSE data wrong OI validation",
+    "weight": 1
+  },
+  {
+    "id": "f183",
+    "cat": "Psychology",
+    "factor": "Survivorship Bias - Tested on NIFTY Only?",
+    "why": "Tested on NIFTY survived but stock died",
+    "weight": 1
+  },
+  {
+    "id": "f184",
+    "cat": "Psychology",
+    "factor": "Broker API Rate Limit 1000/sec?",
+    "why": "If exceed orders fail",
+    "weight": 1
+  },
+  {
+    "id": "f185",
+    "cat": "Psychology",
+    "factor": "GTT/OCO Order Type Supported?",
+    "why": "Does broker support GTT for SL?",
+    "weight": 2
+  },
+  {
+    "id": "f186",
+    "cat": "Operator Intel",
+    "factor": "OI Buildup vs Price Trap",
+    "why": "OI rising sharply while price stays flat suggests large players building a position quietly - retail chasing price alone misses this",
+    "weight": 3
+  },
+  {
+    "id": "f187",
+    "cat": "Operator Intel",
+    "factor": "Max Pain Pull Strength",
+    "why": "Near expiry, spot often gravitates toward the strike where option writers (frequently large players) lose the least - a large distance-to-max-pain plus falling time-to-expiry raises the odds of a pull toward that strike",
+    "weight": 3
+  },
+  {
+    "id": "f188",
+    "cat": "Operator Intel",
+    "factor": "Single-Strike OI Concentration Shift",
+    "why": "A large, sudden OI change concentrated at one strike (vs spread evenly) often marks a wall being built by a large writer, not many small retail trades",
+    "weight": 2
+  },
+  {
+    "id": "f189",
+    "cat": "Operator Intel",
+    "factor": "Writer vs Buyer Dominance",
+    "why": "Price up + OI up = long buildup (buyers in control); price down + OI up = short buildup (writers/sellers in control) - tells you who is actually driving the move, not just its direction",
+    "weight": 3
+  },
+  {
+    "id": "f190",
+    "cat": "Operator Intel",
+    "factor": "PCR Extremity - Retail Crowding Proxy",
+    "why": "PCR far from the 0.8-1.3 neutral band suggests one-sided retail positioning (crowd extreme) - crowded trades are historically the ones large players' hedging flows can move against",
+    "weight": 2
+  },
+  {
+    "id": "f191",
+    "cat": "Operator Intel",
+    "factor": "FII Index Futures Positioning Skew",
+    "why": "A strong FII long or short skew (from the delayed NSE participant-wise OI data) shown against retail's opposite PCR skew flags a positioning gap worth weighing, not following blindly",
+    "weight": 2
+  },
+  {
+    "id": "f192",
+    "cat": "Operator Intel",
+    "factor": "ATM Straddle Premium Pressure",
+    "why": "Falling ATM straddle price while spot is range-bound points to net premium selling (writer-dominated); rising straddle in a flat market points to buyers paying up for a move - separate signal from price direction",
+    "weight": 2
+  },
+  {
+    "id": "f193",
+    "cat": "Operator Intel",
+    "factor": "Composite Operator Bias Score",
+    "why": "Combines the six signals above into one directional score with a confidence label - deliberately capped in influence on the final decision so it nudges rather than overrides the other 185 factors, since this is inference from public OI/volume data, not certainty",
+    "weight": 3
+  }
+]
