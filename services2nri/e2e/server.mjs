@@ -45,7 +45,7 @@ const server = http.createServer((req, res) => {
     };
     const run = async () => {
       let requestBody = null;
-      if (req.method === 'PUT' || req.method === 'POST') {
+      if (req.method === 'PUT' || req.method === 'POST' || req.method === 'PATCH') {
         requestBody = await new Promise((resolve, reject) => {
           const chunks = [];
           req.on('data', (chunk) => chunks.push(chunk));

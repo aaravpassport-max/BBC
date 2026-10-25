@@ -207,6 +207,43 @@ function defaultE2eDesignConfig() {
 let e2eDesignConfig = defaultE2eDesignConfig()
 let e2eDesignRevision = 'e2e-1'
 
+function defaultE2eAdminBooking(id = 1) {
+  return {
+    id,
+    booking_ref: `BK-E2E-${String(id).padStart(3, '0')}`,
+    service_name: 'Property Management',
+    service_id: 1,
+    customer_id: 1,
+    customer_name: 'E2E Customer',
+    customer_email: 'customer@e2e.test',
+    customer_phone: '+1 555 0100',
+    status: 'in_progress',
+    payment_status: 'pending',
+    quoted_amount: 5000,
+    created_at: '2026-01-15 10:00:00',
+    updated_at: '2026-01-16 10:00:00',
+    field_data: { need: 'Document courier' },
+    documents: [],
+    messages: [],
+    quotes: [],
+    vendor_id: null,
+    vendor: null,
+    vendor_list: [
+      { id: 1, name: 'BlueDart Partner', phone: '919800000001', whatsapp: '919800000001', company: 'BlueDart' },
+      { id: 2, name: 'DHL India Desk', phone: '919800000002', whatsapp: '919800000002', company: 'DHL' },
+    ],
+    delivery_working_days: null,
+    due_date: null,
+    delivery_note: '',
+    delivery_info: null,
+    secondary_status: '',
+    shipping_type: 'domestic',
+    staff_list: [],
+  }
+}
+
+const e2eAdminBookings = new Map([[1, defaultE2eAdminBooking(1)]])
+
 export function resetE2ePlatformSettings() {
   const base = { ...windowLikeSettings(), platform_name: 'Services2NRI E2E' }
   for (const key of Object.keys(e2ePlatformSettings)) delete e2ePlatformSettings[key]
@@ -316,7 +353,50 @@ export function handleMockApi(pathname, method, requestBody) {
     }
   }
 
-  if (method === 'GET' && path.startsWith('admin/bookings')) {
+  const adminBookingDetail = path.match(/^admin\/bookings\/(\d+)$/)
+  if (adminBookingDetail) {
+    const id = Number(adminBookingDetail[1])
+    if (!e2eAdminBookings.has(id)) e2eAdminBookings.set(id, defaultE2eAdminBooking(id))
+    return { booking: e2eAdminBookings.get(id) }
+  }
+  const adminBookingPatch = path.match(/^admin\/bookings\/(\d+)\/(delivery|vendor|secondary-status|shipping-type)$/)
+  if (adminBookingPatch && (method === 'PATCH' || method === 'PUT')) {
+    const id = Number(adminBookingPatch[1])
+    const action = adminBookingPatch[2]
+    if (!e2eAdminBookings.has(id)) e2eAdminBookings.set(id, defaultE2eAdminBooking(id))
+    const row = { ...e2eAdminBookings.get(id) }
+    const body = requestBody && typeof requestBody === 'object' ? requestBody : {}
+    if (action === 'delivery') {
+      const days = Number(body.working_days || body.days || 0)
+      if (days > 0) {
+        row.delivery_working_days = days
+        const due = new Date()
+        due.setDate(due.getDate() + days)
+        row.due_date = due.toISOString().slice(0, 10)
+      } else if (body.fixed_date || body.date) {
+        row.due_date = String(body.fixed_date || body.date)
+        row.delivery_working_days = null
+      }
+      if (body.note) row.delivery_note = String(body.note)
+      row.delivery_info = row.due_date
+        ? `${row.due_date}${row.delivery_working_days ? ` (${row.delivery_working_days} working days)` : ''}`
+        : null
+    }
+    if (action === 'vendor') {
+      const vid = body.vendor_id != null && body.vendor_id !== '' ? Number(body.vendor_id) : null
+      row.vendor_id = vid
+      row.vendor = vid ? row.vendor_list.find((v) => v.id === vid) || null : null
+    }
+    if (action === 'secondary-status') {
+      row.secondary_status = String(body.value ?? body.secondary_status ?? '')
+    }
+    if (action === 'shipping-type') {
+      row.shipping_type = String(body.shipping_type || 'domestic')
+    }
+    e2eAdminBookings.set(id, row)
+    return { success: true, booking: row, vendor: row.vendor, due_date: row.due_date, working_days: row.delivery_working_days }
+  }
+  if (method === 'GET' && path === 'admin/bookings') {
     return {
       rows: [
         {
@@ -331,6 +411,9 @@ export function handleMockApi(pathname, method, requestBody) {
       ],
       total: 1,
     }
+  }
+  if (method === 'GET' && path.startsWith('admin/bookings')) {
+    return { rows: [], total: 0 }
   }
   if (method === 'POST' && path === 'e2e/reset-platform-settings') {
     resetE2ePlatformSettings()

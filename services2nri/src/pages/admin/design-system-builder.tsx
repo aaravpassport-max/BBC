@@ -1162,6 +1162,8 @@ export function DesignSystemBuilder({
     try {
       const payload = prepareSettingsPayload(settings, keys)
       await api.put('admin/settings', payload)
+      const { mergePublicSettings } = await import('@/lib/settings-live-sync')
+      mergePublicSettings(payload)
       await loadSettings()
       setContentSaveMessageById((prev) => ({
         ...prev,
