@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Standalone full module — chart indicators</title>
+  <style>
+    body{background:#020617;color:#e2e8f0;font-family:system-ui;margin:12px}
+    .btn{background:#2563eb;color:#fff;border:0;padding:6px 12px;border-radius:8px;font-size:11px}
+    .input{background:#020617;border:1px solid #334155;color:#fff;padding:6px 8px;border-radius:8px;font-size:11px}
+    #priceChartCanvas{width:100%;height:360px;background:#020617;border-radius:10px}
+    #status{font-weight:700;margin:8px 0}
+  </style>
+</head>
+<body>
+<div id="status">Booting full standalone module bundle…</div>
+<div id="priceChartSection" class="fno-chart-section">
+  <div id="priceChartCaption"></div>
+  <div class="fno-chart-toolbar" style="margin-bottom:6px">
+    <button type="button" class="btn chart-tf-btn" data-tf="1">1m</button>
+    <input id="chartIndicatorSearch" class="input" style="width:80px">
+    <select id="chartAddIndicator" class="input"><option value="">+ Add…</option></select>
+  </div>
+  <div class="fno-chart-toolbar" style="margin-bottom:6px">
+    <label><input type="checkbox" id="chartShowEma" checked> EMA</label>
+    <label><input type="checkbox" id="chartShowVwap" checked> VWAP</label>
+    <label><input type="checkbox" id="chartShowVolume"> Volume</label>
+    <label><input type="checkbox" id="chartShowOptionLtp"> LTP</label>
+  </div>
+  <div id="chartIndicatorDiagnostics">Indicator status: …</div>
+  <div id="chartIndicatorList"></div>
+  <canvas id="priceChartCanvas"></canvas>
+  <div id="priceChartPanels"></div>
+  <div id="priceChartLegend"></div>
+</div>
+<div id="chartCustomIndicatorPanel" style="display:none"></div>
+<div id="chartCustomIndError"></div>
+<div id="chartCustomIndCatalog"></div>
+<div id="chartAlertsList"></div>
+<div id="chartWatchlistBar"></div>
+<div id="sym" style="display:none"><option selected>NIFTY</option></div>
+<div id="lotCount" value="1"></div>
+
+<script>
+window.FNO_AJAX = { isLoggedIn: false, url: '/ajax', nonce: 't' };
+window.FNO_FACTORS_CATALOG = [];
+window.fnoSettings = { get: () => ({ appearance: 'dark', nseIntegrationEnabled: true, tradingTypes: { scalping: true }, defaultLots: 1 }), set: () => {} };
+window.__fullModuleAudit = { ready: false, steps: [], errors: [] };
+window.addEventListener('error', (e) => window.__fullModuleAudit.errors.push(e.message || String(e)));
+window.refreshBrain = async function () {
+  const ctx = window.__fullModuleAudit.ctx;
+  if (ctx && typeof globalThis.renderPriceChart === 'function') globalThis.renderPriceChart(ctx);
+};
+</script>
+<script src="../assets/chart-pine-compiler.js"></script>
+<script src="../assets/chart-indicator-engine.js"></script>
+<script src="../assets/chart-tv-extensions.js"></script>
+<script type="module" src="./fixtures/standalone-full-module.js"></script>
+<script type="module">
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+function makeCandles(n) {
+  const out = [];
+  let t = Date.now() - n * 60000;
+  for (let i = 0; i < n; i++) {
+    const c = 23200 + Math.sin(i / 7) * 25;
+    out.push({ t: t + i * 60000, o: c - 2, h: c + 4, l: c - 5, c, v: 300 + i * 2 });
+  }
+  return out;
+}
+async function run() {
+  for (let i = 0; i < 120; i++) {
+    if (typeof globalThis.renderPriceChart === 'function') break;
+    await sleep(50);
+  }
+  const ctx = { candles: makeCandles(90), candlesForChart: makeCandles(90), chartBaseIntervalMinutes: 1, spot: 23210, symbol: 'NIFTY', sym: 'NIFTY' };
+  window.__fullModuleAudit.ctx = ctx;
+  globalThis.renderPriceChart(ctx);
+  await sleep(400);
+  const diag = document.getElementById('chartIndicatorDiagnostics').textContent || '';
+  const rows0 = document.querySelectorAll('.chart-ind-row').length;
+  window.__fullModuleAudit.steps.push('diag=' + diag);
+  window.__fullModuleAudit.steps.push('rows0=' + rows0);
+  const addSel = document.getElementById('chartAddIndicator');
+  addSel.value = 'rsi';
+  addSel.dispatchEvent(new Event('change', { bubbles: true }));
+  await sleep(250);
+  globalThis.renderPriceChart(ctx);
+  await sleep(150);
+  const rows1 = document.querySelectorAll('.chart-ind-row').length;
+  const diag2 = document.getElementById('chartIndicatorDiagnostics').textContent || '';
+  const panels = document.getElementById('priceChartPanels').children.length;
+  window.__fullModuleAudit.steps.push('rows1=' + rows1 + ' panels=' + panels);
+  const ok = /engine=OK/.test(diag2) && /UI=wired/.test(diag2) && rows0 >= 2 && rows1 >= 3 && panels >= 1 && window.__fullModuleAudit.errors.length === 0;
+  window.__fullModuleAudit.ready = ok;
+  document.getElementById('status').textContent = ok ? 'PASS full standalone module bundle' : 'FAIL full standalone module bundle';
+  document.getElementById('status').style.color = ok ? '#4ade80' : '#f87171';
+}
+run();
+</script>
+</body>
+</html>

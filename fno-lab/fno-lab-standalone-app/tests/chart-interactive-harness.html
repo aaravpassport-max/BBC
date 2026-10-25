@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chart interactive harness — full UI click audit</title>
+  <link rel="stylesheet" href="data:text/css,">
+  <style>
+    *{box-sizing:border-box} body{background:#020617;color:#e2e8f0;font-family:system-ui,sans-serif;margin:0;padding:12px}
+    .btn{background:#2563eb;color:#fff;border:0;padding:6px 12px;border-radius:8px;font-weight:700;cursor:pointer;font-size:11px}
+    .input{background:#020617;border:1px solid #334155;color:#fff;padding:6px 8px;border-radius:8px}
+    .chart-tf-btn.chart-tf-active{background:#166534!important;border:1px solid #22c55e!important}
+    .fno-chart-section #priceChartCanvas{width:100%;height:min(50vh,520px);min-height:360px}
+    .fno-chart-section #priceChartOptionCanvas{height:120px;width:100%}
+    .fno-chart-section--fullscreen{position:fixed;inset:0;z-index:9999;background:#020617;padding:12px;overflow:auto}
+    #auditPanel{position:fixed;right:12px;top:12px;width:320px;max-height:90vh;overflow:auto;background:#0f172a;border:1px solid #334155;border-radius:10px;padding:10px;font-size:11px;z-index:10000}
+    #auditPanel li.pass{color:#4ade80} #auditPanel li.fail{color:#f87171}
+    #auditSummary{font-weight:700;margin-bottom:8px}
+  </style>
+</head>
+<body>
+<div id="auditPanel">
+  <div id="auditSummary">Audit: waiting…</div>
+  <ol id="auditList"></ol>
+  <button type="button" class="btn" id="runAuditBtn" style="width:100%;margin-top:8px;background:#166534">Re-run click audit</button>
+</div>
+
+<div id="fno-root" style="max-width:1100px;margin-right:340px">
+  <select id="sym" style="display:none"><option selected>NIFTY</option><option>BANKNIFTY</option></select>
+  <div class="card fno-chart-section" id="priceChartSection">
+    <h3 style="font-size:15px">📈 Live Price Chart <span style="font-size:12px;color:#94a3b8">(harness)</span></h3>
+    <div id="chartWatchlistBar" style="margin-bottom:6px"></div>
+    <div class="fno-chart-toolbar" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+      <button type="button" class="btn chart-tf-btn" data-tf="1">1m</button>
+      <button type="button" class="btn chart-tf-btn" data-tf="5">5m</button>
+      <button type="button" class="btn chart-tf-btn" data-tf="15">15m</button>
+      <button type="button" class="btn chart-tf-btn" data-tf="30">30m</button>
+      <button type="button" class="btn chart-tf-btn" data-tf="60">1h</button>
+      <button type="button" class="btn chart-tf-btn" data-tf="240">4h</button>
+      <button type="button" class="btn chart-tf-btn" data-tf="1440">1D</button>
+      <select id="chartTypeSelect" class="input"><option value="candle">Candles</option><option value="line">Line</option><option value="area">Area</option></select>
+      <input id="chartIndicatorSearch" class="input" placeholder="Search" style="width:80px">
+      <select id="chartAddIndicator" class="input"><option value="">+ Add indicator…</option></select>
+      <button type="button" class="btn" id="chartCustomIndicatorBtn">📜 Scripts</button>
+      <button type="button" class="btn chart-draw-btn" data-draw="hline">― H</button>
+      <button type="button" class="btn chart-draw-btn" data-draw="trend">／ Trend</button>
+      <button type="button" class="btn chart-draw-btn" data-draw="vline">| V-line</button>
+      <button type="button" class="btn" id="chartDrawClear">Clear drawings</button>
+      <button type="button" class="btn" id="chartZoomIn">🔍+</button>
+      <button type="button" class="btn" id="chartZoomOut">🔍-</button>
+      <button type="button" class="btn" id="chartResetView">Reset</button>
+      <button type="button" class="btn" id="chartFitPrice">Fit price</button>
+      <button type="button" class="btn" id="chartFullscreen">⛶ Full screen</button>
+    </div>
+    <div class="fno-chart-toolbar" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px">
+      <label><input type="checkbox" id="chartShowEma" checked> EMA21</label>
+      <label><input type="checkbox" id="chartShowVwap" checked> VWAP</label>
+      <label><input type="checkbox" id="chartShowVolume"> Show Volume</label>
+      <label><input type="checkbox" id="chartShowOptionLtp" checked> Option LTP</label>
+      <input id="chartLayoutPresetName" class="input" placeholder="Preset" value="HarnessPreset" style="width:80px">
+      <button type="button" class="btn" id="chartLayoutPresetSave">Save layout</button>
+      <select id="chartLayoutPresetSelect" class="input"><option value="">Layout…</option></select>
+      <button type="button" class="btn" id="chartLayoutPresetLoad">Load layout</button>
+      <input type="file" id="chartCustomIndImportFile" style="display:none">
+      <button type="button" class="btn" id="chartCustomIndImportBtn">Import</button>
+      <select id="chartIndAlertKind" class="input"><option value="rsi">RSI</option><option value="macd_zero">MACD zero</option></select>
+      <input id="chartIndAlertLevel" class="input" value="70" style="width:40px">
+      <select id="chartIndAlertDirection" class="input"><option value="above">↑</option></select>
+      <label><input type="checkbox" id="chartIndAlertRepeat"> Repeat</label>
+      <button type="button" class="btn" id="chartIndAlertAdd">Ind. alert</button>
+      <input id="chartAlertPrice" class="input" value="23500" style="width:70px">
+      <button type="button" class="btn" id="chartAlertAdd">Price alert</button>
+    </div>
+    <div id="chartAlertsList" style="font-size:10px;margin-bottom:6px"></div>
+    <div id="chartIndicatorList" style="margin-bottom:6px"></div>
+    <div id="chartCustomIndicatorPanel" style="display:none;padding:8px;background:#0f172a;border:1px solid #334155;border-radius:8px;margin-bottom:6px;font-size:11px">
+      <textarea id="chartCustomIndPine" class="input" placeholder="//@version=5 Pine subset" style="width:100%;min-height:72px;font-size:10px;font-family:ui-monospace,monospace;margin-bottom:6px"></textarea>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">
+        <button type="button" class="btn" id="chartCustomIndPineCompile" style="padding:4px 10px;font-size:11px;background:#7c3aed">Compile Pine &amp; add</button>
+        <button type="button" class="btn" id="chartCustomIndPineImportBtn" style="padding:4px 10px;font-size:11px;background:#5b21b6">Import .pine…</button>
+        <input type="file" id="chartCustomIndPineImportFile" accept=".pine,.txt,text/plain" style="display:none">
+      </div>
+      <input id="chartCustomIndName" class="input" placeholder="Name" value="Harness EMA 7">
+      <select id="chartCustomIndType" class="input"><option value="overlay">Overlay</option><option value="panel">Panel</option></select>
+      <input id="chartCustomIndFormula" class="input" value="ema(close, 7)" style="min-width:180px">
+      <input id="chartCustomIndParams" class="input" value="" style="width:100px">
+      <input type="color" id="chartCustomIndColor" value="#f472b6">
+      <button type="button" class="btn" id="chartCustomIndSave">Save &amp; add</button>
+      <button type="button" class="btn" id="chartCustomIndCancel">Close</button>
+      <button type="button" class="btn" id="chartCustomIndExportBtn">Export all scripts</button>
+      <div id="chartCustomIndError"></div>
+      <div id="chartCustomIndCatalog"></div>
+    </div>
+    <div id="priceChartCrosshair" style="min-height:16px;font-size:11px;color:#94a3b8"></div>
+    <canvas id="priceChartCanvas" style="background:#020617;border-radius:10px;touch-action:none"></canvas>
+    <div id="priceChartOptionWrap" style="display:none;margin-top:8px;border:1px solid #1e293b;border-radius:8px;padding:6px">
+      <div id="priceChartOptionTitle"></div>
+      <canvas id="priceChartOptionCanvas"></canvas>
+    </div>
+    <div id="priceChartPanels"></div>
+    <div id="priceChartLegend" style="font-size:10px;color:#64748b;margin-top:6px"></div>
+  </div>
+</div>
+
+<script src="../assets/chart-pine-compiler.js"></script>
+<script src="../assets/chart-indicator-engine.js"></script>
+<script src="../assets/chart-tv-extensions.js"></script>
+<script>
+window.FNO_AJAX = { isLoggedIn: false, url: '/wp-admin/admin-ajax.php', nonce: 'test' };
+window.FNO_FACTORS_CATALOG = null;
+window.fnoSettings = {
+  get: () => ({
+    appearance: 'dark', nseIntegrationEnabled: true,
+    tradingTypes: { scalping: true, intraday: false, swing: false },
+  }),
+  set: () => {},
+};
+window.devicePixelRatio = window.devicePixelRatio || 1;
+window.__chartAuditConsoleErrors = [];
+const __origConsoleError = console.error;
+console.error = function () {
+  window.__chartAuditConsoleErrors.push(Array.from(arguments).join(' '));
+  __origConsoleError.apply(console, arguments);
+};
+
+function seedStorage() {
+  const open = {
+    id: 'harness_open_1', symbol: 'NIFTY', strike: 23200, optionType: 'CE',
+    entryPrice: 100, target: 130, sl: 85, trailingEnabled: false,
+    entrySpot: 23200, entryCandleTs: Date.now() - 3600000,
+  };
+  localStorage.setItem('fno_autotrades_v8', JSON.stringify(open));
+  localStorage.setItem('fno_autotrades_v8_history', '[]');
+  localStorage.setItem('fno_position_ltp_history_v1', JSON.stringify([
+    { ts: Date.now() - 120000, positionId: 'harness_open_1', ltp: 102, target: 130, sl: 85, entryPrice: 100, strike: 23200, optionType: 'CE', symbol: 'NIFTY' },
+    { ts: Date.now() - 60000, positionId: 'harness_open_1', ltp: 105, target: 130, sl: 85, entryPrice: 100, strike: 23200, optionType: 'CE', symbol: 'NIFTY' },
+    { ts: Date.now(), positionId: 'harness_open_1', ltp: 108, target: 130, sl: 85, entryPrice: 100, strike: 23200, optionType: 'CE', symbol: 'NIFTY' },
+  ]));
+  localStorage.removeItem('fno_chart_view_v1');
+  localStorage.removeItem('fno_chart_indicators_v1');
+  localStorage.removeItem('fno_chart_layout_presets_v1');
+  localStorage.removeItem('fno_chart_price_alerts_v1');
+  localStorage.removeItem('fno_chart_indicator_alerts_v1');
+  localStorage.removeItem('fno_chart_custom_indicators_v1');
+}
+
+const HARNESS_EMA_PINE = `//@version=5
+indicator("Harness Pine EMA", overlay=true)
+len = input.int(14, "Length")
+plot(ta.ema(close, len), color=color.orange)`;
+
+const HARNESS_RSI_PINE = `//@version=5
+indicator("Harness Pine RSI", overlay=false)
+length = input.int(14, "RSI length")
+plot(ta.rsi(close, length))`;
+
+const HARNESS_IMPORT_PINE = `//@version=5
+indicator("File Import EMA", overlay=true)
+len = input.int(9, "Length")
+plot(ta.ema(close, len))`;
+
+function harnessAssignPineFile(inputEl, fileName, content) {
+  const dt = new DataTransfer();
+  dt.items.add(new File([content], fileName, { type: 'text/plain' }));
+  inputEl.files = dt.files;
+  inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function harnessPineDefCount() {
+  return FNO_CHART_INDICATORS.listCustomDefinitions().filter((d) => d.source === 'pine').length;
+}
+
+function makeCandles(n) {
+  const out = [];
+  let t = Date.now() - n * 60000;
+  for (let i = 0; i < n; i++) {
+    const c = 23200 + Math.sin(i / 8) * 30 + i * 0.5;
+    out.push({ t: t + i * 60000, o: c - 2, h: c + 5, l: c - 6, c, v: 400 + i });
+  }
+  return out;
+}
+
+let marketCtx = null;
+
+function audit(label, ok, detail) {
+  const li = document.createElement('li');
+  li.className = ok ? 'pass' : 'fail';
+  li.textContent = (ok ? 'PASS' : 'FAIL') + ' — ' + label + (detail ? ': ' + detail : '');
+  document.getElementById('auditList').appendChild(li);
+  return ok;
+}
+
+async function runClickAudit() {
+  document.getElementById('auditList').innerHTML = '';
+  let pass = 0, total = 0;
+  const check = (l, ok, d) => { total++; if (audit(l, ok, d)) pass++; };
+  const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+  document.querySelector('.chart-tf-btn[data-tf="1"]').click();
+  await sleep(60);
+  renderPriceChart(marketCtx);
+  const legend1m = document.getElementById('priceChartLegend').textContent || '';
+  check('1m timeframe button', _fnoChartViewStateForTest().timeframeMinutes === 1);
+
+  const tf5 = document.querySelector('.chart-tf-btn[data-tf="5"]');
+  tf5.click();
+  await sleep(60);
+  renderPriceChart(marketCtx);
+  const legend5m = document.getElementById('priceChartLegend').textContent || '';
+  check('5m timeframe button', _fnoChartViewStateForTest().timeframeMinutes === 5, 'tf=' + _fnoChartViewStateForTest().timeframeMinutes);
+  check('5m active CSS class', tf5.classList.contains('chart-tf-active'));
+  check('5m changes candle count vs 1m', legend1m !== legend5m && /showing \d+ candles/.test(legend5m), legend5m);
+
+  document.querySelector('.chart-tf-btn[data-tf="15"]').click();
+  await sleep(60);
+  renderPriceChart(marketCtx);
+  const legend15m = document.getElementById('priceChartLegend').textContent || '';
+  check('15m timeframe button', _fnoChartViewStateForTest().timeframeMinutes === 15);
+  check('15m fewer candles than 1m', legend15m !== legend1m, legend15m);
+
+  for (const tf of ['30', '60', '240', '1440']) {
+    const btn = document.querySelector('.chart-tf-btn[data-tf="' + tf + '"]');
+    btn.click();
+    await sleep(50);
+    check(tf + 'm timeframe button', _fnoChartViewStateForTest().timeframeMinutes === Number(tf));
+  }
+
+  const z0 = _fnoChartViewStateForTest().visibleCount;
+  document.getElementById('chartZoomIn').click();
+  await sleep(50);
+  check('Zoom in reduces visibleCount', _fnoChartViewStateForTest().visibleCount < z0);
+
+  const z1 = _fnoChartViewStateForTest().visibleCount;
+  document.getElementById('chartZoomOut').click();
+  await sleep(50);
+  check('Zoom out increases visibleCount', _fnoChartViewStateForTest().visibleCount > z1);
+
+  document.getElementById('chartResetView').click();
+  await sleep(40);
+  check('Reset view defaults', _fnoChartViewStateForTest().visibleCount === 80 && _fnoChartViewStateForTest().priceZoom === 1);
+
+  document.getElementById('chartFitPrice').click();
+  check('Fit price resets priceZoom', _fnoChartViewStateForTest().priceZoom === 1);
+
+  const canvas = document.getElementById('priceChartCanvas');
+  const rect = canvas.getBoundingClientRect();
+  canvas.dispatchEvent(new MouseEvent('mousemove', { clientX: rect.left + rect.width * 0.5, clientY: rect.top + rect.height * 0.5, bubbles: true }));
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+  check('Crosshair readout populated', (document.getElementById('priceChartCrosshair').textContent || '').includes('O '));
+
+  canvas.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+  await sleep(40);
+  check('Double-click reset view', _fnoChartViewStateForTest().visibleCount === 80);
+
+  const addSel = document.getElementById('chartAddIndicator');
+  const rsiOpt = Array.from(addSel.options).find(o => o.value === 'rsi');
+  if (rsiOpt) { addSel.value = 'rsi'; addSel.dispatchEvent(new Event('change', { bubbles: true })); }
+  await sleep(100);
+  check('Add RSI → indicator list row', (document.getElementById('chartIndicatorList').textContent || '').includes('RSI'));
+  check('Add RSI indicator', document.getElementById('priceChartPanels').children.length > 0);
+
+  document.getElementById('chartCustomIndicatorBtn').click();
+  check('Custom panel opens', document.getElementById('chartCustomIndicatorPanel').style.display !== 'none');
+  document.getElementById('chartCustomIndSave').click();
+  await sleep(120);
+  check('Custom formula save & add', FNO_CHART_INDICATORS.listCustomDefinitions().some(d => d.formula === 'ema(close, 7)'));
+
+  const pineTa = document.getElementById('chartCustomIndPine');
+  const pineErr = document.getElementById('chartCustomIndError');
+  const catEl = document.getElementById('chartCustomIndCatalog');
+  pineTa.value = HARNESS_EMA_PINE;
+  document.getElementById('chartCustomIndPineCompile').click();
+  await sleep(120);
+  const emaPineDef = FNO_CHART_INDICATORS.listCustomDefinitions().find((d) => d.name === 'Harness Pine EMA');
+  check('Compile Pine & add → pine source def', emaPineDef && emaPineDef.source === 'pine' && emaPineDef.formula === 'ema(close, len)');
+  check('Pine catalog badge', (catEl.innerHTML || '').includes('Pine') && (catEl.textContent || '').includes('Harness Pine EMA'));
+  const emaPineInst = FNO_CHART_INDICATORS.loadInstances().some((i) => i.typeId === 'custom:' + emaPineDef.id && i.enabled);
+  check('Pine EMA instance on chart', emaPineInst);
+  const evLen14 = FNO_CHART_INDICATORS.evaluateFormula(emaPineDef.formula, marketCtx.candles, emaPineDef.params);
+  const evLen7 = FNO_CHART_INDICATORS.evaluateFormula(emaPineDef.formula, marketCtx.candles, { len: 7 });
+  check(
+    'Pine input.int len affects series',
+    evLen14.error == null && evLen7.error == null
+      && Math.abs(evLen14.values[evLen14.values.length - 1] - evLen7.values[evLen7.values.length - 1]) > 0.001
+  );
+
+  const pineBeforeBad = harnessPineDefCount();
+  pineTa.value = `//@version=5
+indicator("Bad strat")
+strategy("Not allowed")
+plot(close)`;
+  document.getElementById('chartCustomIndPineCompile').click();
+  await sleep(60);
+  check('Pine rejects strategy()', /strategy/i.test(pineErr.textContent || ''));
+  check('Invalid Pine does not add def', harnessPineDefCount() === pineBeforeBad);
+
+  pineTa.value = `//@version=5
+indicator("HTF EMA", overlay=true)
+d = request.security(syminfo.tickerid, "D", close)
+plot(ta.ema(d, 9))`;
+  document.getElementById('chartCustomIndPineCompile').click();
+  await sleep(120);
+  const htfDef = FNO_CHART_INDICATORS.listCustomDefinitions().find((d) => d.name === 'HTF EMA');
+  check('Pine request.security same symbol compiles', htfDef && /htf\(close,\s*1440\)/.test(htfDef.formula));
+
+  pineTa.value = HARNESS_RSI_PINE;
+  document.getElementById('chartCustomIndPineCompile').click();
+  await sleep(120);
+  renderPriceChart(marketCtx);
+  await sleep(60);
+  const rsiPineDef = FNO_CHART_INDICATORS.listCustomDefinitions().find((d) => d.name === 'Harness Pine RSI');
+  check('Pine RSI panel type', rsiPineDef && rsiPineDef.type === 'panel');
+  check('Pine RSI adds indicator panel', document.getElementById('priceChartPanels').children.length > 0);
+
+  const defsBeforeImport = FNO_CHART_INDICATORS.listCustomDefinitions().length;
+  harnessAssignPineFile(document.getElementById('chartCustomIndPineImportFile'), 'audit-harness.pine', HARNESS_IMPORT_PINE);
+  await sleep(250);
+  check(
+    'Import .pine → auto compile',
+    FNO_CHART_INDICATORS.listCustomDefinitions().some((d) => d.name === 'File Import EMA')
+      && FNO_CHART_INDICATORS.listCustomDefinitions().length > defsBeforeImport
+  );
+
+  document.getElementById('chartCustomIndCancel').click();
+  check('Custom panel closes', document.getElementById('chartCustomIndicatorPanel').style.display === 'none');
+
+  check('Option LTP panel visible', document.getElementById('priceChartOptionWrap').style.display !== 'none');
+  document.getElementById('chartShowOptionLtp').click();
+  await sleep(40);
+  check('Option LTP toggle hides panel', document.getElementById('priceChartOptionWrap').style.display === 'none');
+  document.getElementById('chartShowOptionLtp').click();
+  await sleep(40);
+  check('Option LTP toggle shows panel', document.getElementById('priceChartOptionWrap').style.display !== 'none');
+
+  renderPriceChart(marketCtx);
+  const legendEmaOn = document.getElementById('priceChartLegend').textContent || '';
+  const indOn = Number((legendEmaOn.match(/(\d+) indicator/) || [])[1] || 0);
+  document.getElementById('chartShowEma').click();
+  await sleep(40);
+  renderPriceChart(marketCtx);
+  const emaInst = FNO_CHART_INDICATORS.loadInstances().find(i => i.typeId === 'ema');
+  check('EMA checkbox sync', emaInst && !emaInst.enabled);
+  const legendEmaOff = document.getElementById('priceChartLegend').textContent || '';
+  const indOff = Number((legendEmaOff.match(/(\d+) indicator/) || [])[1] || 0);
+  check('EMA off reduces indicator output count', indOff < indOn, `on=${indOn} off=${indOff}`);
+
+  document.getElementById('chartShowVwap').click();
+  await sleep(40);
+  const vwapInst = FNO_CHART_INDICATORS.loadInstances().find(i => i.typeId === 'vwap');
+  check('VWAP checkbox sync', vwapInst && !vwapInst.enabled);
+  document.getElementById('chartShowEma').click();
+  document.getElementById('chartShowVwap').click();
+  await sleep(40);
+
+  const volBox = document.getElementById('chartShowVolume');
+  check('Show Volume starts unchecked', volBox && !volBox.checked);
+  check('Volume panel hidden initially', !_fnoChartHasVolumePanelForTest());
+  volBox.click();
+  await sleep(100);
+  renderPriceChart(marketCtx);
+  await sleep(60);
+  check('Show Volume ON → panel visible', _fnoChartHasVolumePanelForTest() && _fnoChartVolumeEnabledForTest());
+  volBox.click();
+  await sleep(100);
+  renderPriceChart(marketCtx);
+  await sleep(40);
+  check('Show Volume OFF → panel hidden', !_fnoChartHasVolumePanelForTest());
+  const storedVol = JSON.parse(localStorage.getItem('fno_chart_indicators_v1') || '[]');
+  const volRow = storedVol.find((i) => i.typeId === 'volume');
+  check('Volume disabled in localStorage', volRow && volRow.enabled === false);
+  volBox.click();
+  await sleep(100);
+  renderPriceChart(marketCtx);
+  check('Show Volume re-enabled', _fnoChartHasVolumePanelForTest());
+  volBox.click();
+  await sleep(80);
+  renderPriceChart(marketCtx);
+  const reloaded = JSON.parse(localStorage.getItem('fno_chart_indicators_v1') || '[]');
+  check('Reload from storage: volume still disabled', reloaded.some((i) => i.typeId === 'volume' && i.enabled === false));
+  check('Reload from storage: panel still hidden', !_fnoChartHasVolumePanelForTest());
+
+  document.getElementById('chartFullscreen').click();
+  check('Fullscreen class on section', document.getElementById('priceChartSection').classList.contains('fno-chart-section--fullscreen'));
+  if (typeof fnoChartExitFullscreen === 'function') fnoChartExitFullscreen();
+  check('Esc/fullscreen exit', !document.getElementById('priceChartSection').classList.contains('fno-chart-section--fullscreen'));
+
+  _fnoChartViewStateForTest().visibleCount = 45;
+  _fnoChartViewStateForTest().timeframeMinutes = 15;
+  fnoChartSaveViewState();
+  _fnoChartViewStateForTest().visibleCount = 80;
+  fnoChartLoadViewState();
+  check('View persistence load', _fnoChartViewStateForTest().visibleCount === 45 && _fnoChartViewStateForTest().timeframeMinutes === 15);
+
+  check('Watchlist bar rendered', (document.getElementById('chartWatchlistBar').textContent || '').includes('NIFTY'));
+  document.getElementById('chartIndAlertAdd').click();
+  check('Indicator alert list updated', (document.getElementById('chartAlertsList').textContent || '').includes('RSI'));
+  const packBefore = FNO_CHART_INDICATORS.listCustomDefinitions().length;
+  document.getElementById('chartCustomIndExportBtn').click();
+  check('Export scripts callable', true);
+  document.getElementById('chartTypeSelect').value = 'line';
+  document.getElementById('chartTypeSelect').dispatchEvent(new Event('change'));
+  check('Chart type line', _fnoChartViewStateForTest().chartType === 'line');
+  document.getElementById('chartTypeSelect').value = 'area';
+  document.getElementById('chartTypeSelect').dispatchEvent(new Event('change'));
+  check('Chart type area', _fnoChartViewStateForTest().chartType === 'area');
+
+  const searchInp = document.getElementById('chartIndicatorSearch');
+  searchInp.value = 'macd';
+  searchInp.dispatchEvent(new Event('input', { bubbles: true }));
+  const addOpts = Array.from(document.getElementById('chartAddIndicator').options).map((o) => o.value);
+  const ids = addOpts.filter((v) => v);
+  check('Indicator search filters list', ids.length === 1 && ids[0] === 'macd');
+  searchInp.value = '';
+  searchInp.dispatchEvent(new Event('input', { bubbles: true }));
+
+  const rmBtn = document.querySelector('.chart-ind-rm');
+  if (rmBtn) { rmBtn.click(); await sleep(80); }
+  check('Remove indicator row', document.querySelectorAll('.chart-ind-row').length >= 0);
+
+  document.getElementById('chartAlertAdd').click();
+  check('Price alert list mentions price', (document.getElementById('chartAlertsList').textContent || '').length > 5);
+
+  document.getElementById('chartLayoutPresetSave').click();
+  await sleep(40);
+  const presetOpts = document.getElementById('chartLayoutPresetSelect').options.length;
+  check('Layout preset saved', presetOpts > 1);
+  document.getElementById('chartLayoutPresetSelect').selectedIndex = 1;
+  document.getElementById('chartLayoutPresetLoad').click();
+  await sleep(40);
+  check('Layout preset load callable', true);
+
+  document.getElementById('chartDrawClear').click();
+  check('Clear drawings button wired', true);
+
+  check('No console.error during audit', window.__chartAuditConsoleErrors.length === 0, window.__chartAuditConsoleErrors.slice(0, 2).join('; '));
+
+  document.getElementById('auditSummary').textContent = `Audit: ${pass}/${total} passed`;
+  document.getElementById('auditSummary').style.color = pass === total ? '#4ade80' : '#f87171';
+  window.__chartClickAuditResult = { pass, total, ok: pass === total };
+  return pass === total;
+}
+
+function bootChart() {
+  if (typeof renderPriceChart !== 'function') {
+    document.getElementById('auditSummary').textContent = 'Boot failed: chart core not loaded';
+    return;
+  }
+  seedStorage();
+  marketCtx = { candles: makeCandles(120), candlesForChart: makeCandles(120), chartBaseIntervalMinutes: 1, spot: 23240, symbol: 'NIFTY', sym: 'NIFTY' };
+  window.refreshBrain = function () { renderPriceChart(marketCtx); fnoChartRenderWatchlistBar(); };
+  renderPriceChart(marketCtx);
+  document.getElementById('runAuditBtn').onclick = () => runClickAudit();
+  setTimeout(() => runClickAudit(), 500);
+}
+
+fetch('../assets/fno-lab-core.js')
+  .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); })
+  .then(src => {
+    const end = src.indexOf('\nfunction render(){');
+    if (end < 0) throw new Error('render() boundary not found');
+    (0, eval)(src.slice(0, end));
+    bootChart();
+  })
+  .catch(e => {
+    document.getElementById('auditSummary').textContent = 'Boot failed: ' + e.message;
+    document.getElementById('auditSummary').style.color = '#f87171';
+  });
+</script>
+</body>
+</html>

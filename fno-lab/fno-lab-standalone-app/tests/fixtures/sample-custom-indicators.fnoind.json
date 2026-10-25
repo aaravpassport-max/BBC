@@ -1,0 +1,20 @@
+{
+  "format": "fno-indicator-pack-v1",
+  "version": 1,
+  "indicators": [
+    {
+      "name": "Fast EMA",
+      "type": "overlay",
+      "formula": "ema(close, period)",
+      "params": { "period": 9 },
+      "color": "#facc15"
+    },
+    {
+      "name": "Slow EMA",
+      "type": "overlay",
+      "formula": "ema(close, period)",
+      "params": { "period": 21 },
+      "color": "#38bdf8"
+    }
+  ]
+}
