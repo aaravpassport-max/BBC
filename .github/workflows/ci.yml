@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  push:
+    branches: [main, 'cursor/**']
+  pull_request:
+    branches: [main]
+
+defaults:
+  run:
+    working-directory: package
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: app_user
+          POSTGRES_PASSWORD: dev_local_only
+          POSTGRES_DB: logistics_superapp_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U app_user -d logistics_superapp_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package/backend/package-lock.json
+      - name: Install backend dependencies
+        run: npm ci
+        working-directory: package/backend
+      - name: Configure test environment
+        run: cp .env.test.example .env.test
+        working-directory: package/backend
+      - name: Build backend
+        run: npm run build
+        working-directory: package/backend
+      - name: Run migrations
+        run: npm run migrate
+        working-directory: package/backend
+        env:
+          DATABASE_URL: postgres://app_user:dev_local_only@localhost:5432/logistics_superapp_test
+      - name: Seed reference data
+        run: npm run seed
+        working-directory: package/backend
+        env:
+          DATABASE_URL: postgres://app_user:dev_local_only@localhost:5432/logistics_superapp_test
+      - name: Run backend tests
+        run: npm test -- --forceExit
+        working-directory: package/backend
+        env:
+          DATABASE_URL: postgres://app_user:dev_local_only@localhost:5432/logistics_superapp_test
+
+  frontend-apps:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [frontend, driver-app, admin-app, ops-console, fleet-app, corporate-portal]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package/${{ matrix.app }}/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+        working-directory: package/${{ matrix.app }}
+      - name: Build
+        run: npm run build
+        working-directory: package/${{ matrix.app }}
