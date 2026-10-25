@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Deal" ALTER COLUMN "tags" DROP DEFAULT;

@@ -1,0 +1,10 @@
+{
+  "name": "code-review-on-write",
+  "version": "1.4.0",
+  "description": "Manual code review trigger. Run after a batch of writes when you want a quality check. Checks for SaaS safety gaps and LeadCRM rule violations.",
+  "when": { "type": "userTriggered" },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Review the files I just edited. Check for:\n- Missing tenantId on any new data records\n- Missing addAuditLog() on any create/update/delete operations\n- Missing RBAC guards on any create/edit/delete UI elements\n- Direct localStorage usage in components or hooks\n- any type, @ts-ignore, or inline style={{}}\n- framer-motion imports (should be motion/react)\n- Direct recharts imports (should be ChartComponents.tsx)\n- Raw <select> used as filter (should be TrelloFilter)\n- Missing dark mode classes on UI elements\n\nReport findings as a short bullet list. If nothing is wrong, say 'No issues found.'"
+  }
+}
