@@ -1,0 +1,74 @@
+.wrapper {
+  position: relative;
+  margin-top: 10px;
+}
+
+.perforation {
+  display: none;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 22px 22px;
+  box-shadow: var(--shadow-sm);
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.label {
+  font-weight: 700;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.id {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.line {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 14px;
+  padding: 6px 0;
+  color: var(--text-muted);
+}
+
+.lineValue {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.lineEmphasis {
+  color: var(--text);
+  font-weight: 600;
+  font-size: 16px;
+  padding-top: 12px;
+}
+
+.lineEmphasis .lineValue {
+  font-weight: 700;
+  font-size: 20px;
+  color: var(--accent);
+}
+
+.lineMuted .lineValue {
+  color: var(--success);
+}
+
+.divider {
+  border-top: 1px solid var(--border);
+  margin: 8px 0;
+}
