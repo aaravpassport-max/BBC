@@ -2,13 +2,13 @@
 /**
  * Plugin Name: LeadCRM - Automated Lead Management System
  * Description: Enterprise CRM — AI intelligence, multi-channel lead capture, team inbox, client portal, payment links, outbound webhooks, visual pipeline analytics.
- * Version:     5.1.4
+ * Version:     5.1.5
  * Author:      LeadCRM
  * License:     GPL2
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'LCRM_VERSION', '5.1.4' );
+define( 'LCRM_VERSION', '5.1.5' );
 define( 'LCRM_PATH',    plugin_dir_path( __FILE__ ) );
 define( 'LCRM_URL',     plugin_dir_url( __FILE__ ) );
 
