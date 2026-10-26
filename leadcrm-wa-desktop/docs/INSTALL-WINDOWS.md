@@ -22,3 +22,10 @@ App data (CRM database, WordPress copy) lives in:
 `%APPDATA%\leadcrm-wa-desktop\LeadCRM-WA\`
 
 Logs: `%APPDATA%\leadcrm-wa-desktop\LeadCRM-WA\logs\`
+
+## Upgrading (keep your leads)
+
+- **Install over the existing app** — run the new `LeadCRM-WA-Setup-*.exe`. Your CRM data is **not** stored inside `Program Files`; it stays in `%APPDATA%\leadcrm-wa-desktop\LeadCRM-WA\`.
+- **Do not uninstall first** unless you intend to remove the app. Uninstall only deletes data if you explicitly choose **Yes** when asked to delete local CRM data.
+- **Do not delete** the `LeadCRM-WA` folder when upgrading.
+- If the app starts empty after an upgrade, check `%APPDATA%` for an older `LeadCRM-WA` or `leadcrm-wa-desktop` folder (v1.0.13+ tries to migrate/recover automatically). Copy the `mysql` and `wordpress` folders from the old location into `%APPDATA%\leadcrm-wa-desktop\LeadCRM-WA\` if needed.

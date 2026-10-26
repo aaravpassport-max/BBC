@@ -5,6 +5,7 @@
 const { app, BrowserWindow, dialog, shell, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const net = require('net');
 const crypto = require('crypto');
 const { spawn, spawnSync, execSync } = require('child_process');
@@ -15,6 +16,12 @@ const IS_DEV = !app.isPackaged;
 const APP_DIR = IS_DEV ? path.join(__dirname, '..', 'app') : path.join(process.resourcesPath, 'app');
 const PHP_DIR = IS_DEV ? path.join(__dirname, '..', 'php') : path.join(process.resourcesPath, 'php');
 const MARIADB_DIR = IS_DEV ? path.join(__dirname, '..', 'mariadb') : path.join(process.resourcesPath, 'mariadb');
+
+/** Stable across upgrades — never tie CRM data to install folder or product renames. */
+if (IS_WIN) {
+  const roaming = process.env.APPDATA || path.join(os.homedir(), 'AppData', 'Roaming');
+  app.setPath('userData', path.join(roaming, 'leadcrm-wa-desktop'));
+}
 
 const DATA_DIR = path.join(app.getPath('userData'), 'LeadCRM-WA');
 const DB_DATA_DIR = path.join(DATA_DIR, 'mysql');
@@ -35,7 +42,81 @@ let mariaProcess = null;
 let mainWindow = null;
 const SESSION_PARTITION = 'persist:leadcrm-wa';
 
-[DATA_DIR, DB_DATA_DIR, LOG_DIR].forEach(d => fs.mkdirSync(d, { recursive: true }));
+function ensureDataDirs() {
+  [DATA_DIR, DB_DATA_DIR, LOG_DIR].forEach(d => fs.mkdirSync(d, { recursive: true }));
+}
+
+function dirLooksLikeLeadCrmData(root) {
+  if (!root || root === DATA_DIR) return false;
+  const hasInstall = fs.existsSync(path.join(root, 'wordpress-installed.json'));
+  const hasDb = fs.existsSync(path.join(root, 'mysql', 'mysql'));
+  const hasWp = fs.existsSync(path.join(root, 'wordpress', 'wp-includes'));
+  return hasInstall || hasDb || hasWp;
+}
+
+function findLegacyDataDir() {
+  const appData = app.getPath('appData');
+  const localAppData = app.getPath('localAppData');
+  const candidates = new Set([
+    path.join(appData, 'leadcrm-wa-desktop', 'LeadCRM-WA'),
+    path.join(appData, 'LeadCRM WA', 'LeadCRM-WA'),
+    path.join(appData, 'leadcrm-wa-desktop'),
+    path.join(appData, 'leadcrm-desktop', 'LeadCRM-WA'),
+    path.join(appData, 'LeadCRM-WA'),
+    path.join(localAppData, 'leadcrm-wa-desktop', 'LeadCRM-WA'),
+    path.join(localAppData, 'leadcrm-wa-desktop'),
+  ]);
+
+  for (const parent of [appData, localAppData]) {
+    try {
+      for (const name of fs.readdirSync(parent)) {
+        if (!/leadcrm/i.test(name)) continue;
+        candidates.add(path.join(parent, name));
+        candidates.add(path.join(parent, name, 'LeadCRM-WA'));
+      }
+    } catch {}
+  }
+
+  let best = null;
+  let bestScore = 0;
+  for (const c of candidates) {
+    if (!dirLooksLikeLeadCrmData(c)) continue;
+    let score = 0;
+    if (fs.existsSync(path.join(c, 'mysql', 'mysql'))) score += 10;
+    if (fs.existsSync(path.join(c, 'wordpress-installed.json'))) score += 5;
+    if (fs.existsSync(path.join(c, 'wordpress', 'wp-includes'))) score += 3;
+    if (score > bestScore) {
+      bestScore = score;
+      best = c;
+    }
+  }
+  return best;
+}
+
+function migrateLegacyUserData() {
+  const hasCurrent = fs.existsSync(INSTALLED_FLAG)
+    || fs.existsSync(path.join(DB_DATA_DIR, 'mysql'))
+    || fs.existsSync(path.join(WP_DIR, 'wp-includes'));
+  if (hasCurrent) return;
+  const legacy = findLegacyDataDir();
+  if (!legacy || legacy === DATA_DIR) return;
+  appendLog(path.join(LOG_DIR, 'init.log'), `Migrating existing LeadCRM data from ${legacy} → ${DATA_DIR}\n`);
+  copyDir(legacy, DATA_DIR);
+}
+
+function tryRecoverDatabaseFromLegacy() {
+  if (hasMariaSystemTables()) return true;
+  const legacy = findLegacyDataDir();
+  if (!legacy) return false;
+  const legacyMysql = path.join(legacy, 'mysql');
+  if (!fs.existsSync(path.join(legacyMysql, 'mysql'))) return false;
+  appendLog(
+    path.join(LOG_DIR, 'init.log'),
+    `Database files missing in ${DB_DATA_DIR}; recovering mysql data from ${legacyMysql}\n`,
+  );
+  copyDir(legacyMysql, DB_DATA_DIR);
+  return hasMariaSystemTables();
+}
 
 function resolveBinary(candidates) {
   for (const c of candidates) if (c && fs.existsSync(c)) return c;
@@ -314,12 +395,22 @@ async function startMariaDB() {
   const dbPass = writeDbConfig(dbPort);
 
   if (!hasMariaSystemTables()) {
-    fs.mkdirSync(DB_DATA_DIR, { recursive: true });
-    const installDb = path.join(MARIADB_DIR, 'bin', IS_WIN ? 'mysql_install_db.exe' : 'mariadb-install-db');
-    if (fs.existsSync(installDb)) {
-      spawnSync(installDb, [`--datadir=${DB_DATA_DIR}`], { stdio: 'inherit', windowsHide: true });
-    } else {
-      spawnSync(mysqld, ['--initialize-insecure', `--datadir=${DB_DATA_DIR}`], { stdio: 'inherit', windowsHide: true });
+    if (fs.existsSync(INSTALLED_FLAG)) {
+      if (!tryRecoverDatabaseFromLegacy()) {
+        throw new Error(
+          `LeadCRM database files are missing in ${DB_DATA_DIR}, but this installation was already set up. `
+          + `Upgrading the app should never delete your data. Restore a backup of the "mysql" folder inside your LeadCRM data directory, or copy it from a previous AppData location. Data folder: ${DATA_DIR}`,
+        );
+      }
+    }
+    if (!hasMariaSystemTables()) {
+      fs.mkdirSync(DB_DATA_DIR, { recursive: true });
+      const installDb = path.join(MARIADB_DIR, 'bin', IS_WIN ? 'mysql_install_db.exe' : 'mariadb-install-db');
+      if (fs.existsSync(installDb)) {
+        spawnSync(installDb, [`--datadir=${DB_DATA_DIR}`], { stdio: 'inherit', windowsHide: true });
+      } else {
+        spawnSync(mysqld, ['--initialize-insecure', `--datadir=${DB_DATA_DIR}`], { stdio: 'inherit', windowsHide: true });
+      }
     }
   }
 
@@ -540,6 +631,9 @@ app.on('ready', async () => {
 
   try {
     await resolveRuntimePorts();
+    ensureDataDirs();
+    appendLog(path.join(LOG_DIR, 'init.log'), `LeadCRM v${app.getVersion()} — data: ${DATA_DIR}\n`);
+    migrateLegacyUserData();
     ensureWordPressTree();
     clearWordPressMaintenance();
     const dbPass = await startMariaDB();

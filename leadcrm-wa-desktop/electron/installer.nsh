@@ -10,7 +10,7 @@
 !macroend
 
 !macro customUnInstall
-  MessageBox MB_YESNO|MB_ICONQUESTION "Delete LeadCRM local data in AppData?$\n$\nFolder:$\n%APPDATA%\leadcrm-wa-desktop$\n$\nChoose Yes only for a clean reinstall." IDNO skip_delete
+  MessageBox MB_YESNO|MB_ICONEXCLAMATION "Uninstall LeadCRM WA?$\n$\nYour leads and CRM data are stored separately in:$\n%APPDATA%\leadcrm-wa-desktop\LeadCRM-WA$\n$\nThat folder is NOT removed automatically (safe upgrade/reinstall).$\n$\nDelete ALL local CRM data now? (Choose No to keep your data)" IDNO skip_delete
   SetShellVarContext current
   RMDir /r "$APPDATA\leadcrm-wa-desktop\LeadCRM-WA"
   skip_delete:

@@ -75,15 +75,43 @@ function lcrmWtMultiSync($wrap){
     var $tags=$wrap.find('.lcrm-wt-tags').empty();
     sel.forEach(function(n){ $tags.append('<span class="lcrm-wt-tag">'+lcrmEsc(n)+' <button type="button" class="lcrm-wt-rm" data-v="'+lcrmEsc(n)+'">&times;</button></span>'); });
 }
-function lcrmSettingsSaved(msg,$el,reloadTab){
+var lcrmSettingSaveLock=false;
+function lcrmBeginSettingSave($btn){ if(lcrmSettingSaveLock) return false; lcrmSettingSaveLock=true; if($btn&&$btn.length){ $btn.data('lcrm-prev-txt',$btn.text()).prop('disabled',true).text('Saving\u2026'); } return true; }
+function lcrmEndSettingSave($btn){ lcrmSettingSaveLock=false; if($btn&&$btn.length){ $btn.prop('disabled',false).text($btn.data('lcrm-prev-txt')||'Save'); } }
+function lcrmSettingsSaved(msg,$el){
     lcrmMsg($el,msg||'Saved!','ok');
-    lcrmRefreshLookups(function(){
-        if(typeof window.lcrmSpaNavigate==='function' && reloadTab){
-            var p=(location.hash||'').replace('#','').split('/');
-            if(p[0]==='settings') window.lcrmSpaNavigate('settings', p[1]||reloadTab, false);
-            else if(typeof location!=='undefined') location.reload();
-        } else if(typeof location!=='undefined' && !window.lcrmSpaNavigate) location.reload();
-    });
+    lcrmRefreshLookups();
+}
+function lcrmOpenInlineForm($wrap,$focusSel){
+    $wrap.stop(true,true).slideDown(180,function(){ if($focusSel){ var $f=$($focusSel); if($f.length) $f.trigger('focus'); } });
+}
+function lcrmCloseInlineForm($wrap){ $wrap.stop(true,true).slideUp(150); }
+function lcrmSoftRefreshSection(section){
+    if(typeof window.lcrmSpaInvalidate==='function') window.lcrmSpaInvalidate([section]);
+    if(typeof window.lcrmSpaNavigate==='function'){
+        var p=(location.hash||'').replace('#','').split('/');
+        if(p[0]===section) window.lcrmSpaNavigate(section, p[1]||'', false);
+    } else if(typeof location!=='undefined') location.reload();
+}
+function lcrmPatchDropdownRow(id,name,dtype){
+    var escName=lcrmEsc(name);
+    var row='<li id="ddrow-'+id+'" style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f1f5f9;">'
+        +'<span style="flex:1;">'+escName+'</span>'
+        +'<button type="button" class="button lcrm-btn lcrm-btn-sm lcrm-dd-edit" data-id="'+id+'" data-name="'+lcrmEsc(name)+'" data-dtype="'+lcrmEsc(dtype)+'">Edit</button>'
+        +'<button type="button" class="button lcrm-btn lcrm-btn-sm lcrm-btn-danger lcrm-dd-del" data-id="'+id+'" data-dtype="'+lcrmEsc(dtype)+'">Delete</button></li>';
+    var $row=$('#ddrow-'+id);
+    if($row.length) $row.replaceWith(row); else $('#lcrm-dd-list').append(row);
+}
+function lcrmPatchStageRow(id,name,color){
+    var html='<li class="lcrm-sortable-item" data-id="'+id+'"><span class="lcrm-drag-handle">&#8942;</span>'
+        +'<span class="lcrm-stage-swatch" style="background:'+lcrmEsc(color)+'"></span>'
+        +'<span class="lcrm-sortable-label">'+lcrmEsc(name)+'</span>'
+        +'<div class="lcrm-sortable-actions">'
+        +'<button type="button" class="button lcrm-btn lcrm-btn-sm lcrm-stage-edit" data-id="'+id+'" data-name="'+lcrmEsc(name)+'" data-color="'+lcrmEsc(color)+'">Edit</button>'
+        +'<button type="button" class="button lcrm-btn lcrm-btn-sm lcrm-btn-danger lcrm-stage-del" data-id="'+id+'">Delete</button>'
+        +'</div></li>';
+    var $li=$('#lcrm-stages-list li[data-id="'+id+'"]');
+    if($li.length) $li.replaceWith(html); else $('#lcrm-stages-list').append(html);
 }
 function lcrmMsg($el,msg,type){ $el.removeClass('lcrm-msg-ok lcrm-msg-err').addClass(type==='ok'?'lcrm-msg-ok':'lcrm-msg-err').text(msg).show(); setTimeout(function(){ $el.fadeOut(); },3000); }
 function lcrmConfirm(msg){ return window.confirm(msg); }
@@ -1236,25 +1264,47 @@ $(document).on('submit','#lcrm-import-form',function(e){
 /* ============================================================
    SETTINGS — STAGES
    ============================================================ */
-$(document).on('click','#lcrm-add-stage-btn',function(){ $('#ls-id,#ls-name').val(''); $('#ls-color').val('#1565c0'); $('#lcrm-stage-form-wrap').slideToggle(200); });
+$(document).on('click','#lcrm-add-stage-btn',function(){ $('#ls-id,#ls-name').val(''); $('#ls-color').val('#1565c0'); lcrmOpenInlineForm($('#lcrm-stage-form-wrap'),'#ls-name'); });
 $(document).on('click','#ls-cancel-btn',function(){ $('#lcrm-stage-form-wrap').hide(); });
 $(document).on('click','.lcrm-stage-edit',function(){ var $b=$(this); $('#ls-id').val($b.data('id')); $('#ls-name').val($b.data('name')); $('#ls-color').val($b.data('color')); $('#lcrm-stage-form-wrap').show(); $('html,body').animate({scrollTop:0}); });
-$(document).on('click','#ls-save-btn',function(){ lcrmPost('lcrm_save_stage',{id:$('#ls-id').val(),name:$('#ls-name').val(),color:$('#ls-color').val()},function(d){ lcrmSettingsSaved(d.msg||'Stage saved.','#ls-msg','stages'); },function(msg){ lcrmMsg($('#ls-msg'),lcrmErr(msg),'err'); }); });
-$(document).on('click','.lcrm-stage-del',function(){ if(!lcrmConfirm('Delete this stage?')) return; lcrmPost('lcrm_delete_stage',{id:$(this).data('id')},function(d){ lcrmSettingsSaved(d.msg||'Deleted.','#ls-msg','stages'); },function(msg){ alert(lcrmErr(msg)); }); });
+$(document).on('click','#ls-save-btn',function(){
+    var $btn=$(this); if(!lcrmBeginSettingSave($btn)) return;
+    lcrmPost('lcrm_save_stage',{id:$('#ls-id').val(),name:$('#ls-name').val(),color:$('#ls-color').val()},function(d){
+        lcrmPatchStageRow(d.id||$('#ls-id').val(),$('#ls-name').val(),$('#ls-color').val());
+        lcrmCloseInlineForm($('#lcrm-stage-form-wrap')); $('#ls-id').val('');
+        lcrmSettingsSaved(d.msg||'Stage saved.','#ls-msg'); lcrmEndSettingSave($btn);
+    },function(msg){ lcrmMsg($('#ls-msg'),lcrmErr(msg),'err'); lcrmEndSettingSave($btn); });
+});
+$(document).on('click','.lcrm-stage-del',function(){ if(!lcrmConfirm('Delete this stage?')) return; var id=$(this).data('id'); lcrmPost('lcrm_delete_stage',{id:id},function(d){ $('#lcrm-stages-list li[data-id="'+id+'"]').remove(); lcrmSettingsSaved(d.msg||'Deleted.','#ls-msg'); },function(msg){ alert(lcrmErr(msg)); }); });
 if($('#lcrm-stages-list').length){ $('#lcrm-stages-list').sortable({update:function(){ var order=[]; $('#lcrm-stages-list li').each(function(){ order.push($(this).data('id')); }); lcrmPost('lcrm_reorder_stages',{order:order},null,function(e){ alert(lcrmErr(e)); }); }}); }
 
 /* REMARKS */
-$(document).on('click','#lcrm-add-remark-btn',function(){ $('#lr-id,#lr-category,#lr-remark').val(''); $('#lcrm-remark-form-wrap').slideToggle(200); });
+$(document).on('click','#lcrm-add-remark-btn',function(){ $('#lr-id,#lr-category,#lr-remark').val(''); lcrmOpenInlineForm($('#lcrm-remark-form-wrap'),'#lr-remark'); });
 $(document).on('click','#lr-cancel-btn',function(){ $('#lcrm-remark-form-wrap').hide(); });
 $(document).on('click','.lcrm-remark-edit',function(){ var $b=$(this); $('#lr-id').val($b.data('id')); $('#lr-category').val($b.data('category')); $('#lr-remark').val($b.data('remark')); $('#lcrm-remark-form-wrap').show(); });
-$(document).on('click','#lr-save-btn',function(){ lcrmPost('lcrm_save_remark',{id:$('#lr-id').val(),category:$('#lr-category').val(),remark:$('#lr-remark').val()},function(){ location.reload(); },function(msg){ lcrmMsg($('#lr-msg'),msg,'err'); }); });
+$(document).on('click','#lr-save-btn',function(){
+    var $btn=$(this); if(!lcrmBeginSettingSave($btn)) return;
+    lcrmPost('lcrm_save_remark',{id:$('#lr-id').val(),category:$('#lr-category').val(),remark:$('#lr-remark').val()},function(d){
+        lcrmCloseInlineForm($('#lcrm-remark-form-wrap')); lcrmSettingsSaved(d.msg||'Saved.','#lr-msg'); lcrmSoftRefreshSection('settings'); lcrmEndSettingSave($btn);
+    },function(msg){ lcrmMsg($('#lr-msg'),lcrmErr(msg),'err'); lcrmEndSettingSave($btn); });
+});
 $(document).on('click','.lcrm-remark-del',function(){ if(!lcrmConfirm('Delete this remark?')) return; var id=$(this).data('id'); lcrmPost('lcrm_delete_remark',{id:id},function(){ $('#rrow-'+id).remove(); },function(e){ alert(lcrmErr(e)); }); });
 
 /* DROPDOWNS */
-$(document).on('click','#lcrm-add-dd-btn',function(){ $('#ldd-id,#ldd-name').val(''); $('#lcrm-dd-form-wrap').slideToggle(200); });
-$(document).on('click','#ldd-cancel-btn',function(){ $('#lcrm-dd-form-wrap').hide(); });
-$(document).on('click','.lcrm-dd-edit',function(){ var $b=$(this); $('#ldd-id').val($b.data('id')); $('#ldd-name').val($b.data('name')); $('#ldd-dtype').val($b.data('dtype')); $('#lcrm-dd-form-wrap').show(); });
-$(document).on('click','#ldd-save-btn',function(){ lcrmPost('lcrm_save_dropdown',{id:$('#ldd-id').val(),name:$('#ldd-name').val(),dtype:$('#ldd-dtype').val()},function(d){ var tab=$('#ldd-dtype').val()==='lead_source'?'lead_sources':'work_types'; lcrmSettingsSaved(d.msg||'Saved.','#ldd-msg',tab); },function(msg){ lcrmMsg($('#ldd-msg'),lcrmErr(msg),'err'); }); });
+$(document).on('click','#lcrm-add-dd-btn',function(){ $('#ldd-id,#ldd-name').val(''); lcrmOpenInlineForm($('#lcrm-dd-form-wrap'),'#ldd-name'); });
+$(document).on('click','#ldd-cancel-btn',function(){ lcrmEndSettingSave($('#ldd-save-btn')); lcrmCloseInlineForm($('#lcrm-dd-form-wrap')); });
+$(document).on('click','.lcrm-dd-edit',function(){ var $b=$(this); $('#ldd-id').val($b.data('id')); $('#ldd-name').val($b.data('name')); $('#ldd-dtype').val($b.data('dtype')); lcrmOpenInlineForm($('#lcrm-dd-form-wrap'),'#ldd-name'); });
+$(document).on('click','#ldd-save-btn',function(){
+    var $btn=$(this); if(!lcrmBeginSettingSave($btn)) return;
+    var dtype=$('#ldd-dtype').val(), name=$('#ldd-name').val();
+    if(!name||!name.trim()){ lcrmMsg($('#ldd-msg'),'Name is required.','err'); lcrmEndSettingSave($btn); return; }
+    lcrmPost('lcrm_save_dropdown',{id:$('#ldd-id').val(),name:name,dtype:dtype},function(d){
+        var id=d.id||$('#ldd-id').val(); lcrmPatchDropdownRow(id,name,dtype);
+        lcrmCloseInlineForm($('#lcrm-dd-form-wrap')); $('#ldd-id,#ldd-name').val('');
+        lcrmEndSettingSave($btn);
+        lcrmSettingsSaved(d.msg||'Saved.','#ldd-msg');
+    },function(msg){ lcrmEndSettingSave($btn); lcrmMsg($('#ldd-msg'),lcrmErr(msg),'err'); });
+});
 $(document).on('click','.lcrm-dd-del',function(){ if(!lcrmConfirm('Delete?')) return; var id=$(this).data('id'),dtype=$(this).data('dtype'); lcrmPost('lcrm_delete_dropdown',{id:id,dtype:dtype},function(){ $('#ddrow-'+id).remove(); },function(e){ alert(lcrmErr(e)); }); });
 
 /* AUTOMATION */
@@ -1263,21 +1313,36 @@ $(document).on('click','#lcrm-save-automation-btn',function(){ lcrmPost('lcrm_sa
 /* ============================================================
    VENDORS / BRANDS / VENDOR CATS
    ============================================================ */
-$(document).on('click','#lcrm-add-vendor-btn',function(){ $('#lcrm-vendor-form-wrap').slideToggle(200); $('#lv-id,#lv-name,#lv-phone,#lv-phone2,#lv-email,#lv-company,#lv-address').val(''); $('#lcrm-vendor-form-title').text('Add Vendor'); });
+$(document).on('click','#lcrm-add-vendor-btn',function(){ $('#lv-id,#lv-name,#lv-phone,#lv-phone2,#lv-email,#lv-company,#lv-address').val(''); $('#lcrm-vendor-form-title').text('Add Vendor'); lcrmOpenInlineForm($('#lcrm-vendor-form-wrap'),'#lv-name'); });
 $(document).on('click','#lcrm-cancel-vendor-btn',function(){ $('#lcrm-vendor-form-wrap').hide(); });
 $(document).on('click','.lcrm-vendor-edit',function(){ var $b=$(this); $('#lv-id').val($b.data('id')); $('#lv-name').val($b.data('name')); $('#lv-phone').val($b.data('phone')); $('#lv-phone2').val($b.data('phone2')); $('#lv-email').val($b.data('email')); $('#lv-company').val($b.data('company')); $('#lv-category_id').val($b.data('category_id')); $('#lv-address').val($b.data('address')); $('#lcrm-vendor-form-title').text('Edit Vendor'); $('#lcrm-vendor-form-wrap').show(); $('html,body').animate({scrollTop:0}); });
-$(document).on('click','#lcrm-save-vendor-btn',function(){ lcrmPost('lcrm_save_vendor',{id:$('#lv-id').val(),name:$('#lv-name').val(),phone:$('#lv-phone').val(),phone2:$('#lv-phone2').val(),email:$('#lv-email').val(),company:$('#lv-company').val(),category_id:$('#lv-category_id').val(),address:$('#lv-address').val()},function(){ location.reload(); },function(msg){ lcrmMsg($('#lcrm-vendor-msg'),msg,'err'); }); });
-$(document).on('click','.lcrm-vendor-del',function(){ if(!lcrmConfirm('Delete this vendor?')) return; lcrmPost('lcrm_delete_vendor',{id:$(this).data('id')},function(){ location.reload(); },function(msg){ alert(msg); }); });
-$(document).on('click','#lcrm-add-brand-btn',function(){ $('#lb-id,#lb-name').val(''); $('#lcrm-brand-form-wrap').slideToggle(200); });
+$(document).on('click','#lcrm-save-vendor-btn',function(){
+    var $btn=$(this); if(!lcrmBeginSettingSave($btn)) return;
+    lcrmPost('lcrm_save_vendor',{id:$('#lv-id').val(),name:$('#lv-name').val(),phone:$('#lv-phone').val(),phone2:$('#lv-phone2').val(),email:$('#lv-email').val(),company:$('#lv-company').val(),category_id:$('#lv-category_id').val(),address:$('#lv-address').val()},function(d){
+        lcrmCloseInlineForm($('#lcrm-vendor-form-wrap')); lcrmSettingsSaved(d.msg||'Vendor saved.','#lcrm-vendor-msg'); lcrmSoftRefreshSection('vendors'); lcrmEndSettingSave($btn);
+    },function(msg){ lcrmMsg($('#lcrm-vendor-msg'),lcrmErr(msg),'err'); lcrmEndSettingSave($btn); });
+});
+$(document).on('click','.lcrm-vendor-del',function(){ if(!lcrmConfirm('Delete this vendor?')) return; lcrmPost('lcrm_delete_vendor',{id:$(this).data('id')},function(){ lcrmSoftRefreshSection('vendors'); },function(msg){ alert(lcrmErr(msg)); }); });
+$(document).on('click','#lcrm-add-brand-btn',function(){ $('#lb-id,#lb-name').val(''); lcrmOpenInlineForm($('#lcrm-brand-form-wrap'),'#lb-name'); });
 $(document).on('click','#lb-cancel-btn',function(){ $('#lcrm-brand-form-wrap').hide(); });
 $(document).on('click','.lcrm-brand-edit',function(){ $('#lb-id').val($(this).data('id')); $('#lb-name').val($(this).data('name')); $('#lcrm-brand-form-wrap').show(); });
-$(document).on('click','#lb-save-btn',function(){ lcrmPost('lcrm_save_brand',{id:$('#lb-id').val(),name:$('#lb-name').val()},function(){ location.reload(); },function(msg){ lcrmMsg($('#lb-msg'),msg,'err'); }); });
-$(document).on('click','.lcrm-brand-del',function(){ if(!lcrmConfirm('Delete?')) return; lcrmPost('lcrm_delete_brand',{id:$(this).data('id')},function(){ location.reload(); },function(e){ alert(lcrmErr(e)); }); });
-$(document).on('click','#lcrm-add-vcat-btn',function(){ $('#lvc-id,#lvc-name').val(''); $('#lcrm-vcat-form-wrap').slideToggle(200); });
+$(document).on('click','#lb-save-btn',function(){
+    var $btn=$(this); if(!lcrmBeginSettingSave($btn)) return;
+    lcrmPost('lcrm_save_brand',{id:$('#lb-id').val(),name:$('#lb-name').val()},function(d){
+        lcrmCloseInlineForm($('#lcrm-brand-form-wrap')); lcrmSettingsSaved(d.msg||'Saved.','#lb-msg'); lcrmSoftRefreshSection('brands'); lcrmEndSettingSave($btn);
+    },function(msg){ lcrmMsg($('#lb-msg'),lcrmErr(msg),'err'); lcrmEndSettingSave($btn); });
+});
+$(document).on('click','.lcrm-brand-del',function(){ if(!lcrmConfirm('Delete?')) return; lcrmPost('lcrm_delete_brand',{id:$(this).data('id')},function(){ lcrmSoftRefreshSection('brands'); },function(e){ alert(lcrmErr(e)); }); });
+$(document).on('click','#lcrm-add-vcat-btn',function(){ $('#lvc-id,#lvc-name').val(''); lcrmOpenInlineForm($('#lcrm-vcat-form-wrap'),'#lvc-name'); });
 $(document).on('click','#lvc-cancel-btn',function(){ $('#lcrm-vcat-form-wrap').hide(); });
 $(document).on('click','.lcrm-vcat-edit',function(){ $('#lvc-id').val($(this).data('id')); $('#lvc-name').val($(this).data('name')); $('#lcrm-vcat-form-wrap').show(); });
-$(document).on('click','#lvc-save-btn',function(){ lcrmPost('lcrm_save_vendor_cat',{id:$('#lvc-id').val(),name:$('#lvc-name').val()},function(){ location.reload(); },function(msg){ lcrmMsg($('#lvc-msg'),msg,'err'); }); });
-$(document).on('click','.lcrm-vcat-del',function(){ if(!lcrmConfirm('Delete?')) return; lcrmPost('lcrm_delete_vendor_cat',{id:$(this).data('id')},function(){ location.reload(); },function(e){ alert(lcrmErr(e)); }); });
+$(document).on('click','#lvc-save-btn',function(){
+    var $btn=$(this); if(!lcrmBeginSettingSave($btn)) return;
+    lcrmPost('lcrm_save_vendor_cat',{id:$('#lvc-id').val(),name:$('#lvc-name').val()},function(d){
+        lcrmCloseInlineForm($('#lcrm-vcat-form-wrap')); lcrmSettingsSaved(d.msg||'Saved.','#lvc-msg'); lcrmSoftRefreshSection('vendors'); lcrmEndSettingSave($btn);
+    },function(msg){ lcrmMsg($('#lvc-msg'),lcrmErr(msg),'err'); lcrmEndSettingSave($btn); });
+});
+$(document).on('click','.lcrm-vcat-del',function(){ if(!lcrmConfirm('Delete?')) return; lcrmPost('lcrm_delete_vendor_cat',{id:$(this).data('id')},function(){ lcrmSoftRefreshSection('vendors'); },function(e){ alert(lcrmErr(e)); }); });
 
 /* ============================================================
    LAYOUT EDITOR

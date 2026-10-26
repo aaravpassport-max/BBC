@@ -307,7 +307,7 @@ body { overflow: hidden; }
 .lcrm-main { position: relative; contain: layout; }
 .lcrm-sidebar { will-change: width; contain: layout style; }
 .lcrm-nav-item { transition: background-color .15s ease, color .15s ease; }
-#lcrm-nav-progress { position:absolute; top:36px; left:0; height:2px; width:40%; background:#00a0e3; z-index:50;
+#lcrm-nav-progress { position:absolute; top:36px; left:0; height:2px; width:40%; background:#00a0e3; z-index:50; pointer-events:none;
   animation: lcrm-prog 1s ease-in-out infinite; }
 @keyframes lcrm-prog { from { transform:translateX(-100%); } to { transform:translateX(260%); } }
 .lcrm-table-wrap.lcrm-refreshing { opacity:.55; transition: opacity .15s; pointer-events:none; }

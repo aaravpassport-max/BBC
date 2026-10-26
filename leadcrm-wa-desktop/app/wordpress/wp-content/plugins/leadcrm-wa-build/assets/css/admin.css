@@ -307,7 +307,8 @@ td.lcrm-col-nowrap                  { white-space: nowrap !important; overflow: 
 .lcrm-pag-info { font-size: 11.5px; color: var(--lcrm-muted); margin-right: 5px; }
 
 /* ── MODAL ────────────────────────────────────────────────── */
-.lcrm-modal { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: flex-start; justify-content: center; padding: 18px; }
+.lcrm-modal { position: fixed; inset: 0; z-index: 99999; display: none; align-items: flex-start; justify-content: center; padding: 18px; pointer-events: none; }
+.lcrm-modal[style*="display: block"], .lcrm-modal[style*="display:block"] { display: flex !important; pointer-events: auto; }
 .lcrm-modal-overlay { position: fixed; inset: 0; background: rgba(10,25,47,.55); }
 .lcrm-modal-box { background: #fff; border-radius: var(--radius-lg); width: 100%; max-width: 860px; max-height: 92vh; overflow-y: auto; position: relative; z-index: 1; box-shadow: 0 24px 60px rgba(0,0,0,.28); margin-top: 18px; }
 .lcrm-modal-lg { max-width: 1040px; }
@@ -412,7 +413,8 @@ td.lcrm-col-nowrap                  { white-space: nowrap !important; overflow: 
 .lcrm-remark-section-body { padding: 7px 11px; }
 .lcrm-remark-row { display: flex; align-items: center; gap: 7px; padding: 4px 0; border-bottom: 1px solid #f8fafc; }
 .lcrm-remark-text { flex: 1; font-size: 12px; color: var(--lcrm-text); }
-.lcrm-inline-form { background: var(--lcrm-bg); border: 1px solid var(--lcrm-border); border-radius: var(--radius-md); padding: 10px; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 7px; align-items: center; }
+.lcrm-inline-form { background: var(--lcrm-bg); border: 1px solid var(--lcrm-border); border-radius: var(--radius-md); padding: 10px; margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 7px; align-items: center; position: relative; z-index: 2; }
+.lcrm-inline-form .lcrm-input { pointer-events: auto; }
 
 /* ── AUTOMATION RULES ─────────────────────────────────────── */
 .lcrm-rule-row { display: flex; align-items: center; gap: 8px; padding: 7px 11px; border-radius: 4px; font-size: 12.5px; }

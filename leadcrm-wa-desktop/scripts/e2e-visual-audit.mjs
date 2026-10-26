@@ -498,6 +498,28 @@ require_once ABSPATH . 'wp-settings.php';
     fc >= 1 ? pass('Multi work type: server filter matches combined types', String(fc)) : fail('WT filter multi', JSON.stringify(filt.data && filt.data.leads));
   }
 
+  // 4e) Settings inline forms: typing + save without freeze/reload
+  if (navCount > 0) {
+    await page.goto(`${BASE}/crm/#settings/work_types`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1200);
+    await page.click('#lcrm-add-dd-btn');
+    await page.waitForTimeout(300);
+    const wtLabel = 'E2E Settings WT ' + Date.now();
+    await page.fill('#ldd-name', wtLabel);
+    const typed = await page.inputValue('#ldd-name');
+    typed === wtLabel ? pass('Settings: work type text field accepts input', wtLabel.slice(0, 40)) : fail('Settings text field blocked', typed);
+    await page.click('#ldd-save-btn');
+    await page.locator('#lcrm-dd-list').getByText(wtLabel, { exact: false }).first().waitFor({ timeout: 10000 }).catch(() => {});
+    await page.waitForFunction(() => {
+      const btn = document.querySelector('#ldd-save-btn');
+      return btn && !btn.disabled;
+    }, { timeout: 10000 }).catch(() => {});
+    const savedVisible = await page.locator('#lcrm-dd-list', { hasText: wtLabel }).count();
+    const btnEnabled = await page.locator('#ldd-save-btn:not([disabled])').count();
+    (savedVisible >= 1 && btnEnabled >= 1) ? pass('Settings: save completes and list updates in-place') : fail('Settings save freeze', `list=${savedVisible} btn=${btnEnabled}`);
+    await page.screenshot({ path: path.join(OUT, '13-settings-worktype-save.png'), fullPage: true });
+  }
+
   // 5) API health — admin-ajax reachable
   const ajax = await page.evaluate(async (url) => {
     const r = await fetch(`${url}/wp-admin/admin-ajax.php`, { method: 'POST', credentials: 'include', body: 'action=heartbeat' });
