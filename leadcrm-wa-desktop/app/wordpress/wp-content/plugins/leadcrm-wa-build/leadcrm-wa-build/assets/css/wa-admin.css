@@ -1,0 +1,112 @@
+/* ============================================================
+   LeadCRM WhatsApp — Admin CSS
+   Appended to assets/css/admin.css
+   ============================================================ */
+
+/* ── WA TIMELINE ─────────────────────────────────────────── */
+.lcrm-wa-timeline {
+    max-height: 320px;
+    overflow-y: auto;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.lcrm-wa-event {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+}
+.lcrm-wa-event--in  { border-left: 3px solid #6366f1; }
+.lcrm-wa-event--out { border-left: 3px solid #10b981; opacity: 0.85; }
+.lcrm-wa-event--unread { background: #fef9c3; border-color: #fde68a; }
+
+.lcrm-wa-event-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+    margin-top: 1px;
+}
+.lcrm-wa-event-body   { flex: 1; min-width: 0; }
+.lcrm-wa-event-text   { color: #1e293b; word-break: break-word; line-height: 1.4; }
+.lcrm-wa-event-meta   { display: flex; align-items: center; gap: 8px; margin-top: 3px; flex-wrap: wrap; }
+.lcrm-wa-event-dir    { font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; }
+.lcrm-wa-event-time   { font-size: 11px; color: #64748b; }
+.lcrm-wa-event-dur    { font-size: 11px; color: #6366f1; background: #eef2ff; padding: 0 5px; border-radius: 4px; }
+.lcrm-wa-score        { font-size: 10px; color: #94a3b8; margin-left: auto; }
+.lcrm-wa-media-tag    { font-size: 10px; background: #e0e7ff; color: #4338ca; padding: 1px 6px; border-radius: 4px; margin-left: 4px; }
+
+/* ── UNREAD BADGE ON TAB ─────────────────────────────────── */
+.lcrm-wa-unread {
+    background: #ef4444;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 7px;
+    border-radius: 10px;
+    line-height: 1.5;
+}
+
+/* ── UNREAD DOT IN LEADS LIST ────────────────────────────── */
+.lcrm-wa-unread-dot {
+    font-size: 12px;
+    cursor: default;
+    animation: wa-pulse 2s infinite;
+}
+@keyframes wa-pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.5; }
+}
+
+/* ── CALL LOG ────────────────────────────────────────────── */
+.lcrm-wa-call-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    background: #fff;
+    margin-bottom: 6px;
+    font-size: 13px;
+}
+.lcrm-wa-call-icon  { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+.lcrm-wa-call-info  { flex: 1; }
+.lcrm-wa-call-type  { font-weight: 600; }
+.lcrm-wa-call-dur   { font-size: 12px; color: #64748b; margin-left: 6px; }
+.lcrm-wa-call-notes { font-size: 12px; color: #64748b; margin-top: 2px; }
+.lcrm-wa-call-meta  { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; font-size: 11px; color: #94a3b8; flex-shrink: 0; }
+.lcrm-wa-call-rem-badge {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #15803d;
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+
+/* ── PENDING MENU BADGE ──────────────────────────────────── */
+.lcrm-wa-menu-badge {
+    background: #ef4444;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 8px;
+    margin-left: 4px;
+    line-height: 1.6;
+}
+
+/* ── WA INBOX PAGE ───────────────────────────────────────── */
+#lcrm-wa-inbox-wrap .lcrm-table td { vertical-align: middle; }
+
+/* ── SETTINGS ────────────────────────────────────────────── */
+#lcrm-wa-account-form .lcrm-form-group label { font-size: 12px; color: #374151; margin-bottom: 3px; display: block; }
