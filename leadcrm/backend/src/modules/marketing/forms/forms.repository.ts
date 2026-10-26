@@ -1,0 +1,123 @@
+import { Prisma } from '@prisma/client';
+import prisma from '../../../config/database.config';
+import { defaultContactForm, FormDefinitionSchema, FormFieldSchema, FieldLayoutSchema, getFormProductValues, ProductInterestIdSchema, getCrmFieldCatalog, leadCatalogFormField, type FormDefinition } from '@leadcrm/shared';
+import type { CreateFormDto, UpdateFormDto } from './forms.dto';
+import { ConflictError, NotFoundError, ValidationError } from '../../../shared/errors/http-error';
+import { readConfiguredFields } from '../../crm/closing-requirements/closing-requirements.repository';
+import { salesTransaction } from '../../crm/leads/lead-automation.service';
+
+/** Validate and canonicalize Lead Custom Field references at the tenant boundary. */
+export async function normalizeFormDefinitionForTenant(tx: Prisma.TransactionClient, tenantId: string, definition: FormDefinition): Promise<FormDefinition> {
+  const catalog = await readLeadFormFieldCatalog(tx, tenantId);
+  const fields = definition.fields.map(field => {
+    if (!field.customFieldId) {
+      if (field.mapToField && !['fullName', 'website'].includes(field.mapToField)) {
+        const configured = catalog.map(leadCatalogFormField).find(item => item?.mapToField === field.mapToField);
+        if (!configured) throw new ValidationError('Choose an available Lead System field.');
+        if (field.mapToField === 'source') return { ...field, options: configured.options };
+      }
+      return field;
+    }
+    if (field.mapToField) throw new ValidationError('A form field cannot use both a CRM mapping and a Custom Field.');
+    const entry = catalog.find(item => item.kind === 'Custom' && item.customFieldId === field.customFieldId);
+    const configured = entry && leadCatalogFormField(entry);
+    if (!configured) throw new ValidationError('Choose an active Lead Custom Field that is available in Forms.');
+    if (field.type !== configured.type) throw new ValidationError(`${configured.label} must use its configured input type.`);
+    if (configured.required && !field.required) throw new ValidationError(`${configured.label} is required by the Lead field configuration.`);
+    return { ...field, required: field.required || configured.required, ...(configured.options ? { options: configured.options } : {}) };
+  });
+  return { ...definition, fields };
+}
+
+async function readLeadFormFieldCatalog(tx: Prisma.TransactionClient, tenantId: string) {
+  const definitions = await readConfiguredFields(tx, tenantId);
+  const stored = await tx.tenantPreference.findUnique({ where: { tenantId_module_key: { tenantId, module: 'leads', key: 'field-layout' } } });
+  const layout = stored ? FieldLayoutSchema.parse(stored.value) : undefined;
+  return getCrmFieldCatalog('leads', definitions, layout).filter(field => !!leadCatalogFormField(field));
+}
+export async function getLeadFormFieldCatalog(tenantId: string) {
+  return salesTransaction(tx => readLeadFormFieldCatalog(tx, tenantId));
+}
+
+export async function findAll(tenantId: string, page: number, limit: number) {
+  const where = { tenantId, isArchived: false };
+  const [data, total] = await Promise.all([prisma.marketingForm.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: { createdAt: 'desc' } }), prisma.marketingForm.count({ where })]);
+  return { data, total };
+}
+export function findById(id: string, tenantId: string) { return prisma.marketingForm.findFirst({ where: { id, tenantId, isArchived: false } }); }
+export function create(tenantId: string, createdById: string, dto: CreateFormDto) {
+  return prisma.marketingForm.create({ data: { tenantId, createdById, ...defaultContactForm(dto.name) } });
+}
+export async function update(id: string, tenantId: string, dto: UpdateFormDto) {
+  return prisma.$transaction(async tx => {
+    const current = await tx.marketingForm.findFirst({ where: { id, tenantId, isArchived: false } });
+    if (!current) throw new NotFoundError('Form');
+    const parsed = FormDefinitionSchema.parse({ name: dto.name ?? current.name, fields: dto.fields ?? current.fields, design: dto.design ?? current.design, settings: dto.settings ?? current.settings });
+    const definition = await normalizeFormDefinitionForTenant(tx, tenantId, parsed);
+    const changed = await tx.marketingForm.updateMany({ where: { id, tenantId, isArchived: false, revision: dto.revision }, data: { ...definition, revision: { increment: 1 } } });
+    if (!changed.count) throw new ConflictError('This form was changed elsewhere. Reload before saving.');
+    return tx.marketingForm.findFirstOrThrow({ where: { id, tenantId } });
+  });
+}
+export async function publish(id: string, tenantId: string) {
+  return prisma.$transaction(async tx => {
+    const current = await tx.marketingForm.findFirst({ where: { id, tenantId, isArchived: false } });
+    if (!current) throw new NotFoundError('Form');
+    const parsed = FormDefinitionSchema.parse({ name: current.name, fields: current.fields, design: current.design, settings: current.settings });
+    const config = await normalizeFormDefinitionForTenant(tx, tenantId, parsed);
+    const catalog = await readLeadFormFieldCatalog(tx, tenantId);
+    const missing = catalog.filter(field => field.kind === 'Custom' && field.required && !config.fields.some(input => input.customFieldId === field.customFieldId));
+    if (missing.length) throw new ValidationError(`Add the required Lead Custom Fields before publishing: ${missing.map(field => field.label).join(', ')}.`);
+    if (!config.fields.some(f => f.required && ['email', 'phone'].includes(f.mapToField ?? ''))) throw new ValidationError('Add a required CRM email or phone field before publishing.');
+    const changed = await tx.marketingForm.updateMany({ where: { id, tenantId, isArchived: false, revision: current.revision }, data: { status: 'published', publishedConfig: config, publishedAt: new Date(), publishedRevision: current.revision, publishedVersion: { increment: 1 } } });
+    if (!changed.count) throw new ConflictError('Form changed while publishing. Please retry.');
+    return tx.marketingForm.findFirstOrThrow({ where: { id, tenantId } });
+  });
+}
+/** Lock the scoped draft before deleting dependents; publishing uses the same revision guard. */
+export async function remove(id: string, tenantId: string) {
+  return prisma.$transaction(async tx => {
+    const current = await tx.marketingForm.findFirst({ where: { id, tenantId, isArchived: false } });
+    if (!current) throw new NotFoundError('Form');
+    const publishedError = 'Published forms must be unpublished before they can be deleted.';
+    if (current.status.toLowerCase() === 'published') throw new ConflictError(publishedError);
+    const locked = await tx.marketingForm.updateMany({
+      where: { id, tenantId, isArchived: false, revision: current.revision, status: { not: 'published', mode: 'insensitive' } },
+      data: { revision: { increment: 1 } },
+    });
+    if (!locked.count) throw new ConflictError('This form changed. Reload it and unpublish it before deleting.');
+    // Submission snapshots belong to the form. CRM leads/contacts are independent and remain intact.
+    const submissions = await tx.formSubmission.deleteMany({ where: { formId: id, tenantId } });
+    await tx.marketingForm.deleteMany({ where: { id, tenantId } });
+    return { name: current.name, deletedSubmissions: submissions.count };
+  });
+}
+export async function unpublish(id: string, tenantId: string) {
+  return prisma.$transaction(async tx => {
+    const changed = await tx.marketingForm.updateMany({ where: { id, tenantId, isArchived: false }, data: { status: 'draft', revision: { increment: 1 } } });
+    if (!changed.count) throw new NotFoundError('Form');
+    return tx.marketingForm.findFirstOrThrow({ where: { id, tenantId } });
+  });
+}
+export async function duplicate(id: string, tenantId: string, createdById: string) {
+  const source = await findById(id, tenantId);
+  if (!source) throw new NotFoundError('Form');
+  return prisma.marketingForm.create({ data: { tenantId, createdById, name: source.name.slice(0, 193) + ' (copy)', fields: source.fields as Prisma.InputJsonValue, design: source.design as Prisma.InputJsonValue, settings: source.settings as Prisma.InputJsonValue } });
+}
+export async function submissions(id: string, tenantId: string, page: number, limit: number) {
+  if (!await prisma.marketingForm.findFirst({ where: { id, tenantId } })) throw new NotFoundError('Form');
+  const where = { formId: id, tenantId };
+  const [data, total] = await Promise.all([prisma.formSubmission.findMany({ where, skip: (page - 1) * limit, take: limit, orderBy: { submittedAt: 'desc' } }), prisma.formSubmission.count({ where })]);
+  const productIdsFor = (submission: typeof data[number]) => {
+    const config = submission.publishedConfig as { fields?: unknown } | null;
+    const fields = FormFieldSchema.array().safeParse(config?.fields);
+    const values = submission.values as Record<string, unknown>;
+    return fields.success ? fields.data.filter(field => field.mapToField === 'productInterest')
+      .flatMap(field => getFormProductValues(values[field.id])).filter(value => ProductInterestIdSchema.safeParse(value).success) : [];
+  };
+  const ids = [...new Set(data.flatMap(productIdsFor))];
+  // Historical submissions also retain labels for archived Products. Never rewrite values.
+  const products = ids.length ? await prisma.productInterest.findMany({ where: { tenantId, id: { in: ids } }, select: { id: true, name: true } }) : [];
+  const labels = new Map(products.map(product => [product.id, product.name]));
+  return { data: data.map(submission => ({ ...submission, productLabels: Object.fromEntries(productIdsFor(submission).filter(id => labels.has(id)).map(id => [id, labels.get(id)!])) })), total };
+}

@@ -1,0 +1,605 @@
+'use client';
+
+import { responsiveTypography } from '@/shared/styles/typography';
+import React, { useState, useEffect, useRef } from 'react';
+import { useAuth } from '@/store/AuthContext';
+import { ArrowLeft, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { toast } from 'sonner';
+import { z } from 'zod';
+import { PasswordStrengthMeter } from '@/shared/components/password-strength-meter';
+import { SESSION_IDLE_MESSAGE, StrongPasswordSchema, ForgotPasswordSchema, PASSWORD_RECOVERY_SEND_ERROR, LOGIN_LOCKOUT_CODE, type PasswordRecoveryResponse } from '@leadcrm/shared';
+import type { ApiRequestError } from '@/lib/api/client';
+import { CamxianBrandPanel } from './camxian-brand-panel';
+import { useLoginLockout } from '../auth/use-login-lockout';
+import { LoginLockoutDialog } from '../auth/login-lockout-dialog';
+import { PublicFooter } from '@/shared/components/public-footer';
+
+const loginSchema = z.object({
+  email: z.string().trim().toLowerCase().max(254).email('Invalid email address'),
+  password: z.string().min(1, 'Password is required').max(72, 'Password is too long'),
+});
+
+interface ModernLoginPageProps {
+  onNavigate: (path: string) => void;
+  loginError?: string;
+}
+
+export default function ModernLoginPage({ onNavigate, loginError }: ModernLoginPageProps): React.ReactElement {
+  const { user, login, requestPasswordReset, confirmPasswordReset } = useAuth();
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+
+  const [authView, setAuthView] = useState<'login' | 'forgot' | 'forgot-sent' | 'reset'>('login');
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [recovery, setRecovery] = useState<PasswordRecoveryResponse | null>(null);
+  const [forgotBusy, setForgotBusy] = useState(false);
+  const recoveryPending = useRef(false);
+  const [retryAt, setRetryAt] = useState(0);
+  const [now, setNow] = useState(Date.now());
+  const retrySeconds = Math.max(0, Math.ceil((retryAt - now) / 1000));
+  useEffect(() => {
+    if (!retryAt) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [retryAt]);
+  const [resetToken, setResetToken] = useState('');
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetConfirm, setResetConfirm] = useState('');
+  const [resetBusy, setResetBusy] = useState(false);
+  const [resetConfirmTouched, setResetConfirmTouched] = useState(false);
+  const resetMismatch = resetConfirm && resetConfirm !== resetPassword ? 'Passwords do not match.' : resetConfirmTouched && !resetConfirm ? 'Confirm your new password.' : '';
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [showResetPassword, setShowResetPassword] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  const [isSigningIn, setIsSigningIn] = useState(false);
+  const loginPending = useRef(false);
+  const lockout = useLoginLockout(email);
+  useEffect(() => {
+    if (lockout.locked) { setPassword(''); toast.dismiss('leadcrm-login-error'); }
+  }, [lockout.locked]);
+
+  // RC-10 fix: removed race-condition post-login navigation.
+  // After login() resolves, AuthContext commits the new user state and AuthGuard's
+  // useEffect fires, routing to the correct portal based on role. Calling
+  // onNavigate here raced with that effect and could send users to /dashboard
+  // before AuthGuard could apply role-based routing. AuthGuard now owns all
+  // post-login routing -- the login page only clears the error on failure.
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (sessionStorage.getItem('leadcrm:idle-expired')) { sessionStorage.removeItem('leadcrm:idle-expired'); setError(SESSION_IDLE_MESSAGE); }
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+      if (token) {
+        setResetToken(token);
+        setAuthView('reset');
+      }
+    }
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (loginPending.current || lockout.locked || lockout.checking) return;
+    loginPending.current = true;
+    setError('');
+    setIsSigningIn(true);
+
+    try {
+      loginSchema.parse({ email, password });
+    } catch (err: unknown) {
+      const zodErr = err as { errors?: Array<{message: string}> };
+      const errorMessage = zodErr.errors?.[0]?.message || 'Validation failed';
+      toast.error(errorMessage, { id: 'leadcrm-login-error' });
+      setIsSigningIn(false);
+      loginPending.current = false;
+      return;
+    }
+
+    try {
+      const success = await login(email.trim().toLowerCase(), password);
+      if (!success) {
+        // Edge case: API returned 2xx but no user object — structural backend issue.
+        // login() throws for all real errors (401, 403, 502, network), so this
+        // branch only fires when the response shape is unexpectedly empty.
+        toast.error('Sign in failed. Please try again or contact support.', { id: 'leadcrm-login-error' });
+        setIsSigningIn(false);
+      }
+      // On success, AuthGuard's useEffect handles role-based navigation.
+    } catch (err: unknown) {
+      const requestError = err as ApiRequestError;
+      if (requestError.code === LOGIN_LOCKOUT_CODE && lockout.activate(requestError)) {
+        setPassword('');
+        setError('');
+        return;
+      }
+      // login() throws with the real server message — display it directly so
+      // the user knows what actually went wrong instead of a generic fallback.
+      // Examples: "Invalid email or password", "Account is inactive",
+      // "Backend unreachable", "Unable to reach the server."
+
+      const message = err instanceof Error ? err.message : 'Sign in failed. Please try again.';
+      setError(message);
+      toast.error(message, { id: 'leadcrm-login-error' });
+      setIsSigningIn(false);
+    } finally {
+      loginPending.current = false;
+      setIsSigningIn(false);
+    }
+  };
+
+  const submitRecovery = async (resend = false) => {
+    if (recoveryPending.current || retryAt > Date.now()) return;
+    setError('');
+    const parsed = ForgotPasswordSchema.safeParse({ email: forgotEmail });
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0]?.message ?? 'Valid email required');
+      return;
+    }
+    recoveryPending.current = true;
+    setForgotBusy(true);
+    try {
+      const response = await requestPasswordReset(parsed.data.email);
+      if (!response?.success || !Number.isSafeInteger(response.expiresInMinutes) || response.expiresInMinutes <= 0 ||
+          !Number.isSafeInteger(response.resendAfterSeconds) || response.resendAfterSeconds < 0) throw new Error(PASSWORD_RECOVERY_SEND_ERROR);
+      setForgotEmail(parsed.data.email);
+      setRecovery(response);
+      setNow(Date.now());
+      setRetryAt(Date.now() + response.resendAfterSeconds * 1000);
+      setAuthView('forgot-sent');
+      if (resend) toast.success('Password reset email requested.');
+    } catch (caught) {
+      const failure = caught as ApiRequestError;
+      if (failure?.retryAt) { setNow(Date.now()); setRetryAt(Date.parse(failure.retryAt)); }
+      if (failure?.code === 'ACCOUNT_NOT_FOUND') {
+        setAuthView('forgot');
+        setRecovery(null);
+        toast.error('No account exists with this email address.');
+      } else {
+        toast.error(failure instanceof Error ? failure.message : PASSWORD_RECOVERY_SEND_ERROR);
+      }
+    } finally {
+      recoveryPending.current = false;
+      setForgotBusy(false);
+    }
+  };
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitRecovery();
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (!StrongPasswordSchema.safeParse(resetPassword).success) {
+      toast.error('Use 8–72 bytes with uppercase, lowercase, a number, and a special character.');
+      return;
+    }
+    if (resetPassword !== resetConfirm) {
+      toast.error('Passwords do not match.');
+      return;
+    }
+    if (resetBusy) return;
+    setResetBusy(true);
+    let ok = false;
+    try { ok = await confirmPasswordReset(resetToken, resetPassword); } finally { setResetBusy(false); }
+    if (ok) {
+      setResetSuccess(true);
+    } else {
+      toast.error('This reset link is invalid or has expired. Please request a new one.');
+    }
+  };
+
+  // Reset password view
+  if (authView === 'reset') {
+    return (
+      <div className="min-h-[var(--app-viewport-height)] bg-linear-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-white dark:bg-slate-900 p-4 sm:p-8 rounded-2xl border border-gray-200 dark:border-white/5 shadow-xl">
+          <div className="flex flex-col items-center mb-8">
+            <div className="w-16 h-16 bg-white dark:bg-slate-800 rounded-lg ring-1 ring-slate-200 dark:ring-slate-700 flex items-center justify-center mb-4">
+              <img
+                src="/leadcrm_logo.png"
+                alt="LeadCRM Logo"
+                className="w-10 h-10"
+              />
+            </div>
+            <h2 className="font-display text-2xl font-bold text-slate-900 dark:text-white mb-2">
+              {resetSuccess ? 'Password Updated' : 'Set New Password'}
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 text-sm text-center">
+              {resetSuccess ? 'Your password has been reset successfully.' : 'Enter your new password below.'}
+            </p>
+          </div>
+
+          {resetSuccess ? (
+            <div className="space-y-4">
+              <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 p-4 rounded-xl text-sm text-center font-medium flex items-center justify-center gap-2">
+                <CheckCircle2 size={18} />
+                You can now log in with your new password.
+              </div>
+              <button
+                onClick={() => { setAuthView('login'); setResetSuccess(false); }}
+                className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-colors active:scale-95"
+              >
+                Back to Login
+              </button>
+            </div>
+          ) : (
+            <>
+              <form onSubmit={handleResetPassword} className="space-y-5">
+                <div>
+                  <label htmlFor="new-password" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    New Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="new-password"
+                      type={showResetPassword ? 'text' : 'password'}
+                      value={resetPassword}
+                      onChange={(e) => setResetPassword(e.target.value)}
+                      className="w-full h-11 bg-white dark:bg-slate-900 border border-gray-200 dark:border-white/8 rounded-xl px-4 pr-11 text-slate-900 dark:text-white text-sm placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
+                      required
+                      minLength={8}
+                      maxLength={72}
+                      autoComplete="new-password"
+                      placeholder="At least 8 characters"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowResetPassword(!showResetPassword)}
+                      className="absolute right-0 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                    >
+                      {showResetPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+                <PasswordStrengthMeter password={resetPassword} hideWhenEmpty={false} />
+                <div>
+                  <label htmlFor="confirm-password" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                    Confirm Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="confirm-password"
+                      type={showResetConfirm ? 'text' : 'password'}
+                      value={resetConfirm}
+                      maxLength={72}
+                      autoComplete="new-password"
+                      aria-invalid={!!resetMismatch}
+                      aria-describedby={resetMismatch ? "reset-confirm-error" : undefined}
+                      onBlur={() => setResetConfirmTouched(true)}
+                      onChange={(e) => setResetConfirm(e.target.value)}
+                      className="w-full h-11 bg-white dark:bg-slate-900 border border-gray-200 dark:border-white/8 rounded-xl px-4 pr-11 text-slate-900 dark:text-white text-sm placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
+                      required
+                      placeholder="Repeat new password"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowResetConfirm(!showResetConfirm)}
+                      className="absolute right-0 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                    >
+                      {showResetConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+                {resetMismatch && <p id="reset-confirm-error" role="alert" className="text-xs text-red-600">{resetMismatch}</p>}
+                <button
+                  type="submit"
+                  disabled={resetBusy || !StrongPasswordSchema.safeParse(resetPassword).success || resetPassword !== resetConfirm}
+                  className="disabled:opacity-50 disabled:cursor-not-allowed w-full h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-colors active:scale-95"
+                >
+                  Reset Password
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAuthView('login')}
+                  className="w-full text-sm text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 text-center transition-colors"
+                >
+                  Back to Login
+                </button>
+              </form>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // Forgot password - email sent confirmation
+  if (authView === 'forgot-sent') {
+    return (
+      <div className="min-h-[var(--app-viewport-height)] flex">
+        {/* Left side - Blue gradient section */}
+        <div
+          className="hidden lg:flex lg:w-1/2 relative overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%)'
+          }}
+        >
+          {/* Geometric pattern overlay */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-20 left-20 w-64 h-64 bg-white rounded-full blur-3xl"></div>
+            <div className="absolute bottom-20 right-20 w-96 h-96 bg-blue-300 rounded-full blur-3xl"></div>
+          </div>
+
+          <div className="relative z-10 flex flex-col justify-between p-12 text-white w-full">
+            {/* Logo */}
+            <button
+              onClick={() => onNavigate('login')}
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity w-fit"
+            >
+              <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-lg">
+                <img
+                  src="/leadcrm_logo.png"
+                  alt="LeadCRM Logo"
+                  className="w-7 h-7 object-contain"
+                />
+              </div>
+              <span className="text-xl font-bold">LeadCRM</span>
+            </button>
+
+            {/* Center content */}
+            <div className="space-y-6">
+              <h1 className="font-display text-4xl font-bold leading-tight">
+                Password reset email requested
+              </h1>
+              <p className="text-blue-100 text-lg max-w-md">
+                If your account is eligible, check your inbox and spam folder for the password reset link.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Right side - Confirmation */}
+        <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 bg-white dark:bg-slate-950">
+          <div className="w-full max-w-md space-y-6 text-center">
+            <div className="w-20 h-20 bg-emerald-50 dark:bg-emerald-500/10 border-2 border-emerald-200 dark:border-emerald-500/20 rounded-2xl flex items-center justify-center mx-auto">
+              <CheckCircle2 className="text-emerald-600 dark:text-emerald-400" size={40} />
+            </div>
+
+            <div>
+              <h2 className="font-display text-3xl font-bold text-slate-900 dark:text-white mb-3">
+                Check your email
+              </h2>
+              <p className="text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
+                If <span className="text-slate-700 dark:text-slate-300 font-semibold">{forgotEmail}</span> is eligible for recovery,
+                you'll receive a password reset link shortly.
+              </p>
+              <p className="text-slate-400 dark:text-slate-500 text-xs mt-2">
+                Any issued link expires after <span className="font-semibold text-slate-600 dark:text-slate-300">{recovery?.expiresInMinutes} minutes</span>
+              </p>
+            </div>
+
+            <div className="flex items-center justify-center gap-1.5 text-sm">
+              <span className="text-slate-500 dark:text-slate-400">Didn&apos;t receive it?</span>
+              <button type="button" onClick={() => void submitRecovery(true)} disabled={forgotBusy || retrySeconds > 0}
+                className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium transition-colors disabled:opacity-50">
+                {forgotBusy ? 'Sending...' : retrySeconds > 0 ? `Resend in ${retrySeconds}s` : 'Resend link'}
+              </button>
+            </div>
+
+            <button
+              onClick={() => setAuthView('login')}
+              className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-colors active:scale-95"
+            >
+              Back to Login
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Forgot password - email input form
+  if (authView === 'forgot') {
+    return (
+      <div className="min-h-[var(--app-viewport-height)] flex">
+        {/* Left side - Blue gradient section */}
+        <div
+          className="hidden lg:flex lg:w-1/2 relative overflow-hidden"
+          style={{
+            background: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%)'
+          }}
+        >
+          {/* Geometric pattern overlay */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute top-20 left-20 w-64 h-64 bg-white rounded-full blur-3xl"></div>
+            <div className="absolute bottom-20 right-20 w-96 h-96 bg-blue-300 rounded-full blur-3xl"></div>
+          </div>
+
+          <div className="relative z-10 flex flex-col justify-between p-12 text-white w-full">
+            {/* Logo */}
+            <button
+              onClick={() => onNavigate('login')}
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity w-fit"
+            >
+              <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-lg">
+                <img
+                  src="/leadcrm_logo.png"
+                  alt="LeadCRM Logo"
+                  className="w-7 h-7 object-contain"
+                />
+              </div>
+              <span className="text-xl font-bold">LeadCRM</span>
+            </button>
+
+            {/* Center content */}
+            <div className="space-y-6">
+              <h1 className="font-display text-4xl font-bold leading-tight">
+                Secure Password Reset
+              </h1>
+              <p className="text-blue-100 text-lg max-w-md">
+                We'll send you a secure link to reset your password. Check your inbox and spam folder.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Right side - Form */}
+        <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 bg-white dark:bg-slate-950">
+          <div className="w-full max-w-md space-y-6">
+            <button
+              onClick={() => { setAuthView('login'); setError(''); }}
+              className="text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-2 text-sm font-medium transition-colors"
+            >
+              <ArrowLeft size={16} /> Back to Login
+            </button>
+
+            <div>
+              <h2 className="font-display text-3xl font-bold text-slate-900 dark:text-white mb-2">
+                Forgot password?
+              </h2>
+              <p className="text-slate-500 dark:text-slate-400 text-sm">
+                Enter your email and we'll send you a reset link.
+              </p>
+            </div>
+
+            <form onSubmit={handleForgotPassword} className="space-y-5">
+              <div>
+                <label htmlFor="forgot-email" className="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2">
+                  Email Address
+                </label>
+                <input
+                  id="forgot-email"
+                  type="email"
+                  value={forgotEmail}
+                  onChange={(e) => setForgotEmail(e.target.value)}
+                  disabled={forgotBusy}
+                  maxLength={254}
+                  autoComplete="email"
+                  className="w-full h-11 bg-white dark:bg-slate-900 border border-gray-200 dark:border-white/8 rounded-xl px-4 text-slate-900 dark:text-white text-sm placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
+                  required
+                  placeholder="name@email.com"
+                  autoFocus
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={forgotBusy || retrySeconds > 0}
+                className="disabled:opacity-50 disabled:cursor-not-allowed w-full h-11 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold transition-colors active:scale-95"
+              >
+                {forgotBusy ? 'Sending...' : retrySeconds > 0 ? `Try again in ${retrySeconds}s` : 'Send Reset Link'}
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Main login view with split-screen layout
+  return (
+    <>
+    <LoginLockoutDialog open={lockout.open} onOpenChange={lockout.setOpen} countdown={lockout.countdown} seconds={lockout.seconds} />
+    <div className="min-h-[var(--app-viewport-height)] flex flex-col lg:flex-row">
+      <CamxianBrandPanel onNavigate={onNavigate} />
+
+      {/* Right side - Login form */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 bg-white dark:bg-slate-950">
+        <div className="w-full max-w-md space-y-8">
+          {/* Header */}
+          <div>
+            <h2 className={`${responsiveTypography.authTitle} font-display font-bold text-slate-900 dark:text-white mb-2`}>
+              Login
+            </h2>
+            <p className={`${responsiveTypography.body} text-slate-500 dark:text-slate-400`}>
+              Welcome back! Please enter your credentials
+            </p>
+          </div>
+
+          {/* Login form */}
+          <form onSubmit={handleLogin} className="space-y-5">
+                {error && <p role="alert" className={`${responsiveTypography.body} break-words text-red-600 dark:text-red-400`}>{error}</p>}
+                <div>
+                  <label htmlFor="email" className={`${responsiveTypography.body} block font-semibold text-slate-700 dark:text-slate-300 mb-2`}>
+                    Email address
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isSigningIn}
+                    autoComplete="username"
+                    maxLength={254}
+                    className="w-full h-11 bg-white dark:bg-slate-900 border border-gray-200 dark:border-white/8 rounded-xl px-4 text-slate-900 dark:text-white text-sm placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
+                    placeholder="name@email.com"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="password" className={`${responsiveTypography.body} block font-semibold text-slate-700 dark:text-slate-300 mb-2`}>
+                    Password
+                  </label>
+                  <div className="relative">
+                    <input
+                      id="password"
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      disabled={isSigningIn || lockout.locked}
+                      autoComplete="current-password"
+                      className="w-full h-11 bg-white dark:bg-slate-900 border border-gray-200 dark:border-white/8 rounded-xl px-4 pr-11 text-slate-900 dark:text-white text-sm placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-colors"
+                      placeholder="••••••••••"
+                      required
+                    />
+                    <button
+                      type="button"
+                      aria-label={showPassword ? 'Hide password' : 'Show password'}
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-0 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex flex-nowrap items-center justify-between gap-2 max-[360px]:gap-0.5">
+                  <label className="flex min-h-11 shrink-0 items-center gap-2 max-[360px]:gap-0.5 cursor-pointer group">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 shrink-0 rounded border-gray-300 dark:border-white/8 text-blue-600 focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 transition-colors"
+                    />
+                    <span className={`${responsiveTypography.body} whitespace-nowrap text-slate-600 dark:text-slate-400 group-hover:text-slate-900 dark:group-hover:text-slate-300 transition-colors`}>
+                      Remember me
+                    </span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => { setForgotEmail(email); setError(''); setAuthView('forgot'); }}
+                    className={`${responsiveTypography.body} ml-auto min-h-11 shrink-0 whitespace-nowrap text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-semibold transition-colors`}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isSigningIn || lockout.locked || lockout.checking}
+                  className={`${responsiveTypography.largeAction} w-full h-11 bg-blue-600 hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed text-white rounded-xl font-semibold transition-colors active:scale-95`}
+                >
+                  {isSigningIn ? 'Signing in…' : lockout.locked ? `Try again in ${lockout.countdown}` : 'Login'}
+                </button>
+                {lockout.locked && (
+                  <p className={`${responsiveTypography.body} text-center text-slate-600 dark:text-slate-400`}>
+                    Sign-in available in <span className="font-semibold tabular-nums">{lockout.countdown}</span>.{' '}
+                    <button type="button" onClick={() => lockout.setOpen(true)} className="font-semibold text-blue-600 dark:text-blue-400 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded">View timer</button>
+                  </p>
+                )}
+              </form>
+
+              <p className={`${responsiveTypography.body} text-center text-slate-500`}>Use the registered staff email provided to your Client Administrator. Contact your administrator for access.</p>
+        </div>
+      </div>
+    </div>
+    <PublicFooter />
+    </>
+  );
+}

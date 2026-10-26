@@ -1,0 +1,13 @@
+{
+  "name": "Quality Gate",
+  "version": "2.0.0",
+  "enabled": true,
+  "description": "Full pre-PR quality check. Run manually before committing or creating a PR.",
+  "when": {
+    "type": "userTriggered"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Run the LeadCRM quality gate using the standards from .kiro/steering/. Check each gate and report PASS or FAIL:\n\n1. TypeScript: Run `npx tsc --noEmit` — zero errors required.\n2. Code Quality: No `any`, no `@ts-ignore`, no inline `style={{}}`, no `console.log`.\n3. SaaS Safety: Every new record has `tenantId` from AuthContext. Every mutation has `addAuditLog()`.\n4. Security: No hardcoded secrets. RBAC guards on all create/edit/delete UI. Tenant isolation on all queries.\n5. UI Quality: Dark mode classes on every element. motion/react (not framer-motion). ChartComponents only.\n6. Build: `npm run build` succeeds (if applicable to changed packages).\n\nReport each gate as PASS/FAIL with specific file:line issues. If all pass, confirm ready to commit."
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "Node16",
+    "moduleResolution": "node16",
+    "rootDir": "..",
+    "outDir": "./dist",
+    "noEmit": false,
+    "skipLibCheck": true,
+    "paths": {
+      "@leadcrm/shared": ["../shared/src/index.ts"]
+    }
+  },
+  "files": ["src/scripts/seed-campaign-templates.ts"],
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "src/database/seeders", "src/scripts", "check-users.ts", "src/**/__tests__", "src/**/*.test.ts", "src/**/*.spec.ts"]
+}

@@ -1,0 +1,70 @@
+{
+  "name": "leadcrm-desktop",
+  "version": "1.0.0",
+  "description": "LeadCRM — Windows Desktop Application",
+  "author": "Camxian Technologies",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron . --no-sandbox",
+    "prebuild:installer": "node ../scripts/download-windows-postgres.js",
+    "build:installer": "npm run prebuild:installer && electron-builder --win --x64",
+    "build:linux": "electron-builder --linux --x64"
+  },
+  "build": {
+    "appId": "com.camxian.leadcrm.desktop",
+    "productName": "LeadCRM",
+    "copyright": "Copyright © 2026 Camxian Technologies",
+    "directories": {
+      "output": "../dist"
+    },
+    "artifactName": "LeadCRM-Setup-${version}.${ext}",
+    "win": {
+      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "icon": "leadcrm.ico",
+      "executableName": "LeadCRM",
+      "requestedExecutionLevel": "asInvoker",
+      "signAndEditExecutable": false
+    },
+    "linux": {
+      "target": [{ "target": "AppImage", "arch": ["x64"] }],
+      "icon": "../../leadcrm/frontend/public/icons/leadcrm-512.png",
+      "category": "Office"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "LeadCRM",
+      "installerIcon": "leadcrm.ico",
+      "uninstallerIcon": "leadcrm.ico",
+      "installerHeaderIcon": "leadcrm.ico",
+      "runAfterFinish": true,
+      "deleteAppDataOnUninstall": false
+    },
+    "extraResources": [
+      {
+        "from": "../../leadcrm",
+        "to": "leadcrm",
+        "filter": [
+          "**/*",
+          "!**/.git/**",
+          "!**/.env.local-development/**",
+          "!**/.leadcrm-desktop-data/**",
+          "!**/node_modules/.cache/**"
+        ]
+      },
+      {
+        "from": "../runtimes/postgres",
+        "to": "postgres",
+        "filter": ["**/*"]
+      }
+    ],
+    "files": ["main.js", "preload.js", "package.json", "leadcrm.ico"]
+  },
+  "devDependencies": {
+    "electron": "^28.3.3",
+    "electron-builder": "^24.13.3"
+  }
+}
