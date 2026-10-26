@@ -1,0 +1,1991 @@
+// LeadCRM - Prisma Schema
+// Single source of truth for all database models
+// ORM: Prisma 5 | DB: PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// ENUMS
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+
+enum TenantStatus {
+  SANDBOX
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+  DELETED
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+}
+
+enum ContactStatus {
+  INQUIRY
+  HOT
+  WARM
+  COLD
+  CANCELLED
+  CLOSED_DEAL
+}
+
+// System-owned lifecycle position G�� never manually editable via status controls.
+// REQ131: ContactStatus (above) is human-owned and never changed by automation.
+// This enum is the system-owned complement.
+enum ContactLifecycleStage {
+  LEAD // captured, not yet qualified
+  QUALIFIED // qualified, ready for opportunity
+  CONTACT // known person, active relationship
+  CUSTOMER // has at least one won deal
+  CHURNED // former customer, no active deals
+  DISQUALIFIED // dead G�� will not proceed
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum CampaignType {
+  EMAIL
+  SMS
+  MULTI_CHANNEL
+}
+
+enum CampaignStatus {
+  SCHEDULED
+  SENDING
+  INTERRUPTED
+  SENT
+  PARTIALLY_SENT
+  DELIVERED
+  FAILED
+  DRAFT
+}
+
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// TENANT
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model Tenant {
+  dashboardRevision DashboardRevision?
+  dealCreationReceipts DealCreationReceipt[]
+  crmImportUploads CrmImportUpload[]
+  productInterestRecords ProductInterest[]
+  recordFiles        RecordFile[]
+  id                 String             @id @default(uuid())
+  name               String
+  domain             String?
+  slug               String             @unique
+  industry           String?
+  companySize        String? // "1-10" | "11-50" | "51-200" | "200+"
+  website            String?
+  currency           String?   @default("PHP") // ISO 4217 — e.g. "USD", "EUR", "GBP". Drives all money formatting UI-side.
+  email              String?
+  phone              String?
+  address            String?
+  status             TenantStatus       @default(SANDBOX)
+  // -- Onboarding ----------------------------------------------------
+  onboardingStep        Int       @default(0) // 0=introduction, 1=workflow, 2=company, 3=completed
+  onboardingCompletedAt DateTime?
+  ownerUserId        String?            // ID of the founding/registering user — set once at registration, immutable
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  users              User[]
+  userRoles          UserRole[]
+  roleDefinitions    RoleDefinition[]
+  sessions           Session[]
+  organizations      Account[]
+  leads              Lead[]
+  contacts           Contact[]
+  pipelines          Pipeline[]
+  stages             Stage[]
+  deals              Deal[]
+  leadDeals          LeadDeal[]
+  contactDeals       ContactDeal[]
+  dealStageHistories DealStageHistory[]
+  tasks              Task[]
+  activities         Activity[]
+  campaigns          Campaign[]
+  campaignContacts   CampaignContact[]
+  campaignMetrics    CampaignMetrics[]
+  templates          Template[]
+  targetAudiences    TargetAudience[]
+  workflows          Workflow[]
+  wfTriggerRecords   WorkflowTriggerRecord[]
+  wfExecutionRuns    WorkflowExecutionRun[]
+  wfExecutionSteps   WorkflowExecutionStep[]
+  notifications      Notification[]
+  notificationEvents NotificationEvent[]
+  notificationDeliveries NotificationDelivery[]
+  closingFieldDefinitions ClosingFieldDefinition[]
+  auditLogs          AuditLog[]
+  emailDeliveryLogs  EmailDeliveryLog[]
+  EmailEvent         EmailEvent[]
+  userPreferences    UserPreference[]
+  tenantPreferences  TenantPreference[]
+  crmImportJobs CrmImportJob[]
+  tenantGroups       TenantGroup[]
+  tenantGroupMembers TenantGroupMember[]
+  marketingForms     MarketingForm[]
+}
+
+// Committed revision counters; no record payloads or second notification queue.
+model DashboardRevision {
+  tenantId String @id
+  analytics BigInt @default(0)
+  leads BigInt @default(0)
+  actions BigInt @default(0)
+  access BigInt @default(0)
+  content BigInt @default(0)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// USER
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model User {
+  crmImportUploads CrmImportUpload[]
+  recordFiles        RecordFile[]
+  id            String     @id @default(uuid())
+  tenantId      String
+  email         String
+  firstName     String
+  lastName      String
+  mustChangePassword Boolean @default(true)
+  passwordChangedAt DateTime?
+  securityLockedAt DateTime?
+  onboardingCompletedAt DateTime?
+  passwordHash  String? // Legacy passwordless accounts use password recovery.
+  phone         String?
+  jobTitle      String?
+  avatarUrl     String?
+  lastLoginAt   DateTime?
+  // Primary role identity for routing; custom permissions come from UserRole.
+  // Assign explicitly and keep both representations in the same transaction.
+  role          String
+  status        UserStatus @default(ACTIVE)
+  emailVerified DateTime?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  tenant             Tenant             @relation(fields: [tenantId], references: [id])
+  userRoles          UserRole[]
+  sessions           Session[]
+  assignedLeads      Lead[]             @relation("AssignedLeads")
+  createdLeads       Lead[]             @relation("CreatedLeads")
+  updatedLeads       Lead[]             @relation("UpdatedLeads")
+  convertedLeads     Lead[]             @relation("ConvertedLeads")
+  assignedContacts  Contact[]          @relation("AssignedContacts")
+  ownedContacts      Contact[]          @relation("OwnedContacts")
+
+  assignedDeals        Deal[]             @relation("AssignedDeals")
+  ownedDeals           Deal[]             @relation("OwnedDeals")
+  revenueDeals         Deal[]             @relation("RevenueOwner")
+  leadDealsAdded       LeadDeal[]
+  contactDealsAdded   ContactDeal[]
+  dealStageHistories   DealStageHistory[]
+  assignedTasks        Task[]             @relation("AssignedTasks")
+  createdTasks         Task[]             @relation("CreatedTasks")
+  tasksAssignedByMe    Task[]             @relation("TaskAssignedBy")
+  completedTasks       Task[]             @relation("TaskCompletedBy")
+  activitiesCreated    Activity[]
+  notifications        Notification[]
+  notificationDeliveries NotificationDelivery[]
+  auditLogs            AuditLog[]
+  userPreferences      UserPreference[]
+  crmImportJobs CrmImportJob[]
+  groupMemberships TenantGroupMember[]
+  marketingForms   MarketingForm[]
+  activatedWorkflows Workflow[] @relation("WorkflowActivator")
+
+  @@unique([tenantId, email])
+  @@index([tenantId, status])
+
+  @@unique([id, tenantId])
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// ROLE DEFINITION
+// permissions String[] removed G�� use RolePermission table instead
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model RoleDefinition {
+  id           String   @id @default(uuid())
+  tenantId     String
+  name         String
+  description  String?
+  isSystemRole Boolean  @default(false)
+  // Server-managed Sales classification survives role renames.
+  crmAssignmentRestricted Boolean @default(false)
+  isArchived   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant      Tenant             @relation(fields: [tenantId], references: [id])
+  userRoles   UserRole[]
+  permissions RolePermission[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId, isArchived])
+
+  @@unique([id, tenantId])
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// ROLE PERMISSION (per-module CRUD flags)
+// One row per module per role.
+// module examples: contacts | deals | campaigns | workflows | reports | users | settings
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model RolePermission {
+  id        String  @id @default(uuid())
+  tenantId  String
+  roleId    String
+  module    String // e.g. "contacts", "deals", "campaigns"
+  canView   Boolean @default(false)
+  canViewAll Boolean @default(false)
+  canViewMy Boolean @default(false)
+  canViewActive Boolean @default(false)
+  canCreate Boolean @default(false)
+  canEdit   Boolean @default(false)
+  canDelete Boolean @default(false)
+  canArchive Boolean @default(false)
+  canImport Boolean @default(false)
+  canManageStages Boolean @default(false)
+  canComplete Boolean @default(false)
+  canAssign Boolean @default(false)
+  canSend Boolean @default(false)
+  canDuplicate Boolean @default(false)
+  canViewReports Boolean @default(false)
+  canActivate Boolean @default(false)
+  canViewRuns Boolean @default(false)
+  canPublish Boolean @default(false)
+  canViewSubmissions Boolean @default(false)
+  canViewClosedWon Boolean @default(false)
+  canDisable Boolean @default(false)
+  canRestore Boolean @default(false)
+
+  role RoleDefinition @relation(fields: [roleId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@unique([roleId, module])
+  @@index([roleId])
+  @@index([tenantId, module])
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// USER ROLE (JUNCTION)
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model UserRole {
+  id       String @id @default(uuid())
+  userId   String
+  roleId   String
+  tenantId String
+
+  user   User           @relation(fields: [userId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  role   RoleDefinition @relation(fields: [roleId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  tenant Tenant         @relation(fields: [tenantId], references: [id])
+
+  @@unique([userId, roleId, tenantId])
+  @@index([userId, tenantId])
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// SESSION (Token Revocation)
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model Session {
+  id           String    @id @default(uuid())
+  userId       String
+  tenantId     String
+  tokenHash    String    @unique // SHA-256 of JWT, never plaintext
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  lastActiveAt DateTime  @default(now())
+  createdAt    DateTime  @default(now())
+
+  user   User   @relation(fields: [userId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([userId, tenantId])
+}
+
+// ---------------------------------------------
+// ---------------------------------------------
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// TENANT GROUP
+// ─────────────────────────────────────────────────────────────
+model TenantGroup {
+  id        String   @id @default(uuid())
+  tenantId  String
+  name      String
+  systemKey String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  tenant  Tenant              @relation(fields: [tenantId], references: [id])
+  members TenantGroupMember[]
+
+  @@index([tenantId])
+  @@unique([tenantId, systemKey])
+
+  @@unique([id, tenantId])
+}
+
+// TENANT GROUP MEMBER (junction: group ↔ user)
+// ─────────────────────────────────────────────────────────────
+model TenantGroupMember {
+  id       String @id @default(uuid())
+  groupId  String
+  userId   String
+  tenantId String
+  // The forward migration enforces one head per Group with a partial unique index.
+  isHead   Boolean @default(false)
+
+  group  TenantGroup @relation(fields: [groupId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  user   User        @relation(fields: [userId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  tenant Tenant      @relation(fields: [tenantId], references: [id])
+
+  @@unique([groupId, userId])
+  @@index([tenantId])
+  @@index([groupId])
+  @@index([userId])
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// ORGANIZATION
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model Account {
+  creationReceipts AccountCreationReceipt[]
+  customFieldValues CustomFieldValue[]
+  id               String    @id @default(uuid())
+  tenantId         String
+  name             String
+  industry         String?
+  size             String? // "1-10" | "11-50" | "51-200" | "200+"
+  website          String?
+  notes            String?   @db.Text
+  tags             String[] @default([])
+  address          String?
+  isArchived       Boolean   @default(false)
+  deletedAt        DateTime?
+  deletedBy        String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @default(now()) @updatedAt
+
+  tenant       Tenant     @relation(fields: [tenantId], references: [id])
+  leads        Lead[]
+  deals        Deal[]
+  activities   Activity[]
+  contacts     Contact[]
+  recordFiles  RecordFile[]
+
+  @@index([tenantId, isArchived])
+  @@index([tenantId, name])
+  @@index([tenantId, createdAt])
+  @@index([tenantId])
+  taskLinks TaskAccount[]
+
+  @@unique([id, tenantId])
+
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// CONTACT
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// LEAD
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model Lead {
+  customFieldValues CustomFieldValue[]
+  // False only for legacy rows requiring explicit product reconciliation.
+  productsNormalized Boolean @default(false)
+  productLinks LeadProductInterest[]
+  creationKey String?
+  @@unique([tenantId, creationKey])
+  formSubmissions FormSubmission[]
+  id                  String    @id @default(uuid())
+  tenantId            String
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @default(now()) @updatedAt
+  companyName         String?
+  companyFromAccount  Boolean              @default(false)
+  address             String?
+  firstName           String
+  lastName            String
+  phone               String?
+  email               String?
+  productInterest     String[] @default([])
+  productInterestIds  String[] @default([])
+  source              String?
+  assignedUserId      String?
+  manualCancellation Boolean @default(false)
+  status              String    @default("Inquiry")
+  accountId           String?
+  createdById         String?
+  updatedById         String?
+  lastStatusChangedAt DateTime?
+  lastCustomerReplyAt DateTime? @map("lastMeaningfulInboundAt")
+  firstUnansweredOutboundAt DateTime?
+  firstStaffOutreachAt DateTime?
+  engagementEvaluatedAt DateTime?
+  isArchived          Boolean   @default(false)
+  deletedAt           DateTime?
+  deletedBy           String?
+  // Conversion tracking — set when lead is converted to a Contact
+  contactId           String?
+  convertedAt         DateTime?
+  convertedById       String?
+  @@index([tenantId, convertedAt, isArchived])
+  @@index([tenantId, firstStaffOutreachAt])
+
+  tenant           Tenant   @relation(fields: [tenantId], references: [id])
+  account          Account? @relation(fields: [accountId], references: [id])
+  assignedUser     User?    @relation("AssignedLeads", fields: [assignedUserId], references: [id])
+  createdBy        User?    @relation("CreatedLeads", fields: [createdById], references: [id])
+  updatedBy        User?    @relation("UpdatedLeads", fields: [updatedById], references: [id])
+  convertedContact Contact? @relation("ConvertedFromLead", fields: [contactId], references: [id])
+  convertedBy      User?    @relation("ConvertedLeads", fields: [convertedById], references: [id])
+
+  leadDeals         LeadDeal[]
+  activities        Activity[]
+  campaignContacts  CampaignContact[]
+  emailDeliveryLogs EmailDeliveryLog[]
+  recordFiles       RecordFile[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, assignedUserId])
+  @@index([tenantId, email])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, accountId])
+  @@index([tenantId, createdById])
+  @@index([tenantId, contactId])
+  @@index([tenantId])
+  taskLinks TaskLead[]
+
+  @@unique([id, tenantId])
+
+}
+
+// -----------------------------------------------------
+// CONTACT
+// ─────────────────────────────────────────────────────────────────────────────
+// CONTRACT PHASE COMPLETE (ADR-001) — Organization model and Contact.organizationId removed.
+// The canonical company link for Contact is now Contact.accountId → Account exclusively.
+// Migration: remove_organization_model
+// ─────────────────────────────────────────────────────────────────────────────
+
+// -----------------------------------------------------
+model Contact {
+  creationReceipts ContactCreationReceipt[]
+  customFieldValues CustomFieldValue[]
+  // False only for legacy rows requiring explicit product reconciliation.
+  productsNormalized Boolean @default(false)
+  productLinks ContactProductInterest[]
+  productInterestOther String?
+  formSubmissions FormSubmission[]
+  id                  String               @id @default(uuid())
+  tenantId            String
+  // Canonical company link (ADR-001) — Contact.accountId → Account
+  accountId           String?
+  assignedUserId      String?
+  ownerId             String?
+  firstName           String
+  lastName            String
+  email               String?
+  phone               String?
+  companyName         String?
+  // Retain provenance even after unlinking; copied Account text keeps its View boundary.
+  companyFromAccount  Boolean              @default(false)
+  manualCancellation Boolean @default(false)
+  status              ContactStatus        @default(INQUIRY)
+  source              String?
+  notes               String?
+  lastStatusChangedAt DateTime?
+  lastCustomerReplyAt DateTime? @map("lastMeaningfulInboundAt")
+  firstUnansweredOutboundAt DateTime?
+  firstStaffOutreachAt DateTime?
+  engagementEvaluatedAt DateTime?
+  convertedAt         DateTime?
+  doNotContact        Boolean              @default(false)
+  isArchived          Boolean              @default(false)
+  archiveReason       String?
+  deletedAt           DateTime?
+  deletedBy           String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  address             String?
+  customerSince       DateTime?
+  productInterests    String[]
+  lifecycleStage      ContactLifecycleStage @default(LEAD)
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id])
+  account      Account?      @relation(fields: [accountId], references: [id])
+  assignedUser User?         @relation("AssignedContacts", fields: [assignedUserId], references: [id])
+  owner        User?         @relation("OwnedContacts", fields: [ownerId], references: [id])
+
+  convertedFromLeads Lead[]             @relation("ConvertedFromLead")
+  contactDeals       ContactDeal[]
+  activities         Activity[]
+  campaignContacts   CampaignContact[]
+  emailDeliveryLogs  EmailDeliveryLog[]
+  recordFiles        RecordFile[]
+
+  @@index([tenantId, status])
+  @@index([tenantId, assignedUserId])
+  @@index([tenantId, email])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, accountId])
+  @@map("Contact")
+  @@index([tenantId])
+  @@index([tenantId, isArchived])
+  @@index([tenantId, lifecycleStage])
+  taskLinks TaskContact[]
+
+  @@unique([id, tenantId])
+
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// PIPELINE & STAGE
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model Pipeline {
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  type        String? // e.g. "Sales" | "Service" | "Onboarding"
+  templateKey String? // identifies seeded templates for upgrades (e.g. "sales-inquiries")
+  isDefault   Boolean  @default(false)
+  currency    String?  @default("PHP")
+  isArchived  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant Tenant  @relation(fields: [tenantId], references: [id])
+  stages Stage[]
+  deals  Deal[]
+
+  @@index([tenantId, isArchived])
+  @@index([tenantId])
+
+  @@unique([id, tenantId])
+}
+
+model Stage {
+  id              String   @id @default(uuid())
+  pipelineId      String
+  tenantId        String // defence-in-depth: derived from Pipeline.tenantId at creation, never independently editable
+  name            String
+  order           Int
+  probability     Int? // 0-100 for revenue forecasting
+  color           String? // hex e.g. "#3fb950"
+  description     String?
+  isWon           Boolean  @default(false) // terminal: deal won
+  isLost          Boolean  @default(false) // terminal: deal lost
+  isDefault       Boolean  @default(false) // starting stage for new deals
+  requiredFields  String[] // Deal fields required before entry (REQ089) e.g. ["accountId", "value"]
+  rottenAfterDays Int? // days after which a deal in this stage is flagged stale
+  createdAt       DateTime @default(now())
+
+  pipeline               Pipeline           @relation(fields: [pipelineId, tenantId], references: [id, tenantId])
+  tenant                 Tenant             @relation(fields: [tenantId], references: [id])
+  deals                  Deal[]
+  dealStageHistoriesNew  DealStageHistory[] @relation("NewStage")
+  dealStageHistoriesPrev DealStageHistory[] @relation("PreviousStage")
+
+  @@index([pipelineId, order])
+  @@index([tenantId, pipelineId])
+  @@index([tenantId])
+
+  @@unique([id, pipelineId, tenantId])
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// DEAL
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model Deal {
+  engagementStatus String @default("Inquiry")
+  engagementEvaluatedAt DateTime?
+  customFieldValues CustomFieldValue[]
+  productsNormalized Boolean @default(false)
+  productInterestOther String?
+  hasEverBeenWon Boolean @default(false)
+  wonHistoryVerified Boolean @default(true)
+  productInterestIds String[] @default([])
+  recordFiles RecordFile[]
+  productInterestId String?
+  productInterestRecord ProductInterest? @relation(fields: [productInterestId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  automationKey String?
+  @@unique([tenantId, automationKey])
+  id                String    @id @default(uuid())
+  tenantId          String
+  pipelineId        String
+  stageId           String
+  accountId         String?
+  assignedUserId    String?
+  ownerId           String? // original deal owner (immutable)
+  revenueOwnerId String? // agent captured at first won closure; legacy unknown stays null
+  revenueOwnerEligible Boolean? // sales eligibility captured at closure, including later deactivation
+  title             String
+  value             Float?
+  currency          String?   @default("PHP")
+  priority          Priority  @default(MEDIUM)
+  expectedCloseDate DateTime?
+  closedAt          DateTime? // stamped when stage.isWon or stage.isLost = true
+  wonConfirmationType String?
+  wonConfirmationNote String?
+  wonConfirmedById String?
+  wonConfirmedAt DateTime?
+  closingValues Json @default("{}")
+  closingSnapshot Json?
+  stageChangedAt DateTime?
+  currentStageHistoryId String? // internal identity of the current persisted stage entry
+  lostReason        String?
+  leadSource        String?
+  productInterests  String[]
+  address           String?
+  addressSource     Json?
+  tags              String[] // normalized to array G�� consistent with Contact.tags and Organization.tags
+  order             Int       @default(0)
+  isArchived        Boolean   @default(false)
+  archiveReason     String?
+  deletedAt         DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  tenant         Tenant             @relation(fields: [tenantId], references: [id])
+  pipeline       Pipeline           @relation(fields: [pipelineId, tenantId], references: [id, tenantId])
+  stage          Stage              @relation(fields: [stageId, pipelineId, tenantId], references: [id, pipelineId, tenantId])
+  organization   Account?           @relation(fields: [accountId], references: [id])
+  assignedUser   User?              @relation("AssignedDeals", fields: [assignedUserId], references: [id])
+  owner          User?              @relation("OwnedDeals", fields: [ownerId], references: [id])
+  revenueOwner User? @relation("RevenueOwner", fields: [revenueOwnerId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  leadDeals      LeadDeal[]
+  contactDeals   ContactDeal[]
+  stageHistories DealStageHistory[]
+  activities     Activity[]
+
+  @@index([tenantId, stageId])
+  @@index([tenantId, pipelineId])
+  @@index([tenantId, assignedUserId])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, isArchived])
+  @@index([tenantId])
+  taskLinks TaskDeal[]
+
+  @@unique([id, tenantId])
+
+  mailboxThreads MailboxThreadAssociation[]
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// CONTACT-DEAL JUNCTION (multi-contact deals)
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model LeadDeal {
+  id        String   @id @default(uuid())
+  leadId    String
+  dealId    String
+  tenantId  String
+  role      String?
+  addedById String?
+  addedAt   DateTime @default(now())
+
+  lead    Lead   @relation(fields: [leadId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  deal    Deal   @relation(fields: [dealId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  tenant  Tenant @relation(fields: [tenantId], references: [id])
+  addedBy User?  @relation(fields: [addedById], references: [id])
+
+  @@unique([leadId, dealId])
+  @@index([dealId, tenantId])
+  @@index([leadId, tenantId])
+  @@index([tenantId])
+  position Int @default(0)
+}
+
+model ContactDeal {
+  id        String   @id @default(uuid())
+  contactId String
+  dealId    String
+  tenantId  String
+  role      String?
+  addedById String?
+  addedAt   DateTime @default(now())
+
+  contact Contact @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  deal    Deal    @relation(fields: [dealId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id])
+  addedBy User?   @relation(fields: [addedById], references: [id])
+
+  @@unique([contactId, dealId])
+  @@index([dealId, tenantId])
+  @@index([contactId, tenantId])
+  @@map("ContactDeal")
+  @@index([tenantId])
+  position Int @default(0)
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// DEAL STAGE HISTORY
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model DealStageHistory {
+  id              String   @id @default(uuid())
+  tenantId        String
+  dealId          String
+  previousStageId String?
+  newStageId      String
+  movedById       String
+  movedAt         DateTime @default(now())
+  timeInPrevStage Int? // minutes spent in previous stage (computed on insert)
+  note            String?
+
+  tenant        Tenant @relation(fields: [tenantId], references: [id])
+  deal          Deal   @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  movedBy       User   @relation(fields: [movedById], references: [id])
+  newStage      Stage  @relation("NewStage", fields: [newStageId], references: [id])
+  previousStage Stage? @relation("PreviousStage", fields: [previousStageId], references: [id])
+
+  @@index([dealId, tenantId])
+  @@index([tenantId, movedAt])
+  @@index([tenantId])
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// DEAL ACTION (manual actions performed on a deal)
+// Mentor requirement: update_field, assign_agent, change_status, send_email, send_sms, etc.
+// Distinct from automated WorkflowExecutionStep G�� these are user-initiated deal operations.
+// Every DealAction also triggers an Activity entry for the timeline.
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// TASK
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model Task {
+  notificationVersion Int @default(0)
+  id             String    @id @default(uuid())
+  tenantId       String
+  assignedUserId String
+  createdById    String?
+  assignedById   String?
+  completedById  String?
+  title          String
+  description    String?
+  status         String    @default("pending") // pending|in_progress|blocked|completed|cancelled
+  priority       String    @default("Medium") // Low|Medium|High
+  dueDate        DateTime
+  reminderAt     DateTime?
+  completedAt    DateTime?
+  isArchived     Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  tenant       Tenant     @relation(fields: [tenantId], references: [id])
+  assignedUser User       @relation("AssignedTasks", fields: [assignedUserId], references: [id])
+  createdBy    User?      @relation("CreatedTasks", fields: [createdById, tenantId], references: [id, tenantId], onDelete: Restrict)
+  assignedBy   User?      @relation("TaskAssignedBy", fields: [assignedById], references: [id])
+  completedBy  User?      @relation("TaskCompletedBy", fields: [completedById], references: [id])
+  activities   Activity[]
+
+  @@index([tenantId, assignedUserId, status])
+  @@index([tenantId, dueDate])
+  @@index([tenantId])
+  leadLinks TaskLead[]
+  contactLinks TaskContact[]
+  dealLinks TaskDeal[]
+  accountLinks TaskAccount[]
+
+  @@unique([id, tenantId])
+
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// ACTIVITY (unified timeline G�� typed FKs, no polymorphic)
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model Activity {
+  id          String   @id @default(uuid())
+  tenantId    String
+  createdById String?
+  type        String // call|meeting|email|sms|note|task|workflow|stage_change|deal_action|file_upload
+  title       String
+  description String?
+  metadata    Json?
+  // Events may carry multiple contextual links; each supplied target must be valid.
+  leadId      String?
+  contactId  String?
+  dealId      String?
+  accountId   String?
+  taskId      String?
+  mailboxMessageId String?
+  createdAt   DateTime @default(now())
+
+  tenant       Tenant   @relation(fields: [tenantId], references: [id])
+  createdBy    User?    @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  lead         Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  contact      Contact? @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  deal         Deal?    @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  organization Account? @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  task         Task?    @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  mailboxMessage MailboxMessage? @relation(fields: [mailboxMessageId, tenantId], references: [id, tenantId], onDelete: Restrict)
+
+  @@index([tenantId, leadId, createdAt])
+  @@index([tenantId, contactId, createdAt])
+  @@index([tenantId, dealId, createdAt])
+  @@index([tenantId, createdAt])
+  @@index([tenantId, mailboxMessageId])
+  @@index([tenantId])
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// NOTIFICATION
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model Notification {
+  id         String    @id @default(uuid())
+  tenantId   String
+  userId     String
+  type       String // deal_assigned|task_due|campaign_sent|workflow_failed|deal_action|...
+  title      String
+  body       String?
+  entityType String?
+  entityId   String?
+  eventKey   String?
+  isRead     Boolean   @default(false)
+  readAt     DateTime?
+  createdAt  DateTime  @default(dbgenerated("(CURRENT_TIMESTAMP AT TIME ZONE 'UTC'::text)"))
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  occurredAt DateTime?
+
+  @@index([userId, tenantId, isRead])
+  @@index([tenantId, createdAt])
+  @@index([tenantId])
+  @@unique([tenantId, userId, eventKey])
+  @@index([tenantId, userId, createdAt, id])
+  @@index([tenantId, userId, isRead, createdAt, id])
+}
+
+// Transactional outbox. Triggers capture minimal structured business facts,
+// never provider credentials, message bodies, or user-supplied destinations.
+model NotificationEvent {
+  id String @id @default(uuid())
+  tenantId String
+  eventKey String
+  type String
+  entityType String
+  entityId String
+  ownerId String?
+  actorId String?
+  admins Boolean @default(false)
+  payload Json @default("{}")
+  occurredAt DateTime @default(dbgenerated("(CURRENT_TIMESTAMP AT TIME ZONE 'UTC'::text)"))
+  createdAt DateTime @default(dbgenerated("(CURRENT_TIMESTAMP AT TIME ZONE 'UTC'::text)"))
+  availableAt DateTime @default(dbgenerated("(CURRENT_TIMESTAMP AT TIME ZONE 'UTC'::text)"))
+  attempts Int @default(0)
+  leaseToken String?
+  leaseUntil DateTime?
+  processedAt DateTime?
+  lastError String?
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  @@unique([tenantId, eventKey])
+  @@index([tenantId, processedAt, availableAt, id])
+  @@index([processedAt, availableAt, tenantId])
+}
+
+// Independent of visible notifications; deleting one never deletes its identity.
+model NotificationDelivery {
+  tenantId String
+  userId String
+  eventKey String
+  outcome String @default("delivered")
+  createdAt DateTime @default(dbgenerated("(CURRENT_TIMESTAMP AT TIME ZONE 'UTC'::text)"))
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user User @relation(fields: [userId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  @@id([tenantId, userId, eventKey])
+}
+
+model ClosingFieldDefinition {
+  values CustomFieldValue[]
+  tenantId   String
+  id         String
+  definition Json
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+  tenant     Tenant @relation(fields: [tenantId], references: [id])
+
+  @@id([tenantId, id])
+}
+
+// Evolved ClosingFieldDefinition owns both normal CRM values and closing evidence.
+// SQL enforces exactly one module-matching record reference; all FKs include tenant.
+model CustomFieldValue {
+  id String @id @default(uuid())
+  tenantId String
+  fieldId String
+  module String
+  leadId String?
+  contactId String?
+  accountId String?
+  dealId String?
+  value Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+  field ClosingFieldDefinition @relation(fields: [tenantId, fieldId], references: [tenantId, id], onDelete: Restrict, map: "CustomFieldValue_field_fkey")
+  lead Lead? @relation(fields: [leadId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "CustomFieldValue_lead_fkey")
+  contact Contact? @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "CustomFieldValue_contact_fkey")
+  account Account? @relation(fields: [accountId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "CustomFieldValue_account_fkey")
+  deal Deal? @relation(fields: [dealId, tenantId], references: [id, tenantId], onDelete: Restrict, map: "CustomFieldValue_deal_fkey")
+  @@unique([tenantId, fieldId, leadId])
+  @@unique([tenantId, fieldId, contactId])
+  @@unique([tenantId, fieldId, accountId])
+  @@unique([tenantId, fieldId, dealId])
+  @@index([tenantId, module, leadId, contactId, accountId, dealId], map: "CustomFieldValue_tenantId_module_leadId_contactId_accountId_de_")
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// TARGET AUDIENCE (campaign segmentation G�� no audience_contacts table)
+// Contacts are resolved at query time using TargetAudienceCondition filters.
+// mentor: "no need for audience_contacts, just filtration logic, query from contacts"
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model TargetAudience {
+  source String @default("CONTACTS")
+  matchMode String @default("AND")
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  isActive               Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant     Tenant                    @relation(fields: [tenantId], references: [id])
+  conditions TargetAudienceCondition[]
+  campaigns  Campaign[]
+
+  @@index([tenantId, isActive])
+  @@index([tenantId])
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// TARGET AUDIENCE CONDITION (filter rules)
+// e.g. { field: "status", operator: "equals", value: "HOT" }
+// e.g. { field: "score", operator: "gte", value: "80" }
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model TargetAudienceCondition {
+  id               String   @id @default(uuid())
+  targetAudienceId String
+  field            String // contact field name e.g. "status", "score", "source", "tags"
+  operator         String // equals|not_equals|contains|gte|lte|in|not_in
+  value            String // scalar string or JSON-encoded Product IDs / date range
+  conditionOrder   Int      @default(0)
+  createdAt        DateTime @default(now())
+
+  targetAudience TargetAudience @relation(fields: [targetAudienceId], references: [id], onDelete: Cascade)
+
+  @@index([targetAudienceId])
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// CAMPAIGN & TEMPLATE
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model Campaign {
+  audienceSource String?
+  createdById String?
+  recipientCount Int @default(0)
+  failedCount Int @default(0)
+  id               String         @id @default(uuid())
+  tenantId         String
+  targetAudienceId String? // FK to TargetAudience G�� replaces old targetAudience String?
+  emailTemplateId  String? // optional FK to Template (type=Email)
+  smsTemplateId    String? // optional FK to Template (type=SMS)
+  name             String
+  type             CampaignType
+  status           CampaignStatus @default(DRAFT)
+  submissionStartedAt DateTime?
+  submissionLeaseId String?
+  submissionLeaseUntil DateTime?
+  submissionInterruptedAt DateTime?
+  notificationRunVersion Int @default(0)
+  smsTransitionVersion Int @default(0)
+  submittedById String?
+  smsDeviceId String?
+  smsTrackingVersion Int?
+  submissionFinishedAt DateTime?
+  subject          String?
+  body             String? // inline body override when no template selected
+  sentCount        Int            @default(0)
+  openedCount      Int            @default(0)
+  clickedCount     Int            @default(0)
+  engagement       Float          @default(0)
+  scheduledFor     DateTime?
+  scheduledById    String?
+  scheduleConfig   Json?
+  sentAt           DateTime?
+  isArchived       Boolean        @default(false)
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  tenant            Tenant             @relation(fields: [tenantId], references: [id])
+  targetAudience    TargetAudience?    @relation(fields: [targetAudienceId], references: [id], onDelete: SetNull)
+  emailTemplate     Template?          @relation("CampaignEmailTemplate", fields: [emailTemplateId], references: [id], onDelete: SetNull)
+  smsTemplate       Template?          @relation("CampaignSmsTemplate", fields: [smsTemplateId], references: [id], onDelete: SetNull)
+  campaignContacts  CampaignContact[]
+  metrics           CampaignMetrics[]
+  emailDeliveryLogs EmailDeliveryLog[]
+
+  @@index([tenantId, status])
+  @@index([submissionFinishedAt, submissionLeaseUntil])
+  @@index([status, scheduledFor])
+  @@index([tenantId, isArchived])
+  @@index([tenantId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MARKETING FORM
+// Tenant-scoped form builder records. Fields, design, and settings are stored
+// as JSON (consistent with Workflow.actions / Campaign.body patterns).
+// Soft-deleted via isArchived — no hard deletes on business data.
+// ─────────────────────────────────────────────────────────────────────────────
+model MarketingForm {
+  publicId String @unique @default(uuid())
+  revision Int @default(0)
+  publishedRevision Int?
+  publishedVersion Int @default(0)
+  publishedConfig Json?
+  submissions FormSubmission[]
+  id          String    @id @default(uuid())
+  tenantId    String
+  createdById String
+  name        String
+  status      String    @default("draft")   // "draft" | "published"
+  fields      Json      @default("[]")       // FormField[]
+  design      Json      @default("{}")       // FormDesign
+  settings    Json      @default("{}")       // FormSettings
+  publishedAt DateTime?
+  isArchived  Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tenant    Tenant @relation(fields: [tenantId], references: [id])
+  createdBy User   @relation(fields: [createdById], references: [id])
+
+  @@index([tenantId, isArchived, createdAt])
+  @@index([tenantId, status])
+  @@index([tenantId])
+
+  @@unique([id, tenantId])
+}
+
+model FormSubmission {
+  requestKey String?
+  @@unique([formId, requestKey])
+  id String @id @default(uuid())
+  tenantId String
+  formId String
+  publishedVersion Int
+  publishedConfig Json
+  leadId String?
+  contactId String?
+  submittedAt DateTime @default(now())
+  email String?
+  phone String?
+  values Json
+  tracking Json @default("{}")
+  notificationStatus String @default("not_requested")
+  form MarketingForm @relation(fields: [formId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  lead Lead? @relation(fields: [leadId], references: [id], onDelete: Restrict)
+  contact Contact? @relation(fields: [contactId], references: [id], onDelete: Restrict)
+  @@index([tenantId, formId, submittedAt])
+  @@index([leadId])
+  @@index([contactId])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CAMPAIGN METRICS (historical snapshots — separate from inline totals on Campaign)
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model CampaignMetrics {
+  id             String   @id @default(uuid())
+  tenantId       String
+  campaignId     String
+  sentCount      Int      @default(0)
+  deliveredCount Int      @default(0)
+  openedCount    Int      @default(0)
+  clickedCount   Int      @default(0)
+  respondedCount Int      @default(0)
+  bouncedCount   Int      @default(0)
+  openRate       Float    @default(0)
+  clickRate      Float    @default(0)
+  deliveryRate   Float    @default(0)
+  responseRate   Float    @default(0)
+  bounceRate     Float    @default(0)
+  snapshotAt     DateTime @default(now())
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@index([campaignId, tenantId])
+  @@index([tenantId, snapshotAt])
+  @@index([tenantId])
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// CAMPAIGN-CONTACT JUNCTION (per-contact delivery tracking)
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model CampaignContact {
+  smsStatusConflict Boolean @default(false)
+  smsLinks SmsCampaignLink[]
+  providerErrorCode String?
+  providerErrorMessage String?
+  smsId String?
+  nextSmsCheckAt DateTime?
+  smsCheckAttempts Int @default(0)
+  email String?
+  phone String?
+  submittedAt DateTime? // Provider acceptance; sentAt is provider-confirmed sent
+  submissionAttemptedAt DateTime? // Persisted before provider call; never automatically replayed
+  providerUpdatedAt DateTime?
+  personalization Json?
+  messageId String? @unique
+  failureReason String?
+  smsWebhookReceipts SmsWebhookReceipt[]
+  id           String    @id @default(uuid())
+  tenantId     String
+  campaignId   String
+  leadId       String?
+  contactId   String?
+  status       String    @default("pending") // pending|submitted|retrying|sent|failed|excluded|delivered|opened|clicked|bounced|unsubscribed
+  sentAt       DateTime?
+  deliveredAt  DateTime?
+  openedAt     DateTime?
+  clickedAt    DateTime?
+  bouncedAt    DateTime?
+  unsubscribed Boolean   @default(false)
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id])
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  lead     Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  contact  Contact? @relation(fields: [contactId], references: [id], onDelete: SetNull)
+
+  @@unique([campaignId, leadId])
+  @@unique([campaignId, contactId])
+  @@unique([id, tenantId])
+  @@index([campaignId, tenantId, status])
+  @@index([nextSmsCheckAt, tenantId])
+  @@index([tenantId])
+}
+
+// Delivery identities only; message bodies and gateway credentials are never stored here.
+model SmsWebhookReceipt {
+  status String?
+  eventAt DateTime?
+  idempotencyKey String @id
+  tenantId String
+  campaignContactId String
+  createdAt DateTime @default(now())
+  campaignContact CampaignContact @relation(fields: [campaignContactId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  @@index([campaignContactId])
+  @@index([tenantId])
+}
+
+// Opaque redirect tokens contain no recipient or tenant identifiers.
+model SmsCampaignLink {
+  id String @id
+  tenantId String
+  campaignContactId String
+  url String
+  clickedAt DateTime?
+  lastClickedAt DateTime?
+  clickCount Int @default(0)
+  campaignContact CampaignContact @relation(fields: [campaignContactId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  @@index([campaignContactId, tenantId])
+  @@index([tenantId])
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// TEMPLATE (single model, type = Email | SMS)
+// Campaign links to this via emailTemplateId or smsTemplateId
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model Template {
+  id         String   @id @default(uuid())
+  tenantId   String
+  name       String
+  type       String // "Email" | "SMS"
+  category   String?
+  subject    String? // email only
+  content    String
+  isArchived Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  tenant           Tenant     @relation(fields: [tenantId], references: [id])
+  campaignsAsEmail Campaign[] @relation("CampaignEmailTemplate")
+  campaignsAsSms   Campaign[] @relation("CampaignSmsTemplate")
+
+  @@index([tenantId, type, isArchived])
+  @@index([tenantId])
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// WORKFLOW & EXECUTION CHAIN
+// conditions and actions stored as typed JSON (never eval()'d)
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model Workflow {
+  version     Int      @default(1)
+  status      String   @default("DRAFT")
+  activatedById String?
+  id          String   @id @default(uuid())
+  tenantId    String
+  name        String
+  description String?
+  trigger     String // e.g. "deal.stage_changed" | "contact.created" | "task.overdue"
+  conditions  Json? // WorkflowCondition[] typed JSON
+  actions     Json // WorkflowAction[] typed JSON
+  draftDefinition Json?
+  draftRevision Int @default(0)
+  publications WorkflowPublication[]
+  isActive    Boolean  @default(false)
+  isArchived  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant         Tenant                  @relation(fields: [tenantId], references: [id])
+  triggerRecords WorkflowTriggerRecord[]
+  activatedBy    User? @relation("WorkflowActivator", fields: [activatedById, tenantId], references: [id, tenantId], onDelete: Restrict)
+
+  @@index([tenantId, isActive])
+  @@index([tenantId])
+
+  @@unique([id, tenantId])
+}
+
+model WorkflowTriggerRecord {
+  eventId     String?
+  id          String   @id @default(uuid())
+  tenantId    String
+  workflowId  String
+  triggerType String
+  entityType  String
+  entityId    String
+  triggeredAt DateTime @default(now())
+  payload     Json?
+
+  tenant   Tenant                 @relation(fields: [tenantId], references: [id])
+  workflow Workflow               @relation(fields: [workflowId, tenantId], references: [id, tenantId])
+  runs     WorkflowExecutionRun[]
+
+  @@unique([tenantId, workflowId, eventId], map: "workflow_event_once")
+  @@index([tenantId, workflowId])
+  @@index([tenantId, triggeredAt])
+  @@index([tenantId])
+
+  @@unique([id, workflowId, tenantId])
+}
+
+model WorkflowExecutionRun {
+  dispatchContext Json?
+  leaseId String?
+  leaseUntil DateTime?
+  dispatchStartedAt DateTime?
+  workflowVersion Int?
+  definitionSnapshot Json?
+  id           String    @id @default(uuid())
+  tenantId     String
+  workflowId   String
+  triggerId    String
+  entityType   String
+  entityId     String
+  status       String    @default("running") // running|completed|failed|skipped
+  startedAt    DateTime  @default(now())
+  completedAt  DateTime?
+  errorMessage String?
+
+  tenant  Tenant                  @relation(fields: [tenantId], references: [id])
+  trigger WorkflowTriggerRecord   @relation(fields: [triggerId, workflowId, tenantId], references: [id, workflowId, tenantId])
+  steps   WorkflowExecutionStep[]
+
+  @@index([tenantId, workflowId, status])
+  @@index([tenantId, startedAt])
+  @@index([tenantId])
+
+  @@unique([id, tenantId])
+}
+
+model WorkflowExecutionStep {
+  resolvedInput Json?
+  id          String   @id @default(uuid())
+  tenantId    String
+  executionId String
+  stepIndex   Int
+  actionType  String // create_task|send_email|assign_owner|update_field|send_sms|change_status|...
+  status      String // success|failed|skipped
+  output      Json?
+  error       String?
+  executedAt  DateTime @default(now())
+
+  tenant    Tenant               @relation(fields: [tenantId], references: [id])
+  execution WorkflowExecutionRun @relation(fields: [executionId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@index([executionId])
+  @@unique([executionId, stepIndex])
+  @@index([tenantId])
+}
+
+// -----------------------------------------------------
+// AUDIT LOG
+// Mentor: "Audit Log is needed, logs of all actions with categorization"
+// severity: INFO | WARNING | CRITICAL
+// category: auth | crm | workflow | admin | system
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model AuditLog {
+  id         String   @id @default(uuid())
+  tenantId   String
+  userId     String
+  action     String // e.g. "contact.created" | "deal.stage_changed" | "user.login"
+  entityType String // e.g. "Contact" | "Deal" | "User"
+  entityId   String?
+  category   String   @default("crm") // auth|crm|workflow|admin|system
+  changeset  Json? // { before: { status: "WARM" }, after: { status: "HOT" } }
+  metadata   Json?
+  ipAddress  String?
+  userAgent  String?
+  sessionId  String?
+  severity   String   @default("INFO") // INFO|WARNING|CRITICAL
+  createdAt  DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, entityType, entityId])
+  @@index([tenantId, userId])
+  @@index([tenantId, category])
+  @@index([tenantId, severity])
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// EMAIL DELIVERY LOG
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model EmailDeliveryLog {
+  brevoMessageId String? @unique
+  id             String    @id @default(uuid())
+  tenantId       String
+  campaignId     String?
+  leadId         String?
+  contactId     String?
+  fromEmail      String
+  toEmail        String
+  subject        String
+  gmailMessageId String?   @unique
+  gmailThreadId  String?
+  status         String // sent|delivered|opened|clicked|bounced|failed
+  sentAt         DateTime?
+  openedAt       DateTime?
+  clickedAt      DateTime?
+  bouncedAt      DateTime?
+  errorMessage   String?
+  createdAt      DateTime  @default(now())
+
+  tenant     Tenant       @relation(fields: [tenantId], references: [id])
+  campaign   Campaign?    @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  lead       Lead?        @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  contact    Contact?     @relation(fields: [contactId], references: [id], onDelete: SetNull)
+  EmailEvent EmailEvent[]
+
+  @@index([tenantId, leadId])
+  @@index([tenantId, contactId])
+  @@index([tenantId, campaignId])
+  @@index([tenantId])
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// PASSWORD RESET TOKEN
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// Global normalized login identities include unknown and legacy duplicate emails.
+// Only keyed digests are stored; this state is independent of browser sessions.
+model LoginAttemptState {
+  identityKey             String   @id
+  lockoutCycles           Int      @default(0)
+  failedAttempts          Int      @default(0)
+  lastFailedAt            DateTime?
+  lockedUntil             DateTime?
+  lockedRejectionLoggedAt DateTime?
+  updatedAt               DateTime @default(now()) @updatedAt
+}
+
+model LoginIpRateLimit {
+  identityKey  String   @id
+  requests     Int
+  windowEndsAt DateTime
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  @@index([windowEndsAt])
+}
+
+model PasswordResetToken {
+  userId    String?
+  id        String   @id @default(uuid())
+  email     String
+  token     String   @unique // SHA-256 of the link token; never the bearer secret
+  submissionStatus String @default("LEGACY") // LEGACY|PENDING|ACCEPTED|UNCONFIRMED
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  @@unique([email, token])
+  @@index([userId, createdAt])
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+
+// ═══════════════════════════════════════════════════════════════════════
+// EMAIL VERIFICATION TOKEN (account security)
+// Stores SHA-256 hash of the plaintext token. Single-use, time-limited.
+// ═══════════════════════════════════════════════════════════════════════
+
+// EMAIL ACCOUNT (Gmail OAuth2 integration per user)
+// Stores encrypted tokens for Gmail API access.
+// Each user can connect ONE Gmail account per tenant.
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model EmailAccount {
+  notificationIncidentId String?
+  notificationFailedAt DateTime?
+  id             String    @id @default(uuid())
+  tenantId       String
+  userId         String
+  provider       String    @default("gmail") // "gmail" | future: "outlook"
+  email          String // the connected Gmail address
+  accessToken    String // encrypted G�� never log or expose
+  refreshToken   String? // encrypted G�� needed for offline access
+  tokenExpiresAt DateTime?
+  scopes         String[] // granted OAuth scopes
+  isActive               Boolean  @default(true)
+  lastSyncAt     DateTime?
+  syncCursor     String? // Gmail history ID for incremental sync
+  connectedAt    DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  syncLeaseUntil DateTime?
+  syncLeaseId String?
+  syncPageToken String?
+  syncBaselineHistoryId String?
+  syncError String?
+  syncScopeHash String?
+  syncBatch Json?
+  syncQueryIndex Int @default(0)
+  syncRequestedAt DateTime?
+  syncRetryAt DateTime?
+  syncFailureCount Int @default(0)
+  syncPausedAt DateTime?
+  syncCheckedAt DateTime?
+  mailboxVersion Int @default(0)
+  messages MailboxMessage[]
+  scheduledEmails ScheduledMailboxEmail[]
+  sendReceipts MailboxSendReceipt[]
+
+  @@unique([tenantId, userId, provider])
+  @@index([tenantId, userId])
+  @@index([tenantId, isActive])
+
+  @@unique([id, tenantId])
+  threadAssociations MailboxThreadAssociation[]
+}
+
+// Durable interactive-send claims prevent retrying uncertain provider deliveries.
+model MailboxSendReceipt {
+  operation String @default("send")
+  providerDraftId String?
+  targetDraftId String?
+  rfcMessageId String?
+  authorizationContext Json?
+  leaseId String?
+  leaseUntil DateTime?
+  attemptedAt DateTime?
+  recoveryCount Int @default(0)
+  lastError String?
+  id String @id @default(uuid())
+  tenantId String
+  accountId String
+  requestId String
+  payloadHash String
+  status String @default("sending")
+  providerMessageId String?
+  providerThreadId String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  account EmailAccount @relation(fields: [accountId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  @@unique([accountId, requestId])
+}
+
+// One-time OAuth challenges are bound to the initiating staff session.
+model MailboxOAuthState {
+  stateHash String @id
+  tenantId String
+  userId String
+  sessionHash String
+  verifier String
+  expiresAt DateTime
+  @@index([expiresAt])
+}
+
+model MailboxMessage {
+  activities Activity[]
+  authorizationParticipants String[] @default([])
+  participantPolicyVersion Int @default(0)
+  @@index([authorizationParticipants], type: Gin)
+  id String @id @default(uuid())
+  tenantId String
+  accountId String
+  providerMessageId String
+  threadId String
+  direction String
+  from String
+  fromAddress String @default("")
+  recipients String[]
+  recipientAddresses String[] @default([])
+  ccRecipients String[] @default([])
+  replyToAddress String?
+  sourceMessageId String?
+  draftId String?
+  crmDraft Boolean @default(false)
+  subject String
+  body String @db.Text
+  snippet String
+  labels String[]
+  sentAt DateTime
+  rfcMessageId String?
+  rfcInReplyTo String?
+  rfcReferences String[] @default([])
+  attachments Json @default("[]")
+  leadId String?
+  contactId String?
+  dealId String?
+  meaningful Boolean @default(false)
+  readyToClose Boolean @default(false)
+  engagementRuleVersion Int @default(0)
+  dealAttribution Json?
+  needsDealAssociation Boolean @default(false)
+  createdAt DateTime @default(now())
+  account EmailAccount @relation(fields: [accountId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  @@unique([accountId, providerMessageId])
+  @@unique([id, tenantId])
+  @@index([tenantId, accountId, threadId, sentAt])
+  @@index([tenantId, leadId, sentAt])
+  @@index([tenantId, contactId, sentAt])
+  @@index([tenantId, dealId, sentAt])
+  @@index([tenantId, accountId, fromAddress, sentAt])
+  @@index([recipientAddresses], type: Gin)
+}
+
+// A Gmail draft is the delivery payload. Keep accepted/uncertain deliveries durable
+// so a restarted worker never blindly repeats a send.
+model ScheduledMailboxEmail {
+  payloadHash String?
+  id String @id @default(uuid())
+  tenantId String
+  accountId String
+  createdById String
+  requestId String
+  draftId String
+  recipients String[]
+  subject String
+  scheduledAt DateTime
+  status String @default("pending")
+  attemptCount Int @default(0)
+  leaseId String?
+  leaseUntil DateTime?
+  retryAt DateTime?
+  providerMessageId String?
+  providerThreadId String?
+  lastError String?
+  sentAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  account EmailAccount @relation(fields: [accountId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  @@unique([accountId, requestId])
+  @@unique([accountId, draftId])
+  @@index([status, scheduledAt, retryAt])
+  @@index([tenantId, accountId, scheduledAt])
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// SMS QUEUE (Local Android Gateway)
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// EMAIL EVENT (Tracking opens, clicks, etc.)
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+model EmailEvent {
+  providerEventKey String? @unique
+  id            String   @id @default(uuid())
+  tenantId      String
+  deliveryLogId String
+  eventType     String // open|click|bounce|unsubscribe
+  url           String? // for clicks
+  userAgent     String?
+  ipAddress     String?
+  createdAt     DateTime @default(now())
+
+  tenant      Tenant           @relation(fields: [tenantId], references: [id])
+  deliveryLog EmailDeliveryLog @relation(fields: [deliveryLogId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, eventType])
+  @@index([deliveryLogId])
+  @@index([tenantId])
+}
+
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+// AUTOMATION RULE (Trigger-based background jobs)
+// G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��G��
+
+// -----------------------------------------------------
+// USER PREFERENCE (per-user, per-module, per-key)
+// Generic preference storage for column configs, filters, sorts, etc.
+// -----------------------------------------------------
+model UserPreference {
+  id        String   @id @default(uuid())
+  tenantId  String
+  userId    String
+  module    String   @db.VarChar(64)
+  key       String   @db.VarChar(128)
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, userId, module, key])
+  @@index([tenantId, module])
+}
+
+// -----------------------------------------------------
+// TENANT PREFERENCE (per-tenant, per-module, per-key)
+// Tenant-level defaults managed by Client Admins.
+// -----------------------------------------------------
+model TenantPreference {
+  id        String   @id @default(uuid())
+  tenantId  String
+  module    String   @db.VarChar(64)
+  key       String   @db.VarChar(128)
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, module, key])
+  @@index([tenantId, module])
+}
+
+// Shared CRM import infrastructure; domain records remain independent.
+enum CrmImportModule {
+  LEAD
+  CONTACT
+  ACCOUNT
+  DEAL
+}
+
+model CrmImportJob {
+  sourceDigest String?
+  sourceReference String?
+  id                String          @id @default(uuid())
+  tenantId          String
+  module            CrmImportModule
+  fileName          String
+  totalRecords      Int             @default(0)
+  successfulRecords Int             @default(0)
+  failedRecords     Int             @default(0)
+  duplicateRecords  Int             @default(0)
+  status            String          @default("pending")
+  createdById       String
+  idempotencyKey    String?
+  requestHash       String?
+  uploadId          String?         @unique
+  createdAt         DateTime        @default(now())
+  completedAt       DateTime?
+  tenant            Tenant          @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  createdBy         User            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  upload            CrmImportUpload? @relation(fields: [uploadId], references: [id], onDelete: SetNull)
+  results           CrmImportRowResult[]
+
+  @@unique([tenantId, module, idempotencyKey])
+  @@index([tenantId, module, createdAt, id])
+  @@index([tenantId, module, status, createdAt, id])
+}
+
+model CrmImportRowResult {
+  id          String       @id @default(uuid())
+  importJobId String
+  rowNumber   Int
+  status      String
+  // Historical record reference, intentionally not a polymorphic domain FK.
+  recordId    String?
+  remarks     String?
+  data        Json         @default("{}")
+  createdAt   DateTime     @default(now())
+  job         CrmImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+
+  @@unique([importJobId, rowNumber])
+  @@index([importJobId, status, rowNumber])
+}
+
+// Uploads exist before a job. Scope, expiry and chunk count belong to the upload,
+// not to every chunk. Expiring/deleting an upload cascades its raw source content.
+model CrmImportUpload {
+  id          String          @id @default(uuid())
+  tenantId    String
+  actorId     String
+  module      CrmImportModule
+  totalChunks Int
+  sourceHash  String?
+  expiresAt   DateTime
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  actor       User            @relation(fields: [actorId], references: [id], onDelete: Cascade)
+  chunks      CrmImportChunk[]
+  job         CrmImportJob?
+
+  @@index([expiresAt])
+}
+
+model CrmImportChunk {
+  id         String          @id @default(uuid())
+  uploadId   String
+  chunkIndex Int
+  content    String          @db.Text
+  upload     CrmImportUpload @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+
+  @@unique([uploadId, chunkIndex])
+}
+
+// Account-wide campaign reservations, independent of CRM tenant.
+model CampaignEmailQuota {
+  day String @id
+  reserved Int @default(0)
+}
+
+// Explicit Task links preserve tenant integrity on both sides.
+model TaskLead {
+  taskId String
+  leadId String
+  tenantId String
+  position Int @default(0)
+  task Task @relation(fields: [taskId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  lead Lead @relation(fields: [leadId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@id([taskId, leadId])
+  @@index([tenantId, leadId])
+}
+
+// Explicit Task links preserve tenant integrity on both sides.
+model TaskContact {
+  taskId String
+  contactId String
+  tenantId String
+  position Int @default(0)
+  task Task @relation(fields: [taskId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  contact Contact @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@id([taskId, contactId])
+  @@index([tenantId, contactId])
+}
+
+// Explicit Task links preserve tenant integrity on both sides.
+model TaskDeal {
+  taskId String
+  dealId String
+  tenantId String
+  position Int @default(0)
+  task Task @relation(fields: [taskId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  deal Deal @relation(fields: [dealId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@id([taskId, dealId])
+  @@index([tenantId, dealId])
+}
+
+// Explicit Task links preserve tenant integrity on both sides.
+model TaskAccount {
+  taskId String
+  accountId String
+  tenantId String
+  position Int @default(0)
+  task Task @relation(fields: [taskId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  account Account @relation(fields: [accountId, tenantId], references: [id, tenantId], onDelete: Cascade)
+
+  @@id([taskId, accountId])
+  @@index([tenantId, accountId])
+}
+
+model RecordFile {
+  pendingModule String?
+  dealId String?
+  deal Deal? @relation(fields: [dealId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  @@index([tenantId, dealId])
+  id String @id @default(uuid())
+  tenantId String
+  leadId String?
+  contactId String?
+  accountId String?
+  uploadedById String
+  name String
+  size Int
+  type String
+  objectKey String
+  uploadedAt DateTime @default(now())
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  lead Lead? @relation(fields: [leadId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  contact Contact? @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  account Account? @relation(fields: [accountId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  uploadedBy User @relation(fields: [uploadedById], references: [id], onDelete: Restrict)
+
+  @@index([tenantId, leadId])
+  @@index([tenantId, contactId])
+  @@index([tenantId, accountId])
+  @@index([tenantId, pendingModule, uploadedAt])
+  @@index([objectKey])
+}
+
+// Organization-wide product defaults; Deals retain their original monetary snapshot.
+model ProductInterest {
+  id        String   @id @default(uuid())
+  tenantId  String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  name      String   @db.VarChar(200)
+  category  String   @default("") @db.VarChar(200)
+  description String @default("")
+  dealValue Decimal  @db.Decimal(14, 2)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deals     Deal[]
+
+  leadLinks LeadProductInterest[]
+  contactLinks ContactProductInterest[]
+  @@unique([id, tenantId])
+
+  @@index([tenantId, active])
+  @@index([tenantId, category])
+}
+
+model LeadProductInterest {
+  leadId String
+  productInterestId String
+  tenantId String
+  position Int @default(0)
+  lead Lead @relation(fields: [leadId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  product ProductInterest @relation(fields: [productInterestId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  @@id([leadId, productInterestId])
+  @@index([tenantId, productInterestId])
+}
+
+model ContactProductInterest {
+  contactId String
+  productInterestId String
+  tenantId String
+  position Int @default(0)
+  interested Boolean @default(true)
+  activeProduct Boolean @default(false)
+  contact Contact @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  product ProductInterest @relation(fields: [productInterestId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  @@id([contactId, productInterestId])
+  @@index([tenantId, productInterestId])
+}
+
+
+// One explicit Deal selection per provider account/thread; historical messages stay separate.
+model MailboxThreadAssociation {
+  accountId String
+  threadId String
+  tenantId String
+  dealId String
+  linkedAt DateTime @default(now())
+  account EmailAccount @relation(fields: [accountId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  deal Deal @relation(fields: [dealId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  @@id([accountId, threadId])
+  @@index([tenantId, dealId])
+}
+
+// Persistent identity of a manual multi-Product Deal submission.
+model DealCreationReceipt {
+  tenantId String
+  idempotencyKey String
+  actorId String
+  requestHash String
+  dealIds String[]
+  createdAt DateTime @default(now())
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  @@id([tenantId, idempotencyKey])
+}
+
+model AccountCreationReceipt {
+  tenantId String
+  requestId String
+  actorId String
+  requestHash String
+  accountId String
+  createdAt DateTime @default(now())
+  account Account @relation(fields: [accountId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  @@id([tenantId, requestId])
+  @@index([accountId, tenantId])
+}
+
+model ContactCreationReceipt {
+  tenantId String
+  requestId String
+  actorId String
+  requestHash String
+  contactId String
+  createdAt DateTime @default(now())
+  contact Contact @relation(fields: [contactId, tenantId], references: [id, tenantId], onDelete: Restrict)
+  @@id([tenantId, requestId])
+  @@index([contactId, tenantId])
+}
+
+model WorkflowPublication {
+  id String @id @default(uuid())
+  tenantId String
+  workflowId String
+  version Int
+  definition Json
+  activatedById String?
+  createdAt DateTime @default(now())
+  workflow Workflow @relation(fields: [workflowId, tenantId], references: [id, tenantId], onDelete: Cascade)
+  @@unique([workflowId, tenantId, version])
+  @@index([tenantId, workflowId])
+}
+model SmsInboundReceipt {
+  id String @id @default(uuid())
+  deviceId String
+  smsId String
+  tenantId String?
+  sender String
+  message String @default("") @db.Text
+  receivedAt DateTime
+  status String @default("review")
+  reason String?
+  createdAt DateTime @default(now())
+  @@unique([deviceId, smsId])
+  @@index([tenantId, status])
+}

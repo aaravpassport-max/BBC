@@ -1,0 +1,17 @@
+{
+  "name": "@leadcrm/shared",
+  "version": "0.0.1",
+  "private": true,
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "scripts": {
+    "build": "tsc --noEmit false --module commonjs --moduleResolution node && node scripts/sync-generated.cjs",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "typescript": "~5.8.2"
+  }
+}

@@ -1,0 +1,87 @@
+import { processSmsReply } from '../../integrations/sms/sms-replies';
+import prisma from '../../config/database.config';
+import rateLimit from 'express-rate-limit';
+import * as audienceController from '../../modules/marketing/campaigns/audiences.controller';
+import { Router } from 'express';
+import { authMiddleware } from '../middleware/auth.middleware';
+import { tenantMiddleware, workspaceReadyMiddleware } from '../middleware/tenant.middleware';
+import { authorize, authorizeArchivedQuery } from '../middleware/rbac.middleware';
+import { validate } from '../middleware/validate.middleware';
+import * as campaignController from '../../modules/marketing/campaigns/campaigns.controller';
+import * as templateController from '../../modules/marketing/templates/templates.controller';
+import * as quotationController from '../../modules/marketing/campaigns/quotations.controller';
+import * as formController from '../../modules/marketing/forms/forms.controller';
+import { CreateFormSchema, UpdateFormSchema } from '../../modules/marketing/forms/forms.dto';
+
+const router = Router();
+
+router.use(authMiddleware);
+router.use(tenantMiddleware);
+router.use(workspaceReadyMiddleware);
+router.use(authorizeArchivedQuery);
+
+const writeLimiter = rateLimit({ windowMs: 60000, limit: 30, standardHeaders: true, legacyHeaders: false });
+const sendLimiter = rateLimit({ windowMs: 60000, limit: 5, standardHeaders: true, legacyHeaders: false });
+router.get('/campaigns/metrics', authorize('campaigns.view_reports'), campaignController.getCampaignMetrics);
+router.post('/campaigns/sms-replies/:id/retry', authorize('campaigns.edit'), async (req, res, next) => {
+  try {
+    if (req.user!.role !== 'Client Admin') { res.status(403).json({ success: false, error: 'Client Admin access required.' }); return; }
+    const row = await prisma.smsInboundReceipt.findFirst({ where: { id: String(req.params.id), tenantId: req.user!.tenantId, status: 'review' } });
+    if (!row) { res.status(404).json({ success: false, error: 'Review reply not found.' }); return; }
+    await processSmsReply({ webhookEvent: 'MESSAGE_RECEIVED', smsId: row.smsId, deviceId: row.deviceId, sender: row.sender, message: row.message, receivedAt: row.receivedAt.toISOString() }, new Date(), true);
+    res.json({ success: true });
+  } catch (error) { next(error); }
+});
+router.get('/campaigns/sms-replies', authorize('campaigns.view'), async (req, res, next) => {
+  try {
+    if (req.user!.role !== 'Client Admin') { res.status(403).json({ success: false, error: 'Client Admin access required.' }); return; }
+    const data = await prisma.smsInboundReceipt.findMany({ where: { tenantId: req.user!.tenantId, status: 'review' }, take: 100, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }], select: { id: true, sender: true, receivedAt: true, reason: true, message: true } });
+    res.json({ success: true, data });
+  } catch (error) { next(error); }
+});
+router.get('/campaigns/sms-settings', authorize('campaigns.view'), campaignController.getSmsSettings);
+router.get('/campaigns/email-settings', authorize('campaigns.view'), campaignController.getEmailSettings);
+router.get('/campaigns/variable-fields', authorize('campaigns.view'), audienceController.campaignVariableFields);
+router.post('/campaigns/quotations/preview', authorize('campaigns.view'), writeLimiter, quotationController.preview);
+router.post('/campaigns/quotations/send', authorize('campaigns.send'), sendLimiter, quotationController.send);
+router.get('/audiences/fields', authorize('campaigns.view'), audienceController.audienceFields);
+router.get('/audiences/companies', authorize('campaigns.view'), audienceController.audienceCompanies);
+router.get('/audiences', authorize('campaigns.view'), audienceController.getAudiences);
+router.post('/audiences/preview', authorize('campaigns.view'), writeLimiter, audienceController.previewAudience);
+router.post('/audiences', authorize('campaigns.create'), writeLimiter, audienceController.createAudience);
+router.put('/audiences/:id', authorize('campaigns.edit'), writeLimiter, audienceController.updateAudience);
+// ── Campaigns ─────────────────────────────────────────
+router.get(   '/campaigns',             authorize('campaigns.view'),   campaignController.getCampaigns);
+router.get(   '/campaigns/:id',         authorize('campaigns.view'),   campaignController.getCampaignById);
+router.post(  '/campaigns',             authorize('campaigns.create'), writeLimiter, campaignController.createCampaign);
+router.put(   '/campaigns/:id',         authorize('campaigns.edit'), writeLimiter, campaignController.updateCampaign);
+router.patch('/campaigns/:id/schedule', authorize('campaigns.send'), sendLimiter, campaignController.scheduleCampaign);
+router.delete('/campaigns/:id/schedule', authorize('campaigns.send'), sendLimiter, campaignController.cancelCampaignSchedule);
+router.patch( '/campaigns/:id/send',    authorize('campaigns.send'), sendLimiter, campaignController.sendCampaign);
+router.patch( '/campaigns/:id/archive', authorize('campaigns.archive'), campaignController.archiveCampaign);
+
+// ── Templates ─────────────────────────────────────────
+router.get('/campaigns/:id/report', authorize('campaigns.view_reports'), campaignController.getCampaignReport);
+router.post('/campaigns/:id/duplicate', authorize('campaigns.duplicate'), writeLimiter, campaignController.duplicateCampaign);
+
+router.get(   '/templates',             authorize('campaigns.view'),   templateController.getTemplates);
+router.get(   '/templates/:id',         authorize('campaigns.view'),   templateController.getTemplateById);
+router.get('/templates/:id/pdf', authorize('campaigns.view'), quotationController.templatePdf);
+router.post(  '/templates',             authorize('campaigns.create'), writeLimiter, templateController.createTemplate);
+router.put(   '/templates/:id',         authorize('campaigns.edit'), writeLimiter, templateController.updateTemplate);
+router.patch( '/templates/:id/archive', authorize('campaigns.archive'), templateController.archiveTemplate);
+
+// ── Forms ──────────────────────────────────────────────
+// Forms have independent permissions and retain permanent draft deletion.
+router.get(   '/forms',                 authorize('forms.view'),   formController.getForms);
+router.get(   '/forms/field-catalog',   authorize('forms.view'),   formController.getLeadFormFieldCatalog);
+router.get('/forms/:id/submissions', authorize('forms.view_submissions'), formController.getSubmissions);
+router.post('/forms/:id/duplicate', authorize('forms.duplicate'), writeLimiter, formController.duplicateForm);
+router.get(   '/forms/:id',             authorize('forms.view'),   formController.getFormById);
+router.post(  '/forms',                 authorize('forms.create'), validate(CreateFormSchema), formController.createForm);
+router.put(   '/forms/:id',             authorize('forms.edit'),   validate(UpdateFormSchema), formController.updateForm);
+router.patch( '/forms/:id/publish',     authorize('forms.publish'),   formController.publishForm);
+router.delete('/forms/:id', authorize('forms.delete'), formController.deleteForm);
+router.patch('/forms/:id/unpublish', authorize('forms.publish'), formController.unpublishForm);
+
+export default router;

@@ -1,0 +1,14 @@
+{
+  "name": "leadcrm-desktop-root",
+  "private": true,
+  "description": "LeadCRM — Windows desktop packaging",
+  "scripts": {
+    "install:electron": "cd electron && npm install",
+    "start": "cd electron && npm start",
+    "download:postgres-win": "node scripts/download-windows-postgres.js",
+    "prebuild:win": "node scripts/download-windows-postgres.js",
+    "build:win": "cd electron && npm run build:installer",
+    "build:linux": "cd electron && npm run build:linux",
+    "prepare:app": "node scripts/prepare-packaged-app.js"
+  }
+}
